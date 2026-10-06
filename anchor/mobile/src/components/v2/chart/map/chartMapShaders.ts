@@ -86,6 +86,64 @@ half4 main(float2 xy) {
 }`;
 
 /**
+ * COVER: the living-weather mask (ChartMapWeather). Alpha 1 = cloud, 0 = clear ground. Same field textures and
+ * bilinear 4-cell sampling as FOG, but its own corridor (`coverArc`, separate from the ink), a wider soft feather,
+ * a thinner stretch just past the tip (the next leg is hinted, never shown), a clearing around the current
+ * waypoint, denser weather toward the summit, and `closed` (1 = full cover everywhere). Outside the map rect the
+ * cover is always 1, so the padded weather layer never shows a hard edge.
+ */
+export const COVER_SKSL = `
+uniform shader fieldDist;
+uniform shader fieldArc;
+uniform shader noiseTex;
+uniform float coverArc;
+uniform float fog;
+uniform float closed;
+uniform float2 tip;
+uniform float2 current;
+uniform float total;
+
+float decode16(half4 c) {
+  return (floor(float(c.r) * 255.0 + 0.5) * 256.0 + floor(float(c.g) * 255.0 + 0.5)) / 16.0;
+}
+
+float cellCover(float2 cell) {
+  float2 centre = cell * 4.0 + 2.0;
+  float dist = decode16(fieldDist.eval(centre));
+  float arc = decode16(fieldArc.eval(centre));
+  float fa = coverArc + 110.0;
+  float d = arc <= fa ? dist : distance(centre, tip);
+  float rIn = 90.0 + 1700.0 * fog;
+  float fe = 180.0 + 300.0 * fog;
+  float al = clamp(1.0 - (d - rIn) / fe, 0.0, 1.0);
+  float n = float(noiseTex.eval(centre).r);
+  float cover = 1.0 - smoothstep(0.12, 0.88, al + (n - 0.5) * 0.45);
+  if (arc > fa && arc < fa + 150.0 && dist < 80.0) cover *= 0.74 + 0.26 * (arc - fa) / 150.0;
+  float dm = distance(centre, current);
+  if (dm < 78.0) cover *= 0.5 + 0.5 * smoothstep(30.0, 78.0, dm);
+  cover *= 0.9 + 0.1 * min(1.0, arc / total);
+  return max(cover, closed);
+}
+
+half4 main(float2 xy) {
+  if (xy.x < 0.0 || xy.y < 0.0 || xy.x > 852.0 || xy.y > 1180.0) return half4(1.0);
+  float2 g = xy / 4.0 - 0.5;
+  float2 i0 = floor(g);
+  float2 f = g - i0;
+  float2 a = clamp(i0, float2(0.0), float2(212.0, 294.0));
+  float2 b = clamp(i0 + 1.0, float2(0.0), float2(212.0, 294.0));
+  float v00 = cellCover(a);
+  float v10 = cellCover(float2(b.x, a.y));
+  float v01 = cellCover(float2(a.x, b.y));
+  float v11 = cellCover(b);
+  float v = mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
+  return half4(half(v));
+}`;
+
+/**
+ * DEFERRED: static cloud look, replaced by ChartMapWeather (living weather) on the permanent Chart.
+ * Still drawn by ChartMapLand for the `weather="static"` hosts (Home/Details crops, creation stage).
+ *
  * CLOUDS: the dense illustrated fog over undiscovered ground. It reuses the FOG mask (inside the revealed
  * region v = 1) and paints soft billowing cloud with alpha (1 - v), so unexplored terrain is hidden and the
  * edge is the same stipple the ink reveal uses. Output is premultiplied. At arrival `fog` -> 1 makes v = 1

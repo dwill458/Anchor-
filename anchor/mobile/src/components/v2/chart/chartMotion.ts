@@ -68,6 +68,12 @@ export const CHART_TRANSITION_TIMING = {
   revealCta: 520,
   /** "Explore your Chart": chrome recedes while the map rises into place. */
   explore: 760,
+  /**
+   * Creation stays over the permanent Chart after "Explore your Chart" until the Chart's map canvases have drawn
+   * (measured on the S24: land ~5 frames, overlay ~8), then fades out. Both show the same map, so the fade is invisible.
+   */
+  handoffHold: 260,
+  handoffFade: 160,
   /** Permanent Chart content cards entering. */
   cardIn: 460,
   cardStagger: 70,
@@ -133,23 +139,39 @@ export function chartRepeat(animation: number, reverse = false): number {
 export const CHART_MAP_TIMING = {
   /** Multiplier the runner applies to every duration and offset. 1 = prototype. */
   timeScale: 1,
+  // DEFERRED: fade-in open (map fades up, then the route draws).
+  // open: { mapFade: 300, routeAt: 300, route: 700, flagAt: 1000, flagDrop: 250, cameraAt: 1000, camera: 450, panelAt: 1250, panel: 350, scale: 1.3 },
+  /** First open of the day: the weather parts over the charted corridor, then the pen draws. */
   open: {
-    mapFade: 300,
-    routeAt: 300,
-    route: 700,
+    /** Camera starts pushed in at this scale, centred here, and eases back to overview. */
+    startCamera: { cx: 405, cy: 650, s: 1.08 },
+    closed: 520,
+    cover: 720,
+    camera: 900,
+    inkAt: 250,
+    route: 850,
     flagAt: 1000,
     flagDrop: 250,
-    cameraAt: 1000,
-    camera: 450,
-    panelAt: 1250,
+    panelAt: 1200,
     panel: 350,
-    /** Camera scale the open settles at. */
-    scale: 1.3,
+  },
+  /** Later opens the same day: nothing redraws, the weather takes one breath. */
+  later: {
+    breathPeak: 0.03,
+    breathUp: 1200,
+    breathDown: 1200,
+    /** Opened from the frame-one veil's closed cover: the clouds part (and the camera eases home) over this. */
+    part: 480,
+    panelAt: 300,
+    reducedPanelAt: 120,
   },
   moveCheck: {
     checkFill: 200,
     routeAt: 200,
     route: 400,
+    /** The cloud cover follows the extended tip. */
+    coverAt: 120,
+    cover: 600,
     pulseAt: 200,
     pulse: 650,
     dayClosedAt: 850,
@@ -160,7 +182,8 @@ export const CHART_MAP_TIMING = {
     scale: 1.45,
   },
   reach: {
-    stampAt: 0,
+    // DEFERRED: stampAt: 0 (the stamp now lands once the sheet has dropped and the camera framed the waypoint).
+    stampAt: 150,
     stamp: 300,
     routeAt: 150,
     /** Prototype is 400; 350 ends exactly where the next-leg reveal (500) takes over the same value. */
@@ -171,8 +194,13 @@ export const CHART_MAP_TIMING = {
     fogBreathUp: 350,
     fogBreathDownAt: 850,
     fogBreathDown: 350,
-    /** Peak of the fog breath (clear fraction). */
-    fogBreathPeak: 0.035,
+    /** Peak of the fog breath (clear fraction). Larger values clear half the map. */
+    // DEFERRED: fogBreathPeak: 0.035,
+    fogBreathPeak: 0.02,
+    /** The cloud cover rolls this fraction of the next leg back after a reach. */
+    coverAt: 500,
+    cover: 900,
+    coverLead: 0.3,
     revealAt: 500,
     reveal: 600,
     flagAt: 900,

@@ -4,11 +4,14 @@ import { buildRouteTable, cameraTargetFor, OVERVIEW_CAMERA, waypointPlacement } 
 import { overviewTarget } from '../useChartMapCamera';
 import {
   arrivalSequence,
+  laterSequence,
   moveCheckSequence,
   openSequence,
+  reachCoverArc,
   reachSequence,
   sequenceDuration,
   waypointTapSequence,
+  type ChartBeat,
 } from '../chartMapSequences';
 
 const sv = (value = 0) => ({ value }) as any;
@@ -16,7 +19,7 @@ const makeAnim = () => {
   const anim = {
     camera: { cx: sv(426), cy: sv(590), s: sv(1) },
     revealArc: sv(), fog: sv(), mapOpacity: sv(), flagIndex: sv(-1), flagDrop: sv(), flagOpacity: sv(),
-    pulse: sv(1), stampIndex: sv(-1), stamp: sv(), glyph: sv(), goldDot: sv(),
+    pulse: sv(1), stampIndex: sv(-1), stamp: sv(), glyph: sv(), goldDot: sv(), coverArc: sv(), closed: sv(),
   };
   return anim as unknown as ChartMapAnimState;
 };
@@ -30,52 +33,129 @@ const forTarget = (steps: SequenceStep[], target: unknown) => tweens(steps).filt
 const cameraSteps = (anim: ChartMapAnimState, steps: SequenceStep[]) =>
   tweens(steps).filter((s) => [anim.camera.cx, anim.camera.cy, anim.camera.s].includes(s.target));
 const runAll = (steps: SequenceStep[]) => calls(steps).forEach((s) => (s as any).run());
+/** Beats in `at` order (declaration order breaks ties), as [at, beat]. */
+const beatsOf = (build: (onBeat: (b: ChartBeat) => void) => { steps: SequenceStep[] }) => {
+  const seen: ChartBeat[] = [];
+  const spec = build((b) => seen.push(b));
+  const out: Array<[number, ChartBeat]> = [];
+  calls(spec.steps)
+    .filter((s) => (s as any).transient)
+    .sort((a, b) => a.at - b.at)
+    .forEach((s) => {
+      seen.length = 0;
+      (s as any).run();
+      out.push([s.at, seen[0]]);
+    });
+  return out;
+};
 
 describe('openSequence', () => {
-  it('matches the section 10 offsets', () => {
+  it('first open of the day: clouds part, camera eases back, pen draws, flag drops, panel at 1200', () => {
     const anim = makeAnim();
     const onPanel = jest.fn();
     const spec = openSequence({ anim, placement, revealTo: 1234, currentIndex: 2, reducedMotion: false, onPanel });
     expect(spec.name).toBe('open');
-    expect(forTarget(spec.steps, anim.mapOpacity)[0]).toMatchObject({ at: 0, duration: 300, to: 1 });
-    expect(forTarget(spec.steps, anim.revealArc)[0]).toMatchObject({ at: 300, duration: 700, to: 1234, easing: 'inOut' });
-    expect(forTarget(spec.steps, anim.flagDrop)[0]).toMatchObject({ at: 1000, duration: 250, easing: 'out', to: 1, from: 0 });
-    expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 1000, duration: 450, to: 1 });
+    // Frame one: full cover, nothing drawn, pushed-in camera.
+    (calls(spec.steps).find((s) => s.at === 0) as any).run();
+    expect(anim.closed.value).toBe(1);
+    expect(anim.coverArc.value).toBe(0);
+    expect(anim.revealArc.value).toBe(0);
+    expect(anim.mapOpacity.value).toBe(1);
+    expect(anim.flagOpacity.value).toBe(0);
+    expect([anim.camera.cx.value, anim.camera.cy.value, anim.camera.s.value]).toEqual([405, 650, 1.08]);
+    expect(forTarget(spec.steps, anim.closed)[0]).toMatchObject({ at: 0, duration: 520, from: 1, to: 0, easing: 'settle' });
+    expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 0, duration: 720, from: 0, to: 1234, easing: 'settle' });
+    expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 0, duration: 900, to: 1, easing: 'deliberate' });
     const target = overviewTarget();
     expect(forTarget(spec.steps, anim.camera.cx)[0].to).toBe(target.cx);
     expect(forTarget(spec.steps, anim.camera.cy)[0].to).toBe(target.cy);
-    const panel = calls(spec.steps).find((s) => s.at === 1250) as any;
+    expect(forTarget(spec.steps, anim.revealArc)[0]).toMatchObject({ at: 250, duration: 850, from: 0, to: 1234, easing: 'draw' });
+    expect(forTarget(spec.steps, anim.flagDrop)[0]).toMatchObject({ at: 1000, duration: 250, easing: 'out', to: 1, from: 0 });
+    // The open never fades the map in: the weather is the reveal.
+    expect(forTarget(spec.steps, anim.mapOpacity)).toHaveLength(0);
+    const panel = calls(spec.steps).find((s) => s.at === 1200) as any;
     expect(panel).toBeDefined();
     panel.run();
     panel.run();
     expect(onPanel).toHaveBeenCalledTimes(2);
   });
 
+  it('beats: open at 0, ink at 250, flag at 1000, all transient', () => {
+    const anim = makeAnim();
+    expect(beatsOf((onBeat) => openSequence({ anim, placement, revealTo: 600, currentIndex: 1, reducedMotion: false, onBeat })))
+      .toEqual([[0, 'open'], [250, 'ink'], [1000, 'flag']]);
+  });
+
   it('places the flag idempotently', () => {
     const anim = makeAnim();
     const spec = openSequence({ anim, placement, revealTo: 100, currentIndex: 1, reducedMotion: false });
-    const flag = calls(spec.steps).find((s) => s.at === 1000) as any;
+    const flag = calls(spec.steps).find((s) => s.at === 1000 && !(s as any).transient) as any;
     flag.run();
     flag.run();
     expect(anim.flagIndex.value).toBe(1);
     expect(anim.flagOpacity.value).toBe(1);
   });
 
-  it('has no flag drop or camera when the chart has no current waypoint', () => {
+  it('has no flag drop, flag beat or camera move when the chart has no current waypoint', () => {
     const anim = makeAnim();
     const spec = openSequence({ anim, placement, revealTo: table.total, currentIndex: -1, reducedMotion: false });
     expect(cameraSteps(anim, spec.steps)).toHaveLength(0);
     expect(forTarget(spec.steps, anim.flagDrop)).toHaveLength(0);
+    (calls(spec.steps).find((s) => s.at === 0) as any).run();
+    expect(anim.camera.s.value).toBe(1);
+    expect(beatsOf((onBeat) => openSequence({ anim, placement, revealTo: 10, currentIndex: -1, reducedMotion: false, onBeat })).map(([, b]) => b))
+      .toEqual(['open', 'ink']);
   });
 
-  it('reduced motion: no camera, only a short crossfade, panel after the fade', () => {
+  it('reduced motion: settled clouds, drawn route, a short crossfade, no beats, panel after the fade', () => {
     const anim = makeAnim();
-    const spec = openSequence({ anim, placement, revealTo: 500, currentIndex: 2, reducedMotion: true, onPanel: jest.fn() });
+    const spec = openSequence({ anim, placement, revealTo: 500, currentIndex: 2, reducedMotion: true, onPanel: jest.fn(), onBeat: jest.fn() });
     expect(cameraSteps(anim, spec.steps)).toHaveLength(0);
     expect(Math.max(...tweens(spec.steps).map((s) => s.duration))).toBe(CHART_MAP_REDUCED_FADE);
     expect(forTarget(spec.steps, anim.revealArc)[0].duration).toBe(0);
+    expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ duration: 0, to: 500 });
+    expect(calls(spec.steps).some((s) => (s as any).transient)).toBe(false);
+    runAll(spec.steps);
+    expect(anim.closed.value).toBe(0);
     expect(calls(spec.steps).some((s) => s.at === CHART_MAP_REDUCED_FADE)).toBe(true);
     expect(sequenceDuration(spec)).toBeLessThanOrEqual(CHART_MAP_REDUCED_FADE);
+  });
+});
+
+describe('laterSequence', () => {
+  it('sets every final state at 0, breathes the weather once and peeks the panel at 300, with no beats', () => {
+    const anim = makeAnim();
+    anim.closed.value = 1;
+    const onPanel = jest.fn();
+    const spec = laterSequence({ anim, placement, revealTo: 700, currentIndex: 2, reducedMotion: false, onPanel, onBeat: jest.fn() });
+    expect(spec.name).toBe('later');
+    (calls(spec.steps).find((s) => s.at === 0) as any).run();
+    expect(anim.revealArc.value).toBe(700);
+    expect(anim.coverArc.value).toBe(700);
+    expect(anim.closed.value).toBe(0);
+    expect(anim.flagIndex.value).toBe(2);
+    expect(anim.flagDrop.value).toBe(1);
+    expect(anim.camera.s.value).toBe(1);
+    const fog = forTarget(spec.steps, anim.fog);
+    expect(fog[0]).toMatchObject({ at: 0, duration: 1200, from: 0, to: 0.03, easing: 'inOut' });
+    expect(fog[1]).toMatchObject({ at: 1200, duration: 1200, from: 0.03, to: 0, easing: 'inOut' });
+    expect(calls(spec.steps).some((s) => s.at === 300)).toBe(true);
+    expect(calls(spec.steps).some((s) => (s as any).transient)).toBe(false);
+    expect(cameraSteps(anim, spec.steps)).toHaveLength(0);
+    expect(forTarget(spec.steps, anim.revealArc)).toHaveLength(0);
+  });
+
+  it('a finished Chart keeps its lifted fog: no breath', () => {
+    const anim = makeAnim();
+    const spec = laterSequence({ anim, placement, revealTo: table.total, currentIndex: -1, reducedMotion: false });
+    expect(forTarget(spec.steps, anim.fog)).toHaveLength(0);
+  });
+
+  it('reduced motion: no breath, panel at 120', () => {
+    const anim = makeAnim();
+    const spec = laterSequence({ anim, placement, revealTo: 700, currentIndex: 2, reducedMotion: true, onPanel: jest.fn() });
+    expect(tweens(spec.steps)).toHaveLength(0);
+    expect(calls(spec.steps).some((s) => s.at === 120)).toBe(true);
   });
 });
 
@@ -89,6 +169,26 @@ describe('moveCheckSequence', () => {
     const closed = calls(spec.steps).find((s) => s.at === 850) as any;
     closed.run();
     expect(onDayClosed).toHaveBeenCalledTimes(1);
+  });
+
+  it('rolls the cloud cover back with the tip, and only forward', () => {
+    const anim = makeAnim();
+    anim.coverArc.value = 100;
+    const spec = moveCheckSequence({ anim, fromArc: 100, toArc: 160, reducedMotion: false });
+    expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 120, duration: 600, to: 160, easing: 'settle' });
+    // After a reach the cover already sits past the new tip: it never closes back in.
+    anim.coverArc.value = 400;
+    expect(forTarget(moveCheckSequence({ anim, fromArc: 100, toArc: 160, reducedMotion: false }).steps, anim.coverArc)).toHaveLength(0);
+  });
+
+  it('beats: check at 0, ink at 200 when the route extends; check only when it does not', () => {
+    const anim = makeAnim();
+    expect(beatsOf((onBeat) => moveCheckSequence({ anim, fromArc: 100, toArc: 160, reducedMotion: false, onBeat })))
+      .toEqual([[0, 'check'], [200, 'ink']]);
+    expect(beatsOf((onBeat) => moveCheckSequence({ anim, fromArc: 100, toArc: 100, reducedMotion: false, onBeat })))
+      .toEqual([[0, 'check']]);
+    expect(beatsOf((onBeat) => moveCheckSequence({ anim, fromArc: 100, toArc: 160, reducedMotion: true, onBeat })))
+      .toEqual([[0, 'check']]);
   });
 
   it('does not extend the route when it did not move, but still pulses', () => {
@@ -143,7 +243,7 @@ describe('reachSequence', () => {
 
   it('uses the section 10 offsets', () => {
     const { anim, spec } = build();
-    expect(forTarget(spec.steps, anim.stamp)[0]).toMatchObject({ at: 0, duration: 300 });
+    expect(forTarget(spec.steps, anim.stamp)[0]).toMatchObject({ at: 150, duration: 300 });
     const reveal = forTarget(spec.steps, anim.revealArc);
     expect(reveal[0]).toMatchObject({ at: 150, to: placement.arcs[1] });
     expect(reveal[1]).toMatchObject({ at: 500, duration: 600, to: placement.arcs[1] + 40 });
@@ -151,12 +251,37 @@ describe('reachSequence', () => {
     expect(reveal[0].at + reveal[0].duration).toBeLessThanOrEqual(reveal[1].at);
     expect(forTarget(spec.steps, anim.pulse)[0]).toMatchObject({ at: 500, duration: 650, easing: 'out' });
     const fog = forTarget(spec.steps, anim.fog);
-    expect(fog[0]).toMatchObject({ at: 500, duration: 350, to: 0.035 });
+    expect(fog[0]).toMatchObject({ at: 500, duration: 350, to: 0.02 });
     expect(fog[1]).toMatchObject({ at: 850, duration: 350, to: 0 });
     expect(forTarget(spec.steps, anim.flagDrop)[0]).toMatchObject({ at: 900, duration: 250, easing: 'out' });
     expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 1200, duration: 500, to: 1.45 });
     expect(calls(spec.steps).some((s) => s.at === 900)).toBe(true);
     expect(calls(spec.steps).some((s) => s.at === 1500)).toBe(true);
+  });
+
+  it('rolls the cloud cover 30% into the next leg after the ink reaches the waypoint', () => {
+    const { anim, spec } = build();
+    const cover = forTarget(spec.steps, anim.coverArc);
+    expect(cover[0]).toMatchObject({ at: 150, duration: 350, to: placement.arcs[1] });
+    const next = placement.legs[2];
+    const lead = placement.arcs[1] + 0.3 * (next.end - next.start);
+    expect(cover[1]).toMatchObject({ at: 500, duration: 900, easing: 'settle' });
+    expect(cover[1].to).toBeCloseTo(Math.max(placement.arcs[1] + 40, lead));
+    expect(cover[0].at + cover[0].duration).toBeLessThanOrEqual(cover[1].at);
+    // Never behind the ink.
+    expect(reachCoverArc(placement, 1, placement.arcs[1], placement.arcs[1] + 5000)).toBe(placement.arcs[1] + 5000);
+  });
+
+  it('beats: stamp at 150, wind and ink at 500, flag at 900', () => {
+    const anim = makeAnim();
+    const order = beatsOf((onBeat) => reachSequence({
+      anim, placement, index: 1, endArc: placement.arcs[1], nextRevealArc: placement.arcs[1] + 40, reducedMotion: false, onBeat,
+    }));
+    expect(order).toEqual([[150, 'stamp'], [500, 'wind'], [500, 'ink'], [900, 'flag']]);
+    const reduced = beatsOf((onBeat) => reachSequence({
+      anim, placement, index: 1, endArc: placement.arcs[1], nextRevealArc: placement.arcs[1] + 40, reducedMotion: true, onBeat,
+    }));
+    expect(reduced.map(([, b]) => b)).toEqual(['stamp', 'flag']);
   });
 
   it('is about 1.8s with the commit card fade, and aims the camera at the next waypoint', () => {
@@ -204,11 +329,20 @@ describe('arrivalSequence', () => {
     expect(forTarget(spec.steps, anim.revealArc)[0]).toMatchObject({ at: 150, duration: 1200, to: table.total });
     expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 300, duration: 900, to: 1 });
     expect(forTarget(spec.steps, anim.fog)[0]).toMatchObject({ at: 800, duration: 1600, to: 1 });
+    expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 800, duration: 1600, to: table.total });
     expect(forTarget(spec.steps, anim.glyph)[0]).toMatchObject({ at: 1400, duration: 500, to: 1 });
     expect(forTarget(spec.steps, anim.goldDot)[0]).toMatchObject({ at: 2300, duration: 500, to: 1 });
     expect(calls(spec.steps).some((s) => s.at === 3000)).toBe(true);
     // The arrival panel fade (~500ms) lands the whole sequence at ~3.5s.
     expect(sequenceDuration(spec)).toBe(3000);
+  });
+
+  it('beats: stamp at 0, wind with the fog lift; reduced motion keeps only the stamp', () => {
+    const anim = makeAnim();
+    expect(beatsOf((onBeat) => arrivalSequence({ anim, placement, table, index: 4, reducedMotion: false, onBeat })))
+      .toEqual([[0, 'stamp'], [800, 'wind']]);
+    expect(beatsOf((onBeat) => arrivalSequence({ anim, placement, table, index: 4, reducedMotion: true, onBeat })).map(([, b]) => b))
+      .toEqual(['stamp']);
   });
 
   it('hides the flag at 0 and clears the stamp; call steps are idempotent', () => {

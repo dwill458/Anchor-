@@ -182,7 +182,7 @@ describe('useChartSequencer', () => {
       const anim = {
         camera: { cx: sv(426), cy: sv(590), s: sv(1) },
         revealArc: sv(), fog: sv(), mapOpacity: sv(), flagIndex: sv(-1), flagDrop: sv(), flagOpacity: sv(),
-        pulse: sv(1), stampIndex: sv(-1), stamp: sv(), glyph: sv(), goldDot: sv(),
+        pulse: sv(1), stampIndex: sv(-1), stamp: sv(), glyph: sv(), goldDot: sv(), coverArc: sv(), closed: sv(),
       };
       return { anim: anim as unknown as ChartMapAnimState, all };
     };

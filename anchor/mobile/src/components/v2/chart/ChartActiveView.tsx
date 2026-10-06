@@ -3,12 +3,16 @@ import { Alert, BackHandler, Pressable, ScrollView, StatusBar, StyleSheet, Text,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { WifiOff } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
 import { useAuthStore } from '@/stores/authStore';
 import { useChartHighWater } from '@/hooks/v2/chart/chartHighWater';
+import { useChartOpenedToday } from '@/hooks/v2/chart/chartLastOpened';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { safeHaptics } from '@/utils/haptics';
 import { syncChartNotifications } from '@/services/notifications/chartNotifications';
 import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import type { CourseDetail, MoveSummary, WaypointSummary } from '@/types/chart';
@@ -20,7 +24,12 @@ import { ChartMap } from './map/ChartMap';
 import { ChartScallop } from './map/ChartScallop';
 import type { ChartMapMarker, ChartMarkerRenderState, SequenceSpec } from './map/chartMapContracts';
 import { buildRouteTable, waypointPlacement } from './map/chartMapGeometry';
-import { arrivalSequence, moveCheckSequence, openSequence, reachSequence, waypointTapSequence } from './map/chartMapSequences';
+import {
+  arrivalSequence, laterSequence, moveCheckSequence, openSequence, reachSequence, waypointTapSequence, type ChartBeat,
+} from './map/chartMapSequences';
+import { useScreenFocused } from './map/ChartMapWeather';
+import { peekChartWeatherHandoff } from './map/chartWeatherHandoff';
+import { ChartWeatherVeilPrimer } from './map/ChartWeatherNativeVeil';
 import { CHART_MAP_TOKENS as T } from './map/chartMapTokens';
 import { nextHighWater, routeRevealArc, toProgressInput } from './map/chartProgress';
 import { useChartMapAnimState } from './map/useChartMapAnimState';
@@ -31,6 +40,7 @@ import { panelAccent } from './panel/chartPanelColors';
 import { ChartWaypointContent } from './ChartWaypointContent';
 import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
 import { ChartReachBeat } from './ChartReachBeat';
+import { useChartSound } from './useChartSound';
 
 export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
@@ -122,6 +132,8 @@ type ReachEvent = { index: number; result: WaypointReachResult; previousReachedC
 
 /** Waits this long for the server's new Chart before giving up on the day-closed hold. */
 const DAY_CLOSED_HOLD_FALLBACK_MS = 1500;
+/** The open waits at most this long for the stored "opened today" day, then plays the full open. */
+const OPEN_DECIDE_MAX_MS = 150;
 
 export function ChartActiveView({
   view,
@@ -158,8 +170,69 @@ export function ChartActiveView({
   const table = useMemo(() => buildRouteTable(), []);
   const placement = useMemo(() => waypointPlacement(Math.max(1, view.total)), [view.total]);
   const currentIndex = view.isFinished ? -1 : view.currentIndex;
-  const anim = useChartMapAnimState({ revealArc: 0, flagIndex: Math.max(0, currentIndex) });
+  /* ---- open choice: first open of the day, or a later one (presentation-only marker) ---- */
+  const opened = useChartOpenedToday(view.courseId);
+  const markOpened = opened.markOpened;
+  // Known synchronously (session memory) when this Chart was already opened today: start settled, never closed.
+  const startsSettled = entrance === 'reveal' || reducedMotion || (opened.loaded && opened.openedToday);
+  // "Explore your Chart": the creation stage's map continues here unchanged: the same cover, closed = 0, and the
+  // shared drift clock. Read once, before the first frame. The ink is never handed off (route honesty).
+  const revealHandoff = useRef(entrance === 'reveal' ? peekChartWeatherHandoff() : null).current;
+  // Every open but the reveal and Reduce Motion starts under closed cover (the frame-one veil shows the same) and
+  // parts it; the open's pushed-in camera is set from the first render, because the native veil frames from it.
+  // DEFERRED: closed: startsSettled ? 0 : 1 (a later visit opened already parted, under a closed-cover veil).
+  const startsClosed = entrance !== 'reveal' && !reducedMotion;
+  const pushedIn = !startsSettled && currentIndex >= 0;
+  const anim = useChartMapAnimState({
+    // DEFERRED: revealArc: revealHandoff?.inkArc ?? 0 (the reveal kept creation's inked first leg, which the next
+    // day's open then drew back from real progress: the route retreated overnight).
+    revealArc: 0,
+    flagIndex: Math.max(0, currentIndex),
+    closed: startsClosed ? 1 : 0,
+    camera: pushedIn ? CHART_MAP_TIMING.open.startCamera : undefined,
+  });
+  // The open waits for the map's first drawn frame (ChartMap onShown), so it starts exactly as the veil goes.
+  const [mapShown, setMapShown] = useState(false);
+  const onMapShown = useCallback(() => setMapShown(true), []);
   const runner = useChartSequencer(reducedMotion);
+
+  /* ---- sound + haptics ---------------------------------------------- */
+  const sound = useChartSound(reducedMotion);
+  const hapticsOn = useSettingsStore((state) => state.hapticIntensity > 0);
+  const hapticsRef = useRef(hapticsOn);
+  hapticsRef.current = hapticsOn;
+  const soundRef = useRef(sound);
+  soundRef.current = sound;
+  /** Beat -> sound (+ haptic). `inkMs` is the length of the pen stroke at this call site. */
+  const beatHandler = useCallback(
+    (inkMs: number) => (beat: ChartBeat) => {
+      const s = soundRef.current;
+      const haptics = hapticsRef.current;
+      if (beat === 'open') s.open();
+      else if (beat === 'ink') s.ink(inkMs);
+      else if (beat === 'flag') {
+        s.flag();
+        if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+      } else if (beat === 'check') {
+        s.check();
+        if (haptics) void safeHaptics.selection();
+      } else if (beat === 'stamp') {
+        s.stamp();
+        if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+      } else if (beat === 'wind') s.wind();
+    },
+    []
+  );
+  // The air bed plays while the Chart is focused (Practice and every other screen blur it).
+  const focused = useScreenFocused();
+  useEffect(() => {
+    if (!focused) {
+      sound.stopAir();
+      return undefined;
+    }
+    sound.startAir();
+    return () => sound.stopAir();
+  }, [focused, sound]);
 
   /* ---- progress (server data + presentation-only high-water) ------- */
   const rawMetrics = useMemo(() => {
@@ -242,31 +315,79 @@ export function ChartActiveView({
     anim.glyph.value = 1;
     anim.goldDot.value = 1;
     anim.fog.value = 1;
+    anim.coverArc.value = table.total;
     anim.flagOpacity.value = 0;
-  }, [anim]);
+  }, [anim, table]);
 
   /* ---- open -------------------------------------------------------- */
+  // The reveal hand-off map is already on screen (creation stays over it until this map has drawn), so
+  // nothing fades in and the flag never leaves its waypoint.
   useLayoutEffect(() => {
-    // Nothing flashes before the open sequence fades the map in.
-    anim.mapOpacity.value = 0;
-    anim.flagOpacity.value = 0;
+    // DEFERRED: anim.mapOpacity.value = 0 for every entrance. With living weather the map is gated on the
+    // weather being ready and frame one is full cloud cover, so only the instant paths fade the map in.
+    // DEFERRED: the reveal entrance faded the map in over 180 ms too.
+    // DEFERRED: if (startsSettled && entrance !== 'reveal') anim.mapOpacity.value = 0; Reduce Motion now opens under
+    // the frame-one veil, which cross-fades away over the finished map (never a fade from bare paper).
+    if (entrance === 'reveal') {
+      anim.closed.value = 0;
+      anim.coverArc.value = Math.max(revealTarget, revealHandoff?.coverArc ?? 0);
+    }
+    // DEFERRED: anim.flagOpacity.value = 0 for every entrance.
+    if (entrance !== 'reveal' || currentIndex < 0) anim.flagOpacity.value = 0;
+    if (!startsSettled && currentIndex >= 0) {
+      // Frame one matches the loading hold: closed weather under the open's pushed-in camera.
+      const start = CHART_MAP_TIMING.open.startCamera;
+      anim.camera.cx.value = start.cx;
+      anim.camera.cy.value = start.cy;
+      anim.camera.s.value = start.s;
+    }
+    // Mount-only: the open sequence owns these values from here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anim]);
 
+  // The open waits for the stored "opened today" day, but never more than OPEN_DECIDE_MAX_MS.
+  const [openTimedOut, setOpenTimedOut] = useState(false);
   useEffect(() => {
-    if (openedRef.current) return undefined;
+    if (opened.loaded) return undefined;
+    const timer = setTimeout(() => setOpenTimedOut(true), OPEN_DECIDE_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [opened.loaded]);
+  // DEFERRED: const openReady = opened.loaded || openTimedOut;
+  const openReady = (opened.loaded || openTimedOut) && mapShown;
+  const openedTodayRef = useRef(false);
+  openedTodayRef.current = opened.loaded && opened.openedToday;
+
+  useEffect(() => {
+    if (!openReady || openedRef.current) return undefined;
     openedRef.current = true;
     let cancelled = false;
-    lastArcRef.current = revealTarget;
+    const reveal = entrance === 'reveal';
+    // DEFERRED: const revealTo = reveal ? Math.max(revealTarget, revealHandoff?.inkArc ?? 0) : revealTarget;
+    // The ink is always real progress, on every entrance.
+    const revealTo = revealTarget;
+    lastArcRef.current = revealTo;
     if (view.isFinished) settleArrived();
-    const instant = reducedMotion || entrance === 'reveal';
-    const spec = openSequence({
+    const instant = reducedMotion || reveal;
+    const later = !instant && openedTodayRef.current;
+    markOpened();
+    const context = {
       anim,
       placement,
-      revealTo: revealTarget,
+      revealTo,
       currentIndex,
       reducedMotion: instant,
       onPanel: showPanel,
-    });
+    };
+    // DEFERRED: fadeIn: reveal ? false : undefined. No entrance fades the map in from paper any more: the reveal
+    // continues creation's map and every other open starts under the frame-one veil.
+    const spec = later
+      ? laterSequence({ ...context, reducedMotion, partFromClosed: true })
+      : openSequence({
+          ...context,
+          onBeat: instant ? undefined : beatHandler(CHART_MAP_TIMING.open.route),
+          coverTo: reveal ? revealHandoff?.coverArc : undefined,
+          fadeIn: false,
+        });
     zoomedRef.current = false;
     void runner.run(spec).then(() => {
       // A deep link to another waypoint lands there after the map has opened.
@@ -280,8 +401,9 @@ export function ChartActiveView({
       cancelled = true;
       openedRef.current = false;
     };
-    // Runs once per mount: later changes are driven by the effects below.
-  }, []);
+    // Runs once per mount, as soon as the open can be chosen: later changes are driven by the effects below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openReady]);
 
   /* ---- route follows server data ---------------------------------- */
   useEffect(() => {
@@ -292,6 +414,7 @@ export function ChartActiveView({
     if (sig !== placementSigRef.current) {
       placementSigRef.current = sig;
       anim.revealArc.value = revealTarget;
+      anim.coverArc.value = revealTarget;
       lastArcRef.current = revealTarget;
       return;
     }
@@ -307,6 +430,7 @@ export function ChartActiveView({
       if (courseIdRef.current !== view.courseId) {
         courseIdRef.current = view.courseId;
         anim.revealArc.value = revealTarget;
+        anim.coverArc.value = revealTarget;
       } else {
         lastArcRef.current = from;
       }
@@ -319,9 +443,11 @@ export function ChartActiveView({
         toArc: Math.max(anim.revealArc.value, revealTarget),
         reducedMotion,
         onDayClosed: moved ? () => setDayHold(false) : undefined,
+        // Only a checked move sounds; a route that changes for any other reason extends quietly.
+        onBeat: moved ? beatHandler(CHART_MAP_TIMING.moveCheck.route) : undefined,
       })
     );
-  }, [revealTarget, completedMoves, arrived, anim, runner, reducedMotion, view.courseId, view.waypoints, placement.n]);
+  }, [revealTarget, completedMoves, arrived, anim, runner, reducedMotion, view.courseId, view.waypoints, placement.n, beatHandler]);
 
   // The flag stands on the current waypoint whenever the server moves it outside a ceremony.
   useEffect(() => {
@@ -334,6 +460,7 @@ export function ChartActiveView({
     if (!view.isFinished || arrived || reachingRef.current || reachEvent) return;
     settleArrived();
     anim.revealArc.value = table.total;
+    anim.coverArc.value = table.total;
     setArrived(true);
   }, [view.isFinished, arrived, reachEvent, settleArrived, anim, table]);
 
@@ -495,6 +622,7 @@ export function ChartActiveView({
         table,
         index,
         reducedMotion,
+        onBeat: beatHandler(CHART_MAP_TIMING.reach.reveal),
         onArrived: () => {
           setArrived(true);
           setViewIdx(Math.max(0, total - 1));
@@ -509,6 +637,7 @@ export function ChartActiveView({
         endArc: placement.arcs[index] ?? revealTargetRef.current,
         nextRevealArc: revealTargetRef.current,
         reducedMotion,
+        onBeat: beatHandler(CHART_MAP_TIMING.reach.reveal),
         onAdvance: () => setCeremony((current) => (current ? { ...current, advanced: true } : current)),
         onCommitCard: () => {
           setViewIdx(index + 1);
@@ -522,7 +651,7 @@ export function ChartActiveView({
     void runner.run(spec).finally(() => {
       if (reachingRef.current) finish();
     });
-  }, [reachEvent, view, anim, placement, table, reducedMotion, runner, onWaypointReached]);
+  }, [reachEvent, view, anim, placement, table, reducedMotion, runner, onWaypointReached, beatHandler]);
 
   // Three quiet weeks is evidence the course may need adjusting: offer the one Adjust Route flow once per open.
   useEffect(() => {
@@ -620,6 +749,8 @@ export function ChartActiveView({
   return (
     <View testID={testID ?? 'chart-active'} style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={T.paper} animated />
+      {/* Keeps the cloud bitmaps decoded for the next open's frame-one veil. */}
+      <ChartWeatherVeilPrimer />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} style={styles.scroll}>
         <View style={{ width, paddingTop: insets.top + 100, backgroundColor: T.paper }}>
           {/* Header first in the tree so TalkBack reads Back, Chart and the menu before the markers; it is absolutely positioned above the map. */}
@@ -646,6 +777,9 @@ export function ChartActiveView({
             reducedMotion={reducedMotion}
             arrived={arrived}
             clouds
+            weather="living"
+            continuous={entrance === 'reveal'}
+            onShown={onMapShown}
             onMarkerPress={handleMarkerPress}
             onMapPress={handleMapPress}
           />

@@ -177,6 +177,12 @@ export const CHART_COPY = {
     cancel: 'Cancel',
     error: 'We couldn’t delete this Chart. Check your connection and try again.',
   },
+  /** Free accounts can open a Chart that exists but cannot create one. */
+  locked: {
+    title: 'Chart your route with Anchor Pro.',
+    support: 'Turn this intention into a route of waypoints and next moves.',
+    action: 'See Anchor Pro',
+  },
   errors: {
     offline: 'You’re offline. Chart needs a connection for this.',
     load: 'We couldn’t open this Chart.',

@@ -13,6 +13,7 @@ import { MAP_H, MAP_W, type ChartMapMarker } from './map/chartMapContracts';
 import { buildRouteTable, waypointPlacement } from './map/chartMapGeometry';
 import { CHART_MAP_TOKENS as TOKENS } from './map/chartMapTokens';
 import { useChartMapAnimState } from './map/useChartMapAnimState';
+import { setChartWeatherHandoff } from './map/chartWeatherHandoff';
 import { CHART_EASING, CHART_MAPPING_TIMING as T, chartTiming } from './chartMotion';
 export const CHART_REVEAL_TIMING = T;
 export type ChartMappingStage = 'reading' | 'finding' | 'building' | 'ready';
@@ -53,7 +54,7 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
   // Faint pencil map while the request runs: nothing is drawn, no node exists yet.
   useEffect(()=>{
     anim.mapOpacity.value=1; anim.fog.value=0; anim.flagIndex.value=0;
-    anim.revealArc.value=0; anim.flagOpacity.value=0;
+    anim.revealArc.value=0; anim.coverArc.value=0; anim.closed.value=0; anim.flagOpacity.value=0;
     const finding=setTimeout(()=>setStage(current=>current==='reading' ? 'finding' : current),900);
     const waiting=T.longWait.map((ms,index)=>setTimeout(()=>{ if (!committed.current) setLongWaitIndex(index); },ms));
     return ()=>{ clearTimeout(finding); waiting.forEach(clearTimeout); };
@@ -62,13 +63,19 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
     if (!hasMarkers || committed.current || revealed.current) return;
     committed.current=true;
     setLongWaitIndex(-1); setStage('building');
-    if (reducedMotion) { anim.revealArc.value=firstArc; anim.flagOpacity.value=1; }
+    // The planned route is surveyed, not travelled: the clouds part along leg 1 and the dotted route follows
+    // them out to waypoint 1, while the ink stays where the permanent Chart computes it (a new Chart: 0, the
+    // start dot inked). "Explore your Chart" hands the parted cover to the permanent Chart; the ink needs no
+    // hand-off, so the drawn route never retreats.
+    // DEFERRED: setChartWeatherHandoff({ coverArc:firstArc, inkArc:firstArc }); and revealArc tweened to firstArc.
+    setChartWeatherHandoff({ coverArc:firstArc });
+    if (reducedMotion) { anim.coverArc.value=firstArc; anim.flagOpacity.value=1; }
     else {
-      anim.revealArc.value=chartTiming(firstArc,{duration:1600,easing:CHART_EASING.settle});
+      anim.coverArc.value=chartTiming(firstArc,{duration:1600,easing:CHART_EASING.settle});
       anim.flagOpacity.value=withDelay(1300,chartTiming(1,{duration:500,easing:CHART_EASING.settle}));
     }
     const finish=setTimeout(()=>{ revealed.current=true; setStage('ready'); callback.current?.(); },reducedMotion ? 420 : 1900);
-    return ()=>{ committed.current=false; clearTimeout(finish); cancelAnimation(anim.revealArc); cancelAnimation(anim.flagOpacity); };
+    return ()=>{ committed.current=false; clearTimeout(finish); cancelAnimation(anim.revealArc); cancelAnimation(anim.coverArc); cancelAnimation(anim.flagOpacity); };
   },[hasMarkers,reducedMotion,anim,firstArc]);
   const phrase=longWaitIndex>=0 && (stage==='reading'||stage==='finding') ? CHART_COPY.generation.longWait[longWaitIndex] : CHART_COPY.generation.stages[stage];
   const stageIndex=STAGES.indexOf(stage);
@@ -76,7 +83,8 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
     {/* The map sits on its start: bottom-aligned, so the route's foot stays in view. */}
     <View style={{position:'absolute',left:(width-mapWidth)/2,top:0,width:mapWidth,height:mapHeight}}>
       <ChartMap width={mapWidth} table={table} placement={placement} anim={anim} markers={mapMarkers} categoryColor={accent} category={category ?? undefined}
-        interactive={false} reducedMotion={reducedMotion} arrived={false} clouds={hasMarkers} onMarkerPress={noop} onMapPress={noop}
+        // DEFERRED: static clouds (CLOUD_SKSL in the land canvas) here switched style when the permanent Chart mounted.
+        interactive={false} reducedMotion={reducedMotion} arrived={false} clouds={hasMarkers} weather="living" onMarkerPress={noop} onMapPress={noop}
         testID={`${testID ?? 'chart-stage'}-map`} />
     </View>
     {/* DEFERRED: <ChartJourneyWorld width={width} height={Math.max(1,height-footerSpace)} category={category} markers={markers ?? []} staticProgress={ROUTE_START} nodeReveal={nodeReveal} onReady={setReady} accessibilityLabel={markers ? `Road mapped with ${markers.length} waypoints` : 'Mapping your journey'} /> */}

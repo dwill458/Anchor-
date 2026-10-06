@@ -35,6 +35,8 @@ type Props = {
   arrived: boolean;
   /** Fog of war: the dotted route to the summit only shows as far as the clouds have lifted. */
   clouds?: boolean;
+  /** Living weather covers the map: the summit X shows only faintly through it until arrival. */
+  livingWeather?: boolean;
 };
 
 /**
@@ -43,7 +45,7 @@ type Props = {
  * the continuous flag sway never re-runs the fog shader.
  */
 export const ChartMapOverlay = memo(function ChartMapOverlay({
-  width, height, anim, table, placement, categoryColor, reducedMotion, arrived, clouds = false,
+  width, height, anim, table, placement, categoryColor, reducedMotion, arrived, clouds = false, livingWeather = false,
 }: Props) {
   const cameraTransform = useChartMapCameraTransform(anim, width, height);
   const routePath = useMemo(() => Skia.Path.MakeFromSVGString(table.svgPath), [table.svgPath]);
@@ -63,11 +65,15 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
   }, [rtotal]);
 
   // Undiscovered route geometry stays hidden: the dotted line ends a little past the revealed tip (into the fog).
+  // Living weather: the surveyed (dotted) route also reaches as far as the clouds have parted (creation's planned
+  // first leg, the next leg hinted after a reach). Static clouds keep the original rule.
   const dottedEnd = useDerivedValue(() => {
     if (!clouds) return 1;
-    const f = (anim.revealArc.value + 140 + 3000 * anim.fog.value) / table.total;
+    // DEFERRED (static clouds only now): (revealArc + 140 + 3000 * fog) / total
+    const reach = livingWeather ? Math.max(anim.revealArc.value + 140, anim.coverArc.value) : anim.revealArc.value + 140;
+    const f = (reach + 3000 * anim.fog.value) / table.total;
     return f < 0 ? 0 : f > 1 ? 1 : f;
-  }, [clouds, table.total]);
+  }, [clouds, livingWeather, table.total]);
 
   // Tip / pulse position: worklet reads typed arrays only.
   const tipTransform = useDerivedValue(() => {
@@ -110,7 +116,9 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
   }, [reducedMotion, sway]);
   const swayTransform = useDerivedValue(() => [{ rotate: sway.value * DEG }]);
 
-  const xOpacity = useDerivedValue(() => 1 - anim.glyph.value);
+  // DEFERRED: const xOpacity = useDerivedValue(() => 1 - anim.glyph.value);
+  const xFaint = clouds && livingWeather && !arrived;
+  const xOpacity = useDerivedValue(() => (xFaint ? 0.35 : 1) * (1 - anim.glyph.value), [xFaint]);
   const glyphOpacity = useDerivedValue(() => anim.glyph.value);
   const goldOpacity = useDerivedValue(() => anim.goldDot.value);
 

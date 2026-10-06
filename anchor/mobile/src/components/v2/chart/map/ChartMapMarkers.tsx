@@ -154,17 +154,17 @@ const Marker = memo(function Marker({ marker, cx, cy, ringR, k, anim, categoryCo
  * Fog of war: the waypoint just beyond the current one only hints at itself. No numeral, no title, not
  * tappable, hidden from screen readers. It becomes a real marker when it becomes the current waypoint.
  */
-const GhostMarker = memo(function GhostMarker({ cx, cy, ringR, k }: { cx: number; cy: number; ringR: number; k: number }) {
+const GhostMarker = memo(function GhostMarker({ cx, cy, ringR, k, opacity = 0.4, testID = 'chart-map-ghost' }: { cx: number; cy: number; ringR: number; k: number; opacity?: number; testID?: string }) {
   const scale = ringR / BASE_R;
   const d = HIT_R * scale * 2 * k;
   const units = HIT_R * scale;
   return (
     <View
-      testID="chart-map-ghost"
+      testID={testID}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[styles.marker, { left: cx * k - d / 2, top: cy * k - d / 2, width: d, height: d, opacity: 0.4 }]}
+      style={[styles.marker, { left: cx * k - d / 2, top: cy * k - d / 2, width: d, height: d, opacity }]}
     >
       <Svg width={d} height={d} viewBox={`${-units} ${-units} ${units * 2} ${units * 2}`}>
         <Circle cx={0} cy={0} r={ringR} fill="none" stroke="rgba(17,24,32,0.5)" strokeWidth={2.5} strokeDasharray="4 7" />
@@ -183,6 +183,11 @@ type Props = {
   category?: string;
   interactive?: boolean;
   arrived: boolean;
+  /**
+   * Living weather: waypoints beyond the ghost show as faint rings (0.18) under the clouds. They stay
+   * untappable and hidden from screen readers, like the ghost: titles are only revealed by reaching them.
+   */
+  clouds?: boolean;
   onMarkerPress: (index: number) => void;
 };
 
@@ -192,7 +197,7 @@ type Props = {
  * translate(tx, ty) scale(s), applied about the container centre.
  */
 export const ChartMapMarkers = memo(function ChartMapMarkers({
-  width, height, anim, placement, markers, categoryColor, category, interactive = true, arrived, onMarkerPress,
+  width, height, anim, placement, markers, categoryColor, category, interactive = true, arrived, clouds = false, onMarkerPress,
 }: Props) {
   const k = width / MAP_W;
   const ordered = useMemo(() => [...markers].sort((a, b) => a.index - b.index), [markers]);
@@ -218,8 +223,14 @@ export const ChartMapMarkers = memo(function ChartMapMarkers({
         const p = placement.points[marker.index];
         if (!p) return null;
         if (marker.state === 'upcoming') {
-          if (arrived || currentIndex < 0 || marker.index !== currentIndex + 1) return null;
-          return <GhostMarker key={marker.id} cx={p.x} cy={p.y} ringR={placement.markerRadius} k={k} />;
+          if (arrived || currentIndex < 0) return null;
+          if (marker.index === currentIndex + 1) {
+            return <GhostMarker key={marker.id} cx={p.x} cy={p.y} ringR={placement.markerRadius} k={k} />;
+          }
+          if (clouds && marker.index > currentIndex + 1) {
+            return <GhostMarker key={marker.id} cx={p.x} cy={p.y} ringR={placement.markerRadius} k={k} opacity={0.18} testID={`chart-map-faint-${marker.index}`} />;
+          }
+          return null;
         }
         return (
           <Marker

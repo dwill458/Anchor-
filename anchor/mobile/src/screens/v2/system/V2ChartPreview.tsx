@@ -1,7 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChartActiveView, type ChartCelebration } from '@/components/v2/chart/ChartActiveView';
+import { ChartRevealHandoff } from '@/components/v2/chart/ChartRevealHandoff';
+import { ChartWeatherVeilPrimer } from '@/components/v2/chart/map/ChartWeatherNativeVeil';
+import { setChartOpenedClockOffsetForDev } from '@/hooks/v2/chart/chartLastOpened';
+import { setWeatherLayersForDev } from '@/components/v2/chart/map/ChartMapWeather';
 import { ChartCreationFlow, type ChartCreationApi } from '@/components/v2/chart/ChartCreationFlow';
 import { CHART_CATEGORY_PACK } from '@/components/v2/chart/chartRouteGeometry';
 import { toChartViewModel } from '@/adapters/v2/chart/chartV2Model';
@@ -140,6 +144,16 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [celebration, setCelebration] = useState<ChartCelebration | null>(null);
   const [entrance, setEntrance] = useState<'reveal' | 'open'>('reveal');
+  // "Explore your Chart": the permanent Chart mounts under the creation flow, which fades once it has drawn.
+  const [handingOff, setHandingOff] = useState(false);
+  const dayOffset = useRef(0);
+  // Frame-rate fallback steps (dev only): which weather layers to drop on the next open.
+  const [weatherStep, setWeatherStep] = useState<'full' | 'noNear' | 'billowsOnly'>('full');
+  useEffect(() => {
+    setWeatherLayersForDev({ near: weatherStep !== 'full', wisps: weatherStep === 'billowsOnly' });
+  }, [weatherStep]);
+  useEffect(() => () => setWeatherLayersForDev({ near: false, wisps: false }), []);
+  useEffect(() => () => setChartOpenedClockOffsetForDev(0), []);
   const sample = sampleFor(category);
 
   const api: ChartCreationApi = useMemo(
@@ -165,28 +179,66 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
   const identity = { intention: sample.intention, category, art: null, imageUrl: null };
   const anchorArt = { svg: V2_SAMPLE_ANCHOR_SVGS.medium, category };
 
-  if (mode === 'create') {
-    return (
-      <ChartCreationFlow
-        key={run}
-        anchorId="preview-anchor"
-        identity={identity}
-        anchorArt={anchorArt}
-        vision={withVision ? { imageUrl: null, description: 'A restored Regal in the driveway.', title: 'Regal' } : null}
-        reducedMotion={reducedMotion}
-        api={api}
-        onBack={() => setMode('setup')}
-        onOpenVision={() => undefined}
-        onCreated={(created) => setCourse(created)}
-        onExplore={() => {
-          setEntrance('reveal');
-          setMode('active');
-        }}
-      />
-    );
-  }
+  const creation = (
+    <ChartCreationFlow
+      key={run}
+      anchorId="preview-anchor"
+      identity={identity}
+      anchorArt={anchorArt}
+      vision={withVision ? { imageUrl: null, description: 'A restored Regal in the driveway.', title: 'Regal' } : null}
+      reducedMotion={reducedMotion}
+      api={api}
+      onBack={() => setMode('setup')}
+      onOpenVision={() => undefined}
+      onCreated={(created) => setCourse(created)}
+      onExplore={() => {
+        setEntrance('reveal');
+        setHandingOff(true);
+        setMode('active');
+      }}
+    />
+  );
 
-  if (mode === 'active' && course) {
+  /** Fake server for the lab: a checked move completes and moves the metric; "Mark waypoint reached" really reaches. */
+  const titlesOf = (c: CourseDetail) => c.waypoints.map((waypoint) => waypoint.title);
+  const labCompleteMove = async () => {
+    if (!course) return false;
+    await wait(250);
+    const current = course.waypoints.find((waypoint) => waypoint.id === course.currentWaypointId);
+    const value = Math.min(90, (current?.metric?.current ?? 0) + 30);
+    const next = courseFrom(course.destinationText, titlesOf(course), course.moves?.[0]?.title ?? null, course.reachedCount ?? 0, value);
+    next.version = course.version + 1;
+    next.moves = (next.moves ?? []).map((m) => ({ ...m, status: 'COMPLETED', completedAt: new Date().toISOString() })) as typeof next.moves;
+    setCourse(next);
+    return true;
+  };
+  const labActions = {
+    busy: null,
+    addMove: async () => false,
+    acceptMove: async () => false,
+    completeMove: async () => labCompleteMove(),
+    dismissMove: async () => false,
+    suggestMoves: async () => 'failed' as const,
+    updateProgress: async () => false,
+    reachWaypoint: async (waypointId: string) => {
+      if (!course) return null;
+      await wait(300);
+      const titles = titlesOf(course);
+      const index = course.waypoints.findIndex((waypoint) => waypoint.id === waypointId);
+      const reached = Math.max(course.reachedCount ?? 0, index + 1);
+      const next = courseFrom(course.destinationText, titles, course.moves?.[0]?.title ?? null, reached);
+      next.version = course.version + 1;
+      setCourse(next);
+      return { completedTitle: titles[index] ?? '', nextTitle: titles[reached] ?? null, destinationReached: reached >= titles.length, chart: next };
+    },
+    editWaypoint: async () => false,
+    removeWaypoint: async () => false,
+    archiveChart: async () => false,
+    deleteChart: async () => false,
+  };
+
+  const renderActive = () => {
+    if (!course) return null;
     const view = toChartViewModel(course, { completedMoveCount: 0, practiceCount: 0 });
     return (
       <View style={styles.flex}>
@@ -202,8 +254,9 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
           celebration={celebration}
           onCelebrationDone={() => setCelebration(null)}
           onBack={() => setMode('setup')}
-          onOpenWaypoint={() => undefined}
-          onCompleteMove={async () => true}
+          // DEFERRED: onCompleteMove={async () => true} and no chart actions (no move check or reach ceremony in the lab).
+          chartActions={labActions as never}
+          onCompleteMove={labCompleteMove}
           onOpenVision={() => undefined}
           onOpenLog={() => undefined}
           onAdjust={() => undefined}
@@ -229,14 +282,44 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
               setRun((value) => value + 1);
             }}
           />
+          <DevButton
+            label="Reopen next day"
+            onPress={() => {
+              // Fakes the date for the "opened today" marker only, so this open is the first of a new day.
+              dayOffset.current += 1;
+              setChartOpenedClockOffsetForDev(dayOffset.current * 24 * 60 * 60 * 1000);
+              setEntrance('open');
+              setRun((value) => value + 1);
+            }}
+          />
         </View>
       </View>
     );
+  };
+
+  // DEFERRED: creation and the active Chart were separate roots, so "Explore your Chart" cut between them.
+  // Both now share one hand-off host (fixed slots), exactly like V2ChartScreen.
+  if (mode === 'create' || handingOff) {
+    return (
+      <ChartRevealHandoff
+        reducedMotion={reducedMotion}
+        releasing={handingOff}
+        onReleased={() => setHandingOff(false)}
+        under={handingOff ? renderActive() : null}
+        over={creation}
+      />
+    );
+  }
+
+  if (mode === 'active' && course) {
+    return <ChartRevealHandoff reducedMotion={reducedMotion} releasing={false} onReleased={() => undefined} under={renderActive()} />;
   }
 
   return (
     <ScrollView style={styles.setup} contentContainerStyle={{ paddingTop: insets.top + spacing[5], paddingBottom: insets.bottom + spacing[8], paddingHorizontal: spacing[5], gap: spacing[5] }}>
       <Text style={styles.title}>Chart motion lab</Text>
+      {/* Stands in for Home's Chart card, which primes the cloud bitmaps before any Chart opens. */}
+      <ChartWeatherVeilPrimer />
       <Text style={styles.body}>Runs the real Chart flow against a fake planner. Nothing is saved.</Text>
       <Text style={styles.label}>Journey fixture count</Text>
       <View style={styles.row}>{[3,5,8,12].map(count=><DevChip key={count} label={`${count} waypoints`} active={waypointCount===count} onPress={()=>setWaypointCount(count)}/>)}</View>
@@ -244,6 +327,12 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
         setCourse(courseFrom(sample.destination,Array.from({length:waypointCount},(_,i)=>`Fixture waypoint ${i+1}`),sample.move));
         setCelebration(null); setEntrance('open'); setRun(value=>value+1); setMode('active');
       }}/>
+      <Text style={styles.label}>Weather layers (frame-rate fallback)</Text>
+      <View style={styles.row}>
+        <DevChip label="all three" active={weatherStep === 'full'} onPress={() => setWeatherStep('full')} />
+        <DevChip label="no near puffs" active={weatherStep === 'noNear'} onPress={() => setWeatherStep('noNear')} />
+        <DevChip label="billows only" active={weatherStep === 'billowsOnly'} onPress={() => setWeatherStep('billowsOnly')} />
+      </View>
       <Text style={styles.label}>Environment</Text>
       <View style={styles.row}>
         {Object.keys(SAMPLES).map((key) => (

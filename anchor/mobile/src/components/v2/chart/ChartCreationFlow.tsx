@@ -48,6 +48,7 @@ import { ChartMapHeader } from './panel/ChartMapHeader';
 import { panelAccent } from './panel/chartPanelColors';
 import { CHART_MAP_TOKENS } from './map/chartMapTokens';
 import { buildRouteTable } from './map/chartMapGeometry';
+import { chartMapScreenTop } from './map/ChartWeatherHold';
 import { warmChartMapResources } from './map/ChartMapLand';
 import { MAP_H, MAP_W } from './map/chartMapContracts';
 import { ChartContextStep } from './ChartContextStep';
@@ -86,6 +87,8 @@ type Props = {
   /** Persisted Chart; the caller publishes it to the shared cache. */
   onCreated: (chart: CourseDetail) => void;
   onExplore: () => void;
+  /** Creating a Chart is Pro; opens the paywall when the server refuses a free account. */
+  onPremiumRequired?: () => void;
   /** Open at a given phase with a given proposal (fixture previews and tests). */
   initialPhase?: Phase;
   initialProposal?: ChartProposal | null;
@@ -193,6 +196,7 @@ export function ChartCreationFlow({
   onOpenVision,
   onCreated,
   onExplore,
+  onPremiumRequired,
   initialPhase = 'intro',
   initialProposal = null,
   api = chartV2Api,
@@ -324,12 +328,18 @@ export function ChartCreationFlow({
         setGenerationMarkers(markersFor(toDraft(response.proposal)));
       } catch (caught) {
         const classified = classifyChartError(caught);
+        if (classified.kind === 'premium_required' && onPremiumRequired) {
+          // Not a failure: the context the person wrote stays, and the paywall opens over it.
+          setPhase('context');
+          onPremiumRequired();
+          return;
+        }
         trackChart('chart_generation_failed', { kind: classified.kind });
         setError(classified);
         setPhase('failed');
       }
     },
-    [acceptProposal, anchorId, api, hasVision, references, startingContext]
+    [acceptProposal, anchorId, api, hasVision, onPremiumRequired, references, startingContext]
   );
 
   // The finished map is already on screen; the cream review surface rises over it.
@@ -385,6 +395,7 @@ export function ChartCreationFlow({
       }
     } catch (caught) {
       const classified = classifyChartError(caught);
+      if (classified.kind === 'premium_required' && onPremiumRequired) return onPremiumRequired();
       setAdjustError(classified.kind === 'offline' ? CHART_COPY.errors.offline : CHART_COPY.errors.adjust);
     } finally {
       setAdjusting(false);
@@ -448,6 +459,10 @@ export function ChartCreationFlow({
         onExplore();
         return;
       }
+      if (classified.kind === 'premium_required' && onPremiumRequired) {
+        onPremiumRequired();
+        return;
+      }
       setSaveError(classified.kind === 'offline' ? CHART_COPY.errors.saveSupport : CHART_COPY.errors.save);
     } finally {
       setSaving(false);
@@ -464,9 +479,12 @@ export function ChartCreationFlow({
       later(onExplore, 180);
       return;
     }
-    const finish = (_pageY: number) => {
-      // The reusable world owns cover/camera projection; creation does not reposition its layers.
-      exploreDelta.value = 0;
+    const finish = (pageY: number) => {
+      // DEFERRED: exploreDelta.value = 0 ("the reusable world owns cover/camera projection"): ChartJourneyWorld did,
+      // ChartMap does not. The stage draws the whole map top-aligned; the permanent Chart draws it CHART_MAP_TOP
+      // below the safe area in a shorter viewport the camera centres. Rising by the difference lands every map
+      // point (land, ink and the living weather, which share the camera) exactly where the Chart draws it.
+      exploreDelta.value = chartMapScreenTop(width, height, insets.top, insets.bottom) - pageY;
       explore.value = chartTiming(1, { duration: TT.explore, easing: CHART_EASING.deliberate });
       later(onExplore, TT.explore);
     };

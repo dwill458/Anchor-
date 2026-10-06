@@ -1,16 +1,22 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+// DEFERRED: import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { ChartActiveView, type ChartCelebration } from '@/components/v2/chart/ChartActiveView';
 import { ChartInkButton, ChartInkScreen, ChartTopBar } from '@/components/v2/chart/ChartChrome';
 import { ChartCreationFlow } from '@/components/v2/chart/ChartCreationFlow';
 import { ChartDestinationReached } from '@/components/v2/chart/ChartDestinationReached';
+import { ChartRevealHandoff } from '@/components/v2/chart/ChartRevealHandoff';
+import { ChartWeatherHold } from '@/components/v2/chart/map/ChartWeatherHold';
+import { ChartMapHeader } from '@/components/v2/chart/panel/ChartMapHeader';
+import { panelAccent } from '@/components/v2/chart/panel/chartPanelColors';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { trackChart, useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 import type { ChartRequestError } from '@/services/v2/chartV2Api';
 import { useChartContext } from './chartScreenSupport';
+import { useProFeatureLocked } from '@/utils/premiumAccess';
 // DEFERRED: import { ChartJourneyWorld } from '@/components/v2/chart/ChartJourneyWorld';
 import { ChartStaticMap } from '@/components/v2/chart/panel/ChartStaticMap';
 
@@ -59,11 +65,15 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   const reducedMotion = useV2ReduceMotion();
   const chart = useAnchorChart(anchorId);
   const context = useChartContext(anchorId, chart.data);
+  // Free accounts can view an existing Chart; creating one is Pro.
+  const creationLocked = useProFeatureLocked();
   const [celebration, setCelebration] = useState<ChartCelebration | null>(null);
   const [spatialFocused, setSpatialFocused] = useState(Boolean(props.initialWaypointId));
   // The creation flow stays on screen through its reveal ("Your route is
   // ready.") even though the saved Chart is already in the shared cache.
   const [revealing, setRevealing] = useState(false);
+  // "Explore your Chart": the permanent Chart mounts under the creation flow, which fades once the Chart has drawn.
+  const [handingOff, setHandingOff] = useState(false);
   // "Explore your Chart" continues into the permanent Chart without replaying the map.
   const arrivedFromReveal = useRef(false);
   const opened = useRef(false);
@@ -112,7 +122,8 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   };
 
   useEffect(() => {
-    navigation.setOptions?.({ gestureEnabled: !spatialFocused, animation: 'none' });
+    // DEFERRED: hard cut on push/pop: navigation.setOptions?.({ gestureEnabled: !spatialFocused, animation: 'none' });
+    navigation.setOptions?.({ gestureEnabled: !spatialFocused });
   }, [navigation, spatialFocused]);
 
   const openVision = () => {
@@ -120,9 +131,14 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     navigation.navigate('V2Vision', { anchorId });
   };
 
+  const openPaywall = () => {
+    trackChart('chart_paywall_opened', { from: 'chart' });
+    navigation.navigate('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
+  };
+
   const openPractice = (mode?: 'focus' | 'deep_prime') => {
     trackChart('chart_practice_opened', { from: 'chart', mode: mode ?? null });
-    navigation.navigate('V2Practice', { anchorId, recommendedMode: mode, source: 'chart' });
+    navigation.navigate('V2Practice', { anchorId, recommendedMode: mode, source: 'chart', returnRoute: 'V2Chart' });
   };
 
   if (!anchorId) {
@@ -135,13 +151,26 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   }
 
   if (chart.loading && !chart.data) {
+    // Closed weather, not a spinner: when the data lands the map mounts under the same cloud cover and the clouds part.
+    // DEFERRED: <ChartInkScreen testID="v2-chart-screen-loading"><ChartTopBar ... /><ActivityIndicator accessibilityLabel="Opening your Chart" /></ChartInkScreen>
+    const category = context.identity?.category ?? null;
     return (
-      <ChartInkScreen testID="v2-chart-screen-loading">
-        <ChartTopBar title={CHART_COPY.title} onBack={handleBack} identity={context.identity} />
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.ink.text.secondary} accessibilityLabel="Opening your Chart" />
-        </View>
-      </ChartInkScreen>
+      <ChartWeatherHold
+        testID="v2-chart-screen-loading"
+        accessibilityLabel="Opening your Chart"
+        reducedMotion={reducedMotion}
+        header={
+          <ChartMapHeader
+            categoryLabel={(category ?? 'custom').toUpperCase()}
+            category={category}
+            accent={panelAccent(category)}
+            visionImageUrl={context.vision?.imageUrl ?? null}
+            hasVision={Boolean(context.vision)}
+            onBack={handleBack}
+            onOpenVision={openVision}
+          />
+        }
+      />
     );
   }
 
@@ -165,8 +194,53 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   };
   const view = chart.view;
 
-  if (!data || !view || revealing) {
-    if (data?.anchor.released && !revealing) {
+  const canShowActive = Boolean(data && view && !data.anchor.released && view.total > 0);
+  const renderActive = () => {
+    if (!data || !view) return null;
+    return (
+      <ChartActiveView
+        view={view}
+        identity={identity}
+        anchorArt={context.anchorArt}
+        vision={context.vision}
+        stale={chart.stale}
+        busyKey={chart.busy}
+        reducedMotion={reducedMotion}
+        celebration={celebration}
+        onCelebrationDone={() => setCelebration(null)}
+        onBack={handleBack}
+        chartActions={chart}
+        course={data.chart ?? undefined}
+        initialWaypointId={props.initialWaypointId}
+        onSpatialModeChange={setSpatialFocused}
+        onWaypointReached={(result, previousReachedCount, total) => {
+          if (!result.destinationReached) {
+            setCelebration({
+              completedTitle: result.completedTitle,
+              nextTitle: result.nextTitle,
+              fromFraction: total > 0 ? previousReachedCount / total : 0,
+            });
+          }
+        }}
+        onCompleteMove={async (moveId) => {
+          chart.clearLastError();
+          return chart.completeMove(moveId);
+        }}
+        onOpenVision={openVision}
+        onOpenPractice={openPractice}
+        onOpenLog={() => navigation.navigate('V2ChartJourney', { anchorId })}
+        onAdjust={() => navigation.navigate('V2ChartAdjust', { anchorId })}
+        onRelease={() => navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
+        actionError={actionErrorCopy(chart.lastError)}
+        entrance={arrivedFromReveal.current ? 'reveal' : 'open'}
+        testID={props.testID ?? 'v2-chart-screen'}
+      />
+    );
+  };
+
+  // DEFERRED: if (!data || !view || revealing) {
+  if (!data || !view || revealing || handingOff) {
+    if (data?.anchor.released && !revealing && !handingOff) {
       return (
         <ChartInkScreen testID="v2-chart-screen-released">
           <ChartTopBar title={CHART_COPY.title} onBack={handleBack} identity={identity} />
@@ -174,25 +248,49 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         </ChartInkScreen>
       );
     }
+    if (creationLocked && !revealing && !handingOff) {
+      return (
+        <ChartInkScreen testID="v2-chart-screen-locked">
+          <ChartTopBar title={CHART_COPY.title} onBack={handleBack} identity={identity} />
+          <CenteredMessage
+            title={CHART_COPY.locked.title}
+            support={CHART_COPY.locked.support}
+            action={{ label: CHART_COPY.locked.action, onPress: openPaywall }}
+          />
+        </ChartInkScreen>
+      );
+    }
+    // The creation flow and the permanent Chart share one host, each in a fixed slot, so neither remounts.
     return (
-      <ChartCreationFlow
-        anchorId={anchorId}
-        identity={identity}
-        anchorArt={context.anchorArt}
-        vision={context.vision}
+      <ChartRevealHandoff
+        testID="v2-chart-handoff"
         reducedMotion={reducedMotion}
-        onBack={handleBack}
-        onOpenVision={openVision}
-        onCreated={(created) => {
-          setRevealing(true);
-          chart.commitChart(created);
-        }}
-        onExplore={() => {
-          arrivedFromReveal.current = true;
-          setRevealing(false);
-          void chart.refresh();
-        }}
-        testID="v2-chart-screen-empty"
+        releasing={handingOff}
+        onReleased={() => setHandingOff(false)}
+        under={handingOff && canShowActive ? renderActive() : null}
+        over={
+          <ChartCreationFlow
+            anchorId={anchorId}
+            identity={identity}
+            anchorArt={context.anchorArt}
+            vision={context.vision}
+            reducedMotion={reducedMotion}
+            onBack={handleBack}
+            onOpenVision={openVision}
+            onPremiumRequired={openPaywall}
+            onCreated={(created) => {
+              setRevealing(true);
+              chart.commitChart(created);
+            }}
+            onExplore={() => {
+              arrivedFromReveal.current = true;
+              setHandingOff(true);
+              setRevealing(false);
+              void chart.refresh();
+            }}
+            testID="v2-chart-screen-empty"
+          />
+        }
       />
     );
   }
@@ -227,45 +325,21 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     );
   }
 
+  // DEFERRED: the active Chart rendered at the root; it now keeps the hand-off host's lower slot, where it
+  // mounted under the creation flow, so finishing the hand-off never remounts it.
   return (
-    <ChartActiveView
-      view={view}
-      identity={identity}
-      anchorArt={context.anchorArt}
-      vision={context.vision}
-      stale={chart.stale}
-      busyKey={chart.busy}
+    <ChartRevealHandoff
+      testID="v2-chart-handoff"
       reducedMotion={reducedMotion}
-      celebration={celebration}
-      onCelebrationDone={() => setCelebration(null)}
-      onBack={handleBack}
-      chartActions={chart}
-      course={data.chart ?? undefined}
-      initialWaypointId={props.initialWaypointId}
-      onSpatialModeChange={setSpatialFocused}
-      onWaypointReached={(result, previousReachedCount, total) => {
-        if (!result.destinationReached) {
-          setCelebration({
-            completedTitle: result.completedTitle,
-            nextTitle: result.nextTitle,
-            fromFraction: total > 0 ? previousReachedCount / total : 0,
-          });
-        }
-      }}
-      onCompleteMove={async (moveId) => {
-        chart.clearLastError();
-        return chart.completeMove(moveId);
-      }}
-      onOpenVision={openVision}
-      onOpenPractice={openPractice}
-      onOpenLog={() => navigation.navigate('V2ChartJourney', { anchorId })}
-      onAdjust={() => navigation.navigate('V2ChartAdjust', { anchorId })}
-      onRelease={() => navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
-      actionError={actionErrorCopy(chart.lastError)}
-      entrance={arrivedFromReveal.current ? 'reveal' : 'open'}
-      testID={props.testID ?? 'v2-chart-screen'}
+      releasing={false}
+      onReleased={noop}
+      under={renderActive()}
     />
   );
+}
+
+function noop() {
+  return undefined;
 }
 
 export function CenteredMessage({

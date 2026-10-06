@@ -6,6 +6,7 @@ import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { resetAnchorChartCache } from '@/hooks/v2/chart/useAnchorChart';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import type { ChartForAnchor, ChartProposal } from '@/services/v2/chartV2Api';
 import type { CourseDetail } from '@/types/chart';
@@ -509,6 +510,24 @@ describe('V2ChartScreen — destination and errors', () => {
     expect(screen.queryByTestId('chart-release-anchor')).toBeNull();
   });
 
+  it('loading is closed weather on map paper, not a spinner, and the screen is a real push', async () => {
+    const setOptions = jest.fn();
+    Object.assign(mockNavigation, { setOptions });
+    try {
+      get.mockImplementation((url: string) => (url.endsWith('/chart') ? new Promise(() => undefined) : Promise.reject(new ApiClientError('Not found', 'NOT_FOUND', 404))));
+      const screen = render(<V2ChartScreen />);
+      expect(screen.getByTestId('v2-chart-screen-loading')).toBeTruthy();
+      expect(screen.getByLabelText('Opening your Chart')).toBeTruthy();
+      expect(screen.UNSAFE_queryAllByType(require('react-native').ActivityIndicator)).toHaveLength(0);
+      expect(screen.getByTestId('chart-back')).toBeTruthy();
+      expect(setOptions).toHaveBeenCalled();
+      setOptions.mock.calls.forEach(([options]) => expect(options).not.toHaveProperty('animation'));
+      screen.unmount();
+    } finally {
+      delete (mockNavigation as { setOptions?: unknown }).setOptions;
+    }
+  });
+
   it('offers a retry when the Chart cannot be loaded', async () => {
     serve({ chart: new Error('Network error. Please check your connection.'), vision: null });
     const screen = render(<V2ChartScreen />);
@@ -551,5 +570,26 @@ describe('V2ChartScreen — destination and errors', () => {
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByText('Chart isn’t available yet.')).toBeTruthy();
     expect(screen.queryByText(/disabled/)).toBeNull();
+  });
+});
+
+describe('V2ChartScreen — free accounts view but do not create', () => {
+  beforeEach(() => useSubscriptionStore.setState({ devOverrideEnabled: true, devTierOverride: 'free' }));
+  afterEach(() => useSubscriptionStore.setState({ devOverrideEnabled: false, devTierOverride: 'pro' }));
+
+  it('shows the Pro prompt instead of the creation flow and opens the Chart paywall', async () => {
+    serve({ chart: readModel(null), vision: null });
+    const screen = render(<V2ChartScreen />);
+    expect(await screen.findByTestId('v2-chart-screen-locked')).toBeTruthy();
+    expect(screen.queryByTestId('chart-create-cta')).toBeNull();
+    fireEvent.press(screen.getByText('See Anchor Pro'));
+    expect(mockNavigate).toHaveBeenCalledWith('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId: 'anchor-1' } });
+  });
+
+  it('still opens an existing Chart', async () => {
+    serve({ chart: readModel(activeChart()), vision: null });
+    const screen = render(<V2ChartScreen />);
+    expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
+    expect(screen.queryByTestId('v2-chart-screen-locked')).toBeNull();
   });
 });

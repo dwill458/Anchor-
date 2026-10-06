@@ -200,6 +200,10 @@ export type ChartMapAnimState = {
   glyph: SharedValue<number>;
   /** 0..1 gold centre dot on the glyph. */
   goldDot: SharedValue<number>;
+  /** Arc length the cloud cover has rolled back to (living weather). Separate from the ink `revealArc`. */
+  coverArc: SharedValue<number>;
+  /** 0..1 closed weather: 1 = full cloud cover everywhere (loading, the first frame of the open). */
+  closed: SharedValue<number>;
 };
 
 export type ChartMarkerRenderState = 'done' | 'current' | 'upcoming';
@@ -219,7 +223,7 @@ export type ChartMapMarker = {
 /* Sequences (chartSequence.ts engine, chartMapSequences.ts specs)     */
 /* ------------------------------------------------------------------ */
 
-export type SequenceEasing = 'inOut' | 'out' | 'linear';
+export type SequenceEasing = 'inOut' | 'out' | 'linear' | 'settle' | 'draw' | 'deliberate';
 
 export type SequenceStep =
   | {
@@ -238,10 +242,15 @@ export type SequenceStep =
       at: number;
       /** JS-thread side effect (panel state etc). Must be idempotent. */
       run: () => void;
+      /**
+       * Tied to its moment (a sound or haptic beat): skip() drops it instead of
+       * running it, so skipping never fires every pending beat at once.
+       */
+      transient?: boolean;
     };
 
 export type SequenceSpec = {
-  name: 'open' | 'moveCheck' | 'waypointTap' | 'reach' | 'arrival';
+  name: 'open' | 'later' | 'moveCheck' | 'waypointTap' | 'reach' | 'arrival';
   steps: SequenceStep[];
   /** Called once at the end, after skip or natural completion. */
   onEnd?: () => void;

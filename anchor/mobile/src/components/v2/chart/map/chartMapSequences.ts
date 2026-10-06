@@ -46,6 +46,16 @@ function call(at: number, run: () => void): SequenceStep {
   return { kind: 'call', at, run };
 }
 
+/** A sound/haptic moment the host plays (ChartActiveView maps beats to useChartSound + safeHaptics). */
+export type ChartBeat = 'open' | 'ink' | 'flag' | 'check' | 'stamp' | 'wind';
+export type ChartBeatHandler = (beat: ChartBeat) => void;
+
+/** Beat step: transient, so a skipped sequence drops it rather than firing every pending sound at once. */
+function beat(steps: SequenceStep[], at: number, onBeat: ChartBeatHandler | undefined, which: ChartBeat): void {
+  if (!onBeat) return;
+  steps.push({ kind: 'call', at, run: () => onBeat(which), transient: true });
+}
+
 /**
  * Camera move: cx, cy and s tween together. Thin alias over B's pure helper
  * (`cameraSteps` in useChartMapCamera.ts); duration 0 makes it a set.
@@ -80,48 +90,164 @@ export type OpenSequenceContext = {
   reducedMotion: boolean;
   /** Panel fades/slides in (350 ms, panel-owned). */
   onPanel?: () => void;
+  /** Sound/haptic beats (open, ink, flag). */
+  onBeat?: ChartBeatHandler;
+  /** Instant path only: where the cloud cover rests (default revealTo). The reveal hand-off passes creation's. */
+  coverTo?: number;
+  /** Instant path only: false = the map is already on screen (the reveal hand-off), so it does not fade in. */
+  fadeIn?: boolean;
+  /**
+   * Later path only: the map opened under the frame-one veil's closed cover (closed = 1, the open's camera), so
+   * the clouds part and the camera eases home over T.later.part instead of jumping to the settled state.
+   */
+  partFromClosed?: boolean;
 };
 
+/**
+ * First open of the day. Frame one is full cloud cover with the camera pushed
+ * in; the weather parts along the charted corridor while the camera eases back,
+ * the pen draws the route, the flag drops, then the panel rises.
+ */
 export function openSequence(ctx: OpenSequenceContext): SequenceSpec {
-  const { anim, placement, revealTo, currentIndex, reducedMotion, onPanel } = ctx;
+  const { anim, placement, revealTo, currentIndex, reducedMotion, onPanel, onBeat } = ctx;
   const point = pointAt(placement, currentIndex);
   const o = T.open;
   const steps: SequenceStep[] = [];
 
-  const reset = () => {
-    anim.revealArc.value = 0;
-    anim.flagOpacity.value = 0;
-    const home = overviewTarget();
-    anim.camera.cx.value = home.cx;
-    anim.camera.cy.value = home.cy;
-    anim.camera.s.value = home.s;
-  };
   const placeFlag = () => {
     anim.flagIndex.value = point ? currentIndex : -1;
     anim.flagOpacity.value = point ? 1 : 0;
   };
 
   if (reducedMotion) {
+    // Clouds already settled, route already drawn: one short cross-fade, no beats.
+    const reset = () => {
+      anim.flagOpacity.value = 0;
+      anim.closed.value = 0;
+      const home = overviewTarget();
+      anim.camera.cx.value = home.cx;
+      anim.camera.cy.value = home.cy;
+      anim.camera.s.value = home.s;
+    };
     steps.push(call(0, reset));
-    steps.push(tween(anim.mapOpacity, 1, 0, FADE, 'linear', 0));
+    if (ctx.fadeIn === false) steps.push(tween(anim.mapOpacity, 1, 0, 0));
+    else steps.push(tween(anim.mapOpacity, 1, 0, FADE, 'linear', 0));
     steps.push(tween(anim.revealArc, revealTo, 0, 0));
+    steps.push(tween(anim.coverArc, Math.max(revealTo, ctx.coverTo ?? revealTo), 0, 0));
     steps.push(call(0, placeFlag));
     steps.push(tween(anim.flagDrop, 1, 0, 0, 'out', 1));
     if (onPanel) steps.push(call(FADE, onPanel));
     return { name: 'open', steps };
   }
 
+  // A finished Chart has no current waypoint to push in on: it opens at overview.
+  const start = point ? o.startCamera : overviewTarget();
+  const reset = () => {
+    anim.revealArc.value = 0;
+    anim.coverArc.value = 0;
+    anim.closed.value = 1;
+    anim.mapOpacity.value = 1;
+    anim.flagOpacity.value = 0;
+    anim.camera.cx.value = start.cx;
+    anim.camera.cy.value = start.cy;
+    anim.camera.s.value = start.s;
+  };
+
   steps.push(call(0, reset));
-  steps.push(tween(anim.mapOpacity, 1, 0, o.mapFade, 'inOut', 0));
-  steps.push(tween(anim.revealArc, revealTo, o.routeAt, o.route, 'inOut', 0));
+  beat(steps, 0, onBeat, 'open');
+  steps.push(tween(anim.closed, 0, 0, o.closed, 'settle', 1));
+  steps.push(tween(anim.coverArc, revealTo, 0, o.cover, 'settle', 0));
+  if (point) steps.push(...cameraSteps(anim, overviewTarget(), 0, o.camera, 'deliberate'));
+  beat(steps, o.inkAt, onBeat, 'ink');
+  steps.push(tween(anim.revealArc, revealTo, o.inkAt, o.route, 'draw', 0));
   steps.push(call(o.flagAt, placeFlag));
   if (point) {
+    beat(steps, o.flagAt, onBeat, 'flag');
     steps.push(tween(anim.flagDrop, 1, o.flagAt, o.flagDrop, 'out', 0));
-    // Keep overview framing so waypoints 1-5 and summit X stay visible without clipping
-    steps.push(...cameraTo(anim, overviewTarget(), o.cameraAt, o.camera));
   }
   if (onPanel) steps.push(call(o.panelAt, onPanel));
   return { name: 'open', steps };
+}
+
+// DEFERRED: fade-in open (map fades up, route draws at 300, camera settles at 1000, panel at 1250).
+// export function openSequence(ctx: OpenSequenceContext): SequenceSpec {
+//   const { anim, placement, revealTo, currentIndex, reducedMotion, onPanel } = ctx;
+//   const point = pointAt(placement, currentIndex);
+//   const o = T.open;
+//   const steps: SequenceStep[] = [];
+//   const reset = () => {
+//     anim.revealArc.value = 0;
+//     anim.flagOpacity.value = 0;
+//     const home = overviewTarget();
+//     anim.camera.cx.value = home.cx;
+//     anim.camera.cy.value = home.cy;
+//     anim.camera.s.value = home.s;
+//   };
+//   const placeFlag = () => {
+//     anim.flagIndex.value = point ? currentIndex : -1;
+//     anim.flagOpacity.value = point ? 1 : 0;
+//   };
+//   if (reducedMotion) { ... unchanged above ... }
+//   steps.push(call(0, reset));
+//   steps.push(tween(anim.mapOpacity, 1, 0, o.mapFade, 'inOut', 0));
+//   steps.push(tween(anim.revealArc, revealTo, o.routeAt, o.route, 'inOut', 0));
+//   steps.push(call(o.flagAt, placeFlag));
+//   if (point) {
+//     steps.push(tween(anim.flagDrop, 1, o.flagAt, o.flagDrop, 'out', 0));
+//     steps.push(...cameraTo(anim, overviewTarget(), o.cameraAt, o.camera));
+//   }
+//   if (onPanel) steps.push(call(o.panelAt, onPanel));
+//   return { name: 'open', steps };
+// }
+
+/* ------------------------------------------------------------------ */
+/* Later open (same day)                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Already opened today: nothing redraws. Final states are set at 0, the weather
+ * takes one slow breath and the panel peeks at 300. No beats.
+ */
+export function laterSequence(ctx: OpenSequenceContext): SequenceSpec {
+  const { anim, placement, revealTo, currentIndex, reducedMotion, onPanel } = ctx;
+  const point = pointAt(placement, currentIndex);
+  const l = T.later;
+  const steps: SequenceStep[] = [];
+
+  const part = Boolean(ctx.partFromClosed) && !reducedMotion;
+  const settle = () => {
+    anim.revealArc.value = revealTo;
+    anim.coverArc.value = revealTo;
+    if (!part) anim.closed.value = 0;
+    anim.mapOpacity.value = 1;
+    anim.flagIndex.value = point ? currentIndex : -1;
+    anim.flagOpacity.value = point ? 1 : 0;
+    anim.flagDrop.value = 1;
+    if (!part) {
+      const home = overviewTarget();
+      anim.camera.cx.value = home.cx;
+      anim.camera.cy.value = home.cy;
+      anim.camera.s.value = home.s;
+    }
+  };
+  steps.push(call(0, settle));
+  if (part) {
+    steps.push(tween(anim.closed, 0, 0, l.part, 'settle', 1));
+    steps.push(...cameraSteps(anim, overviewTarget(), 0, l.part, 'deliberate'));
+  }
+
+  if (reducedMotion) {
+    if (onPanel) steps.push(call(l.reducedPanelAt, onPanel));
+    return { name: 'later', steps };
+  }
+
+  // A finished Chart rests with the fog fully lifted; it never breathes back in.
+  if (point) {
+    steps.push(tween(anim.fog, l.breathPeak, 0, l.breathUp, 'inOut', 0));
+    steps.push(tween(anim.fog, 0, l.breathUp, l.breathDown, 'inOut', l.breathPeak));
+  }
+  if (onPanel) steps.push(call(l.panelAt, onPanel));
+  return { name: 'later', steps };
 }
 
 /* ------------------------------------------------------------------ */
@@ -135,21 +261,32 @@ export type MoveCheckSequenceContext = {
   reducedMotion: boolean;
   /** The day-closed card replaces the move card. */
   onDayClosed?: () => void;
+  /** Sound/haptic beats (check, ink). */
+  onBeat?: ChartBeatHandler;
 };
 
 export function moveCheckSequence(ctx: MoveCheckSequenceContext): SequenceSpec {
-  const { anim, fromArc, toArc, reducedMotion, onDayClosed } = ctx;
+  const { anim, fromArc, toArc, reducedMotion, onDayClosed, onBeat } = ctx;
   const m = T.moveCheck;
   const steps: SequenceStep[] = [];
   const extends_ = toArc > fromArc + 0.5;
+  // The cover never closes back in: after a reach it can already sit past the new tip.
+  const coverMoves = extends_ && toArc > anim.coverArc.value + 0.5;
 
   if (reducedMotion) {
+    beat(steps, 0, onBeat, 'check');
     if (extends_) steps.push(tween(anim.revealArc, toArc, 0, 0));
+    if (coverMoves) steps.push(tween(anim.coverArc, toArc, 0, 0));
     if (onDayClosed) steps.push(call(0, onDayClosed));
     return { name: 'moveCheck', steps };
   }
 
-  if (extends_) steps.push(tween(anim.revealArc, toArc, m.routeAt, m.route, 'inOut', fromArc));
+  beat(steps, 0, onBeat, 'check');
+  if (extends_) {
+    beat(steps, m.routeAt, onBeat, 'ink');
+    steps.push(tween(anim.revealArc, toArc, m.routeAt, m.route, 'inOut', fromArc));
+  }
+  if (coverMoves) steps.push(tween(anim.coverArc, toArc, m.coverAt, m.cover, 'settle'));
   // Pulse rests at 1 (invisible); it is left there at the end.
   steps.push(tween(anim.pulse, 1, m.pulseAt, m.pulse, 'out', 0));
   if (onDayClosed) steps.push(call(m.dayClosedAt, onDayClosed));
@@ -201,13 +338,23 @@ export type ReachSequenceContext = {
   onAdvance?: () => void;
   /** Commit card appears (1500). */
   onCommitCard?: () => void;
+  /** Sound/haptic beats (stamp, wind, ink, flag). */
+  onBeat?: ChartBeatHandler;
 };
 
+/** Arc the cloud cover rolls back to after reaching `index`: 30% into the next leg, never behind the ink. */
+export function reachCoverArc(placement: WaypointPlacement, index: number, endArc: number, nextRevealArc: number): number {
+  const next = placement.legs[index + 1];
+  const lead = next ? endArc + T.reach.coverLead * Math.max(0, next.end - next.start) : endArc;
+  return Math.max(nextRevealArc, lead);
+}
+
 export function reachSequence(ctx: ReachSequenceContext): SequenceSpec {
-  const { anim, placement, index, endArc, nextRevealArc, reducedMotion, onAdvance, onCommitCard } = ctx;
+  const { anim, placement, index, endArc, nextRevealArc, reducedMotion, onAdvance, onCommitCard, onBeat } = ctx;
   const r = T.reach;
   const nextIndex = index + 1;
   const nextPoint = pointAt(placement, nextIndex);
+  const coverTo = reachCoverArc(placement, index, endArc, nextRevealArc);
   const steps: SequenceStep[] = [];
 
   const stampOn = () => {
@@ -225,9 +372,12 @@ export function reachSequence(ctx: ReachSequenceContext): SequenceSpec {
 
   if (reducedMotion) {
     steps.push(call(0, stampOn));
+    beat(steps, 0, onBeat, 'stamp');
     steps.push(tween(anim.stamp, 1, 0, 0, 'inOut', 1));
     steps.push(tween(anim.revealArc, nextRevealArc, 0, 0));
+    steps.push(tween(anim.coverArc, coverTo, 0, 0));
     steps.push(call(0, advance));
+    beat(steps, 0, onBeat, 'flag');
     steps.push(tween(anim.flagDrop, 1, 0, 0, 'out', 1));
     if (onCommitCard) steps.push(call(FADE, onCommitCard));
     steps.push(call(FADE, settle));
@@ -235,13 +385,20 @@ export function reachSequence(ctx: ReachSequenceContext): SequenceSpec {
   }
 
   steps.push(call(r.stampAt, stampOn));
+  beat(steps, r.stampAt, onBeat, 'stamp');
   steps.push(tween(anim.stamp, 1, r.stampAt, r.stamp, 'inOut', 0));
   steps.push(tween(anim.revealArc, endArc, r.routeAt, r.route, 'inOut'));
+  // The cover follows the ink to the reached waypoint, then rolls back into the next leg.
+  steps.push(tween(anim.coverArc, endArc, r.routeAt, r.route, 'inOut'));
   steps.push(tween(anim.pulse, 1, r.pulseAt, r.pulse, 'out', 0));
   steps.push(tween(anim.fog, r.fogBreathPeak, r.fogBreathAt, r.fogBreathUp, 'inOut', 0));
   steps.push(tween(anim.fog, 0, r.fogBreathDownAt, r.fogBreathDown, 'inOut', r.fogBreathPeak));
+  beat(steps, r.coverAt, onBeat, 'wind');
+  beat(steps, r.revealAt, onBeat, 'ink');
+  steps.push(tween(anim.coverArc, coverTo, r.coverAt, r.cover, 'settle'));
   steps.push(tween(anim.revealArc, nextRevealArc, r.revealAt, r.reveal, 'inOut'));
   steps.push(call(r.flagAt, advance));
+  if (nextPoint) beat(steps, r.flagAt, onBeat, 'flag');
   steps.push(tween(anim.flagDrop, 1, r.flagAt, r.flagDrop, 'out', 0));
   if (nextPoint) {
     steps.push(...cameraTo(anim, focusTarget(placement, nextIndex, r.scale), r.cameraAt, r.camera));
@@ -265,10 +422,12 @@ export type ArrivalSequenceContext = {
   reducedMotion: boolean;
   /** Arrival panel appears (3000). */
   onArrived?: () => void;
+  /** Sound/haptic beats (stamp, wind). */
+  onBeat?: ChartBeatHandler;
 };
 
 export function arrivalSequence(ctx: ArrivalSequenceContext): SequenceSpec {
-  const { anim, table, index, reducedMotion, onArrived } = ctx;
+  const { anim, table, index, reducedMotion, onArrived, onBeat } = ctx;
   const a = T.arrival;
   const steps: SequenceStep[] = [];
 
@@ -281,9 +440,11 @@ export function arrivalSequence(ctx: ArrivalSequenceContext): SequenceSpec {
 
   if (reducedMotion) {
     steps.push(call(0, stampOn));
+    beat(steps, 0, onBeat, 'stamp');
     steps.push(tween(anim.stamp, 1, 0, 0, 'inOut', 1));
     steps.push(tween(anim.flagOpacity, 0, 0, FADE, 'linear'));
     steps.push(tween(anim.revealArc, table.total, 0, 0));
+    steps.push(tween(anim.coverArc, table.total, 0, 0));
     steps.push(...cameraTo(anim, overviewTarget(), 0, 0));
     steps.push(tween(anim.fog, 1, 0, FADE, 'linear'));
     steps.push(tween(anim.glyph, 1, 0, FADE, 'linear'));
@@ -294,13 +455,16 @@ export function arrivalSequence(ctx: ArrivalSequenceContext): SequenceSpec {
   }
 
   steps.push(call(a.stampAt, stampOn));
+  beat(steps, a.stampAt, onBeat, 'stamp');
   steps.push(tween(anim.stamp, 1, a.stampAt, a.stamp, 'inOut', 0));
   steps.push(call(0, () => {
     anim.flagOpacity.value = 0;
   }));
   steps.push(tween(anim.revealArc, table.total, a.routeAt, a.route, 'inOut'));
   steps.push(...cameraTo(anim, overviewTarget(), a.cameraAt, a.camera));
+  beat(steps, a.fogAt, onBeat, 'wind');
   steps.push(tween(anim.fog, 1, a.fogAt, a.fog, 'inOut', 0));
+  steps.push(tween(anim.coverArc, table.total, a.fogAt, a.fog, 'inOut'));
   steps.push(tween(anim.glyph, 1, a.glyphAt, a.glyph, 'inOut', 0));
   steps.push(tween(anim.goldDot, 1, a.goldDotAt, a.goldDot, 'inOut', 0));
   if (onArrived) steps.push(call(a.panelAt, onArrived));

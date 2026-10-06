@@ -11,6 +11,7 @@ import {
   CLOUD_SKSL, FOG_IMAGE_RECT, FOG_SKSL, TINT_SKSL, hexToVec3, makeEffect, routeCoordAt, splitFogField, uploadFogImage,
 } from './chartMapShaders';
 import { CHART_MAP_TOKENS } from './chartMapTokens';
+import { loadCloudTiles } from './chartCloudTiles';
 import { useChartMapCameraTransform } from './useChartMapCamera';
 
 // 1704 x 2360 grayscale master, exactly 2x the 852 x 1180 design space.
@@ -20,16 +21,16 @@ const MAP_RECT = { x: 0, y: 0, width: MAP_W, height: MAP_H };
 const SAMPLING_ART = { filter: FilterMode.Linear, mipmap: MipmapMode.Linear };
 const SAMPLING_FOG = { filter: FilterMode.Nearest, mipmap: MipmapMode.None };
 
-type FogImages = { fieldDist: SkImage; fieldArc: SkImage; noise: SkImage };
+export type FogImages = { fieldDist: SkImage; fieldArc: SkImage; noise: SkImage };
 const fogLoads = new WeakMap<RouteTable, Promise<FogImages | null>>();
 let fogImagesCache: { table: RouteTable; images: FogImages | null } | null = null;
 
-function cachedFogImages(table: RouteTable): FogImages | null {
+export function cachedFogImages(table: RouteTable): FogImages | null {
   return fogImagesCache && fogImagesCache.table === table ? fogImagesCache.images : null;
 }
 
 /** Built once per route (the field does not depend on N), off the render path. */
-async function loadFogImages(table: RouteTable): Promise<FogImages | null> {
+export async function loadFogImages(table: RouteTable): Promise<FogImages | null> {
   const hit = cachedFogImages(table);
   if (hit) return hit;
   const pending = fogLoads.get(table);
@@ -93,9 +94,9 @@ function loadGrain(width: number, height: number): Promise<SkImage | null> {
   return loading;
 }
 
-/** Start at creation mount; all three resources survive the permanent Chart mount. */
+/** Start at creation mount; all resources (art, fog field, grain, cloud tiles) survive the permanent Chart mount. */
 export function warmChartMapResources(table: RouteTable, width: number, height: number): void {
-  void Promise.allSettled([loadLandscape(), loadFogImages(table), loadGrain(width, height)]);
+  void Promise.allSettled([loadLandscape(), loadFogImages(table), loadGrain(width, height), loadCloudTiles()]);
 }
 
 export function hasDecodedChartLandscape(): boolean { return landscapeImageCache !== null; }

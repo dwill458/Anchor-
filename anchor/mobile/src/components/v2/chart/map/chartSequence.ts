@@ -188,6 +188,8 @@ export function createSequenceRunner(driver: SequenceDriver, opts: SequenceRunne
       if (s.step.kind === 'tween') {
         driver.setValue(s.step.target, s.step.to);
         s.status = 'done';
+      } else if (s.step.transient) {
+        s.status = 'done';
       } else {
         runCall(s as StepState & { step: Extract<SequenceStep, { kind: 'call' }> });
       }

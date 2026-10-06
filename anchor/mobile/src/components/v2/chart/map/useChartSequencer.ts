@@ -18,16 +18,21 @@
  *   crossfades into hard cuts.
  */
 import { useEffect, useRef } from 'react';
-import { cancelAnimation, Easing, ReduceMotion, runOnJS, withTiming, type SharedValue } from 'react-native-reanimated';
-import { CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from '../chartMotion';
+import {
+  cancelAnimation, Easing, ReduceMotion, runOnJS, withTiming, type EasingFunction, type EasingFunctionFactory, type SharedValue,
+} from 'react-native-reanimated';
+import { CHART_EASING, CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from '../chartMotion';
 import type { SequenceEasing, SequenceRunner } from './chartMapContracts';
 import { createSequenceRunner, type SequenceDriver, type SequenceTarget } from './chartSequence';
 
 /** Prototype easings: easeIO = cubic in-out, easeO = cubic out. */
-const EASINGS: Record<SequenceEasing, (t: number) => number> = {
+const EASINGS: Record<SequenceEasing, EasingFunction | EasingFunctionFactory> = {
   inOut: Easing.inOut(Easing.cubic),
   out: Easing.out(Easing.cubic),
   linear: Easing.linear,
+  settle: CHART_EASING.settle,
+  draw: CHART_EASING.draw,
+  deliberate: CHART_EASING.deliberate,
 };
 
 const asShared = (target: SequenceTarget): SharedValue<number> => target as SharedValue<number>;

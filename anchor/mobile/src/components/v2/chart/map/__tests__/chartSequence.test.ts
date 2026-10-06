@@ -132,6 +132,25 @@ describe('createSequenceRunner', () => {
     expect(a as unknown as Fake).toMatchObject({ value: 9 });
   });
 
+  it('skip drops pending transient beats (sounds) instead of firing them all at once; beats that already ran stay run', async () => {
+    const h = makeDriver();
+    const runner = createSequenceRunner(h.driver);
+    const order: string[] = [];
+    const p = runner.run({
+      name: 'open',
+      steps: [
+        { kind: 'call', at: 0, run: () => order.push('beat0'), transient: true },
+        { kind: 'call', at: 250, run: () => order.push('beat250'), transient: true },
+        { kind: 'call', at: 1000, run: () => order.push('flag'), transient: true },
+        { kind: 'call', at: 1200, run: () => order.push('panel') },
+      ],
+    });
+    jest.advanceTimersByTime(300);
+    runner.skip();
+    await p;
+    expect(order).toEqual(['beat0', 'beat250', 'panel']);
+  });
+
   it('cancel leaves no timers, runs nothing further, never calls onEnd, and resolves', async () => {
     const h = makeDriver();
     const runner = createSequenceRunner(h.driver);

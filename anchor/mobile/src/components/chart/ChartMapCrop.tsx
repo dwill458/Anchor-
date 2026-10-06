@@ -6,6 +6,7 @@ import { MAP_H, MAP_W, type ChartMapMarker } from '@/components/v2/chart/map/cha
 import { buildRouteTable, waypointPlacement } from '@/components/v2/chart/map/chartMapGeometry';
 import { useChartMapAnimState } from '@/components/v2/chart/map/useChartMapAnimState';
 import { CHART_MAP_TOKENS } from '@/components/v2/chart/map/chartMapTokens';
+import { ChartWeatherVeilPrimer } from '@/components/v2/chart/map/ChartWeatherNativeVeil';
 import type { ChartPreviewData } from '@/hooks/useChartPreview';
 
 const table = buildRouteTable();
@@ -47,6 +48,8 @@ export function ChartMapCrop({ data, full }: { data: Pick<ChartPreviewData, 'cat
         category={data.category ?? undefined} interactive={false} reducedMotion arrived={arrived} clouds
         onMarkerPress={noop} onMapPress={noop} />
     </View>
+    {/* Invisible: keeps the Chart's cloud bitmaps decoded, so opening this Chart shows its weather on frame one. */}
+    <ChartWeatherVeilPrimer />
   </View>;
 }
 

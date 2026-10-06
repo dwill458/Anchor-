@@ -6,7 +6,7 @@ import { warmChartMapResources, hasDecodedChartLandscape } from '../ChartMapLand
 import { buildRouteTable, waypointPlacement } from '../chartMapGeometry';
 import { useChartMapAnimState } from '../useChartMapAnimState';
 
-it('shares pending decode, fog and grain work, then opens the warm map with art and landmarks together', async () => {
+it('shares pending decode, fog, grain and cloud work, then opens the warm map with art and landmarks together', async () => {
   let resolveData!: (data: object) => void;
   const data = new Promise<object>(resolve => { resolveData = resolve; });
   const fromURI = jest.fn(() => data);
@@ -32,7 +32,8 @@ it('shares pending decode, fog and grain work, then opens the warm map with art 
   expect(hasDecodedChartLandscape()).toBe(true);
   expect(fromURI).toHaveBeenCalledTimes(1);
   expect(decode).toHaveBeenCalledTimes(1);
-  expect(drawAsImage).toHaveBeenCalledTimes(1);
+  // One grain image plus the three living-weather cloud tiles, built once however many callers warm them.
+  expect(drawAsImage).toHaveBeenCalledTimes(4);
   expect(Skia.Image.MakeImage).toHaveBeenCalledTimes(3);
   cold.unmount();
   const warm = render(<Map />);
@@ -40,6 +41,6 @@ it('shares pending decode, fog and grain work, then opens the warm map with art 
   expect(warm.UNSAFE_getAllByType(SkiaPath).some(node => node.props.path === 'M-15,-15 L15,15')).toBe(true);
   expect(warm.UNSAFE_getAllByType(ImageShader).some(node => node.props.image?.width() === 1704)).toBe(true);
   expect(fromURI).toHaveBeenCalledTimes(1);
-  expect(drawAsImage).toHaveBeenCalledTimes(1);
+  expect(drawAsImage).toHaveBeenCalledTimes(4);
   warm.unmount();
 });

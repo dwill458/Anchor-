@@ -97,6 +97,8 @@ export type ChartFailureKind =
   | 'rate_limited'
   | 'confirmation_required'
   | 'invalid'
+  /** The server refused to create a Chart on the free plan (view stays open). */
+  | 'premium_required'
   | 'unknown';
 
 export class ChartRequestError extends Error {
@@ -116,6 +118,7 @@ export function classifyChartError(error: unknown): ChartRequestError {
     const code = error.code;
     const details = error.details;
     if (code === 'FEATURE_DISABLED') return new ChartRequestError('disabled', code, details);
+    if (code === 'CHART_PREMIUM_REQUIRED') return new ChartRequestError('premium_required', code, details);
     if (code === 'ROUTE_REWRITE_CONFIRMATION_REQUIRED') return new ChartRequestError('confirmation_required', code, details);
     if (code === 'ANCHOR_UNAVAILABLE') return new ChartRequestError('anchor_released', code, details);
     if (code === 'CHART_PLAN_RATE_LIMITED' || error.status === 429) return new ChartRequestError('rate_limited', code, details);

@@ -10,9 +10,28 @@ import { routeRevealArc, toProgressInput } from '../../map/chartProgress';
 import { buildRouteTable, waypointPlacement } from '../../map/chartMapGeometry';
 import { chartActions, course, finishedCourse, viewOf, waypoint } from './chartPanelFixtures';
 
+import { loadFogImages, warmChartMapResources } from '../../map/ChartMapLand';
+import { loadCloudTiles } from '../../map/chartCloudTiles';
+import { setChartOpenedClockOffsetForDev } from '@/hooks/v2/chart/chartLastOpened';
+
 jest.mock('@/services/notifications/chartNotifications', () => ({
   syncChartNotifications: jest.fn(async () => undefined),
 }));
+
+// Each test opens its Chart on a fresh day: a mark left by an earlier test would otherwise make this open a
+// same-day "later" one (the open now waits long enough for the stored day to load).
+let testDay = 0;
+beforeEach(() => {
+  testDay += 2;
+  setChartOpenedClockOffsetForDev(testDay * 24 * 60 * 60 * 1000);
+});
+// The device warms the map (fog field, cloud tiles) before a Chart opens; the open waits for the map's first frame.
+beforeAll(async () => {
+  await Promise.all([loadFogImages(buildRouteTable()), loadCloudTiles()]);
+  // The landscape decode and grain too, so no resource promise resolves outside act while a test mounts.
+  warmChartMapResources(buildRouteTable(), 750, 1334);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+});
 
 /** w2 reached, w3 current (route advanced by the server). */
 function afterFirstReach(): CourseDetail {
@@ -382,6 +401,8 @@ describe('ChartActiveView — cycle 2 behaviours', () => {
       waypoints: [...base.waypoints, waypoint({ id: 'w4', position: 400, title: 'Reach 50,000 active users' })],
     };
     const { rerender } = render(<Harness initial={base} />);
+    // The open starts once the map has drawn its first frame (frame-one veil hold).
+    await waitFor(() => expect(spy).toHaveBeenCalled(), { timeout: 4000 });
     await settle(400);
     const anim = spy.mock.calls[0][0].anim;
     rerender(<Harness initial={four} />);
@@ -428,9 +449,18 @@ describe('ChartActiveView — motion', () => {
   });
 
   it('unmounting mid-sequence is clean', async () => {
-    const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const open = jest.spyOn(sequences, 'openSequence');
     const { unmount, getByTestId } = render(<Harness reducedMotion={false} next={afterFirstReach()} />);
-    await settle(50);
+    // DEFERRED: settle(50). The map now opens after its first drawn frame (then a 1.2 s open); unmount mid-REACH,
+    // not mid-mount or mid-open.
+    // Poll inside act (not waitFor, which toggles the act environment) until the open has started, then let it end.
+    for (let i = 0; i < 40 && open.mock.calls.length === 0; i++) await settle(100);
+    expect(open).toHaveBeenCalled();
+    open.mockRestore();
+    await settle(1600);
+    const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    // console.error may already be a mock carrying the mount's calls; only the interaction under test counts.
+    errors.mockClear();
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
     fireEvent.press(getByTestId('chart-reach-yes'));

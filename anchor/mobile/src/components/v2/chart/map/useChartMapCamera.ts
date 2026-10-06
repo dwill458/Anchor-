@@ -61,3 +61,34 @@ export function useChartMapCameraTransform(anim: ChartMapAnimState, width: numbe
     return [{ translateX: c.tx }, { translateY: c.ty }, { scale: s * c.k }];
   });
 }
+
+/** Extra camera response of the weather layer: the clouds sit visibly above the ground when the camera moves. */
+export const WEATHER_PARALLAX = 0.06;
+
+/**
+ * Pure maths of the weather transform (prototype camera, `par = .06`): scale
+ * s2 = s * (1 + (s - 1) * .06) about the same centre, plus 6% of the land's
+ * translation away from overview. Returns view-pixel translate + map scale.
+ */
+export function weatherTransformFor(
+  cx: number, cy: number, s: number, width: number, height: number,
+): { tx: number; ty: number; scale: number } {
+  'worklet';
+  const c = clampCamera(cx, cy, s, width, height);
+  const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, OVERVIEW_CAMERA.s, width, height);
+  const s2 = s * (1 + (s - 1) * WEATHER_PARALLAX);
+  // Same screen point under the map centre as the land, at the larger scale.
+  const px = c.tx + cx * s * c.k;
+  const py = c.ty + cy * s * c.k;
+  const tx = px - cx * s2 * c.k + (c.tx - home.tx) * WEATHER_PARALLAX;
+  const ty = py - cy * s2 * c.k + (c.ty - home.ty) * WEATHER_PARALLAX;
+  return { tx, ty, scale: s2 * c.k };
+}
+
+/** Camera matrix for the weather layer (ChartMapWeather), derived on the UI thread. */
+export function useChartWeatherTransform(anim: ChartMapAnimState, width: number, height: number) {
+  return useDerivedValue(() => {
+    const w = weatherTransformFor(anim.camera.cx.value, anim.camera.cy.value, anim.camera.s.value, width, height);
+    return [{ translateX: w.tx }, { translateY: w.ty }, { scale: w.scale }];
+  });
+}
