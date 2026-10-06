@@ -3,74 +3,73 @@ import { InteractionManager, Share, type View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { useToast } from '@/components/ToastProvider';
 import { ExportPreviewRenderer, EXPORT_DIMENSIONS } from '@/components/ExportPreviewRenderer';
-import ShareCardRenderer, { type ShareCardRendererRef } from '@/components/ShareCardRenderer';
-import { useShareCard } from '@/hooks/useShareCard';
-import { useSessionStore } from '@/stores/sessionStore';
+import { buildShareExportData } from '@/components/share/shareData';
+import { useShareExportRenderer } from '@/components/share/useShareExportRenderer';
 import { requestPhotoLibrarySavePermission, savePngToPhotoLibrary } from '@/services/AnchorArtworkExportService';
+import { saveShareExport } from '@/services/anchorExportService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
+import { v2Haptics } from '@/hooks/v2/haptics';
 import { logger } from '@/utils/logger';
 import type { Anchor } from '@/types';
 
-type ExportAnchor = Pick<Anchor, 'id' | 'localId' | 'intentionText' | 'baseSigilSvg' | 'reinforcedSigilSvg' | 'enhancedImageUrl'>;
+type ExportAnchor = Pick<
+  Anchor,
+  'id' | 'localId' | 'intentionText' | 'category' | 'baseSigilSvg' | 'reinforcedSigilSvg' | 'enhancedImageUrl' | 'classifierMeta' | 'enhancementMetadata'
+>;
 
-function localDayKey(value: string | Date) {
-  const date = value instanceof Date ? value : new Date(value);
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-}
+export type ShareExtras = {
+  /** The Anchor's actual Vision image, if it has one. Without it the Vision layout is not offered. */
+  visionImageUrl?: string | null;
+  /** The Anchor's current state word ("Building"), if it has an established thread. */
+  stateLabel?: string | null;
+};
 
 /**
- * The three things the Details options menu does with an Anchor's artwork:
- * share a card, save a wallpaper PNG, and copy the intention. Each reuses the
- * existing pipeline (share card capture, photo-library save + share sheet,
- * clipboard); this only moves their triggers out of the scrolling body.
+ * What the Details options menu does with an Anchor's artwork:
+ * - `shareData` feeds Share Studio (the host opens it from "Share anchor");
+ * - `downloadPng` renders the Minimal layout at 1080 x 1920 and saves it directly;
+ * - `saveWallpaper` and `copyIntention` are unchanged.
  *
  * `hiddenNodes` holds the off-screen capture targets and must be rendered once
  * by the host screen.
  */
-export function useAnchorExportActions(anchor: ExportAnchor | null) {
+export function useAnchorExportActions(anchor: ExportAnchor | null, extras: ShareExtras = {}) {
   const toast = useToast();
-  const practiceHistory = useSessionStore((s) => s.practiceHistory);
+  const { visionImageUrl, stateLabel } = extras;
 
-  // The share card prints a "days" figure; count the distinct days this Anchor was practised.
-  const daysPracticed = useMemo(() => {
-    if (!anchor) return 0;
-    const days = new Set<string>();
-    for (const session of practiceHistory) {
-      if (session.anchorId === anchor.id || session.anchorLocalId === (anchor.localId ?? anchor.id)) {
-        days.add(localDayKey(session.completedAt));
+  const shareData = useMemo(
+    () => (anchor ? buildShareExportData(anchor, { visionImageUrl, stateLabel }) : null),
+    [anchor, visionImageUrl, stateLabel],
+  );
+
+  // ── Download PNG: Minimal, straight to Photos ──
+  const { renderPng, exportNode: downloadNode } = useShareExportRenderer(shareData);
+  const [downloadPending, setDownloadPending] = useState(false);
+
+  /** Resolves to true when the PNG reached the photo library. */
+  const downloadPng = useCallback(async (): Promise<boolean> => {
+    if (!anchor || downloadPending) return false;
+    setDownloadPending(true);
+    try {
+      const uri = await renderPng('minimal', true);
+      const result = await saveShareExport(uri, 'minimal');
+      if (result === 'permission-denied') {
+        void v2Haptics.warning();
+        toast.warning('Allow photo library access to save your anchor');
+        return false;
       }
+      void v2Haptics.confirmation();
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_EXPORT_SAVED, { layout: 'minimal', source: 'download_png' });
+      return true;
+    } catch (error) {
+      logger.warn('[AnchorDetails] download PNG failed', error);
+      toast.error('Could not save the image');
+      return false;
+    } finally {
+      setDownloadPending(false);
     }
-    return days.size;
-  }, [anchor, practiceHistory]);
-
-  // ── Share card ──
-  const shareCardRef = useRef<ShareCardRendererRef | null>(null);
-  const shareCardRenderedRef = useRef(false);
-  const shareCardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showShareCard, setShowShareCard] = useState(false);
-  const { captureAndShare, isLoading: isSharing, setIsRendered } = useShareCard(shareCardRef, shareCardRenderedRef);
-
-  useEffect(() => () => {
-    if (shareCardTimeoutRef.current) clearTimeout(shareCardTimeoutRef.current);
-  }, []);
-
-  const share = useCallback(() => {
-    if (!anchor || isSharing) return;
-    if (shareCardTimeoutRef.current) clearTimeout(shareCardTimeoutRef.current);
-    shareCardRenderedRef.current = false;
-    setIsRendered(false);
-    setShowShareCard(true);
-    shareCardTimeoutRef.current = setTimeout(async () => {
-      try {
-        await captureAndShare(anchor.intentionText, daysPracticed, 'square');
-      } finally {
-        setShowShareCard(false);
-        shareCardRenderedRef.current = false;
-        setIsRendered(false);
-        shareCardTimeoutRef.current = null;
-      }
-    }, 250);
-  }, [anchor, captureAndShare, daysPracticed, isSharing, setIsRendered]);
+  }, [anchor, downloadPending, renderPng, toast]);
 
   // ── Wallpaper ──
   const wallpaperRef = useRef<View | null>(null);
@@ -139,20 +138,7 @@ export function useAnchorExportActions(anchor: ExportAnchor | null) {
 
   const hiddenNodes = anchor ? (
     <>
-      {showShareCard ? (
-        <ShareCardRenderer
-          ref={shareCardRef}
-          anchorSVG={anchorArtworkSvg(anchor)}
-          artworkUri={anchor.enhancedImageUrl}
-          intention={anchor.intentionText}
-          daysPrimed={daysPracticed}
-          format="square"
-          onRenderReady={() => {
-            shareCardRenderedRef.current = true;
-            setIsRendered(true);
-          }}
-        />
-      ) : null}
+      {downloadNode}
       {wallpaperPending ? (
         <ExportPreviewRenderer
           ref={wallpaperRef}
@@ -168,5 +154,13 @@ export function useAnchorExportActions(anchor: ExportAnchor | null) {
     </>
   ) : null;
 
-  return { share, saveWallpaper, copyIntention, isSharing, isSavingWallpaper: wallpaperPending, hiddenNodes };
+  return {
+    shareData,
+    downloadPng,
+    saveWallpaper,
+    copyIntention,
+    isDownloading: downloadPending,
+    isSavingWallpaper: wallpaperPending,
+    hiddenNodes,
+  };
 }
