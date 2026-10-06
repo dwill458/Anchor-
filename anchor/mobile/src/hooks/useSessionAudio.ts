@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer, type AudioStatus } from 'expo-audio';
+import { createAudioPlayer, type AudioPlayer, type AudioStatus } from 'expo-audio';
 import type { AudioAssetReference } from '@/services/SessionAudioManifest';
+import { setAudioSessionMode } from '@/services/audio/AudioSession';
 
 export type ManagedSessionAudioPlayer = {
   getCurrentTime: () => number;
@@ -53,15 +54,12 @@ export function useSessionAudio() {
   }, [cleanupPlayer]);
 
   useEffect(() => {
-    void setAudioModeAsync({
-      playsInSilentMode: true,
-      interruptionMode: 'mixWithOthers',
-      shouldPlayInBackground: false,
-      allowsRecording: false,
-      shouldRouteThroughEarpiece: false,
-    }).catch(() => undefined);
+    void setAudioSessionMode('session').catch(() => undefined);
 
-    return cleanupAllPlayers;
+    return () => {
+      cleanupAllPlayers();
+      void setAudioSessionMode('effects').catch(() => undefined);
+    };
   }, [cleanupAllPlayers]);
 
   const createSessionAudioPlayer = useCallback(

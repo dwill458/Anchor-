@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { SoundPool } from '@/services/audio/SoundPool';
+import { setAudioSessionMode } from '@/services/audio/AudioSession';
+import { SOUND_FILES, type SoundKey } from '@/services/audio/soundSources';
 
-const SOUND_FILES = {
-  'forge-seal': require('../assets/sounds/forge-seal.wav'),
-  'letter-drop': require('../assets/sounds/letter-drop.wav'),
-  'prime-begin': require('../assets/sounds/prime-begin.wav'),
-  'prime-complete': require('../assets/sounds/prime-complete.wav'),
-  'haptic-tone': require('../assets/sounds/haptic-tone.wav'),
-  'ui-select': require('../assets/sounds/ui-select.wav'),
-} as const;
-
-export type SoundKey = keyof typeof SOUND_FILES;
+// DEFERRED: forge-seal and letter-drop are replaced by the Phase 2 kit assets.
+// DEFERRED: haptic-tone remains the Seal-hold loop until its Phase 2 replacement arrives.
+export { SOUND_FILES, type SoundKey } from '@/services/audio/soundSources';
 type ManagedAudioPlayerOptions = {
   loop?: boolean;
   onFinish?: () => void;
@@ -63,13 +59,7 @@ export function useAudio() {
   }, [cleanupPlayer]);
 
   useEffect(() => {
-    void setAudioModeAsync({
-      playsInSilentMode: true,
-      interruptionMode: 'mixWithOthers',
-      shouldPlayInBackground: false,
-      allowsRecording: false,
-      shouldRouteThroughEarpiece: false,
-    }).catch(() => {
+    void setAudioSessionMode('effects').catch(() => {
       // Fail silently - audio is non-critical.
     });
 
@@ -154,6 +144,11 @@ export function useAudio() {
 
   const playSound = useCallback(
     (key: SoundKey, volume: number = 1, loop: boolean = false) => {
+      if (!enabledRef.current) return null;
+      if (!loop) {
+        const pooled = SoundPool.play(key, { volume });
+        return pooled ? { stop: pooled.stop } : null;
+      }
       const player = createManagedPlayer(key, { loop, volume });
       if (!player) {
         return null;

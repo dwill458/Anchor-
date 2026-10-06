@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { useSettingsStore } from '@/stores/settingsStore';
+import { SoundPool } from '@/services/audio/SoundPool';
 import {
   bytesToBase64,
   encodeWav,
@@ -58,30 +59,17 @@ export const NodeToneService = {
       const cell = cells.find((c) => nodeToneKey(c) === note) ?? 1;
       return buildTone(cell);
     }));
+    const prepared = Array.from(new Set(cells.map(nodeToneKey)))
+      .map((note) => uriByNote.get(note))
+      .filter((uri): uri is string => Boolean(uri));
+    for (const uri of prepared) SoundPool.register(`node:${uri}`, { uri });
+    SoundPool.prewarm(prepared.map((uri) => `node:${uri}`));
   },
 
   play(cell: number): void {
-    if (!useSettingsStore.getState().soundEffectsEnabled) return;
     const uri = uriByNote.get(nodeToneKey(cell));
     // Not built yet: skip this droplet rather than stutter the line.
     if (!uri) return;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { createAudioPlayer } = require('expo-audio') as typeof import('expo-audio');
-      const player = createAudioPlayer({ uri }, { updateInterval: 250 });
-      player.volume = NODE_TONE_VOLUME;
-      const subscription = player.addListener('playbackStatusUpdate', (status) => {
-        if (!status.didJustFinish) return;
-        try {
-          subscription.remove();
-          player.remove();
-        } catch {
-          // Already released.
-        }
-      });
-      player.play();
-    } catch {
-      // Audio is non-critical.
-    }
+    SoundPool.play(`node:${uri}`, { volume: NODE_TONE_VOLUME });
   },
 };

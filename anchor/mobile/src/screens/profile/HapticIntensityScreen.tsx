@@ -52,11 +52,11 @@ export const HapticIntensityScreen: React.FC = () => {
 
     // Trigger haptic feedback at the selected intensity
     if (roundedValue < 34) {
-      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light, { bypassScale: true });
     } else if (roundedValue < 67) {
-      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium, { bypassScale: true });
     } else {
-      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy, { bypassScale: true });
     }
   };
 
