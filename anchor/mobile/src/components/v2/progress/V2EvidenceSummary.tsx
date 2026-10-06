@@ -1,141 +1,108 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Activity, Award, Compass, Sparkles } from 'lucide-react-native';
-import { colors, radii, spacing, typography } from '@/theme/v2';
+import { colors, getPracticeColor, radii, typography } from '@/theme/v2';
+import { V2SectionHeader } from '@/components/v2/primitives';
 import type { V2ProgressModel } from '@/adapters/v2/progress/types';
+import { PROGRESS_MODE_LABELS, progressTokens } from './progressTokens';
 
 export interface V2EvidenceSummaryProps {
   model: V2ProgressModel;
   testID?: string;
 }
 
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const mins = Math.floor(seconds / 60);
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  const remMins = mins % 60;
-  return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
-}
+// DEFERRED: formatDuration fed the old Practice card ("{n} total dedicated"). Minutes now live in the Rhythm card.
+// function formatDuration(seconds: number): string {
+//   if (seconds < 60) return `${seconds}s`;
+//   const mins = Math.floor(seconds / 60);
+//   if (mins < 60) return `${mins}m`;
+//   const hours = Math.floor(mins / 60);
+//   const remMins = mins % 60;
+//   return remMins > 0 ? `${hours}h ${remMins}m` : `${hours}h`;
+// }
 
+/**
+ * How you practice: one stacked bar and four rows (dot, label, share, count).
+ * The counts are the four mode counts, so they always sum to the total.
+ */
 export const V2EvidenceSummary: React.FC<V2EvidenceSummaryProps> = ({
   model,
   testID = 'v2-evidence-summary',
 }) => {
-  const { practiceSummary, waypointsReachedCount, highestEvolutionStage } = model;
+  const { practiceSummary } = model;
+  const total = practiceSummary.totalSessions;
+
+  const modes = [
+    { key: 'focus', label: PROGRESS_MODE_LABELS.focus, count: practiceSummary.focusCount, color: getPracticeColor('focus') },
+    { key: 'deepPrime', label: PROGRESS_MODE_LABELS.deepPrime, count: practiceSummary.deepPrimeCount, color: getPracticeColor('deepPrime') },
+    { key: 'visualize', label: PROGRESS_MODE_LABELS.visualize, count: practiceSummary.visualizeCount, color: getPracticeColor('visualize') },
+    { key: 'release', label: PROGRESS_MODE_LABELS.release, count: practiceSummary.releaseCount, color: getPracticeColor('release') },
+  ];
 
   return (
     <View style={styles.container} testID={testID}>
-      <Text style={styles.sectionHeader}>VERIFIABLE EVIDENCE</Text>
+      <V2SectionHeader title="How you practice" supportingCopy={`${total} total`} />
 
-      <View style={styles.grid}>
-        {/* Practice Sessions Card */}
-        <View style={styles.card}>
-          <View style={styles.cardIconRow}>
-            <Activity size={16} color="#41C8C6" />
-            <Text style={styles.cardLabel}>Practice</Text>
-          </View>
-          <Text style={styles.cardValue}>{practiceSummary.totalSessions}</Text>
-          <Text style={styles.cardSubtext}>
-            {formatDuration(practiceSummary.totalDurationSeconds)} total dedicated
-          </Text>
+      <View style={styles.card}>
+        <View style={styles.bar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {total > 0
+            ? modes
+                .filter((mode) => mode.count > 0)
+                .map((mode) => (
+                  <View key={mode.key} style={{ flex: mode.count, backgroundColor: mode.color }} />
+                ))
+            : null}
         </View>
 
-        {/* Waypoints Reached Card */}
-        <View style={styles.card}>
-          <View style={styles.cardIconRow}>
-            <Compass size={16} color="#6C90F3" />
-            <Text style={styles.cardLabel}>Waypoints</Text>
+        {modes.map((mode, index) => (
+          <View
+            key={mode.key}
+            style={[styles.row, index > 0 && styles.rowDivider]}
+            testID={`${testID}-row-${mode.key}`}
+            accessible
+            accessibilityLabel={`${mode.label}: ${total > 0 ? Math.round((mode.count / total) * 100) : 0} percent, ${mode.count} practices`}
+          >
+            <View style={[styles.dot, { backgroundColor: mode.color }]} />
+            <Text style={styles.label}>{mode.label}</Text>
+            <Text style={styles.share}>{total > 0 ? Math.round((mode.count / total) * 100) : 0}%</Text>
+            <Text style={styles.count}>{mode.count}</Text>
           </View>
-          <Text style={styles.cardValue}>{waypointsReachedCount}</Text>
-          <Text style={styles.cardSubtext}>Milestones reached on route</Text>
-        </View>
-
-        {/* Mode Breakdown Card */}
-        <View style={styles.card}>
-          <View style={styles.cardIconRow}>
-            <Sparkles size={16} color="#8EE0CF" />
-            <Text style={styles.cardLabel}>Modes</Text>
-          </View>
-          <View style={styles.modeRow}>
-            <Text style={styles.modeItem}>Focus: {practiceSummary.focusCount}</Text>
-            <Text style={styles.modeItem}>Deep Focus: {practiceSummary.deepPrimeCount}</Text>
-          </View>
-          <View style={styles.modeRow}>
-            <Text style={styles.modeItem}>Visualize: {practiceSummary.visualizeCount}</Text>
-            <Text style={styles.modeItem}>Release: {practiceSummary.releaseCount}</Text>
-          </View>
-        </View>
-
-        {/* Structural Stage Card */}
-        <View style={styles.card}>
-          <View style={styles.cardIconRow}>
-            <Award size={16} color="#FFA32C" />
-            <Text style={styles.cardLabel}>Evolution</Text>
-          </View>
-          <Text style={[styles.cardValue, styles.stageValue]}>{highestEvolutionStage}</Text>
-          <Text style={styles.cardSubtext}>Permanent structural state</Text>
-        </View>
+        ))}
       </View>
+
+      {/* DEFERRED: the old four-up evidence grid. Practice moved to this card and Rhythm; Waypoints and Evolution now live in Your route and the hero.
+        <View style={styles.grid}>
+          <View style={styles.card}> Practice: {practiceSummary.totalSessions} + formatDuration(totalDurationSeconds) total dedicated </View>
+          <View style={styles.card}> Waypoints: {waypointsReachedCount} "Milestones reached on route" </View>
+          <View style={styles.card}> Modes: Focus / Deep Focus / Visualize / Release counts </View>
+          <View style={styles.card}> Evolution: {highestEvolutionStage} "Permanent structural state" </View>
+        </View>
+      */}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: spacing.lg,
-  },
-  sectionHeader: {
-    ...typography.labelSM,
-    color: colors.ink.text.secondary,
-    letterSpacing: 1.1,
-    marginBottom: spacing.sm,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
+  container: { gap: 11 },
   card: {
-    flex: 1,
-    minWidth: '47%',
-    backgroundColor: colors.ink.raised,
-    borderRadius: radii.md,
-    padding: spacing.md,
+    backgroundColor: progressTokens.card,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: progressTokens.cardBorder,
+    borderRadius: radii.xl,
+    padding: 16,
   },
-  cardIconRow: {
+  bar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    height: 12,
+    borderRadius: radii.pill,
+    overflow: 'hidden',
+    gap: 2,
+    marginBottom: 14,
+    backgroundColor: progressTokens.inkWash(0.06),
   },
-  cardLabel: {
-    ...typography.caption,
-    color: colors.ink.text.secondary,
-    fontWeight: '600',
-  },
-  cardValue: {
-    ...typography.headingMD,
-    color: colors.ink.text.primary,
-    marginBottom: 2,
-  },
-  stageValue: {
-    ...typography.headingSM,
-    color: '#FFA32C',
-  },
-  cardSubtext: {
-    ...typography.caption,
-    color: colors.ink.text.secondary,
-  },
-  modeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  modeItem: {
-    ...typography.caption,
-    color: colors.ink.text.secondary,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  rowDivider: { borderTopWidth: 1, borderTopColor: progressTokens.hairline },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  label: { flex: 1, ...typography.labelLG, color: colors.text.primary },
+  share: { ...typography.bodySM, color: progressTokens.muted },
+  count: { ...typography.labelLG, color: colors.text.primary, minWidth: 26, textAlign: 'right' },
 });
