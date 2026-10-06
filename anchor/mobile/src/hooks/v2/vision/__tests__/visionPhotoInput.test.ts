@@ -4,6 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { pickVisionPhoto, uploadVisionPhoto } from '../visionPhotoInput';
 
 jest.mock('expo-image-picker', () => ({
+  MediaTypeOptions: { Images: 'Images' },
   requestCameraPermissionsAsync: jest.fn(),
   requestMediaLibraryPermissionsAsync: jest.fn(),
   launchCameraAsync: jest.fn(),

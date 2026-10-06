@@ -70,8 +70,9 @@ import { CandidatePager } from './CandidatePager';
 import { lockSeal, unlockSeal } from './sealCommitment';
 import { GenerationEtching } from './GenerationEtching';
 import { FOIL_STOPS } from '@/components/v2/anchor/anchorExpressions';
-import { useAudio } from '@/hooks/useAudio';
+import { SoundPool } from '@/services/audio/SoundPool';
 import * as Haptics from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
 import { creationTimingTracker, type CreationTimingRecord } from './creationTelemetry';
 
 export type WindowRect = { x: number; y: number; width: number; height: number };
@@ -189,7 +190,6 @@ export function CreationStage({
   const [sealCommitted, setSealCommitted] = useState(false);
   const sealRect = useRef<WindowRect | null>(null);
   useEffect(() => () => unlockSeal(draft.draftId), [draft.draftId]);
-  const { createManagedPlayer } = useAudio();
   // Optional drone deliberately stays silent until the real asset is supplied.
   const FORGE_DRONE_ENABLED = false;
   // DEFERRED: awaiting assets/sounds/forge-drone.wav
@@ -413,10 +413,8 @@ export function CreationStage({
         if (landing < from || soundedLandings.current.has(index)) return;
         formationTimers.current.push(setTimeout(() => {
           soundedLandings.current.add(index);
-          const player = createManagedPlayer('letter-drop');
-          player?.setRate(1 + 0.06 * index);
-          player?.play();
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          SoundPool.play('letter-drop', { rate: distillLandingRate(index) });
+          void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
         }, at(landing)));
       });
 
@@ -457,7 +455,7 @@ export function CreationStage({
         onFormationDone();
       }, total + 40));
     },
-    [createManagedPlayer, onFormationDone, pace, progress, timeline],
+    [onFormationDone, pace, progress, timeline],
   );
 
   useEffect(() => {
@@ -818,13 +816,12 @@ export function CreationStage({
     if (shown !== 'reveal' || step !== 'reveal' || replay || stillnessCancelled || sheetOpen) return;
     if (!stillnessPlayed.current) {
       stillnessPlayed.current = true;
-      const tone = createManagedPlayer('forge-seal', { volume: 0.28 });
-      tone?.play();
+      SoundPool.play('forge-seal', { volume: 0.28 });
     }
     const wipeRemaining = !reduceMotion && iris.value < 1 ? 400 : 0;
     const timer = setTimeout(onOpenExpression, 1500 + wipeRemaining);
     return () => clearTimeout(timer);
-  }, [createManagedPlayer, iris, onOpenExpression, reduceMotion, replay, sheetOpen, shown, step, stillnessCancelled]);
+  }, [iris, onOpenExpression, reduceMotion, replay, sheetOpen, shown, step, stillnessCancelled]);
   const categoryText = getCategoryTextColor(draft.category, colors.canvas, colors.text.primary);
   const intention = draft.normalizedIntention ?? draft.intention;
   const keepingOriginal = draft.expression === 'original';
@@ -1200,6 +1197,12 @@ export function CreationStage({
       />
     </Animated.View>
   );
+}
+
+export const LANDING_RATE_STEP = 0.06;
+export const LANDING_RATE_MAX = 1.48;
+export function distillLandingRate(index: number): number {
+  return Math.min(1 + LANDING_RATE_STEP * Math.max(0, index), LANDING_RATE_MAX);
 }
 
 /** Fades the hand-off caption in once the Anchor has taken its place. */

@@ -3,6 +3,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useAudio, type ManagedAudioPlayer } from '@/hooks/useAudio';
+import { safeHaptics } from '@/utils/haptics';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { colors, typography } from '@/theme/v2';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -11,14 +12,14 @@ import { PAPER_ART_SHARE, creationSequence, creationTiming } from './creationMot
 import { SurfaceSweep } from './SurfaceSweep';
 
 const track = (event: string) => { try { AnalyticsService.track(event); } catch { /* non-critical */ } };
-const impact = (style: Haptics.ImpactFeedbackStyle) => { void Haptics.impactAsync(style).catch(() => {}); };
+const impact = (style: Haptics.ImpactFeedbackStyle) => { void safeHaptics.impact(style); };
 
 export function SealMedallion({ children, size, active, disabled, reduceMotion, onKeep, onInteraction, onCommitted, onMeasure }: {
   children: React.ReactNode; points: AnchorPoint[]; size: number; active: boolean; disabled: boolean; reduceMotion: boolean;
   onKeep: () => void; onInteraction: (locked: boolean) => void; onCommitted: () => void;
   onMeasure: (rect: { x: number; y: number; width: number; height: number }) => void;
 }) {
-  const { createManagedPlayer, playSound } = useAudio();
+  const { createManagedPlayer } = useAudio();
   const count = useAnchorStore((state) => state.anchors.length);
   // DEFERRED: tracing and its dotted guide. Every user now holds the selected form.
   const progress = useSharedValue(0);
@@ -53,7 +54,8 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
     const number = count + 1;
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     later(() => {
-      playSound('forge-seal'); impact(Haptics.ImpactFeedbackStyle.Heavy);
+      // DEFERRED: the legacy forge-seal strike is replaced by the flow's sk-seal cue.
+      impact(Haptics.ImpactFeedbackStyle.Heavy);
       setFlash(true);
       if (!reduceMotion) press.value = creationSequence(creationTiming(0.97, { duration: 100 }), creationTiming(1, { duration: 220 }));
       later(() => {
@@ -66,7 +68,7 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
         later(() => { setProvenance(null); keepRef.current(); }, 2000);
       }, reduceMotion ? 80 : 320);
     }, 150);
-  }, [count, later, playSound, press, reduceMotion, stopHold, stopTone]);
+  }, [count, later, press, reduceMotion, stopHold, stopTone]);
   const update = useCallback((fraction: number) => {
     progress.value = fraction;
     tone.current?.setRate(0.65 + fraction * 0.95);

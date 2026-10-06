@@ -16,6 +16,7 @@ const mockUseAppearance = jest.fn(() => ({
 }));
 
 jest.mock('expo-image-picker', () => ({
+  MediaTypeOptions: { Images: 'Images' },
   requestMediaLibraryPermissionsAsync: () => mockRequestPermission(),
   launchImageLibraryAsync: () => mockLaunchImageLibraryAsync(),
 }));

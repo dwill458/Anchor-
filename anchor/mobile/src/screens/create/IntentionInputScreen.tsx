@@ -104,7 +104,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const anchorCount = useAnchorStore((state) => state.anchors.length);
     const updateFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.updateDraft);
-    const initializedFromDraftRef = useRef(false);
+    const launchedForwardRef = useRef(false);
 
     // Teaching: whisper state (Guide Mode)
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -143,12 +143,16 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
 
     useFocusEffect(
         React.useCallback(() => {
-            if (!initializedFromDraftRef.current) {
-                // First run starts the field empty: an earlier draft's words belong to an earlier choice.
-                setIntention(fromOnboarding ? '' : useFirstAnchorFlowStore.getState().draft?.originalIntention ?? '');
-                initializedFromDraftRef.current = true;
-            }
+            const returningFromChild = launchedForwardRef.current;
+            launchedForwardRef.current = false;
             setLaunching(false);
+
+            // Fresh entry or absence of an active in-flight draft always resets the intention text.
+            if (!returningFromChild || !useFirstAnchorFlowStore.getState().draft) {
+                setIntention('');
+                setSubmitError(null);
+                useFirstAnchorFlowStore.getState().clearDraft();
+            }
             setIsFocused(false);
             setUndertoneText(null);
 
@@ -157,8 +161,22 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
             return () => {
                 if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
             };
-        }, [fromOnboarding, idleTimerRef])
+        }, [idleTimerRef])
     );
+
+    // Reset draft and intention when leaving this screen
+    useEffect(() => {
+        const unsubscribe = navigation.addListener?.('beforeRemove', () => {
+            if (!launchedForwardRef.current) {
+                setIntention('');
+                setSubmitError(null);
+                useFirstAnchorFlowStore.getState().clearDraft();
+            }
+        });
+        return () => {
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, [navigation]);
 
     // Cleanup idle timer on unmount
     useEffect(() => () => {
@@ -293,6 +311,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         // });
         const go = (fieldFrame?: { x: number; y: number; width: number; height: number }) => {
             Keyboard.dismiss();
+            launchedForwardRef.current = true;
             setLaunching(true);
             navigation.navigate('AnchorCreationFlow', {
                 ...baseParams,
@@ -350,7 +369,14 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
                     >
                         {onBack || navigation.canGoBack() ? (
                             <TouchableOpacity
-                                onPress={() => onBack ? onBack() : navigation.goBack()}
+                                onPress={() => {
+                                    launchedForwardRef.current = false;
+                                    setIntention('');
+                                    setSubmitError(null);
+                                    useFirstAnchorFlowStore.getState().clearDraft();
+                                    if (onBack) onBack();
+                                    else navigation.goBack();
+                                }}
                                 accessibilityRole="button"
                                 accessibilityLabel="Go back"
                                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}

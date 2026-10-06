@@ -251,4 +251,32 @@ describe('IntentionInputScreen', () => {
         expect(screen.getByText("That doesn't look like an intention. What do you actually want?")).toBeTruthy();
         expect(mockNavigate).not.toHaveBeenCalledWith('AnchorCreationFlow', expect.anything());
     });
+
+    it('resets the intention text and clears the draft on fresh entry even if previous draft existed', () => {
+        // Simulate a stale draft left in the store from a previous session
+        useFirstAnchorFlowStore.getState().updateDraft({
+            originalIntention: 'I get stronger and strgonger everyday',
+            distilledLetters: ['g', 't', 's', 'r', 'n', 'd', 'v', 'y'],
+            generationStatus: 'complete',
+        });
+
+        render(<IntentionInputScreen />);
+        const input = screen.getByLabelText('Your intention');
+        // Must reset to empty string on fresh entry
+        expect(input.props.value).toBe('');
+        expect(screen.getByText('0/100')).toBeTruthy();
+        expect(useFirstAnchorFlowStore.getState().draft).toBeNull();
+    });
+
+    it('resets the intention text and clears draft on Back button press', () => {
+        const onBack = jest.fn();
+        render(<IntentionInputScreen onBack={onBack} />);
+        const input = screen.getByLabelText('Your intention');
+        fireEvent.changeText(input, 'I am fully present');
+        expect(input.props.value).toBe('I am fully present');
+
+        fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
+        expect(onBack).toHaveBeenCalledTimes(1);
+        expect(useFirstAnchorFlowStore.getState().draft).toBeNull();
+    });
 });

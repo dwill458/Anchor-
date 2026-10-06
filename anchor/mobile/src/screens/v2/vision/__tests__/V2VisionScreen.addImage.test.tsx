@@ -21,6 +21,7 @@ jest.mock('@/services/ApiClient', () => ({
   },
 }));
 jest.mock('expo-image-picker', () => ({
+  MediaTypeOptions: { Images: 'Images' },
   requestCameraPermissionsAsync: jest.fn(),
   requestMediaLibraryPermissionsAsync: jest.fn(),
   launchCameraAsync: jest.fn(),

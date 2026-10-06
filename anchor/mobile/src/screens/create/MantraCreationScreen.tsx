@@ -35,6 +35,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { post } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
+import { setAudioSessionMode } from '@/services/audio/AudioSession';
 
 type MantraStyle = 'rhythmic' | 'deep' | 'clear';
 
@@ -440,6 +441,7 @@ export const MantraCreationScreen: React.FC = () => {
       Alert.alert('Recording Error', 'Unable to save recording.');
     } finally {
       setIsRecording(false);
+      void setAudioSessionMode('effects').catch(() => undefined);
     }
   }, [recorder]);
 

@@ -16,6 +16,7 @@ import { handOffToHome, prepareHomeArrival } from '@/navigation/v2/creationHando
 import { useAudio } from '@/hooks/useAudio';
 import { NodeToneService } from '@/services/NodeToneService';
 import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
+import { SoundPool } from '@/services/audio/SoundPool';
 import { useHighRefreshRate } from '@/hooks/useHighRefreshRate';
 import { useCreationReduceMotion } from '@/hooks/useReduceMotionEnabled';
 import { useSaveAnchor } from '@/hooks/useSaveAnchor';
@@ -219,6 +220,13 @@ export default function AnchorCreationFlowScreen() {
     if (field) useIntentionHandoffStore.getState().claim();
   }, [field]);
   useEffect(() => () => useIntentionHandoffStore.getState().release(), []);
+  useEffect(() => {
+    SoundPool.prewarm([
+      'creation:seal', 'creation:bloom', 'creation:uiTap', 'creation:formTick',
+      'creation:formSettle', 'creation:releaseBurn', 'creation:releaseIgnite',
+      'forge-seal', 'letter-drop',
+    ]);
+  }, []);
 
   /**
    * Work that must not run while the seal plays (analytics, persisted counters). It is flushed once
@@ -601,6 +609,7 @@ export default function AnchorCreationFlowScreen() {
     isV2
       ? {
           onSaved: ({ anchorId, input }) => {
+            useFirstAnchorFlowStore.getState().clearDraft();
             if (params.fromOnboarding) {
               const auth = useAuthStore.getState();
               if (auth.pendingFirstAnchorDraft) {
@@ -716,6 +725,7 @@ export default function AnchorCreationFlowScreen() {
       if (!mountedRef.current) return;
       setSaveWaiting(false);
       if (outcome.status === 'saved') {
+        useFirstAnchorFlowStore.getState().clearDraft();
         // The persisted counter is written after Home has arrived, not under the flight.
         deferUntilArrived(() => useCreationPrefsStore.getState().incrementRotation());
         outcome.proceed();

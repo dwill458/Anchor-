@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { useV2VisionSceneGeneration } from '../useV2VisionSceneGeneration';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 
 jest.mock('@/services/ApiClient', () => ({
   apiClient: { get: jest.fn(), post: jest.fn() },
@@ -96,5 +97,18 @@ describe('useV2VisionSceneGeneration', () => {
     await act(async () => { expect(await result.current.retry()).toBe(true); });
     expect((apiClient.post as jest.Mock).mock.calls[1][0]).toBe('/api/v2/anchors/anchor-1/vision/generation/scene-job-1/retry');
     expect(result.current.job?.retryCount).toBe(1);
+  });
+
+  it('opens the paywall without a request when the effective tier is Free (incl. a dev override)', async () => {
+    useSubscriptionStore.setState({ devOverrideEnabled: true, devTierOverride: 'free' });
+    try {
+      const onPremiumRequired = jest.fn();
+      const { result } = renderHook(() => useV2VisionSceneGeneration('anchor-1', onPremiumRequired));
+      await act(async () => { expect(await result.current.start('Working from a beach house')).toBe(false); });
+      expect(onPremiumRequired).toHaveBeenCalledTimes(1);
+      expect(apiClient.post).not.toHaveBeenCalled();
+    } finally {
+      useSubscriptionStore.setState({ devOverrideEnabled: false, devTierOverride: 'pro' });
+    }
   });
 });

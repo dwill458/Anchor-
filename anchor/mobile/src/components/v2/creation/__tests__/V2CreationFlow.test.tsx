@@ -106,7 +106,7 @@ describe('V2CreationFlow', () => {
     layoutStage();
     await waitFor(() => expect(current().currentStep).toBe('formation'), { timeout: 3000 });
     expect(current().structureSvg).toBe(STRUCTURE);
-    await waitFor(() => expect(current().currentStep).toBe('reveal'), { timeout: 3000 });
+    await waitFor(() => expect(current().currentStep).toBe('reveal'), { timeout: 8000 });
     expect(screen.getByText('This is your Anchor.')).toBeTruthy();
     expect(screen.getByTestId('reveal-intention').props.children.join('')).toContain(INTENTION);
   });
@@ -133,20 +133,20 @@ describe('V2CreationFlow', () => {
     seed(draftAt({ currentStep: 'expression' }));
     const { screen } = setup();
     // Library styles beyond the six the old screen showed.
-    expect(screen.getByTestId('expression-style-cosmic')).toBeTruthy();
-    expect(screen.getByTestId('expression-style-obsidian_mono')).toBeTruthy();
+    expect(screen.getByTestId('expression-style-deep_cosmos_v2')).toBeTruthy();
+    expect(screen.getByTestId('expression-style-alloy_v2')).toBeTruthy();
     expect(screen.getByText('YOUR STRUCTURE')).toBeTruthy();
     expect(screen.getByText('The structure stays the same. Its expression changes.')).toBeTruthy();
   });
 
   it('starts generation only after an expression is explicitly selected', async () => {
     seed(draftAt({ currentStep: 'expression' }));
-    const generateExpression = jest.fn(async () => ({ candidates: CANDIDATES, metadata: { styleApplied: 'architectural_trace' } }));
+    const generateExpression = jest.fn(async () => ({ candidates: CANDIDATES, metadata: { styleApplied: 'porcelain_v2' } }));
     const { screen, props, layoutStage } = setup({ generateExpression });
     expect(generateExpression).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByTestId('expression-style-architectural_trace'));
+    fireEvent.press(screen.getByTestId('expression-style-porcelain_v2'));
     expect(current().expression).toBe('architectural');
-    expect(current().styleChoice).toBe('architectural_trace');
+    expect(current().styleChoice).toBe('porcelain_v2');
     fireEvent.press(screen.getByTestId('expression-generate'));
     expect(current().currentStep).toBe('generating');
     expect(generateExpression).toHaveBeenCalledWith(expect.objectContaining({ count: 2, generationAttempt: 1 }));

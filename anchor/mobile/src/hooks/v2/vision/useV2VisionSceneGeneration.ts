@@ -3,6 +3,7 @@ import { useVisionGenerationAnalytics } from './useVisionGenerationAnalytics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
+import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { visionApiData } from './visionApi';
 import { generationMessage, type VisionGenerationJob } from './useV2VisionGeneration';
 
@@ -67,6 +68,8 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
 
   const start = useCallback(async (sceneDescription: string, appearanceReferenceId?: string | null, startAssetId?: string | null): Promise<boolean> => {
     if (starting.current) return false;
+    // Mirror the server's Pro rule so the paywall opens before a doomed request (and under a dev tier override).
+    if (onPremiumRequired && isProFeatureLocked()) { onPremiumRequired(); return false; }
     starting.current = true;
     setError(null);
     try {
@@ -92,6 +95,7 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
 
   const retry = useCallback(async (): Promise<boolean> => {
     if (!job || job.status !== 'FAILED' || retrying.current) return false;
+    if (onPremiumRequired && isProFeatureLocked()) { onPremiumRequired(); return false; }
     retrying.current = true;
     try {
       const response = await apiClient.post<VisionGenerationJob>(`${base}/generation/${encodeURIComponent(job.id)}/retry`);
