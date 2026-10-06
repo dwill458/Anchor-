@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { V2SealedSaveScreen } from '../V2SealedSaveScreen';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
+import { AnalyticsService } from '@/services/AnalyticsService';
 
 let mockSignedInUser: { id: string } | null = null;
 const mockAnchor = { id: 'pending-first-anchor-1', intentionText: 'I am financially free', baseSigilSvg: '<svg/>', category: 'abundance' };
@@ -46,6 +47,8 @@ jest.mock('@/services/PostAuthFlowService', () => ({
   default: { run: jest.fn().mockResolvedValue(undefined) },
 }));
 
+jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
+
 const setup = (overrides: Partial<React.ComponentProps<typeof V2SealedSaveScreen>> = {}) => {
   const props = {
     onAccountReady: jest.fn().mockResolvedValue(undefined),
@@ -76,6 +79,7 @@ describe('V2SealedSaveScreen', () => {
   it('expands email in place with no name field', () => {
     setup();
     fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_email_form_opened', { context: 'onboarding_save', mode: 'create' });
     expect(screen.getByTestId('v2-sealed-save-email-panel')).toBeTruthy();
     expect(screen.getByLabelText('Email')).toBeTruthy();
     expect(screen.getByLabelText('Password')).toBeTruthy();
@@ -86,6 +90,7 @@ describe('V2SealedSaveScreen', () => {
   it('continue without an account keeps the Anchor on the device and confirms, then goes home', () => {
     const props = setup();
     fireEvent.press(screen.getByTestId('v2-sealed-save-skip'));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_guest_chosen', { context: 'onboarding_save' });
     expect(props.onContinueWithout).toHaveBeenCalledTimes(1);
     expect(screen.getByText('PROGRESS SAVED')).toBeTruthy();
     expect(screen.getByText(/saved on this device/)).toBeTruthy();
@@ -103,6 +108,9 @@ describe('V2SealedSaveScreen', () => {
     fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
     await waitFor(() => expect(screen.getByText('PROGRESS SAVED')).toBeTruthy());
     expect(AuthService.signUpWithEmail).toHaveBeenCalledWith('me@example.com', 'longenough1');
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_started', expect.objectContaining({ context: 'onboarding_save', method: 'email', mode: 'create' }));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_succeeded', expect.objectContaining({ context: 'onboarding_save', method: 'email', mode: 'create' }));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
     expect(PostAuthFlowService.run).toHaveBeenCalled();
     expect(props.onAccountReady).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-account' }));
     expect(screen.getByText(/saved to your account/)).toBeTruthy();
@@ -116,11 +124,51 @@ describe('V2SealedSaveScreen', () => {
     fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));
     fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
     expect(screen.getByText('Enter your email address.')).toBeTruthy();
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'not-an-email');
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'longenough1');
+    fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_failed', expect.objectContaining({ stage: 'validation', error_code: 'email_invalid' }));
     fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'me@example.com');
     fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'short');
     fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
     expect(screen.getByText('Password must be at least 8 characters.')).toBeTruthy();
     expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_failed', expect.objectContaining({ stage: 'validation', error_code: 'password_short' }));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_started', expect.anything());
+  });
+
+  it('records bad credentials as a provider failure without the error message', async () => {
+    (AuthService.signInWithEmail as jest.Mock).mockRejectedValue(new Error('wrong-password private-email@example.com'));
+    setup();
+    fireEvent.press(screen.getByLabelText('Already have an account? Sign in'));
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'me@example.com');
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'wrong-password');
+    fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith('auth_failed', expect.objectContaining({ stage: 'provider', error_code: 'bad_credentials' })));
+    expect(JSON.stringify((AnalyticsService.track as jest.Mock).mock.calls)).not.toContain('private-email@example.com');
+  });
+
+  it('reports a provider cancellation without recording an auth failure', async () => {
+    (AuthService.signInWithGoogle as jest.Mock).mockRejectedValue(new Error('The request was cancelled'));
+    setup();
+    fireEvent.press(screen.getByLabelText('Continue with Google'));
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith('auth_cancelled', expect.objectContaining({ method: 'google', context: 'onboarding_save' })));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
+  });
+
+  it('attributes a post-auth save rejection to anchor_save_failed only', async () => {
+    (AuthService.signUpWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'new-account' }, token: 'token' });
+    (PostAuthFlowService.run as jest.Mock).mockRejectedValueOnce(new Error('network save failed'));
+    setup();
+    fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'me@example.com');
+    fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'longenough1');
+    fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith('anchor_save_failed', expect.objectContaining({ context: 'onboarding_save', error_code: 'network' })));
+    const eventNames = (AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event);
+    expect(eventNames).toEqual(expect.arrayContaining(['auth_succeeded', 'anchor_save_failed']));
+    expect(eventNames).not.toContain('auth_failed');
+    expect(eventNames.indexOf('auth_succeeded')).toBeLessThan(eventNames.indexOf('anchor_save_failed'));
   });
 
   it('"Already have an account? Sign in" switches the expanded form to sign in', async () => {
@@ -151,6 +199,7 @@ describe('V2SealedSaveScreen', () => {
     expect(screen.queryByLabelText('Email')).toBeNull();
     fireEvent.press(screen.getByTestId('v2-sealed-save-retry'));
     await waitFor(() => expect(screen.getByText('PROGRESS SAVED')).toBeTruthy());
+    expect(AnalyticsService.track).toHaveBeenCalledWith('anchor_save_retry', { context: 'onboarding_save', attempt: 1 });
     expect(props.onAccountReady).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-account' }));
     expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
   });

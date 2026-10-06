@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { AppState, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import IntentionInputScreen from '@/screens/create/IntentionInputScreen';
-import { V2SealedSaveScreen } from './V2SealedSaveScreen';
+import { V2SealedSaveScreen, type SaveKind } from './V2SealedSaveScreen';
 import { V2OnboardingJourney } from './V2OnboardingJourney';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -11,28 +11,56 @@ import { logger } from '@/utils/logger';
 import { colors } from '@/theme/v2';
 import { isSpecificFocus } from '@/constants/v2/focusAreas';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
+import { OnboardingAnalytics } from '@/services/v2/onboardingAnalytics';
 
 export function V2FirstRunFlow() {
   const navigation = useNavigation<any>();
   const user = useAuthStore((state) => state.user);
   const { draft, hydrated, setStep, bindAccount, markAnchorPersisted, markAuthCompleted, complete, reset } = useFirstRunStore();
+  const prevStepRef = useRef<typeof draft.currentStep | undefined>(undefined);
 
   useEffect(() => {
     if (!hydrated) return;
     if (draft.accountId && draft.accountId !== user?.id) { reset(); return; }
     if (user?.id && user.hasCompletedOnboarding) {
+      OnboardingAnalytics.bypassed('returning_user');
       navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
       return;
     }
     if (draft.currentStep === 'complete') {
       if (!user && !useAuthStore.getState().isGuest) reset();
-      else navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+      else {
+        OnboardingAnalytics.bypassed('already_complete');
+        navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+      }
       return;
     }
     // A relaunch on the save step needs the Anchor it is saving; without it, make one.
     if (draft.currentStep === 'auth' && !user && !useAuthStore.getState().pendingFirstAnchorDraft) setStep('creation');
   }, [setStep, draft.accountId, draft.currentStep, hydrated, navigation, reset, user]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const step = draft.currentStep;
+    if (prevStepRef.current === undefined) {
+      OnboardingAnalytics.started(step);
+      OnboardingAnalytics.stepChanged(undefined, step);
+    } else {
+      OnboardingAnalytics.stepChanged(prevStepRef.current, step);
+    }
+    prevStepRef.current = step;
+  }, [hydrated, draft.currentStep]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'background' && hydrated && draft.currentStep !== 'complete') {
+        OnboardingAnalytics.backgrounded(draft.currentStep);
+      }
+    });
+    return () => subscription?.remove();
+  }, [draft.currentStep, hydrated]);
 
   if (!hydrated) return <View style={styles.loading}><Text style={styles.loadingText}>Restoring your progress…</Text></View>;
 
@@ -73,7 +101,9 @@ export function V2FirstRunFlow() {
         auth.setIsGuest(true);
         if (auth.pendingFirstAnchorDraft) auth.setPendingFirstAnchorDraft({ ...auth.pendingFirstAnchorDraft, requiresAccountGate: false });
       }}
-      onContinue={() => {
+      onContinue={(kind: SaveKind) => {
+        OnboardingAnalytics.completed(kind === 'account' ? 'account' : 'guest');
+        useFirstAnchorFlowStore.getState().clearDraft();
         useAuthStore.getState().completeOnboarding();
         complete();
         navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
@@ -85,11 +115,13 @@ export function V2FirstRunFlow() {
     onSignIn={() => navigation.navigate('V2Auth', { initialMode: 'signin' })}
     onCreate={() => setStep('creation')}
     onDevSkip={() => {
+      useFirstAnchorFlowStore.getState().clearDraft();
       useAuthStore.getState().setHasCompletedOnboarding(true);
       useSettingsStore.getState().setDeveloperSkipOnboardingEnabled(true);
       navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
     }}
     onDevSeed={() => {
+      useFirstAnchorFlowStore.getState().clearDraft();
       seedV2DemoAnchor();
       navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
     }}

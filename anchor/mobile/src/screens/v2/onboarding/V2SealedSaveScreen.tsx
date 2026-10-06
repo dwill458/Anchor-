@@ -39,6 +39,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { colors, typography } from '@/theme/v2';
 import type { User } from '@/types';
 import { GoogleIcon, AppleIcon } from '@/screens/v2/auth/components/AuthSocialIcons';
+import { OnboardingAnalytics, type AuthMode, type AuthMethod, type ValidationCode } from '@/services/v2/onboardingAnalytics';
 
 type Mode = 'signin' | 'create';
 export type SaveKind = 'account' | 'guest';
@@ -70,6 +71,14 @@ function validationMessage(email: string, password: string, mode: Mode): string 
   if (!/^\S+@\S+\.\S+$/.test(email.trim())) return 'Enter a valid email address.';
   if (!password) return mode === 'signin' ? 'Enter your password.' : 'Create a password.';
   if (mode === 'create' && password.length < 8) return 'Password must be at least 8 characters.';
+  return null;
+}
+
+function validationCode(email: string, password: string, mode: Mode): ValidationCode | null {
+  if (!email.trim()) return 'email_missing';
+  if (!/^\S+@\S+\.\S+$/.test(email.trim())) return 'email_invalid';
+  if (!password) return 'password_missing';
+  if (mode === 'create' && password.length < 8) return 'password_short';
   return null;
 }
 
@@ -110,6 +119,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const [loading, setLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(Platform.OS === 'ios');
   const passwordRef = useRef<TextInput>(null);
+  const retryAttemptRef = useRef(0);
 
   useEffect(() => {
     let mounted = true;
@@ -151,22 +161,37 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   });
 
   // ---- account ----
-  const finish = async (run: () => ReturnType<typeof AuthService.signInWithEmail>) => {
+  const finish = async (run: () => ReturnType<typeof AuthService.signInWithEmail>, method: AuthMethod) => {
     setError(null);
     setLoading(true);
     try {
-      const result = await run();
-      await PostAuthFlowService.run({
-        user: result.user,
-        token: result.token,
-        preserveCompletedOnboarding: result.user.hasCompletedOnboarding === true,
-      });
-      await onAccountReady(result.user);
-      Keyboard.dismiss();
-      setSaved('account');
-    } catch (cause) {
-      const message = readableAuthError(cause, mode);
-      if (message) setError(message);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        OnboardingAnalytics.auth.started('onboarding_save', method, mode as AuthMode);
+        result = await run();
+        OnboardingAnalytics.auth.succeeded('onboarding_save', method, mode as AuthMode, result.user.hasCompletedOnboarding === true);
+      } catch (cause) {
+        const code = OnboardingAnalytics.classifyAuthError(cause);
+        if (code === 'cancelled') OnboardingAnalytics.auth.cancelled('onboarding_save', method, mode as AuthMode);
+        else OnboardingAnalytics.auth.failed('onboarding_save', method, mode as AuthMode, 'provider', code);
+        const message = readableAuthError(cause, mode);
+        if (message) setError(message);
+        return;
+      }
+      try {
+        await PostAuthFlowService.run({
+          user: result.user,
+          token: result.token,
+          preserveCompletedOnboarding: result.user.hasCompletedOnboarding === true,
+        });
+        await onAccountReady(result.user);
+        Keyboard.dismiss();
+        setSaved('account');
+      } catch (cause) {
+        OnboardingAnalytics.auth.saveFailed(OnboardingAnalytics.classifyAuthError(cause));
+        const message = readableAuthError(cause, mode);
+        if (message) setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -174,25 +199,32 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
 
   const submitEmail = () => {
     const problem = validationMessage(email, password, mode);
-    if (problem) { setError(problem); return; }
+    if (problem) {
+      OnboardingAnalytics.auth.failed('onboarding_save', 'email', mode as AuthMode, 'validation', validationCode(email, password, mode)!);
+      setError(problem);
+      return;
+    }
     void finish(() => mode === 'signin'
       ? AuthService.signInWithEmail(email.trim(), password)
-      : AuthService.signUpWithEmail(email.trim(), password));
+      : AuthService.signUpWithEmail(email.trim(), password), 'email');
   };
 
   const social = (provider: 'google' | 'apple') => void finish(() => provider === 'google'
     ? AuthService.signInWithGoogle({ allowBackendCreate: mode === 'create' })
-    : AuthService.signInWithApple({ allowBackendCreate: mode === 'create' }));
+    : AuthService.signInWithApple({ allowBackendCreate: mode === 'create' }), provider);
 
   // The account exists but the Anchor has not finished saving (a dropped connection, a relaunch).
   const retrySave = async () => {
     if (!signedInUser) return;
+    retryAttemptRef.current += 1;
+    OnboardingAnalytics.auth.saveRetry(retryAttemptRef.current);
     setError(null);
     setLoading(true);
     try {
       await onAccountReady(signedInUser);
       setSaved('account');
     } catch (cause) {
+      OnboardingAnalytics.auth.saveFailed(OnboardingAnalytics.classifyAuthError(cause));
       setError(readableAuthError(cause, 'create') || 'Your Anchor has not finished saving. Try again.');
     } finally {
       setLoading(false);
@@ -200,6 +232,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   };
 
   const keepOnDevice = () => {
+    OnboardingAnalytics.auth.guestChosen();
     Keyboard.dismiss();
     onContinueWithout();
     setSaved('guest');
@@ -208,6 +241,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const toggleEmail = (open: boolean, nextMode?: Mode) => {
     setError(null);
     if (nextMode) setMode(nextMode);
+    if (open) OnboardingAnalytics.auth.emailFormOpened('onboarding_save', (nextMode ?? mode) as AuthMode);
     setEmailOpen(open);
   };
 

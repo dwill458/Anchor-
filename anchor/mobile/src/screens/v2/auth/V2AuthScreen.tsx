@@ -38,6 +38,7 @@ import { colors, spacing, typography, AnchorMotion } from '@/theme/v2';
 import type { User } from '@/types';
 import { GoogleIcon, AppleIcon } from './components/AuthSocialIcons';
 import { AuthEngravedLinework } from './components/AuthEngravedLinework';
+import { OnboardingAnalytics, type AuthContext, type AuthMode, type AuthMethod, type ValidationCode } from '@/services/v2/onboardingAnalytics';
 
 type Mode = 'signin' | 'create';
 
@@ -53,6 +54,14 @@ function validationMessage(mode: Mode, email: string, password: string): string 
   if (!/^\S+@\S+\.\S+$/.test(email.trim())) return 'Enter a valid email address.';
   if (!password) return 'Enter your password.';
   if (mode === 'create' && password.length < 8) return 'Password must be at least 8 characters.';
+  return null;
+}
+
+function validationCode(mode: Mode, email: string, password: string): ValidationCode | null {
+  if (!email.trim()) return 'email_missing';
+  if (!/^\S+@\S+\.\S+$/.test(email.trim())) return 'email_invalid';
+  if (!password) return 'password_missing';
+  if (mode === 'create' && password.length < 8) return 'password_short';
   return null;
 }
 
@@ -112,20 +121,36 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
     });
   };
 
-  const complete = async (run: () => ReturnType<typeof AuthService.signInWithEmail>) => {
+  const complete = async (run: () => ReturnType<typeof AuthService.signInWithEmail>, method: AuthMethod) => {
     setError(null);
     setLoading(true);
+    const context: AuthContext = saveProgress ? 'save_progress' : 'v2_auth';
     try {
-      const result = await run();
-      await PostAuthFlowService.run({
-        user: result.user,
-        token: result.token,
-        preserveCompletedOnboarding: result.user.hasCompletedOnboarding === true,
-      });
-      await onSuccess?.(result.user);
-    } catch (cause) {
-      const message = readableAuthError(cause, mode);
-      if (message) setError(message);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        OnboardingAnalytics.auth.started(context, method, mode as AuthMode);
+        result = await run();
+        OnboardingAnalytics.auth.succeeded(context, method, mode as AuthMode, result.user.hasCompletedOnboarding === true);
+      } catch (cause) {
+        const code = OnboardingAnalytics.classifyAuthError(cause);
+        if (code === 'cancelled') OnboardingAnalytics.auth.cancelled(context, method, mode as AuthMode);
+        else OnboardingAnalytics.auth.failed(context, method, mode as AuthMode, 'provider', code);
+        const message = readableAuthError(cause, mode);
+        if (message) setError(message);
+        return;
+      }
+      try {
+        await PostAuthFlowService.run({
+          user: result.user,
+          token: result.token,
+          preserveCompletedOnboarding: result.user.hasCompletedOnboarding === true,
+        });
+        await onSuccess?.(result.user);
+      } catch (cause) {
+        OnboardingAnalytics.auth.saveFailed(OnboardingAnalytics.classifyAuthError(cause));
+        const message = readableAuthError(cause, mode);
+        if (message) setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -142,12 +167,13 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
     }
     const validation = validationMessage(mode, email, password);
     if (validation) {
+      OnboardingAnalytics.auth.failed(saveProgress ? 'save_progress' : 'v2_auth', 'email', mode as AuthMode, 'validation', validationCode(mode, email, password)!);
       setError(validation);
       return;
     }
     void complete(() => mode === 'signin'
       ? AuthService.signInWithEmail(email, password)
-      : AuthService.signUpWithEmail(email, password, name));
+      : AuthService.signUpWithEmail(email, password, name), 'email');
   };
 
   const sendReset = async () => {
@@ -166,8 +192,10 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
     setError(null);
     try {
       await AuthService.sendPasswordResetEmail(trimmedEmail);
+      OnboardingAnalytics.auth.passwordResetRequested(saveProgress ? 'save_progress' : 'v2_auth', 'sent');
       Alert.alert('Reset email sent', `If an Anchor account exists for ${trimmedEmail}, a reset link will arrive shortly.`);
     } catch (cause) {
+      OnboardingAnalytics.auth.passwordResetRequested(saveProgress ? 'save_progress' : 'v2_auth', 'failed');
       setError(readableAuthError(cause, 'signin'));
     } finally {
       setLoading(false);
@@ -177,7 +205,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   const socialSignIn = (provider: 'google' | 'apple') => {
     void complete(() => provider === 'google'
       ? AuthService.signInWithGoogle({ allowBackendCreate: mode === 'create' })
-      : AuthService.signInWithApple({ allowBackendCreate: mode === 'create' }));
+      : AuthService.signInWithApple({ allowBackendCreate: mode === 'create' }), provider);
   };
 
   const openTerms = () => {

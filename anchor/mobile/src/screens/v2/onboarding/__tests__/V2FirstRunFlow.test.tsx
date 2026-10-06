@@ -1,13 +1,19 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { AppState } from 'react-native';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { OnboardingAnalytics } from '@/services/v2/onboardingAnalytics';
 
 const mockSetSession = jest.fn();
 let mockHasCompletedOnboarding = true;
+let mockUser: { id: string; hasCompletedOnboarding?: boolean } | null = null;
 jest.mock('@/stores/authStore', () => {
   const state = {
-    user: null,
+    get user() { return mockUser; },
+    isGuest: true,
       setSession: mockSetSession,
       completeOnboarding: jest.fn(),
+      setIsGuest: jest.fn(),
       get hasCompletedOnboarding() {
         return mockHasCompletedOnboarding;
       },
@@ -80,7 +86,20 @@ jest.mock('@/screens/create/IntentionInputScreen', () => ({
   },
 }));
 
+jest.mock('../V2SealedSaveScreen', () => ({
+  V2SealedSaveScreen: ({ onContinue }: { onContinue: (kind: 'guest') => void }) => {
+    const { Pressable, Text } = require('react-native');
+    return <Pressable testID="mock-save-continue" onPress={() => onContinue('guest')}><Text>Mock save continue</Text></Pressable>;
+  },
+}));
+
 import { V2FirstRunFlow } from '../V2FirstRunFlow';
+
+beforeEach(() => {
+  OnboardingAnalytics.reset();
+  (AnalyticsService.track as jest.Mock).mockClear();
+  mockUser = null;
+});
 
 describe('V2FirstRunFlow returning-user sign in', () => {
   beforeEach(() => {
@@ -92,6 +111,54 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     mockResetFirstRun.mockReset();
     mockSetStep.mockClear();
     mockHasCompletedOnboarding = true;
+    mockUser = null;
+  });
+
+  it('tracks a fresh start and first welcome view once', () => {
+    render(<V2FirstRunFlow />);
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_started', expect.objectContaining({ resumed: false, restored_step: 'welcome' }));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_step_viewed', expect.objectContaining({ step: 'welcome', step_index: 1 }));
+    expect((AnalyticsService.track as jest.Mock).mock.calls.filter(([event]) => event === 'onboarding_started')).toHaveLength(1);
+  });
+
+  it('tracks a restored creation step as a resumed session', () => {
+    draft.currentStep = 'creation';
+    render(<V2FirstRunFlow />);
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_started', expect.objectContaining({ resumed: true, restored_step: 'creation' }));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_step_viewed', expect.objectContaining({ step: 'creation', step_index: 4 }));
+  });
+
+  it('tracks both bypass branches before resetting navigation', () => {
+    mockUser = { id: 'returning', hasCompletedOnboarding: true };
+    const first = render(<V2FirstRunFlow />);
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_bypassed', { flow_session_id: expect.any(String), reason: 'returning_user' });
+    first.unmount();
+    OnboardingAnalytics.reset();
+    (AnalyticsService.track as jest.Mock).mockClear();
+    mockUser = null;
+    draft.currentStep = 'complete';
+    render(<V2FirstRunFlow />);
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_bypassed', { flow_session_id: expect.any(String), reason: 'already_complete' });
+  });
+
+  it('records guest completion before clearing the first-run draft', () => {
+    draft.currentStep = 'auth';
+    render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByTestId('mock-save-continue'));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_completed', expect.objectContaining({ path: 'guest', session_ms: expect.any(Number) }));
+  });
+
+  it('records one background event for the current step visit', () => {
+    draft.currentStep = 'motivation';
+    let listener: ((state: string) => void) | undefined;
+    const addListener = jest.spyOn(AppState, 'addEventListener').mockImplementation(((_type: string, callback: (state: string) => void) => {
+      listener = callback;
+      return { remove: jest.fn() } as any;
+    }) as any);
+    render(<V2FirstRunFlow />);
+    act(() => { listener?.('background'); listener?.('background'); });
+    expect((AnalyticsService.track as jest.Mock).mock.calls.filter(([event]) => event === 'onboarding_backgrounded')).toHaveLength(1);
+    addListener.mockRestore();
   });
 
   it('offers a secondary Sign In affordance on the entry surface without a full ritual replay', () => {
@@ -103,6 +170,7 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     render(<V2FirstRunFlow />);
     fireEvent.press(screen.getByText('Sign in'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Auth', { initialMode: 'signin' });
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_cta_tapped', expect.objectContaining({ step: 'welcome', cta: 'sign_in' }));
   });
 
   it('explains what Anchor does on Screen 2 before personalization begins', async () => {
@@ -112,6 +180,7 @@ describe('V2FirstRunFlow returning-user sign in', () => {
       await new Promise((resolve) => setTimeout(resolve, 700));
     });
     expect(mockSetStep).toHaveBeenCalledWith('bridge');
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_cta_tapped', expect.objectContaining({ step: 'welcome', cta: 'start' }));
     view.rerender(<V2FirstRunFlow />);
 
     expect(screen.getByTestId('v2-onboarding-bridge')).toBeTruthy();
@@ -190,6 +259,7 @@ describe('V2FirstRunFlow Screen 3 — the one question', () => {
     fireEvent.press(screen.getByTestId(`focus-card-${card}`));
     expect(mockSetFocusCategory).toHaveBeenCalledTimes(1);
     expect(mockSetFocusCategory).toHaveBeenLastCalledWith(category);
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_category_selected', expect.objectContaining({ category }));
   });
 
   it('answers once, holds a line, and opens creation without any further screen', async () => {
@@ -240,6 +310,15 @@ describe('V2FirstRunFlow resume', () => {
     render(<V2FirstRunFlow />);
     expect(screen.getByTestId('v2-onboarding-bridge')).toBeTruthy();
     expect(screen.queryByTestId('v2-onboarding-welcome')).toBeNull();
+  });
+
+  it('records a bridge skip with a non-negative animation duration', () => {
+    draft.currentStep = 'bridge';
+    render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByTestId('v2-onboarding-bridge'));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_bridge_skipped', expect.objectContaining({ ms_into_animation: expect.any(Number) }));
+    const [, properties] = (AnalyticsService.track as jest.Mock).mock.calls.find(([event]) => event === 'onboarding_bridge_skipped')!;
+    expect(properties.ms_into_animation).toBeGreaterThanOrEqual(0);
   });
 });
 

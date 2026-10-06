@@ -482,11 +482,12 @@ type Props = {
   nextReady?: boolean;
   /** Called the moment Continue is pressed; the owner starts the handoff clock. */
   onContinue: () => void;
+  onSkipAnimation?: (msIntoAnimation: number) => void;
 };
 
 const INK_PLAN = planInk();
 
-export function V2OnboardingExplain({ header, reduceMotion, active = true, handoff, nextReady = true, onContinue }: Props) {
+export function V2OnboardingExplain({ header, reduceMotion, active = true, handoff, nextReady = true, onContinue, onSkipAnimation }: Props) {
   const windowDim = useWindowDimensions();
   const screenDim = Dimensions.get("window");
   const W = windowDim.width || screenDim.width || 390;
@@ -497,7 +498,12 @@ export function V2OnboardingExplain({ header, reduceMotion, active = true, hando
   const idle = useSharedValue(0.5);
   const [ctaReady, setCtaReady] = useState(false);
   const leaving = useRef(false);
+  const activeAtRef = useRef(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    if (active) activeAtRef.current = Date.now();
+  }, [active]);
 
   // Copy block is laid out from the bottom; the hero area takes whatever remains above it.
   const bottomPad = Math.max(insets.bottom, 16) + 12;
@@ -659,6 +665,7 @@ export function V2OnboardingExplain({ header, reduceMotion, active = true, hando
   // Lets a returning or impatient user tap past the transformation instead of waiting it out.
   const handleSkip = () => {
     if (!active || ctaReady || leaving.current) return;
+    onSkipAnimation?.(Math.max(0, Date.now() - activeAtRef.current));
     cancelAnimation(clock);
     clock.value = reduceMotion ? RM.end : T.end;
     timers.current.forEach(clearTimeout);

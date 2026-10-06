@@ -393,6 +393,13 @@ export const AnalyticsEvents = {
   // Anchor usage
   ANCHOR_VIEWED: 'anchor_viewed',
   ANCHOR_DETAIL_VIEWED: 'anchor_detail_viewed',
+
+  // Share Studio / social export (layout: minimal | style | editorial | vision)
+  SHARE_STUDIO_OPENED: 'share_studio_opened',
+  SHARE_LAYOUT_SELECTED: 'share_layout_selected',
+  ANCHOR_EXPORT_SAVED: 'anchor_export_saved',
+  ANCHOR_EXPORT_SHARED: 'anchor_export_shared',
+
   ANCHOR_CHARGED: 'anchor_charged',
   ANCHOR_ACTIVATED: 'anchor_activated',
   ANCHOR_DELETED: 'anchor_deleted',
@@ -423,6 +430,15 @@ export const AnalyticsEvents = {
   TRIAL_CONVERTED: 'trial_converted',
   TRIAL_BANNER_VIEWED: 'trial_banner_viewed',
   TRIAL_BANNER_TAPPED: 'trial_banner_tapped',
+
+  // Paywall (names match the legacy paywall's literals; step2 is the two-step V2 paywall)
+  PAYWALL_VIEWED: 'paywall_viewed',
+  PAYWALL_DISMISSED: 'paywall_dismissed',
+  PAYWALL_CTA_TAPPED: 'paywall_cta_tapped',
+  PAYWALL_CONVERTED: 'paywall_converted',
+  PAYWALL_STEP2_VIEWED: 'paywall_step2_viewed',
+  PAYWALL_PLAN_SELECTED: 'paywall_plan_selected',
+  PAYWALL_RESTORE_TAPPED: 'paywall_restore_tapped',
 
   // Features
   MANUAL_FORGE_OPENED: 'manual_forge_opened',

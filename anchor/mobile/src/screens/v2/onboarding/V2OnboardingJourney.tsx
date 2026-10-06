@@ -38,6 +38,7 @@ import { OpeningProgressHeader } from "./OpeningProgressHeader";
 import { easeInOutCubic, handoffTimeline, seg } from "./openingHandoff";
 import { categoryHandoffTimeline } from "./categoryHandoff";
 import { Screen2Backdrop } from "./screen2Backdrop";
+import { OnboardingAnalytics } from "@/services/v2/onboardingAnalytics";
 
 /** Screen 3 mounts beneath Screen 2 this long after Screen 2 starts, so it is decoded before Continue. */
 const FOCUS_PRELOAD_DELAY_MS = 600;
@@ -292,7 +293,7 @@ function Welcome({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Already use Anchor? Sign in"
-            onPress={onSignIn}
+            onPress={() => { OnboardingAnalytics.cta("welcome", "sign_in"); onSignIn(); }}
             style={styles.signIn}
           >
             <Text style={styles.signInText}>
@@ -307,7 +308,7 @@ function Welcome({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Dev open creation flow"
-                  onPress={onCreate}
+                  onPress={() => { OnboardingAnalytics.cta("welcome", "create"); onCreate(); }}
                   style={styles.devWelcomePill}
                 >
                   <Text style={styles.devWelcomePillText}>Dev: Creation Flow</Text>
@@ -434,6 +435,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
   const choose = useCallback(
     (category: AnchorCategory) => {
       if (leaving) return;
+      OnboardingAnalytics.categorySelected(category);
       setFocusCategory(category);
       setLeaving(true);
       leaveClock.value = 0;
@@ -465,11 +467,11 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
     return (
       <View style={styles.screen}>
         <View key="prepared-bridge" style={StyleSheet.absoluteFill} pointerEvents="none">
-          <V2OnboardingExplain active={false} reduceMotion={reduceMotion} handoff={handoff} nextReady={false} onContinue={startHandoff} />
+          <V2OnboardingExplain active={false} reduceMotion={reduceMotion} handoff={handoff} nextReady={false} onContinue={startHandoff} onSkipAnimation={(ms) => OnboardingAnalytics.bridgeSkipped(ms)} />
         </View>
         <StatusBar style="dark" translucent backgroundColor="transparent" />
         <Welcome
-          onStart={() => setStep("bridge")}
+          onStart={() => { OnboardingAnalytics.cta("welcome", "start"); setStep("bridge"); }}
           onSignIn={onSignIn}
           onCreate={onCreate}
           onDevSkip={onDevSkip}
@@ -516,6 +518,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
             handoff={handoff}
             nextReady={focusMounted && focusReady}
             onContinue={startHandoff}
+            onSkipAnimation={(ms) => OnboardingAnalytics.bridgeSkipped(ms)}
           />
         </View>
       ) : null}
