@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useAudio, type ManagedAudioPlayer } from '@/hooks/useAudio';
+import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
 import { safeHaptics } from '@/utils/haptics';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { colors, typography } from '@/theme/v2';
@@ -19,7 +19,6 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
   onKeep: () => void; onInteraction: (locked: boolean) => void; onCommitted: () => void;
   onMeasure: (rect: { x: number; y: number; width: number; height: number }) => void;
 }) {
-  const { createManagedPlayer } = useAudio();
   const count = useAnchorStore((state) => state.anchors.length);
   // DEFERRED: tracing and its dotted guide. Every user now holds the selected form.
   const progress = useSharedValue(0);
@@ -30,7 +29,7 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
   const started = useRef(false);
   const touching = useRef(false);
   const thresholds = useRef(0);
-  const tone = useRef<ManagedAudioPlayer | null>(null);
+  const tone = useRef<CreationSoundHandle | null>(null);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const hold = useRef<ReturnType<typeof setInterval> | null>(null);
   const decay = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,8 +70,6 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
   }, [count, later, press, reduceMotion, stopHold, stopTone]);
   const update = useCallback((fraction: number) => {
     progress.value = fraction;
-    tone.current?.setRate(0.65 + fraction * 0.95);
-    tone.current?.setVolume(0.08 + fraction * 0.12);
     const threshold = fraction >= 0.75 ? 2 : fraction >= 0.25 ? 1 : 0;
     if (threshold > thresholds.current) { thresholds.current = threshold; impact(threshold === 2 ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light); }
     if (fraction >= 1) finish();
@@ -85,12 +82,11 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
     touching.current = true;
     callbacks.current.onInteraction(true);
     if (!started.current) { started.current = true; track('anchor_seal_started'); }
-    tone.current = createManagedPlayer('haptic-tone', { loop: true, volume: 0.08 });
-    tone.current?.setRate(0.65); tone.current?.play();
+    tone.current = playCreationSound('sealRise');
     impact(Haptics.ImpactFeedbackStyle.Light);
     const start = Date.now();
     hold.current = setInterval(() => { const fraction = Math.min(1, (Date.now() - start) / 1200); distance.current = fraction; update(fraction); }, 16);
-  }, [active, createManagedPlayer, disabled, progress, update]);
+  }, [active, disabled, progress, update]);
   const release = useCallback(() => {
     touching.current = false;
     if (complete.current) return;

@@ -5,6 +5,9 @@ const mockRestore = jest.fn();
 const mockGetOfferingDisplayMetadata = jest.fn();
 const mockActivateV2Trial = jest.fn();
 const mockRefreshServerEntitlement = jest.fn();
+const mockPlayCreationSound = jest.fn();
+
+jest.mock('@/services/CreationSounds', () => ({ playCreationSound: (...args: unknown[]) => mockPlayCreationSound(...args) }));
 
 jest.mock('@/services/RevenueCatService', () => ({
   __esModule: true,
@@ -95,6 +98,8 @@ describe('useV2Paywall — trial start', () => {
 
     expect(onEntitled).toHaveBeenCalledWith({ context: 'PRACTICE', outcome: 'trial_started', plan: 'annual' });
     expect(result.current.purchaseState).toBe('success');
+    expect(mockPlayCreationSound).toHaveBeenCalledTimes(1);
+    expect(mockPlayCreationSound).toHaveBeenCalledWith('paywallSuccess');
   });
 
   it('prevents a double submission from firing two purchases', async () => {
@@ -127,6 +132,7 @@ describe('useV2Paywall — trial start', () => {
     });
 
     expect(result.current.purchaseState).toBe('cancelled');
+    expect(mockPlayCreationSound).not.toHaveBeenCalled();
     expect(mockActivateV2Trial).not.toHaveBeenCalled();
     expect(onEntitled).not.toHaveBeenCalled();
   });
@@ -176,6 +182,7 @@ describe('useV2Paywall — restore', () => {
     });
 
     expect(result.current.restoreState).toBe('no_purchases_found');
+    expect(mockPlayCreationSound).not.toHaveBeenCalled();
     expect(onEntitled).not.toHaveBeenCalled();
   });
 
@@ -209,6 +216,8 @@ describe('useV2Paywall — restore', () => {
 
     expect(result.current.restoreState).toBe('success');
     expect(onEntitled).toHaveBeenCalledWith({ context: 'PRACTICE', outcome: 'restored', plan: undefined });
+    expect(mockPlayCreationSound).toHaveBeenCalledTimes(1);
+    expect(mockPlayCreationSound).toHaveBeenCalledWith('paywallSuccess');
   });
 
   it('reports a recoverable error when restore throws', async () => {
@@ -220,5 +229,6 @@ describe('useV2Paywall — restore', () => {
       await result.current.restore();
     });
     expect(result.current.restoreState).toBe('error');
+    expect(mockPlayCreationSound).not.toHaveBeenCalled();
   });
 });

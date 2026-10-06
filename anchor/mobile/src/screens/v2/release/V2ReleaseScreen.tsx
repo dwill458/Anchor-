@@ -13,6 +13,7 @@ import { releaseTypography } from '@/components/v2/release/releaseTypography';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { useReleaseHold, useV2Release } from '@/hooks/v2/release';
 import { useReleaseBurnFeel } from '@/hooks/v2/release/useReleaseBurnFeel';
+import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
 import { safeHaptics } from '@/utils/haptics';
 import { RELEASE_COPY, RELEASE_CEREMONY_CHAMBER_BG, RELEASE_FIRE_PREPARE_AT, type V2ReleaseActionId } from '@/constants/v2/release';
 import { colors, getCategoryColor, spacing } from '@/theme/v2';
@@ -59,12 +60,14 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   const [controlsHeight, setControlsHeight] = useState(120);
   const release = useV2Release({ anchorId, adapter: releaseAdapter, reason, successor, hasLinkedVision });
   const feel = useReleaseBurnFeel();
+  const releaseFall = useRef<CreationSoundHandle | null>(null);
+  const stopReleaseFall = useCallback(() => { releaseFall.current?.stop(); releaseFall.current = null; }, []);
   // Commitment is tactile, not a success notification: the medium pulse is the ignition, and the
   // burn's sound + swell start on the same instant. Success belongs to the result reveal.
   const holdHaptics = useMemo(() => ({ selection: v2Haptics.selection,
-    completion: () => { feel.begin(reduceMotion); return safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium); } }), [feel.begin, reduceMotion]);
+    completion: () => { stopReleaseFall(); feel.begin(reduceMotion); return safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium); } }), [feel.begin, reduceMotion, stopReleaseFall]);
   const hold = useReleaseHold({ reduceMotion, haptics: holdHaptics, onComplete: release.startRelease,
-    onCancel: () => AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.cancelAnnouncement),
+    onCancel: () => { stopReleaseFall(); AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.cancelAnnouncement); },
     onSustainStart: () => AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.sustainAnnouncement) });
   const restingRect = useMemo(() => releaseArtworkRect(width, height), [width, height]);
   const measuredRect = useRef(restingRect);
@@ -76,15 +79,14 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   useEffect(() => { onSessionActiveChange?.(locked); }, [locked, onSessionActiveChange]);
   useEffect(() => { if (!active) setSilent(false); }, [active]);
   useEffect(() => { if (!active && !hold.isHolding) setHeldRect(null); }, [active, hold.isHolding]);
-  // Another screen covering this one is a cancellation: no request, no completion haptic.
-  useEffect(() => { if (!focused) hold.endHold(); }, [focused, hold.endHold]);
   // The relationships changed under the hold: it was rejected, so it must be repeated.
   useEffect(() => {
     if (!release.stale) return;
+    stopReleaseFall();
     feel.end();
     hold.reset();
     AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.staleNotice);
-  }, [release.stale, hold.reset, feel.end]);
+  }, [release.stale, hold.reset, feel.end, stopReleaseFall]);
   // Backstop: if the release never reaches (or leaves) the burn, nothing keeps sounding or buzzing.
   useEffect(() => { if (release.stage !== 'preflight' && release.stage !== 'dissolving') feel.end(); }, [release.stage, feel.end]);
   useEffect(() => {
@@ -121,11 +123,15 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
     if (!active && !hold.isHolding && w > 0 && h > 0) measuredRect.current = { x, y, width: w, height: h };
   }, [place.onLayout, active, hold.isHolding]);
   const handleControlsLayout = useCallback((event: LayoutChangeEvent) => setControlsHeight(Math.ceil(event.nativeEvent.layout.height)), []);
-  const handleHoldStart = useCallback(() => { setHeldRect(measuredRect.current); release.beginHold(); hold.beginHold(); }, [hold.beginHold, release.beginHold]);
-  const handleCancel = useCallback(() => { hold.endHold(); onCancel(); }, [hold.endHold, onCancel]);
-  const handleFreshHold = useCallback(() => { release.reset(); hold.reset(); setSilent(false); }, [release.reset, hold.reset]);
+  const handleHoldStart = useCallback(() => { stopReleaseFall(); releaseFall.current = playCreationSound('releaseFall'); setHeldRect(measuredRect.current); release.beginHold(); hold.beginHold(); }, [hold.beginHold, release.beginHold, stopReleaseFall]);
+  const handleHoldEnd = useCallback(() => { stopReleaseFall(); hold.endHold(); }, [hold.endHold, stopReleaseFall]);
+  // Another screen covering this one is a cancellation: no request, no completion haptic.
+  useEffect(() => { if (!focused) handleHoldEnd(); }, [focused, handleHoldEnd]);
+  const handleCancel = useCallback(() => { handleHoldEnd(); onCancel(); }, [handleHoldEnd, onCancel]);
+  const handleFreshHold = useCallback(() => { stopReleaseFall(); release.reset(); hold.reset(); setSilent(false); }, [release.reset, hold.reset, stopReleaseFall]);
   // The coin is gone: sound and haptics stop in the same beat the screen goes black.
-  const startSilence = useCallback(() => { feel.end(); setSilent(true); }, [feel.end]);
+  const startSilence = useCallback(() => { feel.end(); if (!reduceMotion) playCreationSound('releaseResolve'); setSilent(true); }, [feel.end, reduceMotion]);
+  useEffect(() => () => stopReleaseFall(), [stopReleaseFall]);
   const courseId = release.snapshot?.courseId ?? null;
   const handleAction = useCallback((action: V2ReleaseActionId) => {
     const ending = release.ending;
@@ -194,7 +200,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
             <V2HoldToReleaseControl artworkSvg={snapshot.artworkSvg} imageUrl={snapshot.imageUrl} category={snapshot.category}
               progress={hold.progress} visualProgress={hold.visualProgress} isHolding={hold.isHolding}
               disabled={hold.isComplete} accessibilityHint={releaseHoldHint(snapshot.reason, RELEASE_COPY)}
-              onHoldStart={handleHoldStart} onHoldEnd={hold.endHold} />
+              onHoldStart={handleHoldStart} onHoldEnd={handleHoldEnd} />
           ) : (
             <View style={styles.successorMissing} testID="v2-release-successor-missing">
               <Text style={styles.heading} accessibilityRole="header">{RELEASE_COPY.successorMissingTitle}</Text>

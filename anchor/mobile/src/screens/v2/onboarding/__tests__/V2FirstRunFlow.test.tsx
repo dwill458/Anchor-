@@ -132,6 +132,8 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     mockUser = { id: 'returning', hasCompletedOnboarding: true };
     const first = render(<V2FirstRunFlow />);
     expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_bypassed', { flow_session_id: expect.any(String), reason: 'returning_user' });
+    expect((AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event))
+      .not.toEqual(expect.arrayContaining(['onboarding_started', 'onboarding_step_viewed']));
     first.unmount();
     OnboardingAnalytics.reset();
     (AnalyticsService.track as jest.Mock).mockClear();
@@ -139,6 +141,23 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     draft.currentStep = 'complete';
     render(<V2FirstRunFlow />);
     expect(AnalyticsService.track).toHaveBeenCalledWith('onboarding_bypassed', { flow_session_id: expect.any(String), reason: 'already_complete' });
+    expect((AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event))
+      .not.toEqual(expect.arrayContaining(['onboarding_started', 'onboarding_step_viewed']));
+  });
+
+  it('keeps earlier welcome analytics without duplicating them after sign in and bypass', () => {
+    const view = render(<V2FirstRunFlow />);
+    expect((AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event)
+      .filter((event) => event === 'onboarding_started')).toHaveLength(1);
+    expect((AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event)
+      .filter((event) => event === 'onboarding_step_viewed')).toHaveLength(1);
+
+    mockUser = { id: 'returning', hasCompletedOnboarding: true };
+    view.rerender(<V2FirstRunFlow />);
+    const events = (AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event);
+    expect(events.filter((event) => event === 'onboarding_started')).toHaveLength(1);
+    expect(events.filter((event) => event === 'onboarding_step_viewed')).toHaveLength(1);
+    expect(events).toContain('onboarding_bypassed');
   });
 
   it('records guest completion before clearing the first-run draft', () => {

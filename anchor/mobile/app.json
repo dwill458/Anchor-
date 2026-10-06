@@ -188,7 +188,9 @@
         {
           "sounds": [
             "./src/assets/sounds/notification.wav",
-            "./src/assets/sounds/notification.wav"
+            "./src/assets/sounds/notification-daily.wav",
+            "./src/assets/sounds/notification-checkpoint.wav",
+            "./src/assets/sounds/notification-weekly.wav"
           ]
         }
       ],

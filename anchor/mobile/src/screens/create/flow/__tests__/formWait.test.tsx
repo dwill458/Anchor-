@@ -20,6 +20,7 @@ jest.mock('@/stores/v2/firstRunStore', () => ({ useFirstRunStore: { getState: ()
 const mockGenerate = jest.fn();
 const mockPlay = jest.fn();
 const mockStop = jest.fn();
+const mockBedStop = jest.fn();
 const mockImpact = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
@@ -71,7 +72,7 @@ describe('Form wait wiring', () => {
     jest.useFakeTimers(); jest.setSystemTime(100_000); mockFromOnboarding = false;
     jest.clearAllMocks(); mockNow = 100;
     mockGenerate.mockImplementation(() => new Promise(() => {}));
-    mockPlay.mockImplementation(() => ({ stop: mockStop }));
+    mockPlay.mockImplementation((key: string) => ({ stop: key === 'formBed' ? mockBedStop : mockStop }));
     AppState.currentState = 'active';
     jest.spyOn(performance, 'now').mockImplementation(() => mockNow);
     jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, handler) => {
@@ -121,6 +122,7 @@ describe('Form wait wiring', () => {
     mockGenerate.mockRejectedValue({ kind: 'generic' });
     commit();
     await act(async () => { await Promise.resolve(); });
+    expect(mockBedStop).toHaveBeenCalledWith(300);
     expect(screen.getByRole('button', { name: 'Back' }).props.accessibilityState.disabled).toBe(false);
     mockPlay.mockClear(); mockImpact.mockClear();
     advanceFrames(8);
@@ -151,12 +153,14 @@ describe('Form wait wiring', () => {
     let resolve!: (value: unknown) => void;
     mockGenerate.mockImplementation(() => new Promise((done) => { resolve = done; }));
     commit();
+    expect(mockPlay).toHaveBeenCalledWith('formBed', undefined, { loop: true });
     mockPlay.mockClear(); mockImpact.mockClear();
     advanceFrames(6);
     expect(mockImpact).toHaveBeenCalledWith('light'); expect(mockImpact).toHaveBeenCalledWith('medium');
     expect(mockPlay).toHaveBeenCalledWith('formTick', 0.30);
     act(() => mockAppState('background'));
     expect(mockStop).toHaveBeenCalled();
+    expect(mockBedStop).toHaveBeenCalledWith(300);
     mockPlay.mockClear(); mockImpact.mockClear();
     advanceFrames(4);
     expect(mockPlay).not.toHaveBeenCalled(); expect(mockImpact).not.toHaveBeenCalled();
@@ -168,5 +172,25 @@ describe('Form wait wiring', () => {
     expect(mockImpact).toHaveBeenCalledWith('medium');
     mockPlay.mockClear(); advanceFrames(4);
     expect(mockPlay).not.toHaveBeenCalled();
+  });
+
+  it('fades the Form bed when the wait settles', async () => {
+    let resolve!: (value: unknown) => void;
+    mockGenerate.mockImplementation(() => new Promise((done) => { resolve = done; }));
+    commit();
+    expect(mockPlay).toHaveBeenCalledWith('formBed', undefined, { loop: true });
+    advanceFrames(6);
+    await act(async () => { resolve({ variations: ['data:image/png;base64,YQ=='] }); });
+    advanceFrames(2);
+    expect(mockBedStop).toHaveBeenCalledWith(300);
+  });
+
+  it('fades the Form bed on unmount', () => {
+    render(<AnchorCreationFlowScreen />);
+    advanceFrames(16);
+    fireEvent.press(screen.getByText('Commit Alloy'));
+    expect(mockPlay).toHaveBeenCalledWith('formBed', undefined, { loop: true });
+    cleanup();
+    expect(mockBedStop).toHaveBeenCalledWith(300);
   });
 });

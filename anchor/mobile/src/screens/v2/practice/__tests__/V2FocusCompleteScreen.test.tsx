@@ -2,10 +2,14 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { V2FocusCompleteScreen } from '../focus/V2FocusCompleteScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
+import { playCreationSound } from '@/services/CreationSounds';
+
+jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 
 describe('V2FocusCompleteScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -128,6 +132,21 @@ describe('V2FocusCompleteScreen', () => {
     expect(screen.getByText('24%')).toBeTruthy();
     expect(screen.queryByText('24% → 24%')).toBeNull();
     expect(screen.getByText('Reinforced today ✓')).toBeTruthy();
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(playCreationSound).not.toHaveBeenCalledWith('threadSettle');
+  });
+
+  it('plays Thread settle once after the bar fills only when strength increased', () => {
+    const anchor = makeAnchor({ id: 'a1', threadStrength: 30 });
+    render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={30} beforeStrength={30} afterStrength={35} onDone={jest.fn()} onAgain={jest.fn()} />);
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(playCreationSound).toHaveBeenCalledTimes(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadSettle');
+
+    jest.clearAllMocks();
+    render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={30} beforeStrength={35} afterStrength={30} onDone={jest.fn()} onAgain={jest.fn()} />);
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(playCreationSound).not.toHaveBeenCalled();
   });
 
   it('does not claim reinforcement when the session record was not saved', () => {

@@ -31,21 +31,24 @@ Notifications.setNotificationHandler({
 const IS_ANDROID = Platform.OS === 'android';
 const DEFAULT_LIGHT_COLOR = '#D4AF37';
 const CUSTOM_NOTIFICATION_SOUND = 'notification.wav';
+const DAILY_NOTIFICATION_SOUND = 'notification-daily.wav';
+const CHECKPOINT_NOTIFICATION_SOUND = 'notification-checkpoint.wav';
+const WEEKLY_NOTIFICATION_SOUND = 'notification-weekly.wav';
 
 /**
  * Android channel ids are versioned. Android freezes a channel's importance and
  * sound the moment it is first created — later `setNotificationChannelAsync`
  * calls with a higher importance are ignored for the lifetime of the install.
- * The `-v2` suffix creates fresh channels so existing installs pick up the
- * corrected importance levels; `LEGACY_NOTIFICATION_CHANNELS` are deleted so the
+ * A new version suffix creates fresh channels when importance or sound changes;
+ * `LEGACY_NOTIFICATION_CHANNELS` are deleted so the
  * user's notification settings screen does not accumulate dead entries.
  */
 export const NOTIFICATION_CHANNELS = {
-  DAILY_REMINDERS: 'daily-reminders-v2',
-  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v2',
+  DAILY_REMINDERS: 'daily-reminders-v3',
+  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v3',
   RITUAL_REMINDERS: 'ritual-reminders-v2',
   STREAK_PROTECTION: 'streak-protection-v2',
-  WEEKLY_SUMMARY: 'weekly-summary-v2',
+  WEEKLY_SUMMARY: 'weekly-summary-v3',
 };
 
 const LEGACY_NOTIFICATION_CHANNELS = [
@@ -54,6 +57,9 @@ const LEGACY_NOTIFICATION_CHANNELS = [
   'ritual-reminders',
   'streak-protection',
   'weekly-summary',
+  'daily-reminders-v2',
+  'daily-goal-checkpoints-v2',
+  'weekly-summary-v2',
 ];
 
 export const NOTIFICATION_IDS = {
@@ -283,7 +289,7 @@ class NotificationService {
       content: {
         title: 'Return to Your Anchor',
         body: 'A moment to return to your anchor.',
-        sound: CUSTOM_NOTIFICATION_SOUND,
+        sound: DAILY_NOTIFICATION_SOUND,
         data: this.buildPayload('daily_reminder'),
       },
       trigger: this.buildDailyTrigger(
@@ -329,7 +335,7 @@ class NotificationService {
         body: isFinalCheckpoint
           ? "One more focus or reinforce session completes today's goal."
           : "A quick focus or reinforce session keeps today's goal on track.",
-        sound: CUSTOM_NOTIFICATION_SOUND,
+        sound: CHECKPOINT_NOTIFICATION_SOUND,
         data: this.buildPayload('daily_goal_checkpoint', {
           goal,
           milestone,
@@ -458,7 +464,7 @@ class NotificationService {
       content: {
         title: 'Your Weekly Reflection',
         body: 'A short overview of your practice this week is ready.',
-        sound: CUSTOM_NOTIFICATION_SOUND,
+        sound: WEEKLY_NOTIFICATION_SOUND,
         data: this.buildPayload('weekly_summary'),
       },
       trigger: {
@@ -739,7 +745,7 @@ class NotificationService {
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
+        sound: DAILY_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS, {
@@ -747,7 +753,7 @@ class NotificationService {
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
+        sound: CHECKPOINT_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
@@ -769,7 +775,7 @@ class NotificationService {
         name: 'Weekly Summary',
         importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
+        sound: WEEKLY_NOTIFICATION_SOUND,
       });
 
       await this.deleteLegacyAndroidChannels();
@@ -928,7 +934,7 @@ class NotificationService {
           content: {
             title: 'Test: Return to Your Anchor',
             body: 'Developer test for the daily reminder notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
+            sound: DAILY_NOTIFICATION_SOUND,
             data: this.buildPayload('daily_reminder'),
           },
           trigger: this.buildTimeIntervalTrigger(
@@ -942,7 +948,7 @@ class NotificationService {
           content: {
             title: "Test: Stay with Today's Goal",
             body: 'Developer test for the daily goal checkpoint notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
+            sound: CHECKPOINT_NOTIFICATION_SOUND,
             data: this.buildPayload('daily_goal_checkpoint', {
               goal: 3,
               milestone: 2,
@@ -991,7 +997,7 @@ class NotificationService {
           content: {
             title: 'Test: Your Weekly Reflection',
             body: 'Developer test for the weekly summary notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
+            sound: WEEKLY_NOTIFICATION_SOUND,
             data: this.buildPayload('weekly_summary'),
           },
           trigger: this.buildTimeIntervalTrigger(

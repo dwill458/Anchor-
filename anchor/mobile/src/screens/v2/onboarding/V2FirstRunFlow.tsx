@@ -43,6 +43,9 @@ export function V2FirstRunFlow() {
 
   useEffect(() => {
     if (!hydrated) return;
+    const isBeingBypassed = Boolean(user?.id && user.hasCompletedOnboarding)
+      || (draft.currentStep === 'complete' && (user || useAuthStore.getState().isGuest));
+    if (isBeingBypassed) return;
     const step = draft.currentStep;
     if (prevStepRef.current === undefined) {
       OnboardingAnalytics.started(step);

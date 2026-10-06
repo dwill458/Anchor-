@@ -9,6 +9,13 @@ const mockAnchorStoreState: { anchors: Array<Record<string, unknown>>; releaseAn
 };
 const mockCourseStoreState: { activeCourse: unknown } = { activeCourse: null };
 const mockReduceMotion = jest.fn(() => false);
+const mockAudioEvents: string[] = [];
+const mockPlayCreationSound = jest.fn((key: string) => {
+  mockAudioEvents.push(`play:${key}`);
+  return { stop: () => mockAudioEvents.push(`stop:${key}`) };
+});
+
+jest.mock('@/services/CreationSounds', () => ({ playCreationSound: (key: string) => mockPlayCreationSound(key) }));
 
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: (selector: (s: unknown) => unknown) => selector(mockAnchorStoreState),
@@ -115,6 +122,8 @@ describe('V2ReleaseScreen', () => {
     jest.useFakeTimers();
     mockReleaseAnchor.mockClear();
     mockReduceMotion.mockReturnValue(false);
+    mockAudioEvents.length = 0;
+    mockPlayCreationSound.mockClear();
     mockAnchorStoreState.anchors = [anchor];
     mockCourseStoreState.activeCourse = null;
     // The global Skia double omits remote decoding; model success/failure here.
@@ -202,6 +211,24 @@ describe('V2ReleaseScreen', () => {
     );
   });
 
+  it('stops the hold fall before the burn one-shot starts', async () => {
+    const { getByTestId } = render(<V2ReleaseScreen anchorId="anchor-1"
+      releaseAdapter={fakeAdapter({ status: 'released', anchorId: 'anchor-1' })}
+      onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    expect(mockPlayCreationSound).toHaveBeenCalledWith('releaseFall');
+    act(() => jest.advanceTimersByTime(1850));
+    await flush();
+
+    const fallPlay = mockAudioEvents.indexOf('play:releaseFall');
+    const fallStop = mockAudioEvents.indexOf('stop:releaseFall');
+    const burnPlay = mockAudioEvents.indexOf('play:releaseBurn');
+    expect(fallPlay).toBeGreaterThanOrEqual(0);
+    expect(fallStop).toBeGreaterThan(fallPlay);
+    expect(burnPlay).toBeGreaterThan(fallStop);
+  });
+
   it('Reduced Motion runs an accessible non-animated dissolution and reaches completion', async () => {
     mockReduceMotion.mockReturnValue(true);
     const onReleaseCompleted = jest.fn();
@@ -224,6 +251,8 @@ describe('V2ReleaseScreen', () => {
 
     // Reduced ceremony has no ember particles.
     expect(getByTestId('v2-dissolution-ceremony')).toBeTruthy();
+    act(() => jest.advanceTimersByTime(650));
+    expect(mockPlayCreationSound).not.toHaveBeenCalledWith('releaseResolve');
     expect(() => getByTestId('ember-0')).toThrow();
 
     // Reduced timeline resolves quickly (< 1s of ceremony).
@@ -302,6 +331,8 @@ describe('V2ReleaseScreen', () => {
     await flush();
     act(() => jest.advanceTimersByTime(3050));
     expect(getByTestId('v2-dissolution-phase-emptyPause')).toBeTruthy();
+    expect(mockPlayCreationSound).toHaveBeenCalledWith('releaseResolve');
+    expect(mockPlayCreationSound.mock.calls.filter(([key]) => key === 'releaseResolve')).toHaveLength(1);
     expect(queryByTestId('v2-release-status-confirming')).toBeNull();
     expect(queryByTestId('v2-release-completion')).toBeNull();
     act(() => jest.advanceTimersByTime(299));

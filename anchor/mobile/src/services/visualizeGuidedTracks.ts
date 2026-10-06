@@ -4,16 +4,16 @@ import type { GuideId, GuidedTrackId } from '@/screens/v2/practice/visualize/gui
 // Static requires are intentional: Metro cannot resolve dynamically constructed asset paths.
 const GUIDED_TRACKS: Readonly<Record<GuidedTrackId, Readonly<Record<GuideId, AudioSource>>>> = {
   glimpse: {
-    dominic: require('../assets/sounds/visualize/guided/glimpse_dominic.mp3'),
-    lina: require('../assets/sounds/visualize/guided/glimpse_lina.mp3'),
+    dominic: require('../assets/sounds/visualize/guided/Anchor_Glimpse_Dominic_V3.mp3'),
+    lina: require('../assets/sounds/visualize/guided/Anchor_Glimpse_Lina_V3.mp3'),
   },
   immerse: {
-    dominic: require('../assets/sounds/visualize/guided/immerse_dominic.mp3'),
-    lina: require('../assets/sounds/visualize/guided/immerse_lina.mp3'),
+    dominic: require('../assets/sounds/visualize/guided/Anchor_Immerse_Dominic_3min_V3.mp3'),
+    lina: require('../assets/sounds/visualize/guided/Anchor_Immerse_Lina_3min_V3.mp3'),
   },
   embody: {
-    dominic: require('../assets/sounds/visualize/guided/embody_dominic.mp3'),
-    lina: require('../assets/sounds/visualize/guided/embody_lina.mp3'),
+    dominic: require('../assets/sounds/visualize/guided/Embody_Final_10min15_V3.mp3'),
+    lina: require('../assets/sounds/visualize/guided/Embody_Final_Lina_10min15_V3.mp3'),
   },
 };
 

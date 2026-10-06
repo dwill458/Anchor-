@@ -143,7 +143,7 @@ export const OnboardingAnalytics = {
     guestChosen(): void { safeTrack('auth_guest_chosen', { context: 'onboarding_save' }); },
     passwordResetRequested(context: AuthContext, outcome: 'sent' | 'failed'): void { safeTrack('auth_password_reset_requested', { context, outcome }); },
     saveRetry(attempt: number): void { safeTrack('anchor_save_retry', { context: 'onboarding_save', attempt }); },
-    saveFailed(errorCode: AuthErrorCode): void { safeTrack('anchor_save_failed', { context: 'onboarding_save', error_code: errorCode }); },
+    saveFailed(context: AuthContext, errorCode: AuthErrorCode): void { safeTrack('anchor_save_failed', { context, error_code: errorCode }); },
   },
   reset(): void {
     flowSessionId = null;

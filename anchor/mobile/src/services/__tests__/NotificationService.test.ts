@@ -1,6 +1,9 @@
 import type { Notification } from 'expo-notifications';
 import * as Notifications from 'expo-notifications';
 import NotificationService, { NOTIFICATION_CHANNELS, NOTIFICATION_IDS } from '../NotificationService';
+import { Platform } from 'react-native';
+import fs from 'node:fs';
+import path from 'node:path';
 
 jest.mock('expo-constants', () => ({
   expoConfig: {
@@ -72,6 +75,58 @@ describe('NotificationService', () => {
 
     await expect(NotificationService.getPermissionStatus()).resolves.toBe('denied');
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('uses the bundled sound for daily, checkpoint, and weekly notifications', async () => {
+    await NotificationService.scheduleDailyReminder('09:30');
+    await NotificationService.scheduleDailyGoalCheckpoint(2, 4, new Date(Date.now() + 60_000));
+    await NotificationService.scheduleWeeklySummary(0, '19:00');
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      content: expect.objectContaining({ sound: 'notification-daily.wav' }),
+    }));
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      content: expect.objectContaining({ sound: 'notification-checkpoint.wav' }),
+    }));
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      content: expect.objectContaining({ sound: 'notification-weekly.wav' }),
+    }));
+    expect(NOTIFICATION_CHANNELS).toMatchObject({
+      DAILY_REMINDERS: 'daily-reminders-v3',
+      DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v3',
+      WEEKLY_SUMMARY: 'weekly-summary-v3',
+    });
+
+    const appConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../app.json'), 'utf8'));
+    const notificationsPlugin = appConfig.expo.plugins.find((plugin: unknown) => Array.isArray(plugin) && plugin[0] === 'expo-notifications');
+    expect(notificationsPlugin[1].sounds).toEqual([
+      './src/assets/sounds/notification.wav',
+      './src/assets/sounds/notification-daily.wav',
+      './src/assets/sounds/notification-checkpoint.wav',
+      './src/assets/sounds/notification-weekly.wav',
+    ]);
+  });
+
+  it('deletes the previous versioned Android channels when new sound channels are created', async () => {
+    jest.doMock('react-native', () => {
+      return { Platform: { OS: 'android' } };
+    });
+    jest.resetModules();
+    try {
+      const freshNotificationService = require('../NotificationService').default;
+      const freshNotifications = require('expo-notifications');
+      await freshNotificationService.scheduleDailyReminder('09:30');
+
+      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('daily-reminders-v3', expect.objectContaining({ sound: 'notification-daily.wav' }));
+      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('daily-goal-checkpoints-v3', expect.objectContaining({ sound: 'notification-checkpoint.wav' }));
+      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('weekly-summary-v3', expect.objectContaining({ sound: 'notification-weekly.wav' }));
+      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('daily-reminders-v2');
+      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('daily-goal-checkpoints-v2');
+      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('weekly-summary-v2');
+    } finally {
+      jest.dontMock('react-native');
+      jest.resetModules();
+    }
   });
 
   it('returns expo and native push tokens when remote registration succeeds', async () => {

@@ -40,6 +40,7 @@ import { colors, typography } from '@/theme/v2';
 import type { User } from '@/types';
 import { GoogleIcon, AppleIcon } from '@/screens/v2/auth/components/AuthSocialIcons';
 import { OnboardingAnalytics, type AuthMode, type AuthMethod, type ValidationCode } from '@/services/v2/onboardingAnalytics';
+import { playCreationSound } from '@/services/CreationSounds';
 
 type Mode = 'signin' | 'create';
 export type SaveKind = 'account' | 'guest';
@@ -120,6 +121,13 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const [appleAvailable, setAppleAvailable] = useState(Platform.OS === 'ios');
   const passwordRef = useRef<TextInput>(null);
   const retryAttemptRef = useRef(0);
+  const sealedSoundPlayedRef = useRef(false);
+
+  useEffect(() => {
+    if (!anchor || sealedSoundPlayedRef.current) return;
+    sealedSoundPlayedRef.current = true;
+    playCreationSound('onboardingSealed');
+  }, [anchor]);
 
   useEffect(() => {
     let mounted = true;
@@ -188,7 +196,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
         Keyboard.dismiss();
         setSaved('account');
       } catch (cause) {
-        OnboardingAnalytics.auth.saveFailed(OnboardingAnalytics.classifyAuthError(cause));
+        OnboardingAnalytics.auth.saveFailed('onboarding_save', OnboardingAnalytics.classifyAuthError(cause));
         const message = readableAuthError(cause, mode);
         if (message) setError(message);
       }
@@ -224,7 +232,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
       await onAccountReady(signedInUser);
       setSaved('account');
     } catch (cause) {
-      OnboardingAnalytics.auth.saveFailed(OnboardingAnalytics.classifyAuthError(cause));
+      OnboardingAnalytics.auth.saveFailed('onboarding_save', OnboardingAnalytics.classifyAuthError(cause));
       setError(readableAuthError(cause, 'create') || 'Your Anchor has not finished saving. Try again.');
     } finally {
       setLoading(false);
@@ -241,7 +249,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const toggleEmail = (open: boolean, nextMode?: Mode) => {
     setError(null);
     if (nextMode) setMode(nextMode);
-    if (open) OnboardingAnalytics.auth.emailFormOpened('onboarding_save', (nextMode ?? mode) as AuthMode);
+    if (open && !emailOpen) OnboardingAnalytics.auth.emailFormOpened('onboarding_save', (nextMode ?? mode) as AuthMode);
     setEmailOpen(open);
   };
 

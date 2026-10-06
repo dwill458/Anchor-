@@ -22,14 +22,25 @@ export type SoundKey = keyof typeof SOUND_FILES;
 
 export const CREATION_SOUND_SOURCES = {
   seal: require('../../assets/sounds/sk-seal.mp3'),
-  practiceComplete: require('../../assets/sounds/sk-anchor-pulse.mp3'), // DEFERRED: swap to final Phase 2 asset.
+  practiceComplete: require('../../assets/sounds/sk-practice-complete.wav'),
   anchorPulse: require('../../assets/sounds/sk-anchor-pulse.mp3'),
   bloom: require('../../assets/sounds/sk-bloom.mp3'),
   uiTap: require('../../assets/sounds/sk-ui-tap.mp3'),
-  formTick: require('../../assets/sounds/sk-ui-tap.mp3'),
-  formSettle: require('../../assets/sounds/sk-bloom.mp3'),
+  distillTick: require('../../assets/sounds/sk-distill-tick.wav'),
+  sealRise: require('../../assets/sounds/sk-seal-rise.wav'),
+  revealSettle: require('../../assets/sounds/sk-reveal-settle.wav'),
+  formTick: require('../../assets/sounds/sk-form-tick.wav'),
+  formSettle: require('../../assets/sounds/sk-form-settle.wav'),
+  releaseFall: require('../../assets/sounds/sk-release-fall.wav'),
+  releaseResolve: require('../../assets/sounds/sk-release-resolve.wav'),
+  paywallSuccess: require('../../assets/sounds/sk-paywall-success.wav'),
   releaseBurn: require('../../assets/sounds/sk-release-burn.wav'),
   releaseIgnite: require('../../assets/sounds/sk-release-ignite.wav'),
+  formBed: require('../../assets/sounds/sk-form-bed.wav'),
+  threadSettle: require('../../assets/sounds/sk-thread-settle.wav'),
+  onboardingSealed: require('../../assets/sounds/sk-onboarding-sealed.wav'),
+  homeArrival: require('../../assets/sounds/sk-home-arrival.wav'),
+  visionPin: require('../../assets/sounds/sk-vision-pin.wav'),
 } as const;
 
 export type CreationPoolKey = keyof typeof CREATION_SOUND_SOURCES;

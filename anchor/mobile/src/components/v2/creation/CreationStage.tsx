@@ -413,7 +413,7 @@ export function CreationStage({
         if (landing < from || soundedLandings.current.has(index)) return;
         formationTimers.current.push(setTimeout(() => {
           soundedLandings.current.add(index);
-          SoundPool.play('letter-drop', { rate: distillLandingRate(index) });
+          SoundPool.play('creation:distillTick', { volume: 0.5, rate: distillLandingRate(index) });
           void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
         }, at(landing)));
       });
@@ -816,7 +816,7 @@ export function CreationStage({
     if (shown !== 'reveal' || step !== 'reveal' || replay || stillnessCancelled || sheetOpen) return;
     if (!stillnessPlayed.current) {
       stillnessPlayed.current = true;
-      SoundPool.play('forge-seal', { volume: 0.28 });
+      SoundPool.play('creation:revealSettle', { volume: 0.55 });
     }
     const wipeRemaining = !reduceMotion && iris.value < 1 ? 400 : 0;
     const timer = setTimeout(onOpenExpression, 1500 + wipeRemaining);

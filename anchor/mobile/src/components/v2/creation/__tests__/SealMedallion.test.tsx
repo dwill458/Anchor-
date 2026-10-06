@@ -7,6 +7,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { createAudioPlayer } from 'expo-audio';
 
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
+const mockSoundStop = jest.fn();
+const mockPlayCreationSound = jest.fn((_key: string) => ({ stop: mockSoundStop }));
+jest.mock('@/services/CreationSounds', () => ({ playCreationSound: (key: string) => mockPlayCreationSound(key) }));
 const points = [{ x: 10, y: 10 }, { x: 90, y: 10 }];
 function setup(reduceMotion = true) {
   const props = { points, size: 200, active: true, disabled: false, reduceMotion,
@@ -19,6 +22,14 @@ beforeEach(() => {
   useSettingsStore.setState({ soundEffectsEnabled: true });
 });
 afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
+it('plays one non-looping Seal rise and stops it when the finger lifts', async () => {
+  const { screen } = setup(); await act(async () => {});
+  fireEvent(screen.getByTestId('seal-hold'), 'pressIn');
+  expect(mockPlayCreationSound).toHaveBeenCalledTimes(1);
+  expect(mockPlayCreationSound).toHaveBeenCalledWith('sealRise');
+  fireEvent(screen.getByTestId('seal-hold'), 'pressOut');
+  expect(mockSoundStop).toHaveBeenCalledTimes(1);
+});
 it.each([true, false])('holds for 1.2 seconds in reduced-motion=%s and invokes keep once', async (reduceMotion) => {
   const { props, screen } = setup(reduceMotion);
   await act(async () => {});

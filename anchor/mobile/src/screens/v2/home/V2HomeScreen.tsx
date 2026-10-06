@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -31,6 +32,8 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { HomeArrivalOverlay, HomeArrivalProvider, useHomeArrival } from '@/components/v2/home/homeArrival';
 import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
+import { playCreationSound } from '@/services/CreationSounds';
+import { useAuthStore } from '@/stores/authStore';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 
@@ -41,6 +44,7 @@ const CHART_LANDSCAPE_ART = require('@/../assets/chart/landscape.jpg');
 
 /** A focus within this window of the last context refresh reuses what Home already shows. */
 const REFOCUS_REFRESH_MS = 30_000;
+export const HOME_ARRIVAL_SOUND_PLAYED_KEY = '@anchor/v2/home-arrival-sound-played';
 const PRACTICE_ACTION_BY_MODE = {
   focus: 'Focus',
   deep_prime: 'Deep Prime',
@@ -99,12 +103,23 @@ function EmptyHomeGestureSvg() {
  * feature the user has not created.
  */
 export function V2HomeScreen() {
+  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const homeArrivalAttempted = useRef(false);
   const navigation = useNavigation<Nav>();
   // Home never fades during an Anchor flight: it stays fully drawn until Details covers it,
   // and is already drawn when Details is removed. Only the travelling copy moves.
   const focusTransition = useProgressiveFocusTransition();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const model = useV2HomeModel();
+  useEffect(() => {
+    if (!hasCompletedOnboarding || homeArrivalAttempted.current) return;
+    homeArrivalAttempted.current = true;
+    void AsyncStorage.getItem(HOME_ARRIVAL_SOUND_PLAYED_KEY).then(async played => {
+      if (played) return;
+      await AsyncStorage.setItem(HOME_ARRIVAL_SOUND_PLAYED_KEY, '1');
+      playCreationSound('homeArrival');
+    }).catch(() => { /* Do not risk replaying the first-arrival sound if storage is unavailable. */ });
+  }, [hasCompletedOnboarding]);
   const practiceHistory = useSessionStore((state) => state.practiceHistory);
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();

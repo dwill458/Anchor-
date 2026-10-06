@@ -147,7 +147,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
         });
         await onSuccess?.(result.user);
       } catch (cause) {
-        OnboardingAnalytics.auth.saveFailed(OnboardingAnalytics.classifyAuthError(cause));
+        OnboardingAnalytics.auth.saveFailed(context, OnboardingAnalytics.classifyAuthError(cause));
         const message = readableAuthError(cause, mode);
         if (message) setError(message);
       }

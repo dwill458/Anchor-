@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { V2Button, V2Screen } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { AnchorMotion, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
+import { playCreationSound } from '@/services/CreationSounds';
 
 export interface V2FocusCompleteScreenProps {
   anchor: Anchor;
@@ -57,6 +58,12 @@ export function V2FocusCompleteScreen({
     : fromVal;
 
   const delta = hasAuthoritativeMovement ? toVal - fromVal : 0;
+  const threadSoundPlayed = useRef(false);
+  const playThreadSettle = useCallback(() => {
+    if (threadSoundPlayed.current || !sessionSaved || !hasAuthoritativeMovement || toVal <= fromVal) return;
+    threadSoundPlayed.current = true;
+    playCreationSound('threadSettle');
+  }, [fromVal, hasAuthoritativeMovement, sessionSaved, toVal]);
 
   // Presentation only: the authoritative Thread values above are already
   // resolved before this screen mounts. Reanimated owns the entrance and fill.
@@ -79,6 +86,7 @@ export function V2FocusCompleteScreen({
       inkOverlayOpacity.value = 0;
       barProgress.value = toVal / 100;
       deltaOpacity.value = 1;
+      playThreadSettle();
       return;
     }
 
@@ -93,13 +101,13 @@ export function V2FocusCompleteScreen({
       withTiming(toVal / 100, {
         duration: AnchorMotion.duration.expressive,
         easing: AnchorMotion.easing.emphasized,
-      }),
+      }, finished => { if (finished) runOnJS(playThreadSettle)(); }),
     );
     deltaOpacity.value = withDelay(
       AnchorMotion.duration.quick,
       withTiming(1, { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.enter }),
     );
-  }, [artworkScale, barProgress, contentOpacity, deltaOpacity, inkOverlayOpacity, reduceMotion, toVal]);
+  }, [artworkScale, barProgress, contentOpacity, deltaOpacity, inkOverlayOpacity, playThreadSettle, reduceMotion, toVal]);
 
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>

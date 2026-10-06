@@ -223,8 +223,8 @@ export default function AnchorCreationFlowScreen() {
   useEffect(() => {
     SoundPool.prewarm([
       'creation:seal', 'creation:bloom', 'creation:uiTap', 'creation:formTick',
-      'creation:formSettle', 'creation:releaseBurn', 'creation:releaseIgnite',
-      'forge-seal', 'letter-drop',
+      'creation:formSettle', 'creation:distillTick', 'creation:sealRise', 'creation:revealSettle',
+      'creation:releaseFall', 'creation:releaseResolve', 'creation:releaseBurn', 'creation:releaseIgnite',
     ]);
   }, []);
 
@@ -298,6 +298,17 @@ export default function AnchorCreationFlowScreen() {
   /** The bloom under the Form beat: one voice at a time, never over the Mapping tones. */
   const bloomSoundRef = useRef<CreationSoundHandle | null>(null);
   const formSoundRef = useRef<CreationSoundHandle | null>(null);
+  const formBedSoundRef = useRef<CreationSoundHandle | null>(null);
+  const stopFormBedSound = useCallback(() => {
+    formBedSoundRef.current?.stop(300);
+    formBedSoundRef.current = null;
+  }, []);
+  const startFormBedSound = useCallback(() => {
+    stopFormBedSound();
+    formBedSoundRef.current = foregroundRef.current
+      ? playCreationSound('formBed', undefined, { loop: true })
+      : null;
+  }, [stopFormBedSound]);
   const stopFormSounds = useCallback(() => {
     bloomSoundRef.current?.stop();
     bloomSoundRef.current = null;
@@ -314,10 +325,10 @@ export default function AnchorCreationFlowScreen() {
       foregroundRef.current = state === 'active';
       // Resume from a fresh frame clock; never replay background time as craft events.
       lastNowRef.current = 0;
-      if (!foregroundRef.current) stopFormSounds();
+      if (!foregroundRef.current) { stopFormSounds(); stopFormBedSound(); }
     });
-    return () => { subscription.remove(); stopFormSounds(); };
-  }, [stopFormSounds]);
+    return () => { subscription.remove(); stopFormSounds(); stopFormBedSound(); };
+  }, [stopFormBedSound, stopFormSounds]);
   useEffect(
     () => () => {
       bloomSoundRef.current?.stop();
@@ -356,6 +367,10 @@ export default function AnchorCreationFlowScreen() {
     const retry = setTimeout(() => setFormRetryReady(true), FORM_RETRY_AFTER * 1000);
     return () => { clearTimeout(unlock); clearTimeout(retry); };
   }, [generation, phase]);
+  useEffect(() => {
+    if (phase !== 'form') return;
+    return () => stopFormBedSound();
+  }, [phase, stopFormBedSound]);
   const generationRef = useRef<{ result: AnchorGenerationResult | null; attempt: number; abort: AbortController | null; style: RefineStyleOption | null }>({
     result: null,
     attempt: 1,
@@ -391,6 +406,7 @@ export default function AnchorCreationFlowScreen() {
     setFormBackLocked(true);
     setFormRetryReady(false);
     setGeneration({ status: 'running' });
+    startFormBedSound();
 
     try {
       const result = await AnchorGenerationService.generate({
@@ -419,6 +435,7 @@ export default function AnchorCreationFlowScreen() {
     } catch (error) {
       if (!mountedRef.current || controller.signal.aborted) return;
       formFailedRef.current = true;
+      stopFormBedSound();
       stopFormSounds();
       setFormBackLocked(false);
       targetProgressRef.current = 0;
@@ -429,7 +446,7 @@ export default function AnchorCreationFlowScreen() {
         kind: (error as { kind?: GenerationFailureKind }).kind ?? 'generic',
       });
     }
-  }, [params.category, params.intentionText, stopFormSounds, user?.id]);
+  }, [params.category, params.intentionText, startFormBedSound, stopFormBedSound, stopFormSounds, user?.id]);
 
   /** Returns false when a gate (sign-in, entitlement) stopped the request. */
   const commitStyle = useCallback(
@@ -892,6 +909,7 @@ export default function AnchorCreationFlowScreen() {
         if (gen.result && tf >= tl.formMin) {
           if (!formCuesFiredRef.current.has('settle')) {
             formCuesFiredRef.current.add('settle');
+            stopFormBedSound();
             stopFormSounds();
             if (foregroundRef.current) {
               formSoundRef.current = playCreationSound('formSettle', 0.35);

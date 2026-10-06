@@ -4,6 +4,9 @@ import { V2SealedSaveScreen } from '../V2SealedSaveScreen';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { playCreationSound } from '@/services/CreationSounds';
+
+jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 
 let mockSignedInUser: { id: string } | null = null;
 const mockAnchor = { id: 'pending-first-anchor-1', intentionText: 'I am financially free', baseSigilSvg: '<svg/>', category: 'abundance' };
@@ -64,6 +67,12 @@ const setup = (overrides: Partial<React.ComponentProps<typeof V2SealedSaveScreen
 describe('V2SealedSaveScreen', () => {
   beforeEach(() => { jest.clearAllMocks(); mockSignedInUser = null; });
 
+  it('plays the first sealed Anchor cue once per mount', () => {
+    setup();
+    expect(playCreationSound).toHaveBeenCalledTimes(1);
+    expect(playCreationSound).toHaveBeenCalledWith('onboardingSealed');
+  });
+
   it('shows the sealed Anchor, the line, and all three account options plus the skip', () => {
     setup();
     expect(screen.getByTestId('v2-sealed-save-coin')).toBeTruthy();
@@ -85,6 +94,22 @@ describe('V2SealedSaveScreen', () => {
     expect(screen.getByLabelText('Password')).toBeTruthy();
     expect(screen.queryByLabelText(/name/i)).toBeNull();
     expect(screen.getByLabelText('Continue with Google')).toBeTruthy();
+  });
+
+  it('counts only real email form opens, not mode switches while open', () => {
+    setup();
+    fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));
+    const opened = () => (AnalyticsService.track as jest.Mock).mock.calls
+      .filter(([event]) => event === 'auth_email_form_opened');
+    expect(opened()).toHaveLength(1);
+
+    fireEvent.press(screen.getByLabelText('Already have an account? Sign in'));
+    fireEvent.press(screen.getByLabelText('Create a new account instead'));
+    expect(opened()).toHaveLength(1);
+
+    fireEvent.press(screen.getByLabelText('Collapse email sign up'));
+    fireEvent.press(screen.getByTestId('v2-sealed-save-email-toggle'));
+    expect(opened()).toHaveLength(2);
   });
 
   it('continue without an account keeps the Anchor on the device and confirms, then goes home', () => {

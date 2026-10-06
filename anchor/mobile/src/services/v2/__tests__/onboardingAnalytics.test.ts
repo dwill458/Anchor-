@@ -56,6 +56,16 @@ describe('OnboardingAnalytics', () => {
     expect(OnboardingAnalytics.classifyAuthError({ message: 'auth/network-request-failed private data' })).toBe('network');
   });
 
+  it('attributes save failures to the supplied auth context and survives tracking errors', () => {
+    OnboardingAnalytics.auth.saveFailed('v2_auth', 'unknown');
+    OnboardingAnalytics.auth.saveFailed('onboarding_save', 'network');
+    expect(track).toHaveBeenNthCalledWith(1, 'anchor_save_failed', { context: 'v2_auth', error_code: 'unknown' });
+    expect(track).toHaveBeenNthCalledWith(2, 'anchor_save_failed', { context: 'onboarding_save', error_code: 'network' });
+
+    track.mockImplementation(() => { throw new Error('track failed'); });
+    expect(() => OnboardingAnalytics.auth.saveFailed('v2_auth', 'unknown')).not.toThrow();
+  });
+
   it('never passes sensitive property names and survives tracking errors', () => {
     OnboardingAnalytics.started('welcome');
     OnboardingAnalytics.stepChanged(undefined, 'welcome');

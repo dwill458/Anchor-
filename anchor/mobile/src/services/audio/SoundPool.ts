@@ -3,9 +3,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { CREATION_SOUND_SOURCES, SOUND_FILES } from './soundSources';
 
 type AudioSource = Parameters<typeof createAudioPlayer>[0];
-type Entry = { player: AudioPlayer; busy: boolean; temporary: boolean; token: number; subscription?: { remove: () => void } };
-export type SoundPoolOptions = { volume?: number; rate?: number };
-export type SoundPoolHandle = { stop: () => void };
+type Entry = { player: AudioPlayer; busy: boolean; temporary: boolean; token: number; fadeTimer?: ReturnType<typeof setInterval>; subscription?: { remove: () => void } };
+export type SoundPoolOptions = { volume?: number; rate?: number; loop?: boolean };
+export type SoundPoolHandle = { stop: (fadeOutMs?: number) => void };
 
 const PLAYERS_PER_KEY = 3;
 const sources = new Map<string, AudioSource>();
@@ -27,6 +27,8 @@ useSettingsStore.subscribe((state, previousState) => {
 function releaseEntry(key: string, entry: Entry, token: number): void {
   if (entry.token !== token || !entry.busy) return;
   entry.busy = false;
+  if (entry.fadeTimer) clearInterval(entry.fadeTimer);
+  entry.fadeTimer = undefined;
   try { entry.player.pause(); } catch { /* Non-critical effect cleanup. */ }
   if (!entry.temporary) return;
   try { entry.subscription?.remove(); } catch { /* Non-critical effect cleanup. */ }
@@ -42,7 +44,7 @@ function createEntry(key: string, temporary: boolean): Entry | null {
     const player = createAudioPlayer(source, { updateInterval: 100, keepAudioSessionActive: true });
     const entry: Entry = { player, busy: false, temporary, token: 0 };
     entry.subscription = player.addListener('playbackStatusUpdate', (status) => {
-      if (status.didJustFinish && entry.busy) releaseEntry(key, entry, entry.token);
+      if (status.didJustFinish && entry.busy && !entry.player.loop) releaseEntry(key, entry, entry.token);
     });
     const entries = entriesByKey.get(key) ?? [];
     entries.push(entry);
@@ -73,7 +75,7 @@ export const SoundPool = {
     }
   },
 
-  play(key: string, { volume = 1, rate = 1 }: SoundPoolOptions = {}): SoundPoolHandle | null {
+  play(key: string, { volume = 1, rate = 1, loop = false }: SoundPoolOptions = {}): SoundPoolHandle | null {
     if (!enabled()) return null;
     if (!sources.has(key)) return null;
     this.prewarm([key]);
@@ -84,13 +86,32 @@ export const SoundPool = {
     const token = ++entry.token;
     try {
       entry.player.volume = Math.max(0, Math.min(1, volume));
+      entry.player.loop = loop;
       entry.player.shouldCorrectPitch = false;
       entry.player.setPlaybackRate(Math.max(0.5, Math.min(2, rate)));
       void entry.player.seekTo(0).then(() => {
         if (entry.busy && entry.token === token && enabled()) entry.player.play();
         else releaseEntry(key, entry, token);
       }).catch(() => releaseEntry(key, entry, token));
-      return { stop: () => releaseEntry(key, entry, token) };
+      return { stop: (fadeOutMs = 0) => {
+        if (fadeOutMs <= 0 || !entry.busy || entry.token !== token) {
+          releaseEntry(key, entry, token);
+          return;
+        }
+        if (entry.fadeTimer) clearInterval(entry.fadeTimer);
+        const initialVolume = entry.player.volume;
+        const startedAt = Date.now();
+        entry.fadeTimer = setInterval(() => {
+          if (!entry.busy || entry.token !== token) {
+            if (entry.fadeTimer) clearInterval(entry.fadeTimer);
+            entry.fadeTimer = undefined;
+            return;
+          }
+          const progress = Math.min(1, (Date.now() - startedAt) / fadeOutMs);
+          entry.player.volume = initialVolume * (1 - progress);
+          if (progress >= 1) releaseEntry(key, entry, token);
+        }, 16);
+      } };
     } catch {
       releaseEntry(key, entry, token);
       return null;

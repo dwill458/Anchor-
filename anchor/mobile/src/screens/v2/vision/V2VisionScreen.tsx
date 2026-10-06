@@ -1,8 +1,9 @@
 import { AnalyticsService } from '@/services/AnalyticsService';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { V2VisionAddPhoto, V2VisionAddScene, V2VisionCreationFlow } from '@/components/v2/vision';
+import { playCreationSound } from '@/services/CreationSounds';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
 import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
@@ -40,6 +41,13 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
 }
 
 function VisionScreenContent(props: V2VisionScreenProps) {
+  const lastVisionPinAt = useRef<number | null>(null);
+  const playVisionPin = useCallback(() => {
+    const now = Date.now();
+    if (lastVisionPinAt.current !== null && now - lastVisionPinAt.current < 150) return;
+    lastVisionPinAt.current = now;
+    playCreationSound('visionPin');
+  }, []);
   const arrival = useVisionImageArrival();
   const route = useRoute<RouteProp<Record<string, V2VisionRouteParams>, string>>();
   const navigation = useNavigation<any>();
@@ -136,6 +144,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     const saved = await model.addScene({ assetId: uploaded.assetId, sourceType: pendingPhoto.sourceType });
     if (!saved) return 'Your photo was uploaded, but could not be added to your Vision. Please try again.';
     const url = saved.scenes.find(scene => scene.assetId === uploaded.assetId)?.resolvedImageUrl;
+    playVisionPin();
     await warmImage(url);
     if (url) arrival?.resolve(url); else arrival?.cancel();
     setActionError(null);
@@ -155,6 +164,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     const saved = await model.addScene({ assetId: choice.assetId, prompt: choice.prompt, sourceType: 'AI_GENERATED' });
     if (!saved) return false;
     const destinationUrl = saved.scenes.find(scene => scene.assetId === choice.assetId)?.resolvedImageUrl;
+    playVisionPin();
     await warmImage(destinationUrl);
     if (destinationUrl) arrival?.resolve(destinationUrl); else arrival?.cancel();
     setActionError(null);
@@ -177,6 +187,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     if (full && !(await model.deleteScene(sceneId))) { setActionError('Image could not be replaced.'); return false; }
     const added = await model.addScene({ ...next, sortOrder: old.sortOrder });
     if (!added) { setActionError('The new image could not be added to your Vision. Please try again.'); return false; }
+    playVisionPin();
     if (!full && !(await model.deleteScene(sceneId))) { setActionError('The new image was added, but the old one could not be removed.'); return false; }
     setActionError(null);
     return true;
@@ -285,6 +296,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
           })),
         });
         if (!saved) return false;
+        if (selectedAssets.length) playVisionPin();
         const destination = saved.scenes.find(scene => scene.assetId === selectedAssets[0]?.assetId)?.resolvedImageUrl;
         await warmImage(destination);
         if (destination) arrival?.resolve(destination); else arrival?.cancel();

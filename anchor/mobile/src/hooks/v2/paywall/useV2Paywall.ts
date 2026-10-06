@@ -21,6 +21,7 @@ import {
 import { useV2PaywallPricing } from './useV2PaywallPricing';
 import { useV2TrialState } from './useV2TrialState';
 import { useV2PaywallArtifact, type V2PaywallArtifact } from './useV2PaywallArtifact';
+import { playCreationSound } from '@/services/CreationSounds';
 
 export type V2PurchaseState = 'idle' | 'submitting' | 'success' | 'cancelled' | 'error';
 export type V2RestoreState = 'idle' | 'restoring' | 'success' | 'no_purchases_found' | 'error';
@@ -157,6 +158,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
             return;
           }
           setPurchaseState('success');
+          playCreationSound('paywallSuccess');
           // Keeps the paywall timeline's "Day 5 · We'll remind you" promise.
           void scheduleTrialEndReminder(planForId(pricing, V2_TRIAL_PLAN_ID).priceLabel);
           trackConverted(V2_TRIAL_PLAN_ID, packageId, 'trial_started');
@@ -192,6 +194,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
             return;
           }
           setPurchaseState('success');
+          playCreationSound('paywallSuccess');
           trackConverted(selectedPlan, packageId, 'purchased');
           finishEntitled('purchased', selectedPlan);
         } catch (error) {
@@ -220,6 +223,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
             return;
           }
           setRestoreState('success');
+          playCreationSound('paywallSuccess');
           finishEntitled('restored');
         } catch (error) {
           logger.error('[v2/paywall] restore failed', error);

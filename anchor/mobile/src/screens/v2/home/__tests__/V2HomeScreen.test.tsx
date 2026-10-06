@@ -1,5 +1,6 @@
 
 import { Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
@@ -30,6 +31,10 @@ import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { toThreadPresentation, useV2HomeModel } from '@/adapters/v2/home';
 import { useChartPreview, selectChartPreview } from '@/hooks/useChartPreview';
 import { chartPreviewCourses } from '@/components/chart/__fixtures__/chartPreviewStates';
+import { playCreationSound } from '@/services/CreationSounds';
+import { HOME_ARRIVAL_SOUND_PLAYED_KEY } from '../V2HomeScreen';
+
+jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 
 const mockUseV2HomeModel = useV2HomeModel as jest.Mock;
 const mockUseChartPreview = useChartPreview as jest.Mock;
@@ -110,11 +115,13 @@ const renderHome = (intents = {}, overrides: Record<string, unknown> = {}) => {
 };
 
 beforeEach(() => {
+  (AsyncStorage.getItem as jest.Mock).mockReset().mockResolvedValue(null);
+  (AsyncStorage.setItem as jest.Mock).mockReset().mockResolvedValue(undefined);
   mockNavigate.mockClear();
   selectAnchor.mockClear();
   useSettingsStore.setState({ reduceMotion: 'on' });
   useAnchorStore.setState({ anchors: [], currentAnchorId: undefined });
-  useAuthStore.setState({ user: { id: 'user-1', email: 'e', displayName: 'Deontrez' } as never });
+  useAuthStore.setState({ user: { id: 'user-1', email: 'e', displayName: 'Deontrez' } as never, hasCompletedOnboarding: false });
   useCourseStore.setState({ activeCourse: null });
   useSessionStore.setState({ practiceHistory: [] });
   mockUseChartPreview.mockReturnValue(selectChartPreview(null));
@@ -129,6 +136,22 @@ const oneAnchor = () =>
   });
 
 describe('Home structure', () => {
+  it('plays the first post-onboarding Home arrival once ever', async () => {
+    const storage = new Map<string, string>();
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(async (key: string) => storage.get(key) ?? null);
+    (AsyncStorage.setItem as jest.Mock).mockImplementation(async (key: string, value: string) => { storage.set(key, value); });
+    oneAnchor();
+    useAuthStore.setState({ hasCompletedOnboarding: true });
+    const first = renderHome();
+    await waitFor(() => expect(playCreationSound).toHaveBeenCalledWith('homeArrival'));
+    await waitFor(() => expect(storage.get(HOME_ARRIVAL_SOUND_PLAYED_KEY)).toBe('1'));
+    first.unmount();
+
+    renderHome();
+    await waitFor(() => expect((AsyncStorage.getItem as jest.Mock).mock.calls.filter(([key]) => key === HOME_ARRIVAL_SOUND_PLAYED_KEY)).toHaveLength(2));
+    expect(playCreationSound).toHaveBeenCalledTimes(1);
+  });
+
   it('renders the two-tone hero + splice + graphite system, with no legacy Anchor rail', () => {
     oneAnchor();
     renderHome();

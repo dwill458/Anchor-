@@ -77,12 +77,28 @@ describe('V2AuthScreen', () => {
     fireEvent.press(screen.getByTestId('v2-auth-submit'));
     await waitFor(() => expect(screen.getByText('Your first Anchor could not be saved yet.')).toBeTruthy());
     expect(AnalyticsService.track).toHaveBeenCalledWith('auth_succeeded', expect.objectContaining({ context: 'save_progress' }));
-    expect(AnalyticsService.track).toHaveBeenCalledWith('anchor_save_failed', expect.objectContaining({ context: 'onboarding_save' }));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('anchor_save_failed', expect.objectContaining({ context: 'save_progress' }));
     expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
     view.rerender(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} onSuccess={onSuccess} />);
     fireEvent.press(screen.getByTestId('v2-auth-save-retry'));
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-account' })));
     expect(AuthService.signUpWithEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('attributes a V2Auth post-auth failure to v2_auth', async () => {
+    (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'existing' }, token: 'token' });
+    (PostAuthFlowService.run as jest.Mock).mockRejectedValueOnce(new Error('network save failed'));
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith(
+      'anchor_save_failed', expect.objectContaining({ context: 'v2_auth', error_code: 'network' }),
+    ));
+    const eventNames = (AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event);
+    expect(eventNames.indexOf('auth_succeeded')).toBeLessThan(eventNames.indexOf('anchor_save_failed'));
+    expect(eventNames).not.toContain('auth_failed');
   });
 
   it('transforms one screen between sign in and create account without stale validation', () => {
