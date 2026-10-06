@@ -43,6 +43,11 @@ const mockPlanner = { generate: jest.fn(), adjust: jest.fn(), suggestMoves: jest
 jest.mock('../../../../services/chart/ChartService', () => ({ chartService: mockChartService }));
 jest.mock('../../../../services/chart/ChartPlannerService', () => ({ chartPlannerService: mockPlanner }));
 
+const mockAccess = { hasProAccess: true };
+jest.mock('../../../../services/MonetizationAccessService', () => ({
+  getMonetizationAccess: jest.fn(async () => mockAccess),
+}));
+
 import chartRoutes from '../chartRoutes';
 
 function app(): Application {
@@ -59,6 +64,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockFlags.enabled = true;
   mockFlags.write = true;
+  mockAccess.hasProAccess = true;
 });
 
 describe('Chart v2 routes', () => {
@@ -203,5 +209,40 @@ describe('Chart v2 routes', () => {
     mockFlags.write = false;
     const response = await request(app()).post('/api/v2/charts/c1/moves/m1/complete');
     expect(response.status).toBe(403);
+  });
+
+  describe('Chart creation is Pro; viewing and working a Chart is not', () => {
+    const route = [{ title: 'First waypoint' }];
+
+    it('refuses plan, draft revision and save for a free account, before any write', async () => {
+      mockAccess.hasProAccess = false;
+      const plan = await request(app()).post('/api/v2/anchors/a1/chart/plan').send({ idempotencyKey: key });
+      const adjust = await request(app())
+        .post('/api/v2/anchors/a1/chart/plan/adjust')
+        .send({ idempotencyKey: key, reason: 'TOO_MANY_STEPS', draft: { destination: 'Somewhere', waypoints: route } });
+      const create = await request(app())
+        .post('/api/v2/anchors/a1/chart')
+        .send({ idempotencyKey: key, destinationText: 'Somewhere', waypoints: route });
+      for (const response of [plan, adjust, create]) {
+        expect(response.status).toBe(403);
+        expect(response.body.error.code).toBe('CHART_PREMIUM_REQUIRED');
+      }
+      expect(mockPlanner.generate).not.toHaveBeenCalled();
+      expect(mockPlanner.adjust).not.toHaveBeenCalled();
+      expect(mockChartService.createChart).not.toHaveBeenCalled();
+      expect(mockPrisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('still lets a free account open a Chart, adjust a saved one and complete a Move', async () => {
+      mockAccess.hasProAccess = false;
+      mockChartService.getChartForAnchor.mockResolvedValue({ chart: null });
+      mockPlanner.adjust.mockResolvedValue({ status: 'proposal' });
+      mockChartService.completeMove.mockResolvedValue({ id: 'c1' });
+      expect((await request(app()).get('/api/v2/anchors/a1/chart')).status).toBe(200);
+      expect(
+        (await request(app()).post('/api/v2/anchors/a1/chart/plan/adjust').send({ idempotencyKey: key, reason: 'TOO_MANY_STEPS', courseId: 'c1' })).status
+      ).toBe(200);
+      expect((await request(app()).post('/api/v2/charts/c1/moves/m1/complete')).status).toBe(200);
+    });
   });
 });

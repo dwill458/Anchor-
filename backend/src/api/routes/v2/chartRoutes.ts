@@ -7,6 +7,7 @@ import { requireChartEnabled, requireChartWriteEnabled } from '../../../config/c
 import { getAuthenticatedUserId } from './authHelper';
 import { chartService } from '../../../services/chart/ChartService';
 import { chartPlannerService } from '../../../services/chart/ChartPlannerService';
+import { getMonetizationAccess } from '../../../services/MonetizationAccessService';
 
 import {
   globalAiCeilingLimiter,
@@ -193,6 +194,19 @@ async function writeUser(req: AuthRequest): Promise<string> {
   return userId;
 }
 
+/**
+ * Creating a Chart (planning a route, revising a draft, saving it) is Pro. Opening and
+ * working an existing Chart stays open to every account. Checked before `writeUser`
+ * so a refused request leaves no trace.
+ */
+async function requireChartCreationAccess(req: AuthRequest): Promise<void> {
+  requireChartWriteEnabled();
+  const access = await getMonetizationAccess(await getAuthenticatedUserId(req));
+  if (!access.hasProAccess) {
+    throw new AppError('Creating a Chart requires Anchor Pro', 403, 'CHART_PREMIUM_REQUIRED');
+  }
+}
+
 type Handler = (req: AuthRequest, res: Response) => Promise<void>;
 const handle =
   (fn: Handler) =>
@@ -218,6 +232,7 @@ router.post(
   chartPlanLimiter,
   chartPlanConcurrencyGuard,
   handle(async (req, res) => {
+    await requireChartCreationAccess(req);
     const userId = await writeUser(req);
     const body = validate(PlanSchema, req.body);
     const result = await chartPlannerService.generate(userId, {
@@ -237,8 +252,10 @@ router.post(
   globalAiCeilingLimiter,
   chartAdjustLimiter,
   handle(async (req, res) => {
-    const userId = await writeUser(req);
     const body = validate(AdjustSchema, req.body);
+    // Revising a draft is part of creating; adjusting a saved Chart is not.
+    if (!body.courseId) await requireChartCreationAccess(req);
+    const userId = await writeUser(req);
     const result = await chartPlannerService.adjust(userId, {
       anchorId: req.params.anchorId,
       idempotencyKey: body.idempotencyKey,
@@ -255,6 +272,7 @@ router.post(
 router.post(
   '/anchors/:anchorId/chart',
   handle(async (req, res) => {
+    await requireChartCreationAccess(req);
     const userId = await writeUser(req);
     const body = validate(CreateSchema, req.body);
     const chart = await chartService.createChart(userId, {
