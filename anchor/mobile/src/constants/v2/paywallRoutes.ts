@@ -35,9 +35,12 @@ export type V2PaywallResumeIntent =
       practiceMode?: V2PracticeMode;
       durationSeconds?: number;
       source?: 'practice_hub' | 'recommended_today';
+      returnRoute?: string;
     }
-  | { type: 'open_visualize'; anchorId: string; durationSeconds?: number }
+  | { type: 'open_visualize'; anchorId: string; durationSeconds?: number; returnRoute?: string }
   | { type: 'vision_premium_action'; anchorId: string; action: string }
+  /** Creating a Chart is Pro: resume into that Anchor's Chart creation. */
+  | { type: 'open_chart'; anchorId: string }
   | { type: 'none' };
 
 /** Navigation params for `V2_PAYWALL_ROUTE`. */

@@ -13,7 +13,26 @@ type Props = {
   selected: V2PaywallPlanId;
   onSelect: (plan: V2PaywallPlanId) => void;
   onClose: () => void;
+  /** Plans to list, in order. Defaults to the original annual + monthly pair. */
+  planIds?: readonly V2PaywallPlanId[];
 };
+
+const DEFAULT_PLAN_IDS: readonly V2PaywallPlanId[] = ['annual', 'monthly'];
+
+const PLAN_LABELS: Record<V2PaywallPlanId, string> = {
+  annual: 'Annual',
+  monthly: 'Monthly',
+  weekly: 'Weekly',
+  lifetime: 'Lifetime',
+};
+
+function planDetail(planId: V2PaywallPlanId, offersTrial: boolean, perMonth: string | null): string {
+  if (planId === 'annual') {
+    return `${offersTrial ? '7 days free' : 'Cancel anytime'}${perMonth ? ` · ${perMonth} equivalent` : ''}`;
+  }
+  if (planId === 'lifetime') return 'One-time purchase';
+  return offersTrial ? 'No free trial' : 'Cancel anytime';
+}
 
 function PlanRow({
   pricing,
@@ -31,17 +50,12 @@ function PlanRow({
   const plan = planForId(pricing, planId);
   const price = plan.priceLabel ?? 'Unavailable';
   const perMonth = planPerMonthLabel(plan);
-  const detail =
-    planId === 'annual'
-      ? `${offersTrial ? '7 days free' : 'Cancel anytime'}${perMonth ? ` · ${perMonth} equivalent` : ''}`
-      : offersTrial
-        ? 'No free trial'
-        : 'Cancel anytime';
+  const detail = planDetail(planId, offersTrial, perMonth);
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected, disabled: !plan.purchasable }}
-      accessibilityLabel={`${planId === 'annual' ? 'Annual' : 'Monthly'} plan, ${price}. ${detail}`}
+      accessibilityLabel={`${PLAN_LABELS[planId]} plan, ${price}. ${detail}`}
       disabled={!plan.purchasable}
       onPress={onPress}
       testID={`v2-paywall-plan-${planId}`}
@@ -49,7 +63,7 @@ function PlanRow({
     >
       <View style={styles.rowCopy}>
         <View style={styles.rowHeadline}>
-          <Text style={styles.rowTitle}>{planId === 'annual' ? 'Annual' : 'Monthly'}</Text>
+          <Text style={styles.rowTitle}>{PLAN_LABELS[planId]}</Text>
           <Text style={styles.rowPrice}>{price}</Text>
           {planId === 'annual' && offersTrial ? (
             <View style={styles.badge}><Text style={styles.badgeText}>BEST VALUE</Text></View>
@@ -65,7 +79,7 @@ function PlanRow({
 }
 
 /** Restrained plan chooser. No dark glass, no pricing-card grid. */
-export function V2PlanPickerSheet({ visible, pricing, offersTrial, selected, onSelect, onClose }: Props) {
+export function V2PlanPickerSheet({ visible, pricing, offersTrial, selected, onSelect, onClose, planIds = DEFAULT_PLAN_IDS }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.scrim} accessibilityLabel="Close plan options" onPress={onClose} />
@@ -73,26 +87,19 @@ export function V2PlanPickerSheet({ visible, pricing, offersTrial, selected, onS
         <View style={styles.handle} />
         <Text style={styles.title}>Choose a plan</Text>
         <View accessibilityRole="radiogroup" style={styles.rows}>
-          <PlanRow
-            pricing={pricing}
-            planId="annual"
-            offersTrial={offersTrial}
-            selected={selected === 'annual'}
-            onPress={() => {
-              onSelect('annual');
-              onClose();
-            }}
-          />
-          <PlanRow
-            pricing={pricing}
-            planId="monthly"
-            offersTrial={offersTrial}
-            selected={selected === 'monthly'}
-            onPress={() => {
-              onSelect('monthly');
-              onClose();
-            }}
-          />
+          {planIds.map((planId) => (
+            <PlanRow
+              key={planId}
+              pricing={pricing}
+              planId={planId}
+              offersTrial={offersTrial}
+              selected={selected === planId}
+              onPress={() => {
+                onSelect(planId);
+                onClose();
+              }}
+            />
+          ))}
         </View>
       </SafeAreaView>
     </Modal>

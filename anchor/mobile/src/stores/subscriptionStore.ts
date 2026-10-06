@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SubscriptionStatus } from '@/types';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 /** Store intro length; entitlement eligibility comes from RevenueCat/store. */
 const TRIAL_DURATION_DAYS = 7;
@@ -192,16 +193,21 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     devTierOverride,
                     rcTier,
                     remoteCompedAccess,
+                    legacyMigrationAccess,
                     hasActiveEntitlement,
                 } = get();
 
+                // Same precedence as useTrialStatus(): an explicit dev override wins, then the
+                // dev master account, then server-granted access, then the live entitlement.
                 if (__DEV__ && devOverrideEnabled) {
                     if (devTierOverride === 'expired' || devTierOverride === 'free') return 'free';
                     // 'trial' and 'pro' both grant full access
                     return 'pro';
                 }
 
-                if (remoteCompedAccess) return 'pro';
+                if (__DEV__ && useSettingsStore.getState().developerMasterAccountEnabled) return 'pro';
+
+                if (remoteCompedAccess || legacyMigrationAccess) return 'pro';
 
                 return hasActiveEntitlement ? 'pro' : 'free';
             },

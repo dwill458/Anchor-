@@ -47,45 +47,8 @@ export function useTrialStatus(): TrialStatus {
         (s) => s.developerMasterAccountEnabled
     );
 
-    if (__DEV__ && developerMasterAccountEnabled) {
-        return {
-            isTrialActive: false,
-            isSubscribed: true,
-            hasExpired: false,
-            trialExpired: false,
-            hasActiveEntitlement: true,
-            daysRemaining: 0,
-            subscriptionStatus: 'active',
-            entitlementReady: true,
-        };
-    }
-
-    if (remoteCompedAccess) {
-        return {
-            isTrialActive: false,
-            isSubscribed: true,
-            hasExpired: false,
-            trialExpired: false,
-            hasActiveEntitlement: true,
-            daysRemaining: 0,
-            subscriptionStatus: 'active',
-            entitlementReady: true,
-        };
-    }
-
-    if (legacyMigrationAccess) {
-        return {
-            isTrialActive: true,
-            isSubscribed: false,
-            hasExpired: false,
-            trialExpired: false,
-            hasActiveEntitlement: true,
-            daysRemaining: 0,
-            subscriptionStatus: 'trial',
-            entitlementReady: true,
-        };
-    }
-
+    // An explicit dev tier override wins over everything (including the master account),
+    // so Free/Expired always exercise the paywall gates.
     // Dev override: simulate expired state
     if (__DEV__ && devOverrideEnabled && (devTierOverride === 'expired' || devTierOverride === 'free')) {
         return {
@@ -123,6 +86,45 @@ export function useTrialStatus(): TrialStatus {
             trialExpired: false,
             hasActiveEntitlement: true,
             daysRemaining: 7,
+            subscriptionStatus: 'trial',
+            entitlementReady: true,
+        };
+    }
+
+    if (__DEV__ && developerMasterAccountEnabled) {
+        return {
+            isTrialActive: false,
+            isSubscribed: true,
+            hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
+            daysRemaining: 0,
+            subscriptionStatus: 'active',
+            entitlementReady: true,
+        };
+    }
+
+    if (remoteCompedAccess) {
+        return {
+            isTrialActive: false,
+            isSubscribed: true,
+            hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
+            daysRemaining: 0,
+            subscriptionStatus: 'active',
+            entitlementReady: true,
+        };
+    }
+
+    if (legacyMigrationAccess) {
+        return {
+            isTrialActive: true,
+            isSubscribed: false,
+            hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
+            daysRemaining: 0,
             subscriptionStatus: 'trial',
             entitlementReady: true,
         };

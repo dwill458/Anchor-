@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import revenueCatService from '@/services/RevenueCatService';
 import { refreshServerEntitlement } from '@/services/BillingService';
+import { scheduleTrialEndReminder } from '@/services/v2/trialReminder';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 import {
@@ -102,6 +104,22 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
     [applyServerEntitlement, context, onEntitled],
   );
 
+  // Same event names and keys as the legacy paywall (`source` = where it was raised from).
+  const trackFunnel = useCallback(
+    (event: string, plan: V2PaywallPlanId, productId: string, extra?: Record<string, unknown>) => {
+      AnalyticsService.track(event, { source: context, context, plan, productId, ...extra });
+    },
+    [context],
+  );
+  const trackConverted = useCallback(
+    (plan: V2PaywallPlanId, productId: string, outcome: V2PaywallEntitlementResult['outcome']) => {
+      trackFunnel(AnalyticsEvents.PAYWALL_CONVERTED, plan, productId, { outcome });
+      // Canonical trial-funnel exit, mirroring paywall_converted as the legacy paywall does.
+      trackFunnel(AnalyticsEvents.TRIAL_CONVERTED, plan, productId, { outcome });
+    },
+    [trackFunnel],
+  );
+
   const runExclusive = useCallback(async (task: () => Promise<void>) => {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -118,8 +136,9 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
         if (!contextAllowsTrial(context) || !trial.canStartTrial || trial.isActiveSubscriber) return;
         setErrorMessage(null);
         setPurchaseState('submitting');
+        const packageId = packageIdForPlan(pricing, V2_TRIAL_PLAN_ID);
+        trackFunnel(AnalyticsEvents.PAYWALL_CTA_TAPPED, V2_TRIAL_PLAN_ID, packageId);
         try {
-          const packageId = packageIdForPlan(pricing, V2_TRIAL_PLAN_ID);
           const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
             syncStatus: false,
           });
@@ -138,6 +157,9 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
             return;
           }
           setPurchaseState('success');
+          // Keeps the paywall timeline's "Day 5 · We'll remind you" promise.
+          void scheduleTrialEndReminder(planForId(pricing, V2_TRIAL_PLAN_ID).priceLabel);
+          trackConverted(V2_TRIAL_PLAN_ID, packageId, 'trial_started');
           finishEntitled('trial_started', V2_TRIAL_PLAN_ID);
         } catch (error) {
           logger.error('[v2/paywall] startTrial failed', error);
@@ -145,7 +167,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
           setErrorMessage('We could not start your trial. Please try again.');
         }
       }),
-    [context, finishEntitled, pricing, runExclusive, trial.canStartTrial, trial.isActiveSubscriber],
+    [context, finishEntitled, pricing, runExclusive, trackConverted, trackFunnel, trial.canStartTrial, trial.isActiveSubscriber],
   );
 
   const purchaseSelectedPlan = useCallback(
@@ -154,8 +176,9 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
         if (trial.isActiveSubscriber) return;
         setErrorMessage(null);
         setPurchaseState('submitting');
+        const packageId = packageIdForPlan(pricing, selectedPlan);
+        trackFunnel(AnalyticsEvents.PAYWALL_CTA_TAPPED, selectedPlan, packageId);
         try {
-          const packageId = packageIdForPlan(pricing, selectedPlan);
           const { status, dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
             syncStatus: false,
           });
@@ -169,6 +192,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
             return;
           }
           setPurchaseState('success');
+          trackConverted(selectedPlan, packageId, 'purchased');
           finishEntitled('purchased', selectedPlan);
         } catch (error) {
           logger.error('[v2/paywall] purchase failed', error);
@@ -176,7 +200,7 @@ export function useV2Paywall({ context, onEntitled }: UseV2PaywallOptions): V2Pa
           setErrorMessage('We could not complete the purchase. Please try again.');
         }
       }),
-    [finishEntitled, pricing, runExclusive, selectedPlan, trial.isActiveSubscriber],
+    [finishEntitled, pricing, runExclusive, selectedPlan, trackConverted, trackFunnel, trial.isActiveSubscriber],
   );
 
   const submitPrimary = useCallback(

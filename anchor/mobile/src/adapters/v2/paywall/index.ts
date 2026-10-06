@@ -10,6 +10,7 @@ export {
   planForId,
   planPerMonthLabel,
   packageIdForPlan,
+  annualSavingsVsWeeklyPercent,
 } from './revenueCatPricing';
 export type { V2PaywallPricing, V2PlanPricing, V2PaywallPricingStatus } from './revenueCatPricing';
 export { resolveAnchorCreationPaywall } from './anchorCreationGate';

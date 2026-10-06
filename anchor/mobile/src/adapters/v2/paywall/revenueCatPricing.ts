@@ -30,6 +30,8 @@ export type V2PaywallPricing = {
   offeringId: string | null;
   annual: V2PlanPricing;
   monthly: V2PlanPricing;
+  weekly: V2PlanPricing;
+  lifetime: V2PlanPricing;
 };
 
 export type V2PaywallPricingStatus = 'loading' | 'ready' | 'unavailable';
@@ -57,13 +59,20 @@ export function toV2PaywallPricing(metadata: RevenueCatOfferingDisplayMetadata):
     offeringId: metadata.offeringId ?? null,
     annual: normalisePlan('annual', metadata.annual),
     monthly: normalisePlan('monthly', metadata.monthly),
+    weekly: normalisePlan('weekly', metadata.weekly),
+    lifetime: normalisePlan('lifetime', metadata.lifetime),
   };
 }
 
 /** `ready` only when at least one plan is actually purchasable. */
 export function resolvePricingStatus(pricing: V2PaywallPricing | null): V2PaywallPricingStatus {
   if (!pricing) return 'loading';
-  return pricing.annual.purchasable || pricing.monthly.purchasable ? 'ready' : 'unavailable';
+  return pricing.annual.purchasable ||
+    pricing.monthly.purchasable ||
+    pricing.weekly.purchasable ||
+    pricing.lifetime.purchasable
+    ? 'ready'
+    : 'unavailable';
 }
 
 /** Empty scaffold so the UI can render skeleton rows before the store responds. */
@@ -72,6 +81,8 @@ export function emptyV2PaywallPricing(): V2PaywallPricing {
     offeringId: null,
     annual: normalisePlan('annual', undefined),
     monthly: normalisePlan('monthly', undefined),
+    weekly: normalisePlan('weekly', undefined),
+    lifetime: normalisePlan('lifetime', undefined),
   };
 }
 
@@ -91,7 +102,22 @@ export function planPerMonthLabel(plan: V2PlanPricing): string | null {
 }
 
 export function planForId(pricing: V2PaywallPricing, planId: V2PaywallPlanId): V2PlanPricing {
-  return planId === 'annual' ? pricing.annual : pricing.monthly;
+  return pricing[planId];
+}
+
+const WEEKS_PER_YEAR = 52;
+
+/**
+ * Whole-percent saving of the annual plan against paying weekly for a year,
+ * from the two raw store amounts. `null` unless both amounts are real, share a
+ * currency, and annual is actually cheaper — the claim is never invented.
+ */
+export function annualSavingsVsWeeklyPercent(pricing: V2PaywallPricing): number | null {
+  const { annual, weekly } = pricing;
+  if (annual.priceValue == null || weekly.priceValue == null || weekly.priceValue <= 0) return null;
+  if (annual.currencyCode && weekly.currencyCode && annual.currencyCode !== weekly.currencyCode) return null;
+  const percent = Math.round((1 - annual.priceValue / (weekly.priceValue * WEEKS_PER_YEAR)) * 100);
+  return percent > 0 ? percent : null;
 }
 
 /** Package id the purchase call needs, falling back to the configured package. */

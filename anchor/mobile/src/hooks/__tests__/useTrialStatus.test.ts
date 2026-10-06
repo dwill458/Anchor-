@@ -26,10 +26,15 @@ jest.mock('@/stores/subscriptionStore', () => ({
   },
 }));
 
+let mockMasterAccount = false;
 jest.mock('@/stores/settingsStore', () => ({
   useSettingsStore: (selector: (state: { developerMasterAccountEnabled: boolean }) => unknown) =>
-    selector({ developerMasterAccountEnabled: false }),
+    selector({ developerMasterAccountEnabled: mockMasterAccount }),
 }));
+
+afterEach(() => {
+  mockMasterAccount = false;
+});
 
 describe('useTrialStatus', () => {
   it('returns active trial state', () => {
@@ -189,5 +194,19 @@ describe('useTrialStatus', () => {
     expect(result.current.isTrialActive).toBe(false);
     expect(result.current.hasExpired).toBe(true);
     expect(result.current.daysRemaining).toBe(0);
+  });
+
+  it('lets an explicit Free/Expired dev override beat the master account so paywall gates fire', () => {
+    mockMasterAccount = true;
+    mockState = { ...mockState, devOverrideEnabled: false, isSubscribed: false, hasActiveEntitlement: false };
+    expect(renderHook(() => useTrialStatus()).result.current.isSubscribed).toBe(true);
+
+    for (const tier of ['free', 'expired'] as const) {
+      mockState = { ...mockState, devOverrideEnabled: true, devTierOverride: tier };
+      const { result } = renderHook(() => useTrialStatus());
+      expect(result.current.hasActiveEntitlement).toBe(false);
+      expect(result.current.isSubscribed).toBe(false);
+      expect(result.current.hasExpired).toBe(true);
+    }
   });
 });

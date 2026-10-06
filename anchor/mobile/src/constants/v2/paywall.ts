@@ -8,7 +8,12 @@
  * the store is unreachable.
  */
 
-import { REVENUECAT_ANNUAL_PACKAGE_ID, REVENUECAT_MONTHLY_PACKAGE_ID } from '@/config';
+import {
+  REVENUECAT_ANNUAL_PACKAGE_ID,
+  REVENUECAT_LIFETIME_PACKAGE_ID,
+  REVENUECAT_MONTHLY_PACKAGE_ID,
+  REVENUECAT_WEEKLY_PACKAGE_ID,
+} from '@/config';
 
 /** Every place the paywall can be raised from. Each is a distinct, honest reason. */
 export type V2PaywallContext =
@@ -17,6 +22,7 @@ export type V2PaywallContext =
   | 'DEEP_PRIME'
   | 'VISUALIZE'
   | 'VISION_PREMIUM_ACTION'
+  | 'CHART'
   | 'TRIAL_ENDED'
   | 'GENERAL_UPGRADE';
 
@@ -26,6 +32,7 @@ export const V2_PAYWALL_CONTEXTS: readonly V2PaywallContext[] = [
   'DEEP_PRIME',
   'VISUALIZE',
   'VISION_PREMIUM_ACTION',
+  'CHART',
   'TRIAL_ENDED',
   'GENERAL_UPGRADE',
 ] as const;
@@ -37,11 +44,13 @@ export type V2TrialState = 'TRIAL_NOT_STARTED' | 'TRIAL_ACTIVE' | 'TRIAL_ENDED';
 export const V2_TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 export const V2_TRIAL_DURATION_DAYS = 7;
 
-export type V2PaywallPlanId = 'annual' | 'monthly';
+export type V2PaywallPlanId = 'annual' | 'monthly' | 'weekly' | 'lifetime';
 
 export const V2_PAYWALL_PLAN_PACKAGE_IDS: Record<V2PaywallPlanId, string> = {
   annual: REVENUECAT_ANNUAL_PACKAGE_ID,
   monthly: REVENUECAT_MONTHLY_PACKAGE_ID,
+  weekly: REVENUECAT_WEEKLY_PACKAGE_ID,
+  lifetime: REVENUECAT_LIFETIME_PACKAGE_ID,
 };
 
 /** Only the annual package carries the 7-day introductory trial. */
@@ -117,6 +126,15 @@ export const V2_PAYWALL_COPY: Record<V2PaywallContext, V2PaywallCopy> = {
     paidCta: 'Continue with Pro',
     artifact: 'vision',
     tone: 'visualize',
+  },
+  CHART: {
+    eyebrow: 'Anchor Pro',
+    headline: 'Chart your route',
+    body: 'Start your 7-day trial to turn this intention into a route with waypoints and next moves.',
+    trialCta: 'Start 7-Day Free Trial',
+    paidCta: 'Continue with Pro',
+    artifact: 'anchor',
+    tone: 'neutral',
   },
   TRIAL_ENDED: {
     eyebrow: 'Your trial has ended',

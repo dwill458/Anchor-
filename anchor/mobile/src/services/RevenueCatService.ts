@@ -3,7 +3,9 @@ import {
   REVENUECAT_API_KEY,
   REVENUECAT_ANNUAL_PACKAGE_ID,
   REVENUECAT_ENTITLEMENT_ID,
+  REVENUECAT_LIFETIME_PACKAGE_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
+  REVENUECAT_WEEKLY_PACKAGE_ID,
 } from '@/config';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
@@ -125,9 +127,11 @@ interface RevenueCatPurchases {
 export type CustomerInfoUpdateListener = (customerInfo: CustomerInfo) => void;
 
 export type RevenueCatPlanId = 'monthly' | 'annual';
+/** Packages only the V2 paywall reads. Kept apart so legacy `Record<RevenueCatPlanId, …>` maps stay exhaustive. */
+export type RevenueCatAdditionalPlanId = 'weekly' | 'lifetime';
 
 export interface RevenueCatPlanDisplayMetadata {
-  planId: RevenueCatPlanId;
+  planId: RevenueCatPlanId | RevenueCatAdditionalPlanId;
   packageId: string;
   price: number | null;
   priceString: string | null;
@@ -143,6 +147,8 @@ export interface RevenueCatOfferingDisplayMetadata {
   offeringId?: string | null;
   monthly?: RevenueCatPlanDisplayMetadata;
   annual?: RevenueCatPlanDisplayMetadata;
+  weekly?: RevenueCatPlanDisplayMetadata;
+  lifetime?: RevenueCatPlanDisplayMetadata;
 }
 
 /**
@@ -275,7 +281,7 @@ function isUserCancelled(error: unknown): boolean {
 }
 
 function buildPlanMetadata(
-  planId: RevenueCatPlanId,
+  planId: RevenueCatPlanId | RevenueCatAdditionalPlanId,
   packageId: string,
   pkg: RevenueCatPackage | undefined
 ): RevenueCatPlanDisplayMetadata | undefined {
@@ -481,6 +487,18 @@ class RevenueCatService {
 
       if (monthlyMetadata) metadata.monthly = monthlyMetadata;
       if (annualMetadata) metadata.annual = annualMetadata;
+      const weeklyMetadata = buildPlanMetadata(
+        'weekly',
+        REVENUECAT_WEEKLY_PACKAGE_ID,
+        availablePackages.find((pkg) => pkg.identifier === REVENUECAT_WEEKLY_PACKAGE_ID)
+      );
+      const lifetimeMetadata = buildPlanMetadata(
+        'lifetime',
+        REVENUECAT_LIFETIME_PACKAGE_ID,
+        availablePackages.find((pkg) => pkg.identifier === REVENUECAT_LIFETIME_PACKAGE_ID)
+      );
+      if (weeklyMetadata) metadata.weekly = weeklyMetadata;
+      if (lifetimeMetadata) metadata.lifetime = lifetimeMetadata;
 
       const packageProducts = [monthlyPackage, annualPackage]
         .map((pkg) => pkg?.storeProduct)

@@ -4,6 +4,7 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 import { useSubscriptionStore } from '../subscriptionStore';
+import { useSettingsStore } from '../settingsStore';
 
 // Reset the store state before each test
 beforeEach(() => {
@@ -233,6 +234,32 @@ describe('subscriptionStore', () => {
       const { result } = renderHook(() => useSubscriptionStore());
       act(() => result.current.setPreferredPlanId('monthly'));
       expect(result.current.preferredPlanId).toBe('monthly');
+    });
+  });
+
+  describe('getEffectiveTier precedence (matches useTrialStatus)', () => {
+    afterEach(() => {
+      act(() => useSettingsStore.setState({ developerMasterAccountEnabled: false } as never));
+    });
+
+    it('grants Pro to the dev master account and to server-granted legacy access', () => {
+      act(() => useSettingsStore.setState({ developerMasterAccountEnabled: true } as never));
+      expect(useSubscriptionStore.getState().getEffectiveTier()).toBe('pro');
+      act(() => {
+        useSettingsStore.setState({ developerMasterAccountEnabled: false } as never);
+        useSubscriptionStore.setState({ legacyMigrationAccess: true });
+      });
+      expect(useSubscriptionStore.getState().getEffectiveTier()).toBe('pro');
+      act(() => useSubscriptionStore.setState({ legacyMigrationAccess: false }));
+    });
+
+    it('lets a Free/Expired dev override beat the master account', () => {
+      act(() => {
+        useSettingsStore.setState({ developerMasterAccountEnabled: true } as never);
+        useSubscriptionStore.getState().setDevOverrideEnabled(true);
+        useSubscriptionStore.getState().setDevTierOverride('expired');
+      });
+      expect(useSubscriptionStore.getState().getEffectiveTier()).toBe('free');
     });
   });
 });

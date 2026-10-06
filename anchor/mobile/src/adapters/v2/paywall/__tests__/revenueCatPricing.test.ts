@@ -10,6 +10,7 @@ import {
   toV2PaywallPricing,
   resolvePricingStatus,
   planPerMonthLabel,
+  annualSavingsVsWeeklyPercent,
   packageIdForPlan,
 } from '../revenueCatPricing';
 
@@ -62,5 +63,28 @@ describe('V2 paywall pricing (RevenueCat-driven, never hard-coded)', () => {
     expect(resolvePricingStatus(pricing)).toBe('unavailable');
     // Falls back to the configured package id so a retry can still purchase.
     expect(packageIdForPlan(pricing, 'annual')).toBe('$rc_annual');
+  });
+
+  it('computes the annual-vs-weekly saving from the two store amounts, never inventing one', () => {
+    const meta = (annual: number, weekly: number, weeklyCurrency = 'USD') =>
+      toV2PaywallPricing({
+        annual: { planId: 'annual', packageId: '$rc_annual', price: annual, priceString: `$${annual}`, currencyCode: 'USD' },
+        weekly: { planId: 'weekly', packageId: '$rc_weekly', price: weekly, priceString: `$${weekly}`, currencyCode: weeklyCurrency },
+      } as Parameters<typeof toV2PaywallPricing>[0]);
+    // 1 - 59.99 / (1.99 * 52) = 0.4203
+    expect(annualSavingsVsWeeklyPercent(meta(59.99, 1.99))).toBe(42);
+    expect(annualSavingsVsWeeklyPercent(meta(59.99, 1.99, 'EUR'))).toBeNull();
+    expect(annualSavingsVsWeeklyPercent(meta(200, 1.99))).toBeNull();
+    expect(annualSavingsVsWeeklyPercent(toV2PaywallPricing({}))).toBeNull();
+  });
+
+  it('exposes weekly and lifetime packages when the offering carries them', () => {
+    const pricing = toV2PaywallPricing({
+      weekly: { planId: 'weekly', packageId: '$rc_weekly', price: 1.99, priceString: '$1.99', currencyCode: 'USD' },
+    } as Parameters<typeof toV2PaywallPricing>[0]);
+    expect(pricing.weekly.purchasable).toBe(true);
+    expect(pricing.lifetime.purchasable).toBe(false);
+    expect(resolvePricingStatus(pricing)).toBe('ready');
+    expect(packageIdForPlan(pricing, 'lifetime')).toBe('$rc_lifetime');
   });
 });
