@@ -36,6 +36,7 @@ import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
+import { playPracticeCompletionCue } from '@/services/audio/practiceCompletionCue';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 import { V2FocusField } from './V2FocusField';
 import { ANCHOR_SESSION_ENTRY_MS, useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
@@ -517,8 +518,12 @@ export function V2FocusActiveScreen({
           }));
 
       ambientPlayerRef.current?.setVolume(0.04);
-      setTimeout(() => ambientPlayerRef.current?.stop(), 300);
       voicePlayerRef.current?.stop();
+      setTimeout(() => {
+        ambientPlayerRef.current?.stop();
+        // Wait for the session bed's fade to finish before playing the one-shot completion cue.
+        void playPracticeCompletionCue(soundEnabled);
+      }, 300);
 
       const playCompletionHaptic = () => {
         if (haptics) void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
@@ -555,6 +560,7 @@ export function V2FocusActiveScreen({
       onComplete,
       reduceMotion,
       resolvingContentOpacity,
+      soundEnabled,
       sessionProgress,
       totalMs,
     ]

@@ -99,7 +99,7 @@ type Props = Partial<V2PracticeRouteIntents> & {
   onBack?: () => void;
   /** Arrived from another screen (the Vision): leaving setup returns there instead of showing the hub. */
   leaveOnSetupBack?: boolean;
-  onSessionCompleted?: () => void;
+  onSessionCompleted?: (result?: V2PracticeCompletionResult) => void;
 };
 
 export function V2PracticeScreen({
@@ -375,10 +375,16 @@ export function V2PracticeScreen({
         typeof completedDuration === 'number' && completedDuration > 0 ? completedDuration : null,
       );
     }
+    const sessionSource = completion?.source ?? activeSession?.source ?? prepareSource;
     setActiveSession(null);
     setPrepareMode(null);
     model.refetchRecommendation();
-    onSessionCompleted?.();
+    onSessionCompleted?.({
+      mode: (completion?.mode ?? activeSession?.mode ?? 'focus') as Exclude<V2PracticeMode, 'release'>,
+      durationSeconds: completion?.durationSeconds ?? activeSession?.durationSeconds ?? 0,
+      saved: completion?.saved ?? true,
+      source: sessionSource,
+    });
   };
 
   // Resume after paywall purchase / trial activation
@@ -454,7 +460,10 @@ export function V2PracticeScreen({
           anchor={fixedAnchor}
           source={prepareSource}
           initialDuration={resumeDuration}
-          onBack={() => setPrepareMode(null)}
+          onBack={() => {
+            if (leaveOnSetupBack && onBack) onBack();
+            else setPrepareMode(null);
+          }}
           onBeginFocus={(config) => {
             handleBeginPractice({
               anchorId: fixedAnchor.id,

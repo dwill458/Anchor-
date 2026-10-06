@@ -38,6 +38,7 @@ export type V2PracticeCompletionResult = {
   mode: Exclude<V2PracticeMode, 'release'>;
   durationSeconds: number;
   saved: boolean;
+  source?: string;
 };
 export type V2PracticeRouteIntents = {
   onPremiumCapabilityRequired: (request: V2PremiumCapabilityRequest) => void;

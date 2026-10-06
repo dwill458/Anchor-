@@ -25,6 +25,7 @@ jest.mock('@/hooks/useSessionAudio', () => ({
     cleanupAllPlayers: jest.fn(),
   }),
 }));
+jest.mock('@/services/audio/practiceCompletionCue', () => ({ playPracticeCompletionCue: jest.fn() }));
 
 jest.mock('expo-keep-awake', () => ({
   useKeepAwake: jest.fn(),
@@ -236,6 +237,7 @@ describe('V2FocusActiveScreen', () => {
     fireEvent.press(endButton);
 
     expect(onComplete).not.toHaveBeenCalled();
+    expect(jest.requireMock('@/services/audio/practiceCompletionCue').playPracticeCompletionCue).not.toHaveBeenCalled();
     expect(onExit).toHaveBeenCalledTimes(1);
     expect(AnalyticsService.track).toHaveBeenCalledWith(
       'practice_session_ended_early',
@@ -270,7 +272,7 @@ describe('V2FocusActiveScreen', () => {
     );
   });
 
-  it.each([10, 30, 60])('completes a %s second session at its planned duration', (durationSeconds) => {
+  it.each([10, 30, 60])('completes a %s second session at its planned duration', async (durationSeconds) => {
     const onComplete = jest.fn();
 
     let mockTime = 1000;
@@ -301,6 +303,7 @@ describe('V2FocusActiveScreen', () => {
       act(() => {
         jest.advanceTimersByTime(2300);
       });
+      await act(async () => { await jest.advanceTimersByTimeAsync(3000); });
 
       expect(onComplete).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledWith(
@@ -310,6 +313,8 @@ describe('V2FocusActiveScreen', () => {
         })
       );
       expect(safeHaptics.notification).toHaveBeenCalled();
+      expect(jest.requireMock('@/services/audio/practiceCompletionCue').playPracticeCompletionCue).toHaveBeenCalledTimes(1);
+      expect(jest.requireMock('@/services/audio/practiceCompletionCue').playPracticeCompletionCue).toHaveBeenCalledWith(true);
     } finally {
       global.performance.now = originalPerformanceNow;
     }

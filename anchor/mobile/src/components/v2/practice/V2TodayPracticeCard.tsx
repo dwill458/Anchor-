@@ -27,7 +27,7 @@ const MODE_EDITORIAL_HEADLINES: Record<V2PracticeMode, string> = {
   // Deep Focus is recommended both for a Consistency dip and on rotation, so
   // this headline must not claim a dip; the reason line carries that.
   deep_prime: 'Go deeper with a longer session.',
-  focus: 'Build consistency today.',
+  focus: 'Hold your anchor in focus.',
 };
 
 const MODE_DEFAULT_DURATIONS: Record<V2PracticeMode, string> = {

@@ -460,6 +460,16 @@ describe('V2PracticeScreen', () => {
     expect(screen.queryByTestId('v2-practice-prepare-focus')).toBeNull();
   });
 
+  it('calls onBack instead of showing Practice Hub when leaveOnSetupBack is true and Back is pressed in Focus prep', () => {
+    const onBack = jest.fn();
+    renderPractice(context('Focus'), { leaveOnSetupBack: true, onBack });
+    fireEvent.press(screen.getByTestId('v2-recommended-today'));
+    expect(screen.getByTestId('v2-practice-prepare-focus')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Back to Practice'));
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('v2-practice-screen')).toBeNull();
+  });
+
   it('handles backend recommendation error gracefully without crashing', () => {
     render(
       <V2PracticeScreen

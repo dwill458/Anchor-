@@ -204,7 +204,7 @@ describe('V2TodayPracticeCard', () => {
 
     expect(screen.getByText('TODAY')).toBeTruthy();
     expect(screen.getByText('30 sec')).toBeTruthy();
-    expect(screen.getByText('Build consistency today.')).toBeTruthy();
+    expect(screen.getByText('Hold your anchor in focus.')).toBeTruthy();
     expect(screen.getByText('Begin Focus')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Begin Focus'));

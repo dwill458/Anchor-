@@ -11,6 +11,8 @@ import { FULL_MIX_PHASE_ID, resolveSessionAudioPlan } from '@/services/SessionAu
 import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 import { resolveFocusSessionGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { safeHaptics } from '@/utils/haptics';
+import { playCreationSound } from '@/services/CreationSounds';
+import { setAudioSessionMode } from '@/services/audio/AudioSession';
 import { AnchorMotion, colors, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { GuidanceVoice } from '@/types/sessionAudio';
@@ -18,6 +20,7 @@ import { V2FocusAnchorArtwork } from '../focus/V2FocusAnchorArtwork';
 import { V2FocusField } from '../focus/V2FocusField';
 import { FOCUS_SCREEN_BACKGROUND } from '../focus/V2FocusActiveScreen';
 import { deepFocusVisualAt, type DeepFocusDuration } from './deepFocusTimeline';
+import { shouldPlayDeepFocusCompletionCue } from './completionCue';
 import { useDeepFocusSession, type DeepFocusSessionData } from './useDeepFocusSession';
 
 export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambient, haptics = true, onExit, onComplete }: {
@@ -55,6 +58,7 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
   const ambientPlayer = useRef<ManagedSessionAudioPlayer | null>(null);
   const ambientAttempted = useRef(false);
   const voicePlayer = useRef<ManagedSessionAudioPlayer | null>(null);
+  const fullMixFinished = useRef(false);
   const played = useRef(new Set<string>());
   const settled = useRef(false);
   const plan = useMemo(() => resolveSessionAudioPlan({
@@ -91,7 +95,10 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
     }
     if (!cue || !soundRef.current || played.current.has(cue.phaseId) || manualStart.value >= 0) return;
     played.current.add(cue.phaseId);
-    const player = createSessionAudioPlayer(cue.track.asset, { volume: cue.track.playbackGain });
+    const player = createSessionAudioPlayer(cue.track.asset, {
+      volume: cue.track.playbackGain,
+      onFinish: () => { fullMixFinished.current = true; },
+    });
     if (time > 1) void player?.seekTo(time);
     voicePlayer.current = player;
     player?.play();
@@ -99,9 +106,17 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
   const complete = useCallback((data: DeepFocusSessionData) => {
     ambientPlayer.current?.stop();
     voicePlayer.current?.stop();
+    const hasFullMix = plan.voiceCues.some((cue) => cue.phaseId === FULL_MIX_PHASE_ID);
+    if (shouldPlayDeepFocusCompletionCue({
+      soundEnabled: soundRef.current,
+      hasFullMix,
+      fullMixFinished: fullMixFinished.current,
+    })) {
+      void setAudioSessionMode('effects').then(() => playCreationSound('practiceComplete')).catch(() => undefined);
+    }
     if (haptics) void safeHaptics.selection();
     onComplete(data);
-  }, [haptics, onComplete]);
+  }, [haptics, onComplete, plan]);
   const session = useDeepFocusSession({ duration: durationSeconds, showTime: controls, onSample: sampleAudio, onComplete: complete });
   const { state, phase, ending, readElapsed, pause, resume, end } = session;
 
