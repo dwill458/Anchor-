@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { V2Button, V2Screen } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { AnchorMotion, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
-import { useV2ReduceMotion } from '@/hooks/v2';
+import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
+import { usePracticeCompletionScene } from '@/hooks/v2/practice/usePracticeCompletionScene';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
-import { playCreationSound } from '@/services/CreationSounds';
 
 export interface V2FocusCompleteScreenProps {
   anchor: Anchor;
@@ -15,7 +15,7 @@ export interface V2FocusCompleteScreenProps {
   beforeStrength?: number | null;
   afterStrength?: number | null;
   sessionSaved?: boolean;
-  /** Stable id of the completed session. Keeps the Thread settle sound to one play per session across remounts. */
+  /** Stable id of the completed session. Keys the completion scene and the Thread settle cue to one play per session. */
   sessionId?: string | null;
   /** Shared completion presentation; Focus keeps its original copy by default. */
   practiceTitle?: 'Deep Focus' | 'Visualize';
@@ -25,22 +25,8 @@ export interface V2FocusCompleteScreenProps {
   onAgain: () => void;
 }
 
-/**
- * Process memory only, never persisted. Holds the one session whose Thread
- * settle sound has played. A new session id clears it, so the set cannot grow
- * past the current session.
- */
-let threadSettleSessionId: string | null = null;
-const threadSettlePlayedIds = new Set<string>();
-function claimThreadSettle(sessionId: string): boolean {
-  if (sessionId !== threadSettleSessionId) {
-    threadSettlePlayedIds.clear();
-    threadSettleSessionId = sessionId;
-  }
-  if (threadSettlePlayedIds.has(sessionId)) return false;
-  threadSettlePlayedIds.add(sessionId);
-  return true;
-}
+/** The entrance of the Anchor and the field. Shared by every practice completion. */
+const ENTRANCE_MS = 500;
 
 export function V2FocusCompleteScreen({
   anchor,
@@ -54,7 +40,7 @@ export function V2FocusCompleteScreen({
   onAgain,
 }: V2FocusCompleteScreenProps) {
   const { height } = useWindowDimensions();
-  const reduceMotion = useV2ReduceMotion();
+  const reduceMotion = useCelebrationReduceMotion();
   const categoryPalette = getCategoryPalette(anchor.category);
   const artworkSize = Math.round(Math.min(188, Math.max(148, height * 0.22)));
   // V2Screen already applies the bottom safe-area inset.
@@ -78,64 +64,55 @@ export function V2FocusCompleteScreen({
     : fromVal;
 
   const delta = hasAuthoritativeMovement ? toVal - fromVal : 0;
-  const threadSoundPlayed = useRef(false);
-  const playThreadSettle = useCallback(() => {
-    if (threadSoundPlayed.current || !sessionSaved || !hasAuthoritativeMovement || toVal <= fromVal) return;
-    threadSoundPlayed.current = true;
-    if (sessionId && !claimThreadSettle(sessionId)) return;
-    playCreationSound('threadSettle');
-  }, [fromVal, hasAuthoritativeMovement, sessionId, sessionSaved, toVal]);
+
+  // The Thread scene (first practice, repeat practice, or nothing) is decided and played by the shared hook.
+  const scene = usePracticeCompletionScene({
+    sessionId,
+    fromValue: fromVal,
+    toValue: toVal,
+    eligible: sessionSaved && hasAuthoritativeMovement,
+    reduceMotion,
+  });
+  const fromStruck = scene.kind === 'repeat' && scene.phase !== 'idle';
 
   // Presentation only: the authoritative Thread values above are already
-  // resolved before this screen mounts. Reanimated owns the entrance and fill.
-  // The Anchor is visible on the first cream frame. This avoids a blank beat
-  // between the resolving session field and the same Anchor on completion.
+  // resolved before this screen mounts. The Anchor is visible on the first cream
+  // frame. This avoids a blank beat between the resolving session field and the
+  // same Anchor on completion.
   const contentOpacity = useSharedValue(reduceMotion ? 1 : 0.34);
   const inkOverlayOpacity = useSharedValue(reduceMotion || enterFrom === 'cream' ? 0 : 1);
-  const barProgress = useSharedValue(fromVal / 100);
-  const deltaOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const artworkScale = useSharedValue(reduceMotion ? 1 : 0.94);
   const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
   const inkOverlayStyle = useAnimatedStyle(() => ({ opacity: inkOverlayOpacity.value }));
-  const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: barProgress.value }] }));
-  const deltaStyle = useAnimatedStyle(() => ({ opacity: deltaOpacity.value }));
+  const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: scene.barProgress.value }] }));
+  const glowStyle = useAnimatedStyle(() => ({ opacity: scene.glowOpacity.value }));
+  const labelStyle = useAnimatedStyle(() => ({ opacity: scene.labelOpacity.value }));
+  const valueStyle = useAnimatedStyle(() => ({ opacity: scene.valueOpacity.value }));
+  const noteStyle = useAnimatedStyle(() => ({ opacity: scene.noteOpacity.value }));
   const artworkStyle = useAnimatedStyle(() => ({ transform: [{ scale: artworkScale.value }] }));
 
   useEffect(() => {
     if (reduceMotion) {
       contentOpacity.value = 1;
       inkOverlayOpacity.value = 0;
-      barProgress.value = toVal / 100;
-      deltaOpacity.value = 1;
-      playThreadSettle();
+      artworkScale.value = 1;
       return;
     }
 
     contentOpacity.value = withTiming(1, {
-      duration: 600,
+      duration: ENTRANCE_MS,
       easing: AnchorMotion.easing.enter,
     });
-    inkOverlayOpacity.value = withTiming(0, { duration: 600, easing: AnchorMotion.easing.enter });
-    artworkScale.value = withTiming(1, { duration: 700, easing: AnchorMotion.easing.enter });
-    barProgress.value = withDelay(
-      AnchorMotion.duration.quick,
-      withTiming(toVal / 100, {
-        duration: AnchorMotion.duration.expressive,
-        easing: AnchorMotion.easing.emphasized,
-      }, finished => { if (finished) runOnJS(playThreadSettle)(); }),
-    );
-    deltaOpacity.value = withDelay(
-      AnchorMotion.duration.quick,
-      withTiming(1, { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.enter }),
-    );
-  }, [artworkScale, barProgress, contentOpacity, deltaOpacity, inkOverlayOpacity, playThreadSettle, reduceMotion, toVal]);
+    inkOverlayOpacity.value = withTiming(0, { duration: ENTRANCE_MS, easing: AnchorMotion.easing.enter });
+    artworkScale.value = withTiming(1, { duration: ENTRANCE_MS, easing: AnchorMotion.easing.enter });
+  }, [artworkScale, contentOpacity, inkOverlayOpacity, reduceMotion]);
 
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} animated />
       <Animated.View style={[styles.content, contentStyle]}>
         <Animated.View style={[styles.artworkContainer, { width: artworkSize, height: artworkSize }, artworkStyle]}>
-          <View style={[styles.artworkAtmosphere, { backgroundColor: categoryPalette.soft }]} />
+          <Animated.View style={[styles.artworkAtmosphere, { backgroundColor: categoryPalette.soft }, glowStyle]} />
           <V2FocusAnchorArtwork
             svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
             category={anchor.category}
@@ -164,14 +141,14 @@ export function V2FocusCompleteScreen({
             <View style={styles.measuredCard}>
               <View style={styles.threadHeader}>
                 <View style={styles.deltaGroup}>
-                    <Text style={styles.threadTitle}>THREAD STRENGTH</Text>
+                  <Animated.Text style={[styles.threadTitle, labelStyle]}>THREAD STRENGTH</Animated.Text>
                   {delta !== 0 ? (
                     <Animated.Text
                       testID="focus-thread-delta"
                       style={[
                         styles.threadDelta,
                         { color: categoryPalette.deep },
-                        deltaStyle,
+                        valueStyle,
                       ]}
                     >
                       {delta > 0 ? '+' : ''}{delta}
@@ -182,9 +159,18 @@ export function V2FocusCompleteScreen({
 
               {delta !== 0 ? (
                 <View style={styles.valuesRow}>
-                  <Text style={[styles.strengthValue, { color: colors.text.secondary }]}>{fromVal}%</Text>
-                  <Text style={styles.arrow}>→</Text>
-                  <Text style={[styles.strengthValue, { color: colors.text.primary }]}>{toVal}%</Text>
+                  <Text style={[
+                    styles.strengthValue,
+                    { color: colors.text.secondary },
+                    fromStruck ? styles.struck : null,
+                  ]}
+                  >
+                    {fromVal}%
+                  </Text>
+                  <Animated.View style={[styles.valuesRowTo, valueStyle]}>
+                    <Text style={styles.arrow}>→</Text>
+                    <Text style={[styles.strengthValue, { color: colors.text.primary }]}>{toVal}%</Text>
+                  </Animated.View>
                 </View>
               ) : (
                 <Text style={styles.currentStrengthLabel}>{toVal}%</Text>
@@ -223,7 +209,13 @@ export function V2FocusCompleteScreen({
           )}
         </View>
 
-        <Text style={styles.reinforcedToday}>Reinforced today ✓</Text>
+        {scene.kind === 'first' ? (
+          <Animated.Text testID="focus-complete-first-line" style={[styles.reinforcedToday, noteStyle]}>
+            Your Thread has begun.
+          </Animated.Text>
+        ) : (
+          <Animated.Text style={[styles.reinforcedToday, noteStyle]}>Reinforced today ✓</Animated.Text>
+        )}
         </> : (
           <View style={styles.unmeasuredContainer}>
             <Text style={styles.unmeasuredHint}>
@@ -232,6 +224,16 @@ export function V2FocusCompleteScreen({
           </View>
         )}
       </Animated.View>
+      {/* Only while the Thread scene is the active skippable one. Sits under the footer, so Continue and the link stay usable. */}
+      {scene.canSkip ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Skip"
+          testID="focus-complete-skip"
+          onPress={scene.skip}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       {/* Action buttons */}
       <View
         style={[
@@ -289,7 +291,6 @@ const styles = StyleSheet.create({
     width: '84%',
     height: '84%',
     borderRadius: 999,
-    opacity: 0.32,
   },
   headingBlock: {
     alignItems: 'center',
@@ -363,10 +364,18 @@ const styles = StyleSheet.create({
     gap: 9,
     marginTop: 4,
   },
+  valuesRowTo: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 9,
+  },
   strengthValue: {
     ...typography.headingMD,
     fontFamily: typography.display,
     fontSize: 18,
+  },
+  struck: {
+    textDecorationLine: 'line-through',
   },
   arrow: {
     ...typography.bodyMD,

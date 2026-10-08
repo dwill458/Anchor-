@@ -1,20 +1,71 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { V2FocusCompleteScreen } from '../focus/V2FocusCompleteScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { playCreationSound } from '@/services/CreationSounds';
-import { useV2ReduceMotion } from '@/hooks/v2';
+import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
+import { safeHaptics } from '@/utils/haptics';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
-jest.mock('@/hooks/v2', () => ({
-  ...jest.requireActual('@/hooks/v2'),
-  useV2ReduceMotion: jest.fn(() => false),
+jest.mock('@/hooks/useCelebrationReduceMotion', () => ({
+  useCelebrationReduceMotion: jest.fn(() => false),
 }));
+jest.mock('@/utils/haptics', () => ({
+  safeHaptics: {
+    impact: jest.fn(() => Promise.resolve()),
+    selection: jest.fn(() => Promise.resolve()),
+    notification: jest.fn(() => Promise.resolve()),
+  },
+}));
+
+/** Repeat practice settles at 1500ms (fill 500 to 1500). First practice settles at 2300ms. */
+const REPEAT_SETTLE_MS = 1600;
+const FIRST_SETTLE_MS = 2300;
+
+const threadSettleCalls = () =>
+  (playCreationSound as jest.Mock).mock.calls.filter(([key]) => key === 'threadSettle').length;
+
+const setTeachingFlag = (value: boolean) =>
+  useTeachingStore.setState((state) => ({
+    userFlags: { ...state.userFlags, hasSeenFirstPracticeScene: value },
+  }));
+
+const setPracticeHistory = (completed: number) => {
+  useSessionStore.setState({
+    practiceHistory: Array.from({ length: completed }, (_, index) => ({
+      id: `prior-${index}`,
+      completionStatus: 'completed',
+    })) as unknown as ReturnType<typeof useSessionStore.getState>['practiceHistory'],
+    totalSessionsCount: completed,
+  });
+};
+
+const advance = (ms: number) => act(() => { jest.advanceTimersByTime(ms); });
+
+const renderScene = (sessionId: string | null, before: number, after: number) => (
+  <V2FocusCompleteScreen
+    anchor={makeAnchor({ id: 'a1', category: 'desire', threadStrength: after })}
+    durationSeconds={30}
+    beforeStrength={before}
+    afterStrength={after}
+    sessionId={sessionId}
+    onDone={jest.fn()}
+    onAgain={jest.fn()}
+  />
+);
 
 describe('V2FocusCompleteScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+    useCelebrationStore.getState().reset();
+    setTeachingFlag(true);
+    setPracticeHistory(3);
   });
 
   afterEach(() => {
@@ -137,20 +188,20 @@ describe('V2FocusCompleteScreen', () => {
     expect(screen.getByText('24%')).toBeTruthy();
     expect(screen.queryByText('24% → 24%')).toBeNull();
     expect(screen.getByText('Reinforced today ✓')).toBeTruthy();
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(1200);
     expect(playCreationSound).not.toHaveBeenCalledWith('threadSettle');
   });
 
   it('plays Thread settle once after the bar fills only when strength increased', () => {
     const anchor = makeAnchor({ id: 'a1', threadStrength: 30 });
     render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={30} beforeStrength={30} afterStrength={35} onDone={jest.fn()} onAgain={jest.fn()} />);
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     expect(playCreationSound).toHaveBeenCalledTimes(1);
     expect(playCreationSound).toHaveBeenCalledWith('threadSettle');
 
     jest.clearAllMocks();
     render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={30} beforeStrength={35} afterStrength={30} onDone={jest.fn()} onAgain={jest.fn()} />);
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     expect(playCreationSound).not.toHaveBeenCalled();
   });
 
@@ -169,6 +220,7 @@ describe('V2FocusCompleteScreen', () => {
     expect(screen.getByText('This session could not be saved. Thread Strength was not updated.')).toBeTruthy();
     expect(screen.queryByText('Reinforced today ✓')).toBeNull();
     expect(screen.queryByTestId('focus-complete-thread-bar')).toBeNull();
+    expect(useCelebrationStore.getState().active).toBeNull();
   });
 
   it('triggers onDone when Continue button is pressed', () => {
@@ -208,8 +260,6 @@ describe('V2FocusCompleteScreen', () => {
 
 describe('V2FocusCompleteScreen Thread settle is once per session', () => {
   const anchor = makeAnchor({ id: 'a1', threadStrength: 30 });
-  const threadSettleCalls = () =>
-    (playCreationSound as jest.Mock).mock.calls.filter(([key]) => key === 'threadSettle').length;
   const renderMoved = (sessionId?: string) => (
     <V2FocusCompleteScreen
       anchor={anchor}
@@ -225,7 +275,10 @@ describe('V2FocusCompleteScreen Thread settle is once per session', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
-    (useV2ReduceMotion as jest.Mock).mockReturnValue(false);
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+    useCelebrationStore.getState().reset();
+    setTeachingFlag(true);
+    setPracticeHistory(3);
   });
 
   afterEach(() => {
@@ -234,34 +287,34 @@ describe('V2FocusCompleteScreen Thread settle is once per session', () => {
 
   it('plays once when the same session remounts, e.g. Focus again and back', () => {
     const first = render(renderMoved('thread-remount-session'));
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     expect(threadSettleCalls()).toBe(1);
     first.unmount();
 
     const second = render(renderMoved('thread-remount-session'));
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     expect(threadSettleCalls()).toBe(1);
     second.unmount();
   });
 
   it('plays again for a new session id', () => {
     const first = render(renderMoved('thread-new-session-a'));
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     first.unmount();
 
     const second = render(renderMoved('thread-new-session-b'));
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     expect(threadSettleCalls()).toBe(2);
     second.unmount();
   });
 
   it('keeps the bar filling on a remount while the sound stays deduplicated', () => {
     const first = render(renderMoved('thread-bar-session'));
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     first.unmount();
 
     const second = render(renderMoved('thread-bar-session'));
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     expect(screen.getByTestId('focus-complete-thread-bar')).toBeTruthy();
     expect(screen.getByTestId('focus-thread-delta')).toBeTruthy();
     expect(threadSettleCalls()).toBe(1);
@@ -269,7 +322,7 @@ describe('V2FocusCompleteScreen Thread settle is once per session', () => {
   });
 
   it('keeps the Reduce Motion path playing once per session across remounts', () => {
-    (useV2ReduceMotion as jest.Mock).mockReturnValue(true);
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(true);
     const first = render(renderMoved('thread-reduce-session'));
     expect(threadSettleCalls()).toBe(1);
     first.unmount();
@@ -281,16 +334,224 @@ describe('V2FocusCompleteScreen Thread settle is once per session', () => {
 
   it('still plays without a session id, once per mount, as before', () => {
     const first = render(renderMoved());
-    act(() => { jest.advanceTimersByTime(1200); });
+    advance(REPEAT_SETTLE_MS);
     expect(threadSettleCalls()).toBe(1);
     first.unmount();
+  });
+});
+
+describe('V2FocusCompleteScreen first practice scene (P1)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+    useCelebrationStore.getState().reset();
+    setTeachingFlag(false);
+    setPracticeHistory(0);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('requests level 3 and marks the once-ever flag when the scene starts', () => {
+    render(renderScene('p1-once', 30, 35));
+    expect(useCelebrationStore.getState().active).toEqual({
+      id: 'practice-complete:p1-once',
+      level: 3,
+      skippable: true,
+    });
+    expect(useTeachingStore.getState().userFlags.hasSeenFirstPracticeScene).toBe(true);
+  });
+
+  it('settles at the end of the fill: one threadSettle and one Medium haptic', () => {
+    render(renderScene('p1-settle', 30, 35));
+    advance(FIRST_SETTLE_MS - 1);
+    expect(threadSettleCalls()).toBe(0);
+    expect(safeHaptics.impact).not.toHaveBeenCalled();
+    advance(1);
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
+  });
+
+  it('says the Thread has begun after the settle and releases the scene at 3.9s', () => {
+    render(renderScene('p1-line', 30, 35));
+    advance(2500);
+    expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
+    expect(screen.queryByText('Reinforced today ✓')).toBeNull();
+    expect(useCelebrationStore.getState().active?.id).toBe('practice-complete:p1-line');
+    advance(1400);
+    expect(useCelebrationStore.getState().active).toBeNull();
+  });
+
+  it('a tap on Skip lands the settled values, plays the settle beat once, and removes the control', () => {
+    render(renderScene('p1-skip', 30, 35));
+    fireEvent.press(screen.getByLabelText('Skip'));
+    expect(useCelebrationStore.getState().active).toBeNull();
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
+    expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
+    expect(screen.getByText('35%')).toBeTruthy();
+    expect(screen.queryByLabelText('Skip')).toBeNull();
+  });
+
+  it('a remount of the same session shows the settled line and does not play again', () => {
+    const first = render(renderScene('p1-remount', 30, 35));
+    advance(FIRST_SETTLE_MS);
+    first.unmount();
+
+    render(renderScene('p1-remount', 30, 35));
+    advance(FIRST_SETTLE_MS);
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
+    expect(useCelebrationStore.getState().active).toBeNull();
+  });
+
+  it('a higher-level scene preempts it and it lands on the settled end state without a cue', () => {
+    render(renderScene('p1-preempt', 30, 35));
+    act(() => {
+      useCelebrationStore.getState().request(4, 'other-major', { durationMs: 6000 });
+    });
+    expect(useCelebrationStore.getState().active?.id).toBe('other-major');
+    expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
+    expect(threadSettleCalls()).toBe(0);
+    expect(safeHaptics.impact).not.toHaveBeenCalled();
+  });
+
+  it('releases the scene from the coordinator when the screen leaves', () => {
+    const { unmount } = render(renderScene('p1-unmount', 30, 35));
+    expect(useCelebrationStore.getState().active?.id).toBe('practice-complete:p1-unmount');
+    unmount();
+    expect(useCelebrationStore.getState().active).toBeNull();
+  });
+
+  it('under Reduce Motion registers level 2, snaps, and still fires the settle cue and haptic', () => {
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(true);
+    render(renderScene('p1-reduce', 30, 35));
+    expect(useCelebrationStore.getState().active).toEqual({
+      id: 'practice-complete:p1-reduce',
+      level: 2,
+      skippable: true,
+    });
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
+    expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
+    advance(300);
+    expect(useCelebrationStore.getState().active).toBeNull();
+  });
+});
+
+describe('V2FocusCompleteScreen repeat practice scene (P2)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+    useCelebrationStore.getState().reset();
+    setTeachingFlag(true);
+    setPracticeHistory(3);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('requests level 2 with no skip control, strikes the old value, and settles at 1.5s with one Light haptic', () => {
+    render(renderScene('p2-settle', 30, 35));
+    expect(useCelebrationStore.getState().active).toEqual({
+      id: 'practice-complete:p2-settle',
+      level: 2,
+      skippable: false,
+    });
+    expect(screen.queryByLabelText('Skip')).toBeNull();
+    const struck = StyleSheet.flatten(screen.getByText('30%').props.style);
+    expect(struck.textDecorationLine).toBe('line-through');
+
+    advance(1499);
+    expect(threadSettleCalls()).toBe(0);
+    advance(1);
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('light');
+    expect(screen.getByText('Reinforced today ✓')).toBeTruthy();
+  });
+
+  it('plays the repeat scene when the once-ever flag is unset but there was prior practice', () => {
+    setTeachingFlag(false);
+    setPracticeHistory(2);
+    render(renderScene('p2-prior', 30, 35));
+    expect(useCelebrationStore.getState().active?.level).toBe(2);
+    expect(useTeachingStore.getState().userFlags.hasSeenFirstPracticeScene).toBe(false);
+  });
+});
+
+describe('V2FocusCompleteScreen with no real gain', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+    useCelebrationStore.getState().reset();
+    setTeachingFlag(false);
+    setPracticeHistory(0);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it.each([
+    ['a zero gain', 40, 40],
+    ['a negative gain', 40, 35],
+  ])('animates nothing, plays no cue or haptic, and requests no scene for %s', (_label, before, after) => {
+    render(renderScene(`zero-${before}-${after}`, before, after));
+    advance(FIRST_SETTLE_MS + 500);
+    expect(useCelebrationStore.getState().active).toBeNull();
+    expect(useCelebrationStore.getState().queueLength).toBe(0);
+    expect(threadSettleCalls()).toBe(0);
+    expect(safeHaptics.impact).not.toHaveBeenCalled();
+    expect(useTeachingStore.getState().userFlags.hasSeenFirstPracticeScene).toBe(false);
+  });
+});
+
+describe('V2FocusCompleteScreen coordinator sequencing', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+    useCelebrationStore.getState().reset();
+    setTeachingFlag(true);
+    setPracticeHistory(3);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('a repeat scene waits behind a higher-level scene and starts when it is promoted', () => {
+    act(() => {
+      useCelebrationStore.getState().request(3, 'hold-l3', { durationMs: 1000 });
+    });
+    render(renderScene('p2-queued', 30, 35));
+    expect(useCelebrationStore.getState().queueLength).toBe(1);
+    advance(REPEAT_SETTLE_MS);
+    expect(threadSettleCalls()).toBe(0);
+
+    act(() => {
+      useCelebrationStore.getState().finish('hold-l3');
+    });
+    expect(useCelebrationStore.getState().active?.id).toBe('practice-complete:p2-queued');
+    advance(REPEAT_SETTLE_MS);
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('light');
   });
 });
 
 describe('V2FocusCompleteScreen entry', () => {
   const anchor = makeAnchor({ id: 'a1', intentionText: 'Stay centered', category: 'health', threadStrength: 50 });
   const opacityOf = (id: string) => {
-    const style = require('react-native').StyleSheet.flatten(screen.getByTestId(id).props.style);
+    const style = StyleSheet.flatten(screen.getByTestId(id).props.style);
     return style.opacity;
   };
 

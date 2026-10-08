@@ -25,6 +25,8 @@ export interface TeachingUserFlags {
   hasTracedBefore: boolean;
   /** Set once, when a first-Anchor arrival on Home actually plays. Never cleared. */
   hasSeenFirstAnchorArrival: boolean;
+  /** Set once, when the first-practice completion scene actually starts. Never cleared. */
+  hasSeenFirstPracticeScene: boolean;
 }
 
 export interface TeachingState {
@@ -82,6 +84,7 @@ const createInitialTeachingState = () => ({
     hasCompletedFirstStabilize: false,
     hasTracedBefore: false,
     hasSeenFirstAnchorArrival: false,
+    hasSeenFirstPracticeScene: false,
   },
   traceHintSeenCounts: {},
   traceHintExhaustedIds: {},
@@ -197,6 +200,7 @@ export const useTeachingStore = create<TeachingState>()(
           hasCompletedFirstStabilize: false,
           hasTracedBefore: false,
           hasSeenFirstAnchorArrival: false,
+          hasSeenFirstPracticeScene: false,
           ...(persistedState.userFlags ?? {}),
         };
 
