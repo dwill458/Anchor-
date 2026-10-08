@@ -1,7 +1,7 @@
 
 import { Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -33,6 +33,9 @@ import { useChartPreview, selectChartPreview } from '@/hooks/useChartPreview';
 import { chartPreviewCourses } from '@/components/chart/__fixtures__/chartPreviewStates';
 import { playCreationSound } from '@/services/CreationSounds';
 import { HOME_ARRIVAL_SOUND_PLAYED_KEY } from '../V2HomeScreen';
+import { homeArrivalCelebrationId } from '@/components/v2/home/homeArrival';
+import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 
@@ -756,5 +759,70 @@ describe('Account and loading states', () => {
     expect(screen.getByTestId('v2-home-anchors-error')).toBeTruthy();
     expect(screen.queryByTestId('v2-home-chart')).toBeNull();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
+  });
+});
+
+describe('first arrival skip target', () => {
+  const FLIGHT_RECT = { x: 40, y: 200, width: 280, height: 280 };
+  const TARGET_RECT = { x: 140, y: 180, width: 110, height: 110 };
+
+  /** An arrival already released for Home, with a flight, so the coordinator sees its real duration. */
+  const arriving = (kind: 'first' | 'repeat') =>
+    useHomeArrivalStore.setState({
+      arrival: {
+        id: 7,
+        anchorId: 'a',
+        kind,
+        svg: '<svg/>',
+        category: 'desire',
+        expression: 'original',
+        fromRect: FLIGHT_RECT,
+        targetRect: TARGET_RECT,
+        phase: 'arriving',
+      },
+    });
+
+  beforeEach(() => {
+    useSettingsStore.setState({ reduceMotion: 'off' });
+    useHomeArrivalStore.setState({ arrival: null });
+    useCelebrationStore.getState().reset();
+  });
+  afterEach(() => {
+    act(() => {
+      useHomeArrivalStore.setState({ arrival: null });
+      useCelebrationStore.getState().reset();
+    });
+  });
+
+  it('shows while a first arrival is a skippable scene, and a tap lands it on its end state', () => {
+    oneAnchor();
+    arriving('first');
+    renderHome();
+    expect(useCelebrationStore.getState().active).toEqual({ id: homeArrivalCelebrationId(7), level: 4, skippable: true });
+    expect(screen.getByTestId('v2-home-arrival-skip')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('v2-home-arrival-skip'));
+    expect(useHomeArrivalStore.getState().arrival).toBeNull();
+    expect(useCelebrationStore.getState().active).toBeNull();
+    expect(screen.queryByTestId('v2-home-arrival-skip')).toBeNull();
+  });
+
+  it('is absent for a repeat arrival, which is not skippable', () => {
+    oneAnchor();
+    arriving('repeat');
+    renderHome();
+    expect(useCelebrationStore.getState().active?.skippable).toBe(false);
+    expect(screen.queryByTestId('v2-home-arrival-skip')).toBeNull();
+  });
+
+  it('is absent once the arrival has ended', () => {
+    oneAnchor();
+    arriving('first');
+    renderHome();
+    expect(screen.getByTestId('v2-home-arrival-skip')).toBeTruthy();
+    act(() => {
+      useHomeArrivalStore.getState().clear(7);
+    });
+    expect(screen.queryByTestId('v2-home-arrival-skip')).toBeNull();
   });
 });

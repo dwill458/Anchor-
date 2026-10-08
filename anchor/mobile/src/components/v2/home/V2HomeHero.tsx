@@ -14,7 +14,7 @@ import { resolveHomeHeroLayout, heroIntentionFontSize, HERO_INTENTION_LINES, HER
 import { useHomeArrivalContext } from './homeArrival';
 import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { HeroHalo, HeroStatusRing } from './V2HomeHeroLight';
-import { HERO_ENTRANCE, hasHeroEntrancePlayed, heroWarmth, markHeroEntrancePlayed } from './homeHeroPresence';
+import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
 const PAPER_ARTWORK_SHARE = 0.72;
@@ -294,7 +294,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
 
       <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
         {/* The light stays put while the coin lifts off for Details; only the coin and its ring travel. */}
-        <HeroHalo size={anchorSize} boxHeight={artworkBoxHeight} warmth={heroWarmth(thread.value)} />
+        <HeroHalo size={anchorSize} boxHeight={artworkBoxHeight} strength={thread.value} anchorId={anchor.id} reduceMotion={reduceMotion} />
         {/* Hidden in place (never unmounted) while the travelling copy stands in for it, leaving or returning. */}
         <View style={[styles.artworkLayer, slot === 0 && transition.copyMounted && (transition.sourcePlace === 'home' || transition.targetPlace === 'home') ? styles.artworkHidden : null]}>
         <View

@@ -15,7 +15,8 @@ import Animated, {
 
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { trace } from '@/utils/dev/creationTrace';
-import { useHomeArrivalStore, type ArrivalRect, type HomeArrival } from '@/stores/v2/homeArrivalStore';
+import { useHomeArrivalStore, type ArrivalRect, type HomeArrival, type HomeArrivalKind } from '@/stores/v2/homeArrivalStore';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 
 /**
  * Home's side of the creation hand-off: the real Home, posed underneath creation, receives the
@@ -26,8 +27,13 @@ import { useHomeArrivalStore, type ArrivalRect, type HomeArrival } from '@/store
  * else, and a Home that is not arriving simply sits at 1.
  */
 export const ARRIVAL_TIMING = {
-  /** The whole arrival when the mark flies in from creation. */
+  /** The whole arrival when a repeat Anchor flies in from creation. */
   withFlight: 1700,
+  /**
+   * The whole arrival when the user's first Anchor flies in: the Home share of the milestone
+   * scene. The mark's flight covers the first part of it (see WINDOWS_FIRST).
+   */
+  firstWithFlight: 3400,
   /** The arrival when there is no flight (reduced motion, or no measurement). */
   withoutFlight: 700,
   /** Longest Home waits for its hero to be measured before posing without a target. */
@@ -61,6 +67,31 @@ const WINDOWS_WITHOUT_FLIGHT = {
   hero: [0.1, 0.55],
   lower: [0.35, 1],
 } as const;
+/** The first Anchor's longer arrival: the mark flies over the first ~38% (about 1.3s of 3.4s). */
+const WINDOWS_FIRST = {
+  flight: [0, 0.38],
+  environment: [0.1, 0.4],
+  header: [0.35, 0.65],
+  hero: [0.38, 0.55],
+  overlayOut: [0.4, 0.55],
+  lower: [0.55, 0.95],
+} as const;
+
+type ArrivalWindows = Record<keyof typeof WINDOWS, readonly [number, number]>;
+
+/**
+ * The window set an arrival plays through. Without a flight, the short crossfade is used for any
+ * kind; a first Anchor's flight is stretched over its longer run.
+ */
+export function arrivalWindows(kind: HomeArrivalKind, flight: boolean): ArrivalWindows {
+  if (!flight) return WINDOWS_WITHOUT_FLIGHT;
+  return kind === 'first' ? WINDOWS_FIRST : WINDOWS;
+}
+
+/** The celebration coordinator's id for one arrival. */
+export function homeArrivalCelebrationId(arrivalId: number): string {
+  return `home-arrival:${arrivalId}`;
+}
 
 type ArrivalContextValue = {
   /** True while an arrival is posed or playing for the Anchor Home is showing. */
@@ -166,11 +197,16 @@ export function useHomeArrival({
   useEffect(() => {
     if (!arrival || !active || arrival.phase !== 'arriving' || playedId.current === arrival.id) return undefined;
     playedId.current = arrival.id;
-    const duration = flight && arrival.targetRect ? ARRIVAL_TIMING.withFlight : ARRIVAL_TIMING.withoutFlight;
+    const kind = arrival.kind;
+    const windows = arrivalWindows(kind, flight);
+    const duration = flight && arrival.targetRect
+      ? (kind === 'first' ? ARRIVAL_TIMING.firstWithFlight : ARRIVAL_TIMING.withFlight)
+      : ARRIVAL_TIMING.withoutFlight;
     // Reduced motion is decided by the app (the flight is skipped above); the OS animator
     // scale must not silently collapse the arrival into a jump.
     progress.value = withTiming(1, { duration, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     const id = arrival.id;
+    const celebrationId = homeArrivalCelebrationId(id);
 
     // A finished image travels as itself: the overlay stays over the hero until the hero has the
     // same image on screen, so Home never shows the hero empty or falling back to raw geometry.
@@ -179,7 +215,7 @@ export function useHomeArrival({
     let holdTimer: ReturnType<typeof setTimeout> | null = null;
     if (mustHold) {
       overlayHold.value = 1;
-      holdTimer = setTimeout(releaseHold, duration * WINDOWS.overlayOut[0] + ARRIVAL_TIMING.heroImageHold);
+      holdTimer = setTimeout(releaseHold, duration * windows.overlayOut[0] + ARRIVAL_TIMING.heroImageHold);
     } else {
       overlayHold.value = 0;
     }
@@ -187,10 +223,29 @@ export function useHomeArrival({
     const done = setTimeout(() => {
       progress.value = 1;
       useHomeArrivalStore.getState().clear(id);
+      useCelebrationStore.getState().finish(celebrationId);
     }, duration + 60 + (mustHold ? ARRIVAL_TIMING.heroImageHold : 0));
+
+    // Skip, or a higher celebration preempting this one, lands the arrival on its settled state.
+    const onSkip = () => {
+      clearTimeout(done);
+      if (holdTimer) clearTimeout(holdTimer);
+      cancelAnimation(progress);
+      cancelAnimation(overlayHold);
+      progress.value = 1;
+      overlayHold.value = 0;
+      useHomeArrivalStore.getState().clear(id);
+    };
+    // A first Anchor is a major moment (level 4), a repeat one a reinforcement (level 2). An
+    // arrival is a state change, so it plays whatever the answer; a 'deferred' entry is released
+    // when it ends (finish above and in the cleanup), so no stale queue entry remains.
+    const outcome = useCelebrationStore.getState().request(kind === 'first' ? 4 : 2, celebrationId, { durationMs: duration, onSkip });
+    trace(`arrival celebration ${outcome}`);
+
     return () => {
       clearTimeout(done);
       if (holdTimer) clearTimeout(holdTimer);
+      useCelebrationStore.getState().finish(celebrationId);
     };
   }, [active, arrival, flight, overlayHold, progress, releaseHold]);
 
@@ -212,7 +267,7 @@ export function useHomeArrival({
     progress.value = 1;
   }, [active, progress]);
 
-  const windows = flight ? WINDOWS : WINDOWS_WITHOUT_FLIGHT;
+  const windows = arrivalWindows(arrival?.kind ?? 'repeat', flight);
   const fadeIn = (range: readonly [number, number], lift = 0) =>
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useAnimatedStyle(() => {
@@ -252,11 +307,14 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
   origin,
   onOrigin,
   hold,
+  flight,
 }: {
   arrival: HomeArrival;
   progress: SharedValue<number>;
   /** 1 while the overlay must stay over a hero whose image is still loading. */
   hold?: SharedValue<number>;
+  /** Whether the mark travels from creation (the hook's `flight`). Defaults to having a from-rect. */
+  flight?: boolean;
   /** This overlay's own window position, once measured. */
   origin: { x: number; y: number } | null;
   onOrigin: (point: { x: number; y: number }) => void;
@@ -275,12 +333,18 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
   const dx = from && to ? from.x + from.width / 2 - (to.x + to.width / 2) : 0;
   const dy = from && to ? from.y + from.height / 2 - (to.y + to.height / 2) : 0;
 
+  // The flight and the hand-off to Home read the window set of this arrival's kind, so a first
+  // Anchor's longer arrival is not cut short by the repeat timing.
+  const windows = arrivalWindows(arrival.kind, flight ?? Boolean(from));
+  const [flightStart, flightEnd] = windows.flight;
+  const [overlayOutStart, overlayOutEnd] = windows.overlayOut;
+
   const style = useAnimatedStyle(() => {
-    const raw = interpolate(progress.value, [WINDOWS.flight[0], WINDOWS.flight[1]], [0, 1], 'clamp');
+    const raw = interpolate(progress.value, [flightStart, flightEnd], [0, 1], 'clamp');
     const t = FLIGHT_EASING(raw);
     return {
       opacity: Math.max(
-        interpolate(progress.value, [WINDOWS.overlayOut[0], WINDOWS.overlayOut[1]], [1, 0], 'clamp'),
+        interpolate(progress.value, [overlayOutStart, overlayOutEnd], [1, 0], 'clamp'),
         hold ? hold.value : 0,
       ),
       transform: [
@@ -289,7 +353,7 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
         { scale: scaleFrom + (1 - scaleFrom) * t },
       ],
     };
-  }, [dx, dy, scaleFrom, hold]);
+  }, [dx, dy, scaleFrom, hold, flightStart, flightEnd, overlayOutStart, overlayOutEnd]);
 
   return (
     <View ref={hostRef} style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={measureOrigin} collapsable={false} testID="v2-home-arrival">

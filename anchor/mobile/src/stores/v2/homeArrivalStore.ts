@@ -5,6 +5,12 @@ import type { AnchorExpression } from '@/constants/v2/creation';
 export type ArrivalRect = { x: number; y: number; width: number; height: number };
 
 /**
+ * `first` only when the just-saved Anchor is the user's only Anchor ever (archived and released
+ * Anchors count). `repeat` for every other Anchor; the default when unsure.
+ */
+export type HomeArrivalKind = 'first' | 'repeat';
+
+/**
  * A just-created Anchor arriving on Home.
  *
  * Creation stages the arrival while it still covers Home; Home, mounted underneath, poses
@@ -15,6 +21,8 @@ export type ArrivalRect = { x: number; y: number; width: number; height: number 
 export type HomeArrival = {
   id: number;
   anchorId: string;
+  /** Decides the arrival's length, choreography and celebration level (see homeArrival.tsx). */
+  kind: HomeArrivalKind;
   svg: string;
   category?: string;
   expression: AnchorExpression;

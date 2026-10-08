@@ -1,7 +1,8 @@
 import { Image } from 'react-native';
 
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useHomeArrivalStore, whenHomeReady } from '@/stores/v2/homeArrivalStore';
+import type { Anchor } from '@/types';
+import { useHomeArrivalStore, whenHomeReady, type HomeArrivalKind } from '@/stores/v2/homeArrivalStore';
 import { CREATION_TIMING } from '@/components/v2/creation/creationMotion';
 import type { CreationHandoff } from '@/screens/v2/creation';
 import { trace } from '@/utils/dev/creationTrace';
@@ -42,16 +43,33 @@ function prefetchChosenImage(url: string | undefined): Promise<void> {
 const ARRIVAL_EXPIRY_MS = 5000;
 
 /**
+ * `first` only when the Anchor being arrived is the only Anchor in the store. The anchor store
+ * keeps released and archived Anchors, so they count. The new Anchor is excluded by id rather than
+ * assumed present or absent: addAnchor runs before the save resolves, so it normally is present.
+ */
+export function resolveArrivalKind(anchors: Anchor[], anchorId: string): HomeArrivalKind {
+  const hasOther = anchors.some((anchor) => anchor.id !== anchorId && anchor.localId !== anchorId);
+  return hasOther ? 'repeat' : 'first';
+}
+
+/**
  * Tell Home an Anchor is arriving as soon as it exists — while creation is still resolving it
  * into its circle — so Home has that whole beat to select it, pose, and measure where it will
  * rest. Waiting until creation was ready to leave left Home too little time on a busy JS
  * thread, and a Home that missed its staging window cut in instead of receiving the flight.
  */
-export function prepareHomeArrival(handoff: Omit<CreationHandoff, 'markRect'>): number {
-  trace('prepareHomeArrival', { imageUrlLength: handoff.imageUrl?.length ?? 0 });
+/**
+ * `kind` may be given explicitly; otherwise it is resolved from the anchor store.
+ */
+export function prepareHomeArrival(
+  handoff: Omit<CreationHandoff, 'markRect'> & { kind?: HomeArrivalKind },
+): number {
+  const kind = handoff.kind ?? resolveArrivalKind(useAnchorStore.getState().anchors, handoff.anchorId);
+  trace('prepareHomeArrival', { imageUrlLength: handoff.imageUrl?.length ?? 0, kind });
   useAnchorStore.getState().setCurrentAnchor(handoff.anchorId);
   return useHomeArrivalStore.getState().stage({
     anchorId: handoff.anchorId,
+    kind,
     svg: handoff.svg,
     category: handoff.category,
     expression: handoff.expression,

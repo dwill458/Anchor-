@@ -29,7 +29,8 @@ import { V2AssetPrewarm } from '@/components/v2/primitives/V2AssetPrewarm';
 import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART } from '@/components/v2/anchors/anchorDetailArt';
 import { GRID_ART_BY_PRACTICE } from '@/components/v2/practice/V2PracticeArtwork';
 import { useSessionStore } from '@/stores/sessionStore';
-import { HomeArrivalOverlay, HomeArrivalProvider, useHomeArrival } from '@/components/v2/home/homeArrival';
+import { HomeArrivalOverlay, HomeArrivalProvider, homeArrivalCelebrationId, useHomeArrival } from '@/components/v2/home/homeArrival';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { playCreationSound } from '@/services/CreationSounds';
@@ -277,6 +278,12 @@ export function V2HomeScreen() {
     selectedAnchorIds: [model.selectedAnchor?.id, model.selectedAnchor?.localId],
     onPose: poseForArrival,
     reduceMotion,
+  });
+  // A first arrival can be tapped through while the coordinator holds it as a skippable scene.
+  const arrivalCelebrationId = arrival.arrival ? homeArrivalCelebrationId(arrival.arrival.id) : null;
+  const arrivalSkippable = useCelebrationStore((state) => {
+    const active = state.active;
+    return Boolean(active && arrivalCelebrationId && active.id === arrivalCelebrationId && active.skippable);
   });
 
   useHomePrewarm(model.anchorList, model.selectedIndex);
@@ -728,7 +735,16 @@ export function V2HomeScreen() {
       />
 
       {arrival.arrival ? (
-        <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} hold={arrival.context.overlayHold} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
+        <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} hold={arrival.context.overlayHold} flight={arrival.flight} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
+      ) : null}
+      {/* Only while a first arrival is a skippable scene: a tap anywhere lands it on its end state. */}
+      {arrivalSkippable && arrival.arrival?.kind === 'first' ? (
+        <Pressable
+          testID="v2-home-arrival-skip"
+          accessible={false}
+          style={StyleSheet.absoluteFill}
+          onPress={() => { useCelebrationStore.getState().skip(); }}
+        />
       ) : null}
     </SafeAreaView>
     </HomeArrivalProvider>

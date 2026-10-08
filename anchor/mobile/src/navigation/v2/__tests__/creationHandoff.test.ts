@@ -1,9 +1,10 @@
 const mockSetCurrentAnchor = jest.fn();
+const mockAnchors: Array<{ id: string; localId?: string; archivedAt?: Date; isReleased?: boolean }> = [];
 jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: { getState: () => ({ setCurrentAnchor: mockSetCurrentAnchor }) },
+  useAnchorStore: { getState: () => ({ setCurrentAnchor: mockSetCurrentAnchor, anchors: mockAnchors }) },
 }));
 
-import { handOffToHome, prepareHomeArrival } from '../creationHandoff';
+import { handOffToHome, prepareHomeArrival, resolveArrivalKind } from '../creationHandoff';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
 
 const handoff = {
@@ -29,6 +30,7 @@ const homeAnswers = (target: { x: number; y: number; width: number; height: numb
 
 beforeEach(() => {
   mockSetCurrentAnchor.mockClear();
+  mockAnchors.length = 0;
   useHomeArrivalStore.setState({ arrival: null });
 });
 
@@ -100,5 +102,44 @@ describe('handOffToHome', () => {
     unsubscribe();
     expect(navigation.popToTop).not.toHaveBeenCalled();
     expect(navigation.reset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+  });
+});
+
+describe('arrival kind', () => {
+  const { markRect: _unused, ...saved } = handoff;
+
+  it('is first when the saved Anchor is the only Anchor in the store', () => {
+    mockAnchors.push({ id: 'anchor-1' });
+    const id = prepareHomeArrival(saved);
+    expect(useHomeArrivalStore.getState().arrival).toMatchObject({ id, kind: 'first' });
+  });
+
+  it('is first when the store does not yet hold the saved Anchor and holds none other', () => {
+    expect(prepareHomeArrival(saved)).toBeGreaterThan(0);
+    expect(useHomeArrivalStore.getState().arrival?.kind).toBe('first');
+  });
+
+  it('is repeat when another Anchor exists, counting released and archived ones', () => {
+    mockAnchors.push({ id: 'anchor-1' }, { id: 'older', archivedAt: new Date(0) }, { id: 'released', isReleased: true });
+    prepareHomeArrival(saved);
+    expect(useHomeArrivalStore.getState().arrival?.kind).toBe('repeat');
+  });
+
+  it('matches the saved Anchor by its local id as well', () => {
+    mockAnchors.push({ id: 'server-9', localId: 'anchor-1' });
+    expect(resolveArrivalKind(mockAnchors as never, 'anchor-1')).toBe('first');
+  });
+
+  it('uses an explicit kind when given', () => {
+    prepareHomeArrival({ ...saved, kind: 'repeat' });
+    expect(useHomeArrivalStore.getState().arrival?.kind).toBe('repeat');
+  });
+
+  it('keeps the kind decided at staging when the hand-off reuses that arrival', async () => {
+    mockAnchors.push({ id: 'anchor-1' }, { id: 'older' });
+    const id = prepareHomeArrival(saved);
+    useHomeArrivalStore.getState().reportReady(id, { x: 140, y: 180, width: 110, height: 110 });
+    await handOffToHome(makeNavigation(), handoff, { reduceMotion: false });
+    expect(useHomeArrivalStore.getState().arrival).toMatchObject({ id, kind: 'repeat' });
   });
 });
