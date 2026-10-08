@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -34,6 +34,11 @@ import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigati
 import { resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { playCreationSound } from '@/services/CreationSounds';
 import { useAuthStore } from '@/stores/authStore';
+import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
+import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
+import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
+import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 
@@ -107,6 +112,18 @@ function EmptyHomeGestureSvg() {
  */
 export function V2HomeScreen() {
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  const teachingFocus = useTeachingFocus();
+  const todayTeachingRef = useRef<View>(null);
+  const progressTeachingRef = useRef<View>(null);
+  const visionTeachingRef = useRef<View>(null);
+  const chartTeachingRef = useRef<View>(null);
+  const threadTeachingRef = useRef<View>(null);
+  const scrollViewportRef = useRef<View>(null);
+  const teachingScrollSize = useRef({ content: 0, viewport: 0 });
+  const teachingScrollActive = useSharedValue(false);
+  const [carouselMoving, setCarouselMoving] = useState(false);
+  const [homeMotionActive, setHomeMotionActive] = useState(true);
   const homeArrivalAttempted = useRef(false);
   const navigation = useNavigation<Nav>();
   // Home never fades during an Anchor flight: it stays fully drawn until Details covers it,
@@ -406,6 +423,7 @@ export function V2HomeScreen() {
   );
 
   const handleCarouselMotion = useCallback((moving: boolean) => {
+    setCarouselMoving(moving);
     if (reduceMotion) return;
     if (moving) {
       if (veilFallback.current) clearTimeout(veilFallback.current);
@@ -434,6 +452,25 @@ export function V2HomeScreen() {
     opacity: contentVeil.value,
     transform: [{ translateY: interpolate(contentVeil.value, [CONTENT_VEIL_DIM, 1], [6, 0], Extrapolation.CLAMP) }],
   }));
+
+  useAnimatedReaction(
+    () => contentVeil.value < 0.999 || (!teachingScrollActive.value && (elastic.dragging.value || elastic.momentum.value || Math.abs(elastic.overscroll.value) > 0.5)),
+    (moving, previous) => { if (moving !== previous) runOnJS(setHomeMotionActive)(moving); },
+  );
+  // Canonical Home idle gate: the queue also waits one InteractionManager turn after this clears.
+  const homeIsIdle = teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival &&
+    !veilSwapPending.current && !carouselMoving && !homeMotionActive && !focusTransition.active && !threadEvents.active &&
+    model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
+    model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
+  const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId,
+    eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), hasVision, hasChart }), cap: 2, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
+  const getTeachingRect = useCallback(async (target: React.RefObject<View | null>) => {
+    teachingScrollActive.value = true;
+    try {
+      const viewport = await measureTeachingTarget(scrollViewportRef.current);
+      return await scrollToTarget(target, elastic.scrollRef, () => ({ y: elastic.scrollY.value, max: elastic.maxScroll.value, viewportTop: viewport?.y ?? 0 }), reduceMotion);
+    } finally { teachingScrollActive.value = false; }
+  }, [elastic.scrollRef, elastic.scrollY, elastic.maxScroll, reduceMotion, teachingScrollActive]);
 
   const handleOpenActive = useCallback(
     (anchorId: string, source?: AnchorWindowRect) => {
@@ -567,10 +604,18 @@ export function V2HomeScreen() {
     <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
       <V2AssetPrewarm sources={nextScreenArt} remoteUris={prewarmRemoteUris} />
       <GestureDetector gesture={elastic.elasticPan}>
-      <View style={styles.scrollHost}>
+      <View ref={scrollViewportRef} collapsable={false} style={styles.scrollHost}>
       <GestureDetector gesture={elastic.nativeScroll}>
       <Animated.ScrollView
         ref={elastic.scrollRef}
+        onLayout={event => {
+          teachingScrollSize.current.viewport = event.nativeEvent.layout.height;
+          elastic.maxScroll.value = Math.max(0, teachingScrollSize.current.content - teachingScrollSize.current.viewport);
+        }}
+        onContentSizeChange={(_width, height) => {
+          teachingScrollSize.current.content = height;
+          elastic.maxScroll.value = Math.max(0, height - teachingScrollSize.current.viewport);
+        }}
         onScroll={elastic.onScroll}
         scrollEventThrottle={16}
         contentContainerStyle={styles.scrollContent}
@@ -591,6 +636,7 @@ export function V2HomeScreen() {
           <Animated.View style={[styles.creamZone, arrival.heroStyle]}>
             <V2HomeHero
               testID="v2-home-hero"
+              teachingThreadRef={threadTeachingRef}
               anchors={model.anchorList}
               selectedIndex={model.selectedIndex}
               thread={model.thread}
@@ -617,6 +663,7 @@ export function V2HomeScreen() {
 
           {/* Anchor-scoped content: veiled while the carousel moves, revealed once it commits. */}
           <Animated.View style={contentVeilStyle}>
+          <View ref={todayTeachingRef} collapsable={false}>
           <V2HomeTodaySection
             testID="v2-home-today"
             today={todayForDisplay}
@@ -626,19 +673,24 @@ export function V2HomeScreen() {
             onOpenAllPractices={handleOpenAllPractices}
             onRetry={handleRetryToday}
           />
+          </View>
 
+          <View ref={visionTeachingRef} collapsable={false}>
           <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
             onOpenVision={handleOpenVision} onRetry={handleRetryVision} />
+          </View>
 
-          {!hasVision ? <V2HomeProgressSection progress={model.progress} thread={model.thread}
-            categoryColor={categoryColor} onOpenProgress={handleOpenProgress} /> : null}
+          {!hasVision ? <View ref={progressTeachingRef} collapsable={false}><V2HomeProgressSection progress={model.progress} thread={model.thread}
+            categoryColor={categoryColor} onOpenProgress={handleOpenProgress} /></View> : null}
 
+          <View ref={chartTeachingRef} collapsable={false}>
           <V2HomeChartSection
             chart={model.chart}
             anchorId={model.selectedAnchor!.id}
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}
           />
+          </View>
           </Animated.View>
 
           <V2HomeRecentActivitySection items={model.recentActivity ?? []} onViewAll={handleOpenProgress} />
@@ -652,6 +704,11 @@ export function V2HomeScreen() {
       </View>
       </GestureDetector>
 
+      <ScreenTeaching screen="home" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
+        'home.today': { getRect: () => getTeachingRect(todayTeachingRef) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
+        'home.vision': { getRect: () => getTeachingRect(visionTeachingRef) }, 'home.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
+        'home.thread': { getRect: () => getTeachingRect(threadTeachingRef) },
+      }} />
       <V2ThreadEventModal
         bundle={threadEvents.active}
         visible={Boolean(threadEvents.active)}

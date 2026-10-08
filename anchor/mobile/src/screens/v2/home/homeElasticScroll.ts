@@ -69,6 +69,7 @@ export function useHomeElasticScroll() {
   /** -1 pulling past the bottom, 0 not at an edge, 1 pulling past the top. */
   const pullEdge = useSharedValue(0);
   const momentum = useSharedValue(false);
+  const dragging = useSharedValue(false);
   const lastY = useSharedValue(0);
 
   const onScroll = useAnimatedScrollHandler({
@@ -94,8 +95,10 @@ export function useHomeElasticScroll() {
       );
     },
     onBeginDrag: () => {
+      dragging.value = true;
       momentum.value = false;
     },
+    onEndDrag: () => { dragging.value = false; },
     onMomentumBegin: () => {
       momentum.value = true;
     },
@@ -162,5 +165,10 @@ export function useHomeElasticScroll() {
     nativeScroll,
     elasticPan,
     elasticStyle,
+    scrollY,
+    maxScroll,
+    overscroll,
+    momentum,
+    dragging,
   };
 }

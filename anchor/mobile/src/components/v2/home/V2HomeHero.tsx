@@ -32,6 +32,7 @@ type Props = {
   frozen?: boolean;
   /** Passed through to the carousel: true while it moves, false once it rests and commits. */
   onMotionChange?: (moving: boolean) => void;
+  teachingThreadRef?: React.RefObject<View | null>;
   testID?: string;
 };
 
@@ -80,12 +81,12 @@ export function consistencyDeltaLabel(delta: number): string {
   return 'Steady this week';
 }
 
-function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentation; accent: string; active: boolean }) {
+function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2ThreadPresentation; accent: string; active: boolean; teachingRef?: React.RefObject<View | null> }) {
   const measured = thread.value !== null;
   const delta = thread.delta;
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
   return (
-    <View testID={active ? 'v2-home-thread-reading' : undefined} style={styles.threadRow}>
+      <View ref={active ? teachingRef : undefined} collapsable={false} testID={active ? 'v2-home-thread-reading' : undefined} style={styles.threadRow}>
       <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
         <Text testID={active ? 'v2-home-thread-value' : undefined} style={[styles.threadValue, { color: accent }]}>
@@ -170,7 +171,7 @@ function useHeroEntrance(
   return { entrance, onImageLoad, ringDelayMs: eligible ? HERO_ENTRANCE.ringDelayMs : undefined };
 }
 
-function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
+function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
@@ -186,6 +187,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
   onOpenProgress?: () => void;
   onOpenAllAnchors?: () => void;
+  teachingThreadRef?: React.RefObject<View | null>;
 }) {
   const anchor = summary.anchor;
   const accent = getCategoryColor(anchor.category);
@@ -359,7 +361,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
           disabled={!onOpenProgress}
           style={({ pressed }) => (pressed && onOpenProgress ? styles.pressed : undefined)}
         >
-          <ThreadReading thread={thread} accent={accent} active={slot === 0} />
+          <ThreadReading thread={thread} accent={accent} active={slot === 0} teachingRef={teachingThreadRef} />
         </Pressable>
       ) : null}
       </Animated.View>
@@ -368,7 +370,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
 }
 
 /** The entire visible hero is one of five mounted items on a shared track. */
-function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, onMotionChange, testID }: Props) {
+function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, onMotionChange, testID, teachingThreadRef }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const layout = resolveHomeHeroLayout({
@@ -379,8 +381,8 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
     <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing} gutter={layout.gutter}
       anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
       thread={index === selectedIndex && thread ? thread : summary.thread} reduceMotion={Boolean(reduceMotion)}
-      onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} />
-  ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, thread]);
+      onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} />
+  ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, thread, teachingThreadRef]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={onMotionChange} renderHero={renderHero} />
