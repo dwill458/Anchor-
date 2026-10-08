@@ -571,7 +571,7 @@ const DEFAULT_SETTINGS = {
   analyticsEnabled: true,
   traceDefaultEnabled: true,
   traceSkipStreak: 0,
-  guideMode: true,
+  guideMode: false,
   devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
 
