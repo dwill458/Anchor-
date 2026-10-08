@@ -50,13 +50,22 @@ function call(at: number, run: () => void): SequenceStep {
 }
 
 /** A sound/haptic moment the host plays (ChartActiveView maps beats to useChartSound + safeHaptics). */
-export type ChartBeat = 'open' | 'ink' | 'flag' | 'check' | 'stamp' | 'wind';
+export type ChartBeat = 'open' | 'ink' | 'flag' | 'check' | 'stamp' | 'wind' | 'note';
 export type ChartBeatHandler = (beat: ChartBeat) => void;
 
 /** Beat step: transient, so a skipped sequence drops it rather than firing every pending sound at once. */
 function beat(steps: SequenceStep[], at: number, onBeat: ChartBeatHandler | undefined, which: ChartBeat): void {
   if (!onBeat) return;
   steps.push({ kind: 'call', at, run: () => onBeat(which), transient: true });
+}
+
+/**
+ * Beat that must happen exactly once even when the sequence is skipped (the waypoint note and its haptic mark the
+ * commitment). Not transient: a skip runs it at once if it has not fired yet; a normal run fires it at `at`.
+ */
+function settledBeat(steps: SequenceStep[], at: number, onBeat: ChartBeatHandler | undefined, which: ChartBeat): void {
+  if (!onBeat) return;
+  steps.push({ kind: 'call', at, run: () => onBeat(which) });
 }
 
 /**
@@ -444,6 +453,68 @@ export function moveCheckSequence(ctx: MoveCheckSequenceContext): SequenceSpec {
 }
 
 /* ------------------------------------------------------------------ */
+/* One Move done (M1): ink along the current leg to its 90% hold         */
+/* ------------------------------------------------------------------ */
+
+/** The arc a move can ink the leg to: `holdFraction` (90%) of the way along leg `legIndex`. Null without that leg. */
+export function moveHoldArc(placement: WaypointPlacement, legIndex: number): number | null {
+  const leg = placement.legs[legIndex];
+  return leg ? leg.start + T.moveHold.holdFraction * Math.max(0, leg.end - leg.start) : null;
+}
+
+export type MoveHoldSequenceContext = {
+  anim: ChartMapAnimState;
+  placement: WaypointPlacement;
+  /** The current leg (the leg that ends at the current waypoint). */
+  legIndex: number;
+  reducedMotion: boolean;
+  /** Where the ink starts. Defaults to the drawn tip, which is the leg start on a leg's first move. */
+  fromArc?: number;
+  /** Where the ink stops. Defaults to the 90% hold and is never allowed past it. */
+  toArc?: number;
+  /** The day-closed card replaces the move card (after the toast has gone out). */
+  onDayClosed?: () => void;
+  /** Sound beats (check, ink). The tap haptic is the row's, not a beat. */
+  onBeat?: ChartBeatHandler;
+};
+
+/**
+ * One Move done: the shipped circle, strike-through and toast live in the row. This adds only the ink: the current
+ * leg draws forward to its 90% hold, the cover follows, and the tip pulses. The waypoint marker is never touched
+ * (the move does not reach it), so it stays open. Reduce Motion sets the ink with no travel.
+ */
+export function moveHoldSequence(ctx: MoveHoldSequenceContext): SequenceSpec {
+  const { anim, placement, legIndex, reducedMotion, onDayClosed, onBeat } = ctx;
+  const m = T.moveHold;
+  const steps: SequenceStep[] = [];
+  const from = ctx.fromArc ?? anim.revealArc.value;
+  const hold = moveHoldArc(placement, legIndex);
+  // No leg to hold on (a finished Chart): nothing to ink, never past the hold otherwise.
+  const to = hold === null ? from : Math.min(ctx.toArc ?? hold, hold);
+  const extends_ = to > from + 0.5;
+  // The cover never closes back in: after a reach it can already sit past the new tip.
+  const coverMoves = extends_ && to > anim.coverArc.value + 0.5;
+
+  beat(steps, m.checkAt, onBeat, 'check');
+  if (reducedMotion) {
+    if (extends_) steps.push(tween(anim.revealArc, to, 0, 0));
+    if (coverMoves) steps.push(tween(anim.coverArc, to, 0, 0));
+  } else {
+    if (extends_) {
+      beat(steps, m.routeAt, onBeat, 'ink');
+      steps.push(tween(anim.revealArc, to, m.routeAt, m.route, 'inOut', from));
+    }
+    if (coverMoves) steps.push(tween(anim.coverArc, to, m.coverAt, m.cover, 'settle'));
+    // Pulse rests at 1 (invisible); it is left there at the end.
+    steps.push(tween(anim.pulse, 1, m.pulseAt, m.pulse, 'out', 0));
+  }
+  if (onDayClosed) steps.push(call(m.dayClosedAt, onDayClosed));
+  // The scene rests until here, so its length is the registered one.
+  steps.push(call(m.settleAt, () => undefined));
+  return { name: 'moveHold', steps };
+}
+
+/* ------------------------------------------------------------------ */
 /* Waypoint tap                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -484,11 +555,16 @@ export type ReachSequenceContext = {
   /** Reveal into the next leg (routeRevealArc for the new current waypoint). */
   nextRevealArc: number;
   reducedMotion: boolean;
-  /** Marker/panel state advances to the next waypoint (900). */
+  /** The marker fills (1000): the host swaps the reached marker from open to done here. Idempotent. */
+  onStamp?: () => void;
+  /** Marker/panel state advances to the next waypoint (1700). */
   onAdvance?: () => void;
-  /** Commit card appears (1500). */
+  /** Commit card appears (1700). */
   onCommitCard?: () => void;
-  /** Sound/haptic beats (stamp, wind, ink, flag). */
+  /**
+   * Sound/haptic beats: `ink` (the pen, transient) and `note` (the one waypoint note + its Light haptic, at the marker
+   * fill). `note` is not transient, so a skipped scene still plays it, once.
+   */
   onBeat?: ChartBeatHandler;
 };
 
@@ -500,7 +576,7 @@ export function reachCoverArc(placement: WaypointPlacement, index: number, endAr
 }
 
 export function reachSequence(ctx: ReachSequenceContext): SequenceSpec {
-  const { anim, placement, index, endArc, nextRevealArc, reducedMotion, onAdvance, onCommitCard, onBeat } = ctx;
+  const { anim, placement, index, endArc, nextRevealArc, reducedMotion, onStamp, onAdvance, onCommitCard, onBeat } = ctx;
   const r = T.reach;
   const nextIndex = index + 1;
   const nextPoint = pointAt(placement, nextIndex);
@@ -509,6 +585,7 @@ export function reachSequence(ctx: ReachSequenceContext): SequenceSpec {
 
   const stampOn = () => {
     anim.stampIndex.value = index;
+    onStamp?.();
   };
   const advance = () => {
     anim.flagIndex.value = nextPoint ? nextIndex : anim.flagIndex.value;
@@ -520,42 +597,42 @@ export function reachSequence(ctx: ReachSequenceContext): SequenceSpec {
     anim.stampIndex.value = -1;
   };
 
+  // The scene's only haptic and only note, in every mode: they mark the commitment, not the motion.
   if (reducedMotion) {
     steps.push(call(0, stampOn));
-    beat(steps, 0, onBeat, 'stamp');
+    settledBeat(steps, 0, onBeat, 'note');
     steps.push(tween(anim.stamp, 1, 0, 0, 'inOut', 1));
     steps.push(tween(anim.revealArc, nextRevealArc, 0, 0));
     steps.push(tween(anim.coverArc, coverTo, 0, 0));
     steps.push(call(0, advance));
-    beat(steps, 0, onBeat, 'flag');
     steps.push(tween(anim.flagDrop, 1, 0, 0, 'out', 1));
     if (onCommitCard) steps.push(call(FADE, onCommitCard));
     steps.push(call(FADE, settle));
     return { name: 'reach', steps };
   }
 
-  steps.push(call(r.stampAt, stampOn));
-  beat(steps, r.stampAt, onBeat, 'stamp');
-  steps.push(tween(anim.stamp, 1, r.stampAt, r.stamp, 'inOut', 0));
+  // 0-1100: the leg to this waypoint draws in ink (the pen), the cover following it.
+  beat(steps, r.routeAt, onBeat, 'ink');
   steps.push(tween(anim.revealArc, endArc, r.routeAt, r.route, 'inOut'));
-  // The cover follows the ink to the reached waypoint, then rolls back into the next leg.
   steps.push(tween(anim.coverArc, endArc, r.routeAt, r.route, 'inOut'));
+  // 1000: the marker fills and pops, with the one note and Light haptic; the ring pulses out.
+  steps.push(call(r.stampAt, stampOn));
+  settledBeat(steps, r.stampAt, onBeat, 'note');
+  steps.push(tween(anim.stamp, 1, r.stampAt, r.stamp, 'inOut', 0));
   steps.push(tween(anim.pulse, 1, r.pulseAt, r.pulse, 'out', 0));
+  // 1100-2300: the contours turn to ink around the marker (the cover rolls back into the next leg).
   steps.push(tween(anim.fog, r.fogBreathPeak, r.fogBreathAt, r.fogBreathUp, 'inOut', 0));
   steps.push(tween(anim.fog, 0, r.fogBreathDownAt, r.fogBreathDown, 'inOut', r.fogBreathPeak));
-  beat(steps, r.coverAt, onBeat, 'wind');
-  beat(steps, r.revealAt, onBeat, 'ink');
   steps.push(tween(anim.coverArc, coverTo, r.coverAt, r.cover, 'settle'));
   steps.push(tween(anim.revealArc, nextRevealArc, r.revealAt, r.reveal, 'inOut'));
+  // 1700: the flag, camera and commit card move on to the next waypoint.
   steps.push(call(r.flagAt, advance));
-  if (nextPoint) beat(steps, r.flagAt, onBeat, 'flag');
   steps.push(tween(anim.flagDrop, 1, r.flagAt, r.flagDrop, 'out', 0));
   if (nextPoint) {
     steps.push(...cameraTo(anim, focusTarget(placement, nextIndex, r.scale), r.cameraAt, r.camera));
   }
   if (onCommitCard) steps.push(call(r.panelAt, onCommitCard));
-  const end = Math.max(r.cameraAt + r.camera, r.panelAt);
-  steps.push(call(end, settle));
+  steps.push(call(r.settleAt, settle));
   return { name: 'reach', steps };
 }
 

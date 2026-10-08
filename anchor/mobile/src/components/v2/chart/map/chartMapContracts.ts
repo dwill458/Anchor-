@@ -250,7 +250,7 @@ export type SequenceStep =
     };
 
 export type SequenceSpec = {
-  name: 'open' | 'later' | 'moveCheck' | 'waypointTap' | 'reach' | 'arrival' | 'introFull' | 'introShort' | 'introReduced' | 'introSkip';
+  name: 'open' | 'later' | 'moveCheck' | 'moveHold' | 'waypointTap' | 'reach' | 'arrival' | 'introFull' | 'introShort' | 'introReduced' | 'introSkip';
   steps: SequenceStep[];
   /** Schedule visual tweens on the UI clock from run start; JS call steps keep their normal timers. */
   tweenClock?: 'ui';

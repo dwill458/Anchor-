@@ -25,10 +25,34 @@ const RAMP_STEPS = 16;
 const INK_SECOND_AT = 0.45;
 const INK_SECOND_MIN_MS = 500;
 
+/**
+ * The one note of a reached waypoint: the existing `chart-flag` cue, re-pitched by playback rate so each waypoint
+ * sounds a step higher on the A major pentatonic (C#5, E5, F#5, A5, B5, C#6). Everything pitch-related lives here.
+ *
+ * UNVERIFIED: `basePitch` is an assumption. The sample's true pitch has not been confirmed (a crude spectrum read of
+ * assets/sounds/chart-flag.mp3 found most energy near 410 Hz and 550 Hz, not 659 Hz, and the cue is inharmonic).
+ * When the real pitch is known, change `basePitch` and `semitones` together; nothing else needs to move.
+ */
+export const CHART_WAYPOINT_NOTE = {
+  /** Assumed pitch of the chart-flag sample, played at rate 1. */
+  basePitch: 'E5',
+  /** Semitones from `basePitch` for waypoint 1, 2, 3, ... Later waypoints hold the last step. */
+  semitones: [-3, 0, 2, 5, 7, 9],
+} as const;
+
+/** Playback rate for the note of waypoint number `waypointNumber` (1-based; below 1 reads as 1). */
+export function waypointNoteRate(waypointNumber: number): number {
+  const steps = CHART_WAYPOINT_NOTE.semitones;
+  const index = Math.min(steps.length - 1, Math.max(0, Math.floor(waypointNumber) - 1));
+  return Math.pow(2, steps[index] / 12);
+}
+
 export type ChartSound = {
   open: () => void;
   ink: (durMs: number) => void;
   flag: () => void;
+  /** The single waypoint-reached note (climbs per waypoint). Kept under Reduce Motion: it marks the commitment. */
+  note: (waypointNumber: number) => void;
   check: () => void;
   stamp: () => void;
   wind: () => void;
@@ -174,6 +198,11 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
         if (durMs > INK_SECOND_MIN_MS) later(durMs * INK_SECOND_AT, () => one('chart-ink', 0.75, 0.95 * jitter()));
       },
       flag: () => one('chart-flag'),
+      note: (waypointNumber: number) => {
+        // Exact pitch: no jitter, or the climb would wobble.
+        one('chart-flag', 1, waypointNoteRate(waypointNumber));
+        duck(1300);
+      },
       check: () => one('chart-check'),
       stamp: () => {
         one('chart-stamp');

@@ -9,7 +9,9 @@ import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { MoveSummary } from '@/types/chart';
 import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
+import * as Haptics from 'expo-haptics';
 import { useSessionStore } from '@/stores/sessionStore';
+import { safeHaptics } from '@/utils/haptics';
 import { localDateString } from '@/utils/primingAnalytics';
 import { CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from './chartMotion';
 import type { HighWaterMap, WaypointProgressInput } from './map/chartMapContracts';
@@ -180,6 +182,8 @@ export function ChartWaypointContent({
   const [logOpen, setLogOpen] = useState(false);
   const [dayClosedDismissed, setDayClosedDismissed] = useState(false);
   const [checkingMove, setCheckingMove] = useState<string | null>(null);
+  // Set synchronously, so a second tap in the same frame (before `checkingMove` has rendered) cannot pass.
+  const completingMove = useRef(false);
   // Keep the server-confirmed completion visible after its toast expires. The
   // checked row is cleared when the person chooses the next move or leaves.
   const [locallyCompletedMove, setLocallyCompletedMove] = useState<MoveSummary | null>(null);
@@ -259,7 +263,10 @@ export function ChartWaypointContent({
   const dayClosed = isCurrent && !dayClosedDismissed && !dayClosedHold && isDayClosed(allMoves, now);
 
   const completeMove = async (moveId: string): Promise<boolean> => {
-    if (checkingMove) return false;
+    if (checkingMove || completingMove.current) return false;
+    completingMove.current = true;
+    // The one haptic of a checked move lands with the tap itself (the route ink that follows is silent to the hand).
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     setCheckingMove(moveId);
     try {
       const completed = await (onCompleteMove ?? chart.completeMove)(moveId);
@@ -273,6 +280,7 @@ export function ChartWaypointContent({
     } catch {
       return false;
     } finally {
+      completingMove.current = false;
       setCheckingMove(null);
     }
   };

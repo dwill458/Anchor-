@@ -12,6 +12,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChartHighWater } from '@/hooks/v2/chart/chartHighWater';
 import { useChartOpenedToday } from '@/hooks/v2/chart/chartLastOpened';
 import { getChartTaughtState, setChartTaughtState, resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
+import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { syncChartNotifications } from '@/services/notifications/chartNotifications';
@@ -26,7 +28,8 @@ import { ChartMap } from './map/ChartMap';
 import type { ChartMapMarker, ChartMarkerRenderState, SequenceSpec } from './map/chartMapContracts';
 import { buildRouteTable, waypointPlacement } from './map/chartMapGeometry';
 import {
-  arrivalSequence, laterSequence, moveCheckSequence, openSequence, reachSequence, waypointTapSequence, type ChartBeat,
+  arrivalSequence, laterSequence, moveCheckSequence, moveHoldArc, moveHoldSequence, openSequence, reachSequence, waypointTapSequence,
+  type ChartBeat,
 } from './map/chartMapSequences';
 import { useScreenFocused } from './map/ChartMapWeather';
 import { peekChartWeatherHandoff } from './map/chartWeatherHandoff';
@@ -132,8 +135,16 @@ const NO_ACTIONS: ChartActions = {
 };
 
 /** A move-check that has been sent and is waiting for the server's new Chart. */
-type PendingMove = { baseline: number };
-type Ceremony = { index: number; advanced: boolean; isLast: boolean };
+type PendingMove = { baseline: number; moveId: string };
+/** `filled`: the reached marker has filled (the scene's 1000 ms beat); until then it stays open. */
+type Ceremony = { index: number; advanced: boolean; filled: boolean; isLast: boolean };
+
+/** Celebration levels (celebrationStore): a waypoint reach outranks a checked move. */
+export const CHART_WAYPOINT_SCENE_LEVEL = 3;
+export const CHART_MOVE_SCENE_LEVEL = 2;
+/** One scene id per waypoint: every entry point that reaches it resolves to the same id, so it plays once. */
+export const chartWaypointSceneId = (waypointId: string) => `chart-waypoint:${waypointId}`;
+export const chartMoveSceneId = (moveId: string) => `chart-move:${moveId}`;
 type ReachEvent = { index: number; result: WaypointReachResult; previousReachedCount: number; total: number };
 
 /** Waits this long for the server's new Chart before giving up on the day-closed hold. */
@@ -232,19 +243,27 @@ export function ChartActiveView({
   hapticsRef.current = hapticsOn;
   const soundRef = useRef(sound);
   soundRef.current = sound;
-  /** Beat -> sound (+ haptic). `inkMs` is the length of the pen stroke at this call site. */
+  // Celebration scenes (waypoint reached, move done) follow the single celebration Reduce Motion source.
+  const sceneReduced = useCelebrationReduceMotion() || reducedMotion;
+  /**
+   * Beat -> sound (+ haptic). `inkMs` is the length of the pen stroke at this call site; `waypointNumber` picks the
+   * pitch of the waypoint note. A reached waypoint has one haptic (the `note` beat's Light) and a checked move has one
+   * (the tap's Light, in ChartWaypointContent), so `check` is sound only. `stamp` (Medium) now serves the arrival only.
+   */
   const beatHandler = useCallback(
-    (inkMs: number) => (beat: ChartBeat) => {
+    (inkMs: number, waypointNumber = 1) => (beat: ChartBeat) => {
       const s = soundRef.current;
       const haptics = hapticsRef.current;
       if (beat === 'open') s.open();
       else if (beat === 'ink') s.ink(inkMs);
-      else if (beat === 'flag') {
+      else if (beat === 'note') {
+        s.note(waypointNumber);
+        if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+      } else if (beat === 'flag') {
         s.flag();
         if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
       } else if (beat === 'check') {
         s.check();
-        if (haptics) void safeHaptics.selection();
       } else if (beat === 'stamp') {
         s.stamp();
         if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
@@ -374,6 +393,15 @@ export function ChartActiveView({
   const openedRef = useRef(false);
   const reachingRef = useRef(false);
   const reachIdRef = useRef<{ index: number; previousReachedCount: number } | null>(null);
+  /** Reach requests in flight per waypoint: a second entry point for the same waypoint shares the first's request. */
+  const reachRequestsRef = useRef(new Map<string, Promise<WaypointReachResult | null>>());
+  /** Waypoint scenes begun on this mount (ids). A waypoint's scene never plays twice, whichever entry point reports it. */
+  const reachScenesRef = useRef(new Set<string>());
+  /** Coordinator scene ids this view has requested and not yet finished (waypoint, move). */
+  const waypointSceneRef = useRef<string | null>(null);
+  const moveSceneRef = useRef<string | null>(null);
+  /** A reach ceremony (waypoint scene or arrival) has begun and not yet finished. */
+  const ceremonyLiveRef = useRef(false);
   const lastArcRef = useRef(0);
   const courseIdRef = useRef(view.courseId);
   const placementSigRef = useRef(`${placement.n}|${view.waypoints.map((waypoint) => waypoint.id).join(',')}`);
@@ -383,6 +411,21 @@ export function ChartActiveView({
   celebrationRef.current = celebration;
   const viewIdxRef = useRef(viewIdx);
   viewIdxRef.current = viewIdx;
+
+  /* ---- celebration coordinator ------------------------------------- */
+  // A tap lands the waypoint scene on its settled state, only while it is the active skippable scene.
+  const reachSceneId = ceremony && !ceremony.isLast && view.waypoints[ceremony.index]
+    ? chartWaypointSceneId(view.waypoints[ceremony.index].id)
+    : null;
+  const sceneSkippable = useCelebrationStore((state) => Boolean(reachSceneId && state.active?.id === reachSceneId && state.active.skippable));
+  // Leaving the Chart mid-scene releases the coordinator (an active scene is cleared, a waiting one is removed).
+  useEffect(() => () => {
+    const store = useCelebrationStore.getState();
+    if (waypointSceneRef.current) store.finish(waypointSceneRef.current);
+    if (moveSceneRef.current) store.finish(moveSceneRef.current);
+    waypointSceneRef.current = null;
+    moveSceneRef.current = null;
+  }, []);
 
 // DEFERRED:   const panel = useSharedValue(0);
 // DEFERRED:   const showPanel = useCallback(() => {
@@ -550,6 +593,40 @@ export function ChartActiveView({
       return;
     }
     if (moved) sheetRef.current?.snapTo('peek');
+    if (moved && pending && currentIndex >= 0 && moveHoldArc(placement, currentIndex) !== null) {
+      // One Move done (M1, L2): ink along the current leg, never past its 90% hold. It goes through the coordinator,
+      // so it waits behind a higher scene (a waypoint reach) and starts when promoted.
+      const sceneId = chartMoveSceneId(pending.moveId);
+      const legIndex = currentIndex;
+      const finishScene = () => {
+        if (moveSceneRef.current === sceneId) moveSceneRef.current = null;
+        useCelebrationStore.getState().finish(sceneId);
+      };
+      const start = () => {
+        const spec = moveHoldSequence({
+          anim,
+          placement,
+          legIndex,
+          fromArc: anim.revealArc.value,
+          // Real progress (already capped at the hold): exactly the hold when the move fills the leg.
+          toArc: Math.max(anim.revealArc.value, revealTargetRef.current),
+          reducedMotion: sceneReduced,
+          onDayClosed: () => { setDayHold(false); if (mounted.current) setSwapRevision(value => value + 1); },
+          onBeat: beatHandler(CHART_MAP_TIMING.moveHold.route),
+        });
+        spec.onEnd = finishScene;
+        void runner.run(spec).finally(finishScene);
+      };
+      moveSceneRef.current = sceneId;
+      const outcome = useCelebrationStore.getState().request(CHART_MOVE_SCENE_LEVEL, sceneId, {
+        // Registered under the skippable threshold on purpose: the move scene is never skippable.
+        durationMs: CHART_MAP_TIMING.moveHold.settleAt,
+        onStart: start,
+        onSkip: () => runner.skip(),
+      });
+      if (outcome !== 'deferred') start();
+      return;
+    }
     void runner.run(
       moveCheckSequence({
         anim,
@@ -561,7 +638,7 @@ export function ChartActiveView({
         onBeat: moved ? beatHandler(CHART_MAP_TIMING.moveCheck.route) : undefined,
       })
     );
-  }, [revealTarget, completedMoves, arrived, anim, runner, reducedMotion, view.courseId, view.waypoints, placement.n, beatHandler]);
+  }, [revealTarget, completedMoves, arrived, anim, runner, reducedMotion, sceneReduced, view.courseId, view.waypoints, placement, currentIndex, beatHandler]);
 
   // The flag stands on the current waypoint whenever the server moves it outside a ceremony.
   useEffect(() => {
@@ -659,7 +736,7 @@ export function ChartActiveView({
   /* ---- move check -------------------------------------------------- */
   const handleCompleteMove = async (moveId: string): Promise<boolean> => {
     sheetRef.current?.snapTo('peek');
-    const pending: PendingMove = { baseline: completedMovesRef.current };
+    const pending: PendingMove = { baseline: completedMovesRef.current, moveId };
     pendingMoveRef.current = pending;
     setDayHold(true);
     let ok = false;
@@ -692,22 +769,34 @@ export function ChartActiveView({
     const base = chartActions ?? NO_ACTIONS;
     return {
       ...base,
-      reachWaypoint: async (waypointId: string) => {
-        sheetRef.current?.snapTo('peek');
-        const index = view.waypoints.findIndex((waypoint) => waypoint.id === waypointId);
-        reachingRef.current = true;
-        reachIdRef.current = { index, previousReachedCount: view.reachedCount };
-        let result: WaypointReachResult | null = null;
-        try {
-          result = await base.reachWaypoint(waypointId);
-        } finally {
-          // A failed reach plays nothing and leaves the route where it was.
-          if (!result) {
-            reachingRef.current = false;
-            reachIdRef.current = null;
+      reachWaypoint: (waypointId: string) => {
+        // The sheet's Mark button and the menu both land here: while one request for this waypoint is in flight,
+        // the other shares it instead of sending a second one.
+        const inFlight = reachRequestsRef.current.get(waypointId);
+        if (inFlight) return inFlight;
+        const request = (async () => {
+          sheetRef.current?.snapTo('peek');
+          const index = view.waypoints.findIndex((waypoint) => waypoint.id === waypointId);
+          reachingRef.current = true;
+          reachIdRef.current = { index, previousReachedCount: view.reachedCount };
+          let result: WaypointReachResult | null = null;
+          try {
+            result = await base.reachWaypoint(waypointId);
+          } finally {
+            // A failed reach plays nothing and leaves the route where it was.
+            if (!result && !ceremonyLiveRef.current) {
+              reachingRef.current = false;
+              reachIdRef.current = null;
+            }
           }
-        }
-        return result;
+          return result;
+        })();
+        reachRequestsRef.current.set(waypointId, request);
+        const clear = () => {
+          if (reachRequestsRef.current.get(waypointId) === request) reachRequestsRef.current.delete(waypointId);
+        };
+        request.then(clear, clear);
+        return request;
       },
     };
   }, [chartActions, view.waypoints, view.reachedCount]);
@@ -728,56 +817,93 @@ export function ChartActiveView({
     if (!(view.isFinished || view.waypoints[index]?.state === 'completed')) return;
     setReachEvent(null);
     const isLast = result.destinationReached || index >= total - 1;
+    const waypointId = view.waypoints[index]?.id ?? String(index);
+    const sceneId = chartWaypointSceneId(waypointId);
+    // The sheet's Mark button, the menu and a replayed report all end up here: a waypoint's ceremony begins once per
+    // mount. A repeat changes nothing and never leaves the route frozen behind a ceremony that is not running.
+    if (reachScenesRef.current.has(sceneId)) {
+      if (!ceremonyLiveRef.current) {
+        reachingRef.current = false;
+        reachIdRef.current = null;
+      }
+      return;
+    }
+    reachScenesRef.current.add(sceneId);
+    ceremonyLiveRef.current = true;
     const notify = () => onWaypointReached?.(result, previousReachedCount, total);
     const finish = () => {
+      ceremonyLiveRef.current = false;
       reachingRef.current = false;
       reachIdRef.current = null;
       lastArcRef.current = revealTargetRef.current;
       setCeremony(null);
+      if (waypointSceneRef.current === sceneId) {
+        waypointSceneRef.current = null;
+        useCelebrationStore.getState().finish(sceneId);
+      }
     };
-    sheetRef.current?.snapTo('peek');
-    setCeremony({ index, advanced: false, isLast });
-    zoomedRef.current = !isLast && !reducedMotion;
-    let spec: SequenceSpec;
+    const start = () => {
+      sheetRef.current?.snapTo('peek');
+      setCeremony({ index, advanced: false, filled: isLast, isLast });
+      zoomedRef.current = !isLast && !sceneReduced;
+      let spec: SequenceSpec;
+      if (isLast) {
+        spec = arrivalSequence({
+          anim,
+          placement,
+          table,
+          index,
+          reducedMotion,
+          onBeat: beatHandler(CHART_MAP_TIMING.reach.reveal),
+          onArrived: () => {
+            setArrived(true);
+            setSwapRevision(value => value + 1);
+            setViewIdx(Math.max(0, total - 1));
+            notify();
+          },
+        });
+      } else {
+        spec = reachSequence({
+          anim,
+          placement,
+          index,
+          endArc: placement.arcs[index] ?? revealTargetRef.current,
+          nextRevealArc: revealTargetRef.current,
+          reducedMotion: sceneReduced,
+          onBeat: beatHandler(CHART_MAP_TIMING.reach.route, view.waypoints[index]?.number ?? index + 1),
+          onStamp: () => setCeremony((current) => (current ? { ...current, filled: true } : current)),
+          onAdvance: () => setCeremony((current) => (current ? { ...current, advanced: true } : current)),
+          onCommitCard: () => {
+            setViewIdx(index + 1);
+            setCommit({ number: index + 1 });
+            setSwapRevision(value => value + 1);
+            notify();
+          },
+        });
+      }
+      spec.onEnd = finish;
+      // Reset on onEnd AND after the run settles, so a skipped or interrupted ceremony can never leave the route frozen.
+      void runner.run(spec).finally(() => {
+        if (reachingRef.current) finish();
+      });
+    };
     if (isLast) {
-      spec = arrivalSequence({
-        anim,
-        placement,
-        table,
-        index,
-        reducedMotion,
-        onBeat: beatHandler(CHART_MAP_TIMING.reach.reveal),
-        onArrived: () => {
-          setArrived(true);
-          setSwapRevision(value => value + 1);
-          setViewIdx(Math.max(0, total - 1));
-          notify();
-        },
-      });
-    } else {
-      spec = reachSequence({
-        anim,
-        placement,
-        index,
-        endArc: placement.arcs[index] ?? revealTargetRef.current,
-        nextRevealArc: revealTargetRef.current,
-        reducedMotion,
-        onBeat: beatHandler(CHART_MAP_TIMING.reach.reveal),
-        onAdvance: () => setCeremony((current) => (current ? { ...current, advanced: true } : current)),
-        onCommitCard: () => {
-          setViewIdx(index + 1);
-          setCommit({ number: index + 1 });
-          setSwapRevision(value => value + 1);
-          notify();
-        },
-      });
+      // The summit keeps its own ceremony for now (its scene is a later step); it does not go through W1.
+      start();
+      return;
     }
-    spec.onEnd = finish;
-    // Reset on onEnd AND after the run settles, so a skipped or interrupted ceremony can never leave the route frozen.
-    void runner.run(spec).finally(() => {
-      if (reachingRef.current) finish();
+    // Waypoint reached (W1, L3, skippable). The reached state is already real (server data); a scene that has to
+    // wait behind a higher one keeps the marker open and plays when the coordinator starts it, so it is never lost.
+    waypointSceneRef.current = sceneId;
+    setCeremony({ index, advanced: false, filled: false, isLast });
+    const outcome = useCelebrationStore.getState().request(CHART_WAYPOINT_SCENE_LEVEL, sceneId, {
+      durationMs: sceneReduced ? CHART_MAP_REDUCED_FADE : CHART_MAP_TIMING.reach.settleAt,
+      onStart: start,
+      // Lands settled: ink drawn, marker filled, label and next step shown, the note and Light haptic played once.
+      onSkip: () => runner.skip(),
     });
-  }, [reachEvent, view, anim, placement, table, reducedMotion, runner, onWaypointReached, beatHandler]);
+    if (outcome !== 'deferred') start();
+  }, [reachEvent, view, anim, placement, table, reducedMotion, sceneReduced, runner, onWaypointReached, beatHandler]);
 
   // Three quiet weeks is evidence the course may need adjusting: offer the one Adjust Route flow once per open.
   useEffect(() => {
@@ -786,11 +912,13 @@ export function ChartActiveView({
   }, []);
 
   /* ---- commit ("I'm committed") ----------------------------------- */
-  // A reach reported by the screen (legacy `reached` route param) shows the same card.
+  // A reach reported by the screen (legacy `reached` route param) shows the same card. It plays no scene of its own
+  // (no note, no haptic), and waits while the coordinator has one playing, so only one celebration is ever on screen.
+  const celebrationPlaying = useCelebrationStore((state) => state.active !== null);
   useEffect(() => {
-    if (!celebration || reachingRef.current || commit || arrived) return;
+    if (!celebration || reachingRef.current || celebrationPlaying || commit || arrived) return;
     setCommit({ number: Math.max(1, view.reachedCount) });
-  }, [celebration, commit, arrived, view.reachedCount]);
+  }, [celebration, celebrationPlaying, commit, arrived, view.reachedCount]);
 
   const dismissCommit = () => {
     const finished = celebrationRef.current;
@@ -822,8 +950,12 @@ export function ChartActiveView({
       view.waypoints.map((waypoint, index) => {
         let state: ChartMarkerRenderState = waypoint.state === 'completed' ? 'done' : waypoint.state === 'current' ? 'current' : 'upcoming';
         if (ceremony) {
-          if (index === ceremony.index) state = 'done';
+          // The reached marker stays open until the scene's marker-fill beat (the server already says reached).
+          if (index === ceremony.index) state = ceremony.filled ? 'done' : 'current';
           else if (index === ceremony.index + 1 && !ceremony.advanced) state = 'upcoming';
+        } else if (reachEvent && index === reachEvent.index) {
+          // Reported but not yet playing: no one-frame flash of the filled marker before the scene starts.
+          state = 'current';
         }
         const word = state === 'done' ? 'reached' : state === 'current' ? 'current' : 'upcoming';
         return {
@@ -836,7 +968,7 @@ export function ChartActiveView({
           accessibilityLabel: `Waypoint ${waypoint.number}: ${waypoint.title}, ${word}`,
         };
       }),
-    [view.waypoints, ceremony, arrived, viewIdx]
+    [view.waypoints, ceremony, reachEvent, arrived, viewIdx]
   );
 
   const isContentLocked = useCallback(() => runner.isBusy() || reachingRef.current || pendingMoveRef.current !== null, [runner]);
@@ -992,10 +1124,16 @@ export function ChartActiveView({
       <ChartWeatherVeilPrimer />
       <ChartMapHeader categoryLabel={categoryLabel} category={identity.category} accent={accent} visionImageUrl={vision?.imageUrl ?? null} hasVision={Boolean(vision)} onBack={offCurrent ? backToCurrent : onBack} onMenu={() => setMenuOpen(true)} onOpenVision={onOpenVision} />
       <ChartMap testID="chart-hero-map" width={width} height={height} frame={frame} table={table} placement={placement} anim={anim} markers={markers} categoryColor={categoryColor} category={identity.category ?? undefined} reducedMotion={reducedMotion} arrived={arrived} clouds weather="living" continuous={entrance === 'reveal'} onShown={onMapShown} onMarkerPress={handleMarkerPress} onMapPress={handleMapPress} />
-      {ceremony && !ceremony.isLast && view.waypoints[ceremony.index] ? <ChartReachBeat visible={!ceremony.advanced} number={view.waypoints[ceremony.index].number} title={view.waypoints[ceremony.index].title} category={identity.category} reducedMotion={reducedMotion} bottom={height - sheetPositions.peek + 12} /> : null}
+      {ceremony && !ceremony.isLast && view.waypoints[ceremony.index] ? <ChartReachBeat visible={ceremony.filled && !ceremony.advanced} number={view.waypoints[ceremony.index].number} title={view.waypoints[ceremony.index].title} category={identity.category} reducedMotion={reducedMotion} bottom={height - sheetPositions.peek + 12} /> : null}
       <ChartSheet ref={sheetRef} reducedMotion={reducedMotion} busy={sequenceBusy} onDetentChange={onDetentChange} overlay={<ChartOneMoveTeaching visible={teachingVisible} replayVersion={teachingReplayVersion} reducedMotion={reducedMotion} detent={sheetDetent} targets={teachingTargets} viewportRef={oneMoveViewportRef} viewportLayoutRevision={teachingViewportRevision} onRequestVisible={requestTeachingVisibility} onReady={markTeachingShown} onDismiss={dismissTeaching} />}>
         <ChartSheetContent view={view} waypointId={panelWaypointId} chart={panelActions} category={identity.category} reducedMotion={reducedMotion} actionError={actionError} bottomInset={insets.bottom} onBack={backToCurrent} onReached={handleReached} inputs={inputs} hw={effectiveHw} vision={vision} onOpenVision={onOpenVision} onOpenLog={onOpenLog} onRelease={onRelease ?? onAdjust} onOpenPractice={onOpenPractice} onCompleteMove={handleCompleteMove} oneMoveRowRef={oneMoveRowRef} oneMoveCircleRef={oneMoveCircleRef} oneMoveBodyRef={oneMoveBodyRef} scrollViewportRef={oneMoveViewportRef} onScrollViewportLayout={onTeachingViewportLayout} onReplayTeaching={replayTeaching} commit={commit} onCommitDismiss={dismissCommit} dayClosedHold={dayHold} arrived={arrived} entrance={entrance} stale={stale} viewWaypoint={handleMarkerPress} onExpandSheet={() => { if (!runner.isBusy()) sheetRef.current?.snapTo('full'); }} swapRevision={swapRevision} isContentLocked={isContentLocked} stillRight={showStillRight ? <ChartInkCard testID="chart-still-right" style={styles.stillRight}><Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text><View style={styles.row}><ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} /><ChartInkButton label={CHART_COPY.review.adjust} onPress={() => { setShowStillRight(false); onAdjust(); }} style={styles.flex} /></View></ChartInkCard> : null} />
       </ChartSheet>
+
+      {/* Only while the waypoint scene is the active skippable scene: a tap lands it on its settled state. */}
+      {sceneSkippable ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Skip" testID="chart-waypoint-skip" style={StyleSheet.absoluteFill}
+          onPress={() => { useCelebrationStore.getState().skip(); }} />
+      ) : null}
 
       <V2SheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} reduceMotion={reducedMotion} testID="chart-menu">
         <View style={styles.menu}>

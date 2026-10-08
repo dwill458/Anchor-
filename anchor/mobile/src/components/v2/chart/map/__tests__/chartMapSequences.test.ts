@@ -1,11 +1,13 @@
 import { CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from '../../chartMotion';
-import type { ChartMapAnimState, SequenceStep } from '../chartMapContracts';
+import { PROGRESS_CAP, type ChartMapAnimState, type SequenceStep } from '../chartMapContracts';
 import { buildRouteTable, cameraTargetFor, OVERVIEW_CAMERA, waypointPlacement } from '../chartMapGeometry';
 import { overviewTarget } from '../useChartMapCamera';
 import {
   arrivalSequence,
   laterSequence,
   moveCheckSequence,
+  moveHoldArc,
+  moveHoldSequence,
   openSequence,
   reachCoverArc,
   reachSequence,
@@ -207,6 +209,78 @@ describe('moveCheckSequence', () => {
   });
 });
 
+describe('moveHoldSequence (One Move done, M1)', () => {
+  const leg = placement.legs[2];
+  const hold = leg.start + 0.9 * (leg.end - leg.start);
+  const build = (over: Partial<Parameters<typeof moveHoldSequence>[0]> = {}) => {
+    const anim = makeAnim();
+    anim.revealArc.value = leg.start;
+    const onDayClosed = jest.fn();
+    const spec = moveHoldSequence({ anim, placement, legIndex: 2, reducedMotion: false, onDayClosed, ...over });
+    return { anim, spec, onDayClosed };
+  };
+
+  it('holds at 90% of the leg: the hold arc is leg.start + 0.9 * length, and PROGRESS_CAP agrees', () => {
+    expect(moveHoldArc(placement, 2)).toBeCloseTo(hold);
+    expect(moveHoldArc(placement, 99)).toBeNull();
+    expect(CHART_MAP_TIMING.moveHold.holdFraction).toBe(PROGRESS_CAP);
+  });
+
+  it('inks the current leg from its start to the hold over 1200ms starting at 500, with the pen cue', () => {
+    const { anim, spec } = build();
+    expect(forTarget(spec.steps, anim.revealArc)).toHaveLength(1);
+    expect(forTarget(spec.steps, anim.revealArc)[0]).toMatchObject({ at: 500, duration: 1200, from: leg.start, easing: 'inOut' });
+    expect(forTarget(spec.steps, anim.revealArc)[0].to).toBeCloseTo(hold);
+    expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 500, duration: 1200 });
+    const seen: ChartBeat[] = [];
+    const withBeats = moveHoldSequence({ anim: makeAnim(), placement, legIndex: 2, reducedMotion: false, fromArc: leg.start, onBeat: (b) => seen.push(b) });
+    expect(calls(withBeats.steps).filter((s) => (s as any).transient).map((s) => s.at).sort((a, b) => a - b)).toEqual([0, 500]);
+  });
+
+  it('never goes past the 90% hold, never fills the waypoint, and never retreats', () => {
+    const past = build({ toArc: leg.end });
+    expect(forTarget(past.spec.steps, past.anim.revealArc)[0].to).toBeCloseTo(hold);
+    expect(forTarget(past.spec.steps, past.anim.revealArc)[0].to).toBeLessThan(leg.end);
+    // Real progress below the hold is honoured (a leg with more moves left).
+    const part = build({ toArc: leg.start + 0.3 * (leg.end - leg.start) });
+    expect(forTarget(part.spec.steps, part.anim.revealArc)[0].to).toBeCloseTo(leg.start + 0.3 * (leg.end - leg.start));
+    // A tip already at or past the hold draws nothing (the route never retreats, never overshoots).
+    const atHold = build({ fromArc: hold });
+    expect(forTarget(atHold.spec.steps, atHold.anim.revealArc)).toHaveLength(0);
+    // The scene touches no marker state: no stamp, no flag move.
+    const touched = new Set(tweens(past.spec.steps).map((s) => s.target));
+    expect(touched.has(past.anim.stamp)).toBe(false);
+    expect(touched.has(past.anim.flagIndex)).toBe(false);
+    runAll(past.spec.steps);
+    expect(past.anim.stampIndex.value).toBe(-1);
+    expect(past.anim.flagIndex.value).toBe(-1);
+  });
+
+  it('closes the day after the toast has gone out (2200) and rests until 2500', () => {
+    const { spec, onDayClosed } = build();
+    expect(sequenceDuration(spec)).toBe(2500);
+    (calls(spec.steps).find((s) => s.at === 2200) as any).run();
+    expect(onDayClosed).toHaveBeenCalledTimes(1);
+  });
+
+  it('reduced motion: ink is set with no travel and no pulse; the check cue stays', () => {
+    const anim = makeAnim();
+    anim.revealArc.value = leg.start;
+    const seen: Array<[number, ChartBeat]> = [];
+    const spec = moveHoldSequence({ anim, placement, legIndex: 2, reducedMotion: true, onBeat: (b) => seen.push([0, b]) });
+    expect(forTarget(spec.steps, anim.revealArc)[0].duration).toBe(0);
+    expect(forTarget(spec.steps, anim.pulse)).toHaveLength(0);
+    calls(spec.steps).filter((s) => (s as any).transient).forEach((s) => (s as any).run());
+    expect(seen.map(([, b]) => b)).toEqual(['check']);
+  });
+
+  it('a Chart with no current leg inks nothing', () => {
+    const anim = makeAnim();
+    const spec = moveHoldSequence({ anim, placement, legIndex: -1, reducedMotion: false });
+    expect(forTarget(spec.steps, anim.revealArc)).toHaveLength(0);
+  });
+});
+
 describe('waypointTapSequence', () => {
   it('moves the camera to 1.45x on the marker in 350ms', () => {
     const anim = makeAnim();
@@ -241,52 +315,81 @@ describe('reachSequence', () => {
     return { anim, spec, onAdvance, onCommitCard };
   };
 
-  it('uses the section 10 offsets', () => {
+  it('uses the W1 timeline: leg inks 0-1100, marker fills at 1000, ring 1000-2100, contours 1100-2300, next step at 1700', () => {
     const { anim, spec } = build();
-    expect(forTarget(spec.steps, anim.stamp)[0]).toMatchObject({ at: 150, duration: 300 });
+    expect(forTarget(spec.steps, anim.stamp)[0]).toMatchObject({ at: 1000, duration: 400 });
     const reveal = forTarget(spec.steps, anim.revealArc);
-    expect(reveal[0]).toMatchObject({ at: 150, to: placement.arcs[1] });
-    expect(reveal[1]).toMatchObject({ at: 500, duration: 600, to: placement.arcs[1] + 40 });
+    expect(reveal[0]).toMatchObject({ at: 0, duration: 1100, to: placement.arcs[1] });
+    expect(reveal[1]).toMatchObject({ at: 1100, duration: 600, to: placement.arcs[1] + 40 });
     // The two reveal tweens on the same value never overlap.
     expect(reveal[0].at + reveal[0].duration).toBeLessThanOrEqual(reveal[1].at);
-    expect(forTarget(spec.steps, anim.pulse)[0]).toMatchObject({ at: 500, duration: 650, easing: 'out' });
+    expect(forTarget(spec.steps, anim.pulse)[0]).toMatchObject({ at: 1000, duration: 1100, easing: 'out' });
     const fog = forTarget(spec.steps, anim.fog);
-    expect(fog[0]).toMatchObject({ at: 500, duration: 350, to: 0.02 });
-    expect(fog[1]).toMatchObject({ at: 850, duration: 350, to: 0 });
-    expect(forTarget(spec.steps, anim.flagDrop)[0]).toMatchObject({ at: 900, duration: 250, easing: 'out' });
-    expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 1200, duration: 500, to: 1.45 });
-    expect(calls(spec.steps).some((s) => s.at === 900)).toBe(true);
-    expect(calls(spec.steps).some((s) => s.at === 1500)).toBe(true);
+    expect(fog[0]).toMatchObject({ at: 1100, duration: 350, to: 0.02 });
+    expect(fog[1]).toMatchObject({ at: 1450, duration: 350, to: 0 });
+    expect(forTarget(spec.steps, anim.flagDrop)[0]).toMatchObject({ at: 1700, duration: 250, easing: 'out' });
+    expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 1700, duration: 500, to: 1.45 });
+    expect(calls(spec.steps).some((s) => s.at === 1700)).toBe(true);
   });
 
   it('rolls the cloud cover 30% into the next leg after the ink reaches the waypoint', () => {
     const { anim, spec } = build();
     const cover = forTarget(spec.steps, anim.coverArc);
-    expect(cover[0]).toMatchObject({ at: 150, duration: 350, to: placement.arcs[1] });
+    expect(cover[0]).toMatchObject({ at: 0, duration: 1100, to: placement.arcs[1] });
     const next = placement.legs[2];
     const lead = placement.arcs[1] + 0.3 * (next.end - next.start);
-    expect(cover[1]).toMatchObject({ at: 500, duration: 900, easing: 'settle' });
+    expect(cover[1]).toMatchObject({ at: 1100, duration: 1200, easing: 'settle' });
     expect(cover[1].to).toBeCloseTo(Math.max(placement.arcs[1] + 40, lead));
     expect(cover[0].at + cover[0].duration).toBeLessThanOrEqual(cover[1].at);
     // Never behind the ink.
     expect(reachCoverArc(placement, 1, placement.arcs[1], placement.arcs[1] + 5000)).toBe(placement.arcs[1] + 5000);
   });
 
-  it('beats: stamp at 150, wind and ink at 500, flag at 900', () => {
+  /** Every beat in `at` order with its transient flag. */
+  const allBeats = (reducedMotion: boolean) => {
     const anim = makeAnim();
-    const order = beatsOf((onBeat) => reachSequence({
-      anim, placement, index: 1, endArc: placement.arcs[1], nextRevealArc: placement.arcs[1] + 40, reducedMotion: false, onBeat,
-    }));
-    expect(order).toEqual([[150, 'stamp'], [500, 'wind'], [500, 'ink'], [900, 'flag']]);
-    const reduced = beatsOf((onBeat) => reachSequence({
-      anim, placement, index: 1, endArc: placement.arcs[1], nextRevealArc: placement.arcs[1] + 40, reducedMotion: true, onBeat,
-    }));
-    expect(reduced.map(([, b]) => b)).toEqual(['stamp', 'flag']);
+    const seen: ChartBeat[] = [];
+    const spec = reachSequence({
+      anim, placement, index: 1, endArc: placement.arcs[1], nextRevealArc: placement.arcs[1] + 40, reducedMotion, onBeat: (b) => seen.push(b),
+    });
+    return calls(spec.steps)
+      .map((s) => {
+        seen.length = 0;
+        (s as any).run();
+        return seen[0] ? ([s.at, seen[0], Boolean((s as any).transient)] as const) : null;
+      })
+      .filter((entry): entry is readonly [number, ChartBeat, boolean] => entry !== null)
+      .sort((a, b) => a[0] - b[0]);
+  };
+
+  it('beats: the pen at 0 and exactly one note at the marker fill (no stamp, wind or flag cue)', () => {
+    expect(allBeats(false)).toEqual([[0, 'ink', true], [1000, 'note', false]]);
+    // Reduce Motion keeps the note (it marks the commitment) and drops the pen, which belongs to the motion.
+    expect(allBeats(true)).toEqual([[0, 'note', false]]);
   });
 
-  it('is about 1.8s with the commit card fade, and aims the camera at the next waypoint', () => {
-    const { anim, spec } = build();
-    expect(sequenceDuration(spec)).toBe(1700);
+  it('the note is not transient, so a skipped scene still plays it once; a normal run plays it once', () => {
+    const anim = makeAnim();
+    const onBeat = jest.fn();
+    const spec = reachSequence({
+      anim, placement, index: 1, endArc: placement.arcs[1], nextRevealArc: placement.arcs[1] + 40, reducedMotion: false, onBeat,
+    });
+    // The sequencer's skip runs every non-transient call once and drops transient beats (see chartSequence.ts).
+    calls(spec.steps).filter((s) => !(s as any).transient).forEach((s) => (s as any).run());
+    expect(onBeat.mock.calls.map(([b]) => b)).toEqual(['note']);
+  });
+
+  it('is 3.2s with the rest, tells the host when the marker fills, and aims the camera at the next waypoint', () => {
+    const anim = makeAnim();
+    const onStamp = jest.fn();
+    const spec = reachSequence({
+      anim, placement, index: 1, endArc: placement.arcs[1], nextRevealArc: placement.arcs[1] + 40, reducedMotion: false, onStamp,
+    });
+    expect(sequenceDuration(spec)).toBe(3200);
+    expect(sequenceDuration(spec)).toBe(CHART_MAP_TIMING.reach.settleAt);
+    runAll(spec.steps);
+    expect(onStamp).toHaveBeenCalledTimes(1);
+    expect(anim.stampIndex.value).toBe(-1);
     const t = cameraTargetFor(placement.points[2], 1.45);
     expect(forTarget(spec.steps, anim.camera.cx)[0].to).toBe(t.cx);
   });

@@ -486,8 +486,8 @@ describe('ChartActiveView — reach ceremony', () => {
 });
 
 describe('ChartActiveView — after a reach', () => {
-  it('reach, "I\x27m committed", then completing the next move extends the route again (moveCheckSequence runs from the drawn arc)', async () => {
-    const spy = jest.spyOn(sequences, 'moveCheckSequence');
+  it('reach, "I\x27m committed", then completing the next move extends the route again (moveHoldSequence inks the current leg from the drawn arc)', async () => {
+    const spy = jest.spyOn(sequences, 'moveHoldSequence');
     const base = afterFirstReach();
     const afterMove: CourseDetail = {
       ...base,
@@ -509,7 +509,7 @@ describe('ChartActiveView — after a reach', () => {
     fireEvent.press(getByTestId('chart-one-move-check'));
     await waitFor(() => expect(spy).toHaveBeenCalled());
     const ctx = spy.mock.calls[0][0];
-    expect(ctx.toArc).toBeGreaterThan(ctx.fromArc);
+    expect(ctx.toArc!).toBeGreaterThan(ctx.fromArc!);
     spy.mockRestore();
   });
 });

@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { CHART_AIR_DUCKED, CHART_AIR_VOLUME, useChartSound } from '../useChartSound';
+import { CHART_AIR_DUCKED, CHART_AIR_VOLUME, CHART_WAYPOINT_NOTE, useChartSound, waypointNoteRate } from '../useChartSound';
 
 type Player = { key: string; opts: { loop?: boolean; volume?: number }; play: jest.Mock; stop: jest.Mock; setVolume: jest.Mock; setRate: jest.Mock; pause: jest.Mock };
 
@@ -94,6 +94,44 @@ describe('useChartSound', () => {
       result.current.stamp();
     });
     expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-check', 'chart-stamp']);
+  });
+
+  it('the waypoint note is the chart-flag cue at the pentatonic rate: C#5 0.8409, E5 1, F#5 1.1225, then climbing', () => {
+    const { result } = renderHook(() => useChartSound(false));
+    act(() => {
+      result.current.note(1);
+      result.current.note(2);
+      result.current.note(3);
+      result.current.note(4);
+    });
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-flag', 'chart-flag', 'chart-flag', 'chart-flag']);
+    const rates = mockPooledCalls.map(({ options }) => options.rate!);
+    expect(rates[0]).toBeCloseTo(0.8409, 4);
+    expect(rates[1]).toBe(1);
+    expect(rates[2]).toBeCloseTo(1.1225, 4);
+    expect(rates[3]).toBeCloseTo(Math.pow(2, 5 / 12), 6);
+    // Exact pitch: the note takes no random jitter (a repeat of one waypoint sounds identical).
+    mockPooledCalls.length = 0;
+    act(() => { result.current.note(1); result.current.note(1); });
+    expect(mockPooledCalls[0].options.rate).toBe(mockPooledCalls[1].options.rate);
+  });
+
+  it('the pitch lives in one constants object; later waypoints hold the last step; the rate stays inside the pool clamp', () => {
+    expect(CHART_WAYPOINT_NOTE.basePitch).toBe('E5');
+    expect(CHART_WAYPOINT_NOTE.semitones.slice(0, 3)).toEqual([-3, 0, 2]);
+    expect(waypointNoteRate(1)).toBeCloseTo(2 ** (-3 / 12));
+    expect(waypointNoteRate(99)).toBe(waypointNoteRate(CHART_WAYPOINT_NOTE.semitones.length));
+    expect(waypointNoteRate(0)).toBe(waypointNoteRate(1));
+    for (let n = 1; n <= 12; n++) {
+      expect(waypointNoteRate(n)).toBeGreaterThanOrEqual(0.5);
+      expect(waypointNoteRate(n)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('Reduce Motion keeps the waypoint note (it marks the commitment, not motion)', () => {
+    const { result } = renderHook(() => useChartSound(true));
+    act(() => result.current.note(2));
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-flag']);
   });
 
   it('allows the intro open cue under Reduce Motion when explicitly requested', () => {

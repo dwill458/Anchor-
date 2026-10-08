@@ -210,39 +210,71 @@ export const CHART_MAP_TIMING = {
     pulse: 650,
     dayClosedAt: 850,
   },
+  /**
+   * One Move done (M1, about 2.8s; registered 2.5s, so not skippable). The shipped circle and toast run in the
+   * row; the current leg inks forward to its 90% hold (500-1700) and the waypoint marker stays open.
+   */
+  moveHold: {
+    checkAt: 0,
+    routeAt: 500,
+    route: 1200,
+    /** The cloud cover follows the tip so the new ink is never under cloud. */
+    coverAt: 500,
+    cover: 1200,
+    pulseAt: 500,
+    pulse: 650,
+    /** The day-closed card replaces the move card after the toast has gone out. */
+    dayClosedAt: 2200,
+    /** The scene rests until here (the registered scene length). */
+    settleAt: 2500,
+    /** The leg holds here, as a fraction of its length: a move never reaches the marker. */
+    holdFraction: 0.9,
+  },
   waypointTap: {
     camera: 350,
     panelCrossfade: 200,
     scale: 1.45,
   },
+  /**
+   * Waypoint reached (W1, about 3.2s). The leg inks to the waypoint (0-1100), the marker fills with the one note
+   * and Light haptic (1000), a ring pulses (1000-2100), the contours turn to ink around it (1100-2300), then the
+   * flag, camera and commit card move on (1700) and the scene rests until `settleAt`.
+   */
   reach: {
-    // DEFERRED: stampAt: 0 (the stamp now lands once the sheet has dropped and the camera framed the waypoint).
-    stampAt: 150,
-    stamp: 300,
-    routeAt: 150,
-    /** Prototype is 400; 350 ends exactly where the next-leg reveal (500) takes over the same value. */
-    route: 350,
-    pulseAt: 500,
-    pulse: 650,
-    fogBreathAt: 500,
+    // DEFERRED: stampAt: 150, stamp: 300, routeAt: 150, route: 350, pulseAt: 500, fogBreathAt: 500,
+    // fogBreathDownAt: 850, coverAt: 500, cover: 900, revealAt: 500, flagAt: 900, cameraAt: 1200, panelAt: 1500
+    // (the first reach timing: the stamp landed as the leg started to ink).
+    /** The marker fills and pops here (scale peak centred ~1200); the single note and Light haptic land with it. */
+    stampAt: 1000,
+    stamp: 400,
+    routeAt: 0,
+    /** The leg to this waypoint draws in ink; the next-leg reveal (1100) takes over the same value. */
+    route: 1100,
+    pulseAt: 1000,
+    pulse: 1100,
+    fogBreathAt: 1100,
     fogBreathUp: 350,
-    fogBreathDownAt: 850,
+    fogBreathDownAt: 1450,
     fogBreathDown: 350,
     /** Peak of the fog breath (clear fraction). Larger values clear half the map. */
     // DEFERRED: fogBreathPeak: 0.035,
     fogBreathPeak: 0.02,
     /** The cloud cover rolls this fraction of the next leg back after a reach. */
-    coverAt: 500,
-    cover: 900,
+    coverAt: 1100,
+    cover: 1200,
     coverLead: 0.3,
-    revealAt: 500,
+    revealAt: 1100,
+    /** Also the arrival sequence's pen length for its sound (ChartActiveView), so it stays 600. */
     reveal: 600,
-    flagAt: 900,
+    flagAt: 1700,
     flagDrop: 250,
-    cameraAt: 1200,
+    cameraAt: 1700,
     camera: 500,
-    panelAt: 1500,
+    /** The reached label hands over to the commit card here. */
+    panelAt: 1700,
     scale: 1.45,
+    /** The scene rests, settled, until here (the registered scene length). */
+    settleAt: 3200,
   },
   arrival: {
     stampAt: 0,
