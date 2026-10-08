@@ -436,3 +436,80 @@ describe('Vision celebration scene', () => {
     expect(useCelebrationStore.getState().queueLength).toBe(0);
   });
 });
+
+describe('Vision double-fire guards', () => {
+  beforeEach(() => {
+    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = job(); mockReduced = false; mockError = null; mockErrorCode = null; mockExamples = [];
+    useCelebrationStore.getState().reset();
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
+    (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');
+  });
+  afterEach(() => { useCelebrationStore.getState().reset(); jest.clearAllTimers(); jest.useRealTimers(); });
+  const calls = (name: string) => (playCreationSound as jest.Mock).mock.calls.filter(([key]) => key === name);
+  const selection = () => require('@/hooks/v2').v2Haptics.selection as jest.Mock;
+  const photo = { uri: 'file:///one.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } as const;
+
+  it('the own-photo develop opens once: a background-to-foreground cycle does not replay the cue, the haptic or the status', async () => {
+    const add = AppState.addEventListener as unknown as jest.Mock;
+    const before = add.mock.calls.length;
+    const view = setup({ startAt: 'develop', photo });
+    expect(calls('formTick')).toHaveLength(1); expect(selection()).toHaveBeenCalledTimes(1);
+    expect(view.getByText(copy.placing)).toBeTruthy();
+    const emit = (value: string) => act(() => { add.mock.calls.slice(before).forEach(([, handler]) => handler(value)); });
+    await advance(500);
+    emit('background');
+    await advance(3000);
+    emit('active');
+    await advance(0);
+    // The status the clock reached while away is shown, and nothing was replayed for it.
+    expect(calls('formTick')).toHaveLength(1); expect(selection()).toHaveBeenCalledTimes(1);
+    expect(view.getByText(copy.developing)).toBeTruthy();
+    // The sequence goes on to completion from where it was, with no further cue.
+    await advance(2000);
+    expect(calls('formTick')).toHaveLength(1); expect(selection()).toHaveBeenCalledTimes(1);
+    expect(view.getByText(copy.developing)).toBeTruthy();
+  });
+  it('the own-photo develop still runs its status cues once each when the app never leaves', async () => {
+    const view = setup({ startAt: 'develop', photo });
+    await advance(1400); expect(view.getByText(copy.light)).toBeTruthy();
+    await advance(1200); expect(view.getByText(copy.developing)).toBeTruthy();
+    expect(calls('formTick')).toHaveLength(3); expect(selection()).toHaveBeenCalledTimes(3);
+    await advance(5000);
+    expect(calls('formTick')).toHaveLength(3); expect(selection()).toHaveBeenCalledTimes(3);
+  });
+  it('a new photo opens the develop again', async () => {
+    mockPicker.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///two.jpg', mimeType: 'image/jpeg' }] });
+    const view = setup({ startAt: 'develop', photo }); await develop(view, 1);
+    expect(view.getByText(copy.caption)).toBeTruthy();
+    const before = calls('formTick').length;
+    await act(async () => { fireEvent.press(view.getByText(copy.replace)); });
+    expect(calls('formTick').length).toBe(before + 1);
+  });
+
+  it('two quick taps on a candidate choose once: one cue, one haptic, one event', async () => {
+    const view = setup(); fireEvent.press(view.getByLabelText(copy.words));
+    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+    await develop(view, 2);
+    // The prints' own reveal also uses this cue; only the choice's share is counted.
+    const revealed = calls('revealSettle').length;
+    const candidate = view.getByTestId('scene-candidate-c0');
+    selection().mockClear();
+    act(() => { fireEvent.press(candidate); fireEvent.press(candidate); });
+    expect(calls('revealSettle')).toHaveLength(revealed + 1);
+    expect(selection()).toHaveBeenCalledTimes(1);
+    expect((AnalyticsService.track as jest.Mock).mock.calls.filter(([name]) => name === 'vision_image_selected')).toHaveLength(1);
+    expect(view.getByTestId('vision-ceremony-keep')).toBeTruthy();
+    // A stale handler fired after the beat has moved on is still ignored.
+    act(() => { fireEvent.press(candidate); });
+    expect(calls('revealSettle')).toHaveLength(revealed + 1);
+  });
+  it('choosing works again when Choose is entered again', async () => {
+    const view = setup(); await choose(view);
+    const first = calls('revealSettle').length;
+    fireEvent.press(view.getByText(copy.both));
+    expect(view.getByText(copy.choose)).toBeTruthy();
+    fireEvent.press(view.getByTestId('scene-candidate-c1'));
+    expect(calls('revealSettle')).toHaveLength(first + 1);
+    expect(view.getByTestId('vision-ceremony-keep')).toBeTruthy();
+  });
+});

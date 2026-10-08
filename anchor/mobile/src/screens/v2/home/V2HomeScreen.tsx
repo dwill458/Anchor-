@@ -41,6 +41,7 @@ import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
 import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
+import { VisionHomeReturnSkip, useVisionHomeReturn } from './visionHomeReturn';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 
@@ -389,6 +390,12 @@ export function V2HomeScreen() {
   }, [model.vision]);
 
   // The first Vision image's return to Home: the pinned print settles into its place, then the page eases to the top.
+  const visionReturn = useVisionHomeReturn({
+    selectedAnchorIds: [model.selectedAnchor?.id, model.selectedAnchor?.localId],
+    visionReady: Boolean(visionCoverUri), refreshVision, reduceMotion: arrivalReduceMotion,
+    homeReady: teachingFocus.isFocused && !teachingFocus.transitioning,
+    scrollRef: elastic.scrollRef, scrollY: elastic.scrollY, maxScroll: elastic.maxScroll, viewportRef: scrollViewportRef, visionRef: visionTeachingRef,
+  });
 
   /**
    * Every handler below is stable. The sections are memoised, and a memoised
@@ -467,7 +474,7 @@ export function V2HomeScreen() {
     (moving, previous) => { if (moving !== previous) runOnJS(setHomeMotionActive)(moving); },
   );
   // Canonical Home idle gate: the queue also waits one InteractionManager turn after this clears.
-  const homeIsIdle = teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival &&
+  const homeIsIdle = teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival && !visionReturn.active &&
     !veilSwapPending.current && !carouselMoving && !homeMotionActive && !focusTransition.active && !threadEvents.active &&
     model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
     model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
@@ -700,7 +707,7 @@ export function V2HomeScreen() {
 
           <View ref={visionTeachingRef} collapsable={false}>
           <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
-            onOpenVision={handleOpenVision} onRetry={handleRetryVision} />
+            onOpenVision={handleOpenVision} onRetry={handleRetryVision} arrival={visionReturn.arrival} />
           </View>
 
           {!hasVision ? <View ref={progressTeachingRef} collapsable={false}><V2HomeProgressSection progress={model.progress} thread={model.thread}
@@ -764,6 +771,7 @@ export function V2HomeScreen() {
           onPress={() => { useCelebrationStore.getState().skip(); }}
         />
       ) : null}
+      <VisionHomeReturnSkip sceneId={visionReturn.sceneId} />
     </SafeAreaView>
     </HomeArrivalProvider>
   );

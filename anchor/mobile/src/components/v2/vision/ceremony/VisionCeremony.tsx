@@ -53,7 +53,8 @@ export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'in
   previewImageUrl?: string | null;
   /** Add mode: that print's caption, shown under it on Ask. */
   previewCaption?: string | null;
-  onPinned?: () => void;
+  /** Called once when the print has reached the board. `firstImage`: this was the Vision's first image (the L4 scene). */
+  onPinned?: (result: { firstImage: boolean }) => void;
   onAdd?: (choice: { assetId: string; prompt: string; caption?: string }) => Promise<boolean>;
   onPhotoConfirm?: (caption: string) => Promise<string | null>;
   onChooseAgain?: () => void;
@@ -193,12 +194,30 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     [9000, 20000, 40000].forEach((ms, i) => scheduled.push(setTimeout(() => setWaitBeat(i + 1), ms)));
     return () => scheduled.forEach(clearTimeout);
   }, [beat === 'develop', ownPhoto, generationAttempt, reduced]);
+  // The own-photo develop starts once per photo: its opening cue (sound, haptic) and its status sequence. Returning from
+  // the background resumes the sequence where it was; it never replays the cue or restarts the status.
+  const photoDevelop = useRef<{ key: string; at: number } | null>(null);
+  useEffect(() => { if (beat !== 'develop') photoDevelop.current = null; }, [beat]);
   useEffect(() => {
     if (beat !== 'develop' || !ownPhoto || !foreground) return;
+    const key = photos[0]?.key ?? '';
+    if (photoDevelop.current?.key === key) return;
+    photoDevelop.current = { key, at: Date.now() };
     setPhotoStatus(0); setPhotoTimeDone(false);
     playCreationSound('formTick'); void v2Haptics.selection();
-    const scheduled = [1300, 2500].map((ms, i) => setTimeout(() => { setPhotoStatus(i + 1); playCreationSound('formTick'); void v2Haptics.selection(); }, reduced ? (i + 1) * 60 : ms));
-    scheduled.push(setTimeout(() => setPhotoTimeDone(true), reduced ? 180 : Math.max(4400, 600 + 400 * Math.min(2, photos.length - 1) + 3400)));
+  }, [beat === 'develop', ownPhoto, photos[0]?.key, foreground]);
+  useEffect(() => {
+    const run = photoDevelop.current;
+    if (beat !== 'develop' || !ownPhoto || !foreground || !run || run.key !== (photos[0]?.key ?? '')) return;
+    // Steps whose time passed while the app was away are applied quietly; the rest keep their original offsets.
+    const elapsed = Date.now() - run.at, scheduled: Array<ReturnType<typeof setTimeout>> = [];
+    [1300, 2500].forEach((ms, i) => {
+      const at = reduced ? (i + 1) * 60 : ms;
+      if (at <= elapsed) setPhotoStatus(value => Math.max(value, i + 1));
+      else scheduled.push(setTimeout(() => { setPhotoStatus(i + 1); playCreationSound('formTick'); void v2Haptics.selection(); }, at - elapsed));
+    });
+    const doneAt = reduced ? 180 : Math.max(4400, 600 + 400 * Math.min(2, photos.length - 1) + 3400);
+    if (doneAt <= elapsed) setPhotoTimeDone(true); else scheduled.push(setTimeout(() => setPhotoTimeDone(true), doneAt - elapsed));
     return () => scheduled.forEach(clearTimeout);
   }, [beat === 'develop', ownPhoto, photos[0]?.key, foreground, reduced]);
   useEffect(() => {
@@ -245,8 +264,13 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     await actions.generation.retry();
     if (alive.current) setGenerationPending(false);
   };
+  // One choice per Choose beat: a second tap before the beat re-renders must not repeat the cue, the haptic or the event.
+  // Cleared only when Choose is entered again (See both again, or fresh candidates), never by the choice's own re-render.
+  const choosing = useRef(false);
+  useEffect(() => { if (beat === 'choose') choosing.current = false; }, [beat]);
   const choose = (index: number, item: VisionGenerationCandidate) => {
-    if (!item.imageUrl || !item.assetId || !developed.has(item.imageUrl) || committedRef.current) return;
+    if (!item.imageUrl || !item.assetId || !developed.has(item.imageUrl) || committedRef.current || choosing.current) return;
+    choosing.current = true;
     void v2Haptics.selection(); playCreationSound('revealSettle');
     AnalyticsService.track('vision_image_selected', { anchor_id: anchorId,
       ...(props.visionId ? { vision_id: props.visionId } : {}), asset_id: item.assetId, source_type: 'AI_GENERATED' });
@@ -330,7 +354,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       }
       if (!alive.current) return;
       if (celebrationRef.current) useCelebrationStore.getState().finish(celebrationRef.current);
-      latest.current.onPinned?.();
+      latest.current.onPinned?.({ firstImage });
     })();
   };
   /** A skip, or a higher scene preempting this one, lands the ceremony on the settled board: no rise, no flight. */

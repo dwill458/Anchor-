@@ -9,7 +9,7 @@ export type V2EvolveMarker = { fromAnchorId: string };
 
 export type AnchorV2StackParamList = {
   V2FirstRun: undefined;
-  V2DevelopmentHome: { releaseReturnFade?: boolean } | undefined;
+  V2DevelopmentHome: { releaseReturnFade?: boolean; visionReturn?: import('@/constants/v2/visionHomeReturn').VisionReturnParams } | undefined;
   V2SystemGallery: undefined;
   V2EvolvingAnchor: undefined;
   V2Creation: undefined;

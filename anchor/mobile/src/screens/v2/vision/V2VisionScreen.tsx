@@ -4,6 +4,8 @@ import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
 import { playCreationSound } from '@/services/CreationSounds';
+import { VISION_HOME_RETURN } from '@/constants/v2/visionHomeReturn';
+import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
 import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
@@ -80,6 +82,10 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   };
   const uploadedPhoto = useRef<{ uri: string; assetId: string } | null>(null);
   useEffect(() => navigation.addListener?.('blur', () => setJustAdded(undefined)), [navigation]);
+  // Only the first image ever returns to Home (set at its pin); later images stay on the board.
+  const [returnHome, setReturnHome] = useState(false);
+  const navigationRef = useRef(navigation); navigationRef.current = navigation;
+  const celebrationReduced = useCelebrationReduceMotion();
   const finishCeremony = (kind: 'create' | 'add') => {
     setJustAdded(kind); playVisionPin(); setPendingPhoto(null); setReplaceSceneId(null); setMode('view');
   };
@@ -93,6 +99,19 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [arrivedFrom, setArrivedFrom] = useState<string[] | null>(null);
   // A photo chosen or taken for the board, previewed until the person confirms it.
   const [pendingPhoto, setPendingPhoto] = useState<PickedVisionPhoto | null>(null);
+  // The pin drops, the board is still, "Sit with it now" is read, then Home. Anything the person does first (leaving,
+  // adding, picking) keeps them where they are.
+  useEffect(() => {
+    // The dwell starts when the board shows the pinned print (the ceremony stays up until the images are decoded).
+    if (!returnHome || mode !== 'view') return;
+    if (pendingPhoto || photoPickerOpen) { setReturnHome(false); return; }
+    const timer = setTimeout(() => {
+      setReturnHome(false);
+      navigationRef.current.navigate('V2DevelopmentHome', { visionReturn: { anchorId: anchor?.id ?? anchorId, nonce: Date.now() } });
+    }, celebrationReduced ? VISION_HOME_RETURN.reducedSitDwellMs : VISION_HOME_RETURN.sitDwellMs);
+    return () => clearTimeout(timer);
+  }, [returnHome, mode, pendingPhoto, photoPickerOpen]);
+  useEffect(() => navigation.addListener?.('blur', () => setReturnHome(false)), [navigation]);
   const anchorIntention = (anchor as { intention?: string } | undefined)?.intention ?? anchor?.intentionText ?? 'Your Anchor';
   const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
@@ -319,7 +338,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       anchorArt={anchorArt}
       initialDescription={model.vision?.description ?? ''}
       savedImageUrl={savedImageUrl}
-      onPinned={() => finishCeremony('create')}
+      onPinned={({ firstImage }) => { finishCeremony('create'); if (firstImage) setReturnHome(true); }}
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
       onBack={handleBack}

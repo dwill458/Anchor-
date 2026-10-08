@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DevSettings, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { AnchorV2StackParamList } from '@/navigation/v2/types';
 import { useV2AnchorCreationGate } from '@/hooks/v2/paywall';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { V2DailyShellNavigator, type V2DailyShellIntents } from './dailyShell';
 import { V2DevFloatingToolbar } from './V2DevFloatingToolbar';
+import { VisionHomeReturnProvider } from './visionHomeReturn';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 
 /**
@@ -14,6 +16,10 @@ import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
  */
 export function V2DevelopmentHome() {
   const navigation = useNavigation<any>();
+  // The first Vision image asks Home to play its return with this param; Home clears it once it has taken it.
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2DevelopmentHome'>>();
+  const visionReturn = route.params?.visionReturn ?? null;
+  const consumeVisionReturn = useCallback(() => navigation.setParams({ visionReturn: undefined }), [navigation]);
 
   useEffect(() => {
     DevSettings.addMenuItem?.('Seed demo Anchor + Vision + Chart', () => {
@@ -60,7 +66,9 @@ export function V2DevelopmentHome() {
   );
   return (
     <View style={{ flex: 1 }}>
-      <V2DailyShellNavigator intents={intents} />
+      <VisionHomeReturnProvider request={visionReturn} consume={consumeVisionReturn}>
+        <V2DailyShellNavigator intents={intents} />
+      </VisionHomeReturnProvider>
       <V2DevFloatingToolbar />
     </View>
   );

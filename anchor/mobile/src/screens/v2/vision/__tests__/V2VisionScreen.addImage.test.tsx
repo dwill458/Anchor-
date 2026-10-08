@@ -5,6 +5,7 @@ import { V2VisionScreen } from '../V2VisionScreen';
 import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { ENTRANCE } from '@/components/v2/vision/ceremony/VisionEntrance';
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -188,5 +189,60 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(currentVision.scenes.filter(item => item.assetId === 'generated-0')).toHaveLength(1);
     expect(currentVision.scenes.find(item => item.assetId === 'generated-0')?.sortOrder).toBe(0);
     await advance(3500); await advance(1200); await advance(200); expect(view.getByTestId('vision-board')).toBeTruthy();
+  });
+  describe('the first image returns to Home', () => {
+    const goHome = () => mockNavigate.mock.calls.filter(([name]) => name === 'V2DevelopmentHome');
+    /** A first own-photo Vision, sealed and pinned: the board shows the print with "Sit with it now". */
+    async function firstImageOnBoard() {
+      (apiClient.get as jest.Mock).mockResolvedValue({ data: null });
+      const post = (apiClient.post as jest.Mock).getMockImplementation()!;
+      (apiClient.post as jest.Mock).mockImplementation(async (url: string, input: any) => {
+        if (url === '/api/v2/anchors/anchor-1/vision') return { data: { ...visionWith(0), description: input.description,
+          scenes: input.scenes.map((item: any, i: number) => scene(i + 1, { ...item, resolvedImageUrl: 'https://example.com/own.jpg' })) } };
+        return post(url, input);
+      });
+      const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByText("When it's true, what do you see?"); await advance(ASK_READY);
+      await ownPhoto(view, 'library'); await seal(view);
+      // Step to the moment the board shows the pinned print: the sit beat is timed from there.
+      for (let waited = 0; waited < 12000 && !view.queryByTestId('vision-board'); waited += 50) await advance(50);
+      expect(view.getByTestId('vision-board')).toBeTruthy(); expect(view.getByTestId('vision-just-added')).toBeTruthy();
+      return view;
+    }
+    it('navigates Home once, with the return param, after the pinned board has been sat with', async () => {
+      const view = await firstImageOnBoard();
+      expect(goHome()).toHaveLength(0);
+      await advance(3399); expect(goHome()).toHaveLength(0);
+      await advance(1);
+      expect(goHome()).toHaveLength(1);
+      expect(goHome()[0]).toEqual(['V2DevelopmentHome', { visionReturn: { anchorId: 'anchor-1', nonce: expect.any(Number) } }]);
+      await advance(20000); expect(goHome()).toHaveLength(1);
+      view.unmount();
+    });
+    it('Reduce Motion shortens the sit beat to reading time and still goes Home once', async () => {
+      useSettingsStore.setState({ reduceMotion: 'on' });
+      try {
+        await firstImageOnBoard();
+        await advance(2199); expect(goHome()).toHaveLength(0);
+        await advance(1); expect(goHome()).toHaveLength(1);
+        await advance(20000); expect(goHome()).toHaveLength(1);
+      } finally { useSettingsStore.setState({ reduceMotion: 'off' }); }
+    });
+    it('does not go Home if the person leaves the screen first', async () => {
+      const view = await firstImageOnBoard();
+      await advance(1000); view.unmount();
+      await advance(10000); expect(goHome()).toHaveLength(0);
+    });
+    it('does not go Home when the person starts adding an image first', async () => {
+      const view = await firstImageOnBoard();
+      await advance(1000);
+      fireEvent.press(view.getByLabelText(/^Add an image/));
+      await advance(10000); expect(goHome()).toHaveLength(0);
+    });
+    it('a later image never navigates', async () => {
+      const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library'); await seal(view, 900);
+      await advance(3500); await advance(1200); await advance(200); await advance(600);
+      expect(view.getByTestId('vision-just-added')).toBeTruthy();
+      await advance(20000); expect(goHome()).toHaveLength(0);
+    });
   });
 });

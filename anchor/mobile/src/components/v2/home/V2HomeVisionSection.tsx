@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
 import { colors, typography } from '@/theme/v2';
 import { resolveVisionHeroImage, type HomeVisionState } from '@/adapters/v2/home';
@@ -10,11 +11,13 @@ type Props = {
   categoryColor?: string;
   onOpenVision?: () => void;
   onRetry?: () => void;
+  /** The first Vision image's return to Home: the label and the print settle in through these. Absent, both are plain. */
+  arrival?: { label: StyleProp<ViewStyle>; body: StyleProp<ViewStyle> };
   testID?: string;
 };
 
 /** Home shows Vision only when this Anchor has one; empty, loading and error render nothing. */
-function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, testID }: Props) {
+function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, arrival, testID }: Props) {
   if (vision.state !== 'ready') return null;
 
   const heroImage = resolveVisionHeroImage(vision);
@@ -24,18 +27,18 @@ function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, tes
   const open = () => { if (onOpenVision) { v2Haptics.selection(); onOpenVision(); } };
   return (
     <View style={styles.container}>
-      <View style={styles.kickerRow}>
+      <Animated.View style={[styles.kickerRow, arrival?.label]}>
         <Text style={styles.title}>Your Vision</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="View all Vision" onPress={open} disabled={!onOpenVision} hitSlop={8}>
           <Text style={styles.seen}>View all ›</Text>
         </Pressable>
-      </View>
-      <View style={{ marginTop: 10 }}>
+      </Animated.View>
+      <Animated.View style={[{ marginTop: 10 }, arrival?.body]}>
         <VisionBoardPreview key={vision.visionId} tiles={vision.tiles ?? []} statement={statement} accent={categoryColor}
           onPress={onOpenVision ? open : undefined} accessibilityLabel={vision.seenToday ? 'Revisit your Vision' : 'Enter your Vision'}
           testID={testID ?? 'v2-home-vision'} imageTestID="v2-home-vision-image"
           statementTestID={title ? 'v2-home-vision-title' : 'v2-home-vision-statement'} />
-      </View>
+      </Animated.View>
       {vision.seenToday ? <Text style={[styles.seen, { marginTop: 8 }]}>Seen today</Text> : null}
     </View>
   );
