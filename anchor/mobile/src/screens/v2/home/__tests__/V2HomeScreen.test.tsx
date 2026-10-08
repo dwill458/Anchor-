@@ -32,7 +32,7 @@ import { toThreadPresentation, useV2HomeModel } from '@/adapters/v2/home';
 import { useChartPreview, selectChartPreview } from '@/hooks/useChartPreview';
 import { chartPreviewCourses } from '@/components/chart/__fixtures__/chartPreviewStates';
 import { playCreationSound } from '@/services/CreationSounds';
-import { HOME_ARRIVAL_SOUND_PLAYED_KEY } from '../V2HomeScreen';
+import { HOME_ARRIVAL_SOUND_PLAYED_KEY, resetHomeArrivalSoundClaimForTests } from '../V2HomeScreen';
 import { homeArrivalCelebrationId } from '@/components/v2/home/homeArrival';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
@@ -118,6 +118,8 @@ const renderHome = (intents = {}, overrides: Record<string, unknown> = {}) => {
 };
 
 beforeEach(() => {
+  resetHomeArrivalSoundClaimForTests();
+  (playCreationSound as jest.Mock).mockClear();
   (AsyncStorage.getItem as jest.Mock).mockReset().mockResolvedValue(null);
   (AsyncStorage.setItem as jest.Mock).mockReset().mockResolvedValue(undefined);
   mockNavigate.mockClear();
@@ -150,8 +152,10 @@ describe('Home structure', () => {
     await waitFor(() => expect(storage.get(HOME_ARRIVAL_SOUND_PLAYED_KEY)).toBe('1'));
     first.unmount();
 
+    // Same app session: the module-level claim means a remount never reads storage again.
     renderHome();
-    await waitFor(() => expect((AsyncStorage.getItem as jest.Mock).mock.calls.filter(([key]) => key === HOME_ARRIVAL_SOUND_PLAYED_KEY)).toHaveLength(2));
+    await act(async () => { await Promise.resolve(); });
+    expect((AsyncStorage.getItem as jest.Mock).mock.calls.filter(([key]) => key === HOME_ARRIVAL_SOUND_PLAYED_KEY)).toHaveLength(1);
     expect(playCreationSound).toHaveBeenCalledTimes(1);
   });
 
@@ -254,6 +258,41 @@ describe('Home structure', () => {
       .mockImplementation((callback) => callback(0, 0, 400, 800));
     fireEvent(layer, 'layout');
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' }));
+  });
+});
+
+describe('Home arrival sound guard', () => {
+  const storageFor = () => {
+    const storage = new Map<string, string>();
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(async (key: string) => storage.get(key) ?? null);
+    (AsyncStorage.setItem as jest.Mock).mockImplementation(async (key: string, value: string) => { storage.set(key, value); });
+    return storage;
+  };
+  const storageReads = () =>
+    (AsyncStorage.getItem as jest.Mock).mock.calls.filter(([key]) => key === HOME_ARRIVAL_SOUND_PLAYED_KEY);
+
+  it('reaches playCreationSound once when two Home mounts race in one session', async () => {
+    const storage = storageFor();
+    oneAnchor();
+    useAuthStore.setState({ hasCompletedOnboarding: true });
+    renderHome();
+    renderHome();
+    await waitFor(() => expect(storage.get(HOME_ARRIVAL_SOUND_PLAYED_KEY)).toBe('1'));
+    await act(async () => { await Promise.resolve(); });
+    expect(playCreationSound).toHaveBeenCalledTimes(1);
+    expect(storageReads()).toHaveLength(1);
+  });
+
+  it('stays silent in a later session once the install has played it', async () => {
+    const storage = storageFor();
+    storage.set(HOME_ARRIVAL_SOUND_PLAYED_KEY, '1');
+    resetHomeArrivalSoundClaimForTests();
+    oneAnchor();
+    useAuthStore.setState({ hasCompletedOnboarding: true });
+    renderHome();
+    await waitFor(() => expect(storageReads()).toHaveLength(1));
+    await act(async () => { await Promise.resolve(); });
+    expect(playCreationSound).not.toHaveBeenCalled();
   });
 });
 
@@ -805,6 +844,16 @@ describe('first arrival skip target', () => {
     expect(useHomeArrivalStore.getState().arrival).toBeNull();
     expect(useCelebrationStore.getState().active).toBeNull();
     expect(screen.queryByTestId('v2-home-arrival-skip')).toBeNull();
+  });
+
+  it('names the skip target for assistive technology', () => {
+    oneAnchor();
+    arriving('first');
+    renderHome();
+    const skip = screen.getByTestId('v2-home-arrival-skip');
+    expect(skip.props.accessible).toBe(true);
+    expect(skip.props.accessibilityRole).toBe('button');
+    expect(skip.props.accessibilityLabel).toBe('Skip');
   });
 
   it('is absent for a repeat arrival, which is not skippable', () => {

@@ -5,8 +5,9 @@ import type { AnchorExpression } from '@/constants/v2/creation';
 export type ArrivalRect = { x: number; y: number; width: number; height: number };
 
 /**
- * `first` only when the just-saved Anchor is the user's only Anchor ever (archived and released
- * Anchors count). `repeat` for every other Anchor; the default when unsure.
+ * `first` only when the user has never seen a first-Anchor arrival (the persisted once-ever flag is
+ * unset) and the just-saved Anchor is the only Anchor in the store (archived and released Anchors
+ * count). `repeat` for every other case; the default when unsure.
  */
 export type HomeArrivalKind = 'first' | 'repeat';
 

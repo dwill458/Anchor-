@@ -12,6 +12,7 @@ import {
 } from '../homeArrival';
 import { useHomeArrivalStore, whenHomeReady, type ArrivalRect, type HomeArrivalKind } from '@/stores/v2/homeArrivalStore';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 
 const TARGET = { x: 120, y: 200, width: 110, height: 110 };
 const FROM = { x: 60, y: 260, width: 280, height: 280 };
@@ -58,6 +59,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   act(() => useHomeArrivalStore.setState({ arrival: null }));
   act(() => useCelebrationStore.getState().reset());
+  act(() => useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', false));
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -101,6 +103,64 @@ describe('Home arrival', () => {
     expect(useHomeArrivalStore.getState().arrival?.phase).toBe('arriving');
     act(() => { jest.advanceTimersByTime(ARRIVAL_TIMING.withFlight + 100); });
     expect(useHomeArrivalStore.getState().arrival).toBeNull();
+  });
+});
+
+describe('first-arrival once-ever flag', () => {
+  const seen = () => useTeachingStore.getState().userFlags.hasSeenFirstAnchorArrival;
+
+  it('is set when a first arrival starts playing', () => {
+    render(<Home selected="anchor-1" onPose={jest.fn()} />);
+    let id = 0;
+    act(() => { id = stage('anchor-1', 'first'); });
+    expect(seen()).toBe(false);
+    act(() => { useHomeArrivalStore.getState().release(id); });
+    expect(seen()).toBe(true);
+  });
+
+  it('is not used up by a first arrival that is staged and never plays', () => {
+    render(<Home selected="anchor-1" onPose={jest.fn()} />);
+    act(() => { stage('anchor-1', 'first'); });
+    act(() => { useHomeArrivalStore.getState().clear(); });
+    expect(seen()).toBe(false);
+  });
+
+  it('is not set by a repeat arrival', () => {
+    render(<Home selected="anchor-1" onPose={jest.fn()} />);
+    let id = 0;
+    act(() => { id = stage('anchor-1', 'repeat'); });
+    act(() => { useHomeArrivalStore.getState().release(id); });
+    expect(seen()).toBe(false);
+  });
+
+  it('is set by a first arrival under Reduce Motion too', () => {
+    render(<Home selected="anchor-1" onPose={jest.fn()} reduceMotion />);
+    let id = 0;
+    act(() => { id = stage('anchor-1', 'first', null); });
+    act(() => { useHomeArrivalStore.getState().release(id); });
+    expect(seen()).toBe(true);
+  });
+
+  it('is written once per arrival, not again when that arrival re-renders', () => {
+    render(<Home selected="anchor-1" onPose={jest.fn()} />);
+    let id = 0;
+    act(() => { id = stage('anchor-1', 'first'); });
+    act(() => { useHomeArrivalStore.getState().release(id); });
+    act(() => { useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', false); });
+    act(() => { useHomeArrivalStore.setState((state) => ({ arrival: state.arrival && { ...state.arrival } })); });
+    expect(seen()).toBe(false);
+  });
+});
+
+describe('arrival that cannot fly', () => {
+  it('registers as a level 2 crossfade even for the first Anchor', () => {
+    render(<Home selected="anchor-1" onPose={jest.fn()} report={false} />);
+    let id = 0;
+    act(() => { id = stage('anchor-1', 'first'); });
+    act(() => { jest.advanceTimersByTime(ARRIVAL_TIMING.measureWait + 1); });
+    act(() => { useHomeArrivalStore.getState().release(id); });
+    expect(useHomeArrivalStore.getState().arrival?.targetRect).toBeNull();
+    expect(useCelebrationStore.getState().active).toEqual({ id: homeArrivalCelebrationId(id), level: 2, skippable: false });
   });
 });
 
@@ -232,7 +292,7 @@ describe('arrival celebration hand-off', () => {
     let id = 0;
     act(() => { id = stage('anchor-1', 'first', null); });
     act(() => { useHomeArrivalStore.getState().release(id); });
-    expect(useCelebrationStore.getState().active).toEqual({ id: homeArrivalCelebrationId(id), level: 4, skippable: false });
+    expect(useCelebrationStore.getState().active).toEqual({ id: homeArrivalCelebrationId(id), level: 2, skippable: false });
 
     act(() => { jest.advanceTimersByTime(ARRIVAL_TIMING.withoutFlight + 100); });
     expect(useHomeArrivalStore.getState().arrival).toBeNull();

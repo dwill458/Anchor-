@@ -3,6 +3,7 @@ import { Image } from 'react-native';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { Anchor } from '@/types';
 import { useHomeArrivalStore, whenHomeReady, type HomeArrivalKind } from '@/stores/v2/homeArrivalStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { CREATION_TIMING } from '@/components/v2/creation/creationMotion';
 import type { CreationHandoff } from '@/screens/v2/creation';
 import { trace } from '@/utils/dev/creationTrace';
@@ -43,11 +44,13 @@ function prefetchChosenImage(url: string | undefined): Promise<void> {
 const ARRIVAL_EXPIRY_MS = 5000;
 
 /**
- * `first` only when the Anchor being arrived is the only Anchor in the store. The anchor store
- * keeps released and archived Anchors, so they count. The new Anchor is excluded by id rather than
- * assumed present or absent: addAnchor runs before the save resolves, so it normally is present.
+ * `first` only while the once-ever flag is unset AND the Anchor being arrived is the only Anchor in
+ * the store. The anchor store keeps released and archived Anchors, so they count. The new Anchor is
+ * excluded by id rather than assumed present or absent: addAnchor runs before the save resolves, so
+ * it normally is present. Once the flag is set, a user who later holds no Anchors still gets `repeat`.
  */
-export function resolveArrivalKind(anchors: Anchor[], anchorId: string): HomeArrivalKind {
+export function resolveArrivalKind(anchors: Anchor[], anchorId: string, hasSeenFirstArrival: boolean): HomeArrivalKind {
+  if (hasSeenFirstArrival) return 'repeat';
   const hasOther = anchors.some((anchor) => anchor.id !== anchorId && anchor.localId !== anchorId);
   return hasOther ? 'repeat' : 'first';
 }
@@ -64,7 +67,9 @@ export function resolveArrivalKind(anchors: Anchor[], anchorId: string): HomeArr
 export function prepareHomeArrival(
   handoff: Omit<CreationHandoff, 'markRect'> & { kind?: HomeArrivalKind },
 ): number {
-  const kind = handoff.kind ?? resolveArrivalKind(useAnchorStore.getState().anchors, handoff.anchorId);
+  // `=== true`: a persisted profile that predates the flag reads as unset.
+  const hasSeenFirstArrival = useTeachingStore.getState().userFlags.hasSeenFirstAnchorArrival === true;
+  const kind = handoff.kind ?? resolveArrivalKind(useAnchorStore.getState().anchors, handoff.anchorId, hasSeenFirstArrival);
   trace('prepareHomeArrival', { imageUrlLength: handoff.imageUrl?.length ?? 0, kind });
   useAnchorStore.getState().setCurrentAnchor(handoff.anchorId);
   return useHomeArrivalStore.getState().stage({

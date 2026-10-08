@@ -17,6 +17,7 @@ import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRen
 import { trace } from '@/utils/dev/creationTrace';
 import { useHomeArrivalStore, type ArrivalRect, type HomeArrival, type HomeArrivalKind } from '@/stores/v2/homeArrivalStore';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 
 /**
  * Home's side of the creation hand-off: the real Home, posed underneath creation, receives the
@@ -198,8 +199,13 @@ export function useHomeArrival({
     if (!arrival || !active || arrival.phase !== 'arriving' || playedId.current === arrival.id) return undefined;
     playedId.current = arrival.id;
     const kind = arrival.kind;
+    // The once-ever first-Anchor flag is written here, when a first arrival actually plays, so an
+    // arrival that is staged and never plays does not use it up.
+    if (kind === 'first') useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', true);
     const windows = arrivalWindows(kind, flight);
-    const duration = flight && arrival.targetRect
+    // Length and celebration level both follow the flight that is actually played.
+    const withFlight = Boolean(flight && arrival.targetRect);
+    const duration = withFlight
       ? (kind === 'first' ? ARRIVAL_TIMING.firstWithFlight : ARRIVAL_TIMING.withFlight)
       : ARRIVAL_TIMING.withoutFlight;
     // Reduced motion is decided by the app (the flight is skipped above); the OS animator
@@ -236,10 +242,12 @@ export function useHomeArrival({
       overlayHold.value = 0;
       useHomeArrivalStore.getState().clear(id);
     };
-    // A first Anchor is a major moment (level 4), a repeat one a reinforcement (level 2). An
-    // arrival is a state change, so it plays whatever the answer; a 'deferred' entry is released
-    // when it ends (finish above and in the cleanup), so no stale queue entry remains.
-    const outcome = useCelebrationStore.getState().request(kind === 'first' ? 4 : 2, celebrationId, { durationMs: duration, onSkip });
+    // A first Anchor that flies is a major moment (level 4). A repeat Anchor, and any crossfade such
+    // as Reduce Motion's, is a reinforcement (level 2). An arrival is a state change, so it plays
+    // whatever the answer; a 'deferred' entry is released when it ends (finish above and in the
+    // cleanup), so no stale queue entry remains.
+    const level = kind === 'first' && withFlight ? 4 : 2;
+    const outcome = useCelebrationStore.getState().request(level, celebrationId, { durationMs: duration, onSkip });
     trace(`arrival celebration ${outcome}`);
 
     return () => {

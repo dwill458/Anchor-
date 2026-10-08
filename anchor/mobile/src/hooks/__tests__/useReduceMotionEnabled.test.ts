@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 import { useCreationReduceMotion, useReduceMotionEnabled } from '../useReduceMotionEnabled';
+import { useCelebrationReduceMotion } from '../useCelebrationReduceMotion';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -16,6 +17,12 @@ const mockIsReduceMotionEnabled = jest.spyOn(AccessibilityInfo, 'isReduceMotionE
 jest.spyOn(AccessibilityInfo, 'addEventListener').mockReturnValue({
   remove: jest.fn(),
 } as never);
+
+describe('useCelebrationReduceMotion', () => {
+  it('is the single celebration source: the same hook creation uses', () => {
+    expect(useCelebrationReduceMotion).toBe(useCreationReduceMotion);
+  });
+});
 
 describe.each([
   ['useReduceMotionEnabled', useReduceMotionEnabled],

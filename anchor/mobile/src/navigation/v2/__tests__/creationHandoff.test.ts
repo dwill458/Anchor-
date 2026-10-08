@@ -6,6 +6,7 @@ jest.mock('@/stores/anchorStore', () => ({
 
 import { handOffToHome, prepareHomeArrival, resolveArrivalKind } from '../creationHandoff';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 
 const handoff = {
   anchorId: 'anchor-1',
@@ -32,6 +33,7 @@ beforeEach(() => {
   mockSetCurrentAnchor.mockClear();
   mockAnchors.length = 0;
   useHomeArrivalStore.setState({ arrival: null });
+  useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', false);
 });
 
 describe('handOffToHome', () => {
@@ -127,7 +129,34 @@ describe('arrival kind', () => {
 
   it('matches the saved Anchor by its local id as well', () => {
     mockAnchors.push({ id: 'server-9', localId: 'anchor-1' });
-    expect(resolveArrivalKind(mockAnchors as never, 'anchor-1')).toBe('first');
+    expect(resolveArrivalKind(mockAnchors as never, 'anchor-1', false)).toBe('first');
+  });
+
+  it('is first only while the once-ever flag is unset', () => {
+    expect(resolveArrivalKind([], 'anchor-1', false)).toBe('first');
+    expect(resolveArrivalKind([{ id: 'anchor-1' }] as never, 'anchor-1', false)).toBe('first');
+    expect(resolveArrivalKind([{ id: 'older' }] as never, 'anchor-1', false)).toBe('repeat');
+  });
+
+  it('is repeat once the flag is set, even when the saved Anchor is the only one', () => {
+    useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', true);
+    mockAnchors.push({ id: 'anchor-1' });
+    prepareHomeArrival(saved);
+    expect(useHomeArrivalStore.getState().arrival?.kind).toBe('repeat');
+    expect(resolveArrivalKind([{ id: 'anchor-1' }] as never, 'anchor-1', true)).toBe('repeat');
+  });
+
+  it('is repeat for a user who deleted their only Anchor after the first arrival', () => {
+    useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', true);
+    prepareHomeArrival(saved);
+    expect(useHomeArrivalStore.getState().arrival?.kind).toBe('repeat');
+  });
+
+  it('treats a persisted profile that predates the flag as unset', () => {
+    useTeachingStore.setState({ userFlags: { ...useTeachingStore.getState().userFlags, hasSeenFirstAnchorArrival: undefined } as never });
+    mockAnchors.push({ id: 'anchor-1' });
+    prepareHomeArrival(saved);
+    expect(useHomeArrivalStore.getState().arrival?.kind).toBe('first');
   });
 
   it('uses an explicit kind when given', () => {

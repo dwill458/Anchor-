@@ -13,6 +13,7 @@ import { V2HomeChartSection, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V
 import { getNextPractice, resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
 import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
+import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 import { VisualProfiler } from '@/utils/visualProfiler';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
@@ -54,6 +55,15 @@ const CONTENT_VEIL_DIM = 0.38;
 /** A focus within this window of the last context refresh reuses what Home already shows. */
 const REFOCUS_REFRESH_MS = 30_000;
 export const HOME_ARRIVAL_SOUND_PLAYED_KEY = '@anchor/v2/home-arrival-sound-played';
+/**
+ * Claimed synchronously, before the storage read, so two Home mounts in one app session cannot both
+ * reach the sound. The storage key still decides once per install.
+ */
+let homeArrivalSoundClaimed = false;
+/** Test-only: starts a fresh app session for the module-level claim. */
+export function resetHomeArrivalSoundClaimForTests(): void {
+  homeArrivalSoundClaimed = false;
+}
 const PRACTICE_ACTION_BY_MODE = {
   focus: 'Focus',
   deep_prime: 'Deep Prime',
@@ -125,7 +135,6 @@ export function V2HomeScreen() {
   const teachingScrollActive = useSharedValue(false);
   const [carouselMoving, setCarouselMoving] = useState(false);
   const [homeMotionActive, setHomeMotionActive] = useState(true);
-  const homeArrivalAttempted = useRef(false);
   const navigation = useNavigation<Nav>();
   // Home never fades during an Anchor flight: it stays fully drawn until Details covers it,
   // and is already drawn when Details is removed. Only the travelling copy moves.
@@ -133,8 +142,8 @@ export function V2HomeScreen() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const model = useV2HomeModel();
   useEffect(() => {
-    if (!hasCompletedOnboarding || homeArrivalAttempted.current) return;
-    homeArrivalAttempted.current = true;
+    if (!hasCompletedOnboarding || homeArrivalSoundClaimed) return;
+    homeArrivalSoundClaimed = true;
     void AsyncStorage.getItem(HOME_ARRIVAL_SOUND_PLAYED_KEY).then(async played => {
       if (played) return;
       await AsyncStorage.setItem(HOME_ARRIVAL_SOUND_PLAYED_KEY, '1');
@@ -143,6 +152,8 @@ export function V2HomeScreen() {
   }, [hasCompletedOnboarding]);
   const practiceHistory = useSessionStore((state) => state.practiceHistory);
   const reduceMotion = useV2ReduceMotion();
+  // The arrival's Reduce Motion input: the celebration source (preference OR system), used only by the arrival.
+  const arrivalReduceMotion = useCelebrationReduceMotion();
   const insets = useSafeAreaInsets();
   const { gutter } = useV2Responsive();
   const elastic = useHomeElasticScroll();
@@ -277,7 +288,7 @@ export function V2HomeScreen() {
   const arrival = useHomeArrival({
     selectedAnchorIds: [model.selectedAnchor?.id, model.selectedAnchor?.localId],
     onPose: poseForArrival,
-    reduceMotion,
+    reduceMotion: arrivalReduceMotion,
   });
   // A first arrival can be tapped through while the coordinator holds it as a skippable scene.
   const arrivalCelebrationId = arrival.arrival ? homeArrivalCelebrationId(arrival.arrival.id) : null;
@@ -741,7 +752,9 @@ export function V2HomeScreen() {
       {arrivalSkippable && arrival.arrival?.kind === 'first' ? (
         <Pressable
           testID="v2-home-arrival-skip"
-          accessible={false}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Skip"
           style={StyleSheet.absoluteFill}
           onPress={() => { useCelebrationStore.getState().skip(); }}
         />

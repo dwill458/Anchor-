@@ -23,6 +23,8 @@ export interface TeachingUserFlags {
   hasCompletedFirstBurn: boolean;
   hasCompletedFirstStabilize: boolean;
   hasTracedBefore: boolean;
+  /** Set once, when a first-Anchor arrival on Home actually plays. Never cleared. */
+  hasSeenFirstAnchorArrival: boolean;
 }
 
 export interface TeachingState {
@@ -79,6 +81,7 @@ const createInitialTeachingState = () => ({
     hasCompletedFirstBurn: false,
     hasCompletedFirstStabilize: false,
     hasTracedBefore: false,
+    hasSeenFirstAnchorArrival: false,
   },
   traceHintSeenCounts: {},
   traceHintExhaustedIds: {},
@@ -193,6 +196,7 @@ export const useTeachingStore = create<TeachingState>()(
           hasCompletedFirstBurn: false,
           hasCompletedFirstStabilize: false,
           hasTracedBefore: false,
+          hasSeenFirstAnchorArrival: false,
           ...(persistedState.userFlags ?? {}),
         };
 
