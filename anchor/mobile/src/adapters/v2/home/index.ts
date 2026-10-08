@@ -6,6 +6,8 @@ export { toHomeVisionState, toV2HomeVisionState, resolveVisionHeroImage, resolve
 export type { HomeVisionState } from './visionAdapter';
 export { getNextPractice } from './nextPractice';
 export type { NextPractice } from './nextPractice';
+export { buildTodayForDisplay, planTodaySwap, todayCardMode } from './todayForDisplay';
+export type { TodayCompletion, TodayForDisplayInput, TodaySwapPlan } from './todayForDisplay';
 export {
   toHomeChartState,
   resolveHomeChartState,

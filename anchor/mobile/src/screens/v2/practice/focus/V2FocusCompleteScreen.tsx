@@ -1,14 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { V2Button, V2Screen } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
+import { circularAnchorArtworkShare } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { resolveEvolutionStage } from '@/adapters/v2/progress/progressAdapter';
 import { AnchorMotion, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
-import { usePracticeCompletionScene, type PracticeSceneKind } from '@/hooks/v2/practice/usePracticeCompletionScene';
+import {
+  practiceSceneValues,
+  usePracticeCompletionScene,
+  type PracticeSceneKind,
+} from '@/hooks/v2/practice/usePracticeCompletionScene';
+import type { ArrivalRect } from '@/stores/v2/homeArrivalStore';
+import { offerPracticeDeparture, type PracticeDepartureMeasure } from '@/stores/v2/practiceDeparture';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 
 // COPY: from the celebration brief
@@ -27,6 +41,33 @@ const STAGE_STRIP: readonly string[] = ['Forming', 'Building', 'Established', 'I
 /** The Full Strength ring sits this far outside the artwork. */
 const RING_INSET = 8;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+/** Complete to Home: after Continue, the header, label, bar, notes and buttons fade out over this long (linear). */
+const LEAVE_CHROME_MS = 300;
+/** ...and the struck old value (with its arrow) over this long. The new value stays, then fades in place on Home. */
+const LEAVE_OLD_VALUE_MS = 200;
+/** The glow behind the artwork is this share of the artwork's circle (styles.artworkAtmosphere). */
+const ATMOSPHERE_SHARE = 0.84;
+/** A finished image fills the same share of Home's paper disc as the mark does on this screen's disc. */
+const IMAGE_MARK_SHARE = 0.72;
+/** Longest a measurement may take before the screen leaves without it. */
+const MEASURE_TIMEOUT_MS = 200;
+
+/** A node's window rect, or null when it cannot be measured (no node, no method, no answer in time). */
+function measureWindow(node: unknown): Promise<ArrivalRect | null> {
+  const target = node as { measureInWindow?: (callback: (x: number, y: number, width: number, height: number) => void) => void } | null;
+  return new Promise((resolve) => {
+    if (!target || typeof target.measureInWindow !== 'function') {
+      resolve(null);
+      return;
+    }
+    const timer = setTimeout(() => resolve(null), MEASURE_TIMEOUT_MS);
+    target.measureInWindow((x, y, width, height) => {
+      clearTimeout(timer);
+      resolve([x, y, width, height].every(Number.isFinite) && width > 0 ? { x, y, width, height } : null);
+    });
+  });
+}
 
 const isStageScene = (kind: PracticeSceneKind) =>
   kind === 'stageFirst' || kind === 'stageReinforced' || kind === 'stageRelight';
@@ -151,6 +192,58 @@ export function V2FocusCompleteScreen({
   const stageIndex = Math.max(0, STAGE_STRIP.indexOf(resolveEvolutionStage(toVal)));
   const artworkStyle = useAnimatedStyle(() => ({ transform: [{ scale: artworkScale.value }] }));
 
+  // Complete to Home. Continue fades everything but the artwork, its glow and the new value (linear,
+  // the old value first); the route then carries the same artwork and glow to Home's hero. Only the
+  // Anchor and the new figure are measured; no sound and no haptic belong to this beat.
+  const [leaving, setLeaving] = useState(false);
+  const chromeOut = useSharedValue(1);
+  const oldValueOut = useSharedValue(1);
+  const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
+  const oldValueStyle = useAnimatedStyle(() => ({ opacity: oldValueOut.value }));
+  const artworkRef = useRef<View>(null);
+  const valueRef = useRef<Text>(null);
+  const showsNewValue = hasAuthoritativeMovement && delta !== 0;
+
+  const measureDeparture = useCallback(async (): Promise<PracticeDepartureMeasure | null> => {
+    const circle = await measureWindow(artworkRef.current);
+    if (!circle) return null;
+    // The mark's own square, not its circle: what Home's overlay flies and scales.
+    const share = anchor.enhancedImageUrl ? IMAGE_MARK_SHARE : circularAnchorArtworkShare('dark', circle.width, false);
+    const side = circle.width * share;
+    const fromRect: ArrivalRect = {
+      x: circle.x + (circle.width - side) / 2,
+      y: circle.y + (circle.height - side) / 2,
+      width: side,
+      height: side,
+    };
+    const valueRect = showsNewValue ? await measureWindow(valueRef.current) : null;
+    let glowOpacity = practiceSceneValues(scene.kind, fromVal, toVal, 'final').glow;
+    try {
+      const live = scene.glowOpacity.value;
+      if (Number.isFinite(live)) glowOpacity = live;
+    } catch {
+      // The settled glow stands in.
+    }
+    return {
+      fromRect,
+      number: valueRect ? { text: `${toVal}%`, rect: valueRect } : null,
+      glow: { color: categoryPalette.soft, opacity: glowOpacity, scale: (circle.width * ATMOSPHERE_SHARE) / side },
+    };
+  }, [anchor.enhancedImageUrl, categoryPalette.soft, fromVal, scene.glowOpacity, scene.kind, showsNewValue, toVal]);
+
+  const handleContinue = useCallback(() => {
+    if (sessionSaved) {
+      if (!reduceMotion) {
+        // The app decides Reduce Motion; the OS animator scale must not collapse the fade into a jump.
+        chromeOut.value = withTiming(0, { duration: LEAVE_CHROME_MS, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+        oldValueOut.value = withTiming(0, { duration: LEAVE_OLD_VALUE_MS, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+        setLeaving(true);
+      }
+      offerPracticeDeparture({ sessionId, at: Date.now(), measure: () => measureDeparture().catch(() => null) });
+    }
+    onDone();
+  }, [chromeOut, measureDeparture, oldValueOut, onDone, reduceMotion, sessionId, sessionSaved]);
+
   useEffect(() => {
     if (reduceMotion) {
       contentOpacity.value = 1;
@@ -171,7 +264,11 @@ export function V2FocusCompleteScreen({
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} animated />
       <Animated.View style={[styles.content, contentStyle]}>
-        <Animated.View style={[styles.artworkContainer, { width: artworkSize, height: artworkSize }, artworkStyle]}>
+        <Animated.View
+          ref={artworkRef}
+          collapsable={false}
+          style={[styles.artworkContainer, { width: artworkSize, height: artworkSize }, artworkStyle]}
+        >
           <Animated.View style={[styles.artworkAtmosphere, { backgroundColor: categoryPalette.soft }, glowStyle]} />
           <V2FocusAnchorArtwork
             svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
@@ -204,9 +301,9 @@ export function V2FocusCompleteScreen({
           ) : null}
         </Animated.View>
 
-        <View style={styles.headingBlock}>
+        <Animated.View testID="focus-complete-heading" style={[styles.headingBlock, chromeStyle]}>
           <Text style={styles.headline}>{practiceTitle ?? 'Focus'} complete</Text>
-        </View>
+        </Animated.View>
 
         {sessionSaved ? <>
         {/* Authoritative Consistency (Thread Strength) feedback */}
@@ -220,7 +317,7 @@ export function V2FocusCompleteScreen({
             </View>
           ) : hasAuthoritativeMovement ? (
             <View style={styles.measuredCard}>
-              <View style={styles.threadHeader}>
+              <Animated.View style={[styles.threadHeader, chromeStyle]}>
                 <View style={styles.deltaGroup}>
                   <Animated.Text style={[styles.threadTitle, labelStyle]}>THREAD STRENGTH</Animated.Text>
                   {delta !== 0 ? (
@@ -236,28 +333,35 @@ export function V2FocusCompleteScreen({
                     </Animated.Text>
                   ) : null}
                 </View>
-              </View>
+              </Animated.View>
 
               {delta !== 0 ? (
                 <View style={styles.valuesRow}>
-                  <Text style={[
+                  <Animated.Text style={[
                     styles.strengthValue,
                     { color: colors.text.secondary },
                     fromStruck ? styles.struck : null,
+                    oldValueStyle,
                   ]}
                   >
                     {fromVal}%
-                  </Text>
+                  </Animated.Text>
                   <Animated.View style={[styles.valuesRowTo, valueStyle]}>
-                    <Text style={styles.arrow}>→</Text>
-                    <Text style={[styles.strengthValue, { color: colors.text.primary }]}>{toVal}%</Text>
+                    <Animated.Text style={[styles.arrow, oldValueStyle]}>→</Animated.Text>
+                    <Text
+                      ref={valueRef}
+                      testID="focus-complete-new-value"
+                      style={[styles.strengthValue, { color: colors.text.primary }]}
+                    >
+                      {toVal}%
+                    </Text>
                   </Animated.View>
                 </View>
               ) : (
-                <Text style={styles.currentStrengthLabel}>{toVal}%</Text>
+                <Animated.Text style={[styles.currentStrengthLabel, chromeStyle]}>{toVal}%</Animated.Text>
               )}
 
-              <View style={styles.progressBarTrack}>
+              <Animated.View style={[styles.progressBarTrack, chromeStyle]}>
                 <Animated.View
                   style={[
                     styles.progressBarFill,
@@ -267,15 +371,15 @@ export function V2FocusCompleteScreen({
                     barStyle,
                   ]}
                 />
-              </View>
+              </Animated.View>
             </View>
           ) : (
             <View style={styles.measuredCard}>
-              <View style={styles.threadHeader}>
+              <Animated.View style={[styles.threadHeader, chromeStyle]}>
                 <Text style={styles.threadTitle}>THREAD STRENGTH</Text>
                 <Text style={styles.currentStrengthLabel}>{toVal}%</Text>
-              </View>
-              <View style={styles.progressBarTrack}>
+              </Animated.View>
+              <Animated.View style={[styles.progressBarTrack, chromeStyle]}>
                 <Animated.View
                   style={[
                     styles.progressBarFill,
@@ -285,13 +389,13 @@ export function V2FocusCompleteScreen({
                     barStyle,
                   ]}
                 />
-              </View>
+              </Animated.View>
             </View>
           )}
         </View>
 
         {isStageScene(scene.kind) ? (
-          <Animated.View testID="focus-complete-stage-strip" style={[styles.stageStrip, stripStyle]}>
+          <Animated.View testID="focus-complete-stage-strip" style={[styles.stageStrip, stripStyle, chromeStyle]}>
             <View style={styles.stageSegments}>
               {STAGE_STRIP.map((name, index) => (
                 <View key={name} style={styles.stageSegmentTrack}>
@@ -315,13 +419,13 @@ export function V2FocusCompleteScreen({
         {noteText ? (
           <Animated.Text
             testID={scene.kind === 'first' ? 'focus-complete-first-line' : undefined}
-            style={[scene.kind === 'fullFirst' ? styles.fullStrengthTitle : styles.reinforcedToday, noteStyle]}
+            style={[scene.kind === 'fullFirst' ? styles.fullStrengthTitle : styles.reinforcedToday, noteStyle, chromeStyle]}
           >
             {noteText}
           </Animated.Text>
         ) : null}
         {scene.kind === 'fullFirst' ? (
-          <Animated.Text testID="focus-complete-full-strength-subline" style={[styles.sublineText, sublineStyle]}>
+          <Animated.Text testID="focus-complete-full-strength-subline" style={[styles.sublineText, sublineStyle, chromeStyle]}>
             {COPY.fullStrengthSubline}
           </Animated.Text>
         ) : null}
@@ -344,15 +448,18 @@ export function V2FocusCompleteScreen({
         />
       ) : null}
       {/* Action buttons */}
-      <View
+      <Animated.View
+        testID="focus-complete-footer"
+        pointerEvents={leaving ? 'none' : 'auto'}
         style={[
           styles.footer,
           { paddingBottom: footerBottomPadding },
+          chromeStyle,
         ]}
       >
         <V2Button
           size="large"
-          onPress={onDone}
+          onPress={handleContinue}
           accessibilityLabel="Continue"
           testID="focus-complete-done-button"
           style={styles.doneButton}
@@ -368,7 +475,7 @@ export function V2FocusCompleteScreen({
         >
           <Text style={styles.againText}>{practiceTitle ?? 'Focus'} again</Text>
         </Pressable>
-      </View>
+      </Animated.View>
       <Animated.View testID="v2-focus-complete-ink" pointerEvents="none" style={[styles.inkOverlay, inkOverlayStyle]} />
     </V2Screen>
   );

@@ -74,7 +74,14 @@ jest.mock('@/screens/v2/progress', () => {
 jest.mock('@/screens/v2/anchors', () => { const { Text: RNText } = require('react-native'); return { V2AnchorLibraryScreen: () => <RNText>library</RNText>, V2AnchorDetailsScreen: () => <RNText>details</RNText> }; });
 jest.mock('@/screens/v2/release', () => { const { Text: RNText } = require('react-native'); return { V2ReleaseScreen: () => <RNText>release</RNText> }; });
 jest.mock('@/screens/v2/weeklyInsight', () => { const { Text: RNText } = require('react-native'); return { V2WeeklyInsightScreen: () => <RNText>weekly-insight</RNText> }; });
-jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: { getState: () => ({ addAnchor: jest.fn(), getAnchorById: jest.fn() }) } }));
+const mockStoreAnchors: any[] = [];
+jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: { getState: () => ({ addAnchor: jest.fn(), getAnchorById: jest.fn(), anchors: mockStoreAnchors }) } }));
+const mockHandOffPracticeToHome = jest.fn(() => Promise.resolve('started'));
+jest.mock('../practiceHandoff', () => ({ handOffPracticeToHome: (...args: any[]) => (mockHandOffPracticeToHome as any)(...args) }));
+let mockCelebrationReduceMotion = false;
+jest.mock('@/hooks/useCelebrationReduceMotion', () => ({ useCelebrationReduceMotion: () => mockCelebrationReduceMotion }));
+/** What the practice screen was told when the last completion came back from the route. */
+let mockCompletionReturn: unknown;
 
 // Onboarding is complete for this suite, which exercises post-onboarding
 // (Vision <-> Chart) wiring — the resolver is covered separately in
@@ -118,14 +125,14 @@ jest.mock('@/screens/v2/practice', () => {
         </RNPressable>
         <RNPressable
           accessibilityRole="button"
-          onPress={() =>
-            props.onSessionCompleted?.({
+          onPress={() => {
+            mockCompletionReturn = props.onSessionCompleted?.({
               mode: 'focus',
               durationSeconds: 60,
               saved: true,
               source: 'external',
-            })
-          }
+            });
+          }}
         >
           <RNText>practice-complete-external</RNText>
         </RNPressable>
@@ -179,6 +186,7 @@ jest.mock('@/screens/v2/chart', () => {
 });
 
 import { AnchorV2Navigator } from '../AnchorV2Navigator';
+import { offerPracticeDeparture, takePracticeDeparture, type PracticeDeparture } from '@/stores/v2/practiceDeparture';
 
 describe('AnchorV2Navigator Progress wiring', () => {
   beforeEach(() => {
@@ -304,6 +312,89 @@ describe('AnchorV2Navigator Practice launch source and return on session complet
 
     fireEvent.press(screen.getByText('practice-complete-external'));
     expect(mockSetRoute).toHaveBeenCalledWith('V2Chart', { anchorId: 'anchor-1' });
+  });
+});
+
+describe('AnchorV2Navigator Complete to Home', () => {
+  const homeRoute = {
+    name: 'V2Practice',
+    params: { anchorId: 'anchor-1', recommendedMode: 'focus', returnRoute: 'V2DevelopmentHome', source: 'home' },
+  };
+  const departure = (): PracticeDeparture => ({ sessionId: 'session-1', at: Date.now(), measure: async () => null });
+
+  beforeEach(() => {
+    mockSetRoute.mockClear();
+    mockHandOffPracticeToHome.mockClear();
+    mockCompletionReturn = undefined;
+    mockCelebrationReduceMotion = false;
+    mockStoreAnchors.length = 0;
+    mockStoreAnchors.push({ id: 'anchor-1', category: 'career', baseSigilSvg: '<svg/>' });
+    takePracticeDeparture();
+  });
+
+  it('hands the Anchor to Home, and tells the practice screen to keep the complete screen up, when the practice came from Home', () => {
+    mockRoute = homeRoute;
+    render(<AnchorV2Navigator />);
+    const offered = departure();
+    offerPracticeDeparture(offered);
+    fireEvent.press(screen.getByText('practice-complete-external'));
+
+    expect(mockHandOffPracticeToHome).toHaveBeenCalledTimes(1);
+    const [, input, options] = (mockHandOffPracticeToHome.mock.calls[0] as unknown) as [unknown, { anchor: { id: string }; departure: PracticeDeparture }, { reduceMotion: boolean }];
+    expect(input.anchor.id).toBe('anchor-1');
+    expect(input.departure).toBe(offered);
+    expect(options).toEqual({ reduceMotion: false });
+    expect(mockCompletionReturn).toBe(true);
+    // The hand-off changes the route itself, after the complete screen has faded.
+    expect(mockSetRoute).not.toHaveBeenCalled();
+  });
+
+  it('gives the hand-off the same Reduce Motion source Home reads', () => {
+    mockCelebrationReduceMotion = true;
+    mockRoute = homeRoute;
+    render(<AnchorV2Navigator />);
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect((mockHandOffPracticeToHome.mock.calls[0] as unknown[])[2]).toEqual({ reduceMotion: true });
+  });
+
+  it('returns to Home the ordinary way when the complete screen offered nothing', () => {
+    mockRoute = homeRoute;
+    render(<AnchorV2Navigator />);
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToHome).not.toHaveBeenCalled();
+    expect(mockCompletionReturn).toBeUndefined();
+    expect(mockSetRoute).toHaveBeenCalledWith('V2DevelopmentHome', undefined);
+  });
+
+  it('does not hand off a practice that returns anywhere but Home', () => {
+    mockRoute = { name: 'V2Practice', params: { anchorId: 'anchor-1', returnRoute: 'V2Chart', source: 'chart' } };
+    render(<AnchorV2Navigator />);
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToHome).not.toHaveBeenCalled();
+    expect(mockSetRoute).toHaveBeenCalledWith('V2Chart', { anchorId: 'anchor-1' });
+    // And what was offered is not left behind for a later completion.
+    expect(takePracticeDeparture()).toBeNull();
+  });
+
+  it('does not hand off when the Anchor is not in the store', () => {
+    mockStoreAnchors.length = 0;
+    mockRoute = homeRoute;
+    render(<AnchorV2Navigator />);
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToHome).not.toHaveBeenCalled();
+    expect(mockSetRoute).toHaveBeenCalledWith('V2DevelopmentHome', undefined);
+  });
+
+  it('keeps the practice hub as a hub: nothing is handed off and the route does not change', () => {
+    mockRoute = { name: 'V2Practice', params: { anchorId: 'anchor-1', source: 'practice_hub' } };
+    render(<AnchorV2Navigator />);
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-hub'));
+    expect(mockHandOffPracticeToHome).not.toHaveBeenCalled();
+    expect(mockSetRoute).not.toHaveBeenCalled();
   });
 });
 

@@ -40,6 +40,9 @@ import { useV2ReduceMotion } from '@/hooks/v2';
 import { V2_TRANSITION_SETTLE_MS, v2ScreenBackground, v2StackScreenOptions } from './transitions';
 import { ProgressiveFocusTransitionProvider, useOptionalAnchorTransition } from './ProgressiveFocusTransition';
 import { handOffToHome, prepareHomeArrival } from './creationHandoff';
+import { handOffPracticeToHome } from './practiceHandoff';
+import { takePracticeDeparture } from '@/stores/v2/practiceDeparture';
+import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
 
@@ -110,6 +113,8 @@ function V2PracticeRouteScreen() {
   const source = route.params?.source;
   const anchorTransition = route.params?.anchorTransition === true;
   const reduceMotion = useV2ReduceMotion();
+  // The same Reduce Motion source Home's arrival reads, so both ends of a hand-off agree on the flight.
+  const celebrationReduceMotion = useCelebrationReduceMotion();
 
   // Arriving with the Anchor, the push ran without an animation of its own
   // (see PRACTICE_OPTIONS). Once it has landed, leaving gets the ordinary V2
@@ -154,11 +159,21 @@ function V2PracticeRouteScreen() {
   }, [anchorId, navigation, resolvedReturnRoute]);
 
   const handleSessionCompleted = useCallback(
-    (completion?: { source?: string }) => {
+    (completion?: { source?: string; saved?: boolean }): boolean | void => {
+      // The complete screen offers what it knows about itself when Continue is tapped. Taking it
+      // here also clears it, so a completion that goes elsewhere leaves nothing behind.
+      const departure = takePracticeDeparture();
       // If the practice was launched from the practice screen itself (practice_hub)
       // and no explicit returnRoute was specified, stay on the practice screen.
       if (completion?.source === 'practice_hub' && !returnRoute) {
         return;
+      }
+      // Complete to Home: a saved practice that returns to Home carries its Anchor there. The
+      // practice screen keeps the complete screen up (returning true) until the hand-off changes
+      // the route itself.
+      if (departure && suppliedAnchor && completion?.saved !== false && resolvedReturnRoute === 'V2DevelopmentHome') {
+        void handOffPracticeToHome(navigation, { anchor: suppliedAnchor, departure }, { reduceMotion: celebrationReduceMotion });
+        return true;
       }
       if (resolvedReturnRoute) {
         if (resolvedReturnRoute === 'V2DevelopmentHome') {
@@ -170,7 +185,7 @@ function V2PracticeRouteScreen() {
         }
       }
     },
-    [anchorId, navigation, resolvedReturnRoute, returnRoute]
+    [anchorId, celebrationReduceMotion, navigation, resolvedReturnRoute, returnRoute, suppliedAnchor]
   );
 
   return (

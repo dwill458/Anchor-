@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
 import { V2HomeChartSection, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
-import { getNextPractice, resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
+import { buildTodayForDisplay, planTodaySwap, resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel, type TodaySwapPlan } from '@/adapters/v2/home';
 import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
@@ -64,13 +64,6 @@ let homeArrivalSoundClaimed = false;
 export function resetHomeArrivalSoundClaimForTests(): void {
   homeArrivalSoundClaimed = false;
 }
-const PRACTICE_ACTION_BY_MODE = {
-  focus: 'Focus',
-  deep_prime: 'Deep Prime',
-  visualize: 'Visualize',
-  release: 'Release',
-} as const;
-
 /** Changes whenever a practice is recorded, which is what moves Today, Thread and evidence. */
 const practiceMarker = () => {
   const state = useSessionStore.getState();
@@ -176,50 +169,22 @@ export function V2HomeScreen() {
         ))
       .sort((left, right) => Date.parse(right.completedAt) - Date.parse(left.completedAt))
     : [], [model.selectedAnchor?.userId, practiceHistory, selectedAnchorId, selectedAnchorLocalId, todayLocalDate]);
-  const completedModes = useMemo(() => new Set(completedToday.map((session) => session.practiceMode)), [completedToday]);
-  const completedMode = completedToday[0]?.practiceMode;
-  const nextPractice = useMemo(() => completedMode
-    ? getNextPractice({
-      completedModes,
-      hasVision: model.vision.state === 'ready',
-      chartArcComplete: model.chart.state === 'ready' && model.chart.isFinished,
-    })
-    : null, [completedModes, completedMode, model.chart, model.vision.state]);
-  const nextMode = nextPractice && nextPractice !== 'all_practices' ? nextPractice : null;
   const settings = useSettingsStore.getState();
-  const durationByMode = {
-    focus: settings.focusSessionDuration,
-    deep_prime: settings.primeSessionDuration,
-    visualize: settings.visualizeSessionDuration,
+  const todayInputs = {
+    hasVision: model.vision.state === 'ready',
+    chartArcComplete: model.chart.state === 'ready' && model.chart.isFinished,
+    durationByMode: {
+      focus: settings.focusSessionDuration,
+      deep_prime: settings.primeSessionDuration,
+      visualize: settings.visualizeSessionDuration,
+    },
   };
-  const doneDuration = nextMode === 'release'
-    ? undefined
-    : nextMode
-      ? model.today.state === 'ready' && model.today.mode === nextMode
-        ? model.today.durationSeconds ?? durationByMode[nextMode]
-        : durationByMode[nextMode]
-      : undefined;
-  const todayForDisplay = useMemo(() => completedMode && (model.today.state === 'ready' || nextMode || nextPractice === 'all_practices')
-    ? {
-      ...(model.today.state === 'ready' ? model.today : {
-        state: 'ready' as const,
-        mode: nextMode ?? 'focus',
-        action: nextMode ? PRACTICE_ACTION_BY_MODE[nextMode] : 'Focus',
-        reason: '',
-        completionSignal: null,
-        threadStrength: null,
-        threadDelta: null,
-        threadDeltaStatus: 'UNAVAILABLE' as const,
-        durationSeconds: doneDuration,
-      }),
-      doneToday: {
-        completedMode,
-        nextMode,
-        durationSeconds: doneDuration,
-        completedDurationSeconds: completedToday[0]?.completedDurationSeconds,
-      },
-    }
-    : model.today, [completedMode, doneDuration, model.today, nextMode, nextPractice]);
+  const todayForDisplay = useMemo(
+    () => buildTodayForDisplay({ today: model.today, completed: completedToday, ...todayInputs }),
+    // todayInputs is rebuilt every render; its parts are the real dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [completedToday, model.today, todayInputs.hasVision, todayInputs.chartArcComplete, todayInputs.durationByMode.focus, todayInputs.durationByMode.deep_prime, todayInputs.durationByMode.visualize],
+  );
   const reportedHydratedAnchors = useRef(new Set<string>());
   const reportedFirstMeaningfulHome = useRef(false);
   // Each model already loads on mount, so the first focus is not a reason to refetch.
@@ -280,10 +245,11 @@ export function V2HomeScreen() {
     const state = navigation.getState?.();
     // Creation stages the arrival while it is still on top (it stages as soon as the save
     // resolves, mid-seal). Popping to the top then would tear creation down before it hands off,
-    // leaving Home posed and hidden: only a pushed screen such as Details is popped here.
+    // leaving Home posed and hidden: only a pushed screen such as Details is popped here. A finished
+    // practice stages its arrival the same way, while its complete screen is still on top.
     const topRoute: string | undefined = state?.routes?.[state.index]?.name;
-    const creationOnTop = topRoute === 'AnchorCreationFlow' || topRoute === 'V2Creation';
-    if (state && state.index > 0 && !creationOnTop) navigation.popToTop();
+    const handoffOnTop = topRoute === 'AnchorCreationFlow' || topRoute === 'V2Creation' || topRoute === 'V2Practice';
+    if (state && state.index > 0 && !handoffOnTop) navigation.popToTop();
   }, [elastic.scrollRef, navigation]);
   const arrival = useHomeArrival({
     selectedAnchorIds: [model.selectedAnchor?.id, model.selectedAnchor?.localId],
@@ -296,6 +262,29 @@ export function V2HomeScreen() {
     const active = state.active;
     return Boolean(active && arrivalCelebrationId && active.id === arrivalCelebrationId && active.skippable);
   });
+
+  // Complete to Home. Whether this completion changed what Today recommends is decided once, when the
+  // arrival appears: the context refresh below can move the server recommendation afterwards. Only a
+  // real change swaps the card; if the recommendation did not change, the new card simply stands.
+  const practiceArrival = arrival.arrival?.kind === 'practice' ? arrival.arrival : null;
+  const practiceArrivalId = practiceArrival?.id ?? null;
+  const todaySwap = useMemo<TodaySwapPlan>(
+    () => practiceArrival
+      ? planTodaySwap({ today: model.today, completed: completedToday, ...todayInputs, sessionId: practiceArrival.sessionId ?? null })
+      : { changed: false },
+    // Decided per arrival, not per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [practiceArrivalId],
+  );
+  const todaySwapping = arrival.swapsToday && todaySwap.changed;
+  // The arrival is staged while Home is hidden underneath, so the figures it will show are fetched now
+  // rather than after the route has changed. Once per arrival.
+  const refreshedForArrival = useRef<number | null>(null);
+  useEffect(() => {
+    if (practiceArrivalId === null || refreshedForArrival.current === practiceArrivalId) return;
+    refreshedForArrival.current = practiceArrivalId;
+    refreshHomeContext();
+  }, [practiceArrivalId, refreshHomeContext]);
 
   useHomePrewarm(model.anchorList, model.selectedIndex);
 
@@ -398,6 +387,8 @@ export function V2HomeScreen() {
     const statement = model.vision.title?.trim() || model.vision.previewText?.trim();
     return Boolean(heroImage || statement);
   }, [model.vision]);
+
+  // The first Vision image's return to Home: the pinned print settles into its place, then the page eases to the top.
 
   /**
    * Every handler below is stable. The sections are memoised, and a memoised
@@ -682,6 +673,10 @@ export function V2HomeScreen() {
           {/* Anchor-scoped content: veiled while the carousel moves, revealed once it commits. */}
           <Animated.View style={contentVeilStyle}>
           <View ref={todayTeachingRef} collapsable={false}>
+          {/* Complete to Home, only when this completion changed the recommendation: the card Home showed
+              before it fades out as the new one fades in. The new card keeps one place in the tree, so it
+              never remounts when the arrival starts or ends. */}
+          <Animated.View pointerEvents={todaySwapping ? 'none' : 'auto'} style={todaySwapping ? arrival.swapInStyle : undefined}>
           <V2HomeTodaySection
             testID="v2-home-today"
             today={todayForDisplay}
@@ -691,6 +686,16 @@ export function V2HomeScreen() {
             onOpenAllPractices={handleOpenAllPractices}
             onRetry={handleRetryToday}
           />
+          </Animated.View>
+          {todaySwapping && todaySwap.changed ? (
+            <Animated.View testID="v2-home-today-swap-from" pointerEvents="none" style={[StyleSheet.absoluteFill, arrival.swapOutStyle]}>
+              <V2HomeTodaySection
+                today={todaySwap.from}
+                visionCoverUri={todayVisionUri}
+                visionCoverIsReused={todayVisionIsReused}
+              />
+            </Animated.View>
+          ) : null}
           </View>
 
           <View ref={visionTeachingRef} collapsable={false}>

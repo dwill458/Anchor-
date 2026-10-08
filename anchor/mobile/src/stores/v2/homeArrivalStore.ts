@@ -9,10 +9,22 @@ export type ArrivalRect = { x: number; y: number; width: number; height: number 
  * unset) and the just-saved Anchor is the only Anchor in the store (archived and released Anchors
  * count). `repeat` for every other case; the default when unsure.
  */
-export type HomeArrivalKind = 'first' | 'repeat';
+export type HomeArrivalKind = 'first' | 'repeat' | 'practice';
+
+/** The Thread Strength figure a finished practice showed, and where (window coordinates). */
+export type ArrivalNumber = { text: string; rect: ArrivalRect };
+
+/** The atmosphere behind the mark on the practice-complete screen, carried with it. */
+export type ArrivalGlow = {
+  color: string;
+  opacity: number;
+  /** The glow's diameter as a multiple of the mark's square. */
+  scale: number;
+};
 
 /**
- * A just-created Anchor arriving on Home.
+ * A just-created Anchor arriving on Home (`first`, `repeat`), or the Anchor of a practice that has
+ * just been completed returning to Home (`practice`).
  *
  * Creation stages the arrival while it still covers Home; Home, mounted underneath, poses
  * itself for it (content hidden, the mark where creation left it) and reports where the mark
@@ -26,7 +38,14 @@ export type HomeArrival = {
   kind: HomeArrivalKind;
   svg: string;
   category?: string;
-  expression: AnchorExpression;
+  /** Absent for an Anchor that never recorded one (its stored SVG renders as it always has). */
+  expression?: AnchorExpression;
+  /** `practice` only: the completed session, so Home can tell what this completion changed. */
+  sessionId?: string | null;
+  /** `practice` only: the figure on the complete screen, which fades out in place as Home's arrives. */
+  number?: ArrivalNumber | null;
+  /** `practice` only: the glow that rides with the mark and hands over to Home's own. */
+  glow?: ArrivalGlow | null;
   /** The chosen interpretation, when one was kept: it travels as itself, in its circle. */
   imageUrl?: string;
   /** The mark's square as creation last showed it (window coordinates). Null skips the flight. */

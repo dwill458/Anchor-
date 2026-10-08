@@ -18,6 +18,7 @@ import { trace } from '@/utils/dev/creationTrace';
 import { useHomeArrivalStore, type ArrivalRect, type HomeArrival, type HomeArrivalKind } from '@/stores/v2/homeArrivalStore';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { colors, typography } from '@/theme/v2';
 
 /**
  * Home's side of the creation hand-off: the real Home, posed underneath creation, receives the
@@ -35,6 +36,12 @@ export const ARRIVAL_TIMING = {
    * scene. The mark's flight covers the first part of it (see WINDOWS_FIRST).
    */
   firstWithFlight: 3400,
+  /**
+   * The whole arrival when a finished practice carries its Anchor back to Home ("Complete to Home",
+   * about 2.4s from the tap). Its first 300ms are the complete screen fading its own chrome while
+   * Home waits underneath; the mark's flight starts after that (see WINDOWS_PRACTICE).
+   */
+  practice: 2400,
   /** The arrival when there is no flight (reduced motion, or no measurement). */
   withoutFlight: 700,
   /** Longest Home waits for its hero to be measured before posing without a target. */
@@ -78,15 +85,63 @@ const WINDOWS_FIRST = {
   lower: [0.55, 0.95],
 } as const;
 
-type ArrivalWindows = Record<keyof typeof WINDOWS, readonly [number, number]>;
+/** Milliseconds on the practice arrival's own clock, as a fraction of it. */
+const practiceAt = (ms: number) => ms / ARRIVAL_TIMING.practice;
+
+/**
+ * Complete to Home. Prototype timeline, in ms from the tap on Close, mapped onto Home's regions:
+ * - 0 to 300 the complete screen fades its own chrome (not Home's: Home is still underneath).
+ * - 350 to 1100 the mark flies (the prototype starts at 100; it waits for the complete screen to
+ *   finish fading and for the route to change, so it never starts out of sight).
+ * - 400 to 1100 Home's header and ink lower panel arrive.
+ * - 1100 to 1500 the hero arrives as one region (counter, neighbouring cards, Thread label and
+ *   number: they live in one component), the mark hands over to the real one, and the number the
+ *   complete screen showed fades out in place over 700 to 1300.
+ * - 1400 to 1800 Today's card swaps to the new recommendation, only when it changed.
+ */
+const WINDOWS_PRACTICE = {
+  flight: [practiceAt(350), practiceAt(1100)],
+  environment: [practiceAt(400), practiceAt(1100)],
+  header: [practiceAt(400), practiceAt(1100)],
+  hero: [practiceAt(1100), practiceAt(1500)],
+  overlayOut: [practiceAt(1150), practiceAt(1500)],
+  lower: [practiceAt(400), practiceAt(1100)],
+  swap: [practiceAt(1400), practiceAt(1800)],
+  numberOut: [practiceAt(700), practiceAt(1300)],
+} as const;
+
+type ArrivalWindows = Record<keyof typeof WINDOWS, readonly [number, number]> & {
+  /** Practice only: Today's card cross-fades to the new recommendation. */
+  swap?: readonly [number, number];
+  /** Practice only: the complete screen's figure fades out in place. */
+  numberOut?: readonly [number, number];
+};
 
 /**
  * The window set an arrival plays through. Without a flight, the short crossfade is used for any
- * kind; a first Anchor's flight is stretched over its longer run.
+ * kind; a first Anchor's flight is stretched over its longer run, and a practice has its own.
  */
 export function arrivalWindows(kind: HomeArrivalKind, flight: boolean): ArrivalWindows {
   if (!flight) return WINDOWS_WITHOUT_FLIGHT;
+  if (kind === 'practice') return WINDOWS_PRACTICE;
   return kind === 'first' ? WINDOWS_FIRST : WINDOWS;
+}
+
+/** The whole arrival's length in ms for the flight that is actually played. */
+export function arrivalDuration(kind: HomeArrivalKind, withFlight: boolean): number {
+  if (!withFlight) return ARRIVAL_TIMING.withoutFlight;
+  if (kind === 'first') return ARRIVAL_TIMING.firstWithFlight;
+  return kind === 'practice' ? ARRIVAL_TIMING.practice : ARRIVAL_TIMING.withFlight;
+}
+
+/**
+ * Practice arrivals that have already played in this process. A Home that remounts mid-arrival must
+ * land settled rather than start the scene a second time (the coordinator id dedupes the request;
+ * this stops the animation itself restarting).
+ */
+const playedPracticeArrivals = new Set<number>();
+export function resetPlayedPracticeArrivalsForTests(): void {
+  playedPracticeArrivals.clear();
 }
 
 /** The celebration coordinator's id for one arrival. */
@@ -199,15 +254,26 @@ export function useHomeArrival({
     if (!arrival || !active || arrival.phase !== 'arriving' || playedId.current === arrival.id) return undefined;
     playedId.current = arrival.id;
     const kind = arrival.kind;
+    if (kind === 'practice') {
+      // A practice arrival starts once per process. A Home that remounts while it is playing lands
+      // settled instead of starting it again (and must not leave the celebration entry behind).
+      if (playedPracticeArrivals.has(arrival.id)) {
+        cancelAnimation(progress);
+        progress.value = 1;
+        overlayHold.value = 0;
+        useHomeArrivalStore.getState().clear(arrival.id);
+        useCelebrationStore.getState().finish(homeArrivalCelebrationId(arrival.id));
+        return undefined;
+      }
+      playedPracticeArrivals.add(arrival.id);
+    }
     // The once-ever first-Anchor flag is written here, when a first arrival actually plays, so an
     // arrival that is staged and never plays does not use it up.
     if (kind === 'first') useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', true);
     const windows = arrivalWindows(kind, flight);
     // Length and celebration level both follow the flight that is actually played.
     const withFlight = Boolean(flight && arrival.targetRect);
-    const duration = withFlight
-      ? (kind === 'first' ? ARRIVAL_TIMING.firstWithFlight : ARRIVAL_TIMING.withFlight)
-      : ARRIVAL_TIMING.withoutFlight;
+    const duration = arrivalDuration(kind, withFlight);
     // Reduced motion is decided by the app (the flight is skipped above); the OS animator
     // scale must not silently collapse the arrival into a jump.
     progress.value = withTiming(1, { duration, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
@@ -217,7 +283,8 @@ export function useHomeArrival({
     // A finished image travels as itself: the overlay stays over the hero until the hero has the
     // same image on screen, so Home never shows the hero empty or falling back to raw geometry.
     // Bounded: past when the overlay would have faded, it waits at most heroImageHold more.
-    const mustHold = Boolean(arrival.imageUrl) && heroLoadedFor.current !== id;
+    // A practice returns to a hero Home has already drawn with that image, so it never waits for a load.
+    const mustHold = kind !== 'practice' && Boolean(arrival.imageUrl) && heroLoadedFor.current !== id;
     let holdTimer: ReturnType<typeof setTimeout> | null = null;
     if (mustHold) {
       overlayHold.value = 1;
@@ -242,8 +309,8 @@ export function useHomeArrival({
       overlayHold.value = 0;
       useHomeArrivalStore.getState().clear(id);
     };
-    // A first Anchor that flies is a major moment (level 4). A repeat Anchor, and any crossfade such
-    // as Reduce Motion's, is a reinforcement (level 2). An arrival is a state change, so it plays
+    // A first Anchor that flies is a major moment (level 4). A repeat Anchor, a practice returning
+    // to Home, and any crossfade such as Reduce Motion's, is a reinforcement (level 2). An arrival is a state change, so it plays
     // whatever the answer; a 'deferred' entry is released when it ends (finish above and in the
     // cleanup), so no stale queue entry remains.
     const level = kind === 'first' && withFlight ? 4 : 2;
@@ -288,12 +355,38 @@ export function useHomeArrival({
   const heroStyle = fadeIn(windows.hero);
   const lowerStyle = fadeIn(windows.lower, 36);
 
+  // Today's card swap (practice only): the card Home showed before this completion fades out as the
+  // new one fades in. Without a swap window both sit at their settled values (new shown, old hidden).
+  const swapWindow = windows.swap;
+  const swapInStyle = useAnimatedStyle(() => {
+    if (!swapWindow) return { opacity: 1 };
+    return { opacity: interpolate(progress.value, [swapWindow[0], swapWindow[1]], [0, 1], 'clamp') };
+  }, [swapWindow?.[0], swapWindow?.[1]]);
+  const swapOutStyle = useAnimatedStyle(() => {
+    if (!swapWindow) return { opacity: 0 };
+    return { opacity: interpolate(progress.value, [swapWindow[0], swapWindow[1]], [1, 0], 'clamp') };
+  }, [swapWindow?.[0], swapWindow?.[1]]);
+
   const context = useMemo<ArrivalContextValue>(
     () => ({ active, phase: active ? arrival?.phase ?? null : null, progress, reportTarget, reportHeroImageLoaded, overlayHold }),
     [active, arrival?.phase, overlayHold, progress, reportHeroImageLoaded, reportTarget],
   );
 
-  return { context, headerStyle, environmentStyle, heroStyle, lowerStyle, arrival: active ? arrival : null, flight, origin, reportOrigin };
+  return {
+    context,
+    headerStyle,
+    environmentStyle,
+    heroStyle,
+    lowerStyle,
+    swapInStyle,
+    swapOutStyle,
+    /** True when this arrival plays Today's card swap (a practice that flies). */
+    swapsToday: Boolean(active && swapWindow),
+    arrival: active ? arrival : null,
+    flight,
+    origin,
+    reportOrigin,
+  };
 }
 
 export function HomeArrivalProvider({ value, children }: { value: ArrivalContextValue; children: React.ReactNode }) {
@@ -346,6 +439,15 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
   const windows = arrivalWindows(arrival.kind, flight ?? Boolean(from));
   const [flightStart, flightEnd] = windows.flight;
   const [overlayOutStart, overlayOutEnd] = windows.overlayOut;
+  // Practice only, and only while the mark flies: the complete screen's figure fades out in place.
+  const numberOut = windows.numberOut;
+  const ghost = arrival.kind === 'practice' && numberOut ? arrival.number ?? null : null;
+  const glow = arrival.kind === 'practice' ? arrival.glow ?? null : null;
+
+  const ghostStyle = useAnimatedStyle(() => {
+    if (!numberOut) return { opacity: 0 };
+    return { opacity: interpolate(progress.value, [numberOut[0], numberOut[1]], [1, 0], 'clamp') };
+  }, [numberOut?.[0], numberOut?.[1]]);
 
   const style = useAnimatedStyle(() => {
     const raw = interpolate(progress.value, [flightStart, flightEnd], [0, 1], 'clamp');
@@ -367,6 +469,22 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
     <View ref={hostRef} style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={measureOrigin} collapsable={false} testID="v2-home-arrival">
       {to && origin ? (
         <Animated.View style={[styles.mark, { left: to.x - origin.x, top: to.y - origin.y, width: size, height: size }, style]}>
+          {glow ? (
+            // The complete screen's glow rides with the mark, so the same glow arrives; it fades out
+            // with the overlay as Home's own halo fades in beneath.
+            <View
+              testID="v2-home-arrival-glow"
+              style={[styles.glow, {
+                width: size * glow.scale,
+                height: size * glow.scale,
+                borderRadius: (size * glow.scale) / 2,
+                left: (size - size * glow.scale) / 2,
+                top: (size - size * glow.scale) / 2,
+                backgroundColor: glow.color,
+                opacity: glow.opacity,
+              }]}
+            />
+          ) : null}
           <View style={[styles.disc, { left: (size - size / PAPER_ART_SHARE) / 2, top: (size - size / PAPER_ART_SHARE) / 2 }]}>
             <CircularAnchorRenderer
               svg={arrival.svg}
@@ -376,10 +494,23 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
               size={size / PAPER_ART_SHARE}
               appearance="paper"
               traceLabel="arrival overlay"
-              accessibilityLabel="Your new Anchor"
+              accessibilityLabel={arrival.kind === 'practice' ? `${arrival.category ?? 'Custom'} Anchor artwork` : 'Your new Anchor'}
             />
           </View>
         </Animated.View>
+      ) : null}
+      {ghost && origin ? (
+        <Animated.Text
+          testID="v2-home-arrival-number"
+          numberOfLines={1}
+          style={[
+            styles.number,
+            { left: ghost.rect.x - origin.x, top: ghost.rect.y - origin.y, width: ghost.rect.width, height: ghost.rect.height },
+            ghostStyle,
+          ]}
+        >
+          {ghost.text}
+        </Animated.Text>
       ) : null}
     </View>
   );
@@ -388,4 +519,13 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
 const styles = StyleSheet.create({
   mark: { position: 'absolute' },
   disc: { position: 'absolute' },
+  glow: { position: 'absolute' },
+  // The complete screen's figure (its `strengthValue` style), held where it stood.
+  number: {
+    position: 'absolute',
+    ...typography.headingMD,
+    fontFamily: typography.display,
+    fontSize: 18,
+    color: colors.text.primary,
+  },
 });

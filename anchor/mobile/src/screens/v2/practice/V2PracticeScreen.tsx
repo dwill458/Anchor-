@@ -104,7 +104,11 @@ type Props = Partial<V2PracticeRouteIntents> & {
   onBack?: () => void;
   /** Arrived from another screen (the Vision): leaving setup returns there instead of showing the hub. */
   leaveOnSetupBack?: boolean;
-  onSessionCompleted?: (result?: V2PracticeCompletionResult) => void;
+  /**
+   * Called when a session completes. Returning true says the route is taking over leaving (it carries
+   * the Anchor home itself): the complete screen then stays up until the route changes.
+   */
+  onSessionCompleted?: (result?: V2PracticeCompletionResult) => boolean | void;
 };
 
 export function V2PracticeScreen({
@@ -388,15 +392,19 @@ export function V2PracticeScreen({
       );
     }
     const sessionSource = completion?.source ?? activeSession?.source ?? prepareSource;
-    setActiveSession(null);
-    setPrepareMode(null);
-    model.refetchRecommendation();
-    onSessionCompleted?.({
+    // The route may take over leaving (returning true): the complete screen then stays up while it
+    // fades and flies the Anchor home, and the route change itself removes this screen.
+    const routeIsLeaving = onSessionCompleted?.({
       mode: (completion?.mode ?? activeSession?.mode ?? 'focus') as Exclude<V2PracticeMode, 'release'>,
       durationSeconds: completion?.durationSeconds ?? activeSession?.durationSeconds ?? 0,
       saved: completion?.saved ?? true,
       source: sessionSource,
-    });
+    }) === true;
+    if (!routeIsLeaving) {
+      setActiveSession(null);
+      setPrepareMode(null);
+    }
+    model.refetchRecommendation();
   };
 
   // Resume after paywall purchase / trial activation
