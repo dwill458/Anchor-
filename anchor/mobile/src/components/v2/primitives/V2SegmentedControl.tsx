@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { AnchorMotion, colors, radii, spacing, typography } from '@/theme/v2';
 import { segmentGeometry } from './segmentedGeometry';
@@ -9,7 +9,7 @@ type Option = { value: string; label: string; accessibilityLabel?: string };
 
 const PADDING = 3;
 
-export function V2SegmentedControl({ options, value, onChange, accessibilityLabel }: { options: Option[]; value: string; onChange: (value: string) => void; accessibilityLabel: string }) {
+export function V2SegmentedControl({ options, value, onChange, accessibilityLabel, onMotionChange }: { options: Option[]; value: string; onChange: (value: string) => void; accessibilityLabel: string; onMotionChange?: (moving: boolean) => void }) {
   const reduceMotion = useV2ReduceMotion();
   const [width, setWidth] = useState(0);
   const selectedIndex = options.findIndex((option) => option.value === value);
@@ -28,8 +28,14 @@ export function V2SegmentedControl({ options, value, onChange, accessibilityLabe
       return;
     }
     // Reduced motion places the pill; nothing travels.
-    pillX.value = reduceMotion ? offset : withSpring(offset, { ...AnchorMotion.spring.snap, reduceMotion: ReduceMotion.Never });
-  }, [offset, pillWidth, pillX, reduceMotion, segmentWidth, width]);
+    if (reduceMotion) { pillX.value = offset; onMotionChange?.(false); }
+    else if (onMotionChange) {
+      onMotionChange(true);
+      pillX.value = withSpring(offset, { ...AnchorMotion.spring.snap, reduceMotion: ReduceMotion.Never }, finished => {
+        if (finished) runOnJS(onMotionChange)(false);
+      });
+    } else pillX.value = withSpring(offset, { ...AnchorMotion.spring.snap, reduceMotion: ReduceMotion.Never });
+  }, [offset, pillWidth, pillX, reduceMotion, segmentWidth, width, onMotionChange]);
 
   const pillStyle = useAnimatedStyle(() => ({ width: pillWidth.value, transform: [{ translateX: pillX.value }] }));
   const handleLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);

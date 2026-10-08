@@ -13,6 +13,7 @@ export interface V2ProgressRhythmProps {
   model: V2ProgressModel;
   range: V2ProgressRange;
   onRangeChange: (range: V2ProgressRange) => void;
+  onRangeMotionChange?: (moving: boolean) => void;
   testID?: string;
 }
 
@@ -164,6 +165,7 @@ export const V2ProgressRhythm: React.FC<V2ProgressRhythmProps> = ({
   model,
   range,
   onRangeChange,
+  onRangeMotionChange,
   testID = 'v2-progress-rhythm',
 }) => {
   const stats = model.rhythm?.[range];
@@ -179,6 +181,7 @@ export const V2ProgressRhythm: React.FC<V2ProgressRhythmProps> = ({
   return (
     <View style={styles.card} testID={testID}>
       <V2SegmentedControl
+        onMotionChange={onRangeMotionChange}
         options={RANGE_OPTIONS}
         value={range}
         onChange={(value) => onRangeChange(value as V2ProgressRange)}

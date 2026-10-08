@@ -28,6 +28,13 @@ import {
   V2ThreadEventDetailSheet,
 } from '@/components/v2/progress';
 import { progressTokens } from '@/components/v2/progress/progressTokens';
+import { useAuthStore } from '@/stores/authStore';
+import { useV2ReduceMotion } from '@/hooks/v2';
+import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
+import { progressTeachingBeats } from '@/hooks/v2/teaching/progressTeaching';
+import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
+import { scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 
 export interface V2ProgressScreenProps {
   anchorId?: string;
@@ -64,6 +71,28 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
+  const teachingFocus = useTeachingFocus();
+  const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  const reducedMotion = useV2ReduceMotion();
+  const scrollRef = React.useRef<ScrollView>(null);
+  const threadTeachingRef = React.useRef<View>(null);
+  const weekTeachingRef = React.useRef<View>(null);
+  const rhythmTeachingRef = React.useRef<View>(null);
+  const routeTeachingRef = React.useRef<View>(null);
+  const scrollMetrics = React.useRef({ y: 0, content: 0, viewport: 0 });
+  const controlledScroll = React.useRef(false);
+  const [scrolling, setScrolling] = React.useState(false);
+  const [rangeMoving, setRangeMoving] = React.useState(false);
+  const teachingQueue = useTeachingQueue({ screenId: 'progress', accountId: teachingAccountId,
+    eligible: model ? progressTeachingBeats({ unmeasured: model.unmeasured, hasWeek: Boolean(model.week), hasRhythm: model.unmeasured || Boolean(model.rhythm && model.heatmap), hasRoute: Boolean(model.route) }) : [],
+    cap: 2, isFocused: teachingFocus.isFocused,
+    blocked: teachingFocus.transitioning || !model || loading || refreshing || switcherOpen || Boolean(selectedEvent) || rangeMoving || scrolling });
+  const getTeachingRect = React.useCallback(async (target: React.RefObject<View | null>) => {
+    controlledScroll.current = true;
+    try {
+      return await scrollToTarget(target, scrollRef, () => ({ y: scrollMetrics.current.y, max: Math.max(0, scrollMetrics.current.content - scrollMetrics.current.viewport), viewportTop: 0 }), reducedMotion);
+    } finally { controlledScroll.current = false; }
+  }, [reducedMotion]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -120,6 +149,15 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor={progressTokens.heroBg} animated />
 
       <ScrollView
+        ref={scrollRef}
+        onLayout={event => { scrollMetrics.current.viewport = event.nativeEvent.layout.height; }}
+        onContentSizeChange={(_width, height) => { scrollMetrics.current.content = height; }}
+        onScroll={event => { scrollMetrics.current.y = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
+        onScrollBeginDrag={() => setScrolling(true)}
+        onScrollEndDrag={() => setScrolling(false)}
+        onMomentumScrollBegin={() => { if (!controlledScroll.current) setScrolling(true); }}
+        onMomentumScrollEnd={() => setScrolling(false)}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -170,13 +208,13 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
             <View style={styles.headerSpacer} />
           </View>
 
-          <V2ProgressHero model={model} testID={`${testID}-hero`} />
+          <View ref={threadTeachingRef} collapsable={false}><V2ProgressHero model={model} testID={`${testID}-hero`} /></View>
         </View>
 
         <View style={styles.body}>
           {/* This week */}
           {model.week ? (
-            <View style={styles.section}>
+            <View ref={weekTeachingRef} collapsable={false} style={styles.section}>
               <V2SectionHeader title="This week" />
               <V2ProgressWeekCard
                 week={model.week}
@@ -188,7 +226,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
 
           {/* Rhythm */}
           {model.unmeasured ? (
-            <View style={styles.section}>
+            <View ref={rhythmTeachingRef} collapsable={false} style={styles.section}>
               <V2ProgressGhostCard
                 testID={`${testID}-rhythm-empty`}
                 title="Your rhythm will draw itself here."
@@ -196,9 +234,9 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
               />
             </View>
           ) : model.rhythm && model.heatmap ? (
-            <View style={styles.section}>
+            <View ref={rhythmTeachingRef} collapsable={false} style={styles.section}>
               <V2SectionHeader title="Rhythm" />
-              <V2ProgressRhythm model={model} range={range} onRangeChange={setRange} testID={`${testID}-rhythm`} />
+              <V2ProgressRhythm model={model} range={range} onRangeChange={setRange} onRangeMotionChange={setRangeMoving} testID={`${testID}-rhythm`} />
             </View>
           ) : null}
 
@@ -211,7 +249,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
 
           {/* Your route */}
           {model.route ? (
-            <View style={styles.section}>
+            <View ref={routeTeachingRef} collapsable={false} style={styles.section}>
               <V2ProgressRoute
                 route={model.route}
                 category={model.category}
@@ -257,6 +295,11 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
           )} */}
         </View>
       </ScrollView>
+
+      <ScreenTeaching screen="progress" queue={teachingQueue} reducedMotion={reducedMotion} targets={{
+        'progress.thread': { getRect: () => getTeachingRect(threadTeachingRef) }, 'progress.week': { getRect: () => getTeachingRect(weekTeachingRef) },
+        'progress.rhythm': { getRect: () => getTeachingRect(rhythmTeachingRef) }, 'progress.route': { getRect: () => getTeachingRect(routeTeachingRef) },
+      }} />
 
       {/* DEFERRED: header refresh icon. Pull-to-refresh stays; the explicit RefreshCw button is gone. */}
 
