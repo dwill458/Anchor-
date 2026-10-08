@@ -8,6 +8,9 @@ import { ENTRANCE } from '../VisionEntrance';
 import { CEREMONY, ceremonyDuration } from '../VisionDevelop';
 import { visionCeremonyCopy as copy, prefillVisionCaption } from '../visionCeremonyCopy';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
+import { safeHaptics } from '@/utils/haptics';
+import { ImpactFeedbackStyle } from 'expo-haptics';
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
 let mockExamples: Array<{ image: { uri: string }; caption: string; moment: string }> = [];
 jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples'), visionExamplesFor: () => mockExamples }));
@@ -24,6 +27,7 @@ jest.mock('@/hooks/v2/vision', () => ({
   useVisionAppearanceReference: () => ({ profilePhoto: null, enabledByPreference: false, reference: null, loading: false, saving: false, upload: jest.fn(), remove: jest.fn(), setProfilePreference: jest.fn() }),
 }));
 jest.mock('@/hooks/v2', () => ({ useV2ReduceMotion: () => mockReduced, v2Haptics: { selection: jest.fn(), warning: jest.fn() } }));
+jest.mock('@/hooks/useCelebrationReduceMotion', () => ({ useCelebrationReduceMotion: () => mockReduced }));
 jest.mock('expo-image-picker', () => ({ MediaTypeOptions: { Images: 'Images' }, requestMediaLibraryPermissionsAsync: async () => ({ status: 'granted' }), launchImageLibraryAsync: (...args: unknown[]) => mockPicker(...args) }));
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn(() => ({ stop: jest.fn() })) }));
 jest.mock('@/services/audio/SoundPool', () => ({ SoundPool: { prewarm: jest.fn(), releaseIdle: jest.fn() } }));
@@ -330,5 +334,105 @@ describe('Vision ceremony', () => {
       setup({ startAt: 'develop', photo: { uri: 'file:///one.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
       expect(require('@/services/CreationSounds').playCreationSound).toHaveBeenCalledWith('formTick');
     } finally { Object.defineProperty(AppState, 'currentState', descriptor); }
+  });
+});
+
+describe('Vision celebration scene', () => {
+  beforeEach(() => {
+    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = job(); mockReduced = false; mockError = null; mockErrorCode = null; mockExamples = [];
+    useCelebrationStore.getState().reset();
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
+    (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');
+  });
+  afterEach(() => { useCelebrationStore.getState().reset(); jest.clearAllTimers(); jest.useRealTimers(); });
+  const scene = () => useCelebrationStore.getState().active;
+  const impacts = () => (safeHaptics.impact as jest.Mock).mock.calls.map(call => call[0]);
+  async function sealNow(view: ReturnType<typeof setup>, holdMs: number) {
+    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
+    await advance(holdMs); await advance(200);
+  }
+
+  it('the first image keeps the 1.6s hold and plays the L4 scene, which is skippable', async () => {
+    const view = setup(); await choose(view);
+    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
+    await advance(1599); expect(view.onAssemble).not.toHaveBeenCalled(); expect(scene()).toBeNull();
+    await advance(1); await advance(200);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 4, skippable: true });
+  });
+  it('a later image seals on the 900ms hold and plays the L2 scene', async () => {
+    const view = setup({ firstImage: false }); await choose(view);
+    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
+    await advance(899); expect(view.onAssemble).not.toHaveBeenCalled(); expect(scene()).toBeNull();
+    await advance(1); await advance(200);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 2, skippable: true });
+  });
+  it('the hold never fires a Medium haptic, and the seal fires one Heavy haptic at commit', async () => {
+    const view = setup(); await choose(view);
+    (safeHaptics.impact as jest.Mock).mockClear();
+    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
+    await advance(1000); expect(impacts()).not.toContain(ImpactFeedbackStyle.Medium);
+    await advance(600); await advance(1500);
+    expect(impacts()).not.toContain(ImpactFeedbackStyle.Medium);
+    expect(impacts().filter(style => style === ImpactFeedbackStyle.Heavy)).toHaveLength(1);
+  });
+  it('Skip is offered only while the skippable scene is active, and a tap lands the print on the board once', async () => {
+    const view = setup(); await choose(view);
+    expect(view.queryByLabelText('Skip')).toBeNull();
+    await sealNow(view, 1600);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    expect(view.getByLabelText('Skip')).toBeTruthy();
+    fireEvent.press(view.getByLabelText('Skip'));
+    expect(view.onPinned).toHaveBeenCalledTimes(1);
+    expect(scene()).toBeNull(); expect(view.queryByLabelText('Skip')).toBeNull();
+    await advance(5000);
+    expect(view.onPinned).toHaveBeenCalledTimes(1);
+  });
+  it('a skip before the save completes lands once the save succeeds, with no rise', async () => {
+    let resolveSave: (value: boolean) => void = () => undefined;
+    const onAssemble = jest.fn((_result: unknown) => new Promise<boolean>(resolve => { resolveSave = resolve; }));
+    const view = setup({ onAssemble: onAssemble as any }); await choose(view);
+    await sealNow(view, 1600);
+    expect(view.getByLabelText('Skip')).toBeTruthy();
+    fireEvent.press(view.getByLabelText('Skip'));
+    expect(scene()).toBeNull(); expect(view.onPinned).not.toHaveBeenCalled();
+    await act(async () => { resolveSave(true); }); await advance(1); await advance(200);
+    expect(view.onPinned).toHaveBeenCalledTimes(1);
+    await advance(5000); expect(view.onPinned).toHaveBeenCalledTimes(1);
+  });
+  it('Reduce Motion resolves to a short L2 scene that is not skippable; the seal cue and Heavy haptic still fire', async () => {
+    mockReduced = true; const view = setup({}, false); await advance(400);
+    await choose(view);
+    await sealNow(view, 1600); await advance(200);
+    expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 2, skippable: false });
+    expect(view.queryByLabelText('Skip')).toBeNull();
+    expect(require('@/services/CreationSounds').playCreationSound).toHaveBeenCalledWith('seal');
+    expect(impacts()).toContain(ImpactFeedbackStyle.Heavy);
+    await advance(2500); await advance(1000); expect(view.onPinned).toHaveBeenCalledTimes(1);
+  });
+  it('a higher scene that preempts a later-image seal lands it on the settled board', async () => {
+    const view = setup({ firstImage: false }); await choose(view);
+    await sealNow(view, 900);
+    expect(view.onPinned).not.toHaveBeenCalled();
+    act(() => { useCelebrationStore.getState().request(4, 'test-higher-scene', { durationMs: 6000 }); });
+    expect(view.onPinned).toHaveBeenCalledTimes(1);
+    await advance(6000);
+    expect(view.onPinned).toHaveBeenCalledTimes(1);
+    expect(scene()?.id).toBe('test-higher-scene');
+  });
+  it('a seal deferred behind a higher scene still saves, and leaves the queue at its hand-off', async () => {
+    const view = setup(); await choose(view);
+    act(() => { useCelebrationStore.getState().request(4, 'test-higher-scene', { durationMs: 6000 }); });
+    await sealNow(view, 1600);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    expect(useCelebrationStore.getState().queueLength).toBe(1);
+    await advance(3500); await advance(1200); await advance(200);
+    expect(view.onPinned).toHaveBeenCalledTimes(1);
+    expect(useCelebrationStore.getState().queueLength).toBe(0);
   });
 });

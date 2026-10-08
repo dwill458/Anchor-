@@ -6,7 +6,7 @@ export const CEREMONY = {
   wordLightMaxMs: 160, wordLightTotalMs: 2600, sheenLoopMs: 2400,
   revealInkMs: 1600, revealBlurMs: 3400, revealScaleFrom: 1.06,
   choiceExitRotateDeg: 8, captionStripPts: 62,
-  sealHoldMs: 1600, sealDecayMs: 350, stampMs: 550, rippleMs: 1100, pressMs: 500,
+  sealHoldMs: 1600, sealHoldLaterMs: 900, sealDecayMs: 350, stampMs: 550, rippleMs: 1100, pressMs: 500,
   sealedMinHoldMs: 1600, boardRiseMs: 1100, pinDropMs: 550, pinDelayMs: 350,
 } as const;
 

@@ -10,8 +10,10 @@ import { visionCeremonyCopy as copy } from './visionCeremonyCopy';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 /** The Vision hold has no dependency on Anchor creation stores or analytics. */
-export function VisionSealHold({ children, active, committed, reduced, onCommit, onBegin, onAbandon }: {
+export function VisionSealHold({ children, active, committed, reduced, holdMs = CEREMONY.sealHoldMs, onCommit, onBegin, onAbandon }: {
   children: React.ReactNode; active: boolean; committed: boolean; reduced: boolean;
+  /** The press-and-hold length: 1.6s for the first image, 900ms for later ones. */
+  holdMs?: number;
   onCommit: () => void; onBegin?: () => void; onAbandon?: (progress: number) => void;
 }) {
   const progress = useSharedValue(0), press = useSharedValue(1);
@@ -30,18 +32,18 @@ export function VisionSealHold({ children, active, committed, reduced, onCommit,
     stop(); touching.current = true; startedAt.current = Date.now(); callbacks.current.onBegin?.();
     void safeHaptics.impact(ImpactFeedbackStyle.Light);
     tone.current = playCreationSound('sealRise', undefined, { loop: true });
-    progress.value = 0; progress.value = withTiming(1, { duration: CEREMONY.sealHoldMs });
-    press.value = reduced ? 1 : withTiming(.94, { duration: CEREMONY.sealHoldMs });
-    timers.current = [setTimeout(() => { void safeHaptics.impact(ImpactFeedbackStyle.Light); }, 400),
-      setTimeout(() => { void safeHaptics.impact(ImpactFeedbackStyle.Medium); }, 1200), setTimeout(commit, CEREMONY.sealHoldMs)];
+    progress.value = 0; progress.value = withTiming(1, { duration: holdMs });
+    press.value = reduced ? 1 : withTiming(.94, { duration: holdMs });
+    // Light ticks only during the hold. The seal's Heavy haptic fires once, at commit (VisionCeremony).
+    timers.current = [setTimeout(() => { void safeHaptics.impact(ImpactFeedbackStyle.Light); }, 400), setTimeout(commit, holdMs)];
   };
   const release = useCallback(() => {
     if (!touching.current || complete.current) return;
     touching.current = false; stop(); cancelAnimation(progress);
-    callbacks.current.onAbandon?.(Math.min(1, (Date.now() - startedAt.current) / CEREMONY.sealHoldMs));
+    callbacks.current.onAbandon?.(Math.min(1, (Date.now() - startedAt.current) / holdMs));
     progress.value = withTiming(0, { duration: ceremonyDuration(CEREMONY.sealDecayMs, reduced) });
     press.value = withTiming(1, { duration: ceremonyDuration(CEREMONY.sealDecayMs, reduced) });
-  }, [reduced, stop]);
+  }, [holdMs, reduced, stop]);
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => { if (state !== 'active') release(); });
     return () => sub.remove();

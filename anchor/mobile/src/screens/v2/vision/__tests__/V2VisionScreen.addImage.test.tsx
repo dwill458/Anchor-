@@ -35,9 +35,10 @@ async function ownPhoto(view: ReturnType<typeof render>, source: 'camera' | 'lib
   await act(async () => { fireEvent.press(view.getByLabelText(source === 'camera' ? 'Take a photo' : 'Use my own photo')); });
   fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(600); await advance(4400);
 }
-async function seal(view: ReturnType<typeof render>) {
+/** The first image holds 1.6s; every later image holds 900ms. */
+async function seal(view: ReturnType<typeof render>, hold = 1600) {
   fireEvent.press(view.getByTestId('vision-ceremony-keep')); fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
-  await advance(1599); expect(apiClient.post).not.toHaveBeenCalled(); await advance(1); await advance(200);
+  await advance(hold - 1); expect(apiClient.post).not.toHaveBeenCalled(); await advance(1); await advance(200);
 }
 describe('V2VisionScreen ceremony additions', () => {
   beforeEach(() => {
@@ -69,7 +70,7 @@ describe('V2VisionScreen ceremony additions', () => {
   it.each(['camera', 'library'] as const)('%s photos stay local through Keep and persist caption at Seal', async source => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, source);
     expect(apiClient.post).not.toHaveBeenCalled();
-    fireEvent.changeText(view.getByTestId('vision-ceremony-print-0-caption'), 'Finished work in my studio.'); await seal(view);
+    fireEvent.changeText(view.getByTestId('vision-ceremony-print-0-caption'), 'Finished work in my studio.'); await seal(view, 900);
     expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', expect.objectContaining({
       assetId: 'own-asset', sourceType: source === 'camera' ? 'USER_CAMERA' : 'USER_UPLOAD', caption: 'Finished work in my studio.' }));
     await advance(3200); await advance(1200); await advance(200); await advance(600);
@@ -84,7 +85,7 @@ describe('V2VisionScreen ceremony additions', () => {
       return { data: { ...currentVision, scenes: currentVision.scenes.map(item => ({ ...item, resolvedImageUrl: `${item.resolvedImageUrl}?sig=${reads}` })) } };
     });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
-    if (kind === 'add') { await openAsk(view); await ownPhoto(view, 'library'); await seal(view); }
+    if (kind === 'add') { await openAsk(view); await ownPhoto(view, 'library'); await seal(view, 900); }
     else {
       const generated = { id: 'generation', visionId: 'vision-101', status: 'COMPLETE', retryCount: 0,
         candidates: [0, 1].map(i => ({ id: `candidate-${i}`, assetId: `generated-${i}`, imageUrl: `file:///generated-${i}.jpg`, prompt: 'A new studio.', sortOrder: i })) };
@@ -138,7 +139,7 @@ describe('V2VisionScreen ceremony additions', () => {
       if (url.endsWith('/scenes') && !failed) { failed = true; throw new Error('Save unavailable'); }
       return post(url, input);
     });
-    const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library'); await seal(view);
+    const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library'); await seal(view, 900);
     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
     await act(async () => { fireEvent.press(view.getByTestId('vision-ceremony-save-retry')); }); await advance(200);
     expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url === '/api/v2/assets/upload')).toHaveLength(1);

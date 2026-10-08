@@ -5,10 +5,12 @@ import { ArrowLeft } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CircularAnchorRenderer } from '@/components/v2/anchor';
-import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { v2Haptics } from '@/hooks/v2';
+import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
 import { SoundPool } from '@/services/audio/SoundPool';
+import { useCelebrationStore, type CelebrationLevel } from '@/stores/v2/celebrationStore';
 import { colors } from '@/theme/v2';
 import { safeHaptics } from '@/utils/haptics';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
@@ -32,6 +34,10 @@ import { useVisionCreationActions, photoVisionDescription, type CeremonyPhoto } 
 const CEREMONY_SOUND_KEYS = ['creation:uiTap', 'creation:anchorPulse', 'creation:formTick', 'creation:distillTick', 'creation:revealSettle',
   'creation:formBed', 'creation:sealRise', 'creation:seal', 'creation:visionPin'];
 
+/** Nominal scene lengths for the celebration coordinator (over 2.5s is skippable). The first image runs the L4 timeline. */
+const FIRST_SCENE_MS = 9800, LATER_SCENE_TAIL_MS = 2800, REDUCED_SCENE_MS = 1000;
+let visionCeremonySequence = 0;
+
 export type VisionCeremonyBeat = 'ask' | 'describe' | 'develop' | 'choose' | 'keep' | 'seal' | 'pinned';
 export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'initialStep'> {
   mode: 'create' | 'add';
@@ -39,6 +45,8 @@ export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'in
   startAt?: 'ask' | 'describe' | 'develop';
   photo?: PickedVisionPhoto;
   regenerating?: boolean;
+  /** Create only: false once the Vision already holds images, which makes this a later-image seal (900ms hold, L2). */
+  firstImage?: boolean;
   /** The existing save callbacks keep their boolean contract; this reports the saved hero URL. */
   savedImageUrl?: string | null;
   /** Add mode: the newest board image, shown as a developed print behind the empty Ask frame. */
@@ -65,7 +73,8 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const actions = useVisionCreationActions(props);
   const arrival = useVisionImageArrival();
   const { width, height } = useWindowDimensions(), insets = useSafeAreaInsets();
-  const reduced = useV2ReduceMotion();
+  // One Reduce Motion source for the celebration: the ceremony's motion and its coordinator level agree.
+  const reduced = useCelebrationReduceMotion();
   const usable = height - insets.top - insets.bottom;
   const [beat, setBeat] = useState<VisionCeremonyBeat>(props.startAt ?? 'ask');
   const [description, setDescription] = useState(props.initialDescription ?? '');
@@ -97,6 +106,14 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const savingRef = useRef(false), savedRef = useRef(false), committedRef = useRef(false), alive = useRef(true);
   const attempts = useRef(0), sealStarted = useRef(false), requestTime = useRef(0);
   const createStarted = useRef(false);
+  // The first image ever keeps the 1.6s hold and the L4 scene. Later images hold 900ms and play L2. Latched at
+  // mount: a save refreshes the board mid-ceremony, and that must not change a hold already in progress.
+  const [firstImage] = useState(() => mode === 'create' && (props.firstImage ?? true));
+  const [celebrationId, setCelebrationId] = useState<string | null>(null);
+  const celebrationRef = useRef<string | null>(null), boardHandedOff = useRef(false), skipRequested = useRef(false);
+  const celebrationSkippable = useCelebrationStore(state => Boolean(celebrationId && state.active?.id === celebrationId && state.active.skippable));
+  // A ceremony that unmounts before its hand-off leaves the coordinator here.
+  useEffect(() => () => { if (celebrationRef.current) useCelebrationStore.getState().finish(celebrationRef.current); }, []);
   const latest = useRef(props); latest.current = props;
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const ownPhoto = photos.length > 0;
@@ -257,7 +274,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       if (result === false) throw new Error(ownPhoto ? copy.photoError : copy.saveError);
       savedRef.current = true;
       const elapsed = Date.now() - requestTime.current;
-      later(() => setBeat('pinned'), Math.max(0, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced) + CEREMONY.sealedMinHoldMs - elapsed));
+      later(() => setBeat('pinned'), skipRequested.current ? 0 : Math.max(0, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced) + CEREMONY.sealedMinHoldMs - elapsed));
     } catch (cause) {
       if (alive.current) setSaveError(cause instanceof Error ? cause.message : copy.saveError);
     } finally { savingRef.current = false; if (alive.current) setSaving(false); }
@@ -269,6 +286,13 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     AnalyticsService.track('vision_seal_completed', { anchor_id: anchorId, mode: analyticsMode, path, caption_edited: edited, hold_attempts: attempts.current });
     if (edited) AnalyticsService.track('vision_caption_edited', { anchor_id: anchorId, length: caption.trim().length });
     later(() => { void safeHaptics.impact(ImpactFeedbackStyle.Heavy); playCreationSound('seal'); }, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced));
+    // The seal is a celebration, so it asks the coordinator before anything else plays over it. 'deferred' means a
+    // higher scene is playing: this ceremony still runs, and it leaves the coordinator at its hand-off.
+    const id = `vision-ceremony:${++visionCeremonySequence}`;
+    celebrationRef.current = id; setCelebrationId(id);
+    const level: CelebrationLevel = firstImage && !reduced ? 4 : 2;
+    const durationMs = reduced ? REDUCED_SCENE_MS : firstImage ? FIRST_SCENE_MS : CEREMONY.sealHoldLaterMs + LATER_SCENE_TAIL_MS;
+    useCelebrationStore.getState().request(level, id, { durationMs, onSkip: settleNow });
     void save();
   };
   const boardRise = useSharedValue(height), ripple = useSharedValue(0), stamp = useSharedValue(1), breath = useSharedValue(0);
@@ -290,11 +314,12 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     }, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced));
     return () => { clearTimeout(timer); clearTimeout(landed); };
   }, [committed, reduced]);
-  useEffect(() => {
-    if (beat !== 'pinned') return;
-    boardRise.value = reduced ? 0 : withTiming(0, { duration: CEREMONY.boardRiseMs, easing: Easing.bezier(.7, 0, .2, 1) });
-    const timer = setTimeout(() => {
-      void (async () => {
+  /** The print reaches its board place once: the flight to it (unless skipped), then the hand-off. */
+  const handOff = (instant: boolean) => {
+    if (boardHandedOff.current) return;
+    boardHandedOff.current = true;
+    void (async () => {
+      if (!instant) {
         const [image, anchor] = await Promise.all([measure(printRefs.current[chosen ?? 0]), measure(anchorRef.current)]);
         if (!alive.current) return;
         const url = latest.current.savedImageUrl ?? heroUri;
@@ -302,9 +327,24 @@ export function VisionCeremony(props: VisionCeremonyProps) {
           arrival?.begin(url, image, anchorArt && anchor ? { ...anchorArt, category: anchorCategory, rect: anchor } : undefined, 'paper');
           arrival?.resolve(url);
         }
-        latest.current.onPinned?.();
-      })();
-    }, ceremonyDuration(CEREMONY.boardRiseMs, reduced));
+      }
+      if (!alive.current) return;
+      if (celebrationRef.current) useCelebrationStore.getState().finish(celebrationRef.current);
+      latest.current.onPinned?.();
+    })();
+  };
+  /** A skip, or a higher scene preempting this one, lands the ceremony on the settled board: no rise, no flight. */
+  const settleNow = () => {
+    skipRequested.current = true;
+    if (!committedRef.current || boardHandedOff.current || !savedRef.current) return;
+    boardRise.value = 0; setBeat('pinned');
+    handOff(true);
+  };
+  useEffect(() => {
+    if (beat !== 'pinned') return;
+    const instant = skipRequested.current;
+    boardRise.value = reduced || instant ? 0 : withTiming(0, { duration: CEREMONY.boardRiseMs, easing: Easing.bezier(.7, 0, .2, 1) });
+    const timer = setTimeout(() => handOff(instant), instant ? 0 : ceremonyDuration(CEREMONY.boardRiseMs, reduced));
     return () => clearTimeout(timer);
   }, [beat]);
   const boardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: boardRise.value }] }));
@@ -413,7 +453,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     <VisionPrintSlot placement={anchorPosition} nodeRef={anchorRef} testID="vision-ceremony-anchor">
       <Animated.View style={[styles.mark, stampStyle]}>
         {committed ? <Animated.View pointerEvents="none" style={[styles.ripple, rippleStyle]} /> : null}
-        <VisionSealHold active={beat === 'seal'} committed={committed} reduced={reduced} onCommit={commit}
+        <VisionSealHold active={beat === 'seal'} committed={committed} reduced={reduced} holdMs={firstImage ? CEREMONY.sealHoldMs : CEREMONY.sealHoldLaterMs} onCommit={commit}
           onBegin={() => { attempts.current += 1; if (!sealStarted.current) { sealStarted.current = true; AnalyticsService.track('vision_seal_started', { anchor_id: anchorId, mode: analyticsMode, path }); } }}
           onAbandon={progress => AnalyticsService.track('vision_seal_abandoned', { anchor_id: anchorId, progress: Math.round(progress * 100) / 100 })}>
           {anchorArt ? <CircularAnchorRenderer {...anchorArt} size={anchorSize} appearance="bare" testID="vision-ceremony-anchor-art" /> : null}
@@ -473,6 +513,9 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         inputPath={inputPath} onChangeInputPath={setInputPath} loading={actions.starting} error={actions.notice ?? actions.generation.error}
         ceremony fromExample={fromExample ?? undefined} testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
     </Animated.View> : null}
+    {/* Only while a skippable scene is the active one: a tap lands the ceremony on its settled board. */}
+    {celebrationSkippable ? <Pressable testID="vision-ceremony-skip" accessible accessibilityRole="button" accessibilityLabel="Skip"
+      style={styles.fill} onPress={() => { useCelebrationStore.getState().skip(); }} /> : null}
   </View>;
 }
 

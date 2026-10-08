@@ -311,7 +311,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   );
 
   if (mode === 'create' || mode === 'ready' || model.state.state === 'none') return (
-    <VisionCeremony mode="create" visionId={model.vision?.id} startAt="ask"
+    <VisionCeremony mode="create" visionId={model.vision?.id} startAt="ask" firstImage={model.tiles.length === 0}
       anchorId={anchorId}
       anchorIntention={anchorIntention}
       anchorCategory={anchorCategory}
