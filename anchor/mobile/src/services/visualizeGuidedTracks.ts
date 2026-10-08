@@ -1,5 +1,6 @@
 import type { AudioSource } from 'expo-audio';
 import type { GuideId, GuidedTrackId } from '@/screens/v2/practice/visualize/guided/visualizeBeatMap';
+import { remoteAudio } from '@/services/audio/remoteAudio';
 
 // Static requires are intentional: Metro cannot resolve dynamically constructed asset paths.
 const GUIDED_TRACKS: Readonly<Record<GuidedTrackId, Readonly<Record<GuideId, AudioSource>>>> = {
@@ -12,8 +13,8 @@ const GUIDED_TRACKS: Readonly<Record<GuidedTrackId, Readonly<Record<GuideId, Aud
     lina: require('../assets/sounds/visualize/guided/Anchor_Immerse_Lina_3min_V3.mp3'),
   },
   embody: {
-    dominic: require('../assets/sounds/visualize/guided/Embody_Final_10min15_V3.mp3'),
-    lina: require('../assets/sounds/visualize/guided/Embody_Final_Lina_10min15_V3.mp3'),
+    dominic: remoteAudio('embodyDominic'),
+    lina: remoteAudio('embodyLina'),
   },
 };
 

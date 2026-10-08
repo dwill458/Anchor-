@@ -28,6 +28,15 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
   useVisionGenerationAnalytics(anchorId, job);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
+  // The server code behind the last failed start/retry. Sticky until a start succeeds, so a
+  // background refresh never brings back a "try again" the server will refuse.
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const lastCode = useRef<string | null>(null);
+  const fail = useCallback((cause: unknown) => {
+    const code = cause instanceof ApiClientError ? cause.code ?? null : null;
+    lastCode.current = code;
+    if (mounted.current) { setErrorCode(code); setError(sceneMessage(cause)); }
+  }, []);
   const starting = useRef(false);
   const retrying = useRef(false);
   const base = `/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`;
@@ -71,7 +80,7 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     // Mirror the server's Pro rule so the paywall opens before a doomed request (and under a dev tier override).
     if (onPremiumRequired && isProFeatureLocked()) { onPremiumRequired(); return false; }
     starting.current = true;
-    setError(null);
+    setError(null); lastCode.current = null;
     try {
       const idempotencyKey = `vision-scene-${Date.now()}-${Math.floor(Math.random() * 1e12)}`;
       const response = await apiClient.post<VisionGenerationJob>(`${base}/scene-generation`, {
@@ -81,17 +90,17 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
         ...(startAssetId ? { startAssetId } : {}),
       });
       const next = visionApiData<VisionGenerationJob>(response);
-      if (mounted.current) setJob(next);
+      if (mounted.current) { setJob(next); setErrorCode(null); }
       AnalyticsService.track('vision_image_generation_started', { anchor_id: anchorId, job_id: next.id });
       return true;
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.code === 'VISION_PREMIUM_REQUIRED') onPremiumRequired?.();
-      else if (mounted.current) setError(sceneMessage(cause));
+      else fail(cause);
       return false;
     } finally {
       starting.current = false;
     }
-  }, [base, onPremiumRequired]);
+  }, [base, onPremiumRequired, fail]);
 
   const retry = useCallback(async (): Promise<boolean> => {
     if (!job || job.status !== 'FAILED' || retrying.current) return false;
@@ -103,12 +112,13 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
       return true;
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.code === 'VISION_PREMIUM_REQUIRED') onPremiumRequired?.();
-      else if (mounted.current) setError(sceneMessage(cause));
+      else fail(cause);
       return false;
     } finally {
       retrying.current = false;
     }
-  }, [base, job, onPremiumRequired]);
+  }, [base, job, onPremiumRequired, fail]);
+  const lastErrorCode = useCallback(() => lastCode.current, []);
 
-  return { job, error, start, retry, refresh };
+  return { job, error, errorCode, lastErrorCode, start, retry, refresh };
 }

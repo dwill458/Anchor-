@@ -5,7 +5,10 @@ import IntentionInputScreen from '@/screens/create/IntentionInputScreen';
 import { V2SealedSaveScreen, type SaveKind } from './V2SealedSaveScreen';
 import { V2OnboardingJourney } from './V2OnboardingJourney';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { saveOnboardingContext } from '@/services/v2/onboardingContext';
 import { logger } from '@/utils/logger';
 import { colors } from '@/theme/v2';
@@ -25,6 +28,15 @@ export function V2FirstRunFlow() {
     if (!hydrated) return;
     if (draft.accountId && draft.accountId !== user?.id) { reset(); return; }
     if (user?.id && user.hasCompletedOnboarding) {
+      const isLockedFreeUser = !useSubscriptionStore.getState().hasActiveEntitlement &&
+        Boolean(user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1);
+      if (isLockedFreeUser) {
+        const anchorStore = useAnchorStore.getState();
+        anchorStore.anchors
+          .filter((a) => !isBackendAnchorId(a.id))
+          .forEach((a) => anchorStore.removeAnchor(a.id));
+        useAuthStore.getState().clearPendingFirstAnchorState();
+      }
       OnboardingAnalytics.bypassed('returning_user');
       navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
       return;
@@ -32,6 +44,17 @@ export function V2FirstRunFlow() {
     if (draft.currentStep === 'complete') {
       if (!user && !useAuthStore.getState().isGuest) reset();
       else {
+        if (user) {
+          const isLockedFreeUser = !useSubscriptionStore.getState().hasActiveEntitlement &&
+            Boolean(user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1);
+          if (isLockedFreeUser) {
+            const anchorStore = useAnchorStore.getState();
+            anchorStore.anchors
+              .filter((a) => !isBackendAnchorId(a.id))
+              .forEach((a) => anchorStore.removeAnchor(a.id));
+            useAuthStore.getState().clearPendingFirstAnchorState();
+          }
+        }
         OnboardingAnalytics.bypassed('already_complete');
         navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
       }

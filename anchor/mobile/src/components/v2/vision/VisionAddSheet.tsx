@@ -1,3 +1,4 @@
+// DEFERRED: replaced by ceremony Ask beat.
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

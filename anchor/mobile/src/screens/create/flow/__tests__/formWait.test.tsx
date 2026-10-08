@@ -46,7 +46,7 @@ jest.mock('@/components/notifications', () => ({ DailyReminderPrompt: () => null
 jest.mock('@/navigation/v2/creationHandoff', () => ({ handOffToHome: jest.fn(), prepareHomeArrival: jest.fn() }));
 jest.mock('@/services/AnchorGenerationService', () => ({ AnchorGenerationService: { generate: (...args: unknown[]) => mockGenerate(...args) } }));
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: (...args: unknown[]) => mockPlay(...args) }));
-jest.mock('@/services/NodeToneService', () => ({ NodeToneService: { prepare: jest.fn(), play: jest.fn() } }));
+jest.mock('@/services/NodeToneService', () => ({ NodeToneService: { prepare: jest.fn(), play: jest.fn(), release: jest.fn() } }));
 jest.mock('@/services/FrictionAnalytics', () => ({ FrictionAnalytics: { stepViewed: jest.fn(), stepCompleted: jest.fn(), flowRetry: jest.fn() } }));
 jest.mock('@/utils/haptics', () => ({ safeHaptics: { impact: (...args: unknown[]) => mockImpact(...args) } }));
 jest.mock('@/stores/authStore', () => ({ useAuthStore: Object.assign((select: (s: unknown) => unknown) => select({ anchorCount: 0, isAuthenticated: false, user: null }), { getState: () => ({ pendingFirstAnchorDraft: mockPendingDraft, setPendingFirstAnchorDraft: mockSetPending }) }) }));

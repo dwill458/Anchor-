@@ -1,3 +1,7 @@
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated');
+  return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withRepeat: (value: unknown) => value, withDelay: (_ms: number, value: unknown) => value, withSequence: (...values: unknown[]) => values[values.length - 1], withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
+});
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { V2ChartWaypointScreen } from '../V2ChartWaypointScreen';
@@ -126,6 +130,16 @@ beforeEach(async () => {
   });
 });
 
+
+async function openFullSheet(screen: ReturnType<typeof render>) {
+  await screen.findByTestId('chart-sheet-grabber');
+  for (let i = 0; i < 8 && screen.getByTestId('chart-sheet-grabber').props.accessibilityLabel !== 'Collapse panel'; i++) {
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 240)); });
+    fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
+  }
+  expect(screen.getByTestId('chart-sheet-grabber').props.accessibilityLabel).toBe('Collapse panel');
+}
+
 describe('Waypoint detail', () => {
   beforeEach(() => {
     mockParams = { anchorId: 'anchor-1', waypointId: 'w2' };
@@ -135,13 +149,12 @@ describe('Waypoint detail', () => {
     serve(chart());
     const screen = render(<V2ChartWaypointScreen />);
     // DEFERRED: expect(await screen.findByText('Waypoint 2 of 3')).toBeTruthy();
-    expect(await screen.findByText('2 of 3')).toBeTruthy();
-    expect(screen.getByText('CURRENT WAYPOINT')).toBeTruthy();
+    expect(await screen.findByText('Waypoint 2 of 3 · Current')).toBeTruthy();
     expect(screen.getByText('642 / 1,000')).toBeTruthy();
     // DEFERRED: expect(screen.getByText('YOUR MOVES')).toBeTruthy();
     // All moves, and the suggestions, live in the expanded ONE MOVE card.
-    expect(screen.getByText('ONE MOVE')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('chart-one-move-toggle'));
+    expect(screen.getByTestId('chart-one-move')).toBeTruthy();
+    await openFullSheet(screen);
     expect(screen.getByText('SUGGESTED MOVES')).toBeTruthy();
     // DEFERRED: expect(screen.getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
     expect(screen.getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
@@ -170,6 +183,7 @@ describe('Waypoint detail', () => {
     serve(chart());
     patch.mockResolvedValue({ data: { success: true, data: chart() } });
     const screen = render(<V2ChartWaypointScreen />);
+    await openFullSheet(screen);
     fireEvent.press(await screen.findByTestId('chart-waypoint-progress'));
     fireEvent.changeText(screen.getByLabelText('Current active users'), '700');
     fireEvent.press(screen.getByText('Save'));
@@ -211,8 +225,7 @@ describe('Waypoint detail', () => {
     serve(chart());
     const screen = render(<V2ChartWaypointScreen />);
     // DEFERRED: expect(await screen.findByText('Waypoint 1 of 3 · reached')).toBeTruthy();
-    expect(await screen.findByText('REACHED')).toBeTruthy();
-    expect(screen.getByText('1 of 3')).toBeTruthy();
+    expect(await screen.findByText('Waypoint 1 of 3 · Reached')).toBeTruthy();
     expect(screen.queryByTestId('chart-mark-waypoint')).toBeNull();
     expect(screen.queryByTestId('chart-add-move')).toBeNull();
   });

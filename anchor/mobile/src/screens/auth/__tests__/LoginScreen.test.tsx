@@ -30,6 +30,7 @@ jest.mock('expo-apple-authentication', () => ({
   },
   AppleAuthenticationButtonStyle: {
     BLACK: 'BLACK',
+    WHITE: 'WHITE',
   },
 }));
 
@@ -85,7 +86,7 @@ describe('LoginScreen', () => {
       />
     );
 
-    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), '  USER@Example.COM  ');
+    fireEvent.changeText(screen.getByPlaceholderText('Email'), '  USER@Example.COM  ');
     fireEvent.press(screen.getByText('Forgot password?'));
 
     await waitFor(() => {

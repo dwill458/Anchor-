@@ -1,5 +1,6 @@
 import { SoundPool } from '@/services/audio/SoundPool';
 import { CREATION_SOUND_SOURCES } from '@/services/audio/soundSources';
+import { sfxLog } from '@/services/audio/sfxLog';
 
 export type CreationSoundKey = keyof typeof CREATION_SOUND_SOURCES;
 
@@ -31,8 +32,9 @@ export interface CreationSoundHandle {
 }
 
 /** Plays a kit sound once. Returns a handle to cut it short, or null when it did not start. */
-export function playCreationSound(key: CreationSoundKey, volume: number = VOLUME[key], options: { loop?: boolean } = {}): CreationSoundHandle | null {
+export function playCreationSound(key: CreationSoundKey, volume: number = VOLUME[key], options: { loop?: boolean; fadeInMs?: number } = {}): CreationSoundHandle | null {
   // DEFERRED: per-call effect players are replaced by the shared pooled service.
-  const handle = SoundPool.play(`creation:${key}`, { volume, loop: options.loop });
+  sfxLog(`creationSound key=${key} volume=${volume} loop=${options.loop ?? false}`);
+  const handle = SoundPool.play(`creation:${key}`, { volume, loop: options.loop, fadeInMs: options.fadeInMs });
   return handle ? { stop: handle.stop } : null;
 }

@@ -14,6 +14,7 @@ jest.mock('@/stores/authStore', () => {
       setSession: mockSetSession,
       completeOnboarding: jest.fn(),
       setIsGuest: jest.fn(),
+      clearPendingFirstAnchorState: jest.fn(),
       get hasCompletedOnboarding() {
         return mockHasCompletedOnboarding;
       },
@@ -23,10 +24,17 @@ jest.mock('@/stores/authStore', () => {
   return { useAuthStore };
 });
 
+const mockRemoveAnchor = jest.fn();
+const mockAnchorsStoreState = {
+  anchors: [] as any[],
+  getAnchorById: jest.fn(),
+  addAnchor: jest.fn(),
+  removeAnchor: mockRemoveAnchor,
+};
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: Object.assign(
-    (select: (state: { anchors: unknown[] }) => unknown) => select({ anchors: [] }),
-    { getState: () => ({ getAnchorById: jest.fn(), addAnchor: jest.fn() }) },
+    (select: (s: typeof mockAnchorsStoreState) => unknown) => select(mockAnchorsStoreState),
+    { getState: () => mockAnchorsStoreState }
   ),
 }));
 
@@ -145,6 +153,18 @@ describe('V2FirstRunFlow returning-user sign in', () => {
       .not.toEqual(expect.arrayContaining(['onboarding_started', 'onboarding_step_viewed']));
   });
 
+  it('purges unconfirmed local drafts when a returning locked free user bypasses onboarding', () => {
+    const unconfirmedAnchor = { id: 'local-temp-draft' };
+    const confirmedAnchor = { id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d' };
+    mockAnchorsStoreState.anchors = [unconfirmedAnchor, confirmedAnchor];
+
+    mockUser = { id: 'returning-locked', hasCompletedOnboarding: true, totalAnchorsCreated: 1, freeAnchorConsumed: true } as any;
+    render(<V2FirstRunFlow />);
+
+    expect(mockRemoveAnchor).toHaveBeenCalledWith('local-temp-draft');
+    expect(mockRemoveAnchor).not.toHaveBeenCalledWith('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d');
+  });
+
   it('keeps earlier welcome analytics without duplicating them after sign in and bypass', () => {
     const view = render(<V2FirstRunFlow />);
     expect((AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event)
@@ -203,8 +223,8 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     view.rerender(<V2FirstRunFlow />);
 
     expect(screen.getByTestId('v2-onboarding-bridge')).toBeTruthy();
-    expect(screen.getByLabelText('Step 2 of 3')).toBeTruthy();
-    expect(screen.getByText('02', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    expect(screen.queryByText('02', { includeHiddenElements: true })).toBeNull();
     expect(screen.getByText(/Give what matters\s+a/)).toBeTruthy();
     expect(screen.getByText('shape.')).toBeTruthy();
     expect(
@@ -238,7 +258,7 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     view.rerender(<V2FirstRunFlow />);
     expect(screen.queryByTestId('v2-onboarding-bridge')).toBeNull();
     expect(screen.getByTestId('v2-onboarding-focus')).toBeTruthy();
-    expect(screen.getByLabelText('Step 3 of 3')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
     expect(screen.getByText(/What matters most\s+to you right now\?/)).toBeTruthy();
   }, 25000);
 });
@@ -261,7 +281,7 @@ describe('V2FirstRunFlow Screen 3 — the one question', () => {
       expect(screen.getByText(label)).toBeTruthy();
     }
     expect(screen.queryByTestId('focus-continue')).toBeNull();
-    expect(screen.getByLabelText('Step 3 of 3')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
     // Nothing else is asked: no benefit, why or obstacle question exists to reach.
     expect(screen.queryByText(/what would changing this give you/i)).toBeNull();
   });
@@ -318,7 +338,7 @@ describe('V2FirstRunFlow Screen 3 — the one question', () => {
       draft.currentStep = retired;
       render(<V2FirstRunFlow />);
       expect(screen.getByTestId('focus-card-health')).toBeTruthy();
-      expect(screen.getByLabelText('Step 3 of 3')).toBeTruthy();
+      expect(screen.queryByRole('progressbar')).toBeNull();
     },
   );
 });

@@ -43,6 +43,7 @@ import { logger } from '@/utils/logger';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'SaveProgress'>;
 type SaveProgressRouteProp = RouteProp<RootStackParamList, 'SaveProgress'>;
@@ -392,6 +393,14 @@ export const SaveProgressScreen: React.FC = () => {
   };
 
   const handleContinueToSanctuary = () => {
+    if (pendingFirstAnchorError === 'CREATE_ANCHOR_FREE_LOCKED') {
+      useAnchorStore.getState().removeAnchor(anchor.id);
+      useAnchorStore.getState().anchors
+        .filter((a) => !isBackendAnchorId(a.id))
+        .forEach((a) => useAnchorStore.getState().removeAnchor(a.id));
+      useAuthStore.getState().clearPendingFirstAnchorState();
+      useFirstAnchorFlowStore.getState().clearDraft();
+    }
     navigateAfterSaveOrSkip();
   };
 

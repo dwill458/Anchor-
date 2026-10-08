@@ -1,3 +1,4 @@
+import { VisionCeremony } from './ceremony/VisionCeremony';
 import { useRef, useState } from 'react';
 import { uploadVisionPhoto, useV2VisionSceneGeneration, type UploadAssetResult, type VisionGenerationCandidate } from '@/hooks/v2/vision';
 import type { V2VisionTile } from '@/adapters/v2/vision';
@@ -24,7 +25,7 @@ export type V2VisionAddSceneProps = {
   onUploadAsset?: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
   onCancel: () => void;
   /** Puts the chosen image on the board. Resolves false when it could not be saved. */
-  onAdd: (choice: { assetId: string; prompt: string }) => Promise<boolean>;
+  onAdd: (choice: { assetId: string; prompt: string; caption?: string }) => Promise<boolean>;
   testID?: string;
 };
 
@@ -33,7 +34,8 @@ export type V2VisionAddSceneProps = {
  * and tapping one places it on the board. The same language and the same two-to-one
  * choice as creating the Vision, so there is nothing new to learn.
  */
-export function V2VisionAddScene({
+// DEFERRED: describe/two-up rendering and immediate selection save replaced by VisionCeremony.
+function DeferredVisionAddScene({
   anchorId,
   anchorIntention,
   anchorCategory,
@@ -140,4 +142,13 @@ export function V2VisionAddScene({
       textInputTestID="vision-scene-input"
     />
   );
+}
+
+export function V2VisionAddScene(props: V2VisionAddSceneProps) {
+  return <VisionCeremony {...props} mode="add" startAt="ask" onBack={props.onCancel}
+    onUploadAsset={props.onUploadAsset ?? (async () => ({ ok: false, message: 'Unable to upload your photo.' }))}
+    onAssemble={async ({ selectedAssets }) => {
+      const asset = selectedAssets[0];
+      return asset ? props.onAdd({ assetId: asset.assetId, prompt: asset.prompt, caption: asset.caption }) : false;
+    }} />;
 }

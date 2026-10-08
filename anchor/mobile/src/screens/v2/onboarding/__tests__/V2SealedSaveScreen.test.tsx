@@ -8,22 +8,58 @@ import { playCreationSound } from '@/services/CreationSounds';
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 
-let mockSignedInUser: { id: string } | null = null;
+let mockSignedInUser: { id: string; totalAnchorsCreated?: number; freeAnchorConsumed?: boolean } | null = null;
 const mockAnchor = { id: 'pending-first-anchor-1', intentionText: 'I am financially free', baseSigilSvg: '<svg/>', category: 'abundance' };
+const mockClearPendingFirstAnchorState = jest.fn();
+const mockRemoveAnchor = jest.fn();
+let mockHasActiveEntitlement = false;
 
 jest.mock('@/stores/authStore', () => {
   const getMockState = () => ({
     user: mockSignedInUser,
     pendingFirstAnchorDraft: { tempAnchorId: 'pending-first-anchor-1' },
     signOut: jest.fn().mockResolvedValue(undefined),
+    clearPendingFirstAnchorState: mockClearPendingFirstAnchorState,
   });
   const useAuthStore = (selector: (state: any) => unknown) => selector(getMockState());
   useAuthStore.getState = getMockState;
   return { useAuthStore };
 });
 
-jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: (selector: (state: any) => unknown) => selector({ anchors: [mockAnchor] }),
+jest.mock('@/stores/anchorStore', () => {
+  const getMockState = () => ({
+    anchors: [mockAnchor],
+    removeAnchor: mockRemoveAnchor,
+  });
+  const useAnchorStore = (selector: (state: any) => unknown) => selector(getMockState());
+  useAnchorStore.getState = getMockState;
+  return { useAnchorStore };
+});
+
+jest.mock('@/stores/subscriptionStore', () => {
+  const getMockState = () => ({
+    hasActiveEntitlement: mockHasActiveEntitlement,
+  });
+  const useSubscriptionStore = (selector: (state: any) => unknown) => selector(getMockState());
+  useSubscriptionStore.getState = getMockState;
+  return { useSubscriptionStore };
+});
+
+jest.mock('@/screens/v2/paywall', () => ({
+  V2PaywallScreen: (props: any) => {
+    const { View, Text, Pressable } = require('react-native');
+    return (
+      <View testID="mock-v2-paywall">
+        <Text>Paywall: {props.context}</Text>
+        <Pressable testID="mock-paywall-entitle" onPress={() => props.onEntitled({ outcome: 'purchased' })}>
+          <Text>Subscribe</Text>
+        </Pressable>
+        <Pressable testID="mock-paywall-dismiss" onPress={() => props.onDismiss()}>
+          <Text>Dismiss</Text>
+        </Pressable>
+      </View>
+    );
+  },
 }));
 
 jest.mock('@/components/v2/anchor/CircularAnchorRenderer', () => ({
@@ -233,5 +269,97 @@ describe('V2SealedSaveScreen', () => {
     setup({ initialSaved: 'account' });
     expect(screen.getByText('PROGRESS SAVED')).toBeTruthy();
     expect(screen.queryByLabelText('Continue with Google')).toBeNull();
+  });
+
+  describe('locked free user account handling', () => {
+    it('shows paywall when signing into a locked free account that already consumed its free anchor', async () => {
+      (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({
+        user: { id: 'locked-free-user', totalAnchorsCreated: 1, freeAnchorConsumed: true },
+        token: 'token',
+      });
+      (PostAuthFlowService.run as jest.Mock).mockRejectedValueOnce(new Error('CREATE_ANCHOR_FREE_LOCKED'));
+
+      setup();
+      fireEvent.press(screen.getByLabelText('Already have an account? Sign in'));
+      fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'freeuser@example.com');
+      fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'password123');
+      fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('v2-sealed-save-paywall-modal')).toBeTruthy();
+      });
+      expect(screen.getByText('Paywall: SECOND_ANCHOR')).toBeTruthy();
+    });
+
+    it('dismissing the paywall leaves the user on Anchor Pro required screen, and discarding permanently removes the anchor', async () => {
+      (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({
+        user: { id: 'locked-free-user', totalAnchorsCreated: 1, freeAnchorConsumed: true },
+        token: 'token',
+      });
+      (PostAuthFlowService.run as jest.Mock).mockRejectedValueOnce(new Error('CREATE_ANCHOR_FREE_LOCKED'));
+
+      const props = setup();
+      fireEvent.press(screen.getByLabelText('Already have an account? Sign in'));
+      fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'freeuser@example.com');
+      fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'password123');
+      fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('v2-sealed-save-paywall-modal')).toBeTruthy();
+      });
+
+      // Dismiss the paywall
+      fireEvent.press(screen.getByTestId('mock-paywall-dismiss'));
+
+      // Paywall closes and screen shows Anchor Pro required
+      expect(screen.queryByTestId('v2-sealed-save-paywall-modal')).toBeNull();
+      expect(screen.getByText('Anchor Pro required')).toBeTruthy();
+      expect(screen.getByTestId('v2-sealed-save-unlock-pro')).toBeTruthy();
+      expect(screen.getByTestId('v2-sealed-save-discard')).toBeTruthy();
+
+      // Tap Discard Anchor & Continue -> anchor is lost forever
+      fireEvent.press(screen.getByTestId('v2-sealed-save-discard'));
+      expect(mockRemoveAnchor).toHaveBeenCalledWith('pending-first-anchor-1');
+      expect(mockClearPendingFirstAnchorState).toHaveBeenCalled();
+      expect(props.onContinue).toHaveBeenCalledWith('account');
+    });
+
+    it('subscribing on paywall finalizes anchor and shows PROGRESS SAVED', async () => {
+      (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({
+        user: { id: 'locked-free-user', totalAnchorsCreated: 1, freeAnchorConsumed: true },
+        token: 'token',
+      });
+      (PostAuthFlowService.run as jest.Mock).mockRejectedValueOnce(new Error('CREATE_ANCHOR_FREE_LOCKED'));
+      mockSignedInUser = null;
+
+      const props = setup();
+      fireEvent.press(screen.getByLabelText('Already have an account? Sign in'));
+      fireEvent.changeText(screen.getByTestId('v2-sealed-save-email'), 'freeuser@example.com');
+      fireEvent.changeText(screen.getByTestId('v2-sealed-save-password'), 'password123');
+      fireEvent.press(screen.getByTestId('v2-sealed-save-submit'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('v2-sealed-save-paywall-modal')).toBeTruthy();
+      });
+
+      // Complete subscription on paywall
+      fireEvent.press(screen.getByTestId('mock-paywall-entitle'));
+
+      await waitFor(() => {
+        expect(screen.getByText('PROGRESS SAVED')).toBeTruthy();
+      });
+      expect(props.onAccountReady).toHaveBeenCalledWith(expect.objectContaining({ id: 'locked-free-user' }));
+    });
+
+    it('renders Anchor Pro required state directly when an already-authenticated user is a locked free user', () => {
+      mockSignedInUser = { id: 'locked-user', totalAnchorsCreated: 1, freeAnchorConsumed: true };
+      mockHasActiveEntitlement = false;
+
+      setup();
+      expect(screen.getByText('Anchor Pro required')).toBeTruthy();
+      expect(screen.getByTestId('v2-sealed-save-unlock-pro')).toBeTruthy();
+      expect(screen.getByTestId('v2-sealed-save-discard')).toBeTruthy();
+      expect(screen.queryByTestId('v2-sealed-save-retry')).toBeNull();
+    });
   });
 });

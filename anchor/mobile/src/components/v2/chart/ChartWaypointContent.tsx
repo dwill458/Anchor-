@@ -51,7 +51,7 @@ type ChartActions = Pick<
 
 type VisionLike = { imageUrl: string | null; description: string | null } | null;
 
-type Props = {
+export type ChartWaypointContentProps = {
   view: ChartViewModel;
   waypointId: string;
   chart: ChartActions;
@@ -86,7 +86,18 @@ type Props = {
   /** 'reveal' on the first open after creation: waypoint 1 reads YOUR COURSE BEGINS HERE. */
   entrance?: 'reveal' | 'open';
   testID?: string;
+  /** Phase 3: compose these blocks in the sheet, retaining this component as their handler/modal owner. */
+  renderTiers?: (parts: ChartWaypointTiers) => React.ReactNode;
+  onExpandSheet?: () => void;
 };
+
+export type ChartWaypointTiers = {
+  waypoint: NonNullable<ChartViewModel['current']>;
+  value: string | null; isCurrent: boolean; peek: React.ReactNode;
+  half: React.ReactNode; full: React.ReactNode; edit: React.ReactNode;
+};
+export { OneMoveCard, DayClosedCard, CommitCard, MoveListRow, PanelButton, DestinationCard, CourseLogCard } from './panel/ChartPanelCards';
+
 
 const ERROR_TONE = '#E7A19C';
 
@@ -134,8 +145,8 @@ export function ChartWaypointContent({
   dayClosedHold = false,
   arrived = false,
   entrance = 'open',
-  testID,
-}: Props) {
+  testID, renderTiers, onExpandSheet,
+}: ChartWaypointContentProps) {
   const waypoint = view.waypoints.find((item) => item.id === waypointId) ?? null;
   const accent = useMemo(() => panelAccent(category), [category]);
   // The clock refreshes when the app returns to the foreground and at the next local midnight, so a day-closed
@@ -188,7 +199,7 @@ export function ChartWaypointContent({
     updateProgress: chart.updateProgress,
   });
 
-  const fade = useCrossfade(`${waypointId}:${waypoint?.state ?? ''}:${arrived}`, reducedMotion);
+  const fade = useCrossfade(renderTiers ? 'sheet' : `${waypointId}:${waypoint?.state ?? ''}:${arrived}`, reducedMotion);
 
   // A new completion re-closes the day (and a new day or waypoint starts fresh), so "Do another move now"
   // only hides the card until one of these changes.
@@ -304,44 +315,26 @@ export function ChartWaypointContent({
   const showProgress = mode === 'numeric' || (mode === 'moves' && (input.movesTotal > 0 || isReached));
   const canUpdateProgress = isCurrent && showProgress;
 
-  const progressBlock = showProgress ? (
-    <>
-      <ChartBrushBar fraction={p} color={accent.fill} reducedMotion={reducedMotion} accessibilityLabel={barLabel} testID="chart-waypoint-bar" />
-      {valueRow ? (
-        canUpdateProgress ? (
-          <View style={styles.progressDataRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={CHART_COPY.waypoint.progress}
-              accessibilityHint={valueText ?? undefined}
-              onPress={openProgressSheet}
-              style={styles.valueRow}
-              testID="chart-waypoint-progress"
-            >
-              <Text style={styles.valueStrong}>{valueRow.strong}</Text>
-              {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Update progress"
-              onPress={openProgressSheet}
-              style={styles.updateProgressButton}
-              testID="chart-update-progress-button"
-            >
-              <Text style={[styles.updateProgressText, { color: accent.text }]}>Update progress →</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.valueRow} accessible accessibilityLabel={valueText ?? undefined} testID="chart-waypoint-value">
-            <Text style={styles.valueStrong}>{valueRow.strong}</Text>
-            {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
-          </View>
-        )
-      ) : null}
-    </>
-  ) : null;
+  const progressBlock = showProgress ? <WaypointProgressBlock p={p} accent={accent} reducedMotion={reducedMotion} barLabel={barLabel} valueRow={valueRow} valueText={valueText} canUpdateProgress={canUpdateProgress} openProgressSheet={openProgressSheet} /> : null;
 
-  const body = (
+  const moveRows = (moves: typeof waypoint.moves, current: boolean) => moves.map(move => <MoveListRow key={move.id} move={move} accent={accent} isOneMove={current && move.id === oneMoveId} canComplete={current && move.status === 'ACTIVE'} canPromote={current && move.status === 'ACTIVE'} busy={chart.busy === `move:${move.id}` || chart.busy === `move-current:${move.id}`} onComplete={() => void completeMove(move.id)} onPromote={() => promote(move.id)} onRemove={current ? () => void chart.dismissMove(move.id) : noop} />);
+  const peek = arrived ? <Text style={styles.why} numberOfLines={2}>{view.destination}</Text> : isCurrent && commit ? <CommitCard accent={accent} number={commit.number} onCommit={onCommitDismiss ?? noop} /> : isCurrent && dayClosed ? <DayClosedCard accent={accent} practiced={practiced} hasNext={hasNextMove} onFocus={() => onOpenPractice?.('focus')} onDeepFocus={() => onOpenPractice?.('deep_prime')} onAnother={() => setDayClosedDismissed(true)} /> : isCurrent ? <OneMoveCard accent={accent} variant={heroMove ? 'move' : waypoint.moves.some(move => move.status === 'COMPLETED') && incompleteMoves.length === 0 ? 'allDone' : 'empty'} title={heroMove?.title ?? null} emptyLabel={CHART_COPY.active.noMove} checked={Boolean(heroMove && checkingMove === heroMove.id)} busy={Boolean(heroMove && chart.busy === `move:${heroMove.id}`)} expanded={false} reducedMotion={reducedMotion} otherMovesCount={otherMoves.length} onCheck={() => heroMove && void completeMove(heroMove.id)} onToggle={onExpandSheet ?? (() => setExpanded(value => !value))} /> : <View style={styles.viewingPeek}><Text style={[styles.why, styles.flex]} numberOfLines={2}>{waypoint.rationale}</Text><PanelButton label={CHART_COPY.sheet.backTo.replace('{n}', String(view.currentIndex + 1))} accent={accent} onPress={onBack} testID="chart-back-to-current" /></View>;
+  const half = isCurrent && !arrived ? <>
+    {progressBlock}
+    <PracticeRow accent={accent} practiced={practiced} onOpenPractice={onOpenPractice} />
+    <PanelButton label={waypoint.isDestination ? COPY.ctaMarkDestination : COPY.ctaMark} variant={ready ? 'primary' : 'outline'} accent={accent} loading={chart.busy === `reach:${waypoint.id}`} onPress={() => { setReachError(null); setConfirmOpen(true); }} testID="chart-mark-waypoint-cta" style={styles.reachCta} />
+    {reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-reach-error">{reachError}</Text> : null}
+    {actionError && !reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-action-error">{actionError}</Text> : null}
+  </> : <>{moveRows(waypoint.moves, false)}{editable ? <ChartMovesManager waypoint={waypoint} isCurrent={false} oneMoveId={oneMoveId} accent={accent} chart={chart} /> : null}{actionError ? <Text style={styles.error} testID="chart-action-error">{actionError}</Text> : null}</>;
+  const full = <>
+    {isCurrent && !arrived ? <>{moveRows(otherMoves, true)}<ChartMovesManager waypoint={waypoint} isCurrent oneMoveId={oneMoveId} accent={accent} chart={chart} />{dayClosed && !practiced ? <><PanelButton label={COPY.deepFocus} accent={accent} onPress={() => onOpenPractice?.('deep_prime')} testID="chart-practice-deep-focus" />{hasNextMove && !practiced ? <PanelButton label={COPY.another} accent={accent} onPress={() => setDayClosedDismissed(true)} testID="chart-do-another" /> : null}</> : null}</> : null}
+    {arrived ? <ArrivalCard accent={accent} vision={vision} onOpenVision={onOpenVision ?? noop} onRelease={onRelease ?? noop} /> : <DestinationCard accent={accent} destination={view.destination} vision={vision} onOpenVision={onOpenVision ?? noop} />}
+    <CourseLogCard accent={accent} days={daysOnCourse(view.plottedAt, now)} rows={buildChartLogRows(view, now)} expanded={logOpen} onToggle={() => setLogOpen(value => !value)} onOpenLog={onOpenLog ?? noop} />
+  </>;
+  const edit = editable && !arrived ? <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.waypoint.edit} onPress={() => { setTitleDraft(waypoint.title); setRationaleDraft(waypoint.rationale ?? ''); setEditWaypointModalOpen(true); }} style={styles.editButton} testID="chart-edit-waypoint-button"><Pencil size={16} color={T.muted} /></Pressable> : null;
+
+  // DEFERRED: the single-column panel is retained for existing standalone consumers.
+  const body = renderTiers ? null : (
     <>
       <View style={styles.labelRow}>
         <Text style={[styles.label, { color: accent.text }]}>{label}</Text>
@@ -452,33 +445,7 @@ export function ChartWaypointContent({
               ) : null}
               {progressBlock}
               {!dayClosed ? (
-                <View style={styles.practiceRowContainer}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={practiced ? 'Practiced today' : 'Practice today'}
-                    onPress={() => onOpenPractice?.(practiced ? 'deep_prime' : 'focus')}
-                    style={styles.practiceRow}
-                    testID="chart-practice-row"
-                  >
-                    <View style={[styles.practiceIconFrame, { borderColor: `${accent.fill}40` }]}>
-                      <Anchor size={18} color={accent.text} />
-                    </View>
-                    <View style={styles.flex}>
-                      {practiced ? (
-                        <View style={styles.practicedTodayTitleRow}>
-                          <Text style={[styles.practiceTitle, styles.practiceTitleDone]}>Practiced today</Text>
-                          <Check size={16} color={accent.text} strokeWidth={2.5} style={styles.practiceCheckIcon} />
-                        </View>
-                      ) : (
-                        <>
-                          <Text style={styles.practiceTitle}>Practice today</Text>
-                          <Text style={styles.practiceSubtext}>Keep your anchor strong</Text>
-                        </>
-                      )}
-                    </View>
-                    <ChevronRight size={18} color={T.muted} />
-                  </Pressable>
-                </View>
+                <PracticeRow accent={accent} practiced={practiced} onOpenPractice={onOpenPractice} />
               ) : null}
               <PanelButton
                 label={waypoint.isDestination ? COPY.ctaMarkDestination : COPY.ctaMark}
@@ -535,10 +502,10 @@ export function ChartWaypointContent({
   );
 
   return (
-    <View testID={testID ?? 'chart-waypoint-content'} style={[styles.root, { paddingBottom: bottomInset + 24 }]}>
-      <Animated.View style={[styles.stack, fade]} testID={isCurrent && !arrived ? 'chart-current-waypoint' : 'chart-panel-body'}>
+    <View testID={testID ?? 'chart-waypoint-content'} style={renderTiers ? styles.sheetRoot : [styles.root, { paddingBottom: bottomInset + 24 }]}>
+      {renderTiers ? renderTiers({ waypoint, value: valueText, isCurrent, peek, half, full, edit }) : <Animated.View style={[styles.stack, fade]} testID={isCurrent && !arrived ? 'chart-current-waypoint' : 'chart-panel-body'}>
         {body}
-      </Animated.View>
+      </Animated.View>}
       <V2SheetModal
         visible={progressSheetOpen}
         onClose={() => setProgressSheetOpen(false)}
@@ -647,6 +614,7 @@ export function ChartWaypointContent({
             accessibilityLabel="Why this waypoint matters"
             style={styles.editRationale}
           />
+          {!isCurrent && view.total > 1 ? <PanelButton label={CHART_COPY.waypoint.remove} variant="link" accent={accent} onPress={async () => { if (await chart.removeWaypoint(waypoint.id)) { setEditWaypointModalOpen(false); onBack(); } }} testID="chart-edit-waypoint-remove" /> : null}
           <V2Button size="large" onPress={async () => { await saveEdit(); setEditWaypointModalOpen(false); }}>
             Save
           </V2Button>
@@ -667,7 +635,75 @@ export function ChartWaypointContent({
 }
 
 
+export function WaypointProgressBlock({ p, accent, reducedMotion, barLabel, valueRow, valueText, canUpdateProgress, openProgressSheet }: {
+  p: number; accent: ReturnType<typeof panelAccent>; reducedMotion: boolean; barLabel: string;
+  valueRow: ReturnType<typeof progressValueRow>; valueText: string | null; canUpdateProgress: boolean; openProgressSheet: () => void;
+}) { return (<>
+      <ChartBrushBar fraction={p} color={accent.fill} reducedMotion={reducedMotion} accessibilityLabel={barLabel} testID="chart-waypoint-bar" />
+      {valueRow ? (
+        canUpdateProgress ? (
+          <View style={styles.progressDataRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={CHART_COPY.waypoint.progress}
+              accessibilityHint={valueText ?? undefined}
+              onPress={openProgressSheet}
+              style={styles.valueRow}
+              testID="chart-waypoint-progress"
+            >
+              <Text style={styles.valueStrong}>{valueRow.strong}</Text>
+              {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Update progress"
+              onPress={openProgressSheet}
+              style={styles.updateProgressButton}
+              testID="chart-update-progress-button"
+            >
+              <Text style={[styles.updateProgressText, { color: accent.text }]}>Update progress →</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.valueRow} accessible accessibilityLabel={valueText ?? undefined} testID="chart-waypoint-value">
+            <Text style={styles.valueStrong}>{valueRow.strong}</Text>
+            {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
+          </View>
+        )
+      ) : null}
+    </>); }
+
+export function PracticeRow({ accent, practiced, onOpenPractice }: { accent: ReturnType<typeof panelAccent>; practiced: boolean; onOpenPractice?: (mode: 'focus' | 'deep_prime') => void }) { return (                <View style={styles.practiceRowContainer}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={practiced ? 'Practiced today' : 'Practice today'}
+                    onPress={() => onOpenPractice?.(practiced ? 'deep_prime' : 'focus')}
+                    style={styles.practiceRow}
+                    testID="chart-practice-row"
+                  >
+                    <View style={[styles.practiceIconFrame, { borderColor: `${accent.fill}40` }]}>
+                      <Anchor size={18} color={accent.text} />
+                    </View>
+                    <View style={styles.flex}>
+                      {practiced ? (
+                        <View style={styles.practicedTodayTitleRow}>
+                          <Text style={[styles.practiceTitle, styles.practiceTitleDone]}>Practiced today</Text>
+                          <Check size={16} color={accent.text} strokeWidth={2.5} style={styles.practiceCheckIcon} />
+                        </View>
+                      ) : (
+                        <>
+                          <Text style={styles.practiceTitle}>Practice today</Text>
+                          <Text style={styles.practiceSubtext}>Keep your anchor strong</Text>
+                        </>
+                      )}
+                    </View>
+                    <ChevronRight size={18} color={T.muted} />
+                  </Pressable>
+                </View>); }
+
 const styles = StyleSheet.create({
+  sheetRoot: { flex: 1 },
+  viewingPeek: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   practiceRowContainer: { marginVertical: 4 },
   practiceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14, backgroundColor: T.panel, borderWidth: 1, borderColor: T.line, borderRadius: 16 },
   practiceIconFrame: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.04)' },

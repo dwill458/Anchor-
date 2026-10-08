@@ -14,9 +14,9 @@
     "icon": "./assets/anchor-icon-v3.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/anchor-splash-artwork.jpg",
+      "image": "./assets/splash-star.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F1419"
+      "backgroundColor": "#F4EDE0"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -168,13 +168,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/anchor-splash-logo.png",
-          "imageWidth": 160,
+          "image": "./assets/splash-star.png",
+          "imageWidth": 150,
           "resizeMode": "contain",
-          "backgroundColor": "#0F1419",
+          "backgroundColor": "#F4EDE0",
           "dark": {
-            "image": "./assets/anchor-splash-logo.png",
-            "backgroundColor": "#0F1419"
+            "image": "./assets/splash-star.png",
+            "backgroundColor": "#F4EDE0"
           }
         }
       ],

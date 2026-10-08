@@ -1,3 +1,4 @@
+import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
   ColorMatrix, FilterMode, FractalNoise, Group, Image as SkiaImage, ImageShader, MipmapMode, Paint, Rect, Shader,
@@ -102,6 +103,7 @@ export function warmChartMapResources(table: RouteTable, width: number, height: 
 export function hasDecodedChartLandscape(): boolean { return landscapeImageCache !== null; }
 
 type Props = {
+  frame?: ChartMapFrame;
   width: number;
   height: number;
   anim: ChartMapAnimState;
@@ -118,7 +120,7 @@ type Props = {
  * masked by the fog shader, then grain. Redraws only when revealArc, fog or the
  * camera move; the flag sway lives on the separate overlay canvas.
  */
-export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, table, categoryColor, reducedMotion = false, clouds = false, onArtReady }: Props) {
+export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, table, categoryColor, reducedMotion = false, clouds = false, onArtReady, frame }: Props) {
   const decodedImage = useImage(landscapeImageCache ? null : LANDSCAPE);
   const [warmedImage, setWarmedImage] = useState<SkImage | null>(() => landscapeImageCache);
   const image = warmedImage ?? decodedImage;
@@ -163,7 +165,7 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
       .catch(error => { if (__DEV__) console.warn('[chart-map] grain render failed', error); });
     return () => { alive = false; };
   }, [width, height]);
-  const cameraTransform = useChartMapCameraTransform(anim, width, height);
+  const cameraTransform = useChartMapCameraTransform(anim, width, height, frame);
 
   const paper = useMemo(() => hexToVec3(CHART_MAP_TOKENS.paper), []);
   const cat = useMemo(() => hexToVec3(categoryColor), [categoryColor]);

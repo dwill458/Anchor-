@@ -140,4 +140,44 @@ describe('PostAuthFlowService', () => {
       skipAnchorRefresh: false,
     });
   });
+
+  it('rejects post-auth finalization with CREATE_ANCHOR_FREE_LOCKED if unentitled user already created an anchor', async () => {
+    const user = createMockUser({
+      id: 'locked-user',
+      totalAnchorsCreated: 1,
+      freeAnchorConsumed: true,
+    });
+    const localDraft = createMockAnchor({ id: 'temp-local-1' });
+
+    useAnchorStore.getState().setAnchors([localDraft]);
+    useAuthStore.setState({
+      pendingFirstAnchorDraft: {
+        tempAnchorId: 'temp-local-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: false,
+        createdAt: new Date('2026-05-18T08:00:00.000Z'),
+      },
+    } as any);
+
+    mockLogIn.mockResolvedValue({ hasActiveEntitlement: false });
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: false });
+    mockMigrateAnchors.mockResolvedValue([]);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+
+    await expect(
+      PostAuthFlowService.run({
+        user,
+        token: 'token-123',
+        preserveCompletedOnboarding: false,
+        launchTrialPurchase: false,
+      })
+    ).rejects.toThrow('CREATE_ANCHOR_FREE_LOCKED');
+
+    // Unconfirmed local drafts must NOT be migrated to backend sync
+    expect(mockMigrateAnchors).toHaveBeenCalledWith([], 'locked-user');
+    // Must NOT call finalize
+    expect(mockFinalizePendingFirstAnchorDraft).not.toHaveBeenCalled();
+    // But local anchor is preserved in memory for paywall finalization
+    expect(useAnchorStore.getState().anchors).toEqual([localDraft]);
+  });
 });

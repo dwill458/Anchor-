@@ -12,10 +12,12 @@ import { detailBoardSizeForWidth, toSceneRect, VISION_BOARD_MAX_IMAGES } from '.
 import { focusCamera, restCamera, type CameraState } from './visionBoardCamera';
 import { boardCameraEasing, boardDelay, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { moveBoardOrder } from './visionBoardReorder';
+import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
 
 export type VisionBoardFocus = { kind: 'photo'; sceneId: string } | { kind: 'card' } | null;
 
 export type VisionBoardProps = {
+  arrivingSceneId?: string | null;
   tiles: V2VisionTile[];
   intention: string;
   /** Optional, persisted user title. Never filled with sample content. */
@@ -27,7 +29,7 @@ export type VisionBoardProps = {
   reduceMotion: boolean;
   busy?: boolean;
   canRegenerate: boolean;
-  onReplace: (sceneId: string) => void;
+  onReplace?: (sceneId: string) => void;
   onRegenerate: (sceneId: string) => void;
   onRemove: (sceneId: string) => void;
   onEditVision: () => void;
@@ -49,7 +51,7 @@ export type VisionBoardProps = {
  * Long-press lifts a photo so it can trade places with another.
  */
 export function VisionBoard({
-  tiles, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate,
+  tiles, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate, arrivingSceneId,
   onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board',
 }: VisionBoardProps) {
   const viewport = useMemo(() => detailBoardSizeForWidth(width, tiles.length), [width, tiles.length]);
@@ -185,6 +187,7 @@ export function VisionBoard({
           scene={scene}
           roster={board.roster}
           entering={board.entering}
+          arrivingSceneId={arrivingSceneId}
           layout={layout}
           shared={shared}
           initialRectFor={board.initialRectFor}
@@ -222,17 +225,20 @@ export function VisionBoard({
 
       {focus ? (
         <Animated.View style={[styles.controls, controlsStyle]} pointerEvents="box-none">
+          {/* The line written at Keep, under the focused photo; it fades in with the focus controls. */}
+          {focusedTile?.caption?.trim() ? <Text testID="vision-board-focused-caption" numberOfLines={1} ellipsizeMode="tail" style={styles.focusedCaption}>
+            {focusedTile.caption.trim()}</Text> : null}
           {focus.kind === 'photo' && !canRegenerate && !busy ? (
             <Text style={styles.regenerationNote}>No image sets left for this Vision.</Text>
           ) : null}
           <View style={styles.controlRow}>
             {focus.kind === 'photo' && focusedTile ? (
               <>
-                <ControlButton label="Replace" icon={<ImagePlus size={18} color={colors.paper} />} disabled={busy}
-                  onPress={() => onReplace(focusedTile.sceneId)} />
-                <ControlButton label="Regenerate" icon={<RefreshCw size={18} color={colors.paper} />} disabled={busy || !canRegenerate}
+                {/* DEFERRED: Replace locks at Seal (decision Oct 2026); remove + add remains.
+                  <ControlButton label="Replace" onPress={() => onReplace?.(focusedTile.sceneId)} /> */}
+                {focusedTile.sourceType === 'AI_GENERATED' ? <ControlButton label="Regenerate" icon={<RefreshCw size={18} color={colors.paper} />} disabled={busy || !canRegenerate}
                   hint={canRegenerate ? undefined : 'No image sets left for this Vision.'}
-                  onPress={() => onRegenerate(focusedTile.sceneId)} />
+                  onPress={() => onRegenerate(focusedTile.sceneId)} /> : null}
                 <ControlButton label="Remove" icon={<Trash2 size={18} color="#F1B8AE" />} disabled={busy}
                   onPress={() => onRemove(focusedTile.sceneId)} />
               </>
@@ -294,6 +300,8 @@ const styles = StyleSheet.create({
     width: 44, height: 40, marginLeft: 2, alignItems: 'center', justifyContent: 'center',
     borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: 'rgba(245,240,230,0.22)',
   },
+  focusedCaption: { maxWidth: '100%', fontFamily: VISION_SERIF_ITALIC, fontSize: 15, lineHeight: 20, color: colors.text.primary, textAlign: 'center',
+    backgroundColor: 'rgba(244,237,224,0.92)', paddingHorizontal: spacing[3], paddingVertical: 4, borderRadius: radii.lg, marginBottom: spacing[2] },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.72 },
 });

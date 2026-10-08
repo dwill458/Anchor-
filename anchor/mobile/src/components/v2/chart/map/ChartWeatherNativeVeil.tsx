@@ -1,3 +1,4 @@
+import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { CLOUD_TILE_PX, CLOUD_TILE_SCALE, cachedCloudTiles, cloudTileUris, loadCloudTiles, type CloudTileUris } from './chartCloudTiles';
@@ -24,8 +25,9 @@ const wrap = (v: number, period: number) => {
  * bitmaps are already decoded and draw on frame one; before that it is the haze alone.
  */
 export const ChartWeatherNativeVeil = memo(function ChartWeatherNativeVeil({
-  width, height, camera, testID,
+  width, height, camera, testID, frame,
 }: {
+  frame?: ChartMapFrame;
   width: number;
   height: number;
   /** Map camera at mount (the open's starting framing). */
@@ -37,7 +39,7 @@ export const ChartWeatherNativeVeil = memo(function ChartWeatherNativeVeil({
   const [clock] = useState(() => weatherClockSeconds());
   const tiles = useMemo(() => {
     if (!uris) return [];
-    const w = weatherTransformFor(camera.cx, camera.cy, camera.s, width, height);
+    const w = weatherTransformFor(camera.cx, camera.cy, camera.s, width, height, frame);
     const dropped = weatherLayersDroppedForDev();
     const layers: Layer[] = [
       { key: 'billows', uri: uris.billows, px: CLOUD_TILE_PX.billows, scale: CLOUD_TILE_SCALE.billows, alpha: 1 },
@@ -71,7 +73,7 @@ export const ChartWeatherNativeVeil = memo(function ChartWeatherNativeVeil({
       }
     }
     return out;
-  }, [uris, camera.cx, camera.cy, camera.s, width, height, clock]);
+  }, [uris, frame, camera.cx, camera.cy, camera.s, width, height, clock]);
 
   return (
     <View testID={testID} style={[styles.root, { width, height }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">

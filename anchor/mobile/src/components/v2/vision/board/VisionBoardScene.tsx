@@ -11,6 +11,7 @@ import { VisionBoardPhoto } from './VisionBoardPhoto';
 import { VisionBoardIntentionCard, type VisionBoardCardArt } from './VisionBoardIntentionCard';
 
 export type VisionBoardSceneProps = {
+  arrivingSceneId?: string | null;
   scene: Size;
   roster: BoardRosterEntry<V2VisionTile>[];
   entering: ReadonlySet<string>;
@@ -54,7 +55,7 @@ export type VisionBoardSceneProps = {
  * camera; whoever renders it moves the view it sits in.
  */
 export const VisionBoardScene = memo(function VisionBoardScene({
-  scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion,
+  scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion, arrivingSceneId,
   interactive = false, dragEnabled = false, onPhotoPress, onCardPress, onBackgroundPress, onDragActive, onSwap,
   onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, markAppearance, detailEdges, edgeDarken, cinematic,
 }: VisionBoardSceneProps) {
@@ -63,7 +64,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
   return (
     <View style={{ width: scene.width, height: scene.height }}>
       {onBackgroundPress ? <Pressable style={styles.fill} onPress={onBackgroundPress} accessible={false} /> : null}
-      {roster.filter(entry => entry.exiting || shared.order.value.includes(entry.tile.sceneId)).map(({ tile, exiting }) => {
+      {roster.filter(entry => entry.exiting || initialRectFor(entry.tile.sceneId) !== null).map(({ tile, exiting }) => {
         const index = layout.photos.length ? roster.filter(entry => !entry.exiting).findIndex(entry => entry.tile.sceneId === tile.sceneId) : -1;
         return (
           <VisionBoardPhoto
@@ -71,6 +72,8 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             testID={`vision-board-photo-${tile.sceneId}`}
             sceneId={tile.sceneId}
             imageUrl={tile.imageUrl}
+            caption={tile.caption ?? undefined}
+            arriving={interactive && tile.sceneId === arrivingSceneId}
             uploaded={tile.sourceType === 'USER_UPLOAD' || tile.sourceType === 'USER_CAMERA'}
             displayAspect={layout.photos[Math.max(0, index)]?.aspectRatio ?? 1.12}
             hero={index === 0}

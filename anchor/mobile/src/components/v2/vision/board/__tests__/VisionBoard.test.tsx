@@ -21,7 +21,7 @@ jest.mock('../VisionBoardScene', () => ({
 }));
 
 const props: VisionBoardProps = {
-  tiles: [{ id: 'p1', sceneId: 'p1', imageUrl: 'https://example.com/photo.jpg', prompt: null, sortOrder: 0, isHero: true }],
+  tiles: [{ id: 'p1', sceneId: 'p1', imageUrl: 'https://example.com/photo.jpg', prompt: null, sortOrder: 0, isHero: true, sourceType: 'AI_GENERATED' }],
   intention: 'My real intention', width: 296, reduceMotion: true, canRegenerate: false,
   onReplace: jest.fn(), onRegenerate: jest.fn(), onRemove: jest.fn(), onEditVision: jest.fn(), onReorder: jest.fn(),
 };

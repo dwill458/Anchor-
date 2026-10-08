@@ -115,6 +115,7 @@ export function V2PracticeSessionScreen({
 
   // Legacy state for other modes fallback
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const preciseElapsedRef = useRef(0);
   const [legacyStatus, setLegacyStatus] = useState<SessionStatus>('active');
   const [legacyError, setLegacyError] = useState<string | null>(null);
 
@@ -136,11 +137,16 @@ export function V2PracticeSessionScreen({
       appIsActive = state === 'active';
       lastTick = Date.now();
     });
+    // Sub-second time stays in a ref; the screen only reads whole seconds, so
+    // React re-renders once a second instead of on every 250ms tick.
     const interval = setInterval(() => {
       const now = Date.now();
       const delta = appIsActive ? Math.max(0, now - lastTick) : 0;
       lastTick = now;
-      if (delta > 0) setElapsedSeconds(previous => Math.min(durationSeconds, previous + delta / 1000));
+      if (delta <= 0) return;
+      preciseElapsedRef.current = Math.min(durationSeconds, preciseElapsedRef.current + delta / 1000);
+      const whole = Math.floor(preciseElapsedRef.current);
+      setElapsedSeconds(previous => (previous === whole ? previous : whole));
     }, 250);
     return () => { clearInterval(interval); subscription.remove(); };
   }, [durationSeconds, legacyStatus, mode, visionModel.state.state]);

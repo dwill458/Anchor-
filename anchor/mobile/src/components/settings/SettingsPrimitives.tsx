@@ -1,3 +1,4 @@
+import { V2ConfirmSheet, V2SheetModal, V2SheetGrabZone } from '@/components/v2/primitives';
 import React from 'react';
 import {
   Modal,
@@ -372,50 +373,47 @@ export const CompactPickerSheet: React.FC<CompactPickerSheetProps> = ({
   onPick,
   onClose,
 }) => (
-  <Modal
+  <V2SheetModal
     visible={open}
-    transparent
-    animationType="fade"
-    onRequestClose={onClose}
-    accessibilityViewIsModal
+    onClose={onClose}
+    testID="compact-picker-sheet"
+    scrimAccessibilityLabel="Close picker"
   >
-    <Pressable style={styles.sheetOverlay} onPress={onClose}>
-      <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
-        <SafeAreaView edges={['bottom']}>
-          <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>{title}</Text>
-          <ScrollView
-            style={styles.sheetScroll}
-            accessibilityRole="radiogroup"
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {options.map((opt, index) => (
-              <SettingsChoiceRow
-                key={opt.value}
-                label={opt.label}
-                desc={opt.desc}
-                selected={opt.value === value}
-                onPress={() => {
-                  onPick(opt.value);
-                  onClose();
-                }}
-              />
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Cancel"
-            onPress={onClose}
-            style={styles.sheetCancelButton}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.sheetCancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
-      </Pressable>
-    </Pressable>
-  </Modal>
+    <SafeAreaView edges={['bottom']} style={styles.sheetContainer} accessibilityViewIsModal>
+      <V2SheetGrabZone>
+        <View style={styles.sheetHandle} />
+        <Text style={styles.sheetTitle}>{title}</Text>
+      </V2SheetGrabZone>
+      <ScrollView
+        style={styles.sheetScroll}
+        accessibilityRole="radiogroup"
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {options.map((opt) => (
+          <SettingsChoiceRow
+            key={opt.value}
+            label={opt.label}
+            desc={opt.desc}
+            selected={opt.value === value}
+            onPress={() => {
+              onPick(opt.value);
+              onClose();
+            }}
+          />
+        ))}
+      </ScrollView>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Cancel"
+        onPress={onClose}
+        style={styles.sheetCancelButton}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.sheetCancelText}>Cancel</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
+  </V2SheetModal>
 );
 
 /* ── Compact Confirm Sheet ──────────────────────────────────────── */
@@ -440,49 +438,21 @@ export const CompactConfirmSheet: React.FC<CompactConfirmSheetProps> = ({
   onConfirm,
   onClose,
 }) => (
-  <Modal
+  <V2ConfirmSheet
     visible={open}
-    transparent
-    animationType="fade"
-    onRequestClose={onClose}
-    accessibilityViewIsModal
-  >
-    <Pressable style={styles.sheetOverlay} onPress={onClose}>
-      <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
-        <SafeAreaView edges={['bottom']}>
-          <View style={styles.sheetHandle} />
-          <Text style={styles.confirmTitle}>{title}</Text>
-          {desc ? <Text style={styles.confirmDesc}>{desc}</Text> : null}
-          <View style={styles.confirmActions}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={cancelLabel}
-              onPress={onClose}
-              style={styles.confirmCancelBtn}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.confirmCancelText}>{cancelLabel}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={confirmLabel}
-              onPress={() => {
-                onConfirm();
-                onClose();
-              }}
-              style={[
-                styles.confirmActionBtn,
-                destructive ? styles.confirmActionBtnDestructive : styles.confirmActionBtnPrimary,
-              ]}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmActionText}>{confirmLabel}</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Pressable>
-    </Pressable>
-  </Modal>
+    onClose={onClose}
+    title={title}
+    message={desc}
+    confirmLabel={confirmLabel}
+    cancelLabel={cancelLabel}
+    destructive={destructive}
+    onConfirm={() => {
+      onConfirm();
+      onClose();
+    }}
+    onCancel={onClose}
+    testID="compact-confirm-sheet"
+  />
 );
 
 /* ── Styles ─────────────────────────────────────────────────────── */

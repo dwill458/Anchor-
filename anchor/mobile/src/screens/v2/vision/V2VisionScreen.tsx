@@ -2,7 +2,7 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import { V2VisionAddPhoto, V2VisionAddScene, V2VisionCreationFlow } from '@/components/v2/vision';
+import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
 import { playCreationSound } from '@/services/CreationSounds';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
@@ -12,7 +12,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
 import { colors } from '@/theme/v2';
-import type { V2VisualizeHandoff } from '@/adapters/v2/vision';
+import type { V2VisualizeHandoff, V2VisionTile } from '@/adapters/v2/vision';
 import { toChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
@@ -66,11 +66,27 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const chartSummary = useMemo(() => toChartSummary(anchorChart.data?.chart), [anchorChart.data?.chart]);
   const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'addScene'>(props.initialMode ?? route.params?.initialMode ?? 'view');
   useEffect(() => {
-    if (route.params?.resumeGeneration) setMode('create');
+    if (route.params?.resumeGeneration && mode !== 'addScene') setMode('create');
   }, [route.params?.resumeGeneration]);
+  const [justAdded, setJustAdded] = useState<'create' | 'add' | undefined>();
+  const [savedImageUrl, setSavedImageUrl] = useState<string | null>(null);
+  // The pin finds the new scene by id: signed URLs can differ between the save response and the refreshed read model.
+  const [savedSceneId, setSavedSceneId] = useState<string | null>(null);
+  const recordSaved = (scenes: ReadonlyArray<{ id: string; assetId: string | null; resolvedImageUrl?: string | null }>, assetId?: string) => {
+    const scene = assetId ? scenes.find(item => item.assetId === assetId) : undefined;
+    setSavedSceneId(scene?.id ?? null);
+    return scene?.resolvedImageUrl;
+  };
+  const uploadedPhoto = useRef<{ uri: string; assetId: string } | null>(null);
+  useEffect(() => navigation.addListener?.('blur', () => setJustAdded(undefined)), [navigation]);
+  const finishCeremony = (kind: 'create' | 'add') => {
+    setJustAdded(kind); playVisionPin(); setPendingPhoto(null); setReplaceSceneId(null); setMode('view');
+  };
   const [actionError, setActionError] = useState<string | null>(null);
   // Choosing generated images for one place on the board (Regenerate), or for any free places (add).
   const [replaceSceneId, setReplaceSceneId] = useState<string | null>(null);
+  const replacementTarget = useRef<V2VisionTile | null>(null);
+  const replacementProgress = useRef(new Map<string, { sortOrder: number; full: boolean; removed: boolean; added: boolean; url?: string | null }>());
   // The board as it was before leaving to add images, so it can recompose on return.
   const [arrivedFrom, setArrivedFrom] = useState<string[] | null>(null);
   // A photo chosen or taken for the board, previewed until the person confirms it.
@@ -79,6 +95,12 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
   const anchorCategory = anchor ? resolveAnchorCategory(anchor.category) : undefined;
+  // Every ceremony starts with no saved result, so a stale pin can never drop on the wrong scene.
+  const ceremonyKey = pendingPhoto ? `photo:${pendingPhoto.uri}` : mode === 'addScene' ? `add:${replaceSceneId ?? ''}`
+    : mode === 'create' || mode === 'ready' || model.state.state === 'none' ? 'create' : null;
+  useEffect(() => {
+    if (ceremonyKey) { setSavedImageUrl(null); setSavedSceneId(null); }
+  }, [ceremonyKey]);
   const handleBack = () => {
     if ((mode === 'create' || mode === 'addScene') && model.state.state === 'ready') {
       setReplaceSceneId(null);
@@ -137,38 +159,39 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   };
 
   /** Uploads the confirmed photo and adds it to the board. Returns an error message, or null when added. */
-  const confirmAddPhoto = async (): Promise<string | null> => {
+  const confirmAddPhoto = async (caption?: string): Promise<string | null> => {
     if (!pendingPhoto) return null;
-    const uploaded = await uploadVisionPhoto(pendingPhoto, model.uploadAsset);
-    if (!uploaded.ok) return uploaded.message;
-    const saved = await model.addScene({ assetId: uploaded.assetId, sourceType: pendingPhoto.sourceType });
+    let assetId = uploadedPhoto.current?.uri === pendingPhoto.uri ? uploadedPhoto.current.assetId : null;
+    if (!assetId) {
+      const uploaded = await uploadVisionPhoto(pendingPhoto, model.uploadAsset);
+      if (!uploaded.ok) return uploaded.message;
+      assetId = uploaded.assetId;
+      uploadedPhoto.current = { uri: pendingPhoto.uri, assetId };
+    }
+    const saved = await model.addScene({ assetId, sourceType: pendingPhoto.sourceType, caption });
     if (!saved) return 'Your photo was uploaded, but could not be added to your Vision. Please try again.';
-    const url = saved.scenes.find(scene => scene.assetId === uploaded.assetId)?.resolvedImageUrl;
-    playVisionPin();
+    const url = recordSaved(saved.scenes, assetId);
     await warmImage(url);
-    if (url) arrival?.resolve(url); else arrival?.cancel();
+    setSavedImageUrl(url ?? null);
     setActionError(null);
-    setPendingPhoto(null);
     return null;
   };
 
   const openAddScene = () => {
-    AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
     setActionError(null);
+    setSavedImageUrl(null);
     setArrivedFrom(model.tiles.map(tile => tile.sceneId));
     setMode('addScene');
   };
 
   /** Adds the generated image the person chose. */
-  const addGeneratedScene = async (choice: { assetId: string; prompt: string }): Promise<boolean> => {
-    const saved = await model.addScene({ assetId: choice.assetId, prompt: choice.prompt, sourceType: 'AI_GENERATED' });
+  const addGeneratedScene = async (choice: { assetId: string; prompt: string; caption?: string }): Promise<boolean> => {
+    const saved = await model.addScene({ assetId: choice.assetId, prompt: choice.prompt, caption: choice.caption, sourceType: 'AI_GENERATED' });
     if (!saved) return false;
-    const destinationUrl = saved.scenes.find(scene => scene.assetId === choice.assetId)?.resolvedImageUrl;
-    playVisionPin();
+    const destinationUrl = recordSaved(saved.scenes, choice.assetId);
     await warmImage(destinationUrl);
-    if (destinationUrl) arrival?.resolve(destinationUrl); else arrival?.cancel();
+    setSavedImageUrl(destinationUrl ?? null);
     setActionError(null);
-    setMode('view');
     return true;
   };
 
@@ -179,16 +202,32 @@ function VisionScreenContent(props: V2VisionScreenProps) {
    */
   const replaceScene = async (
     sceneId: string,
-    next: { assetId: string; sourceType: 'USER_UPLOAD' | 'AI_GENERATED' | 'USER_CAMERA'; prompt?: string },
+    next: { assetId: string; sourceType: 'USER_UPLOAD' | 'AI_GENERATED' | 'USER_CAMERA'; prompt?: string; caption?: string },
   ): Promise<boolean> => {
-    const old = model.tiles.find(tile => tile.sceneId === sceneId);
-    if (!old) return false;
-    const full = model.tiles.length >= VISION_BOARD_MAX_IMAGES;
-    if (full && !(await model.deleteScene(sceneId))) { setActionError('Image could not be replaced.'); return false; }
-    const added = await model.addScene({ ...next, sortOrder: old.sortOrder });
-    if (!added) { setActionError('The new image could not be added to your Vision. Please try again.'); return false; }
-    playVisionPin();
-    if (!full && !(await model.deleteScene(sceneId))) { setActionError('The new image was added, but the old one could not be removed.'); return false; }
+    const key = `${sceneId}:${next.assetId}`;
+    let progress = replacementProgress.current.get(key);
+    if (!progress) {
+      const old = model.tiles.find(tile => tile.sceneId === sceneId) ?? (replacementTarget.current?.sceneId === sceneId ? replacementTarget.current : null);
+      if (!old) return false;
+      progress = { sortOrder: old.sortOrder, full: model.tiles.length >= VISION_BOARD_MAX_IMAGES, removed: false, added: false };
+      replacementProgress.current.set(key, progress);
+    }
+    // A committed retry continues the same replacement, even after tiles become empty on error.
+    if (progress.full && !progress.removed) {
+      if (!(await model.deleteScene(sceneId))) { setActionError('Image could not be replaced.'); return false; }
+      progress.removed = true;
+    }
+    if (!progress.added) {
+      const added = await model.addScene({ ...next, sortOrder: progress.sortOrder });
+      if (!added) { setActionError('The new image could not be added to your Vision. Please try again.'); return false; }
+      progress.added = true; progress.url = recordSaved(added.scenes, next.assetId);
+    }
+    if (!progress.removed) {
+      if (!(await model.deleteScene(sceneId))) { setActionError('The new image was added, but the old one could not be removed.'); return false; }
+      progress.removed = true;
+    }
+    await warmImage(progress.url);
+    setSavedImageUrl(progress.url ?? null);
     setActionError(null);
     return true;
   };
@@ -204,20 +243,20 @@ function VisionScreenContent(props: V2VisionScreenProps) {
 
   /** Regenerating one image: the same two-moments choice, but the pick takes that image's place. */
   const openImageGeneration = (forSceneId: string) => {
+    replacementTarget.current = model.tiles.find(tile => tile.sceneId === forSceneId) ?? null;
+    replacementProgress.current.clear();
     setActionError(null);
+    setSavedImageUrl(null);
     setArrivedFrom(null);
     setReplaceSceneId(forSceneId);
     setMode('addScene');
   };
 
   /** Adds the generated image the person chose, or puts it where the one being regenerated was. */
-  const placeGeneratedScene = async (choice: { assetId: string; prompt: string }): Promise<boolean> => {
+  const placeGeneratedScene = async (choice: { assetId: string; prompt: string; caption?: string }): Promise<boolean> => {
     if (!replaceSceneId) return addGeneratedScene(choice);
-    const replaced = await replaceScene(replaceSceneId, { assetId: choice.assetId, sourceType: 'AI_GENERATED', prompt: choice.prompt });
+    const replaced = await replaceScene(replaceSceneId, { assetId: choice.assetId, sourceType: 'AI_GENERATED', prompt: choice.prompt, caption: choice.caption });
     if (!replaced) return false;
-    arrival?.cancel();
-    setReplaceSceneId(null);
-    setMode('view');
     return true;
   };
 
@@ -229,7 +268,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     </V2Screen>
   );
 
-  if (model.state.state === 'error' && !model.vision) return (
+  if (model.state.state === 'error' && !model.vision && mode !== 'create' && mode !== 'ready' && mode !== 'addScene' && !pendingPhoto) return (
     <V2Screen testID="v2-vision-screen-error">
       <V2TopBar title="Vision" onBackPress={handleBack} />
       <V2EmptyState title="Unable to load Vision" message={model.error ?? 'Please check your connection and try again.'} action={<V2Button onPress={() => { void model.refresh(); }}>Retry Vision</V2Button>} />
@@ -237,47 +276,45 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   );
 
   if (pendingPhoto) return (
-    <V2VisionAddPhoto
-      uri={pendingPhoto.uri}
-      source={pendingPhoto.sourceType === 'USER_CAMERA' ? 'camera' : 'library'}
-      anchorIntention={anchorIntention}
-      anchorCategory={anchorCategory}
-      anchorArt={anchorArt}
-      anchorImageUrl={anchor?.enhancedImageUrl}
-      onConfirm={confirmAddPhoto}
+    <VisionCeremony mode="add" startAt="develop" photo={pendingPhoto} anchorId={anchorId}
+      anchorIntention={anchorIntention} anchorCategory={anchorCategory} anchorArt={anchorArt} anchorImageUrl={anchor?.enhancedImageUrl}
+      onUploadAsset={model.uploadAsset} onAssemble={async () => false} onPhotoConfirm={confirmAddPhoto}
+      savedImageUrl={savedImageUrl} onPinned={() => finishCeremony('add')}
       onChooseAgain={() => {
         const source = pendingPhoto.sourceType === 'USER_CAMERA' ? 'camera' : 'library';
-        setPendingPhoto(null);
-        void startAddPhoto(source);
-      }}
-      onCancel={() => setPendingPhoto(null)}
-    />
+        setPendingPhoto(null); void startAddPhoto(source);
+      }} onBack={() => setPendingPhoto(null)} />
   );
 
-  if (mode === 'addScene' && model.state.state === 'ready') return (
-    <V2VisionAddScene
-      anchorId={anchorId}
-      anchorIntention={anchorIntention}
-      anchorCategory={anchorCategory}
-      anchorArt={anchorArt}
-      anchorImageUrl={anchor?.enhancedImageUrl}
-      existingTiles={model.tiles}
-      onPremiumRequired={openPaywall}
-      onUploadAsset={model.uploadAsset}
-      onCancel={() => { setReplaceSceneId(null); setMode('view'); }}
-      onAdd={placeGeneratedScene}
-    />
+  if (mode === 'addScene') return (
+    <VisionCeremony mode="add" visionId={model.vision?.id} startAt={replaceSceneId ? 'describe' : 'ask'} regenerating={Boolean(replaceSceneId)}
+      previewImageUrl={model.tiles[0]?.imageUrl} previewCaption={model.tiles[0]?.caption}
+      anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory} anchorArt={anchorArt}
+      anchorImageUrl={anchor?.enhancedImageUrl} onPremiumRequired={openPaywall} onUploadAsset={model.uploadAsset}
+      resumeGeneration={route.params?.resumeGeneration}
+      onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
+      onBack={() => { setReplaceSceneId(null); setMode('view'); }} onAdd={placeGeneratedScene}
+      savedImageUrl={savedImageUrl} onPinned={() => finishCeremony('add')}
+      onAssemble={async ({ selectedAssets }) => {
+        const asset = selectedAssets[0];
+        if (!asset) return false;
+        const saved = await model.addScene({ assetId: asset.assetId, prompt: asset.prompt, sourceType: asset.sourceType, caption: asset.caption });
+        if (!saved) return false;
+        const url = recordSaved(saved.scenes, asset.assetId);
+        await warmImage(url); setSavedImageUrl(url ?? null); return true;
+      }} />
   );
 
   if (mode === 'create' || mode === 'ready' || model.state.state === 'none') return (
-    <V2VisionCreationFlow
+    <VisionCeremony mode="create" visionId={model.vision?.id} startAt="ask"
       anchorId={anchorId}
       anchorIntention={anchorIntention}
       anchorCategory={anchorCategory}
       anchorImageUrl={anchor?.enhancedImageUrl}
       anchorArt={anchorArt}
       initialDescription={model.vision?.description ?? ''}
-      initialStep={mode === 'ready' ? 'ready' : mode === 'create' ? 'prompt' : 'empty'}
+      savedImageUrl={savedImageUrl}
+      onPinned={() => finishCeremony('create')}
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
       onBack={handleBack}
@@ -289,18 +326,18 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       }}
       onUploadAsset={model.uploadAsset}
       onAssemble={async ({ description, selectedAssets }) => {
+        // Stay mounted while first-photo persistence changes the read model.
+        setMode('create');
         const saved = await model.createVision({
           description,
           scenes: selectedAssets.map(asset => ({
-            assetId: asset.assetId, prompt: asset.prompt, sourceType: asset.sourceType,
+            assetId: asset.assetId, prompt: asset.prompt, sourceType: asset.sourceType, caption: asset.caption,
           })),
         });
         if (!saved) return false;
-        if (selectedAssets.length) playVisionPin();
-        const destination = saved.scenes.find(scene => scene.assetId === selectedAssets[0]?.assetId)?.resolvedImageUrl;
+        const destination = recordSaved(saved.scenes, selectedAssets[0]?.assetId);
         await warmImage(destination);
-        if (destination) arrival?.resolve(destination); else arrival?.cancel();
-        setMode('view');
+        setSavedImageUrl(destination ?? null);
         return true;
       }}
     />
@@ -337,6 +374,9 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       onRemove={async sceneId => Boolean(await model.deleteScene(sceneId))}
       onAddPhoto={source => { void startAddPhoto(source); }}
       onAddGenerate={openAddScene}
+      onAddImage={openAddScene}
+      justAdded={justAdded}
+      arrivingSceneId={justAdded ? savedSceneId ?? undefined : undefined}
       onReplace={replaceWithOwnImage}
       onRegenerate={sceneId => openImageGeneration(sceneId)}
       arrivedFrom={arrivedFrom}
@@ -345,5 +385,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     />
   );
   };
-  return <View style={{ flex: 1 }}>{renderContent()}</View>;
+  // Paint the board's cream behind the saved board and ink behind the ceremony, so a mode change never
+  // shows a frame of the other colour (one of the flashes seen on device, Oct 7).
+  const onBoard = mode === 'view' && !pendingPhoto && model.state.state === 'ready';
+  return <View style={{ flex: 1, backgroundColor: onBoard ? colors.canvas : '#14162B' }}>{renderContent()}</View>;
 }

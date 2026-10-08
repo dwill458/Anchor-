@@ -1,3 +1,4 @@
+import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useContext, useEffect, useMemo, useState } from 'react';
 import { FilterMode, Group, ImageShader, MipmapMode, Paint, Rect, Shader } from '@shopify/react-native-skia';
 import { NavigationContext } from '@react-navigation/native';
@@ -45,6 +46,7 @@ export function resetWeatherEffectCache(): void {
 }
 
 type Props = {
+  frame?: ChartMapFrame;
   width: number;
   height: number;
   anim: ChartMapAnimState;
@@ -182,7 +184,7 @@ export function WeatherClouds({ tiles }: { tiles: CloudTiles }) {
  * land and ink shaders never re-run for the drift. Paper-derived colours only.
  */
 export const ChartMapWeather = memo(function ChartMapWeather({
-  width, height, anim, table, placement, currentIndex, reducedMotion, arrived, onWeatherState, fadeIn = false,
+  width, height, anim, table, placement, currentIndex, reducedMotion, arrived, onWeatherState, fadeIn = false, frame,
 }: Props) {
   // DEFERRED: const coverEffect = useMemo(() => makeEffect(COVER_SKSL), []); (now compiled once per session)
   const coverEffect = useMemo(() => coverEffectOnce(), []);
@@ -248,7 +250,7 @@ export const ChartMapWeather = memo(function ChartMapWeather({
     };
   }, [current, total]);
 
-  const transform = useChartWeatherTransform(anim, width, height);
+  const transform = useChartWeatherTransform(anim, width, height, frame);
 
   if (!ready || !coverEffect || !tiles || !fogImages) return null;
   return (

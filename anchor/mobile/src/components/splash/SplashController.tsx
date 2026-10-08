@@ -7,7 +7,9 @@ import { useSystemReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { AnimatedSplashScreen } from './AnimatedSplashScreen';
 import {
   SPLASH_STARTUP_WAIT_THRESHOLD_MS,
+  type SplashVariant,
 } from './splashAnimation.constants';
+import { markFirstOpenPlayed, resolveSplashVariant } from './splashVariant';
 
 interface SplashControllerProps {
   startupReady: boolean;
@@ -27,6 +29,7 @@ export const SplashController: React.FC<SplashControllerProps> = ({
   const [active, setActive] = useState(false);
   const [rootReady, setRootReady] = useState(false);
   const [logoReady, setLogoReady] = useState(false);
+  const [variant, setVariant] = useState<SplashVariant | null>(null);
   const reduceMotionEnabled = useSystemReduceMotionEnabled();
   const visibleRef = useRef(true);
   const hasStartedAnalytics = useRef(false);
@@ -43,13 +46,25 @@ export const SplashController: React.FC<SplashControllerProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!startupReady || !rootReady || !logoReady || !nativeHidden || active) {
+    let cancelled = false;
+    void resolveSplashVariant().then((resolved) => {
+      if (!cancelled) {
+        setVariant(resolved);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!startupReady || !rootReady || !logoReady || !nativeHidden || !variant || active) {
       return undefined;
     }
 
     const frame = requestAnimationFrame(() => setActive(true));
     return () => cancelAnimationFrame(frame);
-  }, [active, logoReady, nativeHidden, rootReady, startupReady]);
+  }, [active, logoReady, nativeHidden, rootReady, startupReady, variant]);
 
   useEffect(() => {
     if (!rootReady || !logoReady || nativeHidden) {
@@ -96,6 +111,9 @@ export const SplashController: React.FC<SplashControllerProps> = ({
     }
 
     hasStartedAnalytics.current = true;
+    if (variant === 'first') {
+      markFirstOpenPlayed();
+    }
     const startupWaitMs = Math.max(0, Date.now() - startupStartedAt);
 
     if (reduceMotionEnabled) {
@@ -105,6 +123,7 @@ export const SplashController: React.FC<SplashControllerProps> = ({
         reduceMotion: true,
         authState,
         startupOutcome,
+        variant,
       });
     }
 
@@ -116,6 +135,7 @@ export const SplashController: React.FC<SplashControllerProps> = ({
         reduceMotion: reduceMotionEnabled,
         authState,
         startupOutcome,
+        variant,
       });
     }
 
@@ -125,8 +145,9 @@ export const SplashController: React.FC<SplashControllerProps> = ({
       reduceMotion: reduceMotionEnabled,
       authState,
       startupOutcome,
+      variant,
     });
-  }, [active, authState, reduceMotionEnabled, startupOutcome, startupStartedAt]);
+  }, [active, authState, reduceMotionEnabled, startupOutcome, startupStartedAt, variant]);
 
   useEffect(() => {
     if (!visible && !hasCompletedAnalytics.current) {
@@ -137,9 +158,10 @@ export const SplashController: React.FC<SplashControllerProps> = ({
         reduceMotion: reduceMotionEnabled,
         authState,
         startupOutcome,
+        variant,
       });
     }
-  }, [authState, reduceMotionEnabled, startupOutcome, startupStartedAt, visible]);
+  }, [authState, reduceMotionEnabled, startupOutcome, startupStartedAt, variant, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -171,7 +193,9 @@ export const SplashController: React.FC<SplashControllerProps> = ({
 
   return (
     <AnimatedSplashScreen
+      variant={variant}
       active={active}
+      waiting={nativeHidden && !startupReady}
       reduceMotionEnabled={reduceMotionEnabled}
       onComplete={requestSplashRemoval}
       onRootLayout={() => setRootReady(true)}

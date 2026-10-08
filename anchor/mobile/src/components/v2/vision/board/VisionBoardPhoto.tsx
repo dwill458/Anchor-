@@ -2,7 +2,12 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { ImpactFeedbackStyle } from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
+import { VISION_GOLD } from '../VisionPaperChrome';
+import { CEREMONY, ceremonyDuration } from '../ceremony/VisionDevelop';
 import { useVisionImageArrival } from '../VisionImageArrival';
 import { colors, typography } from '@/theme/v2';
 import { VisionImageEdge } from '../VisionImageEdge';
@@ -17,6 +22,8 @@ const W = BOARD_FRAME_WINDOW;
 const BLEED = 0;
 
 export type VisionBoardPhotoProps = {
+  caption?: string;
+  arriving?: boolean;
   sceneId: string;
   imageUrl: string | null;
   uploaded?: boolean;
@@ -54,10 +61,20 @@ function kindWeight(kind: number, target: number) {
 
 /** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
-  sceneId, imageUrl, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
+  sceneId, imageUrl, arriving = false, caption, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove,
   canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
 }: VisionBoardPhotoProps) {
+  const pin = useSharedValue(0);
+  useEffect(() => {
+    if (!arriving) return;
+    pin.value = withDelay(reduceMotion ? 0 : CEREMONY.pinDelayMs, withTiming(1, { duration: ceremonyDuration(CEREMONY.pinDropMs, reduceMotion) }));
+    const timer = setTimeout(() => { void safeHaptics.impact(ImpactFeedbackStyle.Light); }, reduceMotion ? 180 : CEREMONY.pinDelayMs + CEREMONY.pinDropMs);
+    return () => clearTimeout(timer);
+  }, [arriving, reduceMotion]);
+  const pinStyle = useAnimatedStyle(() => ({ opacity: pin.value, transform: reduceMotion ? [] : [{ translateY: -40 * (1 - pin.value) }, { scale: 1.6 - .6 * pin.value }] }));
+  // DEFERRED: caption on board. The existing aperture has no 24pt bottom paper margin.
+  // DEFERRED: show scene captions inside Visualize; preserve its current framing.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const arrival = useVisionImageArrival();
   const imageRef = useRef<View>(null);
@@ -287,6 +304,9 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
         <VisionImageEdge hero={hero} brush={detailEdges} darken={edgeDarken} />
       </Animated.View>
+      {arriving ? <Animated.View pointerEvents="none" testID={`${testID}-arrival-pin`} style={[styles.attachment, { width: 16, height: 16, top: -8, left: '50%', marginLeft: -8 }, pinStyle]}>
+        <Svg width={16} height={16}><Defs><RadialGradient id="arrival-pin" cx="35%" cy="30%"><Stop offset="0" stopColor="#F3DCA0" /><Stop offset=".45" stopColor={VISION_GOLD} /><Stop offset="1" stopColor="#7d5d22" /></RadialGradient></Defs><Circle cx={8} cy={8} r={8} fill="url(#arrival-pin)" /></Svg>
+      </Animated.View> : null}
     </Animated.View>
   );
 

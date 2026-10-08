@@ -11,6 +11,7 @@ import { isV2VisualizeDuration } from '@/screens/v2/practice/visualize/visualize
 import { V2FocusCompleteScreen } from '@/screens/v2/practice/focus/V2FocusCompleteScreen';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { VisionTwoUpStage } from '@/components/v2/vision/VisionTwoUpStage';
+import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
 import { VisionIntroStage } from '@/components/v2/vision/VisionIntroStage';
 import { VisionMethodStage } from '@/components/v2/vision/VisionMethodStage';
 import { VisionAddSheet } from '@/components/v2/vision/VisionAddSheet';
@@ -37,6 +38,19 @@ const sessionTiles: V2VisionTile[] = sessionSources.map((source, i) => ({ ...til
 const description = 'My app is thriving. I see ten thousand people using something I created, and I have the freedom to work by the ocean with my family. The work is meaningful, and there is room to enjoy the life around it.';
 const noop = () => undefined;
 const saved = async () => true;
+
+/** Native presentation QA only: local artwork, with no account mutation or upload. */
+function CeremonyLab({ identity, photo, onClose }: { identity: any; photo: boolean; onClose: () => void }) {
+  const [pinned, setPinned] = useState(false);
+  if (pinned) return <V2SavedVision {...identity} tiles={tiles.slice(0, 1)} description={description}
+    justAdded="add" arrivingSceneId={tiles[0].sceneId} onBack={onClose} onVisualize={noop} onChart={noop}
+    onUpdateDescription={saved} onReorder={saved} onRemove={saved} onAddPhoto={noop} onAddGenerate={noop}
+    onReplace={async () => undefined} onRegenerate={noop} canGenerateMore onArchive={saved} />;
+  return <VisionCeremony {...identity} anchorId="qa-fixture" mode="add" startAt={photo ? 'develop' : 'ask'}
+    photo={photo ? { uri: tiles[0].imageUrl!, mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } : undefined}
+    onBack={onClose} onAssemble={saved} onUploadAsset={async () => ({ ok: false, message: 'QA fixture does not upload.' })}
+    onPhotoConfirm={async () => null} savedImageUrl={tiles[0].imageUrl} onPinned={() => setPinned(true)} />;
+}
 
 /** Explicit QA sample content, confined to this development-only host. */
 function ParityLab({ identity, onClose, count = 3, longCaption = false, noChart = false, longWaypoint = false }: { identity: any; onClose: () => void; count?: number; longCaption?: boolean; noChart?: boolean; longWaypoint?: boolean }) {
@@ -206,7 +220,8 @@ export function VisionVisualQADevHost() {
         durationSeconds={isV2VisualizeDuration(run.durationSeconds) ? run.durationSeconds : 60} voice={qaVoice} ambient={false} haptics={run.haptics} source="practice_hub"
         prepared={run.prepared} onExit={close} onContinue={() => setFinished(true)} />
       : <V2VisualizePrepareScreen key={`${surface}-${qaDuration}`} anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={sessionTiles.slice(0, count)} initialDuration={qaDuration} onBack={close} onOpenVision={noop} onBegin={setRun} />;
-  } else if (surface?.startsWith('parity')) content = <ParityLab key={surface} identity={identity} onClose={close} count={Number(surface.split('-')[1]) || 3} longCaption={surface.includes('long')} noChart={surface.includes('empty')} longWaypoint={surface.includes('waypoint')} />;
+  } else if (surface?.startsWith('ceremony')) content = <VisionImageArrivalProvider key={surface}><CeremonyLab identity={identity} photo={surface.includes('photo')} onClose={close} /></VisionImageArrivalProvider>;
+  else if (surface?.startsWith('parity')) content = <ParityLab key={surface} identity={identity} onClose={close} count={Number(surface.split('-')[1]) || 3} longCaption={surface.includes('long')} noChart={surface.includes('empty')} longWaypoint={surface.includes('waypoint')} />;
   else if (surface === 'polish') content = <VisionImageArrivalProvider><PolishLab identity={identity} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface === 'handoff') content = <VisionImageArrivalProvider><HandoffLab identity={identity as any} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface?.startsWith('twoup')) {

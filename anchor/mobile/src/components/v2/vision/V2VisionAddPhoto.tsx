@@ -1,3 +1,4 @@
+// DEFERRED: replaced by VisionCeremony develop → keep → seal for single photos.
 import { useRef, useState } from 'react';
 import { Image, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

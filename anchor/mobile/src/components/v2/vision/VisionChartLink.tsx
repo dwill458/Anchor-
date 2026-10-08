@@ -30,7 +30,7 @@ export function VisionChartLink({ chart, width, onPress }: {
     </View>
     <View pointerEvents="none" style={styles.artwork}>
       <Image testID="vision-chart-illustration" accessible={false}
-        source={require('../../../../assets/chart/vision-chart-footer-illustration.png')}
+        source={require('../../../../assets/chart/vision-chart-footer-illustration.jpg')}
         resizeMode="contain" style={{ width, height: width / 3 }} />
       <LinearGradient colors={[colors.canvas, 'transparent']} style={styles.fade} />
     </View>

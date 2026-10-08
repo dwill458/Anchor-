@@ -1,7 +1,7 @@
-import React, { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { V2HomeAnchorSummary } from '@/adapters/v2/home';
@@ -15,12 +15,18 @@ export const NEIGHBOUR_ANCHOR_SIZE = 68;
 export const NEIGHBOUR_SCALE = 0.72;
 const PEEK_FRACTION = 0.14;
 const MOUNT_PADDING = 14;
-const COMMIT_DISTANCE = 56;
-const MIN_COMMIT_TRAVEL = 14;
+const COMMIT_DISTANCE = 40;
+const MIN_COMMIT_TRAVEL = 10;
 const VELOCITY_PROJECTION = 0.12;
 const RUBBER_BAND = 0.25;
+/** How long the carousel must rest before Home's anchor-scoped content follows it. */
+export const COMMIT_DELAY_MS = 140;
 type Direction = -1 | 1;
 export type CarouselSlot = -1 | 0 | 1;
+/** The mounted window around the centre. The outer pair sit off-screen, ready for a chained flick. */
+type TrackPosition = -2 | -1 | 0 | 1 | 2;
+/** Render order: the centre goes last so it sits above its neighbours. */
+const TRACK_POSITIONS: TrackPosition[] = [-2, 2, -1, 1, 0];
 
 type Props = {
   anchors: V2HomeAnchorSummary[];
@@ -35,6 +41,8 @@ type Props = {
   /** Centre Anchor size, used to derive how far neighbours sit off-screen. */
   anchorSize?: number;
   frozen?: boolean;
+  /** True from the start of a drag or tap until the carousel rests and its selection is committed. */
+  onMotionChange?: (moving: boolean) => void;
 };
 
 /** Centre-to-centre distance that leaves PEEK_FRACTION of a neighbour inside the screen edge. */
@@ -79,9 +87,32 @@ export function resolveSwipeCommit(translationX: number, velocityX: number): Dir
   return projected < 0 ? 1 : -1;
 }
 
+// DEFERRED: the carousel no longer rotates a three-item window; it keys a
+// continuous virtual track (see `dataIndex`). Kept exported for its callers and tests.
 export function carouselWindow(total: number, index: number): [number, number, number] {
   if (total < 1) return [-1, -1, -1];
   return [(index - 1 + total) % total, index, (index + 1) % total];
+}
+
+/** The Anchor a virtual track index shows. The track is unbounded; the list wraps. */
+export function dataIndex(virtualIndex: number, total: number): number {
+  'worklet';
+  if (total < 1) return 0;
+  return ((virtualIndex % total) + total) % total;
+}
+
+/** One release never travels more than one Anchor past where the track was already headed. */
+export function clampStep(next: number, target: number): number {
+  'worklet';
+  return Math.max(target - 1, Math.min(target + 1, next));
+}
+
+/** The virtual index nearest `center` that shows `index`, so an outside selection never travels the track. */
+export function nearestVirtualIndex(center: number, index: number, total: number): number {
+  if (total < 1) return center;
+  const base = center - dataIndex(center, total) + index;
+  return [base - total, base, base + total].reduce((best, candidate) =>
+    (Math.abs(candidate - center) < Math.abs(best - center) ? candidate : best));
 }
 
 function DefaultHero({ summary, active, onOpen }: { summary: V2HomeAnchorSummary; active: boolean; onOpen?: () => void }) {
@@ -103,29 +134,39 @@ function DefaultHero({ summary, active, onOpen }: { summary: V2HomeAnchorSummary
 }
 
 const TrackSlot = memo(function TrackSlot({
-  summary, index, slot, offset, spacing, anchorSize, renderHero, onPress, onOpenActive,
+  summary, index, virtualIndex, trackPosition, position, spacing, anchorSize, renderHero, onPress, onOpenActive,
 }: {
   summary: V2HomeAnchorSummary;
   index: number;
-  slot: CarouselSlot;
-  offset: SharedValue<number>;
+  virtualIndex: number;
+  trackPosition: TrackPosition;
+  position: SharedValue<number>;
   spacing: number;
   anchorSize: number;
   renderHero?: Props['renderHero'];
   onPress: (direction: Direction) => void;
   onOpenActive?: (anchorId: string) => void;
 }) {
+  // The outer pair present as neighbours: never active, never pressable.
+  const slot = Math.max(-1, Math.min(1, trackPosition)) as CarouselSlot;
+  const outer = slot !== trackPosition;
+  // Physical x depends only on the continuous position, never on React's
+  // centre, so recentring the mounted window cannot jump a frame.
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: slot * spacing + offset.value }],
-  }));
+    transform: [{ translateX: (virtualIndex - position.value) * spacing }],
+  }), [virtualIndex, spacing]);
+  // `renderHero` reads `slot * spacing + offset.value` as physical x; this keeps that exact.
+  const offset = useDerivedValue(() => (virtualIndex - position.value) * spacing - slot * spacing, [virtualIndex, slot, spacing]);
   const handleNeighbour = useCallback(() => onPress(slot as Direction), [onPress, slot]);
   const handleOpen = useCallback(() => onOpenActive?.(summary.anchor.id), [onOpenActive, summary.anchor.id]);
   return (
-    <Animated.View style={[styles.slot, animatedStyle]} pointerEvents="box-none">
+    <Animated.View style={[styles.slot, animatedStyle]} pointerEvents={outer ? 'none' : 'box-none'}
+      // The outer pair are off-screen staging copies; assistive tech should only meet the visible three.
+      accessibilityElementsHidden={outer} importantForAccessibility={outer ? 'no-hide-descendants' : 'auto'}>
       {renderHero ? renderHero(summary, index, slot, offset, spacing) : (
         <DefaultHero summary={summary} active={slot === 0} onOpen={handleOpen} />
       )}
-      {slot !== 0 ? (
+      {slot !== 0 && !outer ? (
         <Pressable
           testID={`v2-home-carousel-${slot < 0 ? 'previous' : 'next'}`}
           // Tracks the coin's centre, which sits at half its diameter below the top of the slot.
@@ -139,7 +180,7 @@ const TrackSlot = memo(function TrackSlot({
   );
 });
 
-function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, frozen = false, testID }: Props) {
+function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, frozen = false, onMotionChange, testID }: Props) {
   // The track is `width: 100%` of a full-bleed parent, and its geometry is
   // derived from its *measured* width. It must never inherit a page gutter, or
   // the slot centres (trackWidth / 2) stop matching the viewport centre and the
@@ -152,128 +193,181 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     if (next > 0) setMeasuredWidth(previous => (previous !== null && Math.abs(previous - next) < 0.01 ? previous : next));
   }, []);
   const spacing = carouselSpacing(width, anchorSize);
-  const offset = useSharedValue(0);
-  const busy = useSharedValue(false);
+  const total = anchors.length;
+  const canSwitch = total > 1;
+  const initialIndex = selectedIndex >= 0 && selectedIndex < total ? selectedIndex : 0;
+
+  // One continuous track in virtual index units: unbounded and never reset.
+  // `target` is the whole index the track is headed to. A flick that catches
+  // the track mid-flight continues from it, which is what lets flicks chain.
+  const position = useSharedValue(initialIndex);
+  const target = useSharedValue(initialIndex);
+  const dragStart = useSharedValue(initialIndex);
+  const ended = useSharedValue(false);
+  /** Swallows the detent tick when an outside selection relocates the track. */
+  const relocating = useSharedValue(false);
   const frozenValue = useSharedValue(frozen);
+  const [center, setCenter] = useState(initialIndex);
+
+  const selectedId = anchors[selectedIndex]?.anchor.id;
+  // Read by the deferred commit, which must see the props of the moment it fires.
+  const latest = useRef({ anchors, onSelect, onMotionChange, selectedId });
+  latest.current = { anchors, onSelect, onMotionChange, selectedId };
+  const pendingId = useRef<string | null>(null);
+  const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const moving = useRef(false);
+
+  const setMoving = useCallback((next: boolean) => {
+    if (moving.current === next) return;
+    moving.current = next;
+    latest.current.onMotionChange?.(next);
+  }, []);
+
+  const cancelPendingCommit = useCallback(() => {
+    if (commitTimer.current) clearTimeout(commitTimer.current);
+    commitTimer.current = null;
+  }, []);
+  useEffect(() => cancelPendingCommit, [cancelPendingCommit]);
+
+  const detent = useCallback(() => v2Haptics.selection(), []);
+
+  // React's centre follows the track only when the rounded position changes:
+  // once per Anchor passed, never per frame. Each crossing is a detent tick,
+  // so a fast flick-through feels like a dial.
+  useAnimatedReaction(() => Math.round(position.value), (current, previous) => {
+    if (previous === null || current === previous) return;
+    runOnJS(setCenter)(current);
+    if (relocating.value) relocating.value = false;
+    else runOnJS(detent)();
+  }, [detent]);
+
+  // Home's heavy content follows the carousel once, when it rests, rather than
+  // once per Anchor passed. Any new touch or tap cancels the pending commit.
+  const onSettled = useCallback((virtualIndex: number) => {
+    // A neighbour tap also ends a pan, whose resting report can arrive after
+    // the tap has already sent the track on. Only the current target settles.
+    if (virtualIndex !== target.value) return;
+    VisualProfiler.record('snapFinished');
+    setCenter(virtualIndex);
+    cancelPendingCommit();
+    commitTimer.current = setTimeout(() => {
+      commitTimer.current = null;
+      const { anchors: list, onSelect: select, selectedId: current } = latest.current;
+      const id = list[dataIndex(virtualIndex, list.length)]?.anchor.id;
+      // An aborted swipe rests on the Anchor that is already selected.
+      if (id && id !== current) {
+        pendingId.current = id;
+        VisualProfiler.record('selectedIndexCommit', { anchorId: id });
+        select(id);
+      }
+      setMoving(false);
+    }, COMMIT_DELAY_MS);
+  }, [cancelPendingCommit, setMoving, target]);
+
+  // A frozen carousel (focus transition) rests where it was headed.
   useLayoutEffect(() => {
     frozenValue.value = frozen;
-    if (frozen) {
-      cancelAnimation(offset);
-      offset.value = 0;
-      busy.value = true;
-    } else {
-      busy.value = false;
-    }
-  }, [busy, frozen, frozenValue, offset]);
-  const [visualIndex, setVisualIndex] = useState(selectedIndex);
-  const pendingId = useRef<string | null>(null);
-  const total = anchors.length;
-  const index = visualIndex >= 0 && visualIndex < total ? visualIndex : 0;
-  const active = anchors[index];
-  const canSwitch = total > 1;
+    if (!frozen) return;
+    cancelAnimation(position);
+    position.value = target.value;
+    // The cancelled spring never reports; settle it here so the selection still commits.
+    if (moving.current && commitTimer.current === null) onSettled(target.value);
+  }, [frozen, frozenValue, onSettled, position, target]);
 
-  // A selection from outside Home (library, hydration) resets the local window.
-  // Our own store commit arrives with pendingId and leaves the settled window.
+  // A selection from outside Home (library, hydration) relocates the track to
+  // the nearest copy of that Anchor. Our own commit arrives with pendingId.
   useLayoutEffect(() => {
-    if (pendingId.current === anchors[selectedIndex]?.anchor.id) {
+    if (pendingId.current && pendingId.current === selectedId) {
       pendingId.current = null;
       return;
     }
-    if (pendingId.current || selectedIndex === visualIndex) return;
-    cancelAnimation(offset);
-    offset.value = 0;
-    busy.value = false;
-    setVisualIndex(selectedIndex);
-  }, [anchors, busy, offset, selectedIndex, visualIndex]);
+    if (pendingId.current || selectedIndex < 0 || selectedIndex >= total) return;
+    if (dataIndex(target.value, total) === selectedIndex) return;
+    cancelPendingCommit();
+    cancelAnimation(position);
+    const next = nearestVirtualIndex(Math.round(target.value), selectedIndex, total);
+    if (next !== Math.round(position.value)) relocating.value = true;
+    position.value = next;
+    target.value = next;
+    setCenter(next);
+    setMoving(false);
+    // `position`, `target` and `relocating` are stable shared values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, selectedIndex, total]);
 
-  const complete = useCallback((direction: Direction) => {
-    const nextIndex = (index + direction + total) % total;
-    const target = anchors[nextIndex];
-    if (!target || target.anchor.id === active?.anchor.id) {
-      offset.value = withSpring(0, AnchorMotion.spring.carousel);
-      busy.value = false;
-      return;
-    }
-    pendingId.current = target.anchor.id;
-    setVisualIndex(nextIndex);
-    v2Haptics.selection();
-    if (reduceMotion) {
-      // There is no animation to await. React batches the local window and the
-      // global selection into one paint, including all dependent Home content.
-      pendingId.current = null;
-      onSelect(target.anchor.id);
-      busy.value = false;
-    }
-  }, [active?.anchor.id, anchors, busy, index, offset, onSelect, reduceMotion, total]);
-
-  const onSpringFinished = useCallback((direction: Direction) => {
-    VisualProfiler.record('snapFinished');
-    complete(direction);
-  }, [complete]);
-
-  // React installs the rotated window and resets its coordinate before paint.
-  // The incoming item occupies the same physical position on both sides of
-  // this reset. Global selection commits synchronously on this exact frame.
-  const lastVisualIndex = useRef(visualIndex);
-  useLayoutEffect(() => {
-    if (lastVisualIndex.current === visualIndex) return;
-    lastVisualIndex.current = visualIndex;
-    offset.value = 0;
-    const id = pendingId.current;
-    if (id) {
-      pendingId.current = null;
-      VisualProfiler.record('selectedIndexCommit', { anchorId: id });
-      onSelect(id);
-      busy.value = false;
-    } else {
-      busy.value = false;
-    }
-  }, [busy, offset, onSelect, visualIndex]);
-
+  // Neighbour taps and accessibility actions. This is the JS-thread path:
+  // runOnJS would silently drop here, so it calls `onSettled` directly.
   const move = useCallback((direction: Direction) => {
-    if (!canSwitch || busy.value || frozenValue.value) return;
-    busy.value = true;
+    if (!canSwitch || frozenValue.value) return;
+    cancelPendingCommit();
+    setMoving(true);
+    cancelAnimation(position);
+    const next = target.value + direction;
+    target.value = next;
     if (reduceMotion) {
-      complete(direction);
+      position.value = next;
+      onSettled(next);
       return;
     }
     VisualProfiler.record('snapStart', { direction, from: 'tap' });
-    offset.value = withSpring(-direction * spacing, AnchorMotion.spring.carousel, finished => {
-      if (finished) runOnJS(onSpringFinished)(direction);
+    // Spring completions run on the UI thread, where runOnJS is valid.
+    position.value = withSpring(next, AnchorMotion.spring.carousel, finished => {
+      if (finished) runOnJS(onSettled)(next);
     });
-  }, [busy, canSwitch, complete, frozenValue, offset, onSpringFinished, reduceMotion, spacing]);
+  }, [canSwitch, cancelPendingCommit, frozenValue, onSettled, position, reduceMotion, setMoving, target]);
 
   const panGesture = useMemo(() => Gesture.Pan()
     .enabled(canSwitch && !frozen)
     .activeOffsetX([-6, 6])
     .failOffsetY([-10, 10])
     .onBegin(() => {
+      ended.value = false;
+      if (frozenValue.value) return;
+      // Catch the track wherever it is, including mid-flight.
+      cancelAnimation(position);
+      dragStart.value = position.value;
+      runOnJS(cancelPendingCommit)();
       runOnJS(VisualProfiler.record)('gestureStart');
     })
+    .onStart(() => {
+      // Only an activated horizontal drag veils Home. A vertical scroll that
+      // brushes the hero never activates the pan, so it never dims the page.
+      if (!frozenValue.value) runOnJS(setMoving)(true);
+    })
     .onUpdate(event => {
-      if (!busy.value && !frozenValue.value) offset.value = trackFinger(event.translationX, spacing);
+      if (frozenValue.value) return;
+      position.value = dragStart.value - trackFinger(event.translationX, spacing) / spacing;
     })
     .onEnd(event => {
+      ended.value = true;
       runOnJS(VisualProfiler.record)('gestureRelease');
-      if (busy.value || frozenValue.value) return;
+      if (frozenValue.value) return;
       const direction = resolveSwipeCommit(event.translationX, event.velocityX);
-      if (!direction) {
-        offset.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
+      const next = clampStep(direction ? target.value + direction : Math.round(position.value), target.value);
+      target.value = next;
+      if (direction) runOnJS(VisualProfiler.record)('snapStart', { direction, from: 'swipe' });
+      if (reduceMotion) {
+        position.value = next;
+        runOnJS(onSettled)(next);
         return;
       }
-      busy.value = true;
-      runOnJS(VisualProfiler.record)('snapStart', { direction, from: 'swipe' });
-      if (reduceMotion) {
-        runOnJS(complete)(direction);
-      } else {
-        offset.value = withSpring(-direction * spacing, { ...AnchorMotion.spring.carousel, velocity: event.velocityX }, finished => {
-          if (finished) runOnJS(onSpringFinished)(direction);
-        });
-      }
+      position.value = withSpring(next, { ...AnchorMotion.spring.carousel, velocity: -event.velocityX / spacing }, finished => {
+        if (finished) runOnJS(onSettled)(next);
+      });
     })
     .onFinalize(() => {
-      if (!busy.value && offset.value !== 0) offset.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
-    }), [busy, canSwitch, complete, frozen, frozenValue, offset, onSpringFinished, reduceMotion, spacing]);
+      if (ended.value || frozenValue.value) return;
+      // Touched without dragging: resume toward wherever the track was headed.
+      const next = target.value;
+      if (reduceMotion || Math.abs(position.value - next) < 0.001) {
+        position.value = next;
+        runOnJS(onSettled)(next);
+        return;
+      }
+      position.value = withSpring(next, AnchorMotion.spring.carousel, finished => {
+        if (finished) runOnJS(onSettled)(next);
+      });
+    }), [canSwitch, cancelPendingCommit, dragStart, ended, frozen, frozenValue, onSettled, position, reduceMotion, setMoving, spacing, target]);
 
   const accessibilityActions = canSwitch ? [{ name: 'increment', label: 'Next Anchor' }, { name: 'decrement', label: 'Previous Anchor' }] : undefined;
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {
@@ -281,24 +375,22 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     else if (event.nativeEvent.actionName === 'decrement') move(-1);
   }, [move]);
 
-  if (!active) return null;
+  if (total < 1) return null;
   return (
     <GestureDetector gesture={panGesture}>
       <View testID={testID} onLayout={handleTrackLayout} style={[styles.track, { height: renderHero ? heroHeight ?? 308 : 216 }]}
         accessibilityRole={canSwitch ? 'adjustable' : undefined}
         accessibilityActions={accessibilityActions}
         onAccessibilityAction={handleAccessibilityAction}>
-        {([-1, 1, 0] as CarouselSlot[]).map(slot => {
-          if (slot !== 0 && !canSwitch) return null;
-          const [previousIndex, currentIndex, nextIndex] = carouselWindow(total, index);
-          const itemIndex = slot < 0 ? previousIndex : slot > 0 ? nextIndex : currentIndex;
-          // With three distinct Anchors, keep the incoming artwork's React
-          // identity as it moves from next to current during window rotation.
-          // A two-Anchor vault renders the same model on both sides, so those
-          // two physical copies use slot keys instead.
-          const key = total > 2 ? anchors[itemIndex].anchor.id : slot;
-          return <TrackSlot key={key} summary={anchors[itemIndex]} index={itemIndex} slot={slot}
-            offset={offset} spacing={spacing} anchorSize={anchorSize} renderHero={renderHero} onPress={move} onOpenActive={onOpenActive} />;
+        {TRACK_POSITIONS.map(trackPosition => {
+          if (trackPosition !== 0 && !canSwitch) return null;
+          const virtualIndex = center + trackPosition;
+          const itemIndex = dataIndex(virtualIndex, total);
+          // Keyed by virtual index: an Anchor keeps its React identity as it
+          // travels across the window, for any list length including 2 and 3.
+          return <TrackSlot key={virtualIndex} summary={anchors[itemIndex]} index={itemIndex} virtualIndex={virtualIndex}
+            trackPosition={trackPosition} position={position} spacing={spacing} anchorSize={anchorSize}
+            renderHero={renderHero} onPress={move} onOpenActive={onOpenActive} />;
         })}
       </View>
     </GestureDetector>

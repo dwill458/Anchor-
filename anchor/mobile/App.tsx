@@ -48,6 +48,8 @@ import { AnchorV2Navigator } from './src/navigation/v2';
 import { parseChartNotificationTarget } from './src/services/notifications/chartNotifications';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
+import { V2DialogHost, V2DialogManager } from './src/components/v2';
+V2DialogManager.installAlertBridge();
 import { useAuthStore } from './src/stores/authStore';
 import { useAnchorStore } from './src/stores/anchorStore';
 import { useSessionStore } from './src/stores/sessionStore';
@@ -948,6 +950,7 @@ export default function App() {
                 authState={user?.id ? 'signed_in' : 'signed_out'}
               />
             </View>
+            <V2DialogHost />
           </SafeAreaProvider>
         </GestureHandlerRootView>
       </ToastProvider>

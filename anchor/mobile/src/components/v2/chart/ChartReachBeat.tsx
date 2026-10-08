@@ -14,6 +14,7 @@ type Props = {
   category: string | null | undefined;
   reducedMotion: boolean;
   testID?: string;
+  bottom?: number;
 };
 
 const FADE_IN = 240;
@@ -24,7 +25,7 @@ const FADE_OUT = 260;
  * stamp lands and the route draws. It rides the existing reach sequence (visible flips with the sequence's
  * own advance step), so the handoff to the map's next-waypoint animation is one continuous motion.
  */
-export function ChartReachBeat({ visible, number, title, category, reducedMotion, testID }: Props) {
+export function ChartReachBeat({ visible, number, title, category, reducedMotion, testID, bottom = 36 }: Props) {
   const opacity = useSharedValue(0);
   useEffect(() => {
     opacity.value = withTiming(visible ? 1 : 0, {
@@ -39,7 +40,7 @@ export function ChartReachBeat({ visible, number, title, category, reducedMotion
   }));
 
   return (
-    <Animated.View pointerEvents="none" style={[styles.wrap, style]} testID={testID ?? 'chart-reach-beat'}>
+    <Animated.View pointerEvents="none" style={[styles.wrap, { bottom }, style]} testID={testID ?? 'chart-reach-beat'}>
       {visible ? (
         <View style={styles.card} accessible accessibilityLiveRegion="polite" accessibilityLabel={`Waypoint ${number} reached: ${title}`}>
           <Text style={[styles.label, { color: categoryLabelOnPaper(category) }]}>{COPY.labels.reached}</Text>

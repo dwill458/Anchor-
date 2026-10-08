@@ -18,6 +18,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { V2Button, V2IconButton } from '@/components/v2';
+import { sfxLog } from '@/services/audio/sfxLog';
 import { V2InlineError } from '@/components/v2/feedback/V2Feedback';
 import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
 import { expressionSpec } from '@/components/v2/anchor/anchorExpressions';
@@ -413,7 +414,9 @@ export function CreationStage({
         if (landing < from || soundedLandings.current.has(index)) return;
         formationTimers.current.push(setTimeout(() => {
           soundedLandings.current.add(index);
-          SoundPool.play('creation:distillTick', { volume: 0.5, rate: distillLandingRate(index) });
+          const rate = distillLandingRate(index);
+          sfxLog(`distillLanding index=${index} rate=${rate}`);
+          SoundPool.play('creation:distillTick', { volume: 0.5, rate });
           void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
         }, at(landing)));
       });
@@ -816,6 +819,7 @@ export function CreationStage({
     if (shown !== 'reveal' || step !== 'reveal' || replay || stillnessCancelled || sheetOpen) return;
     if (!stillnessPlayed.current) {
       stillnessPlayed.current = true;
+      sfxLog('creationEvent revealSettle');
       SoundPool.play('creation:revealSettle', { volume: 0.55 });
     }
     const wipeRemaining = !reduceMotion && iris.value < 1 ? 400 : 0;

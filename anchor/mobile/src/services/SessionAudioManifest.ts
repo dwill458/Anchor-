@@ -10,6 +10,7 @@ import {
   VISUALIZE_CUES,
   VISUALIZE_DURATIONS_SECONDS,
 } from '@/services/visualizeAudioManifest';
+import { remoteAudio } from '@/services/audio/remoteAudio';
 
 export const SESSION_AUDIO_LOCALE = 'en-US';
 export const VISUALIZE_VOICE_PLAYBACK_GAIN = 0.19;
@@ -78,10 +79,10 @@ const focusMix60Lina = require('../assets/sounds/focus-mix/Focus_60s_Lina_V3.mp3
 const focusMix60Dominic = require('../assets/sounds/focus-mix/Focus_60s_Dominic_V3.mp3');
 const deepMix2Lina = require('../assets/sounds/focus-mix/DeepFocus_2min_Lina.mp3');
 const deepMix2Dominic = require('../assets/sounds/focus-mix/DeepFocus_2min_Dominic.mp3');
-const deepMix5Lina = require('../assets/sounds/focus-mix/DeepFocus_5min_Lina.mp3');
-const deepMix5Dominic = require('../assets/sounds/focus-mix/DeepFocus_5min_Dominic.mp3');
-const deepMix10Lina = require('../assets/sounds/focus-mix/DeepFocus_10min_Lina.mp3');
-const deepMix10Dominic = require('../assets/sounds/focus-mix/DeepFocus_10min_Dominic.mp3');
+const deepMix5Lina = remoteAudio('deepFocus5Lina');
+const deepMix5Dominic = remoteAudio('deepFocus5Dominic');
+const deepMix10Lina = remoteAudio('deepFocus10Lina');
+const deepMix10Dominic = remoteAudio('deepFocus10Dominic');
 
 /** Phase id of the single full-length cue on a finished-mix session. */
 export const FULL_MIX_PHASE_ID = 'mix';
@@ -94,7 +95,7 @@ const deep15Reinforcement = require('../assets/sounds/deep-prime-15m-reinforceme
 const deep15Visualization = require('../assets/sounds/deep-prime-15m-visualization.mp3');
 const deep15Settling = require('../assets/sounds/deep-prime-15m-settling.mp3');
 const deep15Closing = require('../assets/sounds/deep-prime-15m-closing.mp3');
-const deepAmbient = require('../assets/sounds/deep-prime-ambient.mp3');
+const deepAmbient = remoteAudio('deepPrimeAmbient');
 
 const maleFocus30Start = require('../assets/sounds/voices/male/en-US/focus-session-30s-start.mp3');
 const maleFocus60Start = require('../assets/sounds/voices/male/en-US/focus-session-60s-start.mp3');

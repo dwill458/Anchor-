@@ -1,26 +1,9 @@
-/**
- * ConfirmModal
- *
- * Reusable blurred confirmation modal for the Burn & Release ceremony.
- * Always kept in the component tree; animates in/out via scale + opacity.
- */
-
-import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
-import { colors, spacing, typography } from '@/theme';
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT, V2Button } from '@/components/v2/primitives';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export interface ConfirmModalProps {
   visible: boolean;
@@ -33,6 +16,13 @@ export interface ConfirmModalProps {
   onBackdropPress?: () => void;
 }
 
+/**
+ * Anchor 2.0 Confirmation Bottom Sheet Modal.
+ *
+ * Used for session exit confirmations and irreversible practice transitions.
+ * Rebuilt from legacy 1.0 gold/dark modal into Anchor 2.0 design language
+ * with paper surface, Figtree/Inter typography, and spring physics.
+ */
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   visible,
   title,
@@ -43,157 +33,115 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onSecondary,
   onBackdropPress,
 }) => {
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.85);
+  const reduceMotion = useV2ReduceMotion();
 
-  useEffect(() => {
-    if (visible) {
-      opacity.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.ease) });
-      scale.value = withTiming(1.0, { duration: 250, easing: Easing.out(Easing.ease) });
+  const handlePrimary = () => {
+    v2Haptics.selection();
+    onPrimary();
+  };
+
+  const handleSecondary = () => {
+    v2Haptics.destructiveCommit();
+    onSecondary();
+  };
+
+  const handleClose = () => {
+    v2Haptics.selection();
+    if (onBackdropPress) {
+      onBackdropPress();
     } else {
-      opacity.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.ease) });
-      scale.value = withTiming(0.85, { duration: 200, easing: Easing.in(Easing.ease) });
+      onPrimary();
     }
-  }, [visible]);
-
-  const wrapperStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  };
 
   return (
-    <Animated.View
-      style={[StyleSheet.absoluteFill, styles.wrapper, wrapperStyle]}
-      pointerEvents={visible ? 'auto' : 'none'}
+    <V2SheetModal
+      visible={visible}
+      onClose={handleClose}
+      reduceMotion={reduceMotion}
+      scrimAccessibilityLabel="Dismiss confirmation"
+      testID="confirm-modal-sheet"
     >
-      {/* Backdrop — tappable to dismiss */}
-      <TouchableOpacity
-        style={StyleSheet.absoluteFill}
-        activeOpacity={1}
-        onPress={onBackdropPress ?? onPrimary}
-        accessibilityLabel="Dismiss modal"
-      />
-
-      {/* Blurred backdrop layer */}
-      {Platform.OS === 'ios' ? (
-        <BlurView
-          intensity={40}
-          tint="dark"
-          style={[StyleSheet.absoluteFill, styles.blurBackdrop]}
-          pointerEvents="none"
-        />
-      ) : (
-        <View
-          style={[StyleSheet.absoluteFill, styles.androidBackdrop]}
-          pointerEvents="none"
-        />
-      )}
-
-      {/* Dim overlay */}
-      <View
-        style={[StyleSheet.absoluteFill, styles.dimOverlay]}
-        pointerEvents="none"
-      />
-
-      {/* Card */}
-      <Animated.View
-        style={[styles.card, cardStyle]}
-        accessibilityViewIsModal={true}
-        accessibilityLiveRegion="polite"
-      >
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.body}>{body}</Text>
+      <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal>
+        <V2SheetGrabZone>
+          <View style={styles.handle} />
+          <Text style={styles.eyebrow} accessibilityRole="none">
+            CONFIRMATION
+          </Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            {title}
+          </Text>
+          <Text style={styles.body}>{body}</Text>
+        </V2SheetGrabZone>
 
         <View style={styles.buttonGroup}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={onPrimary}
-            activeOpacity={0.85}
-            accessibilityRole="button"
+          <V2Button
+            variant="primary"
+            size="large"
+            onPress={handlePrimary}
             accessibilityLabel={primaryCtaLabel}
+            testID="confirm-modal-primary"
           >
-            <Text style={styles.primaryButtonText}>{primaryCtaLabel}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={onSecondary}
-            activeOpacity={0.7}
-            accessibilityRole="button"
+            {primaryCtaLabel}
+          </V2Button>
+          <V2Button
+            variant="secondary"
+            size="medium"
+            onPress={handleSecondary}
             accessibilityLabel={secondaryCtaLabel}
+            testID="confirm-modal-secondary"
+            style={styles.secondaryButton}
           >
-            <Text style={styles.secondaryButtonText}>{secondaryCtaLabel}</Text>
-          </TouchableOpacity>
+            {secondaryCtaLabel}
+          </V2Button>
         </View>
-      </Animated.View>
-    </Animated.View>
+      </SafeAreaView>
+    </V2SheetModal>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    zIndex: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  blurBackdrop: {
-    zIndex: 0,
-  },
-  androidBackdrop: {
-    backgroundColor: 'rgba(12, 17, 24, 0.92)',
-    zIndex: 0,
-  },
-  dimOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    zIndex: 1,
-  },
-  card: {
-    zIndex: 10,
-    width: '100%',
-    backgroundColor: colors.ritual.glassStrong,
-    borderRadius: 24,
+  sheet: {
+    backgroundColor: colors.paper,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[4] + V2_SHEET_SKIRT,
+    marginBottom: -V2_SHEET_SKIRT,
     borderWidth: 1,
-    borderColor: colors.ritual.border,
-    padding: spacing.xl,
+    borderColor: colors.border.subtle,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: radii.pill,
+    backgroundColor: colors.border.default,
+    alignSelf: 'center',
+    marginBottom: spacing[3],
+  },
+  eyebrow: {
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    letterSpacing: 1.2,
+    marginBottom: spacing[1],
+    textTransform: 'uppercase',
   },
   title: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
-    color: colors.gold,
-    marginBottom: spacing.md,
-    letterSpacing: 0.5,
+    ...typography.headingSM,
+    color: colors.text.primary,
+    marginBottom: spacing[2],
   },
   body: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.primary,
-    lineHeight: 22,
-    marginBottom: spacing.xl,
+    ...typography.bodySM,
+    color: colors.text.secondary,
+    lineHeight: 20,
+    marginBottom: spacing[4],
   },
   buttonGroup: {
-    gap: spacing.sm,
-  },
-  primaryButton: {
-    backgroundColor: colors.gold,
-    paddingVertical: spacing.md,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: typography.sizes.button,
-    color: colors.background.primary,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    gap: spacing[2],
   },
   secondaryButton: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
+    minHeight: 48,
   },
 });

@@ -1,0 +1,53 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --coverage --collectCoverageFrom=src/components/v2/vision/ceremony/*.{ts,tsx} src/components/v2/vision src/screens/v2/vision src/hooks/v2/vision src/adapters/v2/vision
+
+PASS src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (22.312 s)
+PASS src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (9.195 s)
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/components/v2/vision/__tests__/VisionMomentInput.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+PASS src/components/v2/vision/__tests__/VisionImageArrival.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/hooks/v2/vision/__tests__/referenceFailure.test.ts
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChrome.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartLink.test.tsx
+PASS src/components/v2/vision/__tests__/visionIntroArt.test.ts
+PASS src/components/v2/vision/__tests__/visionDetailText.test.ts
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartRoute.test.tsx
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/adapters/v2/vision/__tests__/orderedVisionImages.test.ts
+PASS src/components/v2/vision/__tests__/visionTwoUp.test.ts
+PASS src/components/v2/vision/__tests__/visionGuidance.test.ts
+PASS src/hooks/v2/vision/__tests__/useVisionGenerationAnalytics.test.tsx
+PASS src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/adapters/v2/vision/__tests__/visionAdapter.test.ts
+PASS src/components/v2/vision/__tests__/visionImageGeometry.test.ts
+-----------------------------|---------|----------|---------|---------|-------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-----------------------------|---------|----------|---------|---------|-------------------
+All files                    |   91.83 |    84.54 |    93.1 |   97.31 |                   
+ VisionCeremony.tsx          |   92.24 |    86.63 |      95 |   98.13 | 190-192,317       
+ VisionDevelop.ts            |   91.66 |    76.19 |    87.5 |   93.33 | 28                
+ VisionPrint.tsx             |    95.2 |    85.54 |      90 |   97.29 | 122-123           
+ VisionSealHold.tsx          |   95.71 |    85.71 |   93.75 |     100 | 24,46,62          
+ useVisionCreationActions.ts |   82.41 |    72.85 |      90 |   94.11 | 37,57,70,89       
+ visionCeremonyCopy.ts       |     100 |      100 |     100 |     100 |                   
+-----------------------------|---------|----------|---------|---------|-------------------
+
+Test Suites: 32 passed, 32 total
+Tests:       235 passed, 235 total
+Snapshots:   0 total
+Time:        50.875 s, estimated 90 s
+Ran all test suites matching /src\\components\\v2\\vision|src\\screens\\v2\\vision|src\\hooks\\v2\\vision|src\\adapters\\v2\\vision/i.

@@ -23,12 +23,13 @@ export interface UseV2VisionResult {
   createVision: (input: {
     description: string;
     title?: string;
-    scenes?: Array<{ assetId: string; prompt?: string; sourceType: VisionSceneSource }>;
+    scenes?: Array<{ assetId: string; prompt?: string; caption?: string | null; sourceType: VisionSceneSource }>;
   }) => Promise<VisionReadModel | null>;
   updateVision: (input: { title?: string; description?: string }) => Promise<VisionReadModel | null>;
   addScene: (input: {
     assetId: string;
     prompt?: string;
+      caption?: string | null;
     sourceType: VisionSceneSource;
     sortOrder?: number;
   }) => Promise<VisionReadModel | null>;
@@ -253,6 +254,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
       setVisionRead(forKey, next);
       persistVisionRead(forAnchorId, forAccountId, next);
       if (currentCacheKey.current === forKey) {
+        setError(null);
         setVision((previous) => (sameVision(previous, next) ? previous : next));
       }
     }
@@ -375,7 +377,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     async (input: {
       description: string;
       title?: string;
-      scenes?: Array<{ assetId: string; prompt?: string; sourceType: VisionSceneSource }>;
+      scenes?: Array<{ assetId: string; prompt?: string; caption?: string | null; sourceType: VisionSceneSource }>;
     }): Promise<VisionReadModel | null> => {
       try {
         const response = await apiClient.post<VisionReadModel>(
@@ -428,6 +430,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     async (input: {
       assetId: string;
       prompt?: string;
+    caption?: string | null;
       sourceType: VisionSceneSource;
       sortOrder?: number;
     }): Promise<VisionReadModel | null> => {
@@ -437,7 +440,8 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           `/api/v2/visions/${encodeURIComponent(vision.id)}/scenes`,
           input,
         );
-        AnalyticsService.track('vision_image_selected', { vision_id: vision.id, asset_id: input.assetId, source_type: input.sourceType });
+        // Generated selection is recorded on the ceremony's Choose tap, before Seal.
+        if (input.sourceType !== 'AI_GENERATED') AnalyticsService.track('vision_image_selected', { vision_id: vision.id, asset_id: input.assetId, source_type: input.sourceType });
         return await reloadAfterMutation();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to add scene';

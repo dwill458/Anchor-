@@ -118,6 +118,9 @@ const mockExpoFileSystem = {
   makeDirectoryAsync: jest.fn(() => Promise.resolve()),
   deleteAsync: jest.fn(() => Promise.resolve()),
   getInfoAsync: jest.fn(() => Promise.resolve({ exists: false })),
+  readDirectoryAsync: jest.fn(() => Promise.resolve([])),
+  downloadAsync: jest.fn(() => Promise.reject(new Error('network disabled in tests'))),
+  moveAsync: jest.fn(() => Promise.resolve()),
   EncodingType: {
     Base64: 'base64',
   },

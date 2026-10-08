@@ -10,6 +10,8 @@ export interface VisionSceneReadModel {
   assetId: string | null;
   resolvedImageUrl: string | null;
   prompt: string | null;
+  /** Absent on responses from servers predating scene captions. */
+  caption?: string | null;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;
@@ -33,6 +35,7 @@ export interface V2VisionTile {
   sceneId: string;
   imageUrl: string | null;
   prompt: string | null;
+  caption?: string | null;
   sortOrder: number;
   isHero: boolean;
   sourceType?: VisionSceneSource;

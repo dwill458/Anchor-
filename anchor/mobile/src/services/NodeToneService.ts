@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { useSettingsStore } from '@/stores/settingsStore';
 import { SoundPool } from '@/services/audio/SoundPool';
+import { sfxLog } from '@/services/audio/sfxLog';
 import {
   bytesToBase64,
   encodeWav,
@@ -15,6 +16,7 @@ const NODE_TONE_VOLUME = 0.32;
 
 const uriByNote = new Map<number, string>();
 const pending = new Map<number, Promise<string | null>>();
+let releaseEpoch = 0;
 
 async function buildTone(cell: number): Promise<string | null> {
   const note = nodeToneKey(cell);
@@ -55,6 +57,7 @@ async function buildTone(cell: number): Promise<string | null> {
 export const NodeToneService = {
   async prepare(cells: number[]): Promise<void> {
     if (!useSettingsStore.getState().soundEffectsEnabled) return;
+    const epoch = releaseEpoch;
     await Promise.all(Array.from(new Set(cells.map(nodeToneKey))).map((note) => {
       const cell = cells.find((c) => nodeToneKey(c) === note) ?? 1;
       return buildTone(cell);
@@ -63,13 +66,25 @@ export const NodeToneService = {
       .map((note) => uriByNote.get(note))
       .filter((uri): uri is string => Boolean(uri));
     for (const uri of prepared) SoundPool.register(`node:${uri}`, { uri });
+    // Mapping already ended while the tones were building: do not re-create players it just released.
+    if (epoch !== releaseEpoch) return;
     SoundPool.prewarm(prepared.map((uri) => `node:${uri}`));
+  },
+
+  release(): void {
+    releaseEpoch++;
+    const keys = Array.from(uriByNote.values()).map((uri) => `node:${uri}`);
+    SoundPool.releaseIdle(keys);
   },
 
   play(cell: number): void {
     const uri = uriByNote.get(nodeToneKey(cell));
     // Not built yet: skip this droplet rather than stutter the line.
-    if (!uri) return;
+    if (!uri) {
+      sfxLog(`mappingTone cell=${cell} result=skipped-unprepared`);
+      return;
+    }
+    sfxLog(`mappingTone cell=${cell} result=play`);
     SoundPool.play(`node:${uri}`, { volume: NODE_TONE_VOLUME });
   },
 };

@@ -1,0 +1,49 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx -t catches an active
+
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (8.856 s)
+  Vision ceremony
+    × catches an active transition between mounting and subscribing to AppState (372 ms)
+    ○ skipped create starts at Ask with all three paths and launches nothing
+    ○ skipped add starts at Ask with all three paths and launches nothing
+    ○ skipped words enters the existing Describe screen with words selected and preserves edited input
+    ○ skipped a PARTIAL job develops only its real image and never reveals a missing slot
+    ○ skipped Choose is one tap, Keep edits the caption, and Seal saves once with that caption
+    ○ skipped See both again and neither retain the description without saving
+    ○ skipped failed save stays sealed; retry repeats the save without another hold
+    ○ skipped retrying a partial failure keeps the already developed candidate selectable
+    ○ skipped own-photo multi-select stays local until Seal and saves the set in picker order
+    ○ skipped own-photo retry reuses uploaded assets after a failed save
+    ○ skipped regenerate enters Describe, then follows Develop, Choose, Keep and Seal
+    ○ skipped resumeGeneration consumes the saved request once and enters Develop
+    ○ skipped all decorative durations collapse to 200ms or less while hold remains 1600ms
+    ○ skipped approved copy contains no forbidden vocabulary and prefill never exceeds 80 characters
+    ○ skipped add mode accepts the existing six-character scene minimum
+    ○ skipped photo-based generation with no written description saves the same valid draft at Seal
+    ○ skipped one loaded candidate remains choosable when the other cannot load
+    ○ skipped create starts once across Describe re-entry and Add source follows the selected path
+
+  ● Vision ceremony › catches an active transition between mounting and subscribing to AppState
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "formTick"
+
+    Number of calls: 0
+
+      197 |     try {
+      198 |       setup({ startAt: 'develop', photo: { uri: 'file:///one.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
+    > 199 |       expect(require('@/services/CreationSounds').playCreationSound).toHaveBeenCalledWith('formTick');
+          |                                                                      ^
+      200 |     } finally { Object.defineProperty(AppState, 'currentState', descriptor); }
+      201 |   });
+      202 | });
+
+      at Object.toHaveBeenCalledWith (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:199:70)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 18 skipped, 19 total
+Snapshots:   0 total
+Time:        9.009 s, estimated 17 s
+Ran all test suites matching /src\\components\\v2\\vision\\ceremony\\__tests__\\VisionCeremony.test.tsx/i with tests matching "catches an active".

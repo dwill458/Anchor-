@@ -11,12 +11,13 @@ export type VisionImageRect = { x: number; y: number; width: number; height: num
 /** The person's real Anchor, carried from where it was on screen to where the board holds it. */
 export type VisionArrivalAnchor = { svg: string; imageUrl?: string | null; expression?: AnchorExpression | null; category?: string | null; rect: VisionImageRect };
 type AnchorFlight = { svg: string; imageUrl?: string | null; expression?: AnchorExpression | null; category?: string | null; source: VisionImageRect; target?: VisionImageRect };
-type Arrival = { id: number; url: string; source: VisionImageRect; target?: VisionImageRect; anchor?: AnchorFlight; resolved?: boolean };
+type Arrival = { id: number; url: string; source: VisionImageRect; target?: VisionImageRect; anchor?: AnchorFlight; resolved?: boolean; backdrop?: 'ink' | 'paper' };
 type ArrivalContext = {
   url: string | null;
   /** True while a real Anchor is in flight and the board should report where it holds it. */
   anchorInFlight: boolean;
-  begin: (url: string, source: VisionImageRect, anchor?: VisionArrivalAnchor) => void;
+  /** `backdrop: 'paper'` when the flight starts over the cream board (the ceremony), so it never dips to ink. */
+  begin: (url: string, source: VisionImageRect, anchor?: VisionArrivalAnchor, backdrop?: 'ink' | 'paper') => void;
   cancel: () => void;
   resolve: (url: string) => void;
   land: (url: string, target: VisionImageRect) => void;
@@ -58,14 +59,14 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
   const [sourceReady, setSourceReady] = useState(false);
   const [dissolving, setDissolving] = useState(false);
   const clear = useCallback(() => { trace('clear'); setArrival(null); setSourceReady(false); setDissolving(false); }, []);
-  const begin = useCallback((url: string, source: VisionImageRect, anchor?: VisionArrivalAnchor) => {
+  const begin = useCallback((url: string, source: VisionImageRect, anchor?: VisionArrivalAnchor, backdrop: 'ink' | 'paper' = 'ink') => {
     if (!url || !Number.isFinite(source.width) || !Number.isFinite(source.height) || source.width <= 0 || source.height <= 0) return;
     const flight: AnchorFlight | undefined = anchor?.svg && anchor.rect.width > 0 && anchor.rect.height > 0
       ? { svg: anchor.svg, imageUrl: anchor.imageUrl, expression: anchor.expression, category: anchor.category, source: anchor.rect } : undefined;
     trace('begin', { anchorFlight: Boolean(flight) });
     expand.value = 0; settle.value = 0; fade.value = 0;
     setImageAspect(source.width / source.height); setSourceReady(false); setDissolving(false);
-    setArrival({ id: ++arrivalSequence, url, source, anchor: flight });
+    setArrival({ id: ++arrivalSequence, url, source, anchor: flight, backdrop });
   }, [expand, fade, settle]);
   const landAnchor = useCallback((target: VisionImageRect) => {
     if (target.width <= 0 || target.height <= 0) return;
@@ -165,8 +166,9 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
   const anchorColorStyle = useAnimatedStyle(() => ({
     opacity: arrival?.anchor?.target ? Math.min(1, Math.max(0, (settle.value - 0.3) / 0.5)) : 0,
   }));
+  const paperBackdrop = arrival?.backdrop === 'paper';
   const backgroundStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(settle.value, [0, 0.6], [colors.ink.base, colors.canvas]),
+    backgroundColor: interpolateColor(settle.value, [0, 0.6], [paperBackdrop ? colors.canvas : colors.ink.base, colors.canvas]),
     opacity: 1 - Math.max(0, (settle.value - 0.65) / 0.35),
   }));
   return <Context.Provider value={{ url: arrival?.url ?? null, anchorInFlight: Boolean(arrival?.anchor && !arrival.anchor.target), begin, cancel: clear, resolve, land, landAnchor }}>

@@ -125,8 +125,10 @@ jest.mock('@/services/RevenueCatService', () => ({
   default: { restorePurchases: (...args: unknown[]) => mockRestorePurchases(...args) },
 }));
 
+process.env.EXPO_PUBLIC_SFX_DEBUG = '1';
 const NotificationService = require('@/services/NotificationService').default;
 const { SettingsScreen } = require('../SettingsScreen');
+delete process.env.EXPO_PUBLIC_SFX_DEBUG;
 
 describe('SettingsScreen', () => {
   beforeEach(() => {
@@ -288,6 +290,17 @@ describe('SettingsScreen', () => {
     const screen = render(<SettingsScreen />);
     expect(screen.getByTestId('settings-row-Developer Tools')).toBeTruthy();
     expect(screen.getByText('Developer Tools')).toBeTruthy();
+  });
+
+  it('opens the hidden audio log from a long press on the version', () => {
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.queryByText('Audio log')).toBeNull();
+    fireEvent(screen.getByTestId('settings-open-audio-log'), 'longPress');
+
+    expect(screen.getByText('Audio log')).toBeTruthy();
+    expect(screen.getByText('Share')).toBeTruthy();
+    expect(screen.getByText('Clear')).toBeTruthy();
   });
 
   it('renders header title for Notifications & reminders cleanly without truncation', () => {

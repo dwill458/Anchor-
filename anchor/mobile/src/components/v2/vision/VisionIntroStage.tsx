@@ -1,3 +1,4 @@
+// DEFERRED: replaced by ceremony Ask beat.
 import { useEffect } from 'react';
 import { StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';

@@ -1,0 +1,60 @@
+
+> anchor-backend@0.1.0 test
+> jest --runInBand --silent
+
+PASS src/api/routes/v2/__tests__/billing.test.ts (5.938 s)
+PASS src/api/routes/v2/__tests__/v2Routes.test.ts
+PASS src/services/v2/__tests__/VisionCaptionPersistence.test.ts
+PASS src/services/__tests__/TTSService.test.ts
+PASS src/api/routes/v2/__tests__/routeRegistration.test.ts
+PASS src/api/routes/__tests__/practice.test.ts
+PASS src/api/routes/__tests__/anchors.test.ts
+PASS src/services/__tests__/anchor2Styles.test.ts
+PASS src/services/v2/__tests__/VisionGenerationService.test.ts
+PASS src/services/v2/__tests__/RecommendationService.test.ts
+PASS src/api/middleware/__tests__/aiRateLimit.test.ts
+PASS src/api/routes/__tests__/visualizationScenes.test.ts
+PASS src/api/routes/__tests__/auth.test.ts
+PASS src/api/routes/v2/__tests__/chartRoutes.test.ts
+PASS src/services/__tests__/AIEnhancer.test.ts
+PASS src/api/routes/__tests__/orders.test.ts
+PASS src/api/routes/__tests__/courses.test.ts
+PASS src/api/routes/__tests__/ai.test.ts
+PASS src/api/routes/__tests__/billing.test.ts
+PASS src/api/routes/__tests__/content.test.ts
+PASS src/utils/__tests__/artworkValidation.test.ts
+PASS src/api/middleware/__tests__/auth.test.ts
+PASS src/services/__tests__/StorageService.test.ts
+PASS src/services/__tests__/GeminiImageService.test.ts
+PASS src/services/image/__tests__/ImageGenerationService.test.ts
+PASS src/api/routes/v2/__tests__/releaseRoutes.test.ts
+PASS src/services/chart/__tests__/chartPlanSchema.test.ts
+PASS src/services/__tests__/stylePromptLibrary.test.ts
+PASS src/services/chart/__tests__/chartPlanReferences.test.ts
+PASS src/services/v2/__tests__/VisionService.test.ts
+PASS src/services/__tests__/MantraGenerator.test.ts
+PASS src/services/__tests__/RevenueCatEntitlementService.test.ts
+PASS src/services/v2/__tests__/onboardingContext.test.ts
+PASS src/services/__tests__/ReflectionService.test.ts
+PASS src/services/__tests__/MonetizationAccessService.test.ts
+PASS src/services/v2/__tests__/visionWorldReferences.test.ts
+PASS src/services/__tests__/VisualizationSceneService.test.ts
+PASS src/services/v2/__tests__/ThreadStrengthService.test.ts
+PASS src/services/__tests__/CourseService.test.ts
+PASS src/api/middleware/__tests__/errorHandler.test.ts
+PASS src/services/image/__tests__/OpenAIImageProviderAdapter.test.ts
+PASS src/services/__tests__/CourseEventService.test.ts
+PASS src/services/v2/__tests__/visionScenePlanning.test.ts
+PASS src/services/__tests__/PracticeAccessService.test.ts
+PASS src/config/__tests__/env.test.ts
+PASS src/utils/__tests__/logger.test.ts
+PASS src/services/__tests__/ChartCleanupService.test.ts
+PASS src/services/v2/__tests__/IntentionCompletionService.test.ts
+PASS src/domain/v2/__tests__/visionCaption.test.ts
+PASS src/services/__tests__/WaypointStateService.test.ts
+PASS src/services/v2/__tests__/TrialLifecycleService.test.ts
+
+Test Suites: 2 skipped, 51 passed, 51 of 53 total
+Tests:       19 skipped, 898 passed, 917 total
+Snapshots:   0 total
+Time:        34.516 s, estimated 59 s

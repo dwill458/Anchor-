@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SaveProgressScreen } from '../SaveProgressScreen';
+import { useAnchorStore } from '@/stores/anchorStore';
 
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
@@ -94,6 +95,7 @@ describe('SaveProgressScreen', () => {
       pendingFirstAnchorError: null,
       finalizePendingFirstAnchorDraft: mockFinalize,
       clearPendingFirstAnchorError: jest.fn(),
+      clearPendingFirstAnchorState: jest.fn(),
       signOut: jest.fn(),
     };
   });
@@ -205,7 +207,25 @@ describe('SaveProgressScreen', () => {
 
     expect(getByText('Continue to Sanctuary')).toBeTruthy();
     fireEvent.press(getByText('Continue to Sanctuary'));
-
     expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
+  });
+
+  it('discards unconfirmed anchor when continuing to sanctuary with CREATE_ANCHOR_FREE_LOCKED', () => {
+    const unconfirmedAnchor = { ...mockAnchor, id: 'temp-anchor-1' };
+    useAnchorStore.getState().setAnchors([unconfirmedAnchor as any]);
+
+    mockAuthState = {
+      ...mockAuthState,
+      isAuthenticated: true,
+      pendingFirstAnchorDraft: { tempAnchorId: 'temp-anchor-1' },
+      pendingFirstAnchorError: 'CREATE_ANCHOR_FREE_LOCKED',
+    };
+
+    const { getByText } = render(<SaveProgressScreen />);
+
+    expect(getByText('Continue to Sanctuary')).toBeTruthy();
+    fireEvent.press(getByText('Continue to Sanctuary'));
+
+    expect(useAnchorStore.getState().anchors.find((a) => a.id === 'temp-anchor-1')).toBeUndefined();
   });
 });

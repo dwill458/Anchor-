@@ -12,7 +12,7 @@ import { colors, radii, spacing, typography } from '@/theme/v2';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
-import { VISION_GOLD } from './VisionPaperChrome';
+import { VISION_GOLD, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { VisionHeaderRow, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { VisionBoard } from './board/VisionBoard';
@@ -20,8 +20,12 @@ import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 import { VisionArrivalDestination } from './VisionImageArrival';
 import { VisionAddSheet, type VisionAddChoice } from './VisionAddSheet';
+import { visionCeremonyCopy } from './ceremony/visionCeremonyCopy';
 
 type Props = {
+  justAdded?: 'create' | 'add';
+  arrivingSceneId?: string | null;
+  onAddImage?: () => void;
   anchorIntention: string;
   anchorCategory?: string | null;
   anchorImageUrl?: string | null;
@@ -69,7 +73,7 @@ export function V2SavedVision({
   chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, tiles, error, initialEdit = false,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
-  onAddPhoto, onAddGenerate, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
+  onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
 }: Props) {
   const canvasRef = useRef<View>(null);
   const canvasCapture = useRef<(() => { x: number; y: number; width: number; height: number }) | null>(null);
@@ -183,7 +187,8 @@ export function V2SavedVision({
     void onReplace(sceneId).finally(() => { setBusy(false); setReplaceTarget(null); });
   }, [boardTiles, onReplace, tiles]);
 
-  const addImage = useCallback(() => setAddSheetOpen(true), []);
+  const addImage = useCallback(() => (onAddImage ?? onAddGenerate)(), [onAddImage, onAddGenerate]);
+  // DEFERRED: VisionAddSheet is rendered but unreachable; Add image opens ceremony Ask.
   const closeAddSheet = useCallback(() => setAddSheetOpen(false), []);
   const chooseAdd = useCallback((choice: VisionAddChoice) => {
     if (choice === 'generate') onAddGenerate();
@@ -228,6 +233,7 @@ export function V2SavedVision({
               <View style={styles.boardWrap}>
                 <View ref={canvasRef} collapsable={false} onLayout={measureCanvas}><VisionBoard
                   tiles={boardTiles}
+                  arrivingSceneId={arrivingSceneId}
                   intention={anchorIntention}
                   annotation={annotation}
                   category={anchorCategory}
@@ -237,7 +243,7 @@ export function V2SavedVision({
                   busy={busy}
                   captureFrame={canvasCapture}
                   canRegenerate={canGenerateMore}
-                  onReplace={replace}
+                  // DEFERRED: Replace locks at Seal (decision Oct 2026); remove + add remains.
                   onRegenerate={onRegenerate}
                   onRemove={remove}
                   onEditVision={() => setMode('edit')}
@@ -283,10 +289,12 @@ export function V2SavedVision({
                     </VisionArrivalDestination>
                     <View style={{ flex: 1, gap: 6 }}>
                       <Text style={styles.chartPosition}>Image {index + 1} of {boardTiles.length}</Text>
+                      {tile.caption?.trim() ? <Text testID={`vision-edit-caption-${tile.sceneId}`} numberOfLines={1} ellipsizeMode="tail"
+                        style={{ fontFamily: VISION_SERIF_ITALIC, fontSize: 15, color: colors.text.primary }}>{tile.caption.trim()}</Text> : null}
                       <Pressable accessibilityRole="button" accessibilityLabel={`Manage image ${index + 1}`} onPress={() => Alert.alert('Vision image', undefined, [
                         { text: 'Make primary', onPress: () => reorder([tile.sceneId, ...boardTiles.filter(t => t.sceneId !== tile.sceneId).map(t => t.sceneId)]) },
-                        { text: 'Replace', onPress: () => replace(tile.sceneId) },
-                        ...(canGenerateMore ? [{ text: 'Regenerate', onPress: () => onRegenerate(tile.sceneId) }] : []),
+                        // DEFERRED: Replace locks at Seal (decision Oct 2026); remove + add remains.
+                        ...(canGenerateMore && tile.sourceType === 'AI_GENERATED' ? [{ text: 'Regenerate', onPress: () => onRegenerate(tile.sceneId) }] : []),
                         { text: 'Remove', style: 'destructive', onPress: () => remove(tile.sceneId) },
                         { text: 'Cancel', style: 'cancel' },
                       ])} style={{ minHeight: 44, justifyContent: 'center' }}>
@@ -294,6 +302,10 @@ export function V2SavedVision({
                       </Pressable>
                     </View>
                   </View>)}</View> : null}
+                {justAdded ? <View testID="vision-just-added" style={{ marginTop: 16, gap: 4 }}>
+                  <Text style={styles.heading}>{visionCeremonyCopy.sit}</Text>
+                  <Text style={styles.chartPosition}>{justAdded === 'create' ? visionCeremonyCopy.sitCreate : visionCeremonyCopy.sitAdd}</Text>
+                </View> : null}
                 <V2Button size="large" accessibilityLabel="Begin Visualize" disabled={!visualizeReady} onPress={() => {
                     const begin = (bounds = canvasBounds.current) => {
                       const projection = canvasCapture.current?.();
@@ -306,7 +318,7 @@ export function V2SavedVision({
                   iconLeft={<Eye size={18} color={colors.paper} />} iconRight={<ChevronRight size={18} color={colors.paper} />}>
                   <Text style={{ fontFamily: 'EBGaramond-Medium', fontSize: 18, fontWeight: 'normal' }}>Begin Visualize</Text>
                 </V2Button>
-                {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision�'}</Text> : null}
+                {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision…'}</Text> : null}
                 {preparationIssue && onRetryVisualize ? <Pressable accessibilityRole="button" onPress={onRetryVisualize} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Retry Vision images</Text></Pressable> : null}
                 {preparationIssue && onUseAvailableImages ? <Pressable accessibilityRole="button" onPress={onUseAvailableImages} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Continue with available images</Text></Pressable> : null}
                 <VisionChartLink chart={chartSummary} width={width} onPress={onChart} />

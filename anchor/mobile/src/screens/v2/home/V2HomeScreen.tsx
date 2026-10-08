@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { Easing, Extrapolation, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -18,7 +18,7 @@ import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
-import { colors, getCategoryColor, typography } from '@/theme/v2';
+import { AnchorMotion, colors, getCategoryColor, typography } from '@/theme/v2';
 import { localDateString } from '@/utils/primingAnalytics';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
@@ -41,6 +41,9 @@ type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 const PAGE_INSET = 20;
 
 const CHART_LANDSCAPE_ART = require('@/../assets/chart/landscape.jpg');
+
+/** How far the anchor-scoped content dims while the carousel moves. */
+const CONTENT_VEIL_DIM = 0.38;
 
 /** A focus within this window of the last context refresh reuses what Home already shows. */
 const REFOCUS_REFRESH_MS = 30_000;
@@ -377,13 +380,60 @@ export function V2HomeScreen() {
     intents.onCreateAnchor();
   }, [intents]);
 
+  /**
+   * Home's anchor-scoped content is veiled while the carousel moves, swapped
+   * under the veil once it rests, then revealed. 1 = fully shown.
+   */
+  const contentVeil = useSharedValue(1);
+  const veilSwapPending = useRef(false);
+  const veilFallback = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealContent = useCallback((duration: number) => {
+    if (veilFallback.current) clearTimeout(veilFallback.current);
+    veilFallback.current = null;
+    contentVeil.value = withTiming(1, { duration, easing: Easing.out(Easing.cubic) });
+  }, [contentVeil]);
+  useEffect(() => () => { if (veilFallback.current) clearTimeout(veilFallback.current); }, []);
+
   const handleSelectAnchor = useCallback(
     (anchorId: string) => {
+      // The reveal waits for React to commit this Anchor's content, so the swap happens under the veil.
+      veilSwapPending.current = true;
       selectAnchor(anchorId);
+      // Since 2026-10-07 this fires once per resting selection, not once per Anchor swiped past.
       track('v2_home_anchor_switched');
     },
     [selectAnchor],
   );
+
+  const handleCarouselMotion = useCallback((moving: boolean) => {
+    if (reduceMotion) return;
+    if (moving) {
+      if (veilFallback.current) clearTimeout(veilFallback.current);
+      veilFallback.current = null;
+      contentVeil.value = withTiming(CONTENT_VEIL_DIM, { duration: 140, easing: AnchorMotion.easing.enter });
+    } else if (!veilSwapPending.current) {
+      // An aborted swipe: nothing to swap, so the content simply returns.
+      revealContent(200);
+    } else {
+      // The commit's own reveal normally lands first; this only guards a selection that never arrives.
+      veilFallback.current = setTimeout(() => { veilSwapPending.current = false; revealContent(260); }, 600);
+    }
+  }, [contentVeil, reduceMotion, revealContent]);
+
+  // Runs after React has committed the new Anchor's content, so it is always revealed, never hard-swapped.
+  useLayoutEffect(() => {
+    veilSwapPending.current = false;
+    if (reduceMotion) {
+      contentVeil.value = 1;
+      return;
+    }
+    revealContent(260);
+  }, [contentVeil, reduceMotion, revealContent, selectedAnchorId]);
+
+  const contentVeilStyle = useAnimatedStyle(() => ({
+    opacity: contentVeil.value,
+    transform: [{ translateY: interpolate(contentVeil.value, [CONTENT_VEIL_DIM, 1], [6, 0], Extrapolation.CLAMP) }],
+  }));
 
   const handleOpenActive = useCallback(
     (anchorId: string, source?: AnchorWindowRect) => {
@@ -546,6 +596,7 @@ export function V2HomeScreen() {
               thread={model.thread}
               reduceMotion={reduceMotion}
               frozen={focusTransition.active}
+              onMotionChange={handleCarouselMotion}
               onSelect={handleSelectAnchor}
               onOpenActive={handleOpenActive}
               onOpenProgress={handleOpenProgress}
@@ -564,6 +615,8 @@ export function V2HomeScreen() {
           {/* Product signature: opens the ink field, beneath the keel and above Today. */}
           <V2HomeBrandMark testID="v2-home-brand-mark" />
 
+          {/* Anchor-scoped content: veiled while the carousel moves, revealed once it commits. */}
+          <Animated.View style={contentVeilStyle}>
           <V2HomeTodaySection
             testID="v2-home-today"
             today={todayForDisplay}
@@ -586,6 +639,7 @@ export function V2HomeScreen() {
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}
           />
+          </Animated.View>
 
           <V2HomeRecentActivitySection items={model.recentActivity ?? []} onViewAll={handleOpenProgress} />
         </Animated.View>

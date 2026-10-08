@@ -14,6 +14,8 @@ import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { useReleaseHold, useV2Release } from '@/hooks/v2/release';
 import { useReleaseBurnFeel } from '@/hooks/v2/release/useReleaseBurnFeel';
 import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
+import { SoundPool } from '@/services/audio/SoundPool';
+import { sfxLog } from '@/services/audio/sfxLog';
 import { safeHaptics } from '@/utils/haptics';
 import { RELEASE_COPY, RELEASE_CEREMONY_CHAMBER_BG, RELEASE_FIRE_PREPARE_AT, type V2ReleaseActionId } from '@/constants/v2/release';
 import { colors, getCategoryColor, spacing } from '@/theme/v2';
@@ -56,6 +58,33 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
     cancelAnimation(entranceRows);
     cancelAnimation(entranceControls);
   }, [entranceHeader, entranceRows, entranceControls]);
+  useEffect(() => {
+    SoundPool.releaseIdle([
+      'creation:formBed',
+      'creation:bloom',
+      'creation:formTick',
+      'creation:formSettle',
+      'creation:distillTick',
+      'creation:seal',
+      'creation:sealRise',
+      'creation:revealSettle',
+      'creation:uiTap',
+    ]);
+    SoundPool.prewarm([
+      'creation:releaseFall',
+      'creation:releaseResolve',
+      'creation:releaseBurn',
+      'creation:releaseIgnite',
+    ]);
+    return () => {
+      SoundPool.releaseIdle([
+        'creation:releaseFall',
+        'creation:releaseResolve',
+        'creation:releaseBurn',
+        'creation:releaseIgnite',
+      ]);
+    };
+  }, []);
   const [silent, setSilent] = useState(false);
   const [controlsHeight, setControlsHeight] = useState(120);
   const release = useV2Release({ anchorId, adapter: releaseAdapter, reason, successor, hasLinkedVision });
@@ -123,19 +152,20 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
     if (!active && !hold.isHolding && w > 0 && h > 0) measuredRect.current = { x, y, width: w, height: h };
   }, [place.onLayout, active, hold.isHolding]);
   const handleControlsLayout = useCallback((event: LayoutChangeEvent) => setControlsHeight(Math.ceil(event.nativeEvent.layout.height)), []);
-  const handleHoldStart = useCallback(() => { stopReleaseFall(); releaseFall.current = playCreationSound('releaseFall'); setHeldRect(measuredRect.current); release.beginHold(); hold.beginHold(); }, [hold.beginHold, release.beginHold, stopReleaseFall]);
-  const handleHoldEnd = useCallback(() => { stopReleaseFall(); hold.endHold(); }, [hold.endHold, stopReleaseFall]);
+  const handleHoldStart = useCallback(() => { sfxLog('release hold begin'); stopReleaseFall(); releaseFall.current = playCreationSound('releaseFall'); setHeldRect(measuredRect.current); release.beginHold(); hold.beginHold(); }, [hold.beginHold, release.beginHold, stopReleaseFall]);
+  const handleHoldEnd = useCallback(() => { sfxLog('release hold end'); stopReleaseFall(); hold.endHold(); }, [hold.endHold, stopReleaseFall]);
   // Another screen covering this one is a cancellation: no request, no completion haptic.
   useEffect(() => { if (!focused) handleHoldEnd(); }, [focused, handleHoldEnd]);
   const handleCancel = useCallback(() => { handleHoldEnd(); onCancel(); }, [handleHoldEnd, onCancel]);
   const handleFreshHold = useCallback(() => { stopReleaseFall(); release.reset(); hold.reset(); setSilent(false); }, [release.reset, hold.reset, stopReleaseFall]);
   // The coin is gone: sound and haptics stop in the same beat the screen goes black.
-  const startSilence = useCallback(() => { feel.end(); if (!reduceMotion) playCreationSound('releaseResolve'); setSilent(true); }, [feel.end, reduceMotion]);
+  const startSilence = useCallback(() => { sfxLog('release finish silence'); feel.end(); if (!reduceMotion) playCreationSound('releaseResolve'); setSilent(true); }, [feel.end, reduceMotion]);
   useEffect(() => () => stopReleaseFall(), [stopReleaseFall]);
   const courseId = release.snapshot?.courseId ?? null;
   const handleAction = useCallback((action: V2ReleaseActionId) => {
     const ending = release.ending;
     if (!ending) return;
+    sfxLog(`release complete action=${action}`);
     const home = () => onReleaseCompleted(anchorId, ending);
     switch (action) {
       case 'progress':

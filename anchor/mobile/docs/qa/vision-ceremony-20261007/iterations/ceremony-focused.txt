@@ -1,0 +1,64 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx
+
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (21.043 s)
+  Vision ceremony
+    √ create starts at Ask with all three paths and launches nothing (316 ms)
+    √ add starts at Ask with all three paths and launches nothing (38 ms)
+    √ words enters the existing Describe screen with words selected and preserves edited input (169 ms)
+    √ a PARTIAL job develops only its real image and never reveals a missing slot (795 ms)
+    × Choose is one tap, Keep edits the caption, and Seal saves once with that caption (1374 ms)
+    √ See both again and neither retain the description without saving (1010 ms)
+    √ failed save stays sealed; retry repeats the save without another hold (1463 ms)
+    √ own-photo multi-select stays local until Seal and saves the set in picker order (1159 ms)
+    √ own-photo retry reuses uploaded assets after a failed save (555 ms)
+    × regenerate enters Describe, then follows Develop, Choose, Keep and Seal (60 ms)
+    √ resumeGeneration consumes the saved request once and enters Develop (69 ms)
+    √ all decorative durations collapse to 200ms or less while hold remains 1600ms (1 ms)
+    √ approved copy contains no forbidden vocabulary and prefill never exceeds 80 characters (1 ms)
+
+  ● Vision ceremony › Choose is one tap, Keep edits the caption, and Seal saves once with that caption
+
+    expect(received).toHaveBeenCalledWith(...expected)
+
+    Matcher error: received value must be a mock or spy function
+
+    Received has type:  function
+    Received has value: [Function track]
+
+      84 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+      85 |     expect(view.onAssemble).toHaveBeenCalledWith(expect.objectContaining({ selectedAssets: [expect.objectContaining({ assetId: 'asset-1', caption: 'This future is mine.' })] }));
+    > 86 |     expect(AnalyticsService.track).toHaveBeenCalledWith('vision_caption_edited', { anchor_id: 'anchor', length: 20 });
+         |                                    ^
+      87 |     expect(view.getByText(copy.sealed)).toBeTruthy();
+      88 |     await advance(3500); await advance(200);
+      89 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+
+      at Object.toHaveBeenCalledWith (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:86:36)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision ceremony › regenerate enters Describe, then follows Develop, Choose, Keep and Seal
+
+    Found multiple elements with text: Describe another moment from this future.
+
+      121 |     mockJob = job(); const onAdd = jest.fn(async () => true);
+      122 |     const view = setup({ mode: 'add', startAt: 'describe', regenerating: true, onAdd });
+    > 123 |     expect(view.getByText('Describe another moment from this future.')).toBeTruthy();
+          |                 ^
+      124 |     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); }); await develop(view, 2);
+      125 |     fireEvent.press(view.getByTestId('scene-candidate-c0')); await seal(view);
+      126 |     expect(onAdd).toHaveBeenCalledWith({ assetId: 'asset-0', prompt: 'Moment 0', caption: base.anchorIntention });
+
+      at Object.getByText (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:123:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 11 passed, 13 total
+Snapshots:   0 total
+Time:        21.675 s
+Ran all test suites matching /src\\components\\v2\\vision\\ceremony\\__tests__\\VisionCeremony.test.tsx/i.

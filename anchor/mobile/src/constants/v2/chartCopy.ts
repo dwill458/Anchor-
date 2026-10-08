@@ -4,6 +4,12 @@
  */
 export const CHART_COPY = {
   title: 'Chart',
+  sheet: {
+    expand: 'Expand panel', collapse: 'Collapse panel',
+    eyebrow: 'Waypoint {n} of {N} · {state}',
+    stateCurrent: 'Current', stateReached: 'Reached', stateUpcoming: 'Upcoming',
+    routeHeading: 'Your route', reachedOn: 'Reached {date}', backTo: 'Back to waypoint {n}',
+  },
   labels: {
     reinforcing: 'REINFORCING',
     currentWaypoint: 'CURRENT WAYPOINT',

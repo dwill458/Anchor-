@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { createAudioPlayer, type AudioPlayer, type AudioStatus } from 'expo-audio';
 import type { AudioAssetReference } from '@/services/SessionAudioManifest';
 import { setAudioSessionMode } from '@/services/audio/AudioSession';
+import { hydrateRemoteAudioCache, resolvePlayableAudioSource } from '@/services/audio/remoteAudio';
 
 export type ManagedSessionAudioPlayer = {
   getCurrentTime: () => number;
@@ -55,6 +56,7 @@ export function useSessionAudio() {
 
   useEffect(() => {
     void setAudioSessionMode('session').catch(() => undefined);
+    void hydrateRemoteAudioCache();
 
     return () => {
       cleanupAllPlayers();
@@ -68,7 +70,8 @@ export function useSessionAudio() {
       { loop = false, onFinish, onFailure, onStatus, volume = 1 }: SessionAudioPlayerOptions = {}
     ): ManagedSessionAudioPlayer | null => {
       try {
-        const player = createAudioPlayer(asset, {
+        // Remote long tracks play from disk once downloaded; until then they stream.
+        const player = createAudioPlayer(resolvePlayableAudioSource(asset), {
           updateInterval: 100,
           keepAudioSessionActive: true,
         });

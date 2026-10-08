@@ -10,6 +10,7 @@ import {
   Platform,
   Modal,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -252,6 +253,14 @@ export default function ManualForgeScreen() {
       navigation.goBack();
     }
   };
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [strokes.length]);
 
   // Convert points to SVG path with brush type consideration
   const pointsToPath = (points: Point[], brushType: string): string => {

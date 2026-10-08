@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { BookOpen, Check, ChevronDown, ChevronRight, Star, X } from 'lucide-react-native';
@@ -8,6 +8,8 @@ import { CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from '../chartMotion';
 import { CHART_PANEL_COPY as COPY } from '../map/chartRhythm';
 import { CHART_MAP_TOKENS as T } from '../map/chartMapTokens';
 import type { PanelAccent } from './chartPanelColors';
+
+export const ChartPanelDensity = createContext<'regular' | 'peek'>('regular');
 
 /**
  * Presentational cards of the ink panel (prototype .card family). No data
@@ -124,9 +126,10 @@ export function OneMoveCard({
   otherMovesCount?: number;
   children?: React.ReactNode;
 }) {
+  const compact = useContext(ChartPanelDensity) === 'peek';
   return (
-    <PanelCard testID="chart-one-move">
-      <CardKey color={accent.text}>{variant === 'allDone' ? 'MOVES' : COPY.oneMove}</CardKey>
+    <PanelCard testID="chart-one-move" style={compact ? styles.compactCard : undefined}>
+      {!compact ? <CardKey color={accent.text}>{variant === 'allDone' ? 'MOVES' : COPY.oneMove}</CardKey> : null}
       {variant === 'move' && title ? (
         <View style={styles.heroMoveRow}>
           <CheckButton
@@ -138,18 +141,19 @@ export function OneMoveCard({
             onPress={onCheck}
             testID="chart-one-move-check"
           />
-          <Text accessibilityLabel={`One Move: ${title}`} style={[styles.heroMoveSerifText, checked && styles.moveDone]}>{title}</Text>
-          <ChevronRight size={18} color={T.muted} style={styles.heroChevron} />
+          <Text accessibilityLabel={`One Move: ${title}`} numberOfLines={compact ? 1 : undefined} style={[styles.heroMoveSerifText, compact && styles.compactMove, checked && styles.moveDone]}>{title}</Text>
+          {compact ? <Pressable accessibilityRole="button" accessibilityLabel={`Show other moves, ${otherMovesCount} remaining`} onPress={onToggle} style={styles.compactToggle} testID="chart-one-move-toggle"><ChevronDown size={18} color={T.muted} /></Pressable> : <ChevronRight size={18} color={T.muted} style={styles.heroChevron} />}
         </View>
       ) : (
         <View style={styles.moveRow}>
           <Text style={[styles.moveText, styles.moveStatic]} testID={variant === 'empty' ? 'chart-one-move-empty' : 'chart-moves-all-done'}>
             {variant === 'allDone' ? COPY.movesAllDone : emptyLabel}
           </Text>
+          {compact ? <Pressable accessibilityRole="button" accessibilityLabel={`Show other moves, ${otherMovesCount} remaining`} onPress={onToggle} style={styles.compactToggle} testID="chart-one-move-toggle"><ChevronDown size={18} color={T.muted} /></Pressable> : null}
         </View>
       )}
 
-      <Pressable
+      {!compact ? <Pressable
         accessibilityRole="button"
         accessibilityLabel={expanded ? 'Hide other moves' : `Show other moves, ${otherMovesCount} remaining`}
         accessibilityState={{ expanded }}
@@ -163,7 +167,7 @@ export function OneMoveCard({
         <View style={expanded ? styles.flipped : undefined}>
           <ChevronDown size={18} color={T.muted} />
         </View>
-      </Pressable>
+      </Pressable> : null}
 
       {expanded ? <View style={styles.list}>{children}</View> : null}
     </PanelCard>
@@ -270,6 +274,8 @@ export function DayClosedCard({ accent, practiced, hasNext, onFocus, onDeepFocus
   onDeepFocus: () => void;
   onAnother: () => void;
 }) {
+  const compact = useContext(ChartPanelDensity) === 'peek';
+  if (compact) return <PanelCard testID="chart-day-closed" style={styles.compactCard}><View style={styles.row}><Text style={[styles.body, { flex: 1 }]} numberOfLines={1}>{COPY.dayClosedTitle}</Text>{!practiced ? <PanelButton label={COPY.focus} accent={accent} onPress={onFocus} testID="chart-practice-focus" /> : hasNext ? <PanelButton label={COPY.another} accent={accent} onPress={onAnother} testID="chart-do-another" /> : null}</View></PanelCard>;
   return (
     <PanelCard testID="chart-day-closed">
       <CardKey color={accent.text}>TODAY</CardKey>
@@ -300,6 +306,8 @@ export function DayClosedCard({ accent, practiced, hasNext, onFocus, onDeepFocus
 /* ------------------------------------------------------------------ */
 
 export function CommitCard({ accent, number, onCommit }: { accent: PanelAccent; number: number; onCommit: () => void }) {
+  const compact = useContext(ChartPanelDensity) === 'peek';
+  if (compact) return <PanelCard borderColor={accent.fill} testID="chart-waypoint-reached" style={styles.compactCard}><View style={styles.row}><Text style={[styles.body, { flex: 1 }]} numberOfLines={1}>{COPY.reachedTitle}</Text><PanelButton label={COPY.committed} accent={accent} onPress={onCommit} testID="chart-commit" /></View></PanelCard>;
   return (
     <PanelCard borderColor={accent.fill} testID="chart-waypoint-reached">
       <CardKey color={accent.text}>{`WAYPOINT ${number} REACHED`}</CardKey>
@@ -338,7 +346,7 @@ export function DestinationCard({
           style={styles.destSingleRow}
         >
           <View style={styles.destGlyphFrame}>
-            <MountainFlagIcon size={20} color={accent.text} />
+            {vision?.imageUrl ? <Image source={{ uri: vision.imageUrl }} style={{ width: 36, height: 36, borderRadius: 4 }} accessibilityIgnoresInvertColors /> : <MountainFlagIcon size={20} color={accent.text} />}
           </View>
           <Text style={styles.destSerifTitle} numberOfLines={2}>
             {destination}
@@ -443,6 +451,9 @@ export function ProgressChips({ onBump }: { onBump: (delta: number) => void }) {
 }
 
 const styles = StyleSheet.create({
+  compactCard: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 14, gap: 0 },
+  compactMove: { fontFamily: T.sans, fontSize: 15, lineHeight: 20 },
+  compactToggle: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0 },
   card: { backgroundColor: T.panel, borderWidth: 1, borderColor: T.line, borderRadius: 16, padding: 14 },
   key: { fontFamily: T.sansStrong, fontSize: 11, letterSpacing: 1.8, marginBottom: 8 },

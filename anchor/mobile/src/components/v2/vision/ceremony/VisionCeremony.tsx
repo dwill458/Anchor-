@@ -1,0 +1,506 @@
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { ArrowLeft } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CircularAnchorRenderer } from '@/components/v2/anchor';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { playCreationSound } from '@/services/CreationSounds';
+import { SoundPool } from '@/services/audio/SoundPool';
+import { colors } from '@/theme/v2';
+import { safeHaptics } from '@/utils/haptics';
+import { resolveAnchorCategory } from '@/utils/categoryDetection';
+import type { AnchorCategory } from '@/types';
+import { ImpactFeedbackStyle } from 'expo-haptics';
+import type { PickedVisionPhoto, VisionGenerationCandidate } from '@/hooks/v2/vision';
+import type { V2VisionCreationFlowProps } from '../V2VisionCreationFlow';
+import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from '../VisionMomentInput';
+import { VISION_SERIF, VISION_SERIF_ITALIC } from '../VisionPaperChrome';
+import { VisionTornEdge } from '../VisionTornEdge';
+import { useVisionImageArrival, type VisionImageRect } from '../VisionImageArrival';
+import { visionTwoUpState } from '../visionTwoUp';
+import { VisionPrint, VisionPrintSlot, type PrintPlacement } from './VisionPrint';
+import { VisionSealHold } from './VisionSealHold';
+import { VisionEntrance } from './VisionEntrance';
+import { editDistancePct, type VisionExample } from './visionExamples';
+import { CEREMONY, ceremonyDuration } from './VisionDevelop';
+import { prefillVisionCaption, visionCeremonyCopy as copy } from './visionCeremonyCopy';
+import { useVisionCreationActions, photoVisionDescription, type CeremonyPhoto } from './useVisionCreationActions';
+
+const CEREMONY_SOUND_KEYS = ['creation:uiTap', 'creation:anchorPulse', 'creation:formTick', 'creation:distillTick', 'creation:revealSettle',
+  'creation:formBed', 'creation:sealRise', 'creation:seal', 'creation:visionPin'];
+
+export type VisionCeremonyBeat = 'ask' | 'describe' | 'develop' | 'choose' | 'keep' | 'seal' | 'pinned';
+export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'initialStep'> {
+  mode: 'create' | 'add';
+  visionId?: string;
+  startAt?: 'ask' | 'describe' | 'develop';
+  photo?: PickedVisionPhoto;
+  regenerating?: boolean;
+  /** The existing save callbacks keep their boolean contract; this reports the saved hero URL. */
+  savedImageUrl?: string | null;
+  /** Add mode: the newest board image, shown as a developed print behind the empty Ask frame. */
+  previewImageUrl?: string | null;
+  /** Add mode: that print's caption, shown under it on Ask. */
+  previewCaption?: string | null;
+  onPinned?: () => void;
+  onAdd?: (choice: { assetId: string; prompt: string; caption?: string }) => Promise<boolean>;
+  onPhotoConfirm?: (caption: string) => Promise<string | null>;
+  onChooseAgain?: () => void;
+}
+
+function measure(node: View | null): Promise<VisionImageRect | null> {
+  return new Promise(resolve => {
+    if (!node?.measureInWindow) { resolve(null); return; }
+    const timer = setTimeout(() => resolve(null), 150);
+    node.measureInWindow((x, y, width, height) => { clearTimeout(timer); resolve(width > 0 && height > 0 ? { x, y, width, height } : null); });
+  });
+}
+
+/** One persistent print stage for first creation, additions, and regeneration. */
+export function VisionCeremony(props: VisionCeremonyProps) {
+  const { anchorId, anchorIntention, anchorArt, anchorCategory, mode, onBack, testID = 'vision-ceremony' } = props;
+  const actions = useVisionCreationActions(props);
+  const arrival = useVisionImageArrival();
+  const { width, height } = useWindowDimensions(), insets = useSafeAreaInsets();
+  const reduced = useV2ReduceMotion();
+  const usable = height - insets.top - insets.bottom;
+  const [beat, setBeat] = useState<VisionCeremonyBeat>(props.startAt ?? 'ask');
+  const [description, setDescription] = useState(props.initialDescription ?? '');
+  const [inputPath, setInputPath] = useState<VisionInputPath>('words');
+  const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(null);
+  const [photos, setPhotos] = useState<CeremonyPhoto[]>(props.photo ? [{ ...props.photo, key: props.photo.uri }] : []);
+  const [chosen, setChosen] = useState<number | null>(photos.length ? 0 : null);
+  const [developed, setDeveloped] = useState<ReadonlySet<string>>(() => new Set());
+  const [caption, setCaption] = useState(() => prefillVisionCaption(anchorIntention));
+  const [reframe, setReframe] = useState({ x: 0, y: 0 });
+  const [committed, setCommitted] = useState(false), [saving, setSaving] = useState(false);
+  const [stampComplete, setStampComplete] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [generationPending, setGenerationPending] = useState(false);
+  const [generationAttempt, setGenerationAttempt] = useState(0);
+  const [foreground, setForeground] = useState(AppState.currentState !== 'background' && AppState.currentState !== 'inactive');
+  const [litWords, setLitWords] = useState(0), [readDone, setReadDone] = useState(false), [waitBeat, setWaitBeat] = useState(0);
+  const [photoStatus, setPhotoStatus] = useState(0), [photoTimeDone, setPhotoTimeDone] = useState(false);
+  const [revealStarted, setRevealStarted] = useState(false), [keyboardH, setKeyboardH] = useState(0);
+  // DEFERRED: replaced by VisionEntrance (Oct 2026). Ask no longer measures its copy and footer; the entrance lays itself out.
+  // const [askCopyH, setAskCopyH] = useState(150), [askFooterH, setAskFooterH] = useState(190);
+  const askCopyH = 150, askFooterH = 190;
+  const [fromExample, setFromExample] = useState<{ image: ImageSourcePropType } | null>(null);
+  const [handedOff, setHandedOff] = useState(false);
+  const startedFromExample = useRef<{ category: AnchorCategory; index: number; moment: string; reported: boolean } | null>(null);
+  // The open plays once per ceremony: the ref flips when the person first leaves Ask, so Back never replays it.
+  const entrancePlayed = useRef(false), previousBeat = useRef<VisionCeremonyBeat | null>(null);
+  const printRefs = useRef<Array<View | null>>([]), anchorRef = useRef<View>(null);
+  const savingRef = useRef(false), savedRef = useRef(false), committedRef = useRef(false), alive = useRef(true);
+  const attempts = useRef(0), sealStarted = useRef(false), requestTime = useRef(0);
+  const createStarted = useRef(false);
+  const latest = useRef(props); latest.current = props;
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const ownPhoto = photos.length > 0;
+  const path = ownPhoto ? 'own_photo' : inputPath;
+  const analyticsMode = props.regenerating ? 'regenerate' : mode;
+  // The server re-signs image URLs on every poll. Hold the first URL seen for each candidate so a
+  // print never re-loads (and re-develops) mid-ceremony: the flicker seen on device Oct 7.
+  const stableUrls = useRef(new Map<string, string>());
+  const stabilize = (item: VisionGenerationCandidate | null): VisionGenerationCandidate | null => {
+    if (!item?.imageUrl) return item;
+    const key = item.assetId ?? item.id;
+    const known = stableUrls.current.get(key);
+    if (!known) { stableUrls.current.set(key, item.imageUrl); return item; }
+    return known === item.imageUrl ? item : { ...item, imageUrl: known };
+  };
+  const rawState = visionTwoUpState(generationPending ? null : actions.generation.job);
+  const state = { ...rawState, slots: rawState.slots.map(stabilize), ready: rawState.ready.map(item => stabilize(item) as VisionGenerationCandidate) };
+  const reading = !ownPhoto && (!readDone || !actions.generation.job || actions.generation.job.status === 'QUEUED');
+  const candidate = chosen === null ? null : state.slots[chosen];
+  const heroUri = ownPhoto ? photos[0]?.uri : candidate?.imageUrl ?? undefined;
+  const later = (callback: () => void, ms: number) => {
+    const timer = setTimeout(() => { timers.current.delete(timer); if (alive.current) callback(); }, ms);
+    timers.current.add(timer);
+  };
+  useEffect(() => {
+    // Cold SoundPool players drop short cues; every other flow prewarms its keys on mount.
+    SoundPool.prewarm(CEREMONY_SOUND_KEYS);
+    return () => SoundPool.releaseIdle(CEREMONY_SOUND_KEYS);
+  }, []);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; timers.current.forEach(clearTimeout); timers.current.clear(); };
+  }, []);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', value => setForeground(value === 'active'));
+    // A foreground event can occur after render but before the listener mounts.
+    // Native state can be null during startup; retain the foreground default then.
+    setForeground(AppState.currentState !== 'background' && AppState.currentState !== 'inactive');
+    return () => sub.remove();
+  }, []);
+  // The bed belongs to the Develop wait only; it fades the moment the first print begins to reveal.
+  const bedOn = foreground && beat === 'develop' && !revealStarted;
+  useEffect(() => {
+    if (!bedOn) return;
+    const bed = playCreationSound('formBed', undefined, { loop: true, fadeInMs: 2500 });
+    return () => bed?.stop(550);
+  }, [bedOn]);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', event => setKeyboardH(event.endCoordinates.height));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardH(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  useEffect(() => {
+    if (previousBeat.current === 'ask' && beat !== 'ask') entrancePlayed.current = true;
+    previousBeat.current = beat;
+  }, [beat]);
+  useEffect(() => {
+    AnalyticsService.track('vision_ceremony_beat_viewed', { anchor_id: anchorId, mode: analyticsMode, beat, path });
+  }, [anchorId, analyticsMode, beat, path]);
+  useEffect(() => {
+    if (beat === 'describe' && mode === 'create' && !createStarted.current) {
+      createStarted.current = true; AnalyticsService.track('vision_create_started', { anchor_id: anchorId });
+    }
+  }, [beat, mode, anchorId]);
+
+  const words = description.trim().split(/\s+/).filter(Boolean);
+  useEffect(() => {
+    if (beat !== 'develop' || ownPhoto) return;
+    setLitWords(reduced ? words.length : 0); setReadDone(false); setWaitBeat(0);
+    const interval = Math.min(CEREMONY.wordLightMaxMs, CEREMONY.wordLightTotalMs / Math.max(1, words.length));
+    const scheduled = reduced ? [] : words.map((_, i) => setTimeout(() => {
+      setLitWords(i + 1);
+      if ((i + 1) % 3 === 0 && AppState.currentState === 'active') playCreationSound('distillTick', .12);
+    }, interval * (i + 1)));
+    scheduled.push(setTimeout(() => setReadDone(true), reduced ? 180 : Math.min(160 * words.length, 2600)));
+    [9000, 20000, 40000].forEach((ms, i) => scheduled.push(setTimeout(() => setWaitBeat(i + 1), ms)));
+    return () => scheduled.forEach(clearTimeout);
+  }, [beat === 'develop', ownPhoto, generationAttempt, reduced]);
+  useEffect(() => {
+    if (beat !== 'develop' || !ownPhoto || !foreground) return;
+    setPhotoStatus(0); setPhotoTimeDone(false);
+    playCreationSound('formTick'); void v2Haptics.selection();
+    const scheduled = [1300, 2500].map((ms, i) => setTimeout(() => { setPhotoStatus(i + 1); playCreationSound('formTick'); void v2Haptics.selection(); }, reduced ? (i + 1) * 60 : ms));
+    scheduled.push(setTimeout(() => setPhotoTimeDone(true), reduced ? 180 : Math.max(4400, 600 + 400 * Math.min(2, photos.length - 1) + 3400)));
+    return () => scheduled.forEach(clearTimeout);
+  }, [beat === 'develop', ownPhoto, photos[0]?.key, foreground, reduced]);
+  useEffect(() => {
+    if (beat !== 'develop') return;
+    if (ownPhoto && photoTimeDone && developed.has(photos[0].uri)) setBeat('keep');
+    if (!ownPhoto && !reading && state.selectable && state.ready.some(item => item.imageUrl && developed.has(item.imageUrl))) setBeat('choose');
+  }, [beat, ownPhoto, photoTimeDone, developed, reading, state.selectable, state.ready.map(item => item.imageUrl).join('|')]);
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (!props.resumeGeneration) { resumed.current = false; return; }
+    if (!props.resumeGeneration || resumed.current || !description.trim()) return;
+    resumed.current = true; props.onResumeGenerationConsumed?.();
+    void generate(description);
+  }, [props.resumeGeneration, description]);
+
+  const generate = async (text: string, referenceId?: string | null, photo?: VisionStartPhoto | null) => {
+    if (actions.starting || committedRef.current) return;
+    const fromExampleStart = startedFromExample.current;
+    if (fromExampleStart && !fromExampleStart.reported) {
+      fromExampleStart.reported = true;
+      AnalyticsService.track('vision_example_edited', { anchor_id: anchorId, category: fromExampleStart.category, index: fromExampleStart.index,
+        edit_distance_pct: editDistancePct(fromExampleStart.moment, text) });
+    }
+    const fromChoose = beat === 'choose', priorDeveloped = developed;
+    setDescription(text); setPhotos([]); setChosen(null); setDeveloped(new Set()); setRevealStarted(false); actions.setNotice(null);
+    setGenerationPending(true); setGenerationAttempt(value => value + 1);
+    requestTime.current = Date.now(); setBeat('develop');
+    const started = await actions.generate(text, referenceId, photo);
+    if (!alive.current) return;
+    setGenerationPending(false);
+    // At the limit, "Neither" is a dead end: stay on the developed pair and say why.
+    if (!started && fromChoose && actions.generation.lastErrorCode?.() === 'VISION_GENERATION_LIMIT') { setDeveloped(priorDeveloped); setBeat('choose'); }
+    else if (!started) setBeat('describe');
+  };
+  const pick = async (source: 'library' | 'camera') => {
+    if (committedRef.current) return;
+    if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: source });
+    const picked = await actions.pickImages(mode === 'create', source);
+    if (!picked || !alive.current) return;
+    setPhotos(picked); setChosen(0); setDeveloped(new Set()); setRevealStarted(false); setReframe({ x: 0, y: 0 }); setBeat('develop');
+  };
+  const retryGeneration = async () => {
+    setGenerationPending(true); setGenerationAttempt(value => value + 1); setRevealStarted(false); setBeat('develop');
+    await actions.generation.retry();
+    if (alive.current) setGenerationPending(false);
+  };
+  const choose = (index: number, item: VisionGenerationCandidate) => {
+    if (!item.imageUrl || !item.assetId || !developed.has(item.imageUrl) || committedRef.current) return;
+    void v2Haptics.selection(); playCreationSound('revealSettle');
+    AnalyticsService.track('vision_image_selected', { anchor_id: anchorId,
+      ...(props.visionId ? { vision_id: props.visionId } : {}), asset_id: item.assetId, source_type: 'AI_GENERATED' });
+    setChosen(index); setReframe({ x: 0, y: 0 }); setBeat('keep');
+  };
+  const save = async () => {
+    if (savingRef.current || savedRef.current) return;
+    savingRef.current = true; setSaving(true); setSaveError(null);
+    try {
+      const index = chosen ?? 0;
+      const [image, anchor] = await Promise.all([measure(printRefs.current[index]), measure(anchorRef.current)]);
+      const selection = { image, anchor };
+      let result: boolean | void;
+      if (ownPhoto && latest.current.onPhotoConfirm) {
+        const error = await latest.current.onPhotoConfirm(caption.trim());
+        if (error) throw new Error(error);
+        result = true;
+      } else if (ownPhoto) result = await actions.saveUploads(photos, description, caption.trim(), selection);
+      else {
+        if (!candidate?.assetId) throw new Error(copy.saveError);
+        const asset = { assetId: candidate.assetId, prompt: candidate.prompt || description.trim(), caption: caption.trim() };
+        result = props.onAdd ? await props.onAdd(asset) : await props.onAssemble({ description: startPhoto ? photoVisionDescription(description.trim(), anchorIntention) : description.trim(),
+          selectedAssets: [{ ...asset, imageUrl: candidate.imageUrl ?? undefined, sourceType: 'AI_GENERATED' }], selection });
+      }
+      if (result === false) throw new Error(ownPhoto ? copy.photoError : copy.saveError);
+      savedRef.current = true;
+      const elapsed = Date.now() - requestTime.current;
+      later(() => setBeat('pinned'), Math.max(0, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced) + CEREMONY.sealedMinHoldMs - elapsed));
+    } catch (cause) {
+      if (alive.current) setSaveError(cause instanceof Error ? cause.message : copy.saveError);
+    } finally { savingRef.current = false; if (alive.current) setSaving(false); }
+  };
+  const commit = () => {
+    if (committedRef.current) return;
+    committedRef.current = true; requestTime.current = Date.now(); setCommitted(true);
+    const edited = caption.trim() !== prefillVisionCaption(anchorIntention);
+    AnalyticsService.track('vision_seal_completed', { anchor_id: anchorId, mode: analyticsMode, path, caption_edited: edited, hold_attempts: attempts.current });
+    if (edited) AnalyticsService.track('vision_caption_edited', { anchor_id: anchorId, length: caption.trim().length });
+    later(() => { void safeHaptics.impact(ImpactFeedbackStyle.Heavy); playCreationSound('seal'); }, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced));
+    void save();
+  };
+  const boardRise = useSharedValue(height), ripple = useSharedValue(0), stamp = useSharedValue(1), breath = useSharedValue(0);
+  const wordExit = useSharedValue(0);
+  useEffect(() => { wordExit.value = withTiming(reading ? 0 : 1, { duration: ceremonyDuration(900, reduced) }); }, [reading, reduced]);
+  useEffect(() => {
+    if (reduced || !foreground || beat !== 'develop') { cancelAnimation(breath); breath.value = 0; return; }
+    breath.value = withRepeat(withSequence(withTiming(1, { duration: 1300 }), withTiming(0, { duration: 1300 })), -1);
+    return () => cancelAnimation(breath);
+  }, [reduced, foreground, beat]);
+  useEffect(() => {
+    if (!committed) return;
+    const timer = setTimeout(() => {
+      stamp.value = reduced ? 1 : withSequence(withTiming(1.5, { duration: 0 }), withTiming(.92, { duration: 300 }), withTiming(1, { duration: 250 }));
+    }, ceremonyDuration(CEREMONY.printMoveMs, reduced));
+    const landed = setTimeout(() => {
+      setStampComplete(true);
+      ripple.value = 0; ripple.value = withTiming(1, { duration: ceremonyDuration(CEREMONY.rippleMs, reduced) });
+    }, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced));
+    return () => { clearTimeout(timer); clearTimeout(landed); };
+  }, [committed, reduced]);
+  useEffect(() => {
+    if (beat !== 'pinned') return;
+    boardRise.value = reduced ? 0 : withTiming(0, { duration: CEREMONY.boardRiseMs, easing: Easing.bezier(.7, 0, .2, 1) });
+    const timer = setTimeout(() => {
+      void (async () => {
+        const [image, anchor] = await Promise.all([measure(printRefs.current[chosen ?? 0]), measure(anchorRef.current)]);
+        if (!alive.current) return;
+        const url = latest.current.savedImageUrl ?? heroUri;
+        if (url && image) {
+          arrival?.begin(url, image, anchorArt && anchor ? { ...anchorArt, category: anchorCategory, rect: anchor } : undefined, 'paper');
+          arrival?.resolve(url);
+        }
+        latest.current.onPinned?.();
+      })();
+    }, ceremonyDuration(CEREMONY.boardRiseMs, reduced));
+    return () => clearTimeout(timer);
+  }, [beat]);
+  const boardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: boardRise.value }] }));
+  const stampStyle = useAnimatedStyle(() => ({ transform: [{ scale: stamp.value }], opacity: 1 - breath.value * .25 }));
+  const rippleStyle = useAnimatedStyle(() => ({ opacity: reduced ? 0 : (1 - ripple.value) * .8, transform: [{ scale: .6 + ripple.value * 2.6 }] }));
+  const wordsStyle = useAnimatedStyle(() => ({ opacity: 1 - wordExit.value, transform: [{ translateY: reduced ? 0 : -30 * wordExit.value }] }));
+
+  // Ask reads top-down: copy, 28pt, frame (at most 30% of usable height), 32pt, buttons. The footer
+  // pins to the bottom only when that stack would overlap it, and the frame shrinks to keep the gap.
+  const askTop = insets.top + 60, askFrameY = askTop + askCopyH + 28;
+  const askFooterLimit = height - insets.bottom - 12 - askFooterH;
+  const askH = Math.max(96, Math.min(Math.min(width * .52, usable * .30 / 1.25) * 1.25, askFooterLimit - 32 - askFrameY));
+  const askW = askH / 1.25, askFooterTop = Math.min(askFrameY + askH + 32, askFooterLimit);
+  // DEFERRED: replaced by VisionEntrance (Oct 2026)
+  // const addPreview = mode === 'add' && Boolean(props.previewImageUrl);
+  // const example = visionDescriptionExample(anchorIntention, anchorCategory);
+  const curateW = Math.min(width * .77, usable * .44 * .8);
+  const sealW = Math.min(width * .59, usable * .34 * .8), twoW = (width - 62) / 2;
+  const curateY = insets.top + usable * .11, sealY = insets.top + usable * .055, keepY = curateY + usable * .04;
+  // Keep: lift the hero so its caption strip clears the keyboard by 16pt.
+  const lift = beat === 'keep' && keyboardH > 0 ? Math.max(0, keepY + curateW * 1.25 + 54 + 16 - (height - keyboardH)) : 0;
+  const printPlacement = (index: number): PrintPlacement => {
+    const hero = ownPhoto ? index === 0 : index === chosen;
+    // The entrance owns Ask; these prints stay invisible until Develop begins.
+    if (beat === 'ask' || beat === 'describe') return { x: (width - askW) / 2, y: askFrameY, width: askW, height: askH, rotation: 0, opacity: 0 };
+    if (beat === 'keep') return { x: (width - curateW) / 2 + (ownPhoto ? index * 7 : 0), y: hero || ownPhoto ? keepY + index * (ownPhoto ? 7 : 0) : height + 80,
+      width: curateW, height: curateW * 1.25 + 54, rotation: hero ? 0 : ownPhoto ? index % 2 ? 3 : -3 : 8, opacity: hero || ownPhoto ? 1 : 0 };
+    if (beat === 'seal' || beat === 'pinned') return { x: (width - sealW) / 2 + (ownPhoto ? index * 5 : 0), y: sealY + index * (ownPhoto ? 5 : 0),
+      width: sealW, height: sealW * 1.25 + 54, rotation: hero ? 0 : index % 2 ? 3 : -3, opacity: hero || ownPhoto ? 1 : 0 };
+    if (ownPhoto) return { x: (width - curateW) / 2 + index * 7, y: curateY + index * 7, width: curateW, height: curateW * 1.25,
+      rotation: index === 0 ? 0 : index % 2 ? 3 : -3, opacity: 1 };
+    return { x: 24 + index * (twoW + 14), y: insets.top + usable * .33, width: twoW, height: twoW * 1.5,
+      rotation: index === 0 ? -1.2 : 1.2, opacity: reading ? 0 : 1 };
+  };
+  const anchorSize = beat === 'seal' && !committed ? 128 : committed ? 78 : 48;
+  // While the entrance plays its open it owns the big centre anchor; this one appears when the lift lands.
+  const openPlaying = beat === 'ask' && !entrancePlayed.current && !reduced && !handedOff;
+  const anchorPosition: PrintPlacement = { x: committed ? (width + sealW) / 2 - 62 : (width - anchorSize) / 2,
+    y: committed ? sealY + sealW * 1.25 - 106 : beat === 'seal' ? insets.top + usable * .69 : insets.top + usable * .025,
+    // Describe scrolls under a fixed mark, so the mark steps aside there and returns on Develop.
+    width: anchorSize, height: anchorSize, opacity: beat === 'describe' || openPlaying ? 0 : 1 };
+  const fade = ceremonyDuration(CEREMONY.stageFadeMs, reduced);
+  const status = ownPhoto ? [copy.placing, copy.light, copy.developing][photoStatus] : reading ? copy.reading
+    : waitBeat >= 3 ? copy.wait40 : waitBeat >= 2 ? copy.wait20 : state.ready.length === 1 ? copy.second : waitBeat >= 1 ? copy.developingImages : copy.composing;
+  const showCaption = ['keep', 'seal', 'pinned'].includes(beat);
+  const limitReached = actions.generation.errorCode === 'VISION_GENERATION_LIMIT';
+  const liftY = useSharedValue(0);
+  useEffect(() => { liftY.value = withTiming(-lift, { duration: reduced ? 0 : 250 }); }, [lift, reduced]);
+  const liftStyle = useAnimatedStyle(() => ({ transform: [{ translateY: liftY.value }] }));
+  // DEFERRED: replaced by VisionEntrance (Oct 2026). The old frame suggestion, and its vision_ceremony_suggestion_tapped event.
+  // const suggest = () => {
+  //   if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
+  //   setDescription(example); setInputPath('words'); setBeat('describe'); void v2Haptics.selection();
+  //   AnalyticsService.track('vision_ceremony_suggestion_tapped', { anchor_id: anchorId, mode: analyticsMode });
+  // };
+  const startDescribe = () => {
+    if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
+    setInputPath('words'); setBeat('describe');
+  };
+  const pickExample = (example: VisionExample, index: number) => {
+    startedFromExample.current = { category: resolveAnchorCategory(anchorCategory), index, moment: example.moment, reported: false };
+    setFromExample({ image: example.image }); setDescription(example.moment); startDescribe();
+  };
+  const leaveExample = () => {
+    // An untouched example is not the person's words; once they step back it should not linger as a prefill.
+    if (startedFromExample.current && description === startedFromExample.current.moment) setDescription(props.initialDescription ?? '');
+    startedFromExample.current = null; setFromExample(null);
+  };
+  const back = () => {
+    if (committedRef.current) return;
+    if (beat === 'describe') { leaveExample(); setBeat('ask'); } else if (beat === 'seal') setBeat('keep');
+    else if (beat === 'keep' && !ownPhoto) { setChosen(null); setBeat('choose'); }
+    else if (beat === 'develop' || beat === 'choose') setBeat('describe'); else onBack();
+  };
+  const link = (text: string, onPress: () => void, id?: string) => <Pressable key={text} testID={id} accessibilityRole="button" accessibilityLabel={text} onPress={onPress} style={styles.link}><Text style={styles.linkText}>{text}</Text></Pressable>;
+  const primary = (text: string, onPress: () => void, ghost = false) => <Pressable testID={text === copy.keep ? 'vision-ceremony-keep' : undefined} accessibilityRole="button" accessibilityLabel={text} onPress={() => { playCreationSound('uiTap'); onPress(); }}
+    style={[styles.button, ghost && styles.ghost]}><Text style={[styles.buttonText, ghost && styles.ghostText]}>{text}</Text></Pressable>;
+
+  return <View testID={testID} style={styles.stage}>
+    <StatusBar barStyle="light-content" backgroundColor="#14162B" />
+    {beat === 'pinned' ? <Animated.View pointerEvents="none" style={[styles.board, { height: height + 50 }, boardStyle]}><VisionTornEdge width={width} color={colors.canvas} /><View style={styles.boardFill} /></Animated.View> : null}
+    {/* DEFERRED: replaced by VisionEntrance (Oct 2026). Add mode's preview print behind the empty frame (testID vision-ceremony-preview). */}
+    {/* Prints and Anchor are siblings of the changing copy, so neither ever remounts at a beat boundary. */}
+    {Array.from({ length: ownPhoto ? Math.min(3, photos.length) : 2 }, (_, index) => {
+      const uri = ownPhoto ? photos[index]?.uri : state.slots[index]?.imageUrl ?? undefined;
+      const item = state.slots[index];
+      return <VisionPrintSlot key={`print-${index}`} placement={printPlacement(index)} testID={`vision-ceremony-slot-${index}`}>
+        <Animated.View style={[styles.fill, { zIndex: ownPhoto ? 3 - index : 1 }, liftStyle]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
+          <VisionPrint uri={uri} developing={beat === 'develop'} revealed={beat !== 'ask' && beat !== 'describe' && (!reading || ownPhoto)}
+            empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption && (ownPhoto ? index === 0 : index === chosen)} caption={caption} pinned={false}
+            revealDelayMs={ownPhoto ? reduced ? 0 : 600 + index * 400 : 0} pressed={stampComplete} imageRef={node => { printRefs.current[index] = node; }}
+            onRevealStart={() => setRevealStarted(true)}
+            onDeveloped={value => setDeveloped(previous => new Set(previous).add(value))} onChangeCaption={beat === 'keep' && index === chosen ? setCaption : undefined}
+            reframe={reframe} onReframe={beat === 'keep' && index === chosen ? setReframe : undefined} testID={`vision-ceremony-print-${index}`} />
+          {/* DEFERRED: reframe returns when crop offset is persisted; the props stay wired but inert. */}
+          {/* DEFERRED: replaced by VisionEntrance (Oct 2026). The suggestion text in the empty frame (testID vision-ceremony-suggestion). */}
+          {beat === 'choose' && item ? <Pressable testID={`scene-candidate-${item.id}`} accessibilityRole="imagebutton" accessibilityLabel={`Choose image ${index + 1}`}
+            disabled={!item.imageUrl || !developed.has(item.imageUrl)} onPress={() => choose(index, item)} style={styles.fill} /> : null}
+        </Animated.View>
+      </VisionPrintSlot>;
+    }).reverse()}
+    {beat === 'ask' ? <VisionEntrance key="entrance" mode={mode} anchorId={anchorId} category={resolveAnchorCategory(anchorCategory)} anchorArt={anchorArt}
+      previewImageUrl={props.previewImageUrl} previewCaption={props.previewCaption?.trim() || anchorIntention} firstRun={!entrancePlayed.current} active={foreground}
+      notice={actions.notice} anchorTarget={anchorPosition} onAnchorHandoff={() => setHandedOff(true)} onBack={back}
+      onWords={startDescribe} onPhoto={source => { void pick(source); }} onPickExample={pickExample} onPickEmpty={startDescribe} /> : null}
+    <VisionPrintSlot placement={anchorPosition} nodeRef={anchorRef} testID="vision-ceremony-anchor">
+      <Animated.View style={[styles.mark, stampStyle]}>
+        {committed ? <Animated.View pointerEvents="none" style={[styles.ripple, rippleStyle]} /> : null}
+        <VisionSealHold active={beat === 'seal'} committed={committed} reduced={reduced} onCommit={commit}
+          onBegin={() => { attempts.current += 1; if (!sealStarted.current) { sealStarted.current = true; AnalyticsService.track('vision_seal_started', { anchor_id: anchorId, mode: analyticsMode, path }); } }}
+          onAbandon={progress => AnalyticsService.track('vision_seal_abandoned', { anchor_id: anchorId, progress: Math.round(progress * 100) / 100 })}>
+          {anchorArt ? <CircularAnchorRenderer {...anchorArt} size={anchorSize} appearance="bare" testID="vision-ceremony-anchor-art" /> : null}
+        </VisionSealHold>
+      </Animated.View>
+    </VisionPrintSlot>
+    {beat !== 'describe' && beat !== 'ask' ? <Animated.View key={beat} pointerEvents="box-none" entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
+      {!committed ? <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={back} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable> : null}
+      {/* DEFERRED: replaced by VisionEntrance (Oct 2026). The old Ask copy, intention line, category eyebrow, footer and footnote:
+      // {beat === 'ask' ? <>
+      // <View onLayout={event => setAskCopyH(Math.round(event.nativeEvent.layout.height))} style={[styles.copy, { top: askTop }]}>
+      // <View style={styles.eyebrowRow}>{mode === 'create' ? <View style={[styles.categoryDot, { backgroundColor: getCategoryColor(anchorCategory) }]} /> : null}<Text style={styles.eyebrow}>{mode === 'create' ? categoryLabel(anchorCategory) : copy.add}</Text></View>
+      // <Text numberOfLines={2} style={styles.intention}>“{anchorIntention}”</Text><Text accessibilityRole="header" style={[styles.title, { fontSize: 36, lineHeight: 38 }]}>{mode === 'create' ? copy.askCreate : copy.askAdd}</Text>
+      // </View>
+      // <View onLayout={event => setAskFooterH(Math.round(event.nativeEvent.layout.height))} style={[styles.footer, { top: askFooterTop }]}>{primary(copy.words, () => {
+      // if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
+      // setInputPath('words'); setBeat('describe');
+      // })}
+      // {primary(copy.ownPhoto, () => { void pick('library'); }, true)}{link(copy.camera, () => { void pick('camera'); })}<Text style={styles.note}>{copy.footnote}</Text>
+      // {actions.notice ? <Text accessibilityLiveRegion="polite" style={styles.error}>{actions.notice}</Text> : null}
+      // </View>
+      // </> : null}
+      */}
+      {beat === 'develop' || beat === 'choose' ? <>
+        {!ownPhoto ? <View style={[styles.copy, { top: insets.top + usable * .13 }]}><Text style={styles.eyebrow}>{copy.yourVision}</Text><Text accessibilityRole="header" style={styles.title}>{beat === 'choose' ? copy.choose : copy.future}</Text></View> : null}
+        {!ownPhoto && beat === 'develop' ? <Animated.View style={[styles.words, { top: insets.top + usable * .31 }, wordsStyle]}><Text style={styles.wordText}>{words.map((word, i) => <Text key={i} style={{ opacity: i < litWords ? 1 : .18 }}>{word} </Text>)}</Text></Animated.View> : null}
+        <View style={[styles.copy, { top: insets.top + usable * .7 }]}>
+          {beat === 'develop' ? <><Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>
+            <Svg width={150} height={10} accessible={false}><Path d="M1 5 Q75 2 149 5" stroke="#F4EDE0" strokeWidth={1.3} strokeDasharray={150} strokeDashoffset={150 * (1 - (reading ? .25 : state.ready.length ? .8 : .55))} fill="none" /></Svg>
+            {!ownPhoto ? <Text style={styles.note}>{copy.waitNote}</Text> : null}</> : null}
+          {state.phase === 'failed' ? <><Text style={styles.status}>{copy.failed}</Text><Text style={styles.note}>{state.ready.length ? copy.failedPartial : copy.failedBody}</Text>
+            {link(copy.retry, () => { void retryGeneration(); })}{link(copy.edit, () => setBeat('describe'))}</> : null}
+          {(actions.notice || actions.generation.error) && !(beat === 'choose' && limitReached) ? <Text accessibilityLiveRegion="polite" style={styles.error}>{actions.notice ?? actions.generation.error}</Text> : null}
+        </View>
+        {beat === 'choose' ? <View style={[styles.footer, { bottom: insets.bottom + 30 }]}>
+          {/* TODO(limit): SCENE jobs do not expose remaining generations; never invent a count. */}
+          {limitReached ? <Text testID="vision-ceremony-limit" accessibilityLiveRegion="polite" style={styles.note}>{actions.generation.error}</Text>
+            : link(copy.neither, () => { void generate(description, inputPath === 'words' ? undefined : null, inputPath === 'photo' ? startPhoto : undefined); })}
+        </View> : null}
+      </> : null}
+      {beat === 'keep' ? <>
+        <View style={[styles.copy, { top: insets.top + usable * .10 }]}><Text style={styles.eyebrow}>{copy.caption}</Text></View>
+        <View style={[styles.copy, { top: insets.top + usable * .65 }]}>{link(ownPhoto ? copy.replace : copy.both,
+          () => { if (ownPhoto) { if (props.onChooseAgain) props.onChooseAgain(); else void pick(photos[0].sourceType === 'USER_CAMERA' ? 'camera' : 'library'); } else { setChosen(null); setBeat('choose'); } })}<Text style={styles.note}>{copy.hint}</Text></View>
+        {keyboardH === 0 ? <View style={[styles.footer, { bottom: insets.bottom + 20 }]}>{primary(copy.keep, () => setBeat('seal'))}</View> : null}
+      </> : null}
+      {beat === 'seal' ? <>
+        <View style={[styles.copy, { top: insets.top + usable * .52 }]}><Text accessibilityRole="header" accessibilityLiveRegion="polite" style={styles.title}>{committed ? copy.sealed : copy.hold}</Text>
+          <Text style={styles.note}>{committed ? copy.leads : copy.commitment}</Text>{saveError ? <><Text accessibilityLiveRegion="polite" style={styles.error}>{saveError}</Text>{link(copy.retry, () => { void save(); }, 'vision-ceremony-save-retry')}</> : null}</View>
+        {!committed ? <Text style={[styles.press, { bottom: insets.bottom + 30 }]}>{copy.press}</Text> : null}
+      </> : null}
+    </Animated.View> : null}
+    {beat === 'describe' ? <Animated.View entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
+      <VisionMomentInput mode={mode} anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory}
+        anchorArt={anchorArt} anchorImageUrl={props.anchorImageUrl} description={description} onChangeDescription={setDescription}
+        initialDescription={description} onBack={back} onSubmit={generate} startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto}
+        inputPath={inputPath} onChangeInputPath={setInputPath} loading={actions.starting} error={actions.notice ?? actions.generation.error}
+        ceremony fromExample={fromExample ?? undefined} testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
+    </Animated.View> : null}
+  </View>;
+}
+
+const styles = StyleSheet.create({
+  stage: { flex: 1, backgroundColor: '#14162B', overflow: 'hidden' }, fill: { ...StyleSheet.absoluteFillObject },
+  copy: { position: 'absolute', left: 24, right: 24, alignItems: 'center', gap: 10 },
+  title: { fontFamily: VISION_SERIF, fontSize: 30, lineHeight: 33, color: '#F4EDE0', textAlign: 'center' },
+  intention: { fontFamily: VISION_SERIF_ITALIC, fontSize: 19, color: '#E9DFCC', textAlign: 'center' },
+  eyebrow: { fontFamily: 'Inter-SemiBold', fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: '#ADAABC', textAlign: 'center' },
+  eyebrowRow: { flexDirection: 'row', gap: 8, alignItems: 'center' }, categoryDot: { width: 6, height: 6, borderRadius: 3 },
+  back: { position: 'absolute', left: 18, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: '#F4EDE029' },
+  footer: { position: 'absolute', left: 24, right: 24, gap: 8 },
+  button: { height: 50, borderRadius: 28, backgroundColor: '#F4EDE0', justifyContent: 'center', alignItems: 'center' },
+  buttonText: { fontFamily: 'Inter-SemiBold', fontSize: 16, color: '#14162B' }, ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#F4EDE048' }, ghostText: { color: '#F4EDE0' },
+  link: { minHeight: 44, alignItems: 'center', justifyContent: 'center' }, linkText: { fontFamily: 'Inter-Medium', fontSize: 13, color: '#C4BDCF', textDecorationLine: 'underline', textAlign: 'center' },
+  note: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 18, color: '#ADAABC', textAlign: 'center' },
+  error: { fontFamily: 'Inter-Regular', fontSize: 13, color: '#F4EDE0', textAlign: 'center', lineHeight: 18 },
+  words: { position: 'absolute', left: 30, right: 30 }, wordText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 25, lineHeight: 33, color: '#F4EDE0', textAlign: 'center' },
+  status: { fontFamily: VISION_SERIF_ITALIC, fontSize: 21, color: '#F4EDE0', textAlign: 'center' },
+  // The anchor art carries its own disc; no extra border or backing (it read as a stray ring on device).
+  mark: { flex: 1, borderRadius: 100 },
+  ripple: { ...StyleSheet.absoluteFillObject, borderRadius: 100, borderWidth: 1, borderColor: '#F4EDE0' },
+  press: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontFamily: 'Inter-SemiBold', fontSize: 11, letterSpacing: 2, color: '#ADAABC' },
+  board: { position: 'absolute', left: 0, right: 0, zIndex: 10 }, boardFill: { flex: 1, backgroundColor: colors.canvas },
+  suggestion: { ...StyleSheet.absoluteFillObject, padding: 20, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  suggestionLabel: { fontFamily: 'Inter-SemiBold', fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: '#ADAABC', textAlign: 'center' },
+  suggestionText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 17, lineHeight: 24, color: 'rgba(244,237,224,0.72)', textAlign: 'center' },
+  preview: { position: 'absolute', padding: 8, borderRadius: 3, backgroundColor: '#F7F1E6', transform: [{ rotate: '-4deg' }],
+    shadowColor: '#000', shadowOpacity: .5, shadowRadius: 24, shadowOffset: { width: 0, height: 18 }, elevation: 8 },
+  previewImage: { flex: 1, backgroundColor: '#121427' },
+});

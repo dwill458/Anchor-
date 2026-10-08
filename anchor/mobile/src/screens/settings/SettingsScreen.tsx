@@ -57,6 +57,8 @@ import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { logger } from '@/utils/logger';
+import { isSfxLogEnabled } from '@/services/audio/sfxLog';
+import { AudioLogView } from './AudioLogView';
 import type { ApiResponse, User } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
 
@@ -76,6 +78,7 @@ export const SettingsScreen: React.FC = () => {
   const [activeSubscreen, setActiveSubscreen] = useState<SettingsSubscreenType>('main');
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [confirmSignOutOpen, setConfirmSignOutOpen] = useState(false);
+  const [audioLogVisible, setAudioLogVisible] = useState(false);
 
   const frameRef = useRef<number | null>(null);
   const hasMarkedReadyRef = useRef(false);
@@ -438,7 +441,7 @@ export const SettingsScreen: React.FC = () => {
           />
 
           {/* Developer Tools Section (DEV ONLY) */}
-          {__DEV__ ? (
+          {__DEV__ || process.env.NODE_ENV === 'test' ? (
             <View style={styles.devSection}>
               <SectionLabel>Developer</SectionLabel>
               <TouchableOpacity
@@ -491,7 +494,19 @@ export const SettingsScreen: React.FC = () => {
                 <Text style={styles.signOutBtnText}>Sign in</Text>
               </TouchableOpacity>
             )}
-            <Text style={styles.versionFooter}>{`Version ${appVersion}`}</Text>
+            {isSfxLogEnabled() ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Version ${appVersion}. Long press to open audio log.`}
+                onLongPress={() => setAudioLogVisible(true)}
+                delayLongPress={500}
+                testID="settings-open-audio-log"
+              >
+                <Text style={styles.versionFooter}>{`Version ${appVersion}`}</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.versionFooter}>{`Version ${appVersion}`}</Text>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -513,6 +528,8 @@ export const SettingsScreen: React.FC = () => {
         onConfirm={() => void confirmSignOut()}
         onClose={() => setConfirmSignOutOpen(false)}
       />
+
+      <AudioLogView visible={audioLogVisible} onClose={() => setAudioLogVisible(false)} />
     </View>
   );
 };

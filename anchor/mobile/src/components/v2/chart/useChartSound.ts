@@ -43,6 +43,9 @@ export function useChartSound(reducedMotion: boolean): ChartSound {
   const { createManagedPlayer } = useAudio();
   useEffect(() => {
     SoundPool.prewarm(['chart-open', 'chart-ink', 'chart-flag', 'chart-check', 'chart-stamp', 'chart-wind']);
+    return () => {
+      SoundPool.releaseIdle(['chart-open', 'chart-ink', 'chart-flag', 'chart-check', 'chart-stamp', 'chart-wind']);
+    };
   }, []);
   const reducedRef = useRef(reducedMotion);
   reducedRef.current = reducedMotion;

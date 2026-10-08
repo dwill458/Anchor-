@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CircularAnchorRenderer, V2Button, V2EmptyState } from '@/components/v2';
 import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
@@ -18,6 +18,8 @@ import type { HomeVisionState } from '@/adapters/v2/home';
 import type { V2PracticeStartRequest, V2PremiumCapabilityRequest } from './practiceRoutes';
 import { V2VisualizePrepareScreen as V2VisionVisualizePrepare } from './visualize/V2VisualizePrepareScreen';
 import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
+import { useRemoteAudioReady } from '@/hooks/useRemoteAudioReady';
+import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 
 type Props = {
   anchor: Anchor;
@@ -73,6 +75,23 @@ export function V2PracticePrepareScreen({
   const hapticsOn = (hapticIntensity ?? 70) > 0;
 
   const isVisionEmpty = mode === 'visualize' && vision.state === 'none';
+
+  // Deep Focus's longer mixes are downloaded rather than bundled. Start fetching the selected one
+  // here so the session plays it from disk; if it is not ready in time the session streams it.
+  const deepFocusAudio = useMemo(() => {
+    if (mode !== 'deep_prime' || !duration) return [];
+    const plan = resolveSessionAudioPlan({
+      sessionType: 'deep_prime',
+      durationSeconds: duration,
+      configuration: {
+        guidanceVoice: audioSettings?.guidanceVoice ?? 'female',
+        backgroundAudio: audioSettings?.backgroundAudio === 'off' ? 'off' : 'ambient',
+        source: 'default',
+      },
+    });
+    return [...plan.voiceCues.map((cue) => cue.track.asset), plan.ambientTrack?.asset];
+  }, [audioSettings?.backgroundAudio, audioSettings?.guidanceVoice, duration, mode]);
+  useRemoteAudioReady(deepFocusAudio);
 
   const begin = () => {
     if (mode === 'release') {

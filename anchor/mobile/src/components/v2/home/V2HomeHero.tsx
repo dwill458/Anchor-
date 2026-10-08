@@ -30,6 +30,8 @@ type Props = {
   thread: V2ThreadPresentation | null;
   reduceMotion?: boolean;
   frozen?: boolean;
+  /** Passed through to the carousel: true while it moves, false once it rests and commits. */
+  onMotionChange?: (moving: boolean) => void;
   testID?: string;
 };
 
@@ -365,8 +367,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   );
 }
 
-/** The entire visible hero is one of three mounted items on a shared track. */
-function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, testID }: Props) {
+/** The entire visible hero is one of five mounted items on a shared track. */
+function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, onMotionChange, testID }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const layout = resolveHomeHeroLayout({
@@ -381,7 +383,7 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
   ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, thread]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
-      onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} renderHero={renderHero} />
+      onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={onMotionChange} renderHero={renderHero} />
   </View>;
 }
 

@@ -11,6 +11,8 @@ jest.mock('../visualize/V2CinematicSessionScreen', () => ({
 }));
 jest.mock('@/components/v2/vision/board/VisionBoardScene', () => ({ VisionBoardScene: () => null }));
 jest.mock('@/components/v2/vision/board/useVisionBoardScene', () => ({ useVisionBoardScene: () => ({}) }));
+// The 10-minute guided track is downloaded, not bundled; here it is already on disk.
+jest.mock('@/hooks/useRemoteAudioReady', () => ({ useRemoteAudioReady: () => ({ readiness: 'ready', retry: jest.fn() }) }));
 
 const anchor = makeAnchor({ id: 'a1', userId: 'u1', intentionText: 'Anchor has ten thousand users' });
 

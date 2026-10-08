@@ -12,7 +12,7 @@ const mockSoundPoolPlay = jest.fn((key: string, options: { volume?: number; rate
   return { stop: jest.fn() };
 });
 jest.mock('@/services/audio/SoundPool', () => ({
-  SoundPool: { play: (...args: [string, { volume?: number; rate?: number }?]) => mockSoundPoolPlay(...args), prewarm: jest.fn() },
+  SoundPool: { play: (...args: [string, { volume?: number; rate?: number }?]) => mockSoundPoolPlay(...args), prewarm: jest.fn(), releaseIdle: jest.fn() },
 }));
 jest.mock('@/hooks/useAudio', () => ({
   useAudio: () => ({

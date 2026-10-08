@@ -1,3 +1,4 @@
+// DEFERRED: replaced by ceremony Ask beat.
 import { ScrollView, StatusBar, StyleSheet, Text, View, type ImageSourcePropType, type StyleProp, type ImageStyle } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';

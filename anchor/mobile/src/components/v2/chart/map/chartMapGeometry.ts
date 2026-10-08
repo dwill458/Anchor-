@@ -488,15 +488,23 @@ export function cameraTargetFor(p: MapPoint, s: number): { cx: number; cy: numbe
  * transform is translate(tx, ty) then scale(s). tx/ty are clamped so the map
  * never shows its edges.
  */
+export type ChartMapFrame = { mode: 'clamped' } | { mode: 'fullBleed'; artTop: number };
+
 export function clampCamera(
   cx: number,
   cy: number,
   s: number,
   viewW: number,
-  viewH: number
+  viewH: number,
+  frame?: ChartMapFrame,
 ): { tx: number; ty: number; k: number } {
   'worklet';
   const k = viewW / 852;
+  if (frame?.mode === 'fullBleed') {
+    const rawX = viewW / 2 - cx * k * s;
+    const tx = s >= 1 ? Math.max(viewW - viewW * s, Math.min(0, rawX)) : (viewW - viewW * s) / 2;
+    return { tx, ty: frame.artTop + 590 * k - cy * k * s, k };
+  }
   const loX = viewW - viewW * s;
   // DEFERRED: viewH - viewH * s assumed every viewport showed the full art.
   // Short Chart windows pan over the full landscape instead of clamping at their cropped bottom.

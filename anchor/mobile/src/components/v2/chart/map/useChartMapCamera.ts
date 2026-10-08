@@ -5,7 +5,7 @@ import type {
   SequenceStep,
   WaypointPlacement,
 } from './chartMapContracts';
-import { OVERVIEW_CAMERA, cameraTargetFor, clampCamera } from './chartMapGeometry';
+import { OVERVIEW_CAMERA, cameraTargetFor, clampCamera, type ChartMapFrame } from './chartMapGeometry';
 
 /** Prototype camFor scale (waypoint focus). */
 export const FOCUS_SCALE = 1.45;
@@ -54,10 +54,10 @@ export function setCamera(anim: ChartMapAnimState, target: CameraTarget): void {
  * then scale(s * k), in view pixels, applied to content drawn in the 852 x 1180
  * design space. Shared by the land and overlay canvases.
  */
-export function useChartMapCameraTransform(anim: ChartMapAnimState, width: number, height: number) {
+export function useChartMapCameraTransform(anim: ChartMapAnimState, width: number, height: number, frame?: ChartMapFrame) {
   return useDerivedValue(() => {
     const s = anim.camera.s.value;
-    const c = clampCamera(anim.camera.cx.value, anim.camera.cy.value, s, width, height);
+    const c = clampCamera(anim.camera.cx.value, anim.camera.cy.value, s, width, height, frame);
     return [{ translateX: c.tx }, { translateY: c.ty }, { scale: s * c.k }];
   });
 }
@@ -71,11 +71,11 @@ export const WEATHER_PARALLAX = 0.06;
  * translation away from overview. Returns view-pixel translate + map scale.
  */
 export function weatherTransformFor(
-  cx: number, cy: number, s: number, width: number, height: number,
+  cx: number, cy: number, s: number, width: number, height: number, frame?: ChartMapFrame,
 ): { tx: number; ty: number; scale: number } {
   'worklet';
-  const c = clampCamera(cx, cy, s, width, height);
-  const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, OVERVIEW_CAMERA.s, width, height);
+  const c = clampCamera(cx, cy, s, width, height, frame);
+  const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, OVERVIEW_CAMERA.s, width, height, frame);
   const s2 = s * (1 + (s - 1) * WEATHER_PARALLAX);
   // Same screen point under the map centre as the land, at the larger scale.
   const px = c.tx + cx * s * c.k;
@@ -86,9 +86,9 @@ export function weatherTransformFor(
 }
 
 /** Camera matrix for the weather layer (ChartMapWeather), derived on the UI thread. */
-export function useChartWeatherTransform(anim: ChartMapAnimState, width: number, height: number) {
+export function useChartWeatherTransform(anim: ChartMapAnimState, width: number, height: number, frame?: ChartMapFrame) {
   return useDerivedValue(() => {
-    const w = weatherTransformFor(anim.camera.cx.value, anim.camera.cy.value, anim.camera.s.value, width, height);
+    const w = weatherTransformFor(anim.camera.cx.value, anim.camera.cy.value, anim.camera.s.value, width, height, frame);
     return [{ translateX: w.tx }, { translateY: w.ty }, { scale: w.scale }];
   });
 }

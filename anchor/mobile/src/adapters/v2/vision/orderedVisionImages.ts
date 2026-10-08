@@ -29,6 +29,7 @@ export function toVisionTile(scene: VisionSceneReadModel, index: number): V2Visi
     sceneId: scene.id,
     imageUrl: scene.resolvedImageUrl,
     prompt: scene.prompt,
+    caption: scene.caption ?? null,
     sortOrder: scene.sortOrder,
     isHero: index === 0,
     sourceType: scene.sourceType,

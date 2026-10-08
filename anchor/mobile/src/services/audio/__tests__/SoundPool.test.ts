@@ -18,6 +18,7 @@ it('stops an active pooled effect when effects are switched off', async () => {
   const original = useSettingsStore.getState().soundEffectsEnabled;
   const player = {
     addListener: jest.fn(() => ({ remove: jest.fn() })),
+    isLoaded: true,
     pause: jest.fn(),
     play: jest.fn(),
     remove: jest.fn(),
@@ -42,6 +43,7 @@ it('loops a pooled bed and fades its handle before stopping', async () => {
   const original = useSettingsStore.getState().soundEffectsEnabled;
   const player = {
     addListener: jest.fn(() => ({ remove: jest.fn() })),
+    isLoaded: true,
     pause: jest.fn(),
     play: jest.fn(),
     remove: jest.fn(),
@@ -70,4 +72,297 @@ it('loops a pooled bed and fades its handle before stopping', async () => {
 
   jest.useRealTimers();
   useSettingsStore.setState({ soundEffectsEnabled: original });
+});
+
+it('waits for an unloaded player and plays when its status listener reports loaded', async () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  let loaded = false;
+  const statusListeners: Array<(status: { isLoaded: boolean; didJustFinish?: boolean }) => void> = [];
+  const player = {
+    addListener: jest.fn((_event: string, listener: (status: { isLoaded: boolean; didJustFinish?: boolean }) => void) => {
+      statusListeners.push(listener);
+      return { remove: jest.fn() };
+    }),
+    get isLoaded() { return loaded; },
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(),
+    volume: 1,
+    shouldCorrectPitch: false,
+  };
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  jest.mocked(createAudioPlayer).mockReturnValue(player as never);
+  SoundPool.register('test:wait-for-load', 1);
+
+  SoundPool.play('test:wait-for-load');
+  await Promise.resolve();
+  expect(player.play).not.toHaveBeenCalled();
+
+  loaded = true;
+  statusListeners[0]({ isLoaded: true });
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(player.play).toHaveBeenCalledTimes(1);
+  expect(player.setPlaybackRate).not.toHaveBeenCalled();
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+});
+
+it('plays even when seeking to the start rejects', async () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  const player = {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    isLoaded: true,
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.reject(new Error('seek unavailable'))),
+    setPlaybackRate: jest.fn(),
+    volume: 1,
+    shouldCorrectPitch: false,
+  };
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  jest.mocked(createAudioPlayer).mockReturnValue(player as never);
+  SoundPool.register('test:seek-rejects', 1);
+
+  SoundPool.play('test:seek-rejects');
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(player.play).toHaveBeenCalledTimes(1);
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+});
+
+it('still plays when setting a non-default rate throws', async () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  const player = {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    isLoaded: true,
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(() => { throw new Error('rate unavailable'); }),
+    volume: 1,
+    shouldCorrectPitch: false,
+  };
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  jest.mocked(createAudioPlayer).mockReturnValue(player as never);
+  SoundPool.register('test:rate-rejects', 1);
+
+  SoundPool.play('test:rate-rejects', { rate: 1.25 });
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(player.setPlaybackRate).toHaveBeenCalledWith(1.25);
+  expect(player.play).toHaveBeenCalledTimes(1);
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+});
+
+it('does not treat isLoaded alone as loaded when playbackState is buffering, but resolves on ready', async () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  let loaded = false;
+  const statusListeners: Array<(status: { isLoaded?: boolean; playbackState?: string; didJustFinish?: boolean }) => void> = [];
+  const player = {
+    addListener: jest.fn((_event: string, listener: (status: { isLoaded?: boolean; playbackState?: string; didJustFinish?: boolean }) => void) => {
+      statusListeners.push(listener);
+      return { remove: jest.fn() };
+    }),
+    get isLoaded() { return loaded; },
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(),
+    volume: 1,
+    shouldCorrectPitch: false,
+  };
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  jest.mocked(createAudioPlayer).mockReturnValue(player as never);
+  SoundPool.register('test:untruthful-loaded', 1);
+
+  SoundPool.play('test:untruthful-loaded');
+  await Promise.resolve();
+  expect(player.play).not.toHaveBeenCalled();
+
+  // Status with isLoaded: true but playbackState: 'buffering' must NOT trigger playback
+  statusListeners[0]({ isLoaded: true, playbackState: 'buffering' });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(player.play).not.toHaveBeenCalled();
+
+  // Truthful status with playbackState: 'ready' must trigger playback
+  statusListeners[0]({ playbackState: 'ready' });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(player.play).toHaveBeenCalledTimes(1);
+
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+});
+
+it('treats didJustFinish as loaded', async () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  let loaded = false;
+  const statusListeners: Array<(status: { isLoaded?: boolean; playbackState?: string; didJustFinish?: boolean }) => void> = [];
+  const player = {
+    addListener: jest.fn((_event: string, listener: (status: { isLoaded?: boolean; playbackState?: string; didJustFinish?: boolean }) => void) => {
+      statusListeners.push(listener);
+      return { remove: jest.fn() };
+    }),
+    get isLoaded() { return loaded; },
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(),
+    volume: 1,
+    shouldCorrectPitch: false,
+  };
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  jest.mocked(createAudioPlayer).mockReturnValue(player as never);
+  SoundPool.register('test:ended-reusable', 1);
+
+  SoundPool.play('test:ended-reusable');
+  await Promise.resolve();
+  expect(player.play).not.toHaveBeenCalled();
+
+  statusListeners[0]({ didJustFinish: true });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(player.play).toHaveBeenCalledTimes(1);
+
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+});
+
+it('caps live players at MAX_LIVE_PLAYERS (16) and evicts idle entries', () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  SoundPool.reset();
+
+  const makePlayer = () => ({
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    isLoaded: true,
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(),
+    volume: 1,
+    shouldCorrectPitch: false,
+  });
+
+  jest.mocked(createAudioPlayer).mockImplementation(makePlayer as never);
+
+  for (let i = 0; i < 20; i++) {
+    SoundPool.register(`test:cap-${i}`, i);
+    SoundPool.prewarm([`test:cap-${i}`]);
+  }
+
+  const { MAX_LIVE_PLAYERS, countLivePlayers } = require('../SoundPool');
+  expect(MAX_LIVE_PLAYERS).toBe(16);
+  expect(countLivePlayers()).toBeLessThanOrEqual(16);
+
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+  SoundPool.reset();
+});
+
+it('releaseIdle disposes idle players for specified keys', () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  SoundPool.reset();
+
+  const player = {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    isLoaded: true,
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(),
+    volume: 1,
+    shouldCorrectPitch: false,
+  };
+
+  jest.mocked(createAudioPlayer).mockReturnValue(player as never);
+  SoundPool.register('test:release-target', 1);
+  SoundPool.prewarm(['test:release-target']);
+
+  const { countLivePlayers } = require('../SoundPool');
+  expect(countLivePlayers()).toBe(1);
+
+  SoundPool.releaseIdle(['test:release-target']);
+  expect(player.remove).toHaveBeenCalled();
+  expect(countLivePlayers()).toBe(0);
+
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+  SoundPool.reset();
+});
+
+it('on load-timeout discards timed-out entry, releases non-current idle keys, and retries once', async () => {
+  jest.useFakeTimers();
+  const originalDebug = process.env.EXPO_PUBLIC_SFX_DEBUG;
+  process.env.EXPO_PUBLIC_SFX_DEBUG = '1';
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  SoundPool.reset();
+
+  const createdPlayers: Array<{
+    addListener: jest.Mock;
+    isLoaded: boolean;
+    pause: jest.Mock;
+    play: jest.Mock;
+    remove: jest.Mock;
+    seekTo: jest.Mock;
+    setPlaybackRate: jest.Mock;
+    volume: number;
+    shouldCorrectPitch: boolean;
+  }> = [];
+
+  jest.mocked(createAudioPlayer).mockImplementation(() => {
+    const isFirst = createdPlayers.length === 0;
+    const p = {
+      addListener: jest.fn((_e: string, listener: (s: { playbackState: string }) => void) => {
+        // Second player loads immediately as ready
+        if (!isFirst) {
+          setTimeout(() => listener({ playbackState: 'ready' }), 10);
+        }
+        return { remove: jest.fn() };
+      }),
+      isLoaded: !isFirst,
+      pause: jest.fn(),
+      play: jest.fn(),
+      remove: jest.fn(),
+      seekTo: jest.fn(() => Promise.resolve()),
+      setPlaybackRate: jest.fn(),
+      volume: 1,
+      shouldCorrectPitch: false,
+    };
+    createdPlayers.push(p);
+    return p as never;
+  });
+
+  SoundPool.register('test:timeout-retry', 1);
+  SoundPool.play('test:timeout-retry');
+
+  // Advance time past the 1500ms timeout
+  await jest.advanceTimersByTimeAsync(1600);
+
+  // First player should have timed out and been discarded via remove()
+  expect(createdPlayers[0].remove).toHaveBeenCalled();
+  // Second player should have been created on retry
+  expect(createdPlayers.length).toBe(2);
+  expect(createdPlayers[1].play).toHaveBeenCalledTimes(1);
+
+  const { getSfxLog } = require('../sfxLog');
+  const logLines = getSfxLog();
+  const retryLog = logLines.find((line: string) => line.includes('retry=1'));
+  expect(retryLog).toBeDefined();
+
+  if (originalDebug === undefined) delete process.env.EXPO_PUBLIC_SFX_DEBUG;
+  else process.env.EXPO_PUBLIC_SFX_DEBUG = originalDebug;
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+  jest.useRealTimers();
+  SoundPool.reset();
 });

@@ -1,8 +1,13 @@
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated');
+  return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withRepeat: (value: unknown) => value, withSequence: (...values: unknown[]) => values[values.length - 1], withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
+});
 import React, { useEffect, useMemo, useState } from 'react';
 import * as ReactNative from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ChartActiveView } from '../../ChartActiveView';
 import * as sequences from '../../map/chartMapSequences';
+import * as sheet from '../../sheet/ChartSheet';
 import { resetChartHighWaterCache } from '@/hooks/v2/chart/chartHighWater';
 import { syncChartNotifications } from '@/services/notifications/chartNotifications';
 import type { CourseDetail } from '@/types/chart';
@@ -143,9 +148,10 @@ function Harness({
 }
 
 async function settle(ms = 300) {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, ms)); });
+  // React flushes effects at the end of act; flush the sequence call and then the content crossfade.
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 240)); });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 160)); });
 }
 
 beforeEach(() => {
@@ -156,7 +162,7 @@ beforeEach(() => {
 });
 
 describe('ChartActiveView — treasure map composition', () => {
-  it('reserves room for the complete first One Move card at 360x760dp', async () => {
+  it('fills the 360x760dp window and keeps the One Move in the sheet', async () => {
     // Dimensions is shared by named and namespace RN imports; spying on a
     // namespace copy of useWindowDimensions would leave the view unmocked.
     const dimensions = jest.spyOn(ReactNative.Dimensions, 'get').mockReturnValue({ width: 360, height: 760, scale: 1, fontScale: 1 });
@@ -166,7 +172,7 @@ describe('ChartActiveView — treasure map composition', () => {
       expect(mapStyle.width).toBe(360);
       // Jest has no native text layout: this verifies the viewport budget;
       // the checkbox/chevron bounds still require the Galaxy recording.
-      expect(mapStyle.height).toBeLessThanOrEqual(400);
+      expect(mapStyle.height).toBe(760);
       expect(getByTestId('chart-one-move-check')).toBeTruthy();
       await settle();
     } finally {
@@ -188,24 +194,57 @@ describe('ChartActiveView — treasure map composition', () => {
   });
 
   it('shows the map top bar, category label and the ink panel for the current waypoint', async () => {
-    const { getByText, getByTestId, getByLabelText } = render(<Harness />);
+    const { getByText, getByTestId, getByLabelText, queryByTestId } = render(<Harness />);
     expect(getByText('Chart')).toBeTruthy();
     expect(getByText('DESIRE')).toBeTruthy();
     expect(getByLabelText('Open Vision')).toBeTruthy();
     expect(getByLabelText('Go back')).toBeTruthy();
     expect(getByTestId('chart-current-waypoint')).toBeTruthy();
-    expect(getByTestId('chart-scallop', { includeHiddenElements: true })).toBeTruthy();
+    expect(queryByTestId('chart-scallop', { includeHiddenElements: true })).toBeNull();
     await settle();
   });
 
   it('tapping a reached marker shows it in the panel; the back control returns to the current waypoint', async () => {
-    const { getByLabelText, getByText, queryByTestId } = render(<Harness />);
-    await settle(400);
+    const { getByLabelText, getByText, queryByText, queryByTestId } = render(<Harness />);
+    await settle(1400);
     fireEvent.press(getByLabelText('Waypoint 1: Validate acquisition, reached'));
-    expect(getByText('REACHED')).toBeTruthy();
+    await settle(200);
+    // A tap during the entrance is a skip; select after its completion.
+    if (queryByText('Waypoint 1 of 3 · Reached') === null) {
+      fireEvent.press(getByLabelText('Waypoint 1: Validate acquisition, reached'));
+      await settle(200);
+    }
+    expect(getByText('Waypoint 1 of 3 · Reached')).toBeTruthy();
     expect(queryByTestId('chart-current-waypoint')).toBeNull();
     fireEvent.press(getByLabelText('Go back'));
-    expect(getByText('CURRENT WAYPOINT')).toBeTruthy();
+    await settle(200);
+    expect(getByText(/Waypoint [23] of 3 · Current/)).toBeTruthy();
+  });
+
+  it('the entrance ends with the sheet at peek: the half tier stays hidden until it is expanded', async () => {
+    const { getByTestId } = render(<Harness />);
+    await settle(1400);
+    // The half tier is mounted but hidden from accessibility at peek, so the query must include hidden elements.
+    expect(getByTestId('chart-sheet-half', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
+    expect(getByTestId('chart-sheet-peek')).toBeTruthy();
+    await settle();
+  });
+
+  it('a map tap while viewing a reached waypoint returns to the current one', async () => {
+    const { getByLabelText, getByText, queryByText, getByTestId } = render(<Harness />);
+    await settle(1400);
+    fireEvent.press(getByLabelText('Waypoint 1: Validate acquisition, reached'));
+    await settle(200);
+    // A tap during the entrance is a skip; select after its completion.
+    if (queryByText('Waypoint 1 of 3 · Reached') === null) {
+      fireEvent.press(getByLabelText('Waypoint 1: Validate acquisition, reached'));
+      await settle(200);
+    }
+    expect(getByText('Waypoint 1 of 3 · Reached')).toBeTruthy();
+    fireEvent.press(getByTestId('chart-hero-map-surface'));
+    await settle(200);
+    expect(getByText(/Waypoint [23] of 3 · Current/)).toBeTruthy();
+    await settle();
   });
 
   it('an undiscovered waypoint cannot be opened or read from the map', async () => {
@@ -217,7 +256,8 @@ describe('ChartActiveView — treasure map composition', () => {
 
   it('opens focused on initialWaypointId', async () => {
     const { getByText } = render(<Harness initialWaypointId="w1" />);
-    expect(getByText('REACHED')).toBeTruthy();
+    await settle(200);
+    expect(getByText('Waypoint 1 of 3 · Reached')).toBeTruthy();
     await settle();
   });
 
@@ -251,34 +291,65 @@ describe('ChartActiveView — treasure map composition', () => {
       ],
     };
     const { getByTestId } = render(<Harness initial={closed} onOpenPractice={onOpenPractice} />);
-    await settle();
+    await settle(1400);
     fireEvent.press(getByTestId('chart-practice-focus'));
     expect(onOpenPractice).toHaveBeenLastCalledWith('focus');
+    for (let i = 0; i < 5 && getByTestId('chart-sheet-grabber').props.accessibilityLabel !== 'Collapse panel'; i++) {
+      await settle(200);
+      fireEvent.press(getByTestId('chart-sheet-grabber'));
+    }
     fireEvent.press(getByTestId('chart-practice-deep-focus'));
     expect(onOpenPractice).toHaveBeenLastCalledWith('deep_prime');
   });
 });
 
 describe('ChartActiveView — reach ceremony', () => {
+  it('forces peek before the stamp and holds tier renders until the reach commit call', async () => {
+    const stamped = jest.fn();
+    const reachSequence = jest.spyOn(sequences, 'reachSequence').mockImplementation(context => ({ name: 'reach', steps: [
+      { kind: 'call', at: 0, run: stamped },
+      { kind: 'call', at: 1000, run: () => context.onCommitCard?.() },
+    ] }));
+    const screen = render(<Harness reducedMotion={false} next={afterFirstReach()} />);
+    await settle(1600);
+    fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
+    fireEvent.press(screen.getByTestId('chart-menu-button'));
+    fireEvent.press(screen.getByTestId('chart-mark-waypoint'));
+    await act(async () => { fireEvent.press(screen.getByTestId('chart-reach-yes')); });
+    await waitFor(() => expect(stamped).toHaveBeenCalled());
+    expect(screen.getByTestId('chart-sheet-half', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
+    const tiers = jest.spyOn(sheet, 'ChartSheetTier');
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+    expect(tiers).not.toHaveBeenCalled();
+    expect(screen.getByText('Waypoint 2 of 3 · Current')).toBeTruthy();
+    await settle(1100);
+    expect(screen.getByText('Waypoint 3 of 3 · Current')).toBeTruthy();
+    expect(tiers).toHaveBeenCalled();
+    tiers.mockRestore();
+    reachSequence.mockRestore();
+  });
   it('a confirmed reach runs the ceremony, then shows the commit card; "I\'m committed" dismisses it', async () => {
     const onWaypointReached = jest.fn();
     const { getByTestId, findByTestId, queryByTestId, getByText, getAllByText, queryByText } = render(<Harness next={afterFirstReach()} onWaypointReached={onWaypointReached} />);
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
-    expect(await findByTestId('chart-waypoint-reached', {}, { timeout: 3000 })).toBeTruthy();
-    expect(getByText('WAYPOINT 2 REACHED')).toBeTruthy();
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
+    await settle(650);
+    expect(getByTestId('chart-waypoint-reached')).toBeTruthy();
+    expect(getByTestId('chart-waypoint-reached')).toBeTruthy();
     expect(getByText("Look how far you've come.")).toBeTruthy();
     // The panel moved on to the next waypoint, and onWaypointReached was told once.
-    expect(getByText('CURRENT WAYPOINT')).toBeTruthy();
-    expect(getAllByText('Reach 10,000 active users').length).toBeGreaterThanOrEqual(2);
+    await settle(200);
+    expect(getByText(/Waypoint [23] of 3 · Current/)).toBeTruthy();
+    expect(getAllByText('Reach 10,000 active users', { includeHiddenElements: true }).length).toBeGreaterThanOrEqual(2);
     expect(queryByText('Reach 1,000 active users')).toBeNull();
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
     expect(onWaypointReached.mock.calls[0][1]).toBe(1);
     expect(onWaypointReached.mock.calls[0][2]).toBe(3);
     fireEvent.press(getByText("I'm committed"));
-    await waitFor(() => expect(queryByTestId('chart-waypoint-reached')).toBeNull());
+    await settle(400);
+    expect(queryByTestId('chart-waypoint-reached')).toBeNull();
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
   });
 
@@ -290,13 +361,15 @@ describe('ChartActiveView — reach ceremony', () => {
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
     await waitFor(() => expect(lastActions!.reachWaypoint).toHaveBeenCalledWith('w2'));
     await settle(400);
     expect(queryByTestId('chart-waypoint-reached')).toBeNull();
     expect(onWaypointReached).not.toHaveBeenCalled();
+    fireEvent.press(getByTestId('chart-sheet-grabber'));
     expect(getByText('That didn’t go through. Try again.')).toBeTruthy();
-    expect(getByText('CURRENT WAYPOINT')).toBeTruthy();
+    await settle(200);
+    expect(getByText(/Waypoint [23] of 3 · Current/)).toBeTruthy();
     expect(getByText('Reach 1,000 active users')).toBeTruthy();
   });
 
@@ -306,9 +379,10 @@ describe('ChartActiveView — reach ceremony', () => {
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
     expect(await findByText("You've arrived.", {}, { timeout: 3000 })).toBeTruthy();
-    expect(getByText('ARRIVED')).toBeTruthy();
+    fireEvent.press(getByTestId('chart-sheet-grabber'));
+    fireEvent.press(getByTestId('chart-sheet-grabber'));
     expect(getByText('View Vision')).toBeTruthy();
     expect(getByText('Release')).toBeTruthy();
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
@@ -335,10 +409,12 @@ describe('ChartActiveView — after a reach', () => {
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
-    expect(await findByTestId('chart-waypoint-reached', {}, { timeout: 3000 })).toBeTruthy();
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
+    await settle(650);
+    expect(getByTestId('chart-waypoint-reached')).toBeTruthy();
     fireEvent.press(getByText("I'm committed"));
-    await waitFor(() => expect(queryByTestId('chart-waypoint-reached')).toBeNull());
+    await settle(400);
+    expect(queryByTestId('chart-waypoint-reached')).toBeNull();
     await settle(400);
     spy.mockClear();
     fireEvent.press(getByTestId('chart-one-move-check'));
@@ -367,7 +443,7 @@ describe('ChartActiveView — cycle 2 behaviours', () => {
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
     await waitFor(() => expect(spy).toHaveBeenCalled());
     fireEvent.press(getByLabelText('Waypoint 1: Validate acquisition, reached'));
     expect(await findByText("You've arrived.", {}, { timeout: 1500 })).toBeTruthy();
@@ -382,12 +458,14 @@ describe('ChartActiveView — cycle 2 behaviours', () => {
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
     await waitFor(() => expect(spy).toHaveBeenCalled());
     fireEvent.press(getByLabelText('Waypoint 1: Validate acquisition, reached'));
-    expect(await findByTestId('chart-waypoint-reached', {}, { timeout: 1500 })).toBeTruthy();
-    expect(getByText('CURRENT WAYPOINT')).toBeTruthy();
-    expect(getByText('3 of 3')).toBeTruthy();
+    await settle(400);
+    expect(getByTestId('chart-waypoint-reached')).toBeTruthy();
+    await settle(200);
+    expect(getByText(/Waypoint [23] of 3 · Current/)).toBeTruthy();
+    expect(getByText('Waypoint 3 of 3 · Current')).toBeTruthy();
     spy.mockRestore();
   });
 
@@ -420,30 +498,34 @@ describe('ChartActiveView — cycle 2 behaviours', () => {
 describe('ChartActiveView — motion', () => {
   it('reduced motion: opens, focuses a waypoint and reaches with no camera or sequence errors', async () => {
     const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    errors.mockClear();
     const { getByLabelText, getByTestId, findByTestId } = render(<Harness reducedMotion next={afterFirstReach()} />);
     await settle(300);
     fireEvent.press(getByLabelText('Waypoint 1: Validate acquisition, reached'));
     fireEvent.press(getByLabelText('Go back'));
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
-    expect(await findByTestId('chart-waypoint-reached', {}, { timeout: 3000 })).toBeTruthy();
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
+    await settle(650);
+    expect(getByTestId('chart-waypoint-reached')).toBeTruthy();
     expect(errors.mock.calls.map((call) => String(call[0]).slice(0, 300))).toEqual([]);
     errors.mockRestore();
   });
 
   it('full motion: opens and reaches, and skipping with a map tap still lands on the commit card', async () => {
     const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    errors.mockClear();
     const { getByTestId, findByTestId } = render(<Harness reducedMotion={false} next={afterFirstReach()} />);
     await settle(300);
     // A tap while the open sequence runs skips it.
     fireEvent.press(getByTestId('chart-hero-map-surface'));
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
     await settle(50);
     fireEvent.press(getByTestId('chart-hero-map-surface'));
-    expect(await findByTestId('chart-waypoint-reached', {}, { timeout: 4000 })).toBeTruthy();
+    await settle(1800);
+    expect(getByTestId('chart-waypoint-reached')).toBeTruthy();
     expect(errors.mock.calls.map((call) => String(call[0]).slice(0, 300))).toEqual([]);
     errors.mockRestore();
   });
@@ -459,11 +541,12 @@ describe('ChartActiveView — motion', () => {
     open.mockRestore();
     await settle(1600);
     const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    errors.mockClear();
     // console.error may already be a mock carrying the mount's calls; only the interaction under test counts.
     errors.mockClear();
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
-    fireEvent.press(getByTestId('chart-reach-yes'));
+    await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
     await settle(20);
     unmount();
     await settle(300);

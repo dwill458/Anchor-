@@ -25,9 +25,10 @@ type Props = {
   actions: ReadonlyArray<VisionChoiceAction>;
   onChoose: (key: string) => void;
   testID?: string;
+  neutral?: boolean;
 };
 
-function ChoiceRow({ action, first, testID, onPress }: { action: VisionChoiceAction; first: boolean; testID: string; onPress: () => void }) {
+function ChoiceRow({ action, first, testID, onPress, neutral }: { action: VisionChoiceAction; first: boolean; testID: string; onPress: () => void; neutral?: boolean }) {
   const press = usePressScale(0.985);
   const { Icon } = action;
   return (
@@ -41,8 +42,8 @@ function ChoiceRow({ action, first, testID, onPress }: { action: VisionChoiceAct
       onPressOut={press.onPressOut}
       style={[styles.row, !first && styles.rowRule, press.style]}
     >
-      <View style={styles.well}>
-        <Icon size={20} color={action.destructive ? colors.semantic.error : VISION_GOLD} strokeWidth={1.6} />
+      <View style={[styles.well, neutral && { borderColor: colors.border.default }]}>
+        <Icon size={20} color={neutral ? colors.text.primary : action.destructive ? colors.semantic.error : VISION_GOLD} strokeWidth={1.6} />
       </View>
       <View style={styles.copy}>
         <Text style={[styles.label, action.destructive && styles.labelDestructive]}>{action.label}</Text>
@@ -58,7 +59,7 @@ function ChoiceRow({ action, first, testID, onPress }: { action: VisionChoiceAct
  * scrim, follows a drag by its handle, and dismisses on a flick. Choosing closes
  * the sheet first and acts once it has left, so a picker never opens over it.
  */
-export function VisionChoiceSheet({ visible, onClose, title, subtitle, actions, onChoose, testID = 'vision-choice-sheet' }: Props) {
+export function VisionChoiceSheet({ visible, onClose, title, subtitle, actions, onChoose, testID = 'vision-choice-sheet', neutral }: Props) {
   const reduceMotion = useV2ReduceMotion();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -80,7 +81,7 @@ export function VisionChoiceSheet({ visible, onClose, title, subtitle, actions, 
         </V2SheetGrabZone>
         <View>
           {actions.map((action, index) => (
-            <ChoiceRow key={action.key} action={action} first={index === 0} testID={`${testID}-${action.key}`} onPress={() => choose(action.key)} />
+            <ChoiceRow key={action.key} action={action} first={index === 0} neutral={neutral} testID={`${testID}-${action.key}`} onPress={() => choose(action.key)} />
           ))}
         </View>
       </SafeAreaView>

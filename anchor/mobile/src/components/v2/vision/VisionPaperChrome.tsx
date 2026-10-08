@@ -13,7 +13,7 @@ export const VISION_SERIF_REGULAR = 'EBGaramond-Regular';
 export const VISION_SERIF_ITALIC = 'EBGaramond-Italic';
 
 /** Round ink back button used on the creation screens (mockups 1-3). */
-export function VisionBackButton({ onPress, label = 'Go back', style }: { onPress: () => void; label?: string; style?: StyleProp<ViewStyle> }) {
+export function VisionBackButton({ onPress, label = 'Go back', style, color = VISION_GOLD }: { onPress: () => void; label?: string; style?: StyleProp<ViewStyle>; color?: string }) {
   const press = usePressScale(0.92);
   return (
     <AnimatedPressable
@@ -25,7 +25,7 @@ export function VisionBackButton({ onPress, label = 'Go back', style }: { onPres
       hitSlop={8}
       style={[styles.back, style, press.style]}
     >
-      <ArrowLeft size={22} color={VISION_GOLD} />
+      <ArrowLeft size={22} color={color} />
     </AnimatedPressable>
   );
 }

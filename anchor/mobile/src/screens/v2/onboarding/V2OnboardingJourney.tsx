@@ -481,17 +481,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
       </View>
     );
 
-  // Chrome follows the surface beneath it: photography on Screen 2, cream from the question on.
-  const header = leaving
-    ? { from: 3, to: 3, current: 3, clock: leaveClock, window: leaveTimeline.progress }
-    : {
-        from: step === "bridge" || focusEntry === "handoff" ? 2 : 3,
-        to: 3,
-        current: step === "bridge" ? 2 : 3,
-        clock: handoff,
-        window: timeline.progress,
-      };
-
   return (
     <View style={[styles.screen, styles.openingScreen]} testID={step === "motivation" ? "v2-onboarding-motivation" : undefined}>
       <StatusBar style={step === "motivation" ? "dark" : "light"} translucent backgroundColor="transparent" />
@@ -525,12 +514,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
       <OpeningProgressHeader
         key="progress"
         topInset={insets.top}
-        from={header.from}
-        to={header.to}
-        current={header.current}
-        clock={header.clock}
-        window={header.window}
-        reduceMotion={reduceMotion}
         onBack={back}
         onSkip={onDevSkip}
         interactive={!handingOff && !leaving}

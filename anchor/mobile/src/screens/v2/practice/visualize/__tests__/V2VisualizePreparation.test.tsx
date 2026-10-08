@@ -10,6 +10,11 @@ jest.mock('../V2CinematicSessionScreen', () => ({
 }));
 jest.mock('@/components/v2/vision/board/VisionBoardScene', () => ({ VisionBoardScene: () => null }));
 jest.mock('@/components/v2/vision/board/useVisionBoardScene', () => ({ useVisionBoardScene: () => ({}) }));
+let mockAudioReadiness: 'ready' | 'downloading' | 'failed' = 'ready';
+const mockAudioRetry = jest.fn();
+jest.mock('@/hooks/useRemoteAudioReady', () => ({
+  useRemoteAudioReady: () => ({ readiness: mockAudioReadiness, retry: mockAudioRetry }),
+}));
 const anchor = makeAnchor({ id: 'a1', userId: 'u1', intentionText: 'My real intention' });
 const tiles = [{ id: 'p1', sceneId: 'p1', imageUrl: 'https://example.com/photo.jpg', prompt: null, sortOrder: 0, isHero: true }];
 const prepared: any = { anchor, statement: 'My saved Vision', visionId: 'v1', assets: { tiles, images: [{}] }, markLocal: {} };
@@ -71,6 +76,26 @@ describe('Visualize prepares behind its real setup board', () => {
       }
     } finally {
       jest.useRealTimers();
+    }
+  });
+
+  it('holds Begin until a downloaded guided track is on disk, and offers a retry when it fails', () => {
+    try {
+      mockAudioReadiness = 'downloading';
+      const view = setup();
+      act(() => mockPreparation.onPrepared(prepared));
+      expect(view.getByText("Downloading this session's audio...")).toBeTruthy();
+      expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
+      view.unmount();
+
+      mockAudioReadiness = 'failed';
+      const failed = setup();
+      act(() => mockPreparation.onPrepared(prepared));
+      expect(failed.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
+      fireEvent.press(failed.getByText('Retry download'));
+      expect(mockAudioRetry).toHaveBeenCalled();
+    } finally {
+      mockAudioReadiness = 'ready';
     }
   });
 

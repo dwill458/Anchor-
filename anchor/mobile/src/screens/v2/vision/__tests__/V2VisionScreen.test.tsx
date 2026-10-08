@@ -158,9 +158,9 @@ describe('V2VisionScreen', () => {
       <V2VisionScreen anchorId="anchor-1" />,
     );
 
-    const emptyFlow = await findByTestId('v2-vision-creation-flow-empty');
+    const emptyFlow = await findByTestId('vision-ceremony');
     expect(emptyFlow).toBeTruthy();
-    expect(getByTestId('v2-vision-creation-flow-empty')).toBeTruthy();
+    expect(getByTestId('vision-ceremony')).toBeTruthy();
   });
 
   it('renders the saved hero and description when real data exists', async () => {
@@ -228,7 +228,7 @@ describe('V2VisionScreen', () => {
     });
   });
 
-  it('focusing a photo offers Replace, Regenerate and Remove; Remove confirms and archives it', async () => {
+  it('a sealed photo offers Regenerate and Remove; Remove confirms and archives it', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
     (apiClient.delete as jest.Mock).mockResolvedValue({ data: { success: true } });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
@@ -236,7 +236,7 @@ describe('V2VisionScreen', () => {
     const second = await view.findByLabelText('Vision image 2 of 3');
     const focus = () => act(() => { fireEvent(second, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } }); });
     focus();
-    expect(view.getByLabelText('Replace')).toBeTruthy();
+    expect(view.queryByLabelText('Replace')).toBeNull();
     expect(view.getByLabelText('Regenerate')).toBeTruthy();
     // Back returns the camera to the whole board.
     fireEvent.press(view.getByLabelText('Back to the whole board'));

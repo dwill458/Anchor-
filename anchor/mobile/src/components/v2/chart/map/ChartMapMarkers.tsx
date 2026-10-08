@@ -1,3 +1,4 @@
+import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -174,6 +175,7 @@ const GhostMarker = memo(function GhostMarker({ cx, cy, ringR, k, opacity = 0.4,
 });
 
 type Props = {
+  frame?: ChartMapFrame;
   width: number;
   height: number;
   anim: ChartMapAnimState;
@@ -197,7 +199,7 @@ type Props = {
  * translate(tx, ty) scale(s), applied about the container centre.
  */
 export const ChartMapMarkers = memo(function ChartMapMarkers({
-  width, height, anim, placement, markers, categoryColor, category, interactive = true, arrived, clouds = false, onMarkerPress,
+  width, height, anim, placement, markers, categoryColor, category, interactive = true, arrived, clouds = false, onMarkerPress, frame,
 }: Props) {
   const k = width / MAP_W;
   const ordered = useMemo(() => [...markers].sort((a, b) => a.index - b.index), [markers]);
@@ -206,7 +208,7 @@ export const ChartMapMarkers = memo(function ChartMapMarkers({
 
   const cameraStyle = useAnimatedStyle(() => {
     const s = anim.camera.s.value;
-    const c = clampCamera(anim.camera.cx.value, anim.camera.cy.value, s, width, height);
+    const c = clampCamera(anim.camera.cx.value, anim.camera.cy.value, s, width, height, frame);
     // Scale about the centre (RN default origin): T' = T + (s - 1) * centre.
     return {
       transform: [

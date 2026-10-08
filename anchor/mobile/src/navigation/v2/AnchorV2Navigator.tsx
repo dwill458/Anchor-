@@ -4,6 +4,7 @@ import { BackHandler, Pressable, StyleSheet, View, useWindowDimensions } from 'r
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2DevelopmentHome } from '@/screens/v2/home';
 import { V2EvolvingAnchorPrototype, V2SystemGallery } from '@/screens/v2/system';
 import { V2FirstRunFlow } from '@/screens/v2/onboarding';
@@ -327,6 +328,7 @@ function V2ProgressRouteScreen() {
 function V2LoginRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'Login'>>();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.loginContainer}>
@@ -336,9 +338,11 @@ function V2LoginRouteScreen() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => navigation.goBack()}
-          style={styles.loginBackButton}
+          hitSlop={8}
+          // Centred on the Login hero's 44pt top row, which starts 8pt below the inset.
+          style={[styles.loginBackButton, { top: insets.top + 10 }]}
         >
-          <ArrowLeft color="#F5F5F1" size={20} strokeWidth={2} />
+          <ArrowLeft color="#171717" size={20} strokeWidth={1.9} />
         </Pressable>
       ) : null}
     </View>
@@ -448,18 +452,18 @@ const PRACTICE_OPTIONS = ({ route }: { route: RouteProp<AnchorV2StackParamList, 
   (route.params?.anchorTransition ? { animation: 'none' as const } : {});
 
 const styles = StyleSheet.create({
+  // Login opens on cream paper; matching it keeps the push transition from flashing dark.
   loginContainer: {
     flex: 1,
-    backgroundColor: '#080C10',
+    backgroundColor: '#F4F1E9',
   },
   loginBackButton: {
     position: 'absolute',
-    top: 52,
-    left: 18,
+    left: 12,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(23, 23, 23, 0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,

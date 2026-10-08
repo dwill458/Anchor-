@@ -17,6 +17,7 @@ import { useAudio } from '@/hooks/useAudio';
 import { NodeToneService } from '@/services/NodeToneService';
 import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
 import { SoundPool } from '@/services/audio/SoundPool';
+import { sfxLog } from '@/services/audio/sfxLog';
 import { useHighRefreshRate } from '@/hooks/useHighRefreshRate';
 import { useCreationReduceMotion } from '@/hooks/useReduceMotionEnabled';
 import { useSaveAnchor } from '@/hooks/useSaveAnchor';
@@ -221,12 +222,23 @@ export default function AnchorCreationFlowScreen() {
   }, [field]);
   useEffect(() => () => useIntentionHandoffStore.getState().release(), []);
   useEffect(() => {
-    SoundPool.prewarm([
-      'creation:seal', 'creation:bloom', 'creation:uiTap', 'creation:formTick',
-      'creation:formSettle', 'creation:distillTick', 'creation:sealRise', 'creation:revealSettle',
-      'creation:releaseFall', 'creation:releaseResolve', 'creation:releaseBurn', 'creation:releaseIgnite',
-    ]);
+    SoundPool.prewarm(['creation:uiTap', 'creation:distillTick']);
+    return () => {
+      NodeToneService.release();
+      SoundPool.releaseIdle();
+    };
   }, []);
+
+  useEffect(() => {
+    if (phase === 'style' || phase === 'form') {
+      NodeToneService.release();
+      SoundPool.releaseIdle(['creation:distillTick']);
+      SoundPool.prewarm(['creation:bloom', 'creation:formTick', 'creation:formSettle']);
+    } else if (phase === 'choose') {
+      SoundPool.releaseIdle(['creation:bloom', 'creation:formTick', 'creation:formSettle']);
+      SoundPool.prewarm(['creation:revealSettle', 'creation:sealRise', 'creation:seal']);
+    }
+  }, [phase]);
 
   /**
    * Work that must not run while the seal plays (analytics, persisted counters). It is flushed once
@@ -276,6 +288,9 @@ export default function AnchorCreationFlowScreen() {
   const currentBeatRef = useRef<BeatId | null>(null);
   const enterBeat = useCallback((beat: BeatId) => {
     if (currentBeatRef.current === beat) return;
+    if (beat === 'forget' || beat === 'style') {
+      NodeToneService.release();
+    }
     if (currentBeatRef.current) {
       FrictionAnalytics.stepCompleted('anchor_creation', currentBeatRef.current, { source: 'creation_flow' });
     }
@@ -300,11 +315,13 @@ export default function AnchorCreationFlowScreen() {
   const formSoundRef = useRef<CreationSoundHandle | null>(null);
   const formBedSoundRef = useRef<CreationSoundHandle | null>(null);
   const stopFormBedSound = useCallback(() => {
+    if (formBedSoundRef.current) sfxLog('formBed stop');
     formBedSoundRef.current?.stop(300);
     formBedSoundRef.current = null;
   }, []);
   const startFormBedSound = useCallback(() => {
     stopFormBedSound();
+    sfxLog(`formBed start foreground=${foregroundRef.current}`);
     formBedSoundRef.current = foregroundRef.current
       ? playCreationSound('formBed', undefined, { loop: true })
       : null;
@@ -318,6 +335,7 @@ export default function AnchorCreationFlowScreen() {
   const startBloomSound = useCallback(() => {
     // DEFERRED: stopping only bloom left a previous attempt's craft tick sounding on retry.
     stopFormSounds();
+    sfxLog(`creationEvent bloom foreground=${foregroundRef.current}`);
     bloomSoundRef.current = foregroundRef.current ? playCreationSound('bloom') : null;
   }, [stopFormSounds]);
   useEffect(() => {
@@ -755,7 +773,10 @@ export default function AnchorCreationFlowScreen() {
     });
   }, [deferUntilArrived, flushDeferred]);
 
-  const onSealLanded = useCallback(() => { playCreationSound('seal'); }, []);
+  const onSealLanded = useCallback(() => {
+    sfxLog('seal onSealLanded');
+    playCreationSound('seal');
+  }, []);
   const choose = useChooseController({
     onSealLanded,
     onHoldComplete,
@@ -884,6 +905,7 @@ export default function AnchorCreationFlowScreen() {
           formCraftCues(prevTf, tf, { slow: tf >= FORM_SLOW_CAPTION_AFTER }).forEach((cue) => {
             if (formCuesFiredRef.current.has(cue.id)) return;
             formCuesFiredRef.current.add(cue.id);
+            sfxLog(`formCue id=${cue.id} sound=${cue.sound ?? 'none'} foreground=${foregroundRef.current}`);
             if (!foregroundRef.current) return;
             if (cue.haptic) tick(cue.haptic === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
             if (cue.sound) {

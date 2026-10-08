@@ -1,3 +1,4 @@
+import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Canvas } from '@shopify/react-native-skia';
@@ -26,6 +27,7 @@ const WEATHER_SETTLE_MS = 34;
 export const CHART_FIRST_DRAW_HOLD_MS = 150;
 
 export type ChartMapProps = {
+  frame?: ChartMapFrame;
   width: number;
   height?: number;
   table: RouteTable;
@@ -68,7 +70,7 @@ export type ChartMapProps = {
  * that is not a marker calls onMapPress. Height = width * MAP_H / MAP_W.
  */
 export const ChartMap = memo(function ChartMap({
-  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, weather = 'static', continuous = false, onShown, onMarkerPress, onMapPress, testID,
+  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, weather = 'static', continuous = false, onShown, onMarkerPress, onMapPress, testID, frame,
 }: ChartMapProps) {
   const height = viewportHeight ?? (width * MAP_H) / MAP_W;
   const [artReady, setArtReady] = useState(hasDecodedChartLandscape);
@@ -107,7 +109,7 @@ export const ChartMap = memo(function ChartMap({
   const fade = useAnimatedStyle(() => ({ opacity: visible ? anim.mapOpacity.value : 0 }));
   // Until the map is visible, living weather holds closed cover in its place (the ChartWeatherHold look).
   const tiles = useCloudTiles(living);
-  const weatherTransform = useChartWeatherTransform(anim, width, height);
+  const weatherTransform = useChartWeatherTransform(anim, width, height, frame);
   // DEFERRED: const veil = living && !visible && tiles;
   const veil = living && !visible && tiles && !shownBare && anim.closed.value >= 1;
 
@@ -160,7 +162,7 @@ export const ChartMap = memo(function ChartMap({
           importantForAccessibility="no-hide-descendants"
         >
           <Canvas style={{ width, height }}>
-            <ChartMapLand width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} onArtReady={onArtReady} />
+            <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} onArtReady={onArtReady} />
           </Canvas>
         </View>
         {livingActive ? (
@@ -171,7 +173,7 @@ export const ChartMap = memo(function ChartMap({
             importantForAccessibility="no-hide-descendants"
           >
             <Canvas style={{ width, height }}>
-              <ChartMapWeather
+              <ChartMapWeather frame={frame}
                 width={width}
                 height={height}
                 anim={anim}
@@ -194,7 +196,7 @@ export const ChartMap = memo(function ChartMap({
           importantForAccessibility="no-hide-descendants"
         >
           <Canvas style={{ width, height }}>
-            {artReady ? <ChartMapOverlay
+            {artReady ? <ChartMapOverlay frame={frame}
               width={width}
               height={height}
               anim={anim}
@@ -215,7 +217,7 @@ export const ChartMap = memo(function ChartMap({
           onPress={onMapPress}
           style={StyleSheet.absoluteFill}
         />
-        {artReady ? <ChartMapMarkers
+        {artReady ? <ChartMapMarkers frame={frame}
           width={width}
           height={height}
           anim={anim}
@@ -231,7 +233,7 @@ export const ChartMap = memo(function ChartMap({
       </Animated.View>
       {!veilGone ? (
         <Animated.View testID={testID ? `${testID}-native-veil` : 'chart-map-native-veil'} style={[StyleSheet.absoluteFill, veilStyle]} pointerEvents="none">
-          <ChartWeatherNativeVeil width={width} height={height} camera={mountCamera} />
+          <ChartWeatherNativeVeil frame={frame} width={width} height={height} camera={mountCamera} />
         </Animated.View>
       ) : null}
     </View>

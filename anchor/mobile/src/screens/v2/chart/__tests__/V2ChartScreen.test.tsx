@@ -1,5 +1,9 @@
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated');
+  return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withRepeat: (value: unknown) => value, withDelay: (_ms: number, value: unknown) => value, withSequence: (...values: unknown[]) => values[values.length - 1], withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
+});
 import React from 'react';
-import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { V2ChartScreen } from '../V2ChartScreen';
 import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
@@ -191,6 +195,16 @@ beforeEach(async () => {
   useAnchorStore.setState({ anchors: [anchor as never] });
 });
 
+
+async function openFullSheet(screen: ReturnType<typeof render>) {
+  await screen.findByTestId('chart-sheet-grabber');
+  for (let i = 0; i < 8 && screen.getByTestId('chart-sheet-grabber').props.accessibilityLabel !== 'Collapse panel'; i++) {
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 240)); });
+    fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
+  }
+  expect(screen.getByTestId('chart-sheet-grabber').props.accessibilityLabel).toBe('Collapse panel');
+}
+
 describe('V2ChartScreen — no Chart', () => {
   it('without Vision: shows the empty state, asks what would make it real, no fake imagery', async () => {
     serve({ chart: readModel(null), vision: null });
@@ -377,11 +391,11 @@ describe('V2ChartScreen — active Chart', () => {
     serve({ chart: readModel(activeChart()), vision });
     const screen = render(<V2ChartScreen />);
     const current = await screen.findByTestId('chart-current-waypoint');
-    expect(within(current).getByText('CURRENT WAYPOINT')).toBeTruthy();
-    expect(within(current).getByText('2 of 3')).toBeTruthy();
+    expect(within(current).getByText('Waypoint 2 of 3 · Current')).toBeTruthy();
     expect(within(current).getByText('Reach 1,000 active users')).toBeTruthy();
     expect(within(current).getByText('642 / 1,000')).toBeTruthy();
     expect(within(screen.getByTestId('chart-one-move')).getByText('Finish onboarding redesign')).toBeTruthy();
+    await openFullSheet(screen);
     await waitFor(() => expect(within(screen.getByTestId('chart-destination')).getByText('Reach 10,000 active users')).toBeTruthy());
     fireEvent.press(screen.getByTestId('chart-view-vision'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Vision', { anchorId: 'anchor-1' });
@@ -390,19 +404,20 @@ describe('V2ChartScreen — active Chart', () => {
   it('without Vision: shows the destination with no stand-in image and no View Vision', async () => {
     serve({ chart: readModel(activeChart()), vision: null });
     const screen = render(<V2ChartScreen />);
+    await openFullSheet(screen);
     await screen.findByTestId('chart-destination');
     expect(screen.queryByTestId('chart-view-vision')).toBeNull();
     expect(screen.queryByLabelText('Your Vision')).toBeNull();
   });
 
-  it('shows the rationale instead of a bar when the waypoint has no measure', async () => {
+  it('keeps the One Move at peek without inventing a number when the waypoint has no measure', async () => {
     const chart = activeChart();
     chart.waypoints[1] = { ...chart.waypoints[1], kind: 'MILESTONE', metric: null };
     serve({ chart: readModel(chart), vision: null });
     const screen = render(<V2ChartScreen />);
     const current = await screen.findByTestId('chart-current-waypoint');
     expect(within(current).queryByText(/\/ 1,000/)).toBeNull();
-    expect(within(current).getByText('Growth becomes visible.')).toBeTruthy();
+    expect(within(current).getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
   });
 
   it('completes the One Move through the server and shows the next one', async () => {
@@ -439,17 +454,17 @@ describe('V2ChartScreen — active Chart', () => {
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
     expect(await screen.findByTestId('chart-waypoint-content')).toBeTruthy();
     // A tap while the open sequence runs only skips it; wait for it to finish.
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 1000)); });
     // Fog of war: the undiscovered final waypoint is not on the map at all.
     expect(screen.queryByLabelText(/^Waypoint 3/)).toBeNull();
     // Tapping a reached marker shows that waypoint in the panel, read-only, with a way back.
     fireEvent.press(screen.getByLabelText('Waypoint 1: Validate acquisition, reached'));
-    expect(await screen.findByText('REACHED')).toBeTruthy();
-    expect(screen.getByText('1 of 3')).toBeTruthy();
+    expect(await screen.findByText('Waypoint 1 of 3 · Reached')).toBeTruthy();
     expect(screen.queryByTestId('chart-current-waypoint')).toBeNull();
     expect(mockNavigate).not.toHaveBeenCalledWith('V2ChartWaypoint', expect.anything());
-    fireEvent.press(screen.getByText('Back to current waypoint'));
+    fireEvent.press(screen.getByText('Back to waypoint 2'));
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
+    await openFullSheet(screen);
     // Course log single row navigates directly to course log screen
     fireEvent.press(screen.getByTestId('chart-course-log'));
     expect(mockNavigate).toHaveBeenCalledWith('V2ChartJourney', { anchorId: 'anchor-1' });
@@ -464,9 +479,9 @@ describe('V2ChartScreen — active Chart', () => {
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByTestId('chart-waypoint-reached')).toBeTruthy();
     // DEFERRED: expect(screen.getByText('WAYPOINT REACHED')).toBeTruthy();
-    expect(screen.getByText('WAYPOINT 1 REACHED')).toBeTruthy();
+    expect(screen.getByTestId('chart-waypoint-reached')).toBeTruthy();
     expect(screen.getByText("Look how far you've come.")).toBeTruthy();
-    expect(screen.getByText('Commit to the next leg.')).toBeTruthy();
+    expect(screen.getByTestId('chart-commit')).toBeTruthy();
     fireEvent.press(screen.getByText("I'm committed"));
     await waitFor(() => expect(screen.queryByTestId('chart-waypoint-reached')).toBeNull());
     expect(mockSetParams).toHaveBeenCalledWith({ reached: undefined });
@@ -482,7 +497,8 @@ describe('V2ChartScreen — destination and errors', () => {
     const screen = render(<V2ChartScreen />);
     // DEFERRED: expect(await screen.findByText('Destination reached.')).toBeTruthy();
     expect(await screen.findByText("You've arrived.")).toBeTruthy();
-    expect(screen.getByText('ARRIVED')).toBeTruthy();
+    expect(screen.getByText('Waypoint 3 of 3 · Reached')).toBeTruthy();
+    await openFullSheet(screen);
     await waitFor(() => expect(screen.getByTestId('chart-reached-vision')).toBeTruthy());
     // DEFERRED: expect(screen.getByLabelText('Moves completed: 28')).toBeTruthy();
     // DEFERRED: expect(screen.getByLabelText('Practices: 74')).toBeTruthy();

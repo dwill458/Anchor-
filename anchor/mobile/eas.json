@@ -43,6 +43,7 @@
         "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
         "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "EXPO_PUBLIC_SFX_DEBUG": "1",
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
       },
       "android": {

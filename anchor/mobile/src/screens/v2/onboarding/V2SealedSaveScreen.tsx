@@ -36,6 +36,10 @@ import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { V2PaywallScreen, type V2PaywallEntitlementResult } from '@/screens/v2/paywall';
+import { logger } from '@/utils/logger';
 import { colors, typography } from '@/theme/v2';
 import type { User } from '@/types';
 import { GoogleIcon, AppleIcon } from '@/screens/v2/auth/components/AuthSocialIcons';
@@ -109,8 +113,10 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const signedInUser = useAuthStore((state) => state.user);
   const pendingTempId = useAuthStore((state) => state.pendingFirstAnchorDraft?.tempAnchorId);
   const anchor = useAnchorStore((state) => state.anchors.find((item) => item.id === pendingTempId) ?? state.anchors[0]);
+  const hasActiveEntitlement = useSubscriptionStore((state) => state.hasActiveEntitlement);
 
   const [saved, setSaved] = useState<SaveKind | null>(initialSaved);
+  const [authedUser, setAuthedUser] = useState<User | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('create');
   const [email, setEmail] = useState('');
@@ -119,9 +125,19 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(Platform.OS === 'ios');
+  const [requiresSubscription, setRequiresSubscription] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const passwordRef = useRef<TextInput>(null);
   const retryAttemptRef = useRef(0);
   const sealedSoundPlayedRef = useRef(false);
+
+  const activeUser = signedInUser ?? authedUser;
+  const isLockedFreeUser = Boolean(
+    activeUser &&
+    !hasActiveEntitlement &&
+    (activeUser.freeAnchorConsumed || (activeUser.totalAnchorsCreated ?? 0) >= 1)
+  );
+  const isSubscriptionRequired = requiresSubscription || isLockedFreeUser;
 
   useEffect(() => {
     if (!anchor || sealedSoundPlayedRef.current) return;
@@ -177,6 +193,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
       try {
         OnboardingAnalytics.auth.started('onboarding_save', method, mode as AuthMode);
         result = await run();
+        setAuthedUser(result.user);
         OnboardingAnalytics.auth.succeeded('onboarding_save', method, mode as AuthMode, result.user.hasCompletedOnboarding === true);
       } catch (cause) {
         const code = OnboardingAnalytics.classifyAuthError(cause);
@@ -196,6 +213,18 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
         Keyboard.dismiss();
         setSaved('account');
       } catch (cause) {
+        const isFreeLocked =
+          (cause instanceof Error && cause.message.includes('CREATE_ANCHOR_FREE_LOCKED')) ||
+          (typeof cause === 'string' && cause.includes('CREATE_ANCHOR_FREE_LOCKED')) ||
+          useAuthStore.getState().pendingFirstAnchorError === 'CREATE_ANCHOR_FREE_LOCKED';
+
+        if (isFreeLocked) {
+          setRequiresSubscription(true);
+          setShowPaywall(true);
+          setError('This account already used its free Anchor. Subscribe to Anchor Pro to save this Anchor.');
+          return;
+        }
+
         OnboardingAnalytics.auth.saveFailed('onboarding_save', OnboardingAnalytics.classifyAuthError(cause));
         const message = readableAuthError(cause, mode);
         if (message) setError(message);
@@ -223,20 +252,68 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
 
   // The account exists but the Anchor has not finished saving (a dropped connection, a relaunch).
   const retrySave = async () => {
-    if (!signedInUser) return;
+    const userToSave = activeUser;
+    if (!userToSave) return;
     retryAttemptRef.current += 1;
     OnboardingAnalytics.auth.saveRetry(retryAttemptRef.current);
     setError(null);
     setLoading(true);
     try {
-      await onAccountReady(signedInUser);
+      await onAccountReady(userToSave);
       setSaved('account');
     } catch (cause) {
-      OnboardingAnalytics.auth.saveFailed('onboarding_save', OnboardingAnalytics.classifyAuthError(cause));
-      setError(readableAuthError(cause, 'create') || 'Your Anchor has not finished saving. Try again.');
+      const isFreeLocked =
+        (cause instanceof Error && cause.message.includes('CREATE_ANCHOR_FREE_LOCKED')) ||
+        (typeof cause === 'string' && cause.includes('CREATE_ANCHOR_FREE_LOCKED')) ||
+        useAuthStore.getState().pendingFirstAnchorError === 'CREATE_ANCHOR_FREE_LOCKED';
+
+      if (isFreeLocked) {
+        setRequiresSubscription(true);
+        setShowPaywall(true);
+        setError('This account already used its free Anchor. Subscribe to Anchor Pro to save this Anchor.');
+      } else {
+        OnboardingAnalytics.auth.saveFailed('onboarding_save', OnboardingAnalytics.classifyAuthError(cause));
+        setError(readableAuthError(cause, 'create') || 'Your Anchor has not finished saving. Try again.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const discardAnchorForever = () => {
+    const anchorStore = useAnchorStore.getState();
+    if (pendingTempId) {
+      anchorStore.removeAnchor(pendingTempId);
+    }
+    anchorStore.anchors
+      .filter((a) => !isBackendAnchorId(a.id))
+      .forEach((a) => anchorStore.removeAnchor(a.id));
+
+    useAuthStore.getState().clearPendingFirstAnchorState();
+    onContinue('account');
+  };
+
+  const handlePaywallEntitled = async (_result: V2PaywallEntitlementResult) => {
+    setShowPaywall(false);
+    setRequiresSubscription(false);
+    setError(null);
+    setLoading(true);
+    try {
+      const userToSave = useAuthStore.getState().user ?? activeUser;
+      if (userToSave) {
+        await onAccountReady(userToSave);
+        setSaved('account');
+      }
+    } catch (saveError) {
+      logger.warn('[V2SealedSaveScreen] Failed to save anchor after entitlement', saveError);
+      setError('Subscription verified, but failed to save Anchor. Tap finish saving to retry.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaywallDismiss = () => {
+    setShowPaywall(false);
   };
 
   const keepOnDevice = () => {
@@ -326,31 +403,65 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
             </Animated.View>
 
             <Animated.View entering={enter(420)} style={styles.centered}>
-              <Text style={styles.heading}>Save your progress</Text>
+              <Text style={styles.heading}>
+                {isSubscriptionRequired ? 'Anchor Pro required' : 'Save your progress'}
+              </Text>
               <Text style={styles.body}>
-                Create a free account to keep your{'\n'}Anchor, practice history, and progress{'\n'}with you.
+                {isSubscriptionRequired
+                  ? 'This account already used its free Anchor.\nSubscribe to Pro to save this Anchor,\nor discard it to continue.'
+                  : 'Create a free account to keep your\nAnchor, practice history, and progress\nwith you.'}
               </Text>
             </Animated.View>
 
-            {signedInUser ? (
+            {activeUser ? (
               <Animated.View entering={enter(480)} style={styles.stack}>
                 {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+                {isSubscriptionRequired ? (
+                  <>
+                    <Pressable
+                      testID="v2-sealed-save-unlock-pro"
+                      accessibilityRole="button"
+                      accessibilityLabel="Unlock Anchor Pro to save"
+                      disabled={loading}
+                      onPress={() => setShowPaywall(true)}
+                      style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.primaryText}>Unlock Anchor Pro to save</Text>
+                      <ArrowRight size={18} color="#FBF9F4" strokeWidth={2} />
+                    </Pressable>
+                    <Pressable
+                      testID="v2-sealed-save-discard"
+                      accessibilityRole="button"
+                      accessibilityLabel="Discard Anchor & Continue"
+                      disabled={loading}
+                      onPress={discardAnchorForever}
+                      style={({ pressed }) => [styles.button, styles.outline, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.outlineText}>Discard Anchor & Continue</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable
+                    testID="v2-sealed-save-retry"
+                    accessibilityRole="button"
+                    accessibilityLabel="Finish saving my Anchor"
+                    disabled={loading}
+                    onPress={() => void retrySave()}
+                    style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
+                  >
+                    {loading ? <ActivityIndicator color="#FBF9F4" /> : <Text style={styles.primaryText}>Finish saving</Text>}
+                  </Pressable>
+                )}
                 <Pressable
-                  testID="v2-sealed-save-retry"
-                  accessibilityRole="button"
-                  accessibilityLabel="Finish saving my Anchor"
-                  disabled={loading}
-                  onPress={() => void retrySave()}
-                  style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
-                >
-                  {loading ? <ActivityIndicator color="#FBF9F4" /> : <Text style={styles.primaryText}>Finish saving</Text>}
-                </Pressable>
-                <Pressable
+                  testID="v2-sealed-save-switch-account"
                   accessibilityRole="button"
                   accessibilityLabel="Use a different account"
                   onPress={async () => {
                     await AuthService.signOut().catch(() => undefined);
                     await useAuthStore.getState().signOut?.();
+                    setAuthedUser(null);
+                    setRequiresSubscription(false);
+                    setError(null);
                   }}
                   style={styles.quiet}
                 >
@@ -523,12 +634,23 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
           <ChevronLeft size={24} color="#171717" strokeWidth={1.75} />
         </Pressable>
       ) : null}
+
+      {showPaywall ? (
+        <View style={[StyleSheet.absoluteFill, styles.paywallContainer]} testID="v2-sealed-save-paywall-modal">
+          <V2PaywallScreen
+            context="SECOND_ANCHOR"
+            onEntitled={handlePaywallEntitled}
+            onDismiss={handlePaywallDismiss}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.canvas },
+  paywallContainer: { zIndex: 100, backgroundColor: colors.canvas },
   landscape: { position: 'absolute', left: 0, right: 0, bottom: 0, opacity: 0.85 },
   content: { flexGrow: 1, paddingHorizontal: 24, alignItems: 'stretch' },
   coinWrap: { alignSelf: 'center', alignItems: 'center', justifyContent: 'center', zIndex: 2 },

@@ -1,29 +1,45 @@
 /**
  * Anchor App - Login Screen
+ *
+ * Anchor 2.0 presentation: the cream paper hero carries the sigil (its star warms once on
+ * arrival, echoing the launch splash), and the form sits on the ink panel beneath — the same
+ * two-world layout as V2AuthScreen, so every sign-in entry point reads as one product.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Animated,
-  Easing,
   Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { colors, typography } from '@/theme';
+import { colors, typography } from '@/theme/v2';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -34,6 +50,7 @@ import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import { GoogleIcon } from '@/screens/v2/auth/components/AuthSocialIcons';
 import type {
   AuthScreenInitialTab,
   AuthScreenParams,
@@ -50,7 +67,20 @@ interface LoginScreenProps {
   route?: { params?: AuthScreenParams };
 }
 
-const ANCHOR_GOLD = require('../../assets/images/anchor-logo-official.png');
+/** The 2.0 sigil, ink on transparent; the same 1127 × 1396 canvas as the splash layers. */
+const BRAND_MARK = require('../../assets/home/anchor-brand-mark.png');
+const LANDSCAPE = require('../../assets/images/auth-landscape-valley.png');
+const MARK_WIDTH = 64;
+const MARK_HEIGHT = Math.round(MARK_WIDTH * (1396 / 1127));
+/** Where the gold star sits on the mark's canvas. */
+const STAR_X = MARK_WIDTH * (562 / 1127);
+const STAR_Y = MARK_WIDTH * (731 / 1127);
+const GLOW_SIZE = 96;
+
+const INK_TEXT = colors.ink.text;
+const GOLD = '#DFC08A';
+const GOLD_DEEP = '#C5A065';
+const PAPER_INK = '#171717';
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   const initialTab = route?.params?.initialTab ?? 'signin';
@@ -63,6 +93,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
@@ -73,50 +106,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     setTab(initialTab);
   }, [initialTab]);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const floatAnim = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0.2)).current;
-
+  // The star warms once on arrival, then settles to a low ember.
+  const glow = useSharedValue(0);
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(floatAnim, {
-            toValue: -8,
-            duration: 2500,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.45,
-            duration: 2500,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.parallel([
-          Animated.timing(floatAnim, {
-            toValue: 0,
-            duration: 2500,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(glowAnim, {
-            toValue: 0.2,
-            duration: 2500,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
-    ).start();
-  }, [fadeAnim, floatAnim, glowAnim]);
+    if (reduceMotion) {
+      glow.value = 0.35;
+      return;
+    }
+    glow.value = withSequence(
+      withDelay(320, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) })),
+      withTiming(0.35, { duration: 1400, easing: Easing.inOut(Easing.cubic) })
+    );
+  }, [glow, reduceMotion]);
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glow.value,
+    transform: [{ scale: 0.85 + glow.value * 0.15 }],
+  }));
 
   useEffect(() => {
     let mounted = true;
@@ -457,19 +462,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   };
 
   const isSignIn = tab === 'signin';
-  const ctaCopy = isSignIn ? 'ENTER THE SANCTUARY' : 'FORGE YOUR PATH';
+  const ctaCopy = isSignIn ? 'SIGN IN' : 'CREATE ACCOUNT';
   const showGoogleSignIn = ENABLE_GOOGLE_SIGN_IN;
+  const isCompact = height < 750;
+
+  const switchTab = (next: AuthTab) => {
+    resetError();
+    setTab(next);
+  };
 
   const renderField = (
     key: Exclude<FocusedField, null>,
     label: string,
+    icon: React.ReactNode,
     value: string,
     onChangeText: (nextValue: string) => void,
     options?: {
       autoCapitalize?: 'none' | 'words';
       keyboardType?: 'default' | 'email-address';
+      autoComplete?: 'name' | 'email' | 'current-password' | 'new-password';
       secureTextEntry?: boolean;
-      placeholder?: string;
       showToggle?: boolean;
       shown?: boolean;
       onToggle?: () => void;
@@ -478,521 +490,553 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     const isFocused = focusedField === key;
 
     return (
-      <View style={styles.inputGroup}>
-        <Text style={styles.fieldLabel}>{label}</Text>
-        <View>
-          <TextInput
-            style={[
-              styles.input,
-              isFocused ? styles.inputFocused : null,
-              options?.showToggle ? styles.inputWithToggle : null,
-            ]}
-            value={value}
-            onChangeText={(nextValue) => {
-              resetError();
-              onChangeText(nextValue);
-            }}
-            placeholder={options?.placeholder}
-            placeholderTextColor="rgba(245,245,220,0.3)"
-            autoCapitalize={options?.autoCapitalize ?? 'none'}
-            keyboardType={options?.keyboardType ?? 'default'}
-            secureTextEntry={options?.secureTextEntry ? !options?.shown : false}
-            onFocus={() => setFocusedField(key)}
-            onBlur={() => setFocusedField(null)}
-          />
-          {options?.showToggle ? (
-            <Pressable onPress={options.onToggle} style={styles.toggleButton}>
-              <Text style={styles.toggleButtonText}>{options.shown ? 'HIDE' : 'SHOW'}</Text>
-            </Pressable>
-          ) : null}
-        </View>
+      <View style={[styles.field, isFocused ? styles.fieldFocused : null]}>
+        <View style={styles.fieldIcon}>{icon}</View>
+        <TextInput
+          style={styles.fieldInput}
+          value={value}
+          onChangeText={(nextValue) => {
+            resetError();
+            onChangeText(nextValue);
+          }}
+          placeholder={label}
+          accessibilityLabel={label}
+          placeholderTextColor={INK_TEXT.tertiary}
+          autoCapitalize={options?.autoCapitalize ?? 'none'}
+          keyboardType={options?.keyboardType ?? 'default'}
+          autoComplete={options?.autoComplete}
+          secureTextEntry={options?.secureTextEntry ? !options?.shown : false}
+          onFocus={() => setFocusedField(key)}
+          onBlur={() => setFocusedField(null)}
+        />
+        {options?.showToggle ? (
+          <Pressable
+            onPress={options.onToggle}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={options.shown ? 'Hide password' : 'Show password'}
+            style={styles.fieldTrailing}
+          >
+            {options.shown ? (
+              <EyeOff size={19} color={INK_TEXT.secondary} strokeWidth={1.75} />
+            ) : (
+              <Eye size={19} color={INK_TEXT.secondary} strokeWidth={1.75} />
+            )}
+          </Pressable>
+        ) : null}
       </View>
     );
   };
 
+  const fieldIconColor = INK_TEXT.tertiary;
+
   return (
-    <LinearGradient
-      colors={['#3E2C5B', '#1a1230', '#080C10']}
-      locations={[0, 0.3, 1]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoid}
+    <View style={styles.root}>
+      <StatusBar style="dark" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-              <Animated.View style={[styles.logoWrap, { transform: [{ translateY: floatAnim }] }]}>
-                <Animated.View style={[styles.logoGlow, { opacity: glowAnim }]} />
-                <Animated.View style={[styles.logoGlowOuter, { opacity: glowAnim }]} />
+          {/* UPPER WORLD: cream paper, the sigil, and the valley the ink panel rises out of. */}
+          <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
+            <View style={styles.topRow}>
+              <Pressable
+                onPress={() => switchTab(isSignIn ? 'signup' : 'signin')}
+                disabled={loading}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={isSignIn ? 'Switch to Create account' : 'Switch to Sign in'}
+                style={styles.contextualSwitch}
+              >
+                <Text style={styles.contextualSwitchText}>{isSignIn ? 'CREATE ACCOUNT' : 'SIGN IN'}</Text>
+              </Pressable>
+            </View>
+
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.duration(520)}
+              style={[styles.brandBlock, isCompact && styles.brandBlockCompact]}
+            >
+              <View style={styles.markFrame}>
+                <Animated.View style={[styles.markGlow, glowStyle]} pointerEvents="none">
+                  <Svg width={GLOW_SIZE} height={GLOW_SIZE}>
+                    <Defs>
+                      {/* rx/ry are explicit: Android ignores `r` alone on a radial gradient. */}
+                      <RadialGradient id="loginStarGlow" cx="50%" cy="50%" rx="50%" ry="50%" r="50%">
+                        <Stop offset="0" stopColor="#E2BC6B" stopOpacity={0.6} />
+                        <Stop offset="0.45" stopColor="#E2BC6B" stopOpacity={0.18} />
+                        <Stop offset="1" stopColor="#E2BC6B" stopOpacity={0} />
+                      </RadialGradient>
+                    </Defs>
+                    <Rect width={GLOW_SIZE} height={GLOW_SIZE} fill="url(#loginStarGlow)" />
+                  </Svg>
+                </Animated.View>
                 <Image
-                  source={ANCHOR_GOLD}
-                  style={styles.logoImage}
+                  source={BRAND_MARK}
+                  style={styles.mark}
                   resizeMode="contain"
                   accessible
-                  accessibilityLabel="Anchor logo"
+                  accessibilityLabel="Anchor"
                 />
-              </Animated.View>
-
+              </View>
               <Text style={styles.wordmark}>ANCHOR</Text>
-              <Text style={styles.subtitle}>Transform intentions into power</Text>
+              <Text style={styles.descriptor}>VISUAL GOAL SETTING</Text>
+              <View style={styles.editorialDivider} />
+              <Text style={styles.editorialCopy}>
+                {isSignIn ? 'Return to what matters.' : 'A stronger tomorrow\nstarts with what you create today.'}
+              </Text>
+            </Animated.View>
 
-              <View style={styles.card}>
-                <View style={styles.tabRow}>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => {
-                      resetError();
-                      setTab('signin');
-                    }}
-                    style={styles.tabButton}
+            <Image
+              source={LANDSCAPE}
+              resizeMode="cover"
+              style={[styles.landscape, isCompact && styles.landscapeCompact]}
+              accessibilityIgnoresInvertColors
+            />
+          </View>
+
+          {/* LOWER WORLD: the ink panel holds the whole form. */}
+          <View style={[styles.inkPanel, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}>
+            <View style={styles.segmented} accessibilityRole="tablist" accessibilityLabel="Authentication mode">
+              {(['signin', 'signup'] as const).map((value) => {
+                const selected = tab === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => switchTab(value)}
+                    disabled={loading}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    style={[styles.segment, selected && styles.segmentSelected]}
                   >
-                    {isSignIn ? (
-                      <LinearGradient
-                        colors={['#D4AF37', '#8B6914']}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.activeTab}
-                      >
-                        <Text style={styles.activeTabText}>SIGN IN</Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.inactiveTab}>
-                        <Text style={styles.inactiveTabText}>SIGN IN</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                    <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                      {value === 'signin' ? 'SIGN IN' : 'CREATE ACCOUNT'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => {
-                      resetError();
-                      setTab('signup');
-                    }}
-                    style={styles.tabButton}
-                  >
-                    {!isSignIn ? (
-                      <LinearGradient
-                        colors={['#D4AF37', '#8B6914']}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.activeTab}
-                      >
-                        <Text style={styles.activeTabText}>SIGN UP</Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.inactiveTab}>
-                        <Text style={styles.inactiveTabText}>SIGN UP</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
+            <View style={styles.fieldGroup}>
+              {!isSignIn
+                ? renderField(
+                  'name',
+                  'Name (optional)',
+                  <UserRound size={18} color={fieldIconColor} strokeWidth={1.75} />,
+                  name,
+                  setName,
+                  { autoCapitalize: 'words', autoComplete: 'name' }
+                )
+                : null}
 
-                <View style={styles.ssoRow}>
-                  {isAppleAvailable ? (
-                    <View style={styles.ssoButtonWrap}>
-                      <AppleAuthentication.AppleAuthenticationButton
-                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                        cornerRadius={11}
-                        style={styles.appleButton}
-                        onPress={() => {
-                          void handleAppleSignIn();
-                        }}
-                      />
-                    </View>
-                  ) : null}
+              {renderField(
+                'email',
+                'Email',
+                <Mail size={18} color={fieldIconColor} strokeWidth={1.75} />,
+                email,
+                setEmail,
+                { keyboardType: 'email-address', autoComplete: 'email' }
+              )}
 
-                  {showGoogleSignIn ? (
-                    <View style={styles.ssoButtonWrap}>
-                      <TouchableOpacity
-                        style={[styles.googleButton, loading ? styles.ssoButtonDisabled : null]}
-                        onPress={() => void handleGoogleSignIn()}
-                        disabled={loading}
-                        activeOpacity={0.85}
-                      >
-                        <View style={styles.googleBadge}>
-                          <Text style={styles.googleBadgeText}>G</Text>
-                        </View>
-                        <Text style={styles.googleButtonText}>Continue with Google</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>
-                    {isAppleAvailable || showGoogleSignIn ? 'or continue with email' : 'continue with email'}
-                  </Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                {!isSignIn
-                  ? renderField('name', 'NAME (OPTIONAL)', name, setName, {
-                    autoCapitalize: 'words',
-                    placeholder: 'What should we call you?',
-                  })
-                  : null}
-
-                {renderField('email', 'EMAIL', email, setEmail, {
-                  keyboardType: 'email-address',
-                  placeholder: 'you@example.com',
-                })}
-
-                {renderField('password', 'PASSWORD', password, setPassword, {
-                  placeholder: 'At least 8 characters',
+              {renderField(
+                'password',
+                'Password',
+                <LockKeyhole size={18} color={fieldIconColor} strokeWidth={1.75} />,
+                password,
+                setPassword,
+                {
+                  autoComplete: isSignIn ? 'current-password' : 'new-password',
                   secureTextEntry: true,
                   showToggle: true,
                   shown: showPassword,
                   onToggle: () => setShowPassword((current) => !current),
-                })}
+                }
+              )}
+            </View>
 
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {isSignIn ? (
+              <TouchableOpacity
+                onPress={() => {
+                  void handleForgotPassword();
+                }}
+                disabled={loading}
+                style={styles.forgot}
+              >
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.requirement}>At least 8 characters</Text>
+            )}
 
-                {isSignIn ? (
-                  <TouchableOpacity
-                    onPress={() => {
-                      void handleForgotPassword();
-                    }}
-                    disabled={loading}
-                    style={styles.forgotPasswordButton}
-                  >
-                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                <TouchableOpacity style={styles.ctaButton} onPress={handleSubmit} disabled={loading}>
-                  <LinearGradient
-                    colors={['#D4AF37', '#B8962E', '#8B6914']}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.ctaGradient}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#080C10" />
-                    ) : (
-                      <Text style={styles.ctaText}>{ctaCopy}</Text>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    resetError();
-                    setTab(isSignIn ? 'signup' : 'signin');
-                  }}
-                  disabled={loading}
-                  style={styles.switchLinkButton}
-                >
-                  {isSignIn ? (
-                    <Text style={styles.switchLinkText}>
-                      New to Anchor? <Text style={styles.switchLinkAccent}>Begin your practice</Text>
-                    </Text>
-                  ) : (
-                    <Text style={styles.switchLinkText}>
-                      Already forged? <Text style={styles.switchLinkAccent}>Sign in</Text>
-                    </Text>
-                  )}
-                </TouchableOpacity>
+            {error ? (
+              <View style={styles.errorBanner}>
+                <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text>
               </View>
+            ) : null}
 
-              <Text style={styles.trialText}>FREE ACCOUNT · YOUR ANCHORS STAY YOURS</Text>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
+            <TouchableOpacity
+              style={styles.ctaWrap}
+              onPress={handleSubmit}
+              disabled={loading}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={isSignIn ? 'Sign in' : 'Create account'}
+              accessibilityState={{ busy: loading, disabled: loading }}
+            >
+              <LinearGradient
+                pointerEvents="none"
+                colors={[GOLD, GOLD_DEEP]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.ctaGradient}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={colors.ink.base} />
+                ) : (
+                  <>
+                    <Text style={styles.ctaText}>{ctaCopy}</Text>
+                    <ArrowRight size={17} color={colors.ink.base} strokeWidth={2.4} />
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {isAppleAvailable || showGoogleSignIn ? (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>or continue with</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <View style={styles.socialStack}>
+                  {isAppleAvailable ? (
+                    <AppleAuthentication.AppleAuthenticationButton
+                      buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                      buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                      cornerRadius={14}
+                      style={styles.appleButton}
+                      onPress={() => {
+                        void handleAppleSignIn();
+                      }}
+                    />
+                  ) : null}
+
+                  {showGoogleSignIn ? (
+                    <TouchableOpacity
+                      style={[styles.socialButton, loading ? styles.socialButtonDisabled : null]}
+                      onPress={() => void handleGoogleSignIn()}
+                      disabled={loading}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel="Continue with Google"
+                    >
+                      <GoogleIcon size={18} />
+                      <Text style={styles.socialButtonText}>Continue with Google</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </>
+            ) : null}
+
+            <Text style={styles.footnote}>FREE ACCOUNT · YOUR ANCHORS STAY YOURS</Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-  },
-  safeArea: {
-    flex: 1,
+    backgroundColor: colors.canvas,
   },
   keyboardAvoid: {
     flex: 1,
   },
+  // Ink beneath the hero, so a tall screen or the keyboard never reveals cream under the panel.
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 28,
+    backgroundColor: colors.ink.base,
   },
-  content: {
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: 380,
+
+  /* HERO */
+  hero: {
+    backgroundColor: colors.canvas,
+    overflow: 'hidden',
   },
-  logoWrap: {
+  topRow: {
+    height: 44,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    // The back control is overlaid by the navigator on the left.
+    justifyContent: 'flex-end',
+  },
+  contextualSwitch: {
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+  },
+  contextualSwitchText: {
+    fontFamily: typography.utilitySemibold.fontFamily,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: '#7A756D',
+  },
+  brandBlock: {
+    alignItems: 'center',
+    paddingTop: 4,
+    paddingBottom: 8,
+    paddingHorizontal: 24,
+  },
+  brandBlockCompact: {
+    paddingTop: 0,
+    paddingBottom: 4,
+  },
+  markFrame: {
+    width: MARK_WIDTH,
+    height: MARK_HEIGHT,
     marginBottom: 8,
   },
-  logoGlow: {
+  markGlow: {
     position: 'absolute',
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    borderWidth: 2,
-    borderColor: 'rgba(212,175,55,0.75)',
-    backgroundColor: 'transparent',
-    shadowColor: '#D4AF37',
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
+    left: STAR_X - GLOW_SIZE / 2,
+    top: STAR_Y - GLOW_SIZE / 2,
+    width: GLOW_SIZE,
+    height: GLOW_SIZE,
   },
-  logoGlowOuter: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: 'transparent',
-    shadowColor: '#D4AF37',
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
-  logoImage: {
-    width: 110,
-    height: 110,
+  mark: {
+    width: MARK_WIDTH,
+    height: MARK_HEIGHT,
   },
   wordmark: {
-    textAlign: 'center',
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 32,
-    letterSpacing: 8,
-    color: '#D4AF37',
-    textShadowColor: 'rgba(212,175,55,0.4)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
-    marginBottom: 4,
+    fontFamily: 'BricolageGrotesque-SemiBold',
+    color: PAPER_INK,
+    fontSize: 21,
+    lineHeight: 25,
+    letterSpacing: 6.5,
+    // Letter-spacing trails the last glyph; pad the start so the word stays optically centred.
+    paddingLeft: 6.5,
   },
-  subtitle: {
-    textAlign: 'center',
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 14,
-    letterSpacing: 2,
-    color: 'rgba(245,245,220,0.45)',
-    marginBottom: 28,
+  descriptor: {
+    fontFamily: typography.utilitySemibold.fontFamily,
+    fontSize: 9.5,
+    lineHeight: 14,
+    letterSpacing: 1.8,
+    color: colors.text.secondary,
+    marginTop: 4,
   },
-  card: {
+  editorialDivider: {
+    width: 24,
+    height: 1,
+    backgroundColor: '#C8C2B7',
+    marginVertical: 8,
+  },
+  editorialCopy: {
+    fontFamily: 'CrimsonPro-Regular',
+    fontSize: 15,
+    lineHeight: 20,
+    color: '#34312D',
+    textAlign: 'center',
+  },
+  landscape: {
     width: '100%',
-    maxWidth: 380,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(15,20,25,0.82)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    padding: 28,
+    height: 135,
+    marginTop: -6,
   },
-  tabRow: {
+  landscapeCompact: {
+    height: 112,
+  },
+
+  /* INK PANEL */
+  inkPanel: {
+    flex: 1,
+    backgroundColor: colors.ink.base,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.ink.hairline,
+    marginTop: -26,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+  },
+  segmented: {
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    borderWidth: 1,
+    borderColor: colors.ink.hairline,
     flexDirection: 'row',
-    backgroundColor: 'rgba(8,12,16,0.6)',
-    borderRadius: 10,
+    padding: 3,
+    marginBottom: 14,
+  },
+  segment: {
+    flex: 1,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentSelected: {
+    borderColor: 'rgba(223, 192, 138, 0.85)',
+    backgroundColor: 'rgba(223, 192, 138, 0.07)',
+  },
+  segmentText: {
+    fontFamily: typography.utilitySemibold.fontFamily,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    color: INK_TEXT.secondary,
+  },
+  segmentTextSelected: {
+    color: GOLD,
+  },
+  fieldGroup: {
+    gap: 8,
+    marginBottom: 6,
+  },
+  field: {
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.ink.hairline,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  fieldFocused: {
+    borderColor: 'rgba(223, 192, 138, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  fieldIcon: {
+    width: 28,
+    justifyContent: 'center',
+  },
+  fieldInput: {
+    flex: 1,
+    height: 46,
+    color: INK_TEXT.primary,
+    fontFamily: typography.body,
+    fontSize: 15,
+  },
+  fieldTrailing: {
+    minWidth: 28,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
     padding: 4,
+  },
+  forgot: {
+    alignSelf: 'flex-end',
+    minHeight: 28,
+    justifyContent: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  forgotText: {
+    fontFamily: typography.body,
+    fontSize: 12.5,
+    color: INK_TEXT.secondary,
+  },
+  requirement: {
+    fontFamily: typography.body,
+    fontSize: 12,
+    color: INK_TEXT.tertiary,
+    marginTop: 2,
+    marginBottom: 12,
+    paddingHorizontal: 2,
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(182, 59, 56, 0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.1)',
-    marginBottom: 28,
+    borderColor: 'rgba(182, 59, 56, 0.32)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 12,
   },
-  tabButton: {
+  errorText: {
+    fontFamily: typography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#FFAAA6',
+  },
+  ctaWrap: {
+    height: 50,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  ctaGradient: {
     flex: 1,
-  },
-  activeTab: {
-    borderRadius: 7,
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inactiveTab: {
-    borderRadius: 7,
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeTabText: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: '#080C10',
-  },
-  inactiveTabText: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: 'rgba(245,245,220,0.45)',
-  },
-  ssoRow: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
   },
-  ssoButtonWrap: {
+  ctaText: {
+    fontFamily: typography.bodySemiBold,
+    fontSize: 13.5,
+    letterSpacing: 1.5,
+    color: colors.ink.base,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginVertical: 14,
+  },
+  dividerLine: {
     flex: 1,
-    minHeight: 48,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.ink.hairlineStrong,
+  },
+  dividerText: {
+    fontFamily: typography.body,
+    fontSize: 12,
+    color: INK_TEXT.tertiary,
+  },
+  socialStack: {
+    gap: 10,
   },
   appleButton: {
     width: '100%',
     height: 48,
   },
-  googleButton: {
-    width: '100%',
+  socialButton: {
     height: 48,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    borderWidth: 1,
+    borderColor: colors.ink.hairline,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    justifyContent: 'center',
     gap: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(8,12,16,0.08)',
   },
-  googleBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
+  socialButtonDisabled: {
+    opacity: 0.6,
   },
-  googleBadgeText: {
-    color: '#4285F4',
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 18,
-    lineHeight: 20,
-  },
-  googleButtonText: {
-    flex: 1,
-    color: '#1F1F1F',
-    fontFamily: typography.fonts.body,
+  socialButtonText: {
+    fontFamily: typography.bodySemiBold,
     fontSize: 14,
-    textAlign: 'center',
+    color: INK_TEXT.primary,
   },
-  ssoButtonDisabled: {
-    opacity: 0.65,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginVertical: 22,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(212,175,55,0.2)',
-  },
-  dividerText: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 12,
-    letterSpacing: 2,
-    color: 'rgba(245,245,220,0.2)',
-  },
-  inputGroup: {
-    marginBottom: 18,
-  },
-  fieldLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 2,
-    color: 'rgba(212,175,55,0.7)',
-    marginBottom: 7,
-  },
-  input: {
-    backgroundColor: 'rgba(8,12,16,0.7)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    color: '#F5F5DC',
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 15,
-  },
-  inputWithToggle: {
-    paddingRight: 62,
-  },
-  inputFocused: {
-    borderColor: 'rgba(212,175,55,0.55)',
-  },
-  toggleButton: {
-    position: 'absolute',
-    right: 14,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  toggleButtonText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: '#D4AF37',
-  },
-  errorText: {
-    color: colors.error,
-    textAlign: 'center',
-    marginBottom: 12,
-    fontFamily: typography.fonts.body,
-  },
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-    marginBottom: 16,
-  },
-  forgotPasswordText: {
-    textAlign: 'right',
-    color: '#D4AF37',
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 12,
-  },
-  ctaButton: {
-    borderRadius: 11,
-    overflow: 'hidden',
-  },
-  ctaGradient: {
-    paddingVertical: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  ctaText: {
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 11,
-    letterSpacing: 3,
-    color: '#080C10',
-  },
-  switchLinkButton: {
-    marginTop: 18,
-  },
-  switchLinkText: {
-    textAlign: 'center',
-    color: 'rgba(245,245,220,0.35)',
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 13,
-  },
-  switchLinkAccent: {
-    color: '#D4AF37',
-    fontFamily: typography.fonts.bodySerifItalic,
-  },
-  trialText: {
+  footnote: {
     marginTop: 20,
     textAlign: 'center',
-    fontFamily: typography.fonts.heading,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: 'rgba(245,245,220,0.25)',
+    fontFamily: typography.bodySemiBold,
+    fontSize: 10.5,
+    letterSpacing: 1.4,
+    color: INK_TEXT.tertiary,
   },
 });
 

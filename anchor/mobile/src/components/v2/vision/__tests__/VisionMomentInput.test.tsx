@@ -39,7 +39,7 @@ describe('VisionMomentInput', () => {
 
   it('renders the authorship title and exactly three guidance prompts in create mode', () => {
     const { getByText, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} />);
-    expect(getByText('What do you see?')).toBeTruthy();
+    expect(getByText("Describe the moment it's already true.")).toBeTruthy();
     expect(getByText('CREATE YOUR VISION')).toBeTruthy();
     expect(getByLabelText('Where are you?')).toBeTruthy();
     expect(getByLabelText('What are you doing?')).toBeTruthy();
@@ -61,8 +61,8 @@ describe('VisionMomentInput', () => {
   });
 
   it('renders hero title for add mode', () => {
-    const { getByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
-    expect(getByText('What else do you see?')).toBeTruthy();
+    const { getAllByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
+    expect(getAllByText('Describe another moment from this future.')[0]).toBeTruthy();
   });
 
   it('asks a question when a chip is tapped and never writes into the description', () => {

@@ -70,3 +70,6 @@ ios/Pods/
 
 # Repo-root artifacts not needed for builds
 graphify-out/
+
+# Remote session audio masters (served from R2, never bundled)
+audio-remote/

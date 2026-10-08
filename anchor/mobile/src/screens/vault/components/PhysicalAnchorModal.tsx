@@ -1,41 +1,21 @@
-/**
- * Physical Anchor Modal Component
- *
- * Product selection bottom sheet for choosing physical anchor merchandise.
- * Displays a curated list of 4 product types with calm, intentional design.
- */
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert } from 'react-native';
+import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT, V2Button } from '@/components/v2/primitives';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { colors, radii, spacing, typography } from '@/theme/v2';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import type { Anchor } from '@/types';
 
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  Animated,
-  Easing,
-  Dimensions,
-  Platform,
-  Alert,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
-import { Anchor } from '@/types';
-import { colors, spacing, typography } from '@/theme';
-import { safeHaptics } from '@/utils/haptics';
-import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
-
-const { width } = Dimensions.get('window');
-const MODAL_WIDTH = Math.min(width * 0.85, 400);
-
-interface Product {
+export interface Product {
   id: string;
   type: 'keychain' | 'art_print' | 'hoodie' | 'phone_case';
   title: string;
   description: string;
 }
 
-const PRODUCTS: Product[] = [
+export const PRODUCTS: Product[] = [
   {
     id: 'keychain',
     type: 'keychain',
@@ -62,87 +42,34 @@ const PRODUCTS: Product[] = [
   },
 ];
 
-interface PhysicalAnchorModalProps {
+export interface PhysicalAnchorModalProps {
   visible: boolean;
   onClose: () => void;
   anchor: Anchor;
 }
 
+/**
+ * Anchor 2.0 Physical Anchor Form Sheet.
+ *
+ * Selection sheet for choosing physical anchor merchandise.
+ * Built with Anchor 2.0 design language, paper surface, and spring physics.
+ */
 export const PhysicalAnchorModal: React.FC<PhysicalAnchorModalProps> = ({
   visible,
   onClose,
   anchor,
 }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const productAnimations = useRef(
-    PRODUCTS.map(() => new Animated.Value(0))
-  ).current;
-
-  useEffect(() => {
-    if (visible) {
-      // Fade in modal
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 250,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 250,
-          easing: Easing.out(Easing.back(1.2)),
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Stagger product card animations
-      Animated.stagger(
-        50,
-        productAnimations.map((anim) =>
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: 200,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          })
-        )
-      ).start();
-    } else {
-      // Fade out modal
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.9,
-          duration: 200,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Reset product animations
-      productAnimations.forEach((anim) => anim.setValue(0));
-    }
-  }, [visible]);
+  const reduceMotion = useV2ReduceMotion();
 
   const handleProductSelect = (product: Product) => {
-    safeHaptics.selection();
+    v2Haptics.selection();
 
-    // Track analytics
     AnalyticsService.track(AnalyticsEvents.MERCH_PRODUCT_SELECTED, {
       anchor_id: anchor.id,
       product_type: product.type,
       product_title: product.title,
     });
 
-    // TODO: Navigate to product detail when API ready
-    // For now, show alert placeholder
     Alert.alert(
       product.title,
       `${product.description}\n\nPrintful integration coming soon!`,
@@ -150,200 +77,132 @@ export const PhysicalAnchorModal: React.FC<PhysicalAnchorModalProps> = ({
     );
   };
 
-  const handleBackdropPress = () => {
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+  const handleClose = () => {
+    v2Haptics.selection();
     onClose();
   };
 
   return (
-    <Modal
+    <V2SheetModal
       visible={visible}
-      transparent
-      animationType="none"
-      onRequestClose={onClose}
-      statusBarTranslucent
+      onClose={handleClose}
+      reduceMotion={reduceMotion}
+      scrimAccessibilityLabel="Close form selection"
+      testID="physical-anchor-modal"
     >
-      <TouchableOpacity
-        style={styles.backdrop}
-        activeOpacity={1}
-        onPress={handleBackdropPress}
-      >
-        <Animated.View
-          style={[
-            styles.backdropOverlay,
-            {
-              opacity: fadeAnim,
-            },
-          ]}
-        />
-
-        <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-          <Animated.View
-            style={[
-              styles.modalContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={40} tint="dark" style={styles.blurContainer}>
-                {renderModalContent()}
-              </BlurView>
-            ) : (
-              <View style={[styles.androidContainer, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-                {renderModalContent()}
-              </View>
-            )}
-          </Animated.View>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    </Modal>
-  );
-
-  function renderModalContent() {
-    return (
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Choose a form</Text>
+      <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal>
+        <V2SheetGrabZone>
+          <View style={styles.handle} />
+          <Text style={styles.eyebrow} accessibilityRole="none">
+            PHYSICAL ARTIFACT
+          </Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            Choose a form
+          </Text>
           <Text style={styles.subtitle}>
             Your anchor will be mapped exactly as shown.
           </Text>
-        </View>
+        </V2SheetGrabZone>
 
-        {/* Product Grid */}
         <View style={styles.productGrid}>
-          {PRODUCTS.map((product, index) => (
-            <Animated.View
+          {PRODUCTS.map((product) => (
+            <Pressable
               key={product.id}
-              style={[
-                styles.productCardWrapper,
-                {
-                  opacity: productAnimations[index],
-                  transform: [
-                    {
-                      translateY: productAnimations[index].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      }),
-                    },
-                  ],
-                },
+              accessibilityRole="button"
+              accessibilityLabel={`${product.title}: ${product.description}`}
+              onPress={() => handleProductSelect(product)}
+              style={({ pressed }) => [
+                styles.productCard,
+                pressed && styles.productCardPressed,
               ]}
             >
-              <TouchableOpacity
-                style={styles.productCard}
-                onPress={() => handleProductSelect(product)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.productCardInner}>
-                  <Text style={styles.productTitle}>{product.title}</Text>
-                  <Text style={styles.productDescription}>
-                    {product.description}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
+              <Text style={styles.productTitle}>{product.title}</Text>
+              <Text style={styles.productDescription}>{product.description}</Text>
+            </Pressable>
           ))}
         </View>
 
-        {/* Footer Actions */}
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBackdropPress}
-            activeOpacity={0.7}
+          <V2Button
+            variant="secondary"
+            onPress={handleClose}
+            testID="physical-anchor-modal-cancel"
           >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
+            Cancel
+          </V2Button>
         </View>
-      </View>
-    );
-  }
+      </SafeAreaView>
+    </V2SheetModal>
+  );
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backdropOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
-  modalContainer: {
-    width: MODAL_WIDTH,
-    borderRadius: 20,
-    overflow: 'hidden',
+  sheet: {
+    backgroundColor: colors.paper,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[4] + V2_SHEET_SKIRT,
+    marginBottom: -V2_SHEET_SKIRT,
     borderWidth: 1,
-    borderColor: colors.ritual.border,
+    borderColor: colors.border.subtle,
   },
-  blurContainer: {
-    borderRadius: 20,
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: radii.pill,
+    backgroundColor: colors.border.default,
+    alignSelf: 'center',
+    marginBottom: spacing[3],
   },
-  androidContainer: {
-    backgroundColor: colors.ritual.glassStrong,
-    borderRadius: 20,
-  },
-  content: {
-    padding: spacing.xl,
-  },
-  header: {
-    marginBottom: spacing.lg,
+  eyebrow: {
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    letterSpacing: 1.2,
+    marginBottom: spacing[1],
+    textTransform: 'uppercase',
   },
   title: {
-    fontFamily: typography.fonts.heading,
-    fontSize: typography.sizes.h3,
+    ...typography.headingSM,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[1],
   },
   subtitle: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
+    ...typography.bodySM,
     color: colors.text.secondary,
     lineHeight: 20,
+    marginBottom: spacing[4],
   },
   productGrid: {
-    marginBottom: spacing.lg,
-  },
-  productCardWrapper: {
-    marginBottom: spacing.md,
+    gap: spacing[2],
+    marginBottom: spacing[4],
   },
   productCard: {
-    borderRadius: 12,
+    backgroundColor: colors.grouped,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-    overflow: 'hidden',
+    borderColor: colors.border.subtle,
+    minHeight: 56,
+    justifyContent: 'center',
   },
-  productCardInner: {
-    backgroundColor: 'rgba(15, 20, 25, 0.4)',
-    padding: spacing.md,
+  productCardPressed: {
+    backgroundColor: colors.paper,
+    borderColor: colors.border.strong,
   },
   productTitle: {
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: typography.sizes.body1,
+    ...typography.labelMD,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   productDescription: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
+    ...typography.bodySM,
     color: colors.text.secondary,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   footer: {
-    alignItems: 'center',
-  },
-  backButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  backButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
+    paddingTop: spacing[1],
   },
 });

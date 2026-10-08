@@ -12,23 +12,31 @@ import { WeatherClouds, useWeatherDrift } from './ChartMapWeather';
 import { weatherTransformFor } from './useChartMapCamera';
 import { ChartWeatherVeilPrimer } from './ChartWeatherNativeVeil';
 
-/** Space above the permanent Chart's map (ChartActiveView: insets.top + this). */
-export const CHART_MAP_TOP = 100;
-
-/** The permanent Chart's map viewport height (same formula as ChartActiveView). */
-export function chartMapViewportHeight(width: number, height: number, insetTop: number, insetBottom: number): number {
-  const mapHeight = Math.min((width * 1180) / 852, Math.max(240, height - insetTop - insetBottom - 360));
-  return mapHeight - CHART_MAP_TOP;
+// DEFERRED: /** Space above the permanent Chart's map (ChartActiveView: insets.top + this). */
+// DEFERRED: export const CHART_MAP_TOP = 100;
+// DEFERRED:
+// DEFERRED: /** The permanent Chart's map viewport height (same formula as ChartActiveView). */
+// DEFERRED: export function chartMapViewportHeight(width: number, height: number, insetTop: number, insetBottom: number): number {
+// DEFERRED:   const mapHeight = Math.min((width * 1180) / 852, Math.max(240, height - insetTop - insetBottom - 360));
+// DEFERRED:   return mapHeight - CHART_MAP_TOP;
+// DEFERRED: }
+// DEFERRED:
+// DEFERRED: /**
+// DEFERRED:  * Window y of map-space y = 0 on the permanent Chart at overview: the viewport sits CHART_MAP_TOP below the
+// DEFERRED:  * safe area and the camera centres the full-height art in it. Creation's "Explore your Chart" rises to this.
+// DEFERRED:  */
+// DEFERRED: export function chartMapScreenTop(width: number, height: number, insetTop: number, insetBottom: number): number {
+// DEFERRED:   const viewH = chartMapViewportHeight(width, height, insetTop, insetBottom);
+// DEFERRED:   const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, OVERVIEW_CAMERA.s, width, viewH);
+// DEFERRED:   return insetTop + CHART_MAP_TOP + home.ty;
+// DEFERRED: }
+// DEFERRED:
+/** Permanent Chart fills the window; creation aligns map-space zero to this art top. */
+export function chartMapViewportHeight(_width: number, height: number, _insetTop: number, _insetBottom: number): number {
+  return height;
 }
-
-/**
- * Window y of map-space y = 0 on the permanent Chart at overview: the viewport sits CHART_MAP_TOP below the
- * safe area and the camera centres the full-height art in it. Creation's "Explore your Chart" rises to this.
- */
-export function chartMapScreenTop(width: number, height: number, insetTop: number, insetBottom: number): number {
-  const viewH = chartMapViewportHeight(width, height, insetTop, insetBottom);
-  const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, OVERVIEW_CAMERA.s, width, viewH);
-  return insetTop + CHART_MAP_TOP + home.ty;
+export function chartMapScreenTop(_width: number, _height: number, insetTop: number, _insetBottom: number): number {
+  return insetTop + 45;
 }
 
 type Transform = Array<{ translateX: number } | { translateY: number } | { scale: number }>;
@@ -90,20 +98,21 @@ export function ChartWeatherHold({
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const mapHeight = chartMapViewportHeight(width, height, insets.top, insets.bottom);
+  const frame = useMemo(() => ({ mode: 'fullBleed' as const, artTop: chartMapScreenTop(width, height, insets.top, insets.bottom) }), [width, height, insets.top, insets.bottom]);
   const tiles = useCloudTiles();
   useEffect(() => {
     void loadFogImages(buildRouteTable()).catch(() => undefined);
   }, []);
   const transform = useMemo<Transform>(() => {
     const c = CHART_MAP_TIMING.open.startCamera;
-    const w = weatherTransformFor(c.cx, c.cy, c.s, width, Math.max(1, mapHeight));
+    const w = weatherTransformFor(c.cx, c.cy, c.s, width, Math.max(1, mapHeight), frame);
     return [{ translateX: w.tx }, { translateY: w.ty }, { scale: w.scale }];
-  }, [width, mapHeight]);
+  }, [width, mapHeight, frame]);
 
   return (
     <View testID={testID} style={styles.screen}>
       <View
-        style={[styles.map, { top: insets.top + CHART_MAP_TOP, width, height: Math.max(1, mapHeight) }]}
+        style={[styles.map, { top: 0, width, height: Math.max(1, mapHeight) }]}
         pointerEvents="none"
         accessible
         accessibilityRole="progressbar"

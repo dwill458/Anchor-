@@ -21,6 +21,9 @@ import { V2_VISUALIZE_DURATIONS } from './visualizeVisionPlan';
 import { V2CinematicSessionScreen, type PreparedCinematicSession } from './V2CinematicSessionScreen';
 import { getVisualizeMonotonicNow } from '@/screens/visualize/useVisualizeSessionEngine';
 import { useAuthStore } from '@/stores/authStore';
+import { useRemoteAudioReady } from '@/hooks/useRemoteAudioReady';
+import { getGuidedTrackAsset } from '@/services/visualizeGuidedTracks';
+import { guideForVoice, trackForDuration, type GuidedDurationSeconds } from './guided/visualizeBeatMap';
 
 export type V2VisualizeBeginConfig = {
   durationSeconds: number;
@@ -115,6 +118,18 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   const board = useVisionBoardScene(ready ? prepared.assets.tiles : boardTiles, scene);
   const retry = () => { setPreparationIssue(null); setPrepared(null); setAttempt(value => value + 1); };
 
+  // Turning sound on when the saved defaults are fully silent uses the
+  // product defaults rather than starting a silent "sound on" session.
+  const sessionVoice: GuidanceVoice = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedVoice : DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.guidanceVoice) : 'none';
+  // The guided track is the session's clock (it plays muted when sound is off), so a long track
+  // that is not bundled must be on disk before Begin. Shorter tracks are bundled and always ready.
+  const guidedAsset = useMemo(
+    () => getGuidedTrackAsset(trackForDuration(duration as GuidedDurationSeconds), guideForVoice(sessionVoice)),
+    [duration, sessionVoice],
+  );
+  const audio = useRemoteAudioReady([guidedAsset]);
+  const canBegin = ready && audio.readiness === 'ready';
+
   // Begin: settings lock, the chrome fades around the collage, then the session takes the same frame.
   const darken = useSharedValue(0);
   const frameRef = useRef<View>(null);
@@ -124,12 +139,10 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   const fadeStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - darken.value * 1.6) }));
 
   const begin = () => {
-    if (beganRef.current || !ready || !prepared) return;
+    if (beganRef.current || !canBegin || !prepared) return;
     beganRef.current = true;
     setBeginning(true);
-    // Turning sound on when the saved defaults are fully silent uses the
-    // product defaults rather than starting a silent "sound on" session.
-    const voice: GuidanceVoice = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedVoice : DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.guidanceVoice) : 'none';
+    const voice = sessionVoice;
     const ambient = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedAmbient !== 'off' : true) : false;
     const start = (canvasFrame?: { x: number; y: number; width: number; height: number }) => {
       darken.value = reduceMotion ? 1 : withTiming(1, { duration: VISUALIZE_BEGIN_TIMING.fadeMs, easing: Easing.inOut(Easing.cubic) });
@@ -173,13 +186,16 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
           {boardTiles.length === 0 ? <Text style={styles.hint}>Add a Vision image before beginning.</Text> : null}
           {boardTiles.length > 0 && !ready ? <Text accessibilityLiveRegion="polite" style={styles.hint}>{preparationIssue ?? 'Preparing your Vision...'}</Text> : null}
           {preparationIssue ? <V2Button variant="secondary" onPress={retry} style={styles.hintAction}>Retry Vision</V2Button> : null}
+          {boardTiles.length > 0 && ready && audio.readiness === 'downloading' ? <Text accessibilityLiveRegion="polite" style={styles.hint}>Downloading this session's audio...</Text> : null}
+          {boardTiles.length > 0 && ready && audio.readiness === 'failed' ? <Text accessibilityLiveRegion="polite" style={styles.hint}>This session's audio couldn't download. Check your connection, or choose a shorter session.</Text> : null}
+          {boardTiles.length > 0 && ready && audio.readiness === 'failed' ? <V2Button variant="secondary" onPress={audio.retry} style={styles.hintAction}>Retry download</V2Button> : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Begin Visualize"
-            accessibilityState={{ disabled: boardTiles.length === 0 || !ready || locked }}
-            disabled={boardTiles.length === 0 || !ready || locked}
+            accessibilityState={{ disabled: boardTiles.length === 0 || !canBegin || locked }}
+            disabled={boardTiles.length === 0 || !canBegin || locked}
             onPress={begin}
-            style={({ pressed }) => [styles.begin, (boardTiles.length === 0 || !ready) && styles.beginDisabled, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.begin, (boardTiles.length === 0 || !canBegin) && styles.beginDisabled, pressed && styles.pressed]}
           >
             <Eye size={20} color={ACCENT} />
             <Text style={styles.beginText}>Begin Visualize</Text>

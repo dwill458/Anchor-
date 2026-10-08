@@ -16,7 +16,7 @@ import type {
   ProfileData,
   User,
 } from '@/types';
-import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
+import { apiClient, fetchCompleteProfile, ApiClientError } from '@/services/ApiClient';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
@@ -681,6 +681,17 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Your first anchor draft could not be found.');
           }
 
+          const isLockedFreeUser =
+            !useSubscriptionStore.getState().hasActiveEntitlement &&
+            Boolean(user?.freeAnchorConsumed || (user?.totalAnchorsCreated ?? 0) >= 1);
+          if (isLockedFreeUser) {
+            set({
+              isFinalizingPendingFirstAnchor: false,
+              pendingFirstAnchorError: 'CREATE_ANCHOR_FREE_LOCKED',
+            });
+            return false;
+          }
+
           const idToken = await AuthService.getIdToken();
 
           // Mock auth cannot reach the real backend. Clear the gate and keep the
@@ -861,8 +872,12 @@ export const useAuthStore = create<AuthState>()(
 
           return true;
         } catch (error) {
-          const message =
-            error instanceof Error
+          const isFreeLocked =
+            (error instanceof ApiClientError && (error.code === 'CREATE_ANCHOR_FREE_LOCKED' || error.status === 403)) ||
+            (error instanceof Error && (error.message.includes('CREATE_ANCHOR_FREE_LOCKED') || error.message.includes('Create more anchors with Pro')));
+          const message = isFreeLocked
+            ? 'CREATE_ANCHOR_FREE_LOCKED'
+            : error instanceof Error
               ? error.message
               : 'We could not finish saving your first anchor.';
 

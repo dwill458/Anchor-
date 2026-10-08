@@ -1,0 +1,2 @@
+src/components/v2/vision/VisionMomentInput.tsx(549,115): error TS2339: Property 'ink' does not exist on type '{ canvas: string; surface: string; grouped: string; paper: string; text: { primary: string; secondary: string; tertiary: string; }; border: { default: string; }; semantic: { error: string; }; }'.
+src/components/v2/vision/VisionMomentInput.tsx(606,104): error TS2339: Property 'strong' does not exist on type '{ default: string; }'.

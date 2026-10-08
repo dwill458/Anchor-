@@ -8,7 +8,7 @@ import { useChartMapAnimState } from '../useChartMapAnimState';
 import { buildRouteTable, clampCamera, OVERVIEW_CAMERA, waypointPlacement } from '../chartMapGeometry';
 import { loadCloudTiles } from '../chartCloudTiles';
 import { loadFogImages } from '../ChartMapLand';
-import { CHART_MAP_TOP, chartMapScreenTop, chartMapViewportHeight } from '../ChartWeatherHold';
+import { chartMapScreenTop, chartMapViewportHeight } from '../ChartWeatherHold';
 import { peekChartWeatherHandoff, resetChartWeatherHandoff } from '../chartWeatherHandoff';
 import { laterSequence, openSequence } from '../chartMapSequences';
 import { CHART_FIRST_DRAW_HOLD_MS } from '../ChartMap';
@@ -124,11 +124,18 @@ describe('reveal hand-off into the permanent Chart', () => {
   it('"Explore your Chart" rises to where the permanent Chart draws map y = 0 at overview', () => {
     for (const [w, h, top, bottom] of [[390, 844, 47, 34], [412, 915, 24, 48], [360, 640, 24, 0]]) {
       const viewH = chartMapViewportHeight(w, h, top, bottom);
-      // ChartActiveView: map viewport at insets.top + 100, height = min(artH, max(240, h - insets - 360)) - 100.
-      const mapHeight = Math.min((w * 1180) / 852, Math.max(240, h - top - bottom - 360));
-      expect(viewH).toBeCloseTo(mapHeight - 100);
-      const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, 1, w, viewH);
-      expect(chartMapScreenTop(w, h, top, bottom)).toBeCloseTo(top + CHART_MAP_TOP + home.ty);
+// DEFERRED:       // ChartActiveView: map viewport at insets.top + 100, height = min(artH, max(240, h - insets - 360)) - 100.
+// DEFERRED:       const mapHeight = Math.min((w * 1180) / 852, Math.max(240, h - top - bottom - 360));
+// DEFERRED:       expect(viewH).toBeCloseTo(mapHeight - 100);
+// DEFERRED:       const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, 1, w, viewH);
+// DEFERRED:       expect(chartMapScreenTop(w, h, top, bottom)).toBeCloseTo(top + CHART_MAP_TOP + home.ty);
+      expect(viewH).toBe(h);
+      const artTop = top + 45;
+      const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, 1, w, viewH, { mode: 'fullBleed', artTop });
+      expect(chartMapScreenTop(w, h, top, bottom)).toBeCloseTo(home.ty);
+      const creationPageY = top + 200;
+      const exploreDelta = chartMapScreenTop(w, h, top, bottom) - creationPageY;
+      expect(creationPageY + exploreDelta).toBeCloseTo(artTop);
       // The creation stage draws the full-height art at ty = 0, so the rise is exactly this top minus its own.
       expect(clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, 1, w, (w * 1180) / 852).ty).toBeCloseTo(0);
     }

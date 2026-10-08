@@ -663,11 +663,12 @@ describe('Hero carousel', () => {
     expect(mockNavigate).toHaveBeenCalledWith('V2AnchorLibrary');
   });
 
-  it('activates a visible neighbour on tap and writes to the shared selection authority', () => {
+  it('activates a visible neighbour on tap and writes to the shared selection authority', async () => {
     twoAnchors();
     renderHome();
     fireEvent.press(screen.getByTestId('v2-home-carousel-next'));
-    expect(selectAnchor).toHaveBeenCalledWith('b');
+    // The carousel commits once it has rested, not on the tap itself.
+    await waitFor(() => expect(selectAnchor).toHaveBeenCalledWith('b'));
     expect(useAnchorStore.getState().currentAnchorId).toBe('b');
   });
 

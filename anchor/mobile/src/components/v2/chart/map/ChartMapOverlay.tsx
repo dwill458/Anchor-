@@ -1,3 +1,4 @@
+import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useEffect, useMemo } from 'react';
 import {
   Circle, DashPathEffect, DiscretePathEffect, Group, Path, RadialGradient, Skia, vec,
@@ -25,6 +26,7 @@ const SWAY_HALF_MS = 2000; // 4 s loop
 const DEG = Math.PI / 180;
 
 type Props = {
+  frame?: ChartMapFrame;
   width: number;
   height: number;
   anim: ChartMapAnimState;
@@ -45,9 +47,9 @@ type Props = {
  * the continuous flag sway never re-runs the fog shader.
  */
 export const ChartMapOverlay = memo(function ChartMapOverlay({
-  width, height, anim, table, placement, categoryColor, reducedMotion, arrived, clouds = false, livingWeather = false,
+  width, height, anim, table, placement, categoryColor, reducedMotion, arrived, clouds = false, livingWeather = false, frame,
 }: Props) {
-  const cameraTransform = useChartMapCameraTransform(anim, width, height);
+  const cameraTransform = useChartMapCameraTransform(anim, width, height, frame);
   const routePath = useMemo(() => Skia.Path.MakeFromSVGString(table.svgPath), [table.svgPath]);
 
   const { arcs, count } = table;

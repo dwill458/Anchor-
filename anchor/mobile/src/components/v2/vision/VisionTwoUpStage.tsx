@@ -1,3 +1,4 @@
+// DEFERRED: replaced by ceremony Develop/Choose.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Image, Modal, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, Easing, cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';

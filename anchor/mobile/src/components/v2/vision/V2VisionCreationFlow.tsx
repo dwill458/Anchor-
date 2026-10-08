@@ -1,3 +1,4 @@
+import { VisionCeremony } from './ceremony/VisionCeremony';
 import { useVisionImageArrival } from './VisionImageArrival';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
@@ -19,7 +20,7 @@ import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from '
 import { VisionTwoUpStage, type VisionTwoUpSelection } from './VisionTwoUpStage';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 
-export type VisionFlowAsset = { assetId: string; prompt: string; imageUrl?: string; sourceType: VisionSceneSource };
+export type VisionFlowAsset = { assetId: string; prompt: string; imageUrl?: string; sourceType: VisionSceneSource; caption?: string };
 type UploadItem = { key: string; uri: string; mimeType: string; assetId?: string; imageUrl?: string | null; status: 'uploading' | 'ready' | 'failed'; error?: string };
 type Step = 'empty' | 'method' | 'prompt' | 'generating' | 'uploading';
 
@@ -58,7 +59,8 @@ export interface V2VisionCreationFlowProps {
  * then either two generated moments (tap one) or the person's own photos. The
  * chosen image becomes the Vision's first image and the flow hands over to the board.
  */
-export function V2VisionCreationFlow({
+// DEFERRED: original stages and uploading block replaced by ceremony Ask → Develop → Seal.
+function DeferredVisionCreationFlow({
   anchorId, anchorIntention, anchorCategory, anchorImageUrl, anchorArt, initialDescription = '',
   initialStep = 'prompt', onBack, onPremiumRequired, onSaveDescription, resumeGeneration, onResumeGenerationConsumed, onUploadAsset, onAssemble,
   testID = 'v2-vision-creation-flow',
@@ -328,3 +330,7 @@ const styles = StyleSheet.create({
   paperNotice: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, textAlign: 'center', color: colors.semantic.error },
   paperAction: { alignSelf: 'stretch' },
 });
+
+export function V2VisionCreationFlow(props: V2VisionCreationFlowProps) {
+  return <VisionCeremony {...props} mode="create" startAt="ask" />;
+}

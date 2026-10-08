@@ -3,6 +3,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
+import { sfxLog } from '@/services/audio/sfxLog';
 import { safeHaptics } from '@/utils/haptics';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { colors, typography } from '@/theme/v2';
@@ -46,6 +47,7 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
   const stopHold = useCallback(() => { if (hold.current) clearInterval(hold.current); hold.current = null; }, []);
   const finish = useCallback(() => {
     if (complete.current) return;
+    sfxLog('seal finish');
     complete.current = true;
     stopHold(); stopTone();
     callbacks.current.onCommitted();
@@ -80,6 +82,7 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
     cancelAnimation(progress);
     distance.current = 0; progress.value = 0; thresholds.current = 0;
     touching.current = true;
+    sfxLog('seal begin');
     callbacks.current.onInteraction(true);
     if (!started.current) { started.current = true; track('anchor_seal_started'); }
     tone.current = playCreationSound('sealRise');
@@ -90,6 +93,7 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
   const release = useCallback(() => {
     touching.current = false;
     if (complete.current) return;
+    sfxLog('seal release');
     stopHold(); stopTone();
     progress.value = creationTiming(0, { duration: reduceMotion ? 80 : 400 });
     if (decay.current) clearTimeout(decay.current);

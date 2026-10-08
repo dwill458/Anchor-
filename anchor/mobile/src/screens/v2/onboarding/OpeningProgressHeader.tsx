@@ -1,7 +1,6 @@
 /**
- * Progress chrome shared by Screens 2–3. It stays mounted across every handoff, so the step
- * changes in place — the next segment fills and "02" rolls up into "03" — instead of a new
- * header arriving with a new page.
+ * Navigation chrome shared by Screens 2–3. It stays mounted across every handoff rather than
+ * arriving as a new header with each page.
  *
  * Its tone follows the surface beneath it: light over Screen 2's photography, ink over
  * the cream of the question, blending as the surface changes.
@@ -19,19 +18,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { ChevronLeft } from "lucide-react-native";
 
-import { ONBOARDING_TOTAL_STEPS as TOTAL } from "@/constants/v2/onboarding";
-
-/** [over photography, over cream] */
 const TONE = {
   backFill: ["rgba(20, 22, 32, 0.32)", "rgba(122, 98, 60, 0.10)"],
   backBorder: ["rgba(255, 255, 255, 0.34)", "rgba(20, 22, 43, 0.10)"],
-  track: ["rgba(255, 255, 255, 0.34)", "rgba(20, 22, 43, 0.12)"],
-  fill: ["#E4C48A", "#CFA862"],
-  text: ["rgba(255, 255, 255, 0.86)", "rgba(20, 22, 43, 0.78)"],
 } as const;
 const INK = "#14162B";
-const pad = (n: number) => String(n).padStart(2, "0");
-
 function seg(t: number, window: readonly [number, number]): number {
   "worklet";
   return Math.min(1, Math.max(0, (t - window[0]) / (window[1] - window[0])));
@@ -39,15 +30,6 @@ function seg(t: number, window: readonly [number, number]): number {
 
 type Props = {
   topInset: number;
-  /** Step shown before the roll and after it. Equal values render a static counter. */
-  from: number;
-  to: number;
-  /** The step the user is on, for assistive tech (the roll itself is decorative). */
-  current: number;
-  /** Clock (ms) and the window in which the roll happens. */
-  clock: SharedValue<number>;
-  window: readonly [number, number];
-  reduceMotion: boolean;
   onBack: () => void;
   /** Developer skip callback. */
   onSkip?: () => void;
@@ -56,7 +38,7 @@ type Props = {
   dimmed?: boolean;
   /** 0 over photography, 1 over cream. Omitted: always photography. */
   paper?: SharedValue<number>;
-  /** The counter leaves with the question: this clock and window fade the whole header away. */
+  /** The header leaves with the question: this clock and window fade the whole header away. */
   exit?: { clock: SharedValue<number>; window: readonly [number, number] };
 };
 
@@ -66,29 +48,8 @@ const toneOf = (paper: Tone) => {
   return paper ? paper.value : 0;
 };
 
-function Segment({ done, filling, fill, paper }: { done: boolean; filling: boolean; fill: object; paper: Tone }) {
-  const trackStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.track]),
-  }));
-  const fillColor = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.fill]),
-  }));
-  return (
-    <Animated.View style={[styles.segment, trackStyle]}>
-      {done ? <Animated.View style={[styles.segmentFill, fillColor]} /> : null}
-      {filling ? <Animated.View style={[styles.segmentFill, styles.fillOrigin, fillColor, fill]} /> : null}
-    </Animated.View>
-  );
-}
-
 export function OpeningProgressHeader({
   topInset,
-  from,
-  to,
-  current,
-  clock,
-  window,
-  reduceMotion,
   onBack,
   onSkip,
   interactive,
@@ -108,41 +69,13 @@ export function OpeningProgressHeader({
   const rootStyle = useAnimatedStyle(() => ({
     opacity: appear.value * (1 - 0.6 * dim.value) * (exit ? 1 - seg(exit.clock.value, exit.window) : 1),
   }));
-  const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: seg(clock.value, window) }] }));
   const backStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.backFill]),
     borderColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.backBorder]),
   }));
   const lightIcon = useAnimatedStyle(() => ({ opacity: 1 - toneOf(paper) }));
   const inkIcon = useAnimatedStyle(() => ({ opacity: toneOf(paper) }));
-  const outgoing = useAnimatedStyle(() => {
-    const p = seg(clock.value, window);
-    const color = interpolateColor(toneOf(paper), [0, 1], [...TONE.text]);
-    return {
-      color,
-      opacity: 1 - p,
-      transform: [{ translateY: reduceMotion ? 0 : -8 * p }],
-    };
-  });
-  const incoming = useAnimatedStyle(() => {
-    const p = seg(clock.value, window);
-    const color = interpolateColor(toneOf(paper), [0, 1], [...TONE.text]);
-    return {
-      color,
-      opacity: p,
-      transform: [{ translateY: reduceMotion ? 0 : 8 * (1 - p) }],
-    };
-  });
-  const settledTone = useAnimatedStyle(() => ({
-    color: interpolateColor(toneOf(paper), [0, 1], [...TONE.text]),
-    opacity: 1,
-    transform: [{ translateY: 0 }],
-  }));
-  const suffixTone = useAnimatedStyle(() => ({
-    color: interpolateColor(toneOf(paper), [0, 1], [...TONE.text]),
-  }));
-
-  const rolls = from !== to;
+  const skipTextTone = useAnimatedStyle(() => ({ color: toneOf(paper) ? INK : "#FFFFFF" }));
   return (
     <Animated.View
       style={[styles.root, { paddingTop: Math.max(topInset, 16) }, rootStyle]}
@@ -159,31 +92,6 @@ export function OpeningProgressHeader({
             </Animated.View>
           </Animated.View>
         </Pressable>
-        <View
-          style={styles.track}
-          accessibilityRole="progressbar"
-          accessibilityLabel={`Step ${current} of ${TOTAL}`}
-          accessibilityValue={{ min: 1, max: TOTAL, now: current }}
-        >
-          {Array.from({ length: TOTAL }, (_, index) => {
-            const done = index < from;
-            const filling = rolls && index === from;
-            return <Segment key={index} done={done} filling={filling} fill={fill} paper={paper} />;
-          })}
-        </View>
-        <View style={styles.counter} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <View style={styles.digits}>
-            {rolls ? (
-              <>
-                <Animated.Text key="outgoing" style={[styles.counterText, styles.digitLayer, outgoing]}>{pad(from)}</Animated.Text>
-                <Animated.Text key="incoming" style={[styles.counterText, incoming]}>{pad(to)}</Animated.Text>
-              </>
-            ) : (
-              <Animated.Text key="settled" style={[styles.counterText, settledTone]}>{pad(from)}</Animated.Text>
-            )}
-          </View>
-          <Animated.Text style={[styles.counterText, suffixTone]}> / {pad(TOTAL)}</Animated.Text>
-        </View>
         {__DEV__ && onSkip ? (
           <Pressable
             accessibilityRole="button"
@@ -192,7 +100,7 @@ export function OpeningProgressHeader({
             hitSlop={8}
             style={styles.devSkipButton}
           >
-            <Animated.Text style={[styles.devSkipText, suffixTone]}>Skip</Animated.Text>
+            <Animated.Text style={[styles.devSkipText, skipTextTone]}>Skip</Animated.Text>
           </Pressable>
         ) : null}
       </View>
@@ -202,7 +110,7 @@ export function OpeningProgressHeader({
 
 const styles = StyleSheet.create({
   root: { position: "absolute", top: 0, left: 0, right: 0 },
-  row: { height: 48, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 16 },
+  row: { height: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16 },
   back: {
     width: 38,
     height: 38,
@@ -214,33 +122,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.34)",
   },
   icon: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
-  track: { flex: 1, flexDirection: "row", gap: 5, paddingHorizontal: 10 },
-  segment: {
-    flex: 1,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.34)",
-    overflow: "hidden",
-  },
-  segmentFill: { ...StyleSheet.absoluteFillObject, backgroundColor: "#E4C48A" },
-  fillOrigin: { transformOrigin: "left" },
-  counter: { flexDirection: "row", alignItems: "center", minWidth: 54, justifyContent: "flex-end" },
-  digits: { overflow: "hidden", height: 18, width: 20, justifyContent: "center", alignItems: "flex-end" },
-  digitLayer: { position: "absolute", right: 0 },
-  counterText: {
-    color: "rgba(255, 255, 255, 0.86)",
-    fontFamily: "Inter-Regular",
-    fontSize: 13,
-    lineHeight: 18,
-    includeFontPadding: false,
-    fontVariant: ["tabular-nums"],
-  },
   devSkipButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     backgroundColor: "rgba(0, 0, 0, 0.2)",
-    marginLeft: 6,
+    marginLeft: "auto",
   },
   devSkipText: {
     fontSize: 11,

@@ -9,6 +9,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import type {
   Anchor,
   ApiResponse,
@@ -687,7 +688,22 @@ class AuthHydrationService {
       if (expectedUserId && isCurrentAccount() && !options.skipAnchorRefresh) {
         const anchorStore = useAnchorStore.getState();
         if (fastAnchors.length > 0) {
-          const preservedLocalAnchors = anchorStore.anchors.filter((anchor) => !isBackendAnchorId(anchor.id));
+          const user = useAuthStore.getState().user;
+          const hasActiveEntitlement = useSubscriptionStore.getState().hasActiveEntitlement;
+          const isLockedFreeUser = Boolean(
+            user &&
+            !hasActiveEntitlement &&
+            (user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1)
+          );
+          if (isLockedFreeUser) {
+            anchorStore.anchors
+              .filter((anchor) => !isBackendAnchorId(anchor.id))
+              .forEach((a) => anchorStore.removeAnchor(a.id));
+            useAuthStore.getState().clearPendingFirstAnchorState();
+          }
+          const preservedLocalAnchors = isLockedFreeUser
+            ? []
+            : anchorStore.anchors.filter((anchor) => !isBackendAnchorId(anchor.id));
           const nextAnchors = [...fastAnchors, ...preservedLocalAnchors];
           anchorStore.setAnchors(nextAnchors);
           const activeAnchors = nextAnchors.filter((anchor) => !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt);
@@ -912,9 +928,24 @@ class AuthHydrationService {
 
     if (!options.skipAnchorRefresh) {
       const anchorStore = useAnchorStore.getState();
-      const preservedLocalAnchors = anchorStore.anchors.filter(
-        (anchor) => !isBackendAnchorId(anchor.id),
+      const user = useAuthStore.getState().user;
+      const hasActiveEntitlement = useSubscriptionStore.getState().hasActiveEntitlement;
+      const isLockedFreeUser = Boolean(
+        user &&
+        !hasActiveEntitlement &&
+        (user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1)
       );
+      if (isLockedFreeUser) {
+        anchorStore.anchors
+          .filter((anchor) => !isBackendAnchorId(anchor.id))
+          .forEach((a) => anchorStore.removeAnchor(a.id));
+        useAuthStore.getState().clearPendingFirstAnchorState();
+      }
+      const preservedLocalAnchors = isLockedFreeUser
+        ? []
+        : anchorStore.anchors.filter(
+            (anchor) => !isBackendAnchorId(anchor.id),
+          );
       const burnedOriginalAnchorIds = new Set(
         exportedBurnedAnchors.map(
           (burnedAnchor) => burnedAnchor.originalAnchorId,

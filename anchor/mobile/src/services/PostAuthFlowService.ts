@@ -1,4 +1,5 @@
 import type { User } from '@/types';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import AnchorSyncService from '@/services/AnchorSyncService';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import RevenueCatService, { TrialStatusSnapshot } from '@/services/RevenueCatService';
@@ -38,15 +39,27 @@ class PostAuthFlowService {
     await RevenueCatService.logIn(patchedUser.id);
     const trialStatus = await RevenueCatService.refreshTrialStatus();
 
+    const isLockedFreeUser = !trialStatus.hasActiveEntitlement &&
+      Boolean(patchedUser.freeAnchorConsumed || (patchedUser.totalAnchorsCreated ?? 0) >= 1);
+
     const anchorStore = useAnchorStore.getState();
     if (AnchorSyncService.isConfigured()) {
       // Keep the full local collection during account transition so we do not
       // discard user progress before the sync layer can reconcile it.
+      // Exception: If this is an unentitled free user who has already consumed their free Anchor,
+      // unconfirmed local drafts must NOT be migrated into their account library!
+      const anchorsToMigrate = isLockedFreeUser
+        ? anchorStore.anchors.filter((a) => isBackendAnchorId(a.id))
+        : anchorStore.anchors;
+
       const migratedAnchors = await AnchorSyncService.migrateAnchors(
-        anchorStore.anchors,
+        anchorsToMigrate,
         patchedUser.id
       );
-      anchorStore.setAnchors(migratedAnchors);
+      const unconfirmedAnchors = isLockedFreeUser
+        ? anchorStore.anchors.filter((a) => !isBackendAnchorId(a.id))
+        : [];
+      anchorStore.setAnchors([...migratedAnchors, ...unconfirmedAnchors]);
       await anchorStore.flushPendingSync();
     }
 
@@ -66,13 +79,18 @@ class PostAuthFlowService {
     await hydrateAuthenticatedData(hasPendingFirstAnchorDraft);
 
     if (hasPendingFirstAnchorDraft) {
+      if (isLockedFreeUser) {
+        throw new Error('CREATE_ANCHOR_FREE_LOCKED');
+      }
+
       const didFinalizePendingFirstAnchor =
         await useAuthStore.getState().finalizePendingFirstAnchorDraft();
 
       if (didFinalizePendingFirstAnchor) {
         await hydrateAuthenticatedData(false);
       } else {
-        throw new Error(useAuthStore.getState().pendingFirstAnchorError ?? 'Your first Anchor could not be saved yet. Try again.');
+        const error = useAuthStore.getState().pendingFirstAnchorError;
+        throw new Error(error ?? 'Your first Anchor could not be saved yet. Try again.');
       }
     }
 

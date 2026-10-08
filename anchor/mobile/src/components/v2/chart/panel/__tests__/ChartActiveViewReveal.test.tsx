@@ -1,3 +1,7 @@
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated');
+  return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withRepeat: (value: unknown) => value, withSequence: (...values: unknown[]) => values[values.length - 1], withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
+});
 import React from 'react';
 import { act, render, waitFor } from '@testing-library/react-native';
 import { ChartActiveView } from '../../ChartActiveView';
