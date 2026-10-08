@@ -9,6 +9,7 @@ import { safeHaptics } from '@/utils/haptics';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useCelebrationRecordsStore } from '@/stores/v2/celebrationRecordsStore';
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 jest.mock('@/hooks/useCelebrationReduceMotion', () => ({
@@ -563,5 +564,104 @@ describe('V2FocusCompleteScreen entry', () => {
   it('arrives on cream after Visualize, whose last frame is the cream board, so there is no dark flash', () => {
     render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={60} practiceTitle="Visualize" enterFrom="cream" onDone={jest.fn()} onAgain={jest.fn()} />);
     expect(opacityOf('v2-focus-complete-ink')).toBe(0);
+  });
+});
+
+describe('V2FocusCompleteScreen stage and Full Strength scenes (celebration Step 4a)', () => {
+  const RECORD_DATE = '2026-01-02T03:04:05.000Z';
+
+  const flush = () => act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+    useCelebrationStore.getState().reset();
+    setTeachingFlag(true);
+    setPracticeHistory(3);
+    useCelebrationRecordsStore.setState({ records: {}, hydrated: true });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('a first stage shows the five-segment strip, the Established segment, and the stage line after the fill', async () => {
+    render(renderScene('screen-stage-first', 47, 53));
+    await flush();
+    expect(screen.getByTestId('focus-complete-stage-strip')).toBeTruthy();
+    expect(screen.getByText('Established')).toBeTruthy();
+    expect(screen.getByText('Your Anchor is now Established.')).toBeTruthy();
+    expect(screen.queryByText('Reinforced today ✓')).toBeNull();
+    expect(screen.queryByTestId('focus-complete-full-strength-ring')).toBeNull();
+    expect(screen.getByLabelText('Skip')).toBeTruthy();
+  });
+
+  it('a stage re-reached after decay reads as a quiet relight line, with no first-time wording', async () => {
+    useCelebrationRecordsStore.setState({ records: { a1: { stages: { established: RECORD_DATE } } } });
+    render(renderScene('screen-stage-relight', 47, 53));
+    await flush();
+    expect(screen.getByText('Established again.')).toBeTruthy();
+    expect(screen.queryByText('Your Anchor is now Established.')).toBeNull();
+  });
+
+  it('a first Full Strength shows the ring, the Full Strength line and its subline, and the ring closes at 2.9s', async () => {
+    render(renderScene('screen-full-first', 96, 100));
+    await flush();
+    expect(screen.getByTestId('focus-complete-full-strength-ring')).toBeTruthy();
+    expect(screen.getByText('Full Strength.')).toBeTruthy();
+    expect(screen.getByText('Your Anchor is fully reinforced.')).toBeTruthy();
+    expect(useCelebrationStore.getState().current).toMatchObject({ level: 4, durationMs: 4600 });
+    expect(threadSettleCalls()).toBe(0);
+    advance(2000);
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
+    advance(900);
+    expect(safeHaptics.impact).toHaveBeenLastCalledWith('light');
+  });
+
+  it('back at 100 after decay shows the short line and no ring or subline', async () => {
+    useCelebrationRecordsStore.setState({ records: { a1: { stages: {}, fullStrengthAt: RECORD_DATE } } });
+    render(renderScene('screen-full-repeat', 97, 100));
+    await flush();
+    expect(screen.getByText('Back at full strength.')).toBeTruthy();
+    expect(screen.queryByTestId('focus-complete-full-strength-ring')).toBeNull();
+    expect(screen.queryByText('Your Anchor is fully reinforced.')).toBeNull();
+    expect(useCelebrationStore.getState().current).toMatchObject({ level: 3, durationMs: 3200 });
+  });
+
+  it('already at 100 shows no Full Strength wording and requests nothing', async () => {
+    render(renderScene('screen-at-cap', 100, 100));
+    await flush();
+    expect(screen.queryByText('Full Strength.')).toBeNull();
+    expect(useCelebrationStore.getState().active).toBeNull();
+    expect(safeHaptics.impact).not.toHaveBeenCalled();
+  });
+
+  it('skipping a Full Strength scene lands the final line and ring, and the settle beat fires once', async () => {
+    render(renderScene('screen-full-skip', 96, 100));
+    await flush();
+    advance(500);
+    fireEvent.press(screen.getByLabelText('Skip'));
+    expect(screen.getByText('Full Strength.')).toBeTruthy();
+    expect(screen.getByTestId('focus-complete-full-strength-ring')).toBeTruthy();
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+    advance(5000);
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+  });
+
+  it('under Reduce Motion a first stage plays its chord at once with level 2 and the same words', async () => {
+    (useCelebrationReduceMotion as jest.Mock).mockReturnValue(true);
+    render(renderScene('screen-stage-rm', 47, 53));
+    await flush();
+    expect(useCelebrationStore.getState().current).toMatchObject({ level: 2 });
+    expect(threadSettleCalls()).toBe(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
+    expect(screen.getByText('Your Anchor is now Established.')).toBeTruthy();
   });
 });

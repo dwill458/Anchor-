@@ -1,13 +1,56 @@
 import React, { useEffect } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 import { V2Button, V2Screen } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
+import { resolveEvolutionStage } from '@/adapters/v2/progress/progressAdapter';
 import { AnchorMotion, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
-import { usePracticeCompletionScene } from '@/hooks/v2/practice/usePracticeCompletionScene';
+import { usePracticeCompletionScene, type PracticeSceneKind } from '@/hooks/v2/practice/usePracticeCompletionScene';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
+
+// COPY: from the celebration brief
+const COPY = {
+  stageReached: (stage: string) => `Your Anchor is now ${stage}.`,
+  stageAgain: (stage: string) => `${stage} again.`,
+  fullStrength: 'Full Strength.',
+  fullStrengthSubline: 'Your Anchor is fully reinforced.',
+  backAtFullStrength: 'Back at full strength.',
+  skip: 'Skip',
+} as const;
+
+/** Gold of the stage segment and the Full Strength ring. Same gold as the Anchor detail palette. */
+const CELEBRATION_GOLD = '#C9A24B';
+/** The five stage segments, in the progress adapter's own names (Unestablished is not drawn). */
+const STAGE_STRIP: readonly string[] = ['Forming', 'Building', 'Established', 'Integrated', 'Reinforced'];
+/** The Full Strength ring sits this far outside the artwork. */
+const RING_INSET = 8;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+const isStageScene = (kind: PracticeSceneKind) =>
+  kind === 'stageFirst' || kind === 'stageReinforced' || kind === 'stageRelight';
+
+/** The closing line for a scene. Stage names come from the progress adapter's resolver, never typed here. */
+function sceneNoteText(kind: PracticeSceneKind, value: number): string {
+  const stage = resolveEvolutionStage(value);
+  switch (kind) {
+    case 'first':
+      return 'Your Thread has begun.';
+    case 'stageFirst':
+    case 'stageReinforced':
+      return COPY.stageReached(stage);
+    case 'stageRelight':
+      return COPY.stageAgain(stage);
+    case 'fullFirst':
+      return COPY.fullStrength;
+    case 'fullRepeat':
+      return COPY.backAtFullStrength;
+    default:
+      return 'Reinforced today ✓';
+  }
+}
 
 export interface V2FocusCompleteScreenProps {
   anchor: Anchor;
@@ -68,6 +111,7 @@ export function V2FocusCompleteScreen({
   // The Thread scene (first practice, repeat practice, or nothing) is decided and played by the shared hook.
   const scene = usePracticeCompletionScene({
     sessionId,
+    anchorId: anchor.id,
     fromValue: fromVal,
     toValue: toVal,
     eligible: sessionSaved && hasAuthoritativeMovement,
@@ -89,6 +133,19 @@ export function V2FocusCompleteScreen({
   const labelStyle = useAnimatedStyle(() => ({ opacity: scene.labelOpacity.value }));
   const valueStyle = useAnimatedStyle(() => ({ opacity: scene.valueOpacity.value }));
   const noteStyle = useAnimatedStyle(() => ({ opacity: scene.noteOpacity.value }));
+  const stripStyle = useAnimatedStyle(() => ({
+    opacity: scene.stripOpacity.value,
+    transform: [{ translateY: (1 - scene.stripOpacity.value) * 8 }],
+  }));
+  const segmentStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: scene.segmentFill.value }] }));
+  const sublineStyle = useAnimatedStyle(() => ({ opacity: scene.sublineOpacity.value }));
+  const ringSize = artworkSize + RING_INSET * 2;
+  const ringRadius = ringSize / 2 - 1;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringProps = useAnimatedProps(() => ({
+    strokeDashoffset: ringCircumference * (1 - scene.ringDraw.value),
+  }));
+  const stageIndex = Math.max(0, STAGE_STRIP.indexOf(resolveEvolutionStage(toVal)));
   const artworkStyle = useAnimatedStyle(() => ({ transform: [{ scale: artworkScale.value }] }));
 
   useEffect(() => {
@@ -121,6 +178,27 @@ export function V2FocusCompleteScreen({
             accessibilityLabel={`${anchor.category} Anchor artwork`}
             testID="focus-complete-anchor-artwork"
           />
+          {scene.kind === 'fullFirst' ? (
+            <Svg
+              testID="focus-complete-full-strength-ring"
+              width={ringSize}
+              height={ringSize}
+              style={{ position: 'absolute', top: -RING_INSET, left: -RING_INSET }}
+            >
+              <AnimatedCircle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={ringRadius}
+                fill="none"
+                stroke={CELEBRATION_GOLD}
+                strokeWidth={2}
+                strokeDasharray={[ringCircumference, ringCircumference]}
+                rotation={-90}
+                origin={`${ringSize / 2}, ${ringSize / 2}`}
+                animatedProps={ringProps}
+              />
+            </Svg>
+          ) : null}
         </Animated.View>
 
         <View style={styles.headingBlock}>
@@ -209,13 +287,39 @@ export function V2FocusCompleteScreen({
           )}
         </View>
 
-        {scene.kind === 'first' ? (
-          <Animated.Text testID="focus-complete-first-line" style={[styles.reinforcedToday, noteStyle]}>
-            Your Thread has begun.
+        {isStageScene(scene.kind) ? (
+          <Animated.View testID="focus-complete-stage-strip" style={[styles.stageStrip, stripStyle]}>
+            <View style={styles.stageSegments}>
+              {STAGE_STRIP.map((name, index) => (
+                <View key={name} style={styles.stageSegmentTrack}>
+                  {index < stageIndex ? (
+                    <View style={[styles.stageSegmentFill, { backgroundColor: categoryPalette.deep }]} />
+                  ) : null}
+                  {index === stageIndex ? (
+                    <Animated.View style={[styles.stageSegmentFill, { backgroundColor: CELEBRATION_GOLD }, segmentStyle]} />
+                  ) : null}
+                </View>
+              ))}
+            </View>
+            <View style={styles.stageLabels}>
+              {STAGE_STRIP.map((name) => (
+                <Text key={name} numberOfLines={1} style={styles.stageLabel}>{name}</Text>
+              ))}
+            </View>
+          </Animated.View>
+        ) : null}
+
+        <Animated.Text
+          testID={scene.kind === 'first' ? 'focus-complete-first-line' : undefined}
+          style={[scene.kind === 'fullFirst' ? styles.fullStrengthTitle : styles.reinforcedToday, noteStyle]}
+        >
+          {sceneNoteText(scene.kind, toVal)}
+        </Animated.Text>
+        {scene.kind === 'fullFirst' ? (
+          <Animated.Text testID="focus-complete-full-strength-subline" style={[styles.sublineText, sublineStyle]}>
+            {COPY.fullStrengthSubline}
           </Animated.Text>
-        ) : (
-          <Animated.Text style={[styles.reinforcedToday, noteStyle]}>Reinforced today ✓</Animated.Text>
-        )}
+        ) : null}
         </> : (
           <View style={styles.unmeasuredContainer}>
             <Text style={styles.unmeasuredHint}>
@@ -228,7 +332,7 @@ export function V2FocusCompleteScreen({
       {scene.canSkip ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Skip"
+          accessibilityLabel={COPY.skip}
           testID="focus-complete-skip"
           onPress={scene.skip}
           style={StyleSheet.absoluteFill}
@@ -399,6 +503,55 @@ const styles = StyleSheet.create({
     ...typography.labelMD,
     color: colors.text.primary,
     marginTop: spacing[3],
+    textAlign: 'center',
+  },
+  stageStrip: {
+    width: '100%',
+    maxWidth: 296,
+    marginTop: spacing[3],
+    gap: 6,
+  },
+  stageSegments: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  stageSegmentTrack: {
+    flex: 1,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.border.strong,
+    overflow: 'hidden',
+  },
+  stageSegmentFill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 1.5,
+    transformOrigin: 'left center',
+  },
+  stageLabels: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  stageLabel: {
+    flex: 1,
+    ...typography.labelSM,
+    fontSize: 9.5,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  fullStrengthTitle: {
+    ...typography.labelMD,
+    fontFamily: typography.bodyBold,
+    fontSize: 17,
+    color: colors.text.primary,
+    marginTop: spacing[3],
+    textAlign: 'center',
+  },
+  sublineText: {
+    ...typography.bodyMD,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.text.secondary,
+    marginTop: 4,
     textAlign: 'center',
   },
   footer: {
