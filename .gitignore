@@ -129,6 +129,7 @@ anchor/mobile/graphify-out/
 logs
 *.log
 backend/*_backend_log.txt
+teaching-typecheck.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
