@@ -42,6 +42,15 @@ describe('useHomeGlowSeenStore', () => {
     expect(getSeen('missing')).toBeUndefined();
   });
 
+  it('records nothing before the stored record has been read', () => {
+    useHomeGlowSeenStore.setState({ seen: {}, hydrated: false });
+
+    useHomeGlowSeenStore.getState().setSeen('a1', 55);
+
+    expect(useHomeGlowSeenStore.getState().getSeen('a1')).toBeUndefined();
+    expect(useHomeGlowSeenStore.getState().seen).toEqual({});
+  });
+
   it('persists only the seen record under the newest key', async () => {
     useHomeGlowSeenStore.getState().setSeen('a1', 55);
     await Promise.resolve();

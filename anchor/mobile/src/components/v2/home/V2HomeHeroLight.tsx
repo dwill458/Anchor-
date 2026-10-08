@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useLayoutEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
@@ -9,8 +9,8 @@ import { HERO_GOLD, HERO_GOLD_LIGHT, HERO_HALO_SCALE, HERO_RING, heroWarmth } fr
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /** Where the halo's gradient is cool (unmeasured / low Consistency) and where it has warmed to. */
-const HALO_COOL = '#EADFC8';
-const HALO_WARM = '#E6C77A';
+export const HALO_COOL = '#EADFC8';
+export const HALO_WARM = '#E6C77A';
 
 /** How long the glow takes to ease from the Thread Strength last seen on Home to the current one. */
 export const HOME_GLOW_EASE_MS = 1200;
@@ -53,19 +53,30 @@ function HaloLight({ geometry, warmth, layerId, withShadow }: { geometry: HaloGe
  * The warmth the halo was showing before this render, while it eases toward the current value.
  * Null when it is settled. The record is written when the ease starts, so a remount never replays it.
  *
- * Settles with no ease when there is no measured value, no stored record yet, the store has not
- * been read, or Reduce Motion is on. Every settled path still records the current value as seen.
+ * Until the store has hydrated, the light settles on the current value and records nothing. Once it
+ * has, a stored value that differs from the current one eases from the stored value (a late ease, so a
+ * change made while the app was closed is still shown). A stored value that matches, or no stored value,
+ * settles. Reduce Motion settles and records. An unmeasured thread never animates or records.
  */
 function useHomeGlowEase(anchorId: string | null, strength: number | null, reduceMotion: boolean) {
   const hydrated = useHomeGlowSeenStore((state) => state.hydrated);
   const progress = useSharedValue(1);
   const [fromWarmth, setFromWarmth] = useState<number | null>(null);
 
-  useEffect(() => {
+  // A layout effect, so the seen layer is mounted before the first paint of a late ease. The current
+  // layer then never shows at full strength ahead of the crossfade, and the ease starts from the seen warmth.
+  useLayoutEffect(() => {
     const store = useHomeGlowSeenStore.getState();
+    if (!store.hydrated) {
+      cancelAnimation(progress);
+      progress.value = 1;
+      setFromWarmth(null);
+      return;
+    }
+
     const measured = typeof strength === 'number' && Number.isFinite(strength);
     const seen = anchorId ? store.getSeen(anchorId) : undefined;
-    const animate = Boolean(anchorId && measured && store.hydrated && !reduceMotion && shouldAnimateGlow(seen, strength));
+    const animate = Boolean(anchorId && measured && !reduceMotion && shouldAnimateGlow(seen, strength));
 
     if (anchorId && measured && seen !== strength) store.setSeen(anchorId, strength);
 

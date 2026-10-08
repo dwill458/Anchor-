@@ -25,7 +25,12 @@ export const useHomeGlowSeenStore = create<HomeGlowSeenState>()(
     (set, get) => ({
       seen: {},
       hydrated: false,
-      setSeen: (anchorId, value) => set((state) => ({ seen: { ...state.seen, [anchorId]: value } })),
+      // Nothing is recorded before the stored record has been read. Against an empty record a write
+      // would look like a first sight and hide a change made while the app was closed.
+      setSeen: (anchorId, value) => {
+        if (!get().hydrated) return;
+        set((state) => ({ seen: { ...state.seen, [anchorId]: value } }));
+      },
       getSeen: (anchorId) => get().seen[anchorId],
     }),
     {
@@ -33,7 +38,8 @@ export const useHomeGlowSeenStore = create<HomeGlowSeenState>()(
       version: 1,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ seen: state.seen }),
-      // A value recorded before the stored record arrived is what this session showed, so it wins.
+      // setSeen records nothing before hydration, so any session value here was written after the stored
+      // record was read and is newer than it.
       merge: (persistedState, currentState) => ({
         ...currentState,
         seen: { ...((persistedState as PersistedHomeGlowSeen | undefined)?.seen ?? {}), ...currentState.seen },
