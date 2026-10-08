@@ -562,7 +562,9 @@ export class VisionGenerationService {
         data: { stage: 'creating_images' },
       });
       let succeeded = 0;
-      for (let i = 0; i < plan.length; i++) {
+      // Both moments render at once; each still runs its own provider chain and fallback.
+      let aborted = false;
+      const renderOne = async (i: number): Promise<void> => {
         const current = await prisma.visionGeneration.findUnique({
           where: { id: jobId },
           select: { status: true, retryCount: true },
@@ -572,13 +574,13 @@ export class VisionGenerationService {
           current.retryCount !== attempt ||
           !['RUNNING', 'PARTIAL'].includes(current.status)
         )
-          return;
+          { aborted = true; return; }
         const prior = await prisma.visionGenerationCandidate.findUnique({
           where: { generationId_sortOrder: { generationId: jobId, sortOrder: i } },
         });
         if (prior?.status === 'SUCCEEDED') {
           succeeded += 1;
-          continue;
+          return;
         }
         const scene = plan[i];
         const prompt = buildVisionImagePrompt({
@@ -605,7 +607,7 @@ export class VisionGenerationService {
             afterProvider.retryCount !== attempt ||
             !['RUNNING', 'PARTIAL'].includes(afterProvider.status)
           )
-            return;
+            { aborted = true; return; }
           const { data: image, info } = await sharp(raw)
             .rotate()
             .resize({
@@ -684,7 +686,9 @@ export class VisionGenerationService {
               },
             });
         }
-      }
+      };
+      await Promise.allSettled(plan.map((_, i) => renderOne(i)));
+      if (aborted) return;
       await prisma.visionGeneration.updateMany({
         where: { id: jobId, retryCount: attempt, status: { in: ['RUNNING', 'PARTIAL'] } },
         data: succeeded

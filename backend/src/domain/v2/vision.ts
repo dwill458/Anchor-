@@ -13,6 +13,7 @@ export interface VisionSceneReadModel {
   assetId: string | null;
   resolvedImageUrl: string | null;
   prompt: string | null;
+  caption: string | null;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;
@@ -77,6 +78,7 @@ export const CreateVisionSceneSchema = z
     // storage keys server-owned and avoids persisting client-controlled URLs.
     assetId: z.string().min(1).max(200),
     prompt: z.string().max(2000).optional().nullable(),
+    caption: z.string().trim().max(80).optional().nullable(),
     sortOrder: z.number().int().min(0).max(1000).optional(),
   })
   .strict();

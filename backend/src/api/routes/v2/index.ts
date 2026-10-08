@@ -6,6 +6,7 @@ import releaseRoutes from './releaseRoutes';
 import threadEventRoutes from './threadEvents';
 import weeklyInsightRoutes from './weeklyInsightRoutes';
 import chartRoutes from './chartRoutes';
+import sessionAudioRoutes from './sessionAudioRoutes';
 
 const v2Router = Router();
 
@@ -15,6 +16,8 @@ const v2Router = Router();
 export { default as v2BillingRoutes } from './billing';
 export { default as v2ThreadRoutes } from './thread';
 
+// Public (no account): must come before the routers that apply auth to everything they see.
+v2Router.use('/', sessionAudioRoutes);
 v2Router.use('/', visionRoutes);
 v2Router.use('/', anchorLifecycleRoutes);
 v2Router.use('/', recommendationRoutes);

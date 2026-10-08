@@ -97,6 +97,7 @@ export class VisionService {
           assetId: scene.assetId,
           resolvedImageUrl: resolvedImageUrl ?? null,
           prompt: scene.prompt,
+          caption: scene.caption ?? null,
           sortOrder: scene.sortOrder,
           isArchived: scene.isArchived,
           createdAt: scene.createdAt.toISOString(),
@@ -193,7 +194,7 @@ export class VisionService {
           await prisma.visionScene.create({
             data: {
               id: randomUUID(), visionId, userId, sourceType: scene.sourceType,
-              assetId: scene.assetId ?? null, prompt: scene.prompt ?? null,
+              assetId: scene.assetId ?? null, prompt: scene.prompt ?? null, caption: scene.caption ?? null,
               sortOrder: scene.sortOrder ?? i, isArchived: false,
             },
           });
@@ -288,7 +289,7 @@ export class VisionService {
       const resolvedImageUrl = existing.asset?.storageKey ? await resolveStorageKeyUrl(existing.asset.storageKey) : null;
       return {
         id: existing.id, visionId, sourceType: existing.sourceType as VisionSceneSource,
-        assetId: existing.assetId, resolvedImageUrl: resolvedImageUrl ?? null, prompt: existing.prompt,
+        assetId: existing.assetId, resolvedImageUrl: resolvedImageUrl ?? null, prompt: existing.prompt, caption: existing.caption ?? null,
         sortOrder: existing.sortOrder, isArchived: false,
         createdAt: existing.createdAt.toISOString(), updatedAt: existing.updatedAt.toISOString(),
       };
@@ -316,6 +317,7 @@ export class VisionService {
         sourceType: input.sourceType,
         assetId: input.assetId ?? null,
         prompt: input.prompt ?? null,
+        caption: input.caption ?? null,
         sortOrder,
         isArchived: false,
       },
@@ -333,6 +335,7 @@ export class VisionService {
       assetId: scene.assetId,
       resolvedImageUrl: resolvedImageUrl ?? null,
       prompt: scene.prompt,
+          caption: scene.caption ?? null,
       sortOrder: scene.sortOrder,
       isArchived: scene.isArchived,
       createdAt: scene.createdAt.toISOString(),
@@ -403,6 +406,7 @@ export class VisionService {
           assetId: scene.assetId,
           resolvedImageUrl: resolvedImageUrl ?? null,
           prompt: scene.prompt,
+          caption: scene.caption ?? null,
           sortOrder: scene.sortOrder,
           isArchived: scene.isArchived,
           createdAt: scene.createdAt.toISOString(),

@@ -131,11 +131,16 @@ describe('VisionGenerationService', () => {
     expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, [], false, null);
     expect(mockGenerateVisionScene).toHaveBeenCalledTimes(8);
     expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(8);
-    expect(mockPrisma.visionGenerationCandidate.create.mock.calls.map(([call]) => call.data.role)).toEqual(plan.map(item => item.role));
+    const createdRoles = mockPrisma.visionGenerationCandidate.create.mock.calls
+      .map(([call]) => call.data)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(data => data.role);
+    expect(createdRoles).toEqual(plan.map(item => item.role));
     // Each image prompt is built from its own planned shot, not the raw description alone.
-    expect(mockGenerateVisionScene.mock.calls.map(([prompt]) => prompt)).toEqual(
-      plan.map(item => expect.stringContaining(JSON.stringify(item.scene))),
-    );
+    const calledPrompts = mockGenerateVisionScene.mock.calls.map(([prompt]) => prompt);
+    for (const item of plan) {
+      expect(calledPrompts).toEqual(expect.arrayContaining([expect.stringContaining(JSON.stringify(item.scene))]));
+    }
     expect(mockPrisma.visionGeneration.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'COMPLETE' }),
     }));
@@ -191,20 +196,53 @@ describe('VisionGenerationService', () => {
     const plan = Array.from({ length: 8 }, (_, index) => ({ role: `Role ${index}`, scene: `Different scene ${index}` }));
     arrangeRun(plan);
     const portrait = await sharp({ create: { width: 9, height: 16, channels: 3, background: '#556677' } }).png().toBuffer();
-    mockGenerateVisionScene
-      .mockResolvedValueOnce(portrait).mockResolvedValueOnce(portrait)
-      .mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('still down'))
-      .mockResolvedValue(portrait);
+    mockGenerateVisionScene.mockImplementation(async (prompt: string) => {
+      if (prompt.includes('Different scene 2')) {
+        throw new Error('down');
+      }
+      return portrait;
+    });
 
     await (service as any).run('job-1', 'I create freely', 'DESIRE');
 
     expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(8);
-    expect(mockPrisma.visionGenerationCandidate.create.mock.calls[2][0].data).toEqual(expect.objectContaining({
+    const failedCall = mockPrisma.visionGenerationCandidate.create.mock.calls.find(
+      ([call]) => call.data.sortOrder === 2
+    );
+    expect(failedCall?.[0].data).toEqual(expect.objectContaining({
       status: 'FAILED', assetId: null,
     }));
     expect(mockPrisma.visionGeneration.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: 'COMPLETE' }),
     }));
+  });
+
+  it('renders candidates concurrently so both start before either finishes', async () => {
+    const plan = [
+      { role: 'Role 0', scene: 'Scene 0' },
+      { role: 'Role 1', scene: 'Scene 1' },
+    ];
+    arrangeRun(plan);
+    const portrait = await sharp({ create: { width: 9, height: 16, channels: 3, background: '#556677' } }).png().toBuffer();
+    let startedCount = 0;
+    let bothStartedBeforeFinish = false;
+    let resolveFirst: (() => void) | null = null;
+    const firstBarrier = new Promise<void>(res => { resolveFirst = res; });
+
+    mockGenerateVisionScene.mockImplementation(async () => {
+      startedCount += 1;
+      if (startedCount === 2) {
+        bothStartedBeforeFinish = true;
+        resolveFirst?.();
+      } else {
+        await firstBarrier;
+      }
+      return portrait;
+    });
+
+    await (service as any).run('job-1', 'I create freely', 'DESIRE');
+    expect(bothStartedBeforeFinish).toBe(true);
+    expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(2);
   });
 
   it('tells the planner which scenes earlier sets already showed', async () => {

@@ -563,7 +563,7 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
       ).rejects.toThrow(/OPENAI_API_KEY is missing/);
     });
 
-    it('formats portrait 1024x1792 dimensions for Vision requests', async () => {
+    it('formats portrait 1152x2048 (9:16) dimensions for Vision requests', async () => {
       process.env.OPENAI_API_KEY = 'sk-mock-key';
       const adapter = new OpenAIImageProviderAdapter();
 
@@ -587,7 +587,7 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
         'https://api.openai.com/v1/images/generations',
         expect.objectContaining({
           method: 'POST',
-          body: expect.stringContaining('"size":"1024x1792"'),
+          body: expect.stringContaining('"size":"1152x2048"'),
         })
       );
       expect(result.images).toHaveLength(1);

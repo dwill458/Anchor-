@@ -917,6 +917,7 @@ model VisionScene {
   asset       Asset?            @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   prompt      String?           @db.Text
+  caption     String?           @db.VarChar(80)
   sortOrder   Int               @default(0) @map("sort_order")
   isArchived  Boolean           @default(false) @map("is_archived")
 

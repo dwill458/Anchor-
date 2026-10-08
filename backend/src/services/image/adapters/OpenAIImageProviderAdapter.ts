@@ -41,6 +41,12 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
     estimatedCostPerImage: number;
   } {
     if (request.type === 'vision') {
+      // "Make it look like you": Sunburst is OpenAI's reference-preserving model.
+      const hasAppearance = (request.referenceImages ?? []).some(reference => reference.role === 'appearance');
+      if (hasAppearance) {
+        const model = process.env.OPENAI_VISION_REFERENCE_MODEL?.trim() || 'gpt-image-2.5-sunburst';
+        return { model, estimatedCostPerImage: 0.04 }; // TODO(pricing): confirm 2.5 per-image cost
+      }
       const model =
         process.env.OPENAI_VISION_MODEL?.trim() ||
         process.env.OPENAI_IMAGE_MODEL?.trim() ||
@@ -65,8 +71,9 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
       return `${request.width}x${request.height}`;
     }
     if (request.type === 'vision' || request.aspectRatio === '9:16') {
-      // 1024x1792 is the closest standard high-resolution portrait (approx 9:16 ratio)
-      return '1024x1792';
+      // GPT-Image 2.5 takes arbitrary WxH (both divisible by 16, ratio within 1:3..3:1).
+      // 1152x2048 is exact 9:16 for the 1080x1920 Vision frame. 1024x1792 was a DALL-E 3 size.
+      return process.env.OPENAI_VISION_SIZE?.trim() || '1152x2048';
     }
     return '1024x1024';
   }
