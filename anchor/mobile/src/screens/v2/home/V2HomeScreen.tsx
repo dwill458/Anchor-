@@ -728,8 +728,8 @@ export function V2HomeScreen() {
         'home.thread': { getRect: () => getTeachingRect(threadTeachingRef) },
       }} />
       <V2ThreadEventModal
-        bundle={threadEvents.active}
-        visible={Boolean(threadEvents.active)}
+        bundle={threadEvents.presentable}
+        visible={Boolean(threadEvents.presentable)}
         anchorSvg={model.selectedAnchor ? anchorArtworkSvg(model.selectedAnchor) : undefined}
         anchorImageUrl={model.selectedAnchor?.enhancedImageUrl}
         category={model.selectedAnchor?.category}

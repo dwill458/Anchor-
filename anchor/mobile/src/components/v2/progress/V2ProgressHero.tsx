@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { typography } from '@/theme/v2';
-import { getProgressVerdict } from '@/adapters/v2/progress/progressAdapter';
+import { formatProgressDate, getProgressVerdict } from '@/adapters/v2/progress/progressAdapter';
 import type { V2ProgressModel } from '@/adapters/v2/progress/types';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { V2ProgressRing } from './V2ProgressRing';
@@ -31,6 +31,9 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, now, test
   const { intention, category, threadStrength, unmeasured, highestEvolutionStage } = model;
   const verdict = getProgressVerdict(threadStrength, unmeasured, model.lastPracticedAt, now);
   const stage = unmeasured ? 0 : stageNumber(highestEvolutionStage);
+  // A fact about the past, shown only when this device recorded the date. Never a status.
+  const fullStrengthDate = formatProgressDate(model.fullStrengthAt);
+  const fullStrengthFact = fullStrengthDate ? `Full Strength reached · First achieved ${fullStrengthDate}` : null;
 
   return (
     <View style={styles.container} testID={testID} accessible accessibilityRole="header">
@@ -75,6 +78,11 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, now, test
             </Text>
           ))}
         </View>
+        {fullStrengthFact ? (
+          <Text style={styles.support} testID={`${testID}-full-strength`}>
+            {fullStrengthFact}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

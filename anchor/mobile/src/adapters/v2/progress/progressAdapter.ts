@@ -19,6 +19,7 @@ import {
 } from '@/utils/primingAnalytics';
 import type {
   CanonicalThreadEventType,
+  ProgressCelebrationDates,
   ThreadEventSignificance,
   V2PracticeModeBreakdown,
   V2ProgressDayCell,
@@ -70,6 +71,48 @@ function formatTime(val: Date | string | undefined | null): string {
   } catch {
     return '';
   }
+}
+
+/** The Progress screen's date format ("Oct 4"), or null when the value is not a real date. */
+export function formatProgressDate(value: string | null | undefined): string | null {
+  const iso = recordedDate(value);
+  return iso ? formatDate(iso) : null;
+}
+
+/** A recorded date as ISO, or null when it is missing or not a real date. Never a stand-in. */
+function recordedDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+/** The celebration record key for a derived stage name. */
+function recordKeyForStage(
+  stage: ReturnType<typeof resolveEvolutionStage>,
+): 'building' | 'established' | 'integrated' | 'reinforced' | null {
+  switch (stage) {
+    case 'Building':
+      return 'building';
+    case 'Established':
+      return 'established';
+    case 'Integrated':
+      return 'integrated';
+    case 'Reinforced':
+      return 'reinforced';
+    default:
+      return null;
+  }
+}
+
+/** Newest first. Events with no known date sort after every dated one. */
+function compareNewestFirst(a: V2ThreadEventItem, b: V2ThreadEventItem): number {
+  const aTime = Date.parse(a.occurredAt);
+  const bTime = Date.parse(b.occurredAt);
+  const aDated = !Number.isNaN(aTime);
+  const bDated = !Number.isNaN(bTime);
+  if (aDated && bDated) return bTime - aTime;
+  if (aDated !== bDated) return aDated ? -1 : 1;
+  return 0;
 }
 
 type SessionModeKey = 'focus' | 'deepPrime' | 'visualize' | 'release';
@@ -175,6 +218,8 @@ export function deriveThreadEvents(
   anchor: Anchor,
   courseLogs: CourseLogEntry[],
   practiceSessions: AnyProgressSession[],
+  /** The device's own dates for this Anchor's stages and Full Strength. Omitted means none are known. */
+  celebrations?: ProgressCelebrationDates | null,
 ): V2ThreadEventItem[] {
   const events: V2ThreadEventItem[] = [];
   const intentionText = (anchor as any).intention || anchor.intentionText || 'Your Anchor';
@@ -203,8 +248,10 @@ export function deriveThreadEvents(
   const strength = typeof anchor.threadStrength === 'number' ? anchor.threadStrength : 0;
   const stage = resolveEvolutionStage(strength);
   if (stage !== 'Forming') {
-    const stageDate = anchor.updatedAt || anchor.createdAt;
-    const stageIso = toIsoString(stageDate);
+    // Dated only by the real date this device recorded for the stage. With no record the event
+    // carries no date at all: anchor.updatedAt is the last sync, not the day the stage was reached.
+    const stageKey = recordKeyForStage(stage);
+    const stageAt = stageKey ? recordedDate(celebrations?.stages?.[stageKey]) : null;
     events.push({
       id: `evt-stage-${anchor.id}-${stage}`,
       type: 'EVOLUTION_STAGE_REACHED',
@@ -212,12 +259,32 @@ export function deriveThreadEvents(
       copy: `Your Anchor reached its permanent structural stage: ${stage}.`,
       why: 'Meaningful reinforcement held across time.',
       significance: 'HIGH',
-      occurredAt: stageIso,
-      formattedDate: formatDate(stageDate),
-      formattedTime: formatTime(stageDate),
+      occurredAt: stageAt ?? '',
+      formattedDate: stageAt ? formatDate(stageAt) : '',
+      formattedTime: stageAt ? formatTime(stageAt) : undefined,
       authoritativeDelta: null, // Client must not infer or invent delta numbers
       authoritativeThreadRange: null,
       stageName: stage,
+      sourceDomain: 'THREAD_ENGINE',
+      rawDomainEventId: anchor.id,
+    });
+  }
+
+  // 2b. Full Strength: a fact about the past, present only when this device recorded the date.
+  const fullStrengthAt = recordedDate(celebrations?.fullStrengthAt);
+  if (fullStrengthAt) {
+    events.push({
+      id: `evt-full-strength-${anchor.id}`,
+      type: 'FULL_STRENGTH_REACHED',
+      title: 'Full Strength reached',
+      copy: '',
+      why: '',
+      significance: 'MAJOR',
+      occurredAt: fullStrengthAt,
+      formattedDate: formatDate(fullStrengthAt),
+      formattedTime: formatTime(fullStrengthAt),
+      authoritativeDelta: null,
+      authoritativeThreadRange: null,
       sourceDomain: 'THREAD_ENGINE',
       rawDomainEventId: anchor.id,
     });
@@ -406,10 +473,8 @@ export function deriveThreadEvents(
     });
   }
 
-  // Sort descending by occurredAt
-  return events.sort(
-    (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
-  );
+  // Sort descending by occurredAt; undated events fall to the end.
+  return events.sort(compareNewestFirst);
 }
 
 // ─── Evidence builders (Progress 2.0) ────────────────────────────────────────
@@ -804,7 +869,7 @@ export function toV2ProgressModel(
     (l) => l.eventType === 'WAYPOINT_REACHED' || l.eventType === 'COURSE_COMPLETED',
   ).length;
 
-  const events = deriveThreadEvents(anchor, courseLogs, sessions);
+  const events = deriveThreadEvents(anchor, courseLogs, sessions, extras?.celebrations ?? null);
   const intention = (anchor as any).intention || anchor.intentionText || 'Your Anchor';
 
   const base: V2ProgressModel = {
@@ -818,6 +883,7 @@ export function toV2ProgressModel(
     practiceSummary,
     waypointsReachedCount,
     events,
+    fullStrengthAt: recordedDate(extras?.celebrations?.fullStrengthAt),
   };
   if (!extras) return base;
 

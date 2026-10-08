@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { bundleV2ThreadEvents, claimV2ThreadEventBundle, fetchV2EligibleThreadEvents, intakeV2ThreadEvents, updateV2ThreadEventReceipt, V2ThreadEventReceiptStore } from '@/adapters/v2/threadEvents';
 import type { V2ThreadEventIntake, V2ThreadEventBundle } from '@/adapters/v2/threadEvents';
 import type { V2ThreadEventChannel } from '@/constants/v2/threadEvents';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
+import { useCelebrationRecordsStore } from '@/stores/v2/celebrationRecordsStore';
+import { isAlreadyCelebrated } from './threadEventGate';
 
 type QueueOptions = {
   /** Home arrival asks for contextual events rather than interrupting an active Practice. */
@@ -54,7 +57,45 @@ export function useV2ThreadEventQueue(options: QueueOptions = {}) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const active = queue[0] ?? null;
+  // A stage the device has already celebrated is marked presented through the same receipt path and
+  // removed from the queue, so it is never shown and never sits at the front of the queue.
+  const celebrationRecords = useCelebrationRecordsStore((state) => state.records);
+  const alreadyCelebrated = useCallback(
+    (item: V2ThreadEventBundle) => isAlreadyCelebrated(item.primary, celebrationRecords),
+    [celebrationRecords],
+  );
+  const suppressed = useRef<Set<string>>(new Set());
+  const suppress = useCallback(async (item: V2ThreadEventBundle) => {
+    try {
+      await updateReceipt(item.primary.eventId, item.channel, 'PRESENTED');
+    } catch {
+      // Nothing was shown. The local receipt below still stops the event returning to this queue.
+    }
+    try {
+      await receiptStore.write({ eventId: item.primary.eventId, channel: item.channel, status: 'PRESENTED', bundleKey: item.bundleKey, firstPresentedAt: new Date().toISOString() });
+    } finally {
+      setQueue((current) => current.filter((queued) => queued.bundleKey !== item.bundleKey));
+    }
+  }, [receiptStore, updateReceipt]);
+  useEffect(() => {
+    for (const item of queue) {
+      if (!alreadyCelebrated(item) || suppressed.current.has(item.bundleKey)) continue;
+      suppressed.current.add(item.bundleKey);
+      suppress(item).catch(() => undefined);
+    }
+  }, [alreadyCelebrated, queue, suppress]);
+
+  const active = useMemo(() => queue.find((item) => !alreadyCelebrated(item)) ?? null, [alreadyCelebrated, queue]);
+
+  // The coordinator decides whether a celebration is playing. While one is, nothing is presentable;
+  // when it goes idle the same event becomes presentable and the modal shows it.
+  const celebrationPlaying = useCelebrationStore((state) => state.active !== null);
+  // Presentation also waits for the stored stage records, so a stage the device already celebrated is
+  // never shown on a cold start before it has been read.
+  const recordsRead = useCelebrationRecordsStore((state) => state.hydrated);
+  const held = celebrationPlaying || !recordsRead;
+  const presentable = held ? null : active;
+
   const markPresented = useCallback(async () => {
     if (!active) return;
     await updateReceipt(active.primary.eventId, active.channel, 'PRESENTED');
@@ -65,11 +106,11 @@ export function useV2ThreadEventQueue(options: QueueOptions = {}) {
     if (!active) return;
     await updateReceipt(active.primary.eventId, active.channel, status);
     await receiptStore.write({ eventId: active.primary.eventId, channel: active.channel, status, bundleKey: active.bundleKey, acknowledgedAt: status === 'ACKNOWLEDGED' ? new Date().toISOString() : null, dismissedAt: status === 'DISMISSED' ? new Date().toISOString() : null });
-    setQueue((current) => current.slice(1));
+    setQueue((current) => current.filter((queued) => queued.bundleKey !== active.bundleKey));
   }, [active, receiptStore, updateReceipt]);
 
   const claimActive = useCallback(async () => { if (active) await claimBundle(active); }, [active, claimBundle]);
   const acknowledge = useCallback(() => settle('ACKNOWLEDGED'), [settle]);
   const dismiss = useCallback(() => settle('DISMISSED'), [settle]);
-  return useMemo(() => ({ active, queue, loading, error, enqueue, refresh, claimActive, markPresented, acknowledge, dismiss }), [acknowledge, active, claimActive, dismiss, enqueue, error, loading, markPresented, queue, refresh]);
+  return useMemo(() => ({ active, presentable, held, queue, loading, error, enqueue, refresh, claimActive, markPresented, acknowledge, dismiss }), [acknowledge, active, claimActive, dismiss, enqueue, error, held, loading, markPresented, presentable, queue, refresh]);
 }

@@ -18,7 +18,8 @@ export type CanonicalThreadEventType =
   | 'RELEASE_RECOMMENDED'
   | 'ANCHOR_RELEASED'
   | 'CHART_CREATED'
-  | 'ROUTE_ADJUSTED';
+  | 'ROUTE_ADJUSTED'
+  | 'FULL_STRENGTH_REACHED';
 
 export interface V2ThreadEventItem {
   id: string;
@@ -27,7 +28,8 @@ export interface V2ThreadEventItem {
   copy: string;
   why: string;
   significance: ThreadEventSignificance;
-  occurredAt: string; // ISO string
+  /** ISO string of the real date, or '' when it is not known. Never a stand-in such as updatedAt. */
+  occurredAt: string;
   formattedDate: string;
   formattedTime?: string;
   /** Authoritative Thread movement delta from server/ledger if known, null otherwise. NEVER fabricated. */
@@ -180,6 +182,8 @@ export interface V2ProgressModel {
   lifetimeSessions?: number;
   /** A deterministic read of this week. Absent while the Anchor is unmeasured. */
   insight?: V2ProgressInsight | null;
+  /** The real date Full Strength was first reached on this device (ISO). Null when no record exists. */
+  fullStrengthAt?: string | null;
 }
 
 /** Account-level and Chart inputs the adapter cannot get from the Anchor alone. */
@@ -194,6 +198,17 @@ export interface V2ProgressExtras {
   reflections?: V2ProgressReflection[];
   lifetimeSessions?: number;
   now?: Date;
+  /** This Anchor's local celebration dates (read only). Absent means no dates are known. */
+  celebrations?: ProgressCelebrationDates | null;
+}
+
+/**
+ * The dates the device recorded for this Anchor's stages and Full Strength. Structurally the same
+ * as the celebration records store; declared here so the adapter stays pure and imports no store.
+ */
+export interface ProgressCelebrationDates {
+  stages?: Partial<Record<'building' | 'established' | 'integrated' | 'reinforced', string>>;
+  fullStrengthAt?: string;
 }
 
 /** One row in the Progress anchor switcher. */

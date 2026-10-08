@@ -50,10 +50,12 @@ export const V2ThreadEventDetailSheet: React.FC<V2ThreadEventDetailSheetProps> =
           <View style={styles.header}>
             <View style={styles.titleBlock}>
               <Text style={styles.title}>{shown.title}</Text>
-              <Text style={styles.timestamp}>
-                {shown.formattedDate}
-                {shown.formattedTime ? ` · ${shown.formattedTime}` : ''}
-              </Text>
+              {shown.formattedDate ? (
+                <Text style={styles.timestamp}>
+                  {shown.formattedDate}
+                  {shown.formattedTime ? ` · ${shown.formattedTime}` : ''}
+                </Text>
+              ) : null}
             </View>
             <Pressable
               onPress={onClose}
@@ -68,7 +70,7 @@ export const V2ThreadEventDetailSheet: React.FC<V2ThreadEventDetailSheetProps> =
           </View>
         </V2SheetGrabZone>
 
-        <Text style={styles.copy}>{shown.copy}</Text>
+        {shown.copy ? <Text style={styles.copy}>{shown.copy}</Text> : null}
 
         {shown.note ? (
           <View style={styles.note} testID={`${testID}-note`}>

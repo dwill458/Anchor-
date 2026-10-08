@@ -72,7 +72,7 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
                 onPress={() => onSelectEvent(event)}
                 accessible
                 accessibilityRole="button"
-                accessibilityLabel={`${event.title}, on ${event.formattedDate}`}
+                accessibilityLabel={event.formattedDate ? `${event.title}, on ${event.formattedDate}` : event.title}
               >
                 <View style={[styles.dot, { backgroundColor: getDotColor(event) }]} />
                 <View style={styles.text}>

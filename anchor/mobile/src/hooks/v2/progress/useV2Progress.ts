@@ -4,6 +4,7 @@ import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { useAnchorCourseLog } from '@/hooks/v2/chart/useAnchorCourseLog';
 import { useCourseStore } from '@/stores/courseStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useCelebrationRecordsStore } from '@/stores/v2/celebrationRecordsStore';
 import { buildProgressReflections, toV2ProgressModel } from '@/adapters/v2/progress/progressAdapter';
 import type {
   V2ProgressAnchorOption,
@@ -92,6 +93,13 @@ export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2Progress
   const courseLogLoading = courseLog.loading;
   const course = useAnchorChart(targetAnchor?.id ?? null).data?.chart ?? null;
 
+  // The device's own celebration dates for this Anchor (read only; the adapter never writes them).
+  const celebrationRecords = useCelebrationRecordsStore((s) => s.records);
+  const celebrations = useMemo(() => {
+    if (!targetAnchor) return null;
+    return celebrationRecords[targetAnchor.id] ?? (targetAnchor.localId ? celebrationRecords[targetAnchor.localId] : undefined) ?? null;
+  }, [celebrationRecords, targetAnchor]);
+
   // Compute V2ProgressModel
   const model = useMemo(() => {
     const anchorIds = targetAnchor
@@ -111,6 +119,7 @@ export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2Progress
       lifetimeSessions,
       course,
       reflections,
+      celebrations,
     });
   }, [
     targetAnchor,
@@ -124,6 +133,7 @@ export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2Progress
     lifetimeSessions,
     course,
     chartReflectionsEnabled,
+    celebrations,
   ]);
 
   const refresh = useCallback(async () => {

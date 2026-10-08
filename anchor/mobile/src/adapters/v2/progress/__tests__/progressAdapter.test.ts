@@ -13,7 +13,9 @@ import {
   formatRelativeDay,
   getProgressVerdict,
   groupThreadEventsByDay,
+  formatProgressDate,
 } from '../progressAdapter';
+import type { V2ThreadEventItem } from '../types';
 import type { PracticeSessionRecord } from '@/types/practice';
 import type { CourseDetail } from '@/types/chart';
 import type { Anchor } from '@/types';
@@ -128,6 +130,91 @@ describe('V2 Progress Adapter', () => {
     });
   });
 
+  describe('celebration dates (Progress timeline)', () => {
+    // mockAnchor is at 65 Thread, so its current stage is Established.
+    const recorded = {
+      stages: { building: '2026-08-05T09:00:00.000Z', established: '2026-08-06T09:30:00.000Z' },
+      fullStrengthAt: '2026-08-07T08:00:00.000Z',
+    };
+    const stageEvent = (events: V2ThreadEventItem[]) => events.find((e) => e.type === 'EVOLUTION_STAGE_REACHED')!;
+    const fullStrengthEvent = (events: V2ThreadEventItem[]) => events.find((e) => e.type === 'FULL_STRENGTH_REACHED');
+    const shortDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    it('dates a stage event from the record for that stage', () => {
+      const event = stageEvent(deriveThreadEvents(mockAnchor, mockLogs, mockSessions, recorded));
+      expect(event.stageName).toBe('Established');
+      expect(event.occurredAt).toBe(recorded.stages.established);
+      expect(event.formattedDate).toBe(shortDate(recorded.stages.established));
+    });
+
+    it('shows no date for a stage with no record, and never the anchor updatedAt', () => {
+      const event = stageEvent(deriveThreadEvents(mockAnchor, mockLogs, mockSessions));
+      expect(event.occurredAt).toBe('');
+      expect(event.formattedDate).toBe('');
+      expect(event.formattedTime).toBeUndefined();
+      expect(event.occurredAt).not.toBe(new Date(mockAnchor.updatedAt as Date).toISOString());
+    });
+
+    it('does not borrow the date of another stage', () => {
+      const onlyBuilding = { stages: { building: recorded.stages.building } };
+      const event = stageEvent(deriveThreadEvents(mockAnchor, mockLogs, mockSessions, onlyBuilding));
+      expect(event.occurredAt).toBe('');
+      expect(event.formattedDate).toBe('');
+    });
+
+    it('ignores an unreadable stored date rather than displaying it', () => {
+      const events = deriveThreadEvents(mockAnchor, [], [], { stages: { established: 'not-a-date' }, fullStrengthAt: 'nope' });
+      expect(stageEvent(events).occurredAt).toBe('');
+      expect(fullStrengthEvent(events)).toBeUndefined();
+    });
+
+    it('adds Full Strength reached only when a record exists, dated by that record', () => {
+      const event = fullStrengthEvent(deriveThreadEvents(mockAnchor, mockLogs, mockSessions, recorded));
+      expect(event?.title).toBe('Full Strength reached');
+      expect(event?.type).toBe('FULL_STRENGTH_REACHED');
+      expect(event?.occurredAt).toBe(recorded.fullStrengthAt);
+      expect(event?.formattedDate).toBe(shortDate(recorded.fullStrengthAt));
+      expect(fullStrengthEvent(deriveThreadEvents(mockAnchor, mockLogs, mockSessions))).toBeUndefined();
+    });
+
+    it('never stamps any event with the anchor updatedAt', () => {
+      const updated = new Date(mockAnchor.updatedAt as Date).toISOString();
+      const events = deriveThreadEvents(mockAnchor, mockLogs, mockSessions);
+      expect(events.some((e) => e.occurredAt === updated)).toBe(false);
+    });
+
+    it('groups undated events under Earlier, after every dated day', () => {
+      const events = deriveThreadEvents(mockAnchor, mockLogs, mockSessions);
+      const groups = groupThreadEventsByDay(events, new Date('2026-08-21T12:00:00.000Z'));
+      const last = groups[groups.length - 1];
+      expect(last.label).toBe('Earlier');
+      expect(last.events.map((e) => e.type)).toEqual(['EVOLUTION_STAGE_REACHED']);
+    });
+
+    it('carries Full Strength onto the model only from the record', () => {
+      expect(toV2ProgressModel(mockAnchor, mockLogs, mockSessions, { celebrations: recorded })?.fullStrengthAt).toBe(
+        recorded.fullStrengthAt,
+      );
+      expect(toV2ProgressModel(mockAnchor, mockLogs, mockSessions, {})?.fullStrengthAt).toBeNull();
+      expect(toV2ProgressModel(mockAnchor, mockLogs, mockSessions)?.fullStrengthAt).toBeNull();
+    });
+
+    it('stays pure: the same inputs give the same events and the records are not changed', () => {
+      const records = JSON.parse(JSON.stringify(recorded));
+      const first = deriveThreadEvents(mockAnchor, mockLogs, mockSessions, records);
+      const second = deriveThreadEvents(mockAnchor, mockLogs, mockSessions, records);
+      expect(second).toEqual(first);
+      expect(records).toEqual(recorded);
+      expect(mockAnchor.threadStrength).toBe(65);
+    });
+
+    it('formats a real date with the progress date format and returns null for no date', () => {
+      expect(formatProgressDate(recorded.fullStrengthAt)).toBe(shortDate(recorded.fullStrengthAt));
+      expect(formatProgressDate(undefined)).toBeNull();
+      expect(formatProgressDate('not-a-date')).toBeNull();
+    });
+  });
+
   describe('deriveThreadEvents', () => {
     it('derives chronological events without fabricating client delta', () => {
       const events = deriveThreadEvents(mockAnchor, mockLogs, mockSessions);
@@ -145,12 +232,14 @@ describe('V2 Progress Adapter', () => {
       expect(types).toContain('WAYPOINT_REACHED');
       expect(types).toContain('DESTINATION_REACHED');
 
-      // Verify sorting descending by occurredAt
-      for (let i = 0; i < events.length - 1; i++) {
-        const t1 = new Date(events[i].occurredAt).getTime();
-        const t2 = new Date(events[i + 1].occurredAt).getTime();
+      // Verify sorting descending by occurredAt; events with no known date come after the dated ones.
+      const dated = events.filter((e) => e.occurredAt !== '');
+      for (let i = 0; i < dated.length - 1; i++) {
+        const t1 = new Date(dated[i].occurredAt).getTime();
+        const t2 = new Date(dated[i + 1].occurredAt).getTime();
         expect(t1).toBeGreaterThanOrEqual(t2);
       }
+      expect(events.slice(dated.length).every((e) => e.occurredAt === '')).toBe(true);
     });
 
     it('generates milestone event when 10 or more sessions exist', () => {
