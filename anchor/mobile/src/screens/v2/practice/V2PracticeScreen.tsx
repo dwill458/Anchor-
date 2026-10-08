@@ -35,6 +35,11 @@ import {
   type AnchorTransitionDestination,
 } from '@/navigation/v2/ProgressiveFocusTransition';
 import { predictPracticeSetupAnchorRect, predictSessionAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
+import { useAuthStore } from '@/stores/authStore';
+import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
+import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+import { practiceTeachingBeats } from '@/hooks/v2/teaching/practiceTeaching';
+import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
 
 /** Where the Anchor comes to rest in each session. */
 const SESSION_PLACE: Record<V2PracticeStartRequest['mode'], AnchorTransitionDestination> = {
@@ -119,6 +124,10 @@ export function V2PracticeScreen({
   onBeginPractice,
   onSessionCompleted,
 }: Props) {
+  const teachingFocus = useTeachingFocus();
+  const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  const todayTeachingRef = useRef<View>(null);
+  const switchTeachingRef = useRef<View>(null);
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
   const reduceMotion = useV2ReduceMotion();
   const [selectedOverrideId, setSelectedOverrideId] = useState<string | null>(null);
@@ -159,6 +168,9 @@ export function V2PracticeScreen({
   const [justCompletedTodayAnchorId, setJustCompletedTodayAnchorId] = useState<string | null>(null);
   const [justCompletedMode, setJustCompletedMode] = useState<V2PracticeMode | null>(null);
   const [justCompletedDurationSeconds, setJustCompletedDurationSeconds] = useState<number | null>(null);
+  const teachingQueue = useTeachingQueue({ screenId: 'practice', accountId: teachingAccountId,
+    eligible: practiceTeachingBeats(activeAnchors.length, Boolean(fixedAnchor)), cap: 2, isFocused: teachingFocus.isFocused,
+    blocked: teachingFocus.transitioning || anchorInFlight || isSwitcherOpen || Boolean(prepareMode || activeSession || initialMode || resumeMode) || !fixedAnchor || model.loadingRecommendation });
 
   const effectiveCapabilities = capabilities ?? model.capability;
 
@@ -540,12 +552,14 @@ export function V2PracticeScreen({
 
       <View style={styles.content}>
         {/* Layer 1: Active Anchor Switcher */}
+        <View ref={switchTeachingRef} collapsable={false}>
         <V2PracticeAnchorHeader
           anchor={fixedAnchor}
           thread={model.thread}
           onPress={() => setIsSwitcherOpen(true)}
           artworkPlace={headerPlace}
         />
+        </View>
 
         {/* Anchor Switcher Modal / Bottom Sheet */}
         <V2AnchorSwitcherSheet
@@ -562,7 +576,7 @@ export function V2PracticeScreen({
         />
 
         {/* Layer 2: Recommended Today Hero */}
-        <View style={styles.recommendationSection}>
+        <View ref={todayTeachingRef} collapsable={false} style={styles.recommendationSection}>
           {model.loadingRecommendation && !isCompletedToday ? (
             <Text style={styles.hint}>Loading today’s practice…</Text>
           ) : displayHeroMode ? (
@@ -604,6 +618,9 @@ export function V2PracticeScreen({
         </View>
       </View>
     </V2Screen>
+    <ScreenTeaching screen="practice" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
+      'practice.today': { targetRef: todayTeachingRef }, 'practice.switch': { targetRef: switchTeachingRef },
+    }} />
     </PracticeLayer>
     </AnchorTransitionScene>
   );
