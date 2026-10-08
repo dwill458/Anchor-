@@ -107,13 +107,13 @@ describe('IntentionInputScreen: Evolve', () => {
             expect(mockNavigate).not.toHaveBeenCalledWith('AnchorCreationFlow', expect.anything());
         });
 
-        it('lets Evolve past the free-plan count here', () => {
+        it('sends a free user to the paywall at Continue when evolving: Evolve is a paid path', () => {
             mockEntitlements = FREE_LOCKED;
             mockRouteParams = { initialIntention: 'Publish my novel', evolve: { fromAnchorId: 'old-1' } };
             render(<IntentionInputScreen />);
             continueToCreation();
-            expect(mockNavigate).not.toHaveBeenCalledWith('Paywall', expect.anything());
-            expect(mockNavigate).toHaveBeenCalledWith('AnchorCreationFlow', expect.objectContaining({ evolve: { fromAnchorId: 'old-1' } }));
+            expect(mockNavigate).toHaveBeenCalledWith('Paywall', expect.objectContaining({ source: 'create_anchor_free_locked' }));
+            expect(mockNavigate).not.toHaveBeenCalledWith('AnchorCreationFlow', expect.anything());
         });
 
         it('does not let Evolve past the Pro daily cap', () => {

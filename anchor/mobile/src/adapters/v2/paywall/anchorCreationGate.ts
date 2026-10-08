@@ -8,8 +8,6 @@
  *   - The SECOND Anchor attempt raises `SECOND_ANCHOR`.
  *   - Onboarding / first-run creation is never paywalled.
  *   - An entitled user (trial or paid) is never paywalled.
- *   - Evolving an Anchor is one in, one out, so it never trips the second-Anchor count.
- *     (Only this count. The server and the AI-artwork entitlement check are separate gates.)
  *
  * It deliberately does NOT reproduce the production 1.5 hard-lock: a free user
  * who already has one Anchor still *sees* the app; only the act of creating an
@@ -25,8 +23,6 @@ export type V2AnchorCreationGateInput = {
   isOnboarding: boolean;
   /** User currently has an active trial or paid entitlement. */
   hasEntitlement: boolean;
-  /** The attempt is the successor of an Anchor being released through Evolve. Defaults to false. */
-  isEvolve?: boolean;
 };
 
 export type V2AnchorCreationGateResult =
@@ -36,11 +32,10 @@ export type V2AnchorCreationGateResult =
 export function resolveAnchorCreationPaywall(
   input: V2AnchorCreationGateInput,
 ): V2AnchorCreationGateResult {
-  const { activeAnchorCount, isOnboarding, hasEntitlement, isEvolve = false } = input;
+  const { activeAnchorCount, isOnboarding, hasEntitlement } = input;
 
   if (hasEntitlement) return { allowed: true, paywallContext: null };
   if (isOnboarding) return { allowed: true, paywallContext: null };
-  if (isEvolve) return { allowed: true, paywallContext: null };
   if (activeAnchorCount < 1) return { allowed: true, paywallContext: null };
 
   return { allowed: false, paywallContext: 'SECOND_ANCHOR' };

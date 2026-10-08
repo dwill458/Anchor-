@@ -267,10 +267,9 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         playCreationSound('uiTap');
 
         const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
-        // Evolve is one in, one out: it is exempt from the free plan's second-Anchor count only. The
-        // daily cap and every other limit still stop it, and the checks after this screen are untouched.
-        const evolveExemptFromCount = Boolean(evolve) && entitlements.anchorCreationLimitReason === 'create_anchor_free_locked';
-        if (!isGuestFirstAnchor && !entitlements.canCreateAnchor && !evolveExemptFromCount) {
+        // Evolve creates a second Anchor, so it is a paid path: the same gate as any other new Anchor
+        // applies here (a free user sees the paywall at Continue, before any artwork is generated).
+        if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
             const reason = entitlements.anchorCreationLimitReason;
             if (!reason) return;
 
