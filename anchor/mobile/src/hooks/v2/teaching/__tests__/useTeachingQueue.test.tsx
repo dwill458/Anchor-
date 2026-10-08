@@ -1,0 +1,46 @@
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { useTeachingQueue } from '../useTeachingQueue';
+import { getTeachingSeen, resetTeachingSeenCache } from '../teachingSeen';
+import type { BeatId } from '@/constants/v2/teachingCopy';
+import { InteractionManager } from 'react-native';
+jest.mock('@/stores/encryptedPersistStorage', () => ({ encryptedPersistStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(), removeItem: jest.fn() } }));
+jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((action: any) => {
+  action();
+  return { cancel: jest.fn(), then: jest.fn(), done: jest.fn() };
+});
+const initial = { screenId: 'home', accountId: null, eligible: ['home.today', 'home.progress', 'home.chart'] as BeatId[], cap: 2, blocked: false, isFocused: true };
+beforeEach(resetTeachingSeenCache);
+it('takes first N unseen, freezes streaming eligibility, and saves the entire dismissed batch', async () => {
+  const { result, rerender, unmount } = renderHook(props => useTeachingQueue(props), { initialProps: initial });
+  await waitFor(() => expect(result.current.steps).toEqual(['home.today', 'home.progress']));
+  rerender({ ...initial, eligible: ['home.vision'] });
+  expect(result.current.steps).toEqual(['home.today', 'home.progress']);
+  act(() => result.current.dismiss());
+  expect(await getTeachingSeen(null, 'home.progress')).toBe(true);
+  unmount();
+  const second = renderHook(() => useTeachingQueue({ ...initial, eligible: ['home.today', 'home.progress'] }));
+  await waitFor(() => expect(second.result.current.ready).toBe(true));
+  expect(second.result.current.steps).toEqual([]);
+});
+it('waits while blocked and interrupts without marking or restarting this visit', async () => {
+  const { result, rerender } = renderHook(props => useTeachingQueue(props), { initialProps: { ...initial, blocked: true } });
+  expect(result.current.steps).toEqual([]);
+  rerender(initial);
+  await waitFor(() => expect(result.current.steps).toHaveLength(2));
+  rerender({ ...initial, blocked: true });
+  act(() => result.current.dismiss());
+  expect(await getTeachingSeen(null, 'home.today')).toBe(false);
+  rerender(initial);
+  expect(result.current.steps).toEqual([]);
+  rerender({ ...initial, isFocused: false });
+  rerender(initial);
+  await waitFor(() => expect(result.current.steps).toHaveLength(2));
+});
+it('does not commit an old account batch after an account switch', async () => {
+  const { result, rerender } = renderHook(props => useTeachingQueue(props), { initialProps: { ...initial, accountId: 'a' } });
+  await waitFor(() => expect(result.current.steps).toHaveLength(2));
+  const staleDismiss = result.current.dismiss;
+  rerender({ ...initial, accountId: 'b', blocked: true });
+  act(staleDismiss);
+  expect(await getTeachingSeen('b', 'home.today')).toBe(false);
+});

@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { DeviceEventEmitter, DevSettings, Linking, Modal } from 'react-native';
+import { DeviceEventEmitter, DevSettings, Linking, Modal, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { V2ChartPreview } from './V2ChartPreview';
+import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
+import { useAuthStore } from '@/stores/authStore';
 
 /**
  * Development only: adds "Chart motion lab" to the React Native dev menu and
@@ -10,6 +13,14 @@ import { V2ChartPreview } from './V2ChartPreview';
  */
 export function ChartLabDevHost() {
   const [open, setOpen] = useState(false);
+  const accountId = useAuthStore(state => state.user?.id ?? null);
+  const resetTeaching = async (replay: boolean) => {
+    await resetAllTeachingSeen(accountId);
+    if (replay) {
+      setOpen(false);
+      DeviceEventEmitter.emit('replayAppTeaching');
+    }
+  };
   useEffect(() => {
     const openLab = () => setOpen(true);
     DevSettings.addMenuItem?.('Chart motion lab', openLab);
@@ -37,6 +48,10 @@ export function ChartLabDevHost() {
       {/* Android Modals render outside the app root, so gestures need their own root here. */}
       <GestureHandlerRootView style={{ flex: 1 }}>
         {open ? <V2ChartPreview onClose={() => setOpen(false)} /> : null}
+        <View style={{ position: 'absolute', bottom: 30, left: 18, right: 18, flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#F4EFE6', padding: 8, borderRadius: 12 }}>
+          <Pressable accessibilityRole="button" onPress={() => { void resetTeaching(true); }} style={{ padding: 12 }}><Text>{TEACHING_COPY.dev.replay}</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => { void resetTeaching(false); }} style={{ padding: 12 }}><Text>{TEACHING_COPY.dev.reset}</Text></Pressable>
+        </View>
       </GestureHandlerRootView>
     </Modal>
   );
