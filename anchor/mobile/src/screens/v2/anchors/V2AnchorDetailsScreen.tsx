@@ -847,8 +847,8 @@ export function V2AnchorDetailsScreen() {
   useAnimatedReaction(() => sheetTeachingMoving.value && !teachingPreparing.value,
     (moving, previous) => { if (moving !== previous) runOnJS(setDetailsMoving)(moving); });
   const teachingQueue = useTeachingQueue({ screenId: 'details', accountId: teachingAccountId,
-    eligible: detailsTeachingBeats(vision.state.state === 'none', chart.state === 'none'), cap: DETAILS_BEATS_PER_VISIT,
-    blocked: !anchor || teachingFocus.transitioning || focusTransition.active || detailsMoving || menuOpen || shareOpen || vision.loading || chart.state === 'loading' || chart.state === 'resolving',
+    eligible: detailsTeachingBeats(!hasVisionContent && vision.state.state !== 'loading' && vision.state.state !== 'error', chart.state === 'none'), cap: DETAILS_BEATS_PER_VISIT,
+    blocked: !anchor || teachingFocus.transitioning || focusTransition.active || detailsMoving || menuOpen || shareOpen || exportActions.isDownloading || exportActions.isSavingWallpaper || vision.loading || chart.state === 'loading' || chart.state === 'resolving',
     isFocused: teachingFocus.isFocused });
   const getTeachingRect = useCallback(async (target: React.RefObject<View | null>) => {
     teachingPreparing.value = true;

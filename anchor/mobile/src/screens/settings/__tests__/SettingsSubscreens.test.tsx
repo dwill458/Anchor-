@@ -6,6 +6,10 @@ import { PrivacySupportSubscreen } from '../PrivacySupportSubscreen';
 import { NotificationsSubscreen } from '../NotificationsSubscreen';
 
 const mockUpdateSetting = jest.fn(() => Promise.resolve());
+const mockTeachingReset = jest.fn(async (_accountId: string | null) => undefined);
+const mockToastInfo = jest.fn();
+jest.mock('@/hooks/v2/teaching/teachingSeen', () => ({ resetAllTeachingSeen: (accountId: string | null) => mockTeachingReset(accountId) }));
+jest.mock('@/components/ToastProvider', () => ({ useToast: () => ({ info: mockToastInfo }) }));
 const mockSetDailyPracticeGoal = jest.fn();
 const mockSetDailyPracticeGoalPreset = jest.fn();
 const mockSetThreadStrengthSensitivity = jest.fn();
@@ -104,8 +108,8 @@ jest.mock('@/stores/profileStore', () => ({
 }));
 
 jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector?: (state: { isAuthenticated: boolean }) => unknown) =>
-    selector ? selector({ isAuthenticated: true }) : { isAuthenticated: true },
+  useAuthStore: (selector?: (state: { isAuthenticated: boolean; user: { id: string } }) => unknown) =>
+    selector ? selector({ isAuthenticated: true, user: { id: 'account-a' } }) : { isAuthenticated: true, user: { id: 'account-a' } },
 }));
 
 jest.mock('@/services/ApiClient', () => ({
@@ -145,6 +149,14 @@ jest.mock('@/services/AnalyticsService', () => ({
 describe('PracticeSubscreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+  it('resets app tips for the current account and confirms using the existing toast', async () => {
+    render(<PracticeSubscreen onBack={jest.fn()} />);
+    expect(screen.getByText('Show the quick tips again on every screen.')).toBeTruthy();
+    fireEvent.press(screen.getByText('Replay app tips'));
+    await waitFor(() => expect(mockTeachingReset).toHaveBeenCalledWith('account-a'));
+    await waitFor(() => expect(mockToastInfo).toHaveBeenCalledWith('App tips reset.'));
+    expect(mockSetGuideMode).not.toHaveBeenCalled();
   });
 
   it('renders session defaults, goal, thread behavior, and practice behavior rows', () => {

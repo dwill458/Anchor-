@@ -309,3 +309,4 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Notifications & reminders')).toBeTruthy();
   });
 });
+jest.mock('@/components/ToastProvider', () => ({ useToast: () => ({ info: jest.fn() }) }));

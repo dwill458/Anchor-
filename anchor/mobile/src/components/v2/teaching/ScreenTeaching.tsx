@@ -12,21 +12,35 @@ export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
   reducedMotion: boolean;
 }) {
   const active = useRef<BeatId | null>(null);
+  const presented = useRef<{ beat: BeatId; step: number; total: number } | null>(null);
+  const lastDismissed = useRef(false);
   const shown = useRef(new Set<BeatId>());
   const previousBatch = useRef(queue.steps);
   if (previousBatch.current !== queue.steps) { previousBatch.current = queue.steps; shown.current.clear(); }
   const onReady = useCallback((beat: BeatId) => {
     active.current = beat;
+    presented.current = { beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length };
+    lastDismissed.current = false;
     queue.markShown();
     if (shown.current.has(beat)) return;
     shown.current.add(beat);
     trackTeaching('teaching_beat_shown', { screen, beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length, reason: 'ready' });
   }, [queue.markShown, queue.steps, screen]);
   const onDismiss = useCallback((reason: string) => {
+    lastDismissed.current = true;
     const beat = active.current ?? queue.steps[0];
     if (beat) trackTeaching('teaching_beat_dismissed', { screen, beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length, reason });
     queue.dismiss();
   }, [queue.dismiss, queue.steps, screen]);
+  React.useEffect(() => {
+    if (queue.steps.length) return;
+    if (presented.current && !lastDismissed.current) trackTeaching('teaching_beat_dismissed', { screen, ...presented.current, reason: 'interrupted' });
+    presented.current = null;
+    active.current = null;
+  }, [queue.steps.length, screen]);
+  React.useEffect(() => () => {
+    if (presented.current && !lastDismissed.current) trackTeaching('teaching_beat_dismissed', { screen, ...presented.current, reason: 'blur' });
+  }, [screen]);
   if (!queue.ready || !queue.steps.length) return null;
   if (queue.steps[0] === 'vision.first') return <WhisperBeat onReady={onReady} onDismiss={onDismiss} reducedMotion={reducedMotion} />;
   return <SpotlightCoach visible steps={queue.steps.map(id => ({ id, ...TEACHING_COPY.beats[id], ...targets[id] }))} reducedMotion={reducedMotion}

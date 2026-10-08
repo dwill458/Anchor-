@@ -21,6 +21,7 @@ export async function getTeachingSeen(accountId: string | null, beat: BeatId): P
   if (cached !== undefined) return cached;
   if (!accountId) return false;
   const generation = generations.get(key) ?? 0;
+  generations.set(key, generation);
   try {
     const value = await encryptedPersistStorage.getItem(key);
     if ((generations.get(key) ?? 0) !== generation) return cache.get(key) ?? false;

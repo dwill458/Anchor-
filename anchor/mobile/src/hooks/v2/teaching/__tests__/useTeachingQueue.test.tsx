@@ -40,7 +40,8 @@ it('does not commit an old account batch after an account switch', async () => {
   const { result, rerender } = renderHook(props => useTeachingQueue(props), { initialProps: { ...initial, accountId: 'a' } });
   await waitFor(() => expect(result.current.steps).toHaveLength(2));
   const staleDismiss = result.current.dismiss;
-  rerender({ ...initial, accountId: 'b', blocked: true });
+  rerender({ ...initial, accountId: 'b', blocked: false });
+  await waitFor(() => expect(result.current.steps).toHaveLength(2));
   act(staleDismiss);
   expect(await getTeachingSeen('b', 'home.today')).toBe(false);
 });

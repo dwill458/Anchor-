@@ -39,6 +39,9 @@ import {
   type SessionAudioSessionType,
 } from '@/types/sessionAudio';
 import { logger } from '@/utils/logger';
+import { useToast } from '@/components/ToastProvider';
+import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
 
 interface Props {
   onBack: () => void;
@@ -97,6 +100,12 @@ const PD_THREAD = {
 } as const;
 
 export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
+  const toast = useToast();
+  const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  const replayTeaching = async () => {
+    await resetAllTeachingSeen(teachingAccountId);
+    toast.info(TEACHING_COPY.replay.confirmation);
+  };
   const [panel, setPanel] = useState<PracticePanel>('main');
   const [activeModeTab, setActiveModeTab] = useState<SessionAudioSessionType>('focus');
   const [activePreviewVoice, setActivePreviewVoice] = useState<string | null>(getActivePreviewVoice());
@@ -702,6 +711,8 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
             onToggle={(val) => setGuideMode(val)}
             testID="settings-row-Guide Mode"
           />
+          <SettingsRow label={TEACHING_COPY.replay.title} desc={TEACHING_COPY.replay.helper}
+            onPress={() => { void replayTeaching(); }} />
           <SettingsToggleRow
             label="Hide Intention Text"
             desc="Hide intention text during practice"

@@ -11,6 +11,10 @@ it('chooses newest creation time rather than the leading or last sorted photo', 
     { id: 'new', createdAt: '2026-02-01', isArchived: false },
     { id: 'archived', createdAt: '2026-03-01', isArchived: true },
   ])).toBe('new');
+  expect(newestVisionScene([
+    { id: 'first', createdAt: '2026-01-01', isArchived: false },
+    { id: 'second', createdAt: '2026-01-01', isArchived: false },
+  ])).toBe('second');
 });
 it('projects the actual slot through the centered rest camera into window space', () => {
   expect(projectTeachingSlot({ x: 100, y: 200, width: 200, height: 100, rotation: 0, zIndex: 1 },

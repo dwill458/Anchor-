@@ -454,7 +454,7 @@ export function V2HomeScreen() {
   }));
 
   useAnimatedReaction(
-    () => contentVeil.value < 0.999 || (!teachingScrollActive.value && (elastic.dragging.value || elastic.momentum.value || Math.abs(elastic.overscroll.value) > 0.5)),
+    () => contentVeil.value < 0.999 || elastic.dragging.value || Math.abs(elastic.overscroll.value) > 0.5 || (!teachingScrollActive.value && elastic.momentum.value),
     (moving, previous) => { if (moving !== previous) runOnJS(setHomeMotionActive)(moving); },
   );
   // Canonical Home idle gate: the queue also waits one InteractionManager turn after this clears.

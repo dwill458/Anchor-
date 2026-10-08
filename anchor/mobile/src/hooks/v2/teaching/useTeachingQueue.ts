@@ -55,12 +55,17 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
     return () => { cancelled = true; interaction?.cancel(); };
   }, [accountId, blocked, cap, eligibleKey, isFocused, session, replay]);
 
-  const markShown = useCallback(() => { /* Seen is committed only on completion/dismissal. */ }, []);
+  const markShown = useCallback(() => {
+    if (owner.current === session && live.current.session === session && live.current.isFocused && !live.current.blocked) {
+      decided.current = true;
+      batchRef.current = batch;
+    }
+  }, [session, batch]);
   const dismiss = useCallback(() => {
-    if (owner.current !== live.current.session || !live.current.isFocused || live.current.blocked) return;
+    if (owner.current !== session || live.current.session !== session || !live.current.isFocused || live.current.blocked) return;
     batchRef.current.forEach(beat => setTeachingSeen(live.current.accountId, beat));
     batchRef.current = [];
     setBatch([]);
-  }, []);
+  }, [session]);
   return { steps: owner.current === session && isFocused && !blocked ? batch : [], ready: ready && isFocused && !blocked, markShown, dismiss };
 }

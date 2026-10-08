@@ -7,7 +7,8 @@ export function visionTeachingBeats(photoCount: number): BeatId[] {
   return photoCount === 1 ? ['vision.first'] : photoCount >= 2 ? ['vision.second'] : [];
 }
 export function newestVisionScene(scenes: ReadonlyArray<{ id: string; createdAt: string; isArchived: boolean }>): string | null {
-  return scenes.filter(scene => !scene.isArchived).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0]?.id ?? null;
+  return scenes.filter(scene => !scene.isArchived).reduce<typeof scenes[number] | null>((latest, scene) =>
+    !latest || Date.parse(scene.createdAt) >= Date.parse(latest.createdAt) ? scene : latest, null)?.id ?? null;
 }
 /** Rotated slot bounds through the same centered camera transform used by VisionBoard. */
 export function projectTeachingSlot(rect: SceneRect, scene: Size, viewport: Size, camera: CameraState, origin: TeachingRect): TeachingRect {
