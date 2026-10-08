@@ -2,7 +2,7 @@ import { createReleaseContinuations, releaseHomeScreenOptions } from '../release
 import { Platform } from 'react-native';
 
 function setup(platform: typeof Platform.OS = 'android') {
-  const navigation = { replace: jest.fn(), goBack: jest.fn() };
+  const navigation = { replace: jest.fn(), goBack: jest.fn(), push: jest.fn() };
   return { navigation, continuations: createReleaseContinuations(navigation, platform) };
 }
 
@@ -78,5 +78,17 @@ describe('createReleaseContinuations', () => {
     const { navigation, continuations } = setup();
     continuations.onViewHistory?.();
     expect(navigation.replace).toHaveBeenCalledWith('V2AnchorLibrary');
+  });
+
+  it('Evolve it pushes creation on top of Release with the intention carried over', () => {
+    const { navigation, continuations } = setup();
+    continuations.onBeginEvolve?.({ anchorId: 'a1', intentionText: 'Publish my novel' });
+    expect(navigation.push).toHaveBeenCalledWith('FirstAnchorCreation', {
+      initialIntention: 'Publish my novel',
+      evolve: { fromAnchorId: 'a1' },
+    });
+    // Release is never replaced, popped or navigated away from.
+    expect(navigation.replace).not.toHaveBeenCalled();
+    expect(navigation.goBack).not.toHaveBeenCalled();
   });
 });

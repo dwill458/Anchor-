@@ -13,6 +13,7 @@ import { DailyReminderPrompt } from '@/components/notifications';
 import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
 import { PAPER_ART_SHARE } from '@/components/v2/creation/creationMotion';
 import { handOffToHome, prepareHomeArrival } from '@/navigation/v2/creationHandoff';
+import { returnToReleaseWithSuccessor } from '@/navigation/v2/evolveReturn';
 import { useAudio } from '@/hooks/useAudio';
 import { NodeToneService } from '@/services/NodeToneService';
 import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
@@ -29,7 +30,7 @@ import {
 } from '@/services/AnchorGenerationService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
-import { useTempStore } from '@/stores/anchorStore';
+import { useAnchorStore, useTempStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useCreationPrefsStore } from '@/stores/creationPrefsStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
@@ -645,6 +646,17 @@ export default function AnchorCreationFlowScreen() {
       ? {
           onSaved: ({ anchorId, input }) => {
             useFirstAnchorFlowStore.getState().clearDraft();
+            if (params.evolve) {
+              // Evolve: the sealed Anchor goes back to the Release it was started from. No Home arrival
+              // is staged or played; the old Anchor is released (and linked) only by that screen's hold.
+              const saved = useAnchorStore.getState().anchors.find((a) => a.id === anchorId || a.localId === anchorId);
+              returnToReleaseWithSuccessor(
+                navigation as unknown as Parameters<typeof returnToReleaseWithSuccessor>[0],
+                params.evolve.fromAnchorId,
+                { anchorId, intentionText: saved?.intentionText || input.intentionText },
+              );
+              return;
+            }
             if (params.fromOnboarding) {
               const auth = useAuthStore.getState();
               if (auth.pendingFirstAnchorDraft) {
@@ -738,11 +750,11 @@ export default function AnchorCreationFlowScreen() {
       // Home poses and measures while the seal is still playing, so the hand-off finds it ready
       // instead of the medallion waiting on cream for it.
       void pendingSave.then((outcome) => {
-        if (outcome.status !== 'saved' || !mountedRef.current || params.fromOnboarding) return;
+        if (outcome.status !== 'saved' || !mountedRef.current || params.fromOnboarding || params.evolve) return;
         prepareHomeArrival(buildHandoff(outcome.anchorId, flow.baseSigilSvg, params.category, form.uri));
       });
     },
-    [buildHandoff, deferUntilArrived, enterBeat, forms, params.category, params.fromOnboarding, saveAnchor, setTempEnhancedImage]
+    [buildHandoff, deferUntilArrived, enterBeat, forms, params.category, params.evolve, params.fromOnboarding, saveAnchor, setTempEnhancedImage]
   );
 
   const chooseRef = useRef<ReturnType<typeof useChooseController> | null>(null);

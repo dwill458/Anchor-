@@ -41,4 +41,13 @@ describe('useV2AnchorCreationGate', () => {
     rerender({});
     expect(result.current.result).toEqual({ allowed: true, paywallContext: null });
   });
+
+  it('exempts an Evolve attempt from the count only when the caller says so', () => {
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    const { result } = renderHook(() => useV2AnchorCreationGate());
+    expect(result.current.result).toEqual({ allowed: false, paywallContext: 'SECOND_ANCHOR' });
+    expect(result.current.evaluate({ isEvolve: true })).toEqual({ allowed: true, paywallContext: null });
+    expect(result.current.evaluate({ isEvolve: false }).allowed).toBe(false);
+    expect(result.current.evaluate().allowed).toBe(false);
+  });
 });

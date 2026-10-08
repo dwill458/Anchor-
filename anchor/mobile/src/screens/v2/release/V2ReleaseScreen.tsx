@@ -5,8 +5,8 @@ import { ArrowLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
-import { V2DissolutionCeremony, V2HoldToReleaseControl, V2ReleaseChamberStatus,
-  V2ReleaseCompletion, V2ReleaseConsequenceCard } from '@/components/v2/release';
+import { V2DissolutionCeremony, V2HoldToReleaseControl, V2ReleaseChamberStatus, V2ReleaseChoice,
+  V2ReleaseCompletion, V2ReleaseConsequenceCard, releaseChoiceApplies, type V2ReleaseChoiceId } from '@/components/v2/release';
 import { V2ReleaseArtwork } from '@/components/v2/release/V2ReleaseArtwork';
 import { releaseArtworkRect, segment } from '@/components/v2/release/releaseBurn';
 import { releaseTypography } from '@/components/v2/release/releaseTypography';
@@ -19,7 +19,8 @@ import { sfxLog } from '@/services/audio/sfxLog';
 import { safeHaptics } from '@/utils/haptics';
 import { RELEASE_COPY, RELEASE_CEREMONY_CHAMBER_BG, RELEASE_FIRE_PREPARE_AT, type V2ReleaseActionId } from '@/constants/v2/release';
 import { colors, getCategoryColor, spacing } from '@/theme/v2';
-import { releaseHoldHint, type V2ReleaseAdapter } from '@/adapters/v2/release';
+import { normalizeReleaseReason, releaseHoldHint, type V2ReleaseAdapter } from '@/adapters/v2/release';
+import { useEvolveSessionStore } from '@/stores/v2/evolveSessionStore';
 import type { V2ReleaseContinuationCallbacks, V2ReleaseRouteParams } from './releaseRoutes';
 import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
@@ -36,7 +37,7 @@ export interface V2ReleaseScreenProps extends Partial<V2ReleaseRouteParams>, V2R
 /** One scene transforms around the same Anchor; the mutation hook remains authoritative. */
 export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapter, hasLinkedVision,
   onReleaseCompleted, onCancel, onViewHistory, onViewProgress, onContinueToChart, onViewCompletedChart,
-  onContinueWithSuccessor, onCreateSuccessor, onSessionActiveChange, focused = true, testID }: V2ReleaseScreenProps) {
+  onContinueWithSuccessor, onCreateSuccessor, onBeginEvolve, onSessionActiveChange, focused = true, testID }: V2ReleaseScreenProps) {
   const reduceMotion = useV2ReduceMotion();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -87,7 +88,19 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   }, []);
   const [silent, setSilent] = useState(false);
   const [controlsHeight, setControlsHeight] = useState(120);
-  const release = useV2Release({ anchorId, adapter: releaseAdapter, reason, successor, hasLinkedVision });
+  // Release it / Evolve it is asked only when the context has not already decided the reason. The
+  // successor arrives with the route (creation returns here with it) or through the evolve session.
+  const choiceApplies = releaseChoiceApplies(reason);
+  const sessionSuccessor = useEvolveSessionStore((s) => s.successor);
+  const attachedSuccessor = successor ?? sessionSuccessor ?? undefined;
+  const [choice, setChoice] = useState<V2ReleaseChoiceId>(choiceApplies && normalizeReleaseReason(reason) === 'evolve' ? 'evolve' : 'release');
+  const attachedSuccessorId = attachedSuccessor?.anchorId;
+  useEffect(() => { if (choiceApplies && attachedSuccessorId) setChoice('evolve'); }, [choiceApplies, attachedSuccessorId]);
+  const evolveChosen = choiceApplies && choice === 'evolve';
+  // 'Release it' is a manual release even when the route arrived as evolve; the successor then plays no part.
+  const hookReason = !choiceApplies ? reason : evolveChosen ? 'evolve' : normalizeReleaseReason(reason) === 'evolve' ? undefined : reason;
+  const hookSuccessor = !choiceApplies ? successor : evolveChosen ? attachedSuccessor : undefined;
+  const release = useV2Release({ anchorId, adapter: releaseAdapter, reason: hookReason, successor: hookSuccessor, hasLinkedVision });
   const feel = useReleaseBurnFeel();
   const releaseFall = useRef<CreationSoundHandle | null>(null);
   const stopReleaseFall = useCallback(() => { releaseFall.current?.stop(); releaseFall.current = null; }, []);
@@ -157,6 +170,27 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   // Another screen covering this one is a cancellation: no request, no completion haptic.
   useEffect(() => { if (!focused) handleHoldEnd(); }, [focused, handleHoldEnd]);
   const handleCancel = useCallback(() => { handleHoldEnd(); onCancel(); }, [handleHoldEnd, onCancel]);
+  // Creation ran on top of this screen. Back here with nothing attached means it was cancelled: no
+  // pending evolve state survives, and the Anchor was never touched.
+  useEffect(() => {
+    if (!focused) return;
+    const session = useEvolveSessionStore.getState();
+    if (session.pending && !session.successor) session.clear();
+  }, [focused]);
+  // Leaving Release for good ends the session. An attached successor simply stays an ordinary Anchor.
+  useEffect(() => () => useEvolveSessionStore.getState().clear(), []);
+  const startEvolve = useCallback(() => {
+    if (!onBeginEvolve) { (onCreateSuccessor ?? handleCancel)(); return; }
+    const origin = { anchorId, intentionText: release.snapshot?.intentionText ?? '' };
+    useEvolveSessionStore.getState().begin({ fromAnchorId: origin.anchorId, fromIntention: origin.intentionText });
+    onBeginEvolve(origin);
+  }, [onBeginEvolve, onCreateSuccessor, handleCancel, anchorId, release.snapshot?.intentionText]);
+  const handleChoose = useCallback((next: V2ReleaseChoiceId) => {
+    if (hold.isHolding || release.stage !== 'preflight') return;
+    if (next === 'release') { setChoice('release'); return; }
+    if (attachedSuccessor) { setChoice('evolve'); return; }
+    startEvolve();
+  }, [hold.isHolding, release.stage, attachedSuccessor, startEvolve]);
   const handleFreshHold = useCallback(() => { stopReleaseFall(); release.reset(); hold.reset(); setSilent(false); }, [release.reset, hold.reset, stopReleaseFall]);
   // The coin is gone: sound and haptics stop in the same beat the screen goes black.
   // The exhale sound belongs to the ending's settle (V2ReleaseCompletion), so it fires once, there.
@@ -222,6 +256,8 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
               <View style={[styles.dot, { backgroundColor: getCategoryColor(snapshot.category) }]} testID="v2-release-category-dot" />
               <Text style={styles.intention} testID="v2-release-intention" accessibilityRole="header">{snapshot.intentionText}</Text>
             </View>
+            {choiceApplies ? <V2ReleaseChoice value={choice} onChange={handleChoose} disabled={hold.isHolding}
+              successorIntention={snapshot.successor?.intentionText ?? null} /> : null}
             {release.stale ? <Text style={styles.notice} accessibilityLiveRegion="polite" testID="v2-release-stale">{RELEASE_COPY.staleNotice}</Text> : null}
             <V2ReleaseConsequenceCard consequences={snapshot.consequences} />
           </ScrollView>
@@ -236,7 +272,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
             <View style={styles.successorMissing} testID="v2-release-successor-missing">
               <Text style={styles.heading} accessibilityRole="header">{RELEASE_COPY.successorMissingTitle}</Text>
               <Text style={styles.subtitle}>{RELEASE_COPY.successorMissingBody}</Text>
-              <V2Button variant="primary" size="large" onPress={() => (onCreateSuccessor ?? handleCancel)()} testID="v2-release-create-successor">{RELEASE_COPY.successorMissingCta}</V2Button>
+              <V2Button variant="primary" size="large" onPress={startEvolve} testID="v2-release-create-successor">{RELEASE_COPY.successorMissingCta}</V2Button>
             </View>
           )}
           <Animated.View style={keepStyle}><Pressable accessibilityRole="button" onPress={handleCancel} style={styles.keepControl} testID="v2-release-keep-active"><Text style={styles.keepLabel}>{RELEASE_COPY.keepAnchorCta}</Text></Pressable></Animated.View>

@@ -4,13 +4,20 @@ import type { V2ReleaseRouteParams } from '@/screens/v2/release/releaseRoutes';
 import type { V2WeeklyInsightRouteParams } from '@/constants/v2/weeklyInsightRoutes';
 import type { AuthScreenParams } from '@/types';
 
+/** Carried through creation so the sealed Anchor returns to the Release it was started from. */
+export type V2EvolveMarker = { fromAnchorId: string };
+
 export type AnchorV2StackParamList = {
   V2FirstRun: undefined;
   V2DevelopmentHome: { releaseReturnFade?: boolean } | undefined;
   V2SystemGallery: undefined;
   V2EvolvingAnchor: undefined;
   V2Creation: undefined;
-  FirstAnchorCreation: undefined;
+  FirstAnchorCreation: {
+    /** Evolve: the Anchor being released, so the field starts with its intention (editable). */
+    initialIntention?: string;
+    evolve?: V2EvolveMarker;
+  } | undefined;
   AnchorCreationFlow: {
     fromOnboarding?: boolean;
     /** Onboarding's chosen area, so the Intention chrome the flow fades from matches what was shown. */
@@ -21,6 +28,8 @@ export type AnchorV2StackParamList = {
     source: 'typed' | 'drawn';
     entry?: 'fade' | 'glide';
     fieldFrame?: { x: number; y: number; width: number; height: number; fontSize?: number; lineHeight?: number };
+    /** Evolve: creation was opened from this Anchor's Release screen and returns there when sealed. */
+    evolve?: V2EvolveMarker;
   };
   Paywall: V2PaywallRouteParams | undefined;
   V2AnchorLibrary: undefined;

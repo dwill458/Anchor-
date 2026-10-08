@@ -160,6 +160,20 @@ export const RELEASE_COPY = {
   // completionSecondaryCta were single fixed strings; they now live in RELEASE_ENDINGS below.
 } as const;
 
+/**
+ * The "Release it / Evolve it" choice asked on the Release screen before the hold. Every new
+ * string of the Evolve flow lives here; the hold hint and the Evolved ending reuse the strings
+ * above unchanged.
+ */
+// PLACEHOLDER COPY - needs approval
+export const RELEASE_EVOLVE_COPY = {
+  releaseLabel: 'Release it',
+  releaseDescriptor: 'Move this intention into your history.',
+  evolveLabel: 'Evolve it',
+  evolveDescriptor: 'Carry this intention into a new Anchor.',
+  evolvingInto: 'Evolving into',
+} as const;
+
 export type V2ReleaseEndingId = 'outcome_completed' | 'waypoint_completed' | 'destination_completed' | 'no_longer_aligned' | 'evolve';
 export type V2ReleaseActionId = 'home' | 'progress' | 'chart' | 'completed_chart' | 'successor';
 

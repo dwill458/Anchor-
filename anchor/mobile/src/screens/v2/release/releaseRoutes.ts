@@ -43,4 +43,9 @@ export interface V2ReleaseContinuationCallbacks {
   onContinueWithSuccessor?: (successorAnchorId: string) => void;
   /** Evolve with no valid successor: send the user to create one. */
   onCreateSuccessor?: () => void;
+  /**
+   * "Evolve it" was chosen with nothing attached: open creation on top of Release, with the intention
+   * carried over. Release stays in the stack; nothing is released or linked until the hold completes.
+   */
+  onBeginEvolve?: (origin: { anchorId: string; intentionText: string }) => void;
 }

@@ -3,7 +3,12 @@ import { Platform } from 'react-native';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import type { AnchorV2StackParamList } from './types';
 
-type ReplaceNavigation = { replace: (name: string, params?: object) => void; goBack: () => void };
+type ReplaceNavigation = {
+  replace: (name: string, params?: object) => void;
+  goBack: () => void;
+  /** Present on stack navigation. Evolve pushes creation on top of Release so Release stays underneath. */
+  push?: (name: string, params?: object) => void;
+};
 
 /**
  * Where each Release ending goes. A released Anchor cannot be returned to, so every
@@ -24,6 +29,11 @@ export function createReleaseContinuations(navigation: ReplaceNavigation, platfo
     onViewCompletedChart: (courseId, anchorId) => chart(courseId, anchorId, 'release_completed'),
     onContinueWithSuccessor: (successorAnchorId) => navigation.replace('V2AnchorDetails', { anchorId: successorAnchorId }),
     onCreateSuccessor: () => navigation.replace('V2Creation'),
+    // Release is never replaced: it is the screen creation returns to, with or without a successor.
+    onBeginEvolve: ({ anchorId, intentionText }) => navigation.push?.('FirstAnchorCreation', {
+      initialIntention: intentionText,
+      evolve: { fromAnchorId: anchorId },
+    }),
   };
 }
 

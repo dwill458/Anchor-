@@ -636,7 +636,7 @@ export type RootStackParamList = {
     | undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
-  FirstAnchorCreation: undefined;
+  FirstAnchorCreation: { initialIntention?: string; evolve?: { fromAnchorId: string } } | undefined;
   /** One-screen creation flow: distil → map → forget → style → form → choose → seal. */
   AnchorCreationFlow: {
     fromOnboarding?: boolean;
@@ -655,6 +655,8 @@ export type RootStackParamList = {
       fontSize: number;
       lineHeight: number;
     };
+    /** Evolve: creation was opened from a Release screen and returns there when the Anchor is sealed. */
+    evolve?: { fromAnchorId: string };
   };
   Login: AuthScreenParams | undefined;
   SignUp: AuthScreenParams | undefined;

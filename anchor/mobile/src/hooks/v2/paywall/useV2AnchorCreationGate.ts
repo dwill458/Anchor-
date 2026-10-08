@@ -9,8 +9,11 @@ import { useV2TrialState } from './useV2TrialState';
 export type V2AnchorCreationGate = {
   /** Current decision for a *non-onboarding* creation attempt. */
   result: V2AnchorCreationGateResult;
-  /** Decision for a specific attempt; onboarding attempts are always allowed. */
-  evaluate: (options?: { isOnboarding?: boolean }) => V2AnchorCreationGateResult;
+  /**
+   * Decision for a specific attempt; onboarding attempts are always allowed. A caller creating the
+   * successor of an Evolve passes `isEvolve`: it is exempt from the second-Anchor count only.
+   */
+  evaluate: (options?: { isOnboarding?: boolean; isEvolve?: boolean }) => V2AnchorCreationGateResult;
 };
 
 /**
@@ -28,11 +31,12 @@ export function useV2AnchorCreationGate(): V2AnchorCreationGate {
   );
 
   const evaluate = useCallback(
-    (options?: { isOnboarding?: boolean }) =>
+    (options?: { isOnboarding?: boolean; isEvolve?: boolean }) =>
       resolveAnchorCreationPaywall({
         activeAnchorCount,
         isOnboarding: options?.isOnboarding ?? false,
         hasEntitlement,
+        isEvolve: options?.isEvolve ?? false,
       }),
     [activeAnchorCount, hasEntitlement],
   );

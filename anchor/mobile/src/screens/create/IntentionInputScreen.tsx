@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList, type AnchorCategory } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
@@ -75,8 +75,17 @@ export interface IntentionInputScreenProps {
     onBack?: () => void;
 }
 
+/** Evolve opens this screen from a Release screen: the old intention is the starting text, and the marker rides on to creation. */
+type EvolveRouteParams = { initialIntention?: string; evolve?: { fromAnchorId: string } } | undefined;
+
 export default function IntentionInputScreen({ fromOnboarding = false, chosenCategory, onBack }: IntentionInputScreenProps = {}) {
     const navigation = useNavigation<NavigationProp>();
+    const routeParams = (useRoute() as { params?: EvolveRouteParams } | undefined)?.params;
+    const evolve = routeParams?.evolve;
+    // Editable: the user can reword it before continuing. Never longer than the field allows.
+    const initialIntention = evolve && typeof routeParams?.initialIntention === 'string'
+        ? routeParams.initialIntention.slice(0, MAX_CHARS)
+        : '';
     const insets = useSafeAreaInsets();
     const { width, height } = useWindowDimensions();
     const { recordShown } = useTeachingStore();
@@ -149,7 +158,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
 
             // Fresh entry or absence of an active in-flight draft always resets the intention text.
             if (!returningFromChild || !useFirstAnchorFlowStore.getState().draft) {
-                setIntention('');
+                setIntention(initialIntention);
                 setSubmitError(null);
                 useFirstAnchorFlowStore.getState().clearDraft();
             }
@@ -161,7 +170,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
             return () => {
                 if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
             };
-        }, [idleTimerRef])
+        }, [idleTimerRef, initialIntention])
     );
 
     // Reset draft and intention when leaving this screen
@@ -258,7 +267,10 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         playCreationSound('uiTap');
 
         const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
-        if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
+        // Evolve is one in, one out: it is exempt from the free plan's second-Anchor count only. The
+        // daily cap and every other limit still stop it, and the checks after this screen are untouched.
+        const evolveExemptFromCount = Boolean(evolve) && entitlements.anchorCreationLimitReason === 'create_anchor_free_locked';
+        if (!isGuestFirstAnchor && !entitlements.canCreateAnchor && !evolveExemptFromCount) {
             const reason = entitlements.anchorCreationLimitReason;
             if (!reason) return;
 
@@ -301,6 +313,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
             distilledLetters: distillation.finalLetters,
             source,
             ...(fromOnboarding ? { fromOnboarding: true } : {}),
+            ...(evolve ? { evolve } : {}),
         } as const;
 
         // DEFERRED: the old creation path, superseded by AnchorCreationFlow (still registered):
