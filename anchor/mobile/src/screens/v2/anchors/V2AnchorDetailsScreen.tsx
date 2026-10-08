@@ -52,6 +52,12 @@ import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
 import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
+import { useAuthStore } from '@/stores/authStore';
+import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
+import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+import { DETAILS_BEATS_PER_VISIT, detailsTeachingBeats } from '@/hooks/v2/teaching/detailsTeaching';
+import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
+import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -575,6 +581,16 @@ function useRecommendation(anchorId: string) {
 }
 
 export function V2AnchorDetailsScreen() {
+  const teachingFocus = useTeachingFocus();
+  const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  const visionTeachingRef = useRef<View>(null);
+  const chartTeachingRef = useRef<View>(null);
+  const teachingScrollRef = useRef<Animated.ScrollView>(null);
+  const teachingViewportRef = useRef<View>(null);
+  const teachingScrollSize = useRef({ content: 0, viewport: 0 });
+  const sheetTeachingMoving = useSharedValue(false);
+  const teachingPreparing = useSharedValue(false);
+  const [detailsMoving, setDetailsMoving] = useState(false);
   const navigation = useNavigation<Nav>();
   const focusTransition = useProgressiveFocusTransition();
   const route = useRoute<Route>();
@@ -657,18 +673,20 @@ export function V2AnchorDetailsScreen() {
   const [blockMode, setBlockMode] = useState<'centered' | 'header'>('centered');
 
   const onSettled = useCallback((target: number) => {
+    sheetTeachingMoving.value = false;
     settledSnapRef.current = target === snaps.full ? 'full' : target === snaps.half ? 'half' : 'rest';
-  }, [snaps]);
+  }, [snaps, sheetTeachingMoving]);
 
   useEffect(() => { sheetY.value = snaps[settledSnapRef.current]; }, [snaps, sheetY]);
 
   const settleTo = useCallback((target: number) => {
     'worklet';
+    sheetTeachingMoving.value = true;
     cancelAnimation(sheetY);
     sheetY.value = withTiming(target, { duration: reduceMotion ? 0 : SNAP_MS, easing: SNAP_EASING }, finished => {
       if (finished) runOnJS(onSettled)(target);
     });
-  }, [sheetY, reduceMotion, onSettled]);
+  }, [sheetY, reduceMotion, onSettled, sheetTeachingMoving]);
 
   const layoutProps = useMemo(() => ({ snaps, width, height, topInset: insets.top }), [snaps, width, height, insets.top]);
   const currentLayout = useDerivedValue(() => resolveSheetLayout({ y: sheetY.value, ...layoutProps }), [layoutProps]);
@@ -705,6 +723,7 @@ export function V2AnchorDetailsScreen() {
     .minDistance(3)
     .onStart(() => {
       'worklet';
+      sheetTeachingMoving.value = true;
       cancelAnimation(sheetY);
       startY.value = sheetY.value;
     })
@@ -717,7 +736,7 @@ export function V2AnchorDetailsScreen() {
       'worklet';
       const target = nearestSnap(sheetY.value, event.velocityY, snaps);
       settleTo(target);
-    }), [sheetY, startY, snaps, settleTo]);
+    }).onFinalize((_event, success) => { if (!success) sheetTeachingMoving.value = false; }), [sheetY, startY, snaps, settleTo, sheetTeachingMoving]);
 
   const handleTap = useMemo(() => Gesture.Tap().onEnd((_event, success) => {
     if (success) settleTo(nextSnapForTap(sheetY.value, snaps));
@@ -745,6 +764,7 @@ export function V2AnchorDetailsScreen() {
     })
     .onStart(event => {
       'worklet';
+      sheetTeachingMoving.value = true;
       cancelAnimation(sheetY);
       startY.value = sheetY.value;
       bodyPanBase.value = event.translationY;
@@ -757,7 +777,7 @@ export function V2AnchorDetailsScreen() {
     .onEnd((event) => {
       'worklet';
       settleTo(nearestSnap(sheetY.value, event.velocityY, snaps));
-    }), [sheetY, snaps, scrollOffset, startY, bodyPanBase, touchStartX, touchStartY, settleTo]);
+    }).onFinalize((_event, success) => { if (!success) sheetTeachingMoving.value = false; }), [sheetY, snaps, scrollOffset, startY, bodyPanBase, touchStartX, touchStartY, settleTo, sheetTeachingMoving]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -823,6 +843,25 @@ export function V2AnchorDetailsScreen() {
   }));
 
   const barPointerEvents = barOn ? 'auto' : 'none';
+
+  useAnimatedReaction(() => sheetTeachingMoving.value && !teachingPreparing.value,
+    (moving, previous) => { if (moving !== previous) runOnJS(setDetailsMoving)(moving); });
+  const teachingQueue = useTeachingQueue({ screenId: 'details', accountId: teachingAccountId,
+    eligible: detailsTeachingBeats(vision.state.state === 'none', chart.state === 'none'), cap: DETAILS_BEATS_PER_VISIT,
+    blocked: !anchor || teachingFocus.transitioning || focusTransition.active || detailsMoving || menuOpen || shareOpen || vision.loading || chart.state === 'loading' || chart.state === 'resolving',
+    isFocused: teachingFocus.isFocused });
+  const getTeachingRect = useCallback(async (target: React.RefObject<View | null>) => {
+    teachingPreparing.value = true;
+    try {
+      // Open the existing sheet before measuring its scroll content, without changing its gestures.
+      if (sheetY.value > snaps.full + SHEET_SCROLL_TOLERANCE) {
+        settleTo(snaps.full);
+        await new Promise(resolve => setTimeout(resolve, reduceMotion ? 0 : SNAP_MS + 40));
+      }
+      const viewport = await measureTeachingTarget(teachingViewportRef.current);
+      return await scrollToTarget(target, teachingScrollRef, () => ({ y: scrollOffset.value, max: Math.max(0, teachingScrollSize.current.content - teachingScrollSize.current.viewport), viewportTop: viewport?.y ?? 0 }), reduceMotion);
+    } finally { teachingPreparing.value = false; }
+  }, [reduceMotion, scrollOffset, settleTo, sheetY, snaps.full, teachingPreparing]);
 
   if (!anchor) {
     return (
@@ -1009,8 +1048,11 @@ export function V2AnchorDetailsScreen() {
           </GestureDetector>
 
           <GestureDetector gesture={bodyGesture}>
-            <View collapsable={false} style={{ height: scrollHeight }}>
+            <View ref={teachingViewportRef} collapsable={false} style={{ height: scrollHeight }}>
               <Animated.ScrollView
+                ref={teachingScrollRef}
+                onLayout={event => { teachingScrollSize.current.viewport = event.nativeEvent.layout.height; }}
+                onContentSizeChange={(_width, height) => { teachingScrollSize.current.content = height; }}
                 testID="v2-anchor-details-screen"
                 scrollEnabled={scrollOn}
                 onScroll={scrollHandler}
@@ -1027,6 +1069,7 @@ export function V2AnchorDetailsScreen() {
                   </View>
                 </Animated.View>
 
+                <View ref={visionTeachingRef} collapsable={false}>
                 <VisionSection
                   state={vision.state}
                   accent={accent}
@@ -1039,7 +1082,9 @@ export function V2AnchorDetailsScreen() {
                   onEditVision={() => openVision({ edit: true })}
                   onRetry={vision.refresh}
                 />
+                </View>
 
+                <View ref={chartTeachingRef} collapsable={false}>
                 <ChartSection
                   chart={chart}
                   width={width - SHEET_GUTTER * 2}
@@ -1048,6 +1093,7 @@ export function V2AnchorDetailsScreen() {
                   onRetry={anchorChart.refresh}
                   onOpenChart={openChart}
                 />
+                </View>
 
                 <RecentPractice entries={detail.recentPractice} onViewAll={openProgress} />
 
@@ -1091,6 +1137,10 @@ export function V2AnchorDetailsScreen() {
           </Pressable>
         </Animated.View>
 
+        <ScreenTeaching screen="details" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
+          'details.vision': { getRect: () => getTeachingRect(visionTeachingRef) },
+          'details.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
+        }} />
         <AnchorOptionsMenu
           visible={menuOpen}
           onClose={() => setMenuOpen(false)}
