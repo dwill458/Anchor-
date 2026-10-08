@@ -16,6 +16,7 @@ import type { V2VisualizeHandoff, V2VisionTile } from '@/adapters/v2/vision';
 import { toChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
+import { newestVisionScene } from '@/hooks/v2/teaching/visionTeaching';
 
 const WARM_IMAGE_MAX_MS = 3000;
 
@@ -83,6 +84,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     setJustAdded(kind); playVisionPin(); setPendingPhoto(null); setReplaceSceneId(null); setMode('view');
   };
   const [actionError, setActionError] = useState<string | null>(null);
+  const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
   // Choosing generated images for one place on the board (Regenerate), or for any free places (add).
   const [replaceSceneId, setReplaceSceneId] = useState<string | null>(null);
   const replacementTarget = useRef<V2VisionTile | null>(null);
@@ -149,6 +151,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
 
   /** Chooses or takes a photo; it is previewed, and nothing is uploaded until the person confirms. */
   const startAddPhoto = async (source: VisionPhotoSource) => {
+    setPhotoPickerOpen(true);
+    try {
     AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: source });
     setActionError(null);
     const picked = await pickVisionPhoto(source);
@@ -156,6 +160,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     if (picked.status !== 'picked') { reportPickProblem(picked); return; }
     setArrivedFrom(model.tiles.map(tile => tile.sceneId));
     setPendingPhoto(picked.photo);
+    } finally { setPhotoPickerOpen(false); }
   };
 
   /** Uploads the confirmed photo and adds it to the board. Returns an error message, or null when added. */
@@ -347,6 +352,9 @@ function VisionScreenContent(props: V2VisionScreenProps) {
 
   return (
     <V2SavedVision
+      teachingEnabled
+      teachingBlocked={photoPickerOpen || model.loading || Boolean(arrival?.url)}
+      teachingSceneId={savedSceneId ?? newestVisionScene(model.vision?.scenes ?? [])}
       testID={props.testID ?? 'v2-vision-screen'}
       anchorIntention={anchorIntention}
       anchorCategory={anchorCategory}

@@ -8,6 +8,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { ENTRANCE } from '@/components/v2/vision/ceremony/VisionEntrance';
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({ navigate: mockNavigate, setParams: jest.fn(), goBack: jest.fn(), canGoBack: () => true }),
   useRoute: () => ({ params: { anchorId: 'anchor-1', initialMode: 'view' } }),
 }));

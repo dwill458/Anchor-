@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View, type LayoutRectangle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { useVisionImageArrival } from '../VisionImageArrival';
 
@@ -27,12 +27,13 @@ type Props = {
   /** Optional independent layers for the cinematic return; ordinary boards default to fully visible. */
   paperOpacity?: SharedValue<number>;
   pinOpacity?: SharedValue<number>;
+  onTeachingMotionChange?: (sceneId: string, moving: boolean) => void;
 };
 
 /** The persisted Anchor SVG connects the photographs without repeating the intention. */
 export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   rect, intention, category, art, reduceMotion, onPress, anchorTestID, markAppearance = 'bare', hideMark = false, onMarkLayout,
-  paperOpacity, pinOpacity,
+  paperOpacity, pinOpacity, onTeachingMotionChange,
 }: Props) {
   const arrival = useVisionImageArrival();
   const markSlot = useRef<View>(null);
@@ -54,6 +55,11 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   const width = useSharedValue(rect.width);
   const height = useSharedValue(rect.height);
   const rotation = useSharedValue(rect.rotation);
+  useAnimatedReaction(() => Boolean(onTeachingMotionChange) && (
+    Math.abs(x.value - rect.x) > 0.1 || Math.abs(y.value - rect.y) > 0.1 ||
+    Math.abs(width.value - rect.width) > 0.1 || Math.abs(height.value - rect.height) > 0.1 || Math.abs(rotation.value - rect.rotation) > 0.05
+  ), (moving, previous) => { if (onTeachingMotionChange && moving !== previous) runOnJS(onTeachingMotionChange)('anchor-card', moving); }, [rect, onTeachingMotionChange]);
+  useEffect(() => () => onTeachingMotionChange?.('anchor-card', false), [onTeachingMotionChange]);
   useEffect(() => {
     const config = reduceMotion
       ? { duration: MOTION.reduced.recomposeMs }

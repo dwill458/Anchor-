@@ -21,6 +21,7 @@ jest.mock('@/screens/v2/practice/V2PracticeSessionScreen', () => ({
 // Mock navigation
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({
     navigate: mockNavigate,
     setParams: jest.fn(),

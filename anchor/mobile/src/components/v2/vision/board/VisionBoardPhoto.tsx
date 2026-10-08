@@ -45,6 +45,7 @@ export type VisionBoardPhotoProps = {
   onOrderCommit?: (order: string[]) => void;
   onExited?: (sceneId: string) => void;
   onMove?: (sceneId: string, direction: -1 | 1) => void;
+  onTeachingMotionChange?: (sceneId: string, moving: boolean) => void;
   canMoveEarlier?: boolean;
   canMoveLater?: boolean;
   testID?: string;
@@ -62,7 +63,7 @@ function kindWeight(kind: number, target: number) {
 /** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, arriving = false, caption, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
-  interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove,
+  interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove, onTeachingMotionChange,
   canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
 }: VisionBoardPhotoProps) {
   const pin = useSharedValue(0);
@@ -101,6 +102,21 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const orderAtDragStart = useSharedValue('');
   const movedDuringHold = useSharedValue(false);
   const reduced = useSharedValue(reduceMotion);
+  // Observe the real animation values; no per-frame JS work and no changes to gesture ownership.
+  useAnimatedReaction(() => {
+    if (!onTeachingMotionChange) return false;
+    const index = shared.order.value.indexOf(sceneId);
+    const slot = shared.slots.value[index];
+    return exiting || !slot || shared.dragging.value === sceneId ||
+      Math.abs(x.value - slot.x) > 0.1 || Math.abs(y.value - slot.y) > 0.1 ||
+      Math.abs(width.value - slot.width) > 0.1 || Math.abs(height.value - slot.height) > 0.1 ||
+      Math.abs(rotation.value - slot.rotation) > 0.05 || Math.abs(lift.value) > 0.001 ||
+      presence.value < 0.999 || Math.abs(presenceScale.value - 1) > 0.001 || Math.abs(presenceLift.value) > 0.1 ||
+      (arriving && pin.value < 0.999);
+  }, (moving, previous) => {
+    if (onTeachingMotionChange && moving !== previous) runOnJS(onTeachingMotionChange)(sceneId, moving);
+  }, [onTeachingMotionChange, sceneId, exiting, arriving]);
+  useEffect(() => () => onTeachingMotionChange?.(sceneId, false), [sceneId, onTeachingMotionChange]);
   useEffect(() => { reduced.value = reduceMotion; }, [reduceMotion, reduced]);
 
   // Arrive: the others make room first, then this one is laid into its place.

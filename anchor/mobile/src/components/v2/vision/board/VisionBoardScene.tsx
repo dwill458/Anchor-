@@ -31,6 +31,7 @@ export type VisionBoardSceneProps = {
   onSwap?: () => void;
   onOrderCommit?: (order: string[]) => void;
   onPhotoExited?: (sceneId: string) => void;
+  onTeachingMotionChange?: (sceneId: string, moving: boolean) => void;
   onMovePhoto?: (sceneId: string, direction: -1 | 1) => void;
   /** Empty board: tasteful placeholders where the first photos will go. */
   onAddPress?: () => void;
@@ -57,7 +58,7 @@ export type VisionBoardSceneProps = {
 export const VisionBoardScene = memo(function VisionBoardScene({
   scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion, arrivingSceneId,
   interactive = false, dragEnabled = false, onPhotoPress, onCardPress, onBackgroundPress, onDragActive, onSwap,
-  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, markAppearance, detailEdges, edgeDarken, cinematic,
+  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, markAppearance, detailEdges, edgeDarken, cinematic, onTeachingMotionChange,
 }: VisionBoardSceneProps) {
   const activeCount = roster.filter(entry => !entry.exiting).length;
   const cardRect = useMemo(() => toSceneRect(layout.card, scene), [layout.card, scene]);
@@ -93,6 +94,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             onSwap={onSwap}
             onOrderCommit={onOrderCommit}
             onExited={onPhotoExited}
+            onTeachingMotionChange={onTeachingMotionChange}
             onMove={onMovePhoto}
             canMoveEarlier={index > 0}
             canMoveLater={index >= 0 && index < activeCount - 1}
@@ -100,6 +102,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         );
       })}
       <VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
+        onTeachingMotionChange={onTeachingMotionChange}
         reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={cinematic?.bridgeOpacity ? 'paper' : markAppearance}
         hideMark={Boolean(cinematic) && !cinematic?.bridgeOpacity} onMarkLayout={cinematic?.onMarkLayout}
         paperOpacity={cinematic?.bridgeOpacity ?? cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} />

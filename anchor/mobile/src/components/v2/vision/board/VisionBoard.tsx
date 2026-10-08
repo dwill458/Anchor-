@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { ImagePlus, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react-native';
 import { v2Haptics } from '@/hooks/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
@@ -13,6 +13,8 @@ import { focusCamera, restCamera, type CameraState } from './visionBoardCamera';
 import { boardCameraEasing, boardDelay, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { moveBoardOrder } from './visionBoardReorder';
 import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
+import { measureTeachingTarget, type TeachingRect } from '@/components/v2/teaching/scrollToTarget';
+import { projectTeachingSlot } from '@/hooks/v2/teaching/visionTeaching';
 
 export type VisionBoardFocus = { kind: 'photo'; sceneId: string } | { kind: 'card' } | null;
 
@@ -42,6 +44,8 @@ export type VisionBoardProps = {
   /** Reads the current UI-thread canvas projection once at Begin, including photo focus. */
   captureFrame?: React.MutableRefObject<(() => { x: number; y: number; width: number; height: number }) | null>;
   testID?: string;
+  onTeachingIdleChange?: (idle: boolean) => void;
+  teachingTarget?: React.MutableRefObject<((sceneId: string | null) => Promise<TeachingRect | null>) | null>;
 };
 
 /**
@@ -52,7 +56,7 @@ export type VisionBoardProps = {
  */
 export function VisionBoard({
   tiles, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate, arrivingSceneId,
-  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board',
+  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board', onTeachingIdleChange, teachingTarget,
 }: VisionBoardProps) {
   const viewport = useMemo(() => detailBoardSizeForWidth(width, tiles.length), [width, tiles.length]);
   const scene = useMemo(() => detailBoardSizeForWidth(width * MOTION.renderScale, tiles.length), [width, tiles.length]);
@@ -69,6 +73,33 @@ export function VisionBoard({
   const controls = useSharedValue(0);
   const [focus, setFocus] = useState<VisionBoardFocus>(null);
   const [dragging, setDragging] = useState(false);
+  const teachingViewportRef = useRef<View>(null);
+  const [teachingMovingObjects, setTeachingMovingObjects] = useState<ReadonlySet<string>>(() => new Set());
+  const [cameraAtRest, setCameraAtRest] = useState(false);
+  const onTeachingMotionChange = useCallback((sceneId: string, moving: boolean) => {
+    setTeachingMovingObjects(previous => {
+      if (previous.has(sceneId) === moving) return previous;
+      const next = new Set(previous);
+      if (moving) next.add(sceneId); else next.delete(sceneId);
+      return next;
+    });
+  }, []);
+  useAnimatedReaction(() => Math.abs(cameraX.value - rest.x) < 0.1 && Math.abs(cameraY.value - rest.y) < 0.1 && Math.abs(cameraScale.value - rest.scale) < 0.001 && sceneOpacity.value > 0.999,
+    (atRest, previous) => { if (onTeachingIdleChange && atRest !== previous) runOnJS(setCameraAtRest)(atRest); }, [rest, onTeachingIdleChange]);
+  useEffect(() => {
+    onTeachingIdleChange?.(!focus && !dragging && !busy && cameraAtRest && teachingMovingObjects.size === 0);
+  }, [focus, dragging, busy, cameraAtRest, teachingMovingObjects, onTeachingIdleChange]);
+  useEffect(() => {
+    if (!teachingTarget) return;
+    teachingTarget.current = async sceneId => {
+      if (focus || dragging || !cameraAtRest || teachingMovingObjects.size) return null;
+      const origin = await measureTeachingTarget(teachingViewportRef.current);
+      if (!origin) return null;
+      const slot = slotRects[order.indexOf(sceneId ?? '')];
+      return slot ? projectTeachingSlot(slot, scene, viewport, rest, origin) : origin;
+    };
+    return () => { teachingTarget.current = null; };
+  }, [teachingTarget, focus, dragging, cameraAtRest, teachingMovingObjects, order, slotRects, rest, scene, viewport]);
 
   const moveCamera = useCallback((target: CameraState, duration: number) => {
     if (reduceMotion) {
@@ -178,7 +209,7 @@ export function VisionBoard({
   const count = tiles.length;
 
   return (
-    <View testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + (annotation.trim() ? captionExtra : 0) }]}>
+    <View ref={teachingViewportRef} collapsable={false} testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + (annotation.trim() ? captionExtra : 0) }]}>
       <Animated.View style={[styles.scene, {
         width: scene.width, height: scene.height,
         left: (viewport.width - scene.width) / 2, top: (viewport.height - scene.height) / 2,
@@ -206,6 +237,7 @@ export function VisionBoard({
           onSwap={handleSwap}
           onOrderCommit={handleOrderCommit}
           onPhotoExited={board.markExited}
+          onTeachingMotionChange={onTeachingIdleChange ? onTeachingMotionChange : undefined}
           onMovePhoto={handleMove}
           onAddPress={onAddImage}
         />

@@ -18,9 +18,16 @@ import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetai
 import { VisionBoard } from './board/VisionBoard';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
-import { VisionArrivalDestination } from './VisionImageArrival';
+import { VisionArrivalDestination, useVisionImageArrival } from './VisionImageArrival';
 import { VisionAddSheet, type VisionAddChoice } from './VisionAddSheet';
 import { visionCeremonyCopy } from './ceremony/visionCeremonyCopy';
+import { useAuthStore } from '@/stores/authStore';
+import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
+import { setTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { visionTeachingBeats } from '@/hooks/v2/teaching/visionTeaching';
+import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
+import { scrollToTarget, type TeachingRect } from '@/components/v2/teaching/scrollToTarget';
 
 type Props = {
   justAdded?: 'create' | 'add';
@@ -61,6 +68,9 @@ type Props = {
   /** Scene ids on the board before images were added elsewhere; the board recomposes from them. */
   arrivedFrom?: string[] | null;
   testID?: string;
+  teachingEnabled?: boolean;
+  teachingBlocked?: boolean;
+  teachingSceneId?: string | null;
 };
 
 const PAGE_GUTTER = spacing[5];
@@ -73,7 +83,7 @@ export function V2SavedVision({
   chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, tiles, error, initialEdit = false,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
-  onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
+  onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
 }: Props) {
   const canvasRef = useRef<View>(null);
   const canvasCapture = useRef<(() => { x: number; y: number; width: number; height: number }) | null>(null);
@@ -97,6 +107,16 @@ export function V2SavedVision({
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [nativeAlertOpen, setNativeAlertOpen] = useState(false);
+  const [boardIdle, setBoardIdle] = useState(false);
+  const [teachingScrolling, setTeachingScrolling] = useState(false);
+  const teachingFocus = useTeachingFocus();
+  const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
+  const imageArrival = useVisionImageArrival();
+  const teachingTarget = useRef<((sceneId: string | null) => Promise<TeachingRect | null>) | null>(null);
+  const teachingScrollRef = useRef<ScrollView>(null);
+  const teachingScrollMetrics = useRef({ y: 0, content: 0, viewport: 0 });
+  const teachingControlledScroll = useRef(false);
   // Board edits show at once; the server catches up behind them.
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(() => new Set());
@@ -138,6 +158,22 @@ export function V2SavedVision({
     }
     return list;
   }, [arrivalSettled, arrivedFrom, localOrder, pendingRemovals, replaceTarget, tiles]);
+  const visionTeachingBlocked = !teachingEnabled || teachingBlocked || teachingFocus.transitioning ||
+    !arrivalSettled || Boolean(imageArrival?.url) || !boardIdle || dragging || busy || menuOpen || addSheetOpen ||
+    nativeAlertOpen || mode !== 'view' || manageImages || teachingScrolling;
+  useEffect(() => {
+    if (teachingEnabled && boardTiles.length >= 2 && !visionTeachingBlocked) setTeachingSeen(teachingAccountId, 'vision.first');
+  }, [teachingEnabled, boardTiles.length, visionTeachingBlocked, teachingAccountId]);
+  const teachingQueue = useTeachingQueue({ screenId: 'vision', accountId: teachingAccountId,
+    eligible: visionTeachingBeats(boardTiles.length), cap: 2, blocked: visionTeachingBlocked, isFocused: teachingFocus.isFocused });
+  const getTeachingPhotoRect = useCallback(async () => {
+    teachingControlledScroll.current = true;
+    try {
+      await scrollToTarget(canvasRef, teachingScrollRef, () => ({ y: teachingScrollMetrics.current.y, max: Math.max(0, teachingScrollMetrics.current.content - teachingScrollMetrics.current.viewport), viewportTop: 0 }), reduceMotion);
+      const sceneId = teachingSceneId ?? arrivingSceneId ?? boardTiles[boardTiles.length - 1]?.sceneId ?? null;
+      return await teachingTarget.current?.(sceneId) ?? null;
+    } finally { teachingControlledScroll.current = false; }
+  }, [teachingSceneId, arrivingSceneId, boardTiles, reduceMotion]);
 
   const saveText = async () => {
     if (draft.trim().length < VISION_DESCRIPTION_MIN_CHARS || busy) { setNotice(`Describe your Vision in at least ${VISION_DESCRIPTION_MIN_CHARS} characters.`); return; }
@@ -162,9 +198,11 @@ export function V2SavedVision({
 
   const remove = useCallback((sceneId: string) => {
     if (boardTiles.length <= 1) { setNotice('Keep at least one image in your Vision.'); return; }
+    setNativeAlertOpen(true);
     Alert.alert('Remove image?', 'This image will be removed from your Vision.', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: 'Cancel', style: 'cancel', onPress: () => setNativeAlertOpen(false) },
       { text: 'Remove', style: 'destructive', onPress: () => {
+        setNativeAlertOpen(false);
         setNotice(null);
         setPendingRemovals(previous => new Set(previous).add(sceneId));
         void onRemove(sceneId).then(success => {
@@ -173,7 +211,7 @@ export function V2SavedVision({
           setNotice('Image could not be removed.');
         });
       } },
-    ]);
+    ], { onDismiss: () => setNativeAlertOpen(false) });
   }, [boardTiles.length, onRemove]);
 
   const replace = useCallback((sceneId: string) => {
@@ -197,15 +235,17 @@ export function V2SavedVision({
 
   const archive = () => {
     setMenuOpen(false);
+    setNativeAlertOpen(true);
     Alert.alert('Archive Vision?', 'Your Vision and images will be kept in your account but removed from this Anchor.', [
-      { text: 'Cancel', style: 'cancel' },
+      { text: 'Cancel', style: 'cancel', onPress: () => setNativeAlertOpen(false) },
       { text: 'Archive', style: 'destructive', onPress: () => {
+        setNativeAlertOpen(false);
         setBusy(true);
         void onArchive().then(success => {
           if (!success) setNotice('Vision could not be archived.');
         }).finally(() => setBusy(false));
       } },
-    ]);
+    ], { onDismiss: () => setNativeAlertOpen(false) });
   };
 
   const header = (
@@ -221,7 +261,14 @@ export function V2SavedVision({
   return (
     <View testID={testID} style={styles.root}>
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <ScrollView onScrollEndDrag={measureCanvas} onMomentumScrollEnd={measureCanvas} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: mode === 'view' ? 0 : insets.bottom + spacing[6] }}
+        <ScrollView ref={teachingScrollRef}
+          onLayout={event => { teachingScrollMetrics.current.viewport = event.nativeEvent.layout.height; }}
+          onContentSizeChange={(_width, height) => { teachingScrollMetrics.current.content = height; }}
+          onScroll={event => { teachingScrollMetrics.current.y = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
+          onScrollBeginDrag={() => setTeachingScrolling(true)}
+          onScrollEndDrag={() => { measureCanvas(); setTeachingScrolling(false); }}
+          onMomentumScrollBegin={() => { if (!teachingControlledScroll.current) setTeachingScrolling(true); }}
+          onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: mode === 'view' ? 0 : insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ paddingTop: insets.top }}>
             <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
@@ -242,6 +289,8 @@ export function V2SavedVision({
                   reduceMotion={reduceMotion}
                   busy={busy}
                   captureFrame={canvasCapture}
+                  teachingTarget={teachingEnabled ? teachingTarget : undefined}
+                  onTeachingIdleChange={teachingEnabled ? setBoardIdle : undefined}
                   canRegenerate={canGenerateMore}
                   // DEFERRED: Replace locks at Seal (decision Oct 2026); remove + add remains.
                   onRegenerate={onRegenerate}
@@ -329,6 +378,7 @@ export function V2SavedVision({
         </ScrollView>
       </KeyboardAvoidingView>
       <VisionStatusBarScrim tone="dark" />
+      <ScreenTeaching screen="vision" queue={teachingQueue} reducedMotion={reduceMotion} targets={{ 'vision.second': { getRect: getTeachingPhotoRect } }} />
       <VisionAddSheet visible={addSheetOpen} onClose={closeAddSheet} onChoose={chooseAdd} />
       {menuOpen && mode === 'view' && (
         <>
