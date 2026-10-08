@@ -606,6 +606,7 @@ describe('GeminiImageService request payload (provider call path)', () => {
     jest.useFakeTimers(); // the service arms an un-cleared 60s call timeout
     jest.clearAllMocks();
     process.env = { ...originalEnv, GEMINI_API_KEY: 'test-key' };
+    delete process.env.OPENAI_API_KEY;
     (GoogleGenAI as jest.Mock).mockImplementation(() => ({ models: { generateContent } }));
     generateContent.mockResolvedValue({
       candidates: [{ content: { parts: [{ inlineData: { data: 'aGVsbG8=' } }] } }],

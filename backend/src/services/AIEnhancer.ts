@@ -364,13 +364,25 @@ export async function enhanceSigilWithAI(
   const geminiService = getGeminiImageService();
   const tier = request.tier || 'premium';
 
-  // Try Gemini 3 first (if configured)
-  if (geminiService.isAvailable()) {
+  const isAnchor2 = getStyleGenerationVersion(request.styleChoice) === 'anchor2';
+  const hasGeminiKey = geminiService.isAvailable();
+  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
+  const isAvailable = isAnchor2 ? (hasOpenAiKey || hasGeminiKey) : hasGeminiKey;
+
+  // Try primary provider (OpenAI for Anchor 2.0 testing, Gemini 3 for 1.5 styles)
+  if (isAvailable) {
     try {
-      logger.info('[AIEnhancer] Using Gemini image model as primary provider', {
-        tier,
-        model: 'gemini-3-pro-image-preview',
-      });
+      if (isAnchor2) {
+        logger.info('[AIEnhancer] (Anchor 2.0 testing) Generating Anchor 2.0 with OpenAI primary (Gemini backup)', {
+          tier,
+          style: request.styleChoice,
+        });
+      } else {
+        logger.info('[AIEnhancer] Using Gemini image model as primary provider', {
+          tier,
+          model: 'gemini-3-pro-image-preview',
+        });
+      }
 
       // 2 variations by default; reuse-pool callers can request fewer.
       const numberOfVariations = Math.max(1, request.numberOfVariations ?? 2);
@@ -473,7 +485,10 @@ export async function enhanceSigilWithAI(
       throw new Error(`Google Generation API Failed: ${errMsg}`);
     }
   } else {
-    logger.info('[AIEnhancer] Gemini 3 not configured. Cannot proceed since enforcing Google API.');
+    logger.info('[AIEnhancer] Provider not configured.');
+    if (isAnchor2) {
+      throw new Error('Neither OpenAI nor Google Gemini API Key is configured for Anchor 2.0.');
+    }
     throw new Error('Google Gemini API Key is missing. Google API is required.');
   }
 

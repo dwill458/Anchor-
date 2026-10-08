@@ -262,7 +262,19 @@ export class GeminiImageService {
       category,
     } = params;
 
-    if (!this.isAvailable()) {
+    const isAnchor2 = getStyleGenerationVersion(styleApproach) === 'anchor2';
+    const hasGeminiKey = this.isAvailable();
+    const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
+
+    if (isAnchor2) {
+      if (!hasOpenAiKey && !hasGeminiKey) {
+        throw new GeminiError(
+          GeminiErrorType.INVALID_API_KEY,
+          'Neither OPENAI_API_KEY nor GEMINI_API_KEY is configured for Anchor 2.0 generation.',
+          false
+        );
+      }
+    } else if (!hasGeminiKey) {
       throw new GeminiError(
         GeminiErrorType.INVALID_API_KEY,
         'GEMINI_API_KEY not configured.',
@@ -1619,8 +1631,78 @@ Integration rules:
     retryCount: number = 0,
     styleId?: string
   ): Promise<ImageVariation> {
-    // Route to Nano Banana if configured
+    const isAnchor2 = getStyleGenerationVersion(styleId) === 'anchor2';
+
+    // Route to Nano Banana / OpenAI
     if (modelConfig.useNanoBanana) {
+      if (isAnchor2) {
+        // Swapped for testing: Anchor 2.0 uses OpenAI as primary with Gemini (Nano Banana) backup.
+        const openAiKey = process.env.OPENAI_API_KEY?.trim();
+        const primaryIsGemini =
+          (process.env.ANCHOR2_PRIMARY_PROVIDER || 'openai').toLowerCase() === 'gemini';
+
+        if (openAiKey && !primaryIsGemini) {
+          try {
+            logger.info(
+              `[GeminiImageService] (Anchor 2.0 testing) Generating variation ${variationIndex + 1} with OpenAI (primary)`,
+              { styleId, variationIndex: variationIndex + 1 }
+            );
+            return await this.generateVariationWithOpenAI(
+              baseImageBuffer,
+              prompt,
+              variationIndex,
+              modelConfig,
+              styleId,
+              1
+            );
+          } catch (openAiError) {
+            logger.warn(
+              `[GeminiImageService] (Anchor 2.0 testing) Primary provider OpenAI failed for variation ${variationIndex + 1}. Falling back to Gemini backup.`,
+              {
+                error: openAiError instanceof Error ? openAiError.message : String(openAiError),
+                styleId,
+              }
+            );
+
+            try {
+              return await this.generateVariationWithNanoBanana(
+                baseImageBuffer,
+                prompt,
+                variationIndex,
+                modelConfig,
+                retryCount,
+                styleId
+              );
+            } catch (geminiBackupError) {
+              const parsedGeminiError =
+                geminiBackupError instanceof GeminiError
+                  ? geminiBackupError
+                  : this.parseError(geminiBackupError);
+              logger.error(
+                `[GeminiImageService] (Anchor 2.0 testing) Gemini backup also failed for variation ${variationIndex + 1}: ${parsedGeminiError.message}`,
+                { error: parsedGeminiError.message, styleId }
+              );
+              throw parsedGeminiError;
+            }
+          }
+        }
+
+        // If OpenAI is not configured or bypassed, use Gemini backup directly
+        logger.info(
+          `[GeminiImageService] (Anchor 2.0 testing) OpenAI primary unavailable or bypassed. Using Gemini backup for variation ${variationIndex + 1}.`,
+          { styleId }
+        );
+        return await this.generateVariationWithNanoBanana(
+          baseImageBuffer,
+          prompt,
+          variationIndex,
+          modelConfig,
+          retryCount,
+          styleId
+        );
+      }
+
+      // Legacy Anchor 1.5 styles: Leave on Gemini as primary with OpenAI as backup
       try {
         return await this.generateVariationWithNanoBanana(
           baseImageBuffer,
@@ -1655,7 +1737,8 @@ Integration rules:
               prompt,
               variationIndex,
               modelConfig,
-              styleId
+              styleId,
+              2
             );
           } catch (openAiError) {
             logger.error(
@@ -1971,7 +2054,8 @@ The symbol must radiate into open space and fill the frame comfortably without a
     prompt: string,
     variationIndex: number,
     modelConfig: ModelConfig,
-    styleId?: string
+    styleId?: string,
+    attemptNumber: number = 1
   ): Promise<ImageVariation> {
     const { OpenAIImageProviderAdapter } =
       await import('./image/adapters/OpenAIImageProviderAdapter');
@@ -1985,7 +2069,7 @@ The symbol must radiate into open space and fill the frame comfortably without a
         numberOfVariations: 1,
         quality: modelConfig.modelId.includes('pro') ? 'pro_upgrade' : 'premium',
       },
-      2
+      attemptNumber
     );
 
     const firstImage = result.images[0];

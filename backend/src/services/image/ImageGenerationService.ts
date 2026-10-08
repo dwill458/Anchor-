@@ -19,6 +19,7 @@ import {
 } from './types';
 import { GeminiImageProviderAdapter } from './adapters/GeminiImageProviderAdapter';
 import { OpenAIImageProviderAdapter } from './adapters/OpenAIImageProviderAdapter';
+import { getStyleGenerationVersion } from '../anchor2StyleLibrary';
 
 export interface ImageGenerationServiceOptions {
   geminiAdapter?: ImageProviderAdapter;
@@ -78,9 +79,15 @@ export class ImageGenerationService {
     }
 
     // Anchor artwork:
-    // Nano Banana 2 (Gemini Flash) is the cost-efficient default;
-    // Nano Banana Pro is chosen on regeneration (attempt 2+ / pro_upgrade).
-    // OpenAI serves as the redundancy fallback provider.
+    // Testing swap: Anchor 2.0 styles use OpenAI as primary with Gemini as backup.
+    // Anchor 1.5 (legacy) styles remain on Gemini as primary with OpenAI as backup.
+    const isAnchor2 = getStyleGenerationVersion(request.styleId) === 'anchor2';
+    if (isAnchor2) {
+      const primary = (process.env.ANCHOR2_PRIMARY_PROVIDER || 'openai').toLowerCase();
+      const fallback = (process.env.ANCHOR2_FALLBACK_PROVIDER || 'gemini').toLowerCase();
+      return { primaryProvider: primary, fallbackProvider: fallback };
+    }
+
     const primary = (process.env.ANCHOR_PRIMARY_PROVIDER || 'gemini').toLowerCase();
     const fallback = (process.env.ANCHOR_FALLBACK_PROVIDER || 'openai').toLowerCase();
     return { primaryProvider: primary, fallbackProvider: fallback };

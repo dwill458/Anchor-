@@ -114,8 +114,10 @@ Vision images represent a person's desired future state and are viewed in full-s
 |---|---|---|
 | `VISION_PRIMARY_PROVIDER` | `openai` | Primary provider for Vision imagery (`openai` or `gemini`). |
 | `VISION_FALLBACK_PROVIDER` | `gemini` | Fallback provider for Vision imagery (`gemini` or `openai`). |
-| `ANCHOR_PRIMARY_PROVIDER` | `gemini` | Primary provider for Anchor artwork (`gemini` or `openai`). |
-| `ANCHOR_FALLBACK_PROVIDER` | `openai` | Fallback provider for Anchor artwork (`openai` or `gemini`). |
+| `ANCHOR_PRIMARY_PROVIDER` | `gemini` | Primary provider for legacy Anchor 1.5 artwork (`gemini` or `openai`). |
+| `ANCHOR_FALLBACK_PROVIDER` | `openai` | Fallback provider for legacy Anchor 1.5 artwork (`openai` or `gemini`). |
+| `ANCHOR2_PRIMARY_PROVIDER` | `openai` | Primary provider for Anchor 2.0 artwork (`openai` or `gemini`). Swapped to OpenAI for testing. |
+| `ANCHOR2_FALLBACK_PROVIDER` | `gemini` | Fallback provider for Anchor 2.0 artwork (`gemini` or `openai`). Gemini for backup. |
 | `OPENAI_API_KEY` | *(Required for OpenAI)* | Server-side OpenAI API credential (never sent to client). |
 | `OPENAI_VISION_MODEL` | `gpt-image-2.5-flare` | OpenAI model for Vision generation. |
 | `OPENAI_ANCHOR_MODEL` | `gpt-image-2.5-flare` | OpenAI model for standard Anchor generation. |

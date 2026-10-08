@@ -39,6 +39,8 @@ export interface EnvConfig {
   VISION_FALLBACK_PROVIDER?: 'openai' | 'gemini';
   ANCHOR_PRIMARY_PROVIDER?: 'gemini' | 'openai';
   ANCHOR_FALLBACK_PROVIDER?: 'openai' | 'gemini';
+  ANCHOR2_PRIMARY_PROVIDER?: 'openai' | 'gemini';
+  ANCHOR2_FALLBACK_PROVIDER?: 'gemini' | 'openai';
   OPENAI_VISION_MODEL?: string;
   OPENAI_ANCHOR_MODEL?: string;
   OPENAI_FALLBACK_MODEL?: string;
@@ -215,6 +217,18 @@ export function validateEnv(): EnvConfig {
         process.env.ANCHOR_FALLBACK_PROVIDER,
         ['openai', 'gemini'],
         'openai'
+      ),
+      ANCHOR2_PRIMARY_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'ANCHOR2_PRIMARY_PROVIDER',
+        process.env.ANCHOR2_PRIMARY_PROVIDER,
+        ['openai', 'gemini'],
+        'openai'
+      ),
+      ANCHOR2_FALLBACK_PROVIDER: validateEnum<'gemini' | 'openai'>(
+        'ANCHOR2_FALLBACK_PROVIDER',
+        process.env.ANCHOR2_FALLBACK_PROVIDER,
+        ['gemini', 'openai'],
+        'gemini'
       ),
       OPENAI_VISION_MODEL: validateString('OPENAI_VISION_MODEL', process.env.OPENAI_VISION_MODEL),
       OPENAI_ANCHOR_MODEL: validateString('OPENAI_ANCHOR_MODEL', process.env.OPENAI_ANCHOR_MODEL),

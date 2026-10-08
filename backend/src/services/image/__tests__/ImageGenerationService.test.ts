@@ -201,6 +201,133 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
       expect(result.model).toBe('gemini-3-pro-image-preview');
       expect(result.costUSD).toBe(0.04);
     });
+
+    it('routes Anchor 2.0 styles to OpenAI as primary provider without calling Gemini fallback when successful', async () => {
+      const mockGemini = createMockAdapter('gemini', true);
+      const mockOpenAi = createMockAdapter('openai', true, async () => ({
+        images: [
+          {
+            buffer: Buffer.from('openai_anchor2_img'),
+            base64: 'openai_anchor2_b64',
+            mimeType: 'image/png',
+            seed: 777,
+            variationIndex: 1,
+          },
+        ],
+        model: 'gpt-image-2.5-flare',
+        estimatedCost: 0.02,
+      }));
+
+      const service = new ImageGenerationService({
+        geminiAdapter: mockGemini,
+        openAiAdapter: mockOpenAi,
+      });
+
+      const request: GenerateImageRequest = {
+        type: 'anchor',
+        styleId: 'woven_v2',
+        prompt: 'Intricate woven anchor design',
+        quality: 'premium',
+        generationAttempt: 1,
+      };
+
+      const result = await service.generate(request);
+
+      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
+      expect(mockGemini.generate).not.toHaveBeenCalled();
+      expect(result.fallbackUsed).toBe(false);
+      expect(result.provider).toBe('openai');
+      expect(result.model).toBe('gpt-image-2.5-flare');
+      expect(result.attempts).toHaveLength(1);
+      expect(result.attempts[0].success).toBe(true);
+    });
+
+    it('falls back to Gemini when OpenAI fails on Anchor 2.0 styles', async () => {
+      const mockGemini = createMockAdapter('gemini', true, async () => ({
+        images: [
+          {
+            buffer: Buffer.from('gemini_anchor2_img'),
+            base64: 'gemini_anchor2_b64',
+            mimeType: 'image/png',
+            seed: 888,
+            variationIndex: 1,
+          },
+        ],
+        model: 'gemini-3.1-flash-image-preview',
+        estimatedCost: 0.005,
+      }));
+
+      const mockOpenAi = createMockAdapter('openai', true, async () => {
+        throw new ImageProviderError(
+          'openai',
+          ImageProviderErrorType.SERVER_ERROR,
+          'OpenAI server error 500',
+          true,
+          500
+        );
+      });
+
+      const service = new ImageGenerationService({
+        geminiAdapter: mockGemini,
+        openAiAdapter: mockOpenAi,
+      });
+
+      const request: GenerateImageRequest = {
+        type: 'anchor',
+        styleId: 'velvet_ember_v2',
+        prompt: 'Rich velvet ember anchor',
+        quality: 'premium',
+        generationAttempt: 1,
+      };
+
+      const result = await service.generate(request);
+
+      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
+      expect(mockGemini.generate).toHaveBeenCalledTimes(1);
+      expect(result.fallbackUsed).toBe(true);
+      expect(result.provider).toBe('gemini');
+      expect(result.model).toBe('gemini-3.1-flash-image-preview');
+      expect(result.attempts).toHaveLength(2);
+      expect(result.attempts[0].success).toBe(false);
+      expect(result.attempts[1].success).toBe(true);
+    });
+
+    it('leaves Anchor 1.5 styles on Gemini as primary provider', async () => {
+      const mockGemini = createMockAdapter('gemini', true, async () => ({
+        images: [
+          {
+            buffer: Buffer.from('gemini_anchor15_img'),
+            base64: 'gemini_anchor15_b64',
+            mimeType: 'image/png',
+            seed: 999,
+            variationIndex: 1,
+          },
+        ],
+        model: 'gemini-3.1-flash-image-preview',
+        estimatedCost: 0.005,
+      }));
+      const mockOpenAi = createMockAdapter('openai', true);
+
+      const service = new ImageGenerationService({
+        geminiAdapter: mockGemini,
+        openAiAdapter: mockOpenAi,
+      });
+
+      const request: GenerateImageRequest = {
+        type: 'anchor',
+        styleId: 'watercolor',
+        prompt: 'Gentle watercolor anchor',
+        quality: 'premium',
+        generationAttempt: 1,
+      };
+
+      const result = await service.generate(request);
+
+      expect(mockGemini.generate).toHaveBeenCalledTimes(1);
+      expect(mockOpenAi.generate).not.toHaveBeenCalled();
+      expect(result.fallbackUsed).toBe(false);
+      expect(result.provider).toBe('gemini');
+    });
   });
 
   // ============================================================================
