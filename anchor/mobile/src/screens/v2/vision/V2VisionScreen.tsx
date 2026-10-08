@@ -87,7 +87,12 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const navigationRef = useRef(navigation); navigationRef.current = navigation;
   const celebrationReduced = useCelebrationReduceMotion();
   const finishCeremony = (kind: 'create' | 'add') => {
-    setJustAdded(kind); playVisionPin(); setPendingPhoto(null); setReplaceSceneId(null); setMode('view');
+    setJustAdded(kind); playVisionPin();
+    // The board mounts again from scratch, so every photograph is decoded before it shows (each wait is bounded).
+    // The ceremony stays up until then.
+    void Promise.all(model.tiles.map(tile => warmImage(tile.imageUrl))).then(() => {
+      setPendingPhoto(null); setReplaceSceneId(null); setMode('view');
+    });
   };
   const [actionError, setActionError] = useState<string | null>(null);
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);

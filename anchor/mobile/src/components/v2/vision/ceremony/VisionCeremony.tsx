@@ -142,8 +142,12 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   useEffect(() => {
     // Cold SoundPool players drop short cues; every other flow prewarms its keys on mount.
     SoundPool.prewarm(CEREMONY_SOUND_KEYS);
-    return () => SoundPool.releaseIdle(CEREMONY_SOUND_KEYS);
+    // No release on unmount: these keys are shared with the creation flow and Home, and the
+    // pool's live-player cap already evicts idle players when something else needs room.
   }, []);
+  // Re-assert the pool on every beat (and when the app returns): another screen's cleanup, a
+  // backgrounded audio session or a dropped prewarm queue can leave the cues cold.
+  useEffect(() => { SoundPool.prewarm(CEREMONY_SOUND_KEYS); }, [beat, foreground]);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; timers.current.forEach(clearTimeout); timers.current.clear(); };

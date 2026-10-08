@@ -226,7 +226,9 @@ export default function AnchorCreationFlowScreen() {
     SoundPool.prewarm(['creation:uiTap', 'creation:distillTick']);
     return () => {
       NodeToneService.release();
-      SoundPool.releaseIdle();
+      // Only this flow's own cues: the next screen (Vision ceremony, Home) prewarms its own keys
+      // before this unmounts, and a blanket release would dispose them.
+      SoundPool.releaseIdle(['creation:bloom', 'creation:formSettle']);
     };
   }, []);
 

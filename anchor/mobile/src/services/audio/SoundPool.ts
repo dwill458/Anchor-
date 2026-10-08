@@ -62,6 +62,10 @@ export function getPoolSizeForKey(key: string): number {
   ) {
     return 2;
   }
+  // Rapid-fire cues (letters landing on the board) overlap themselves; a single player would
+  // fall back to cold temporary players that miss the cue.
+  if (key === 'creation:distillTick' || key === 'distillTick') return 4;
+  if (key === 'creation:revealSettle') return 2;
   return 1;
 }
 
@@ -75,6 +79,8 @@ export function getMaxPoolSizeForKey(key: string): number {
   ) {
     return 2;
   }
+  if (key === 'creation:distillTick' || key === 'distillTick') return 4;
+  if (key === 'creation:revealSettle') return 2;
   return 1;
 }
 
@@ -401,9 +407,7 @@ export const SoundPool = {
             // Discard that entry
             releaseEntry(key, activeEntry, activeToken, true);
 
-            // Call releaseIdle for non-current keys
-            const nonCurrentKeys = Array.from(entriesByKey.keys()).filter((k) => k !== key);
-            SoundPool.releaseIdle(nonCurrentKeys);
+            // Do not release other keys here: one slow load must not tear down every prewarmed cue.
 
             // Create one fresh entry
             const freshEntry = createEntry(key, false);

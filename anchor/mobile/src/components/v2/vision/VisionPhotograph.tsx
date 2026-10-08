@@ -18,11 +18,14 @@ export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, 
     if (width > 0 && height > 0) setSource({ key: sourceKey, aspect: width / height });
     onLoad?.(event);
   };
-  if (fit === 'cover') return <Image {...props} style={style} resizeMode="cover" onLoad={handleLoad} />;
+  // One element tree for both fits. Switching fit only changes props on the same
+  // images: swapping the tree once the aspect is known remounted the photograph,
+  // so it showed an empty frame while it decoded again.
+  const contained = fit === 'contain';
   return <View style={[style, styles.fitted]}>
-    <Image source={props.source} resizeMode="cover" blurRadius={22} style={styles.backdrop} accessible={false} importantForAccessibility="no" />
-    <View style={styles.veil} pointerEvents="none" />
-    <Image {...props} style={styles.whole} resizeMode="contain" onLoad={handleLoad} />
+    <Image source={props.source} resizeMode="cover" blurRadius={22} style={[styles.backdrop, !contained && styles.hidden]} accessible={false} importantForAccessibility="no" />
+    <View style={[styles.veil, !contained && styles.hidden]} pointerEvents="none" />
+    <Image {...props} style={styles.whole} resizeMode={contained ? 'contain' : 'cover'} onLoad={handleLoad} />
   </View>;
 });
 
@@ -31,4 +34,5 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFillObject, transform: [{ scale: 1.15 }] },
   veil: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,20,25,0.18)' },
   whole: { ...StyleSheet.absoluteFillObject },
+  hidden: { opacity: 0 },
 });

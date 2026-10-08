@@ -77,12 +77,28 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   // DEFERRED: caption on board. The existing aperture has no 24pt bottom paper margin.
   // DEFERRED: show scene captions inside Visualize; preserve its current framing.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  // Signed image URLs change on every read, so a reorder used to hand each photo a new source and reload it,
+  // which left the board blank while the images decoded again. While the path is unchanged the photo keeps
+  // the URL it is showing; a URL that fails to load is replaced by the current one.
+  const [shownUrl, setShownUrl] = useState<string | null>(imageUrl ?? null);
+  const pathOf = (url: string | null) => (url ?? '').split('?')[0];
+  const sameImage = pathOf(shownUrl) === pathOf(imageUrl ?? null);
+  const displayUrl = sameImage ? shownUrl : (imageUrl ?? null);
+  useEffect(() => { if (!sameImage) setShownUrl(imageUrl ?? null); }, [imageUrl, sameImage]);
   const arrival = useVisionImageArrival();
   const imageRef = useRef<View>(null);
+  // The flight lands only once this photograph has decoded. Landing on layout let the arrival
+  // overlay dissolve over a frame that was still blank, which read as a cream flash.
+  const decodedUrl = useRef<string | null>(null);
   const landImage = () => {
     if (imageUrl && arrival?.url === imageUrl) imageRef.current?.measureInWindow?.((x, y, width, height) => arrival.land(imageUrl, { x, y, width, height }));
   };
-  useEffect(landImage, [imageUrl, arrival?.url]);
+  const handleDecoded = () => {
+    decodedUrl.current = imageUrl ?? null;
+    landImage();
+  };
+  // A photograph that decoded before the flight began lands at once; otherwise it lands when it decodes.
+  useEffect(() => { if (imageUrl && decodedUrl.current === imageUrl) landImage(); }, [imageUrl, arrival?.url]);
   const start = initialRect ?? { x: 0, y: 0, width: 1, height: 1, rotation: 0, zIndex: 12, frame: 0 };
   const x = useSharedValue(start.x);
   const y = useSharedValue(start.y);
@@ -311,9 +327,11 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       onAccessibilityAction={interactive ? onAccessibilityAction : undefined}
       importantForAccessibility={exiting ? 'no-hide-descendants' : 'auto'}
     >
-      <Animated.View ref={imageRef} collapsable={false} onLayout={landImage} style={[styles.window, windowStyle]}>
-        {imageUrl && failedUrl !== imageUrl ? (
-          <VisionPhotograph source={{ uri: imageUrl }} displayAspect={displayAspect} uploaded={uploaded} onLoad={landImage} onError={() => setFailedUrl(imageUrl)} accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
+      <Animated.View ref={imageRef} collapsable={false} style={[styles.window, windowStyle]}>
+        {displayUrl && failedUrl !== displayUrl ? (
+          <VisionPhotograph source={{ uri: displayUrl }} displayAspect={displayAspect} uploaded={uploaded} onLoad={handleDecoded}
+            onError={() => { if (displayUrl !== imageUrl) setShownUrl(imageUrl ?? null); else setFailedUrl(displayUrl); }}
+            accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
         ) : (
           <View style={styles.unavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>
         )}

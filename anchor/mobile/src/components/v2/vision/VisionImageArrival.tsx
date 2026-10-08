@@ -65,7 +65,9 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
       ? { svg: anchor.svg, imageUrl: anchor.imageUrl, expression: anchor.expression, category: anchor.category, source: anchor.rect } : undefined;
     trace('begin', { anchorFlight: Boolean(flight) });
     expand.value = 0; settle.value = 0; fade.value = 0;
-    setImageAspect(source.width / source.height); setSourceReady(false); setDissolving(false);
+    // The ceremony's print is already on the board: it glides from there to its place. Only a freshly
+    // picked photo opens up first, so the ceremony never pops to full width and back.
+    setImageAspect(source.width / source.height); setSourceReady(backdrop === 'paper'); setDissolving(false);
     setArrival({ id: ++arrivalSequence, url, source, anchor: flight, backdrop });
   }, [expand, fade, settle]);
   const landAnchor = useCallback((target: VisionImageRect) => {
@@ -82,6 +84,7 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
     setArrival(current => current?.url === url && !current.target ? { ...current, target } : current);
   }, []);
   const arrivalId = arrival?.id ?? 0;
+  const paperFlight = arrival?.backdrop === 'paper';
   const resolved = Boolean(arrival?.resolved);
   const landed = Boolean(arrival?.target);
   // The source image normally reports itself; if it never does, the flight begins anyway.
@@ -92,8 +95,8 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
   }, [arrivalId, sourceReady]);
   useEffect(() => {
     if (!arrivalId || !sourceReady) return;
-    expand.value = withTiming(1, { duration: reduced ? 0 : 280 });
-  }, [arrivalId, expand, reduced, sourceReady]);
+    expand.value = paperFlight ? 0 : withTiming(1, { duration: reduced ? 0 : 280 });
+  }, [arrivalId, expand, reduced, sourceReady, paperFlight]);
   useEffect(() => {
     if (!arrivalId || !sourceReady || !landed) return;
     const duration = reduced ? 160 : 760;
