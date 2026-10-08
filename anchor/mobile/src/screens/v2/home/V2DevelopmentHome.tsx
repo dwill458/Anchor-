@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DevSettings, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import type { AnchorV2StackParamList } from '@/navigation/v2/types';
+import type { VisionReturnParams } from '@/constants/v2/visionHomeReturn';
 import { useV2AnchorCreationGate } from '@/hooks/v2/paywall';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { V2DailyShellNavigator, type V2DailyShellIntents } from './dailyShell';
@@ -17,7 +17,8 @@ import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 export function V2DevelopmentHome() {
   const navigation = useNavigation<any>();
   // The first Vision image asks Home to play its return with this param; Home clears it once it has taken it.
-  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2DevelopmentHome'>>();
+  // (Typed locally: the Home namespace does not import the central navigation types.)
+  const route = useRoute<RouteProp<{ V2DevelopmentHome: { visionReturn?: VisionReturnParams } | undefined }, 'V2DevelopmentHome'>>();
   const visionReturn = route.params?.visionReturn ?? null;
   const consumeVisionReturn = useCallback(() => navigation.setParams({ visionReturn: undefined }), [navigation]);
 
