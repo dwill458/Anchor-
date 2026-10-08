@@ -17,6 +17,7 @@ import { HomeArrivalUnderline, HomeEvolvedFromLine, HomeEvolvedGhost } from './H
 import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { HeroHalo, HeroStatusRing } from './V2HomeHeroLight';
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
+import { HandDrawnPercentage } from './HandDrawnPercentage';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
 const PAPER_ARTWORK_SHARE = 0.72;
@@ -89,13 +90,20 @@ function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2Thre
   const measured = thread.value !== null;
   const delta = thread.delta;
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
+  const formattedValue = `${thread.value}%`;
   return (
-      <View ref={active ? teachingRef : undefined} collapsable={false} testID={active ? 'v2-home-thread-reading' : undefined} style={styles.threadRow}>
+    <View ref={active ? teachingRef : undefined} collapsable={false} testID={active ? 'v2-home-thread-reading' : undefined} style={styles.threadRow}>
       <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
-        <Text testID={active ? 'v2-home-thread-value' : undefined} style={[styles.threadValue, { color: accent }]}>
-          {`${thread.value}%`}
-        </Text>
+        <View style={styles.threadValueContainer}>
+          <HandDrawnPercentage value={thread.value as number} color={accent} height={20} />
+          <Text
+            testID={active ? 'v2-home-thread-value' : undefined}
+            style={styles.threadValueHidden}
+          >
+            {formattedValue}
+          </Text>
+        </View>
       ) : null}
       {measured ? (
         hasDelta ? (
@@ -486,11 +494,22 @@ const styles = StyleSheet.create({
   },
   threadRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 6,
     marginTop: 5,
     flexWrap: 'wrap',
+  },
+  threadValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  threadValueHidden: {
+    position: 'absolute',
+    opacity: 0,
+    width: 0,
+    height: 0,
   },
   threadValue: {
     fontFamily: 'EBGaramond-Medium',
