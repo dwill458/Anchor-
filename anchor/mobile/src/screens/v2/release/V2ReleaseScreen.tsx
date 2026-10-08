@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, AppState, Pressable, ScrollView, StatusBar, StyleSheet, type LayoutChangeEvent, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, Alert, AppState, Pressable, ScrollView, StatusBar, StyleSheet, type LayoutChangeEvent, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { ArrowLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +21,9 @@ import { RELEASE_COPY, RELEASE_CEREMONY_CHAMBER_BG, RELEASE_FIRE_PREPARE_AT, typ
 import { colors, getCategoryColor, spacing } from '@/theme/v2';
 import { normalizeReleaseReason, releaseHoldHint, type V2ReleaseAdapter } from '@/adapters/v2/release';
 import { useEvolveSessionStore } from '@/stores/v2/evolveSessionStore';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import type { V2ReleaseContinuationCallbacks, V2ReleaseRouteParams } from './releaseRoutes';
 import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
@@ -37,8 +40,10 @@ export interface V2ReleaseScreenProps extends Partial<V2ReleaseRouteParams>, V2R
 /** One scene transforms around the same Anchor; the mutation hook remains authoritative. */
 export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapter, hasLinkedVision,
   onReleaseCompleted, onCancel, onViewHistory, onViewProgress, onContinueToChart, onViewCompletedChart,
-  onContinueWithSuccessor, onCreateSuccessor, onBeginEvolve, onSessionActiveChange, focused = true, testID }: V2ReleaseScreenProps) {
+  onContinueWithSuccessor, onCreateSuccessor, onBeginEvolve, onEvolvePaywall, onSessionActiveChange, focused = true, testID }: V2ReleaseScreenProps) {
   const reduceMotion = useV2ReduceMotion();
+  // The same entitlement signal the creation gates read (IntentionInputScreen, useSaveAnchor).
+  const entitlements = useEntitlements();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const clock = useSharedValue(0);
@@ -180,11 +185,33 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   // Leaving Release for good ends the session. An attached successor simply stays an ordinary Anchor.
   useEffect(() => () => useEvolveSessionStore.getState().clear(), []);
   const startEvolve = useCallback(() => {
+    // Evolve creates another Anchor, so it is a paid path with no exemption: the gate is asked here, on
+    // the choice, before a session begins or creation opens. The gates inside creation stay as backstops.
+    if (!entitlements.canCreateAnchor) {
+      const limit = entitlements.anchorCreationLimitReason;
+      // Entitlement not settled: the creation gate does nothing here either, so nothing begins.
+      if (!limit) return;
+      AnalyticsService.track(limit, {
+        source: 'release_evolve',
+        anchors_created_today: entitlements.anchorsCreatedToday,
+        anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+        tier: entitlements.tier,
+      });
+      if (limit === 'pro_daily_anchor_cap_reached') {
+        const copy = getAnchorCreationLimitCopy(limit);
+        Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+          { text: copy?.cta ?? 'Return to Sanctuary', onPress: handleCancel },
+        ]);
+        return;
+      }
+      onEvolvePaywall?.({ source: limit, preferredPlanId: 'annual' });
+      return;
+    }
     if (!onBeginEvolve) { (onCreateSuccessor ?? handleCancel)(); return; }
     const origin = { anchorId, intentionText: release.snapshot?.intentionText ?? '' };
     useEvolveSessionStore.getState().begin({ fromAnchorId: origin.anchorId, fromIntention: origin.intentionText });
     onBeginEvolve(origin);
-  }, [onBeginEvolve, onCreateSuccessor, handleCancel, anchorId, release.snapshot?.intentionText]);
+  }, [entitlements, onEvolvePaywall, onBeginEvolve, onCreateSuccessor, handleCancel, anchorId, release.snapshot?.intentionText]);
   const handleChoose = useCallback((next: V2ReleaseChoiceId) => {
     if (hold.isHolding || release.stage !== 'preflight') return;
     if (next === 'release') { setChoice('release'); return; }
@@ -197,11 +224,13 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   const startSilence = useCallback(() => { sfxLog('release finish silence'); feel.end(); setSilent(true); }, [feel.end]);
   useEffect(() => () => stopReleaseFall(), [stopReleaseFall]);
   const courseId = release.snapshot?.courseId ?? null;
+  // The action that is taking the user back to Home: the ending fades its chrome while Home arrives.
+  const [leavingAction, setLeavingAction] = useState<V2ReleaseActionId | null>(null);
   const handleAction = useCallback((action: V2ReleaseActionId) => {
     const ending = release.ending;
-    if (!ending) return;
+    if (!ending || leavingAction) return;
     sfxLog(`release complete action=${action}`);
-    const home = () => onReleaseCompleted(anchorId, ending);
+    const home = () => { setLeavingAction(action); onReleaseCompleted(anchorId, ending); };
     switch (action) {
       case 'progress':
         if (onViewProgress) onViewProgress(anchorId); else if (onViewHistory) onViewHistory(); else home();
@@ -213,12 +242,19 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
         if (onViewCompletedChart) onViewCompletedChart(courseId, anchorId); else home();
         break;
       case 'successor':
-        if (onContinueWithSuccessor && release.snapshot?.successor) onContinueWithSuccessor(release.snapshot.successor.anchorId); else home();
+        if (onContinueWithSuccessor && release.snapshot?.successor) {
+          // The ending fades its chrome while the new Anchor lands on Home; the released art lingers behind it.
+          const { artworkSvg, imageUrl, category, expression } = release.snapshot;
+          setLeavingAction(action);
+          onContinueWithSuccessor(release.snapshot.successor.anchorId, {
+            svg: artworkSvg, imageUrl: imageUrl ?? undefined, category: category ?? undefined, expression,
+          });
+        } else home();
         break;
       default:
         home();
     }
-  }, [release.ending, release.snapshot, anchorId, courseId, onReleaseCompleted, onViewProgress, onViewHistory,
+  }, [release.ending, release.snapshot, leavingAction, anchorId, courseId, onReleaseCompleted, onViewProgress, onViewHistory,
     onContinueToChart, onViewCompletedChart, onContinueWithSuccessor]);
 
   if (release.anchorMissing || !release.snapshot) return (
@@ -293,7 +329,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
         onDismiss={stage === 'failed' ? handleCancel : undefined} /> : null}
       {stage === 'completed' && release.ending ? <V2ReleaseCompletion ending={release.ending} reduceMotion={reduceMotion}
         ghostSvg={snapshot.artworkSvg} ghostImageUrl={snapshot.imageUrl} category={snapshot.category} expression={snapshot.expression}
-        artworkRect={art} celebrationId={`release-ending:${anchorId}`} onAction={handleAction} /> : null}
+        artworkRect={art} celebrationId={`release-ending:${anchorId}`} leavingAction={leavingAction} onAction={handleAction} /> : null}
     </View>
   );
 }

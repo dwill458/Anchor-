@@ -1,5 +1,7 @@
 import { V2_RELEASE_ROUTE } from '@/constants/v2/release';
 import type { V2ReleaseEnding, V2ReleaseSuccessor } from '@/adapters/v2/release';
+import type { AnchorCreationLimitReason } from '@/utils/entitlements';
+import type { AnchorExpression } from '@/constants/v2/creation';
 
 /**
  * Route manifest only. UI-H does not edit the central navigator
@@ -27,6 +29,20 @@ export interface V2ReleaseRouteParams {
   successor?: V2ReleaseSuccessor;
 }
 
+/** The params the creation gates hand the 'Paywall' route: the limit reason as `source`, annual preselected. */
+export interface V2ReleaseEvolvePaywallParams {
+  source: Exclude<AnchorCreationLimitReason, null>;
+  preferredPlanId: 'annual';
+}
+
+/** The released Anchor's artwork from the release snapshot, handed on so the new Anchor's arrival can linger on it. */
+export interface V2ReleasedArtwork {
+  svg: string;
+  imageUrl?: string;
+  category?: string;
+  expression?: AnchorExpression;
+}
+
 /** Typed continuation callbacks the central navigator supplies. */
 export interface V2ReleaseContinuationCallbacks {
   /** Return Home (and the fallback for any continuation without its own callback). */
@@ -39,10 +55,15 @@ export interface V2ReleaseContinuationCallbacks {
   onContinueToChart?: (courseId: string | null, anchorId: string) => void;
   /** Destination ending: the completed Chart. */
   onViewCompletedChart?: (courseId: string | null, anchorId: string) => void;
-  /** Evolve ending: the successor Anchor's details. */
-  onContinueWithSuccessor?: (successorAnchorId: string) => void;
+  /** Evolve ending: continue with the successor Anchor (Home, with the Evolved arrival). */
+  onContinueWithSuccessor?: (successorAnchorId: string, released?: V2ReleasedArtwork) => void;
   /** Evolve with no valid successor: send the user to create one. */
   onCreateSuccessor?: () => void;
+  /**
+   * "Evolve it" was chosen but the user cannot create another Anchor (Evolve is a paid path): open the
+   * Paywall with the same params the creation gates use. Nothing is begun, opened or released.
+   */
+  onEvolvePaywall?: (params: V2ReleaseEvolvePaywallParams) => void;
   /**
    * "Evolve it" was chosen with nothing attached: open creation on top of Release, with the intention
    * carried over. Release stays in the stack; nothing is released or linked until the hold completes.

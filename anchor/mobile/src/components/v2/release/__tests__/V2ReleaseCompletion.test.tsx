@@ -192,3 +192,65 @@ describe('V2ReleaseCompletion: the ending scene', () => {
     expect(view.queryByTestId('v2-release-completion-flag', { includeHiddenElements: true })).toBeNull();
   });
 });
+
+describe('V2ReleaseCompletion: Return Home exit (RL1)', () => {
+  const bodyOpacity = (view: ReturnType<typeof render>) => {
+    const node = view.getByTestId('v2-release-completion-body-wrap', { includeHiddenElements: true });
+    return node.props.jestAnimatedStyle?.value?.opacity ?? 1;
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    useCelebrationStore.getState().reset();
+    mockPlayCreationSound.mockClear();
+    jest.mocked(safeHaptics.impact).mockClear();
+  });
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  const settle = (view: ReturnType<typeof render>) => {
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_SETTLE_MS));
+    expect(actionsPointerEvents(view)).toBe('auto');
+    mockPlayCreationSound.mockClear();
+    jest.mocked(safeHaptics.impact).mockClear();
+  };
+
+  it('fades the ghost, words and buttons over the paper, which stays, with no sound and no haptic', () => {
+    const onAction = jest.fn();
+    const view = render(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" onAction={onAction} />);
+    settle(view);
+    expect(bodyOpacity(view)).toBe(1);
+
+    view.rerender(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" onAction={onAction} leavingAction="home" />);
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(bodyOpacity(view)).toBe(0);
+    // The cream paper holds: the reveal circle is still there, fully open.
+    expect(view.getByTestId('v2-release-completion-reveal')).toBeTruthy();
+    expect(mockPlayCreationSound).not.toHaveBeenCalled();
+    expect(hapticCalls()).toHaveLength(0);
+  });
+
+  it('blocks a second tap while it is leaving', () => {
+    const onAction = jest.fn();
+    const view = render(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" onAction={onAction} />);
+    settle(view);
+    view.rerender(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" onAction={onAction} leavingAction="home" />);
+    expect(actionsPointerEvents(view)).toBe('none');
+    fireEvent.press(view.getByTestId('v2-release-completion-primary', { includeHiddenElements: true }));
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
+  it('Reduce Motion plays no exit of its own: the route\'s soft fade carries the change', () => {
+    const onAction = jest.fn();
+    const view = render(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" reduceMotion onAction={onAction} />);
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_REDUCED_MS));
+    mockPlayCreationSound.mockClear();
+    view.rerender(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" reduceMotion onAction={onAction} leavingAction="home" />);
+    act(() => jest.advanceTimersByTime(1000));
+    expect(bodyOpacity(view)).toBe(1);
+    expect(mockPlayCreationSound).not.toHaveBeenCalled();
+  });
+});

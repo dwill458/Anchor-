@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, findNodeHandle, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { cancelAnimation, Easing, useAnimatedStyle, useDerivedValue, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useDerivedValue, useSharedValue, withDelay, withSequence, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2Button } from '@/components/v2';
 import type { V2ReleaseEnding } from '@/adapters/v2/release';
 import { colors, spacing } from '@/theme/v2';
 import {
   RELEASE_ENDING_DURATION_MS, RELEASE_ENDING_LEVEL, RELEASE_ENDING_REDUCED_MS, RELEASE_ENDING_SCENE_END_MS, RELEASE_ENDING_SETTLE_MS,
-  RELEASE_ENDING_TIMELINE_MS as T, type V2ReleaseActionId,
+  RELEASE_ENDING_TIMELINE_MS as T, RELEASE_EXIT_TIMELINE_MS as EXIT, type V2ReleaseActionId,
 } from '@/constants/v2/release';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
@@ -38,6 +38,12 @@ interface Props {
   artworkRect?: ReleaseArtworkRect | null;
   /** Coordinator scene id for this ending. One ending per release. */
   celebrationId?: string;
+  /**
+   * The action just taken that returns to Home (Return Home, RL1): its button presses in and the ghost,
+   * words and buttons fade over the cream paper, which stays, until the route changes. No sound, no
+   * haptic. Reduce Motion plays none of it (the route's own soft fade carries the change).
+   */
+  leavingAction?: V2ReleaseActionId | null;
   onAction: (action: V2ReleaseActionId) => void;
   testID?: string;
 }
@@ -79,7 +85,7 @@ function useRiseStyle(progress: SharedValue<number>, reduce: boolean) {
  * to the settled state. Sound and haptic fire exactly once, at the settle.
  */
 export function V2ReleaseCompletion({ ending, ghostSvg, ghostImageUrl, category, expression, reduceMotion: reduceMotionProp = false,
-  artworkRect, celebrationId = 'release-ending:release', onAction, testID }: Props) {
+  artworkRect, celebrationId = 'release-ending:release', leavingAction = null, onAction, testID }: Props) {
   // The single Reduce Motion source for celebration scenes. The prop can only add to it.
   const reduce = useCelebrationReduceMotion() || reduceMotionProp;
   const insets = useSafeAreaInsets();
@@ -141,7 +147,24 @@ export function V2ReleaseCompletion({ ending, ghostSvg, ghostImageUrl, category,
   }, [started, reduce, drawsGlyph, drawProgress]);
 
   const actions = useSharedValue(0);
-  const actionsStyle = useAnimatedStyle(() => ({ opacity: ACTIONS_DISABLED_OPACITY + (1 - ACTIONS_DISABLED_OPACITY) * actions.value }));
+  // Return Home: the tapped button presses in, then the ghost, words and buttons fade out over the paper.
+  const exit = useSharedValue(0);
+  const press = useSharedValue(1);
+  useEffect(() => {
+    if (!leavingAction || reduce) return undefined;
+    press.value = withSequence(
+      withTiming(0.97, { duration: EXIT.pressDuration / 2 }),
+      withTiming(1, { duration: EXIT.pressDuration / 2 }),
+    );
+    exit.value = withDelay(EXIT.fadeDelay, withTiming(1, { duration: EXIT.fadeDuration, easing: Easing.bezier(0.2, 0.8, 0.2, 1) }));
+    return () => { cancelAnimation(press); cancelAnimation(exit); };
+  }, [leavingAction, reduce, press, exit]);
+  const bodyExitStyle = useAnimatedStyle(() => ({ opacity: 1 - exit.value }));
+  const primaryPressStyle = useAnimatedStyle(() => ({ transform: [{ scale: leavingAction === ending.primary.id ? press.value : 1 }] }));
+  const secondaryPressStyle = useAnimatedStyle(() => ({ transform: [{ scale: leavingAction && leavingAction === ending.secondary?.id ? press.value : 1 }] }));
+  const actionsStyle = useAnimatedStyle(() => ({
+    opacity: (ACTIONS_DISABLED_OPACITY + (1 - ACTIONS_DISABLED_OPACITY) * actions.value) * (1 - exit.value),
+  }));
 
   // Once per ending, at the paper settle. A skip and the timer both reach here; only the first counts.
   const settle = () => {
@@ -213,7 +236,7 @@ export function V2ReleaseCompletion({ ending, ghostSvg, ghostImageUrl, category,
         </Canvas>
       </View>
     )}
-    <View style={styles.bodyWrap}>
+    <Animated.View style={[styles.bodyWrap, bodyExitStyle]} testID="v2-release-completion-body-wrap">
       <ScrollView contentContainerStyle={[styles.body, { paddingTop: Math.max(24, height * 0.18 - insets.top) }]} showsVerticalScrollIndicator={false}>
         {isDestination ? (
           <Animated.View style={[styles.glyph, flagStyle]} testID="v2-release-completion-flag"
@@ -246,11 +269,15 @@ export function V2ReleaseCompletion({ ending, ghostSvg, ghostImageUrl, category,
           </Animated.View>
         ) : null}
       </ScrollView>
-    </View>
-    <Animated.View style={[styles.actions, actionsStyle]} pointerEvents={settled ? 'auto' : 'none'} testID="v2-release-completion-actions"
+    </Animated.View>
+    <Animated.View style={[styles.actions, actionsStyle]} pointerEvents={settled && !leavingAction ? 'auto' : 'none'} testID="v2-release-completion-actions"
       accessibilityElementsHidden={!settled} importantForAccessibility={settled ? 'auto' : 'no-hide-descendants'}>
-      <V2Button variant="primary" size="large" onPress={() => { if (settled) onAction(ending.primary.id); }} testID="v2-release-completion-primary">{ending.primary.label}</V2Button>
-      {ending.secondary ? <V2Button variant="tertiary" size="large" onPress={() => { if (settled) onAction(ending.secondary!.id); }} testID="v2-release-completion-secondary">{ending.secondary.label}</V2Button> : null}
+      <Animated.View style={primaryPressStyle}>
+        <V2Button variant="primary" size="large" onPress={() => { if (settled && !leavingAction) onAction(ending.primary.id); }} testID="v2-release-completion-primary">{ending.primary.label}</V2Button>
+      </Animated.View>
+      {ending.secondary ? <Animated.View style={secondaryPressStyle}>
+        <V2Button variant="tertiary" size="large" onPress={() => { if (settled && !leavingAction) onAction(ending.secondary!.id); }} testID="v2-release-completion-secondary">{ending.secondary.label}</V2Button>
+      </Animated.View> : null}
     </Animated.View>
     {/* Only while the ending is the active skippable scene: a tap lands it on its settled state. */}
     {skippable ? (

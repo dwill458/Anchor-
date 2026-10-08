@@ -80,6 +80,17 @@ describe('createReleaseContinuations', () => {
     expect(navigation.replace).toHaveBeenCalledWith('V2AnchorLibrary');
   });
 
+  it('the Evolve paywall opens the Paywall route with the creation gates\' params, on top of Release', () => {
+    const navigate = jest.fn();
+    const navigation = { replace: jest.fn(), goBack: jest.fn(), push: jest.fn(), navigate };
+    const continuations = createReleaseContinuations(navigation, 'android');
+    continuations.onEvolvePaywall?.({ source: 'create_anchor_free_locked', preferredPlanId: 'annual' });
+    expect(navigate).toHaveBeenCalledWith('Paywall', { source: 'create_anchor_free_locked', preferredPlanId: 'annual' });
+    expect(navigation.replace).not.toHaveBeenCalled();
+    expect(navigation.goBack).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
   it('Evolve it pushes creation on top of Release with the intention carried over', () => {
     const { navigation, continuations } = setup();
     continuations.onBeginEvolve?.({ anchorId: 'a1', intentionText: 'Publish my novel' });

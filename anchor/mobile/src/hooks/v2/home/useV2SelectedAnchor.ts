@@ -3,6 +3,11 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { Anchor } from '@/types';
 
+/** The Anchors Home lists: this account's, not released, not archived. */
+export function filterHomeAnchors(anchors: Anchor[], userId: string | null): Anchor[] {
+  return anchors.filter((anchor) => (!userId || !anchor.userId || anchor.userId === userId) && !anchor.isReleased && !anchor.archivedAt);
+}
+
 /**
  * V2 selected-Anchor access. There is deliberately ONE selection authority:
  * the existing `anchorStore.currentAnchorId`. This hook adapts it for Home and
@@ -21,10 +26,7 @@ export function useV2SelectedAnchor(): {
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((s) => s.setCurrentAnchor);
 
-  const activeAnchors = useMemo(
-    () => anchors.filter((anchor) => (!userId || !anchor.userId || anchor.userId === userId) && !anchor.isReleased && !anchor.archivedAt),
-    [anchors, userId],
-  );
+  const activeAnchors = useMemo(() => filterHomeAnchors(anchors, userId), [anchors, userId]);
 
   const selectedAnchor = useMemo(() => {
     if (activeAnchors.length === 0) return null;

@@ -32,6 +32,7 @@ import { GRID_ART_BY_PRACTICE } from '@/components/v2/practice/V2PracticeArtwork
 import { useSessionStore } from '@/stores/sessionStore';
 import { HomeArrivalOverlay, HomeArrivalProvider, homeArrivalCelebrationId, useHomeArrival } from '@/components/v2/home/homeArrival';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
+import { isFlightlessArrivalKind } from '@/stores/v2/homeArrivalStore';
 import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { playCreationSound } from '@/services/CreationSounds';
@@ -249,7 +250,8 @@ export function V2HomeScreen() {
     // leaving Home posed and hidden: only a pushed screen such as Details is popped here. A finished
     // practice stages its arrival the same way, while its complete screen is still on top.
     const topRoute: string | undefined = state?.routes?.[state.index]?.name;
-    const handoffOnTop = topRoute === 'AnchorCreationFlow' || topRoute === 'V2Creation' || topRoute === 'V2Practice';
+    // A Release ending returning to Home stages its arrival the same way, while the ending is still on top.
+    const handoffOnTop = topRoute === 'AnchorCreationFlow' || topRoute === 'V2Creation' || topRoute === 'V2Practice' || topRoute === 'V2Release';
     if (state && state.index > 0 && !handoffOnTop) navigation.popToTop();
   }, [elastic.scrollRef, navigation]);
   const arrival = useHomeArrival({
@@ -757,11 +759,12 @@ export function V2HomeScreen() {
         }}
       />
 
-      {arrival.arrival ? (
+      {/* No mark travels on a release: the Anchor that was released is gone, so there is no overlay. */}
+      {arrival.arrival && !isFlightlessArrivalKind(arrival.arrival.kind) ? (
         <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} hold={arrival.context.overlayHold} flight={arrival.flight} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
       ) : null}
-      {/* Only while a first arrival is a skippable scene: a tap anywhere lands it on its end state. */}
-      {arrivalSkippable && arrival.arrival?.kind === 'first' ? (
+      {/* Only while a first or evolved arrival is a skippable scene: a tap anywhere lands it on its end state. */}
+      {arrivalSkippable && (arrival.arrival?.kind === 'first' || arrival.arrival?.kind === 'evolved') ? (
         <Pressable
           testID="v2-home-arrival-skip"
           accessible

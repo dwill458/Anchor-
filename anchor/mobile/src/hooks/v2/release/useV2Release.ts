@@ -77,6 +77,7 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
     s.anchors.find((a) => a.id === anchorId || a.localId === anchorId) ?? null,
   );
   const releaseAnchor = useAnchorStore((s) => s.releaseAnchor);
+  const linkEvolvedFrom = useAnchorStore((s) => s.linkEvolvedFrom);
   const anchors = useAnchorStore((s) => s.anchors);
   const activeCourse = useCourseStore((s) => s.activeCourse);
 
@@ -215,8 +216,15 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
     if (submissionState === 'confirmed' && !reconciledRef.current) {
       reconciledRef.current = true;
       releaseAnchor(anchorId);
+      // The evolve link is made here and nowhere else: the release is server-confirmed and the
+      // committed snapshot holds the successor the user attached. It is recorded on the successor
+      // (never on the released Anchor), from the snapshot's own anchor id and intention.
+      const committed = committedSnapshot.current;
+      if (committed?.reason === 'evolve' && committed.successor) {
+        linkEvolvedFrom(committed.successor.anchorId, { anchorId: committed.anchorId, intention: committed.intentionText });
+      }
     }
-  }, [submissionState, anchorId, releaseAnchor]);
+  }, [submissionState, anchorId, releaseAnchor, linkEvolvedFrom]);
 
   const stage: V2ReleaseStage = useMemo(() => {
     if (!started) return 'preflight';

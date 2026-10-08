@@ -275,4 +275,30 @@ describe('anchorStore sync invalidation', () => {
     expect(synced?.isReleased).toBe(true);
     expect(result.current.getActiveAnchors()).toHaveLength(0);
   });
+
+  it('keeps the local-only evolvedFrom link when the retry queue flushes a server copy', async () => {
+    const { result } = renderHook(() => useAnchorStore());
+    const from = { anchorId: 'old-anchor', intention: 'Publish my novel' };
+
+    // Created and linked while an update is stuck offline in the retry queue.
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('offline'));
+    act(() => {
+      result.current.setAnchors([createAnchor()]);
+      result.current.updateAnchor('local-anchor-1', { isCharged: true });
+    });
+    await settle();
+    act(() => {
+      result.current.linkEvolvedFrom('local-anchor-1', from);
+    });
+
+    // Back online: the server copy (cloud id, no evolvedFrom) is merged in.
+    (global.fetch as jest.Mock).mockResolvedValue(okResponse([createSupabaseRecord('local-anchor-1')]));
+    await act(async () => {
+      await result.current.flushPendingSync();
+    });
+
+    const synced = result.current.getAnchorById('cloud-uuid-local-anchor-1');
+    expect(synced).toBeDefined();
+    expect(synced?.evolvedFrom).toEqual(from);
+  });
 });

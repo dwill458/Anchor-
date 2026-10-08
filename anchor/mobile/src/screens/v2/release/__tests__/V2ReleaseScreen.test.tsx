@@ -3,9 +3,10 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { V2ReleaseAdapter, V2ReleaseResult } from '@/adapters/v2/release';
 
 const mockReleaseAnchor = jest.fn();
-const mockAnchorStoreState: { anchors: Array<Record<string, unknown>>; releaseAnchor: jest.Mock } = {
+const mockAnchorStoreState: { anchors: Array<Record<string, unknown>>; releaseAnchor: jest.Mock; linkEvolvedFrom: jest.Mock } = {
   anchors: [],
   releaseAnchor: mockReleaseAnchor,
+  linkEvolvedFrom: jest.fn(),
 };
 const mockCourseStoreState: { activeCourse: unknown } = { activeCourse: null };
 const mockReduceMotion = jest.fn(() => false);
@@ -22,6 +23,13 @@ jest.mock('@/stores/anchorStore', () => ({
 }));
 jest.mock('@/stores/courseStore', () => ({
   useCourseStore: (selector: (s: unknown) => unknown) => selector(mockCourseStoreState),
+}));
+// An entitled user: Evolve proceeds exactly as before (the gate is covered in V2ReleaseScreen.evolve.test).
+jest.mock('@/hooks/useEntitlements', () => ({
+  useEntitlements: () => ({
+    canCreateAnchor: true, anchorCreationLimitReason: null, entitlementReady: true,
+    anchorsCreatedToday: 0, anchorsCreatedDuringTrial: 0, tier: 'pro',
+  }),
 }));
 jest.mock('@/hooks/v2', () => ({
   useV2ReduceMotion: () => mockReduceMotion(),
@@ -277,6 +285,9 @@ describe('V2ReleaseScreen', () => {
 
     fireEvent.press(getByTestId('v2-release-completion-primary'));
     expect(onReleaseCompleted).toHaveBeenCalledWith('anchor-1', expect.objectContaining({ reason: 'no_longer_aligned', eyebrow: 'Released' }));
+    // Return Home is taken once: the ending is leaving, so a second tap starts nothing more.
+    fireEvent.press(getByTestId('v2-release-completion-primary', { includeHiddenElements: true }));
+    expect(onReleaseCompleted).toHaveBeenCalledTimes(1);
   });
 
   it('renders an empty state when the Anchor is gone', () => {
@@ -460,7 +471,8 @@ describe('V2ReleaseScreen', () => {
     expect(getByText(/Linked to your previous intention\./)).toBeTruthy();
     act(() => jest.advanceTimersByTime(RELEASE_ENDING_REDUCED_MS));
     fireEvent.press(getByTestId('v2-release-completion-primary'));
-    expect(onContinueWithSuccessor).toHaveBeenCalledWith('anchor-2');
+    // The released Anchor's artwork travels with it, from the release snapshot, for the Evolved arrival's ghost.
+    expect(onContinueWithSuccessor).toHaveBeenCalledWith('anchor-2', { svg: '<svg />', imageUrl: undefined, category: 'creativity', expression: undefined });
   });
 
   it('waypoint completion confirmed by the synced Chart continues to Chart with the course', async () => {

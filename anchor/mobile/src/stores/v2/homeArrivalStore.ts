@@ -8,8 +8,26 @@ export type ArrivalRect = { x: number; y: number; width: number; height: number 
  * `first` only when the user has never seen a first-Anchor arrival (the persisted once-ever flag is
  * unset) and the just-saved Anchor is the only Anchor in the store (archived and released Anchors
  * count). `repeat` for every other case; the default when unsure.
+ *
+ * `release` (Return Home after a Release ending) never flies a mark: the Anchor that was on the
+ * screen is gone. `evolved` (Continue with the new Anchor after an Evolved ending) has no creation mark
+ * to fly from either. Both stage with no `fromRect`, are ready as soon as Home is posed, and play their
+ * own no-flight timeline (see homeArrival.tsx).
  */
-export type HomeArrivalKind = 'first' | 'repeat' | 'practice';
+export type HomeArrivalKind = 'first' | 'repeat' | 'practice' | 'release' | 'evolved';
+
+/** Kinds that have no mark to fly: Home is ready the moment it is posed and no target is measured. */
+export function isFlightlessArrivalKind(kind: HomeArrivalKind): boolean {
+  return kind === 'release' || kind === 'evolved';
+}
+
+/** The artwork of the Anchor that was released, drawn faintly behind the new one on an `evolved` arrival. */
+export type ArrivalGhost = {
+  svg: string;
+  category?: string;
+  expression?: AnchorExpression;
+  imageUrl?: string;
+};
 
 /** The Thread Strength figure a finished practice showed, and where (window coordinates). */
 export type ArrivalNumber = { text: string; rect: ArrivalRect };
@@ -46,6 +64,13 @@ export type HomeArrival = {
   number?: ArrivalNumber | null;
   /** `practice` only: the glow that rides with the mark and hands over to Home's own. */
   glow?: ArrivalGlow | null;
+  /**
+   * `release` only: how many Anchors Home counted before this release. The counter rolls down by one
+   * during the arrival only when Home now counts fewer; null or absent means it does not roll.
+   */
+  countBefore?: number | null;
+  /** `evolved` only: the released Anchor's artwork, lingering faintly behind the new one. Null skips it. */
+  ghost?: ArrivalGhost | null;
   /** The chosen interpretation, when one was kept: it travels as itself, in its circle. */
   imageUrl?: string;
   /** The mark's square as creation last showed it (window coordinates). Null skips the flight. */
@@ -81,9 +106,11 @@ export const useHomeArrivalStore = create<HomeArrivalState>()((set, get) => ({
     if (!arrival || arrival.id !== id || arrival.phase === 'arriving') return;
     set({ arrival: { ...arrival, fromRect: rect } });
   },
-  reportReady: (id, rect) => {
+  reportReady: (id, reported) => {
     const arrival = get().arrival;
     if (!arrival || arrival.id !== id) return;
+    // Nothing flies on a release or an evolved arrival, so a late measurement never gives it a target.
+    const rect = isFlightlessArrivalKind(arrival.kind) ? null : reported;
     // A measurement that lands after Home gave up waiting still gives the flight its target,
     // as long as creation has not let go yet.
     const upgrade = arrival.phase === 'ready' && !arrival.targetRect && rect;

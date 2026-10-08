@@ -1,11 +1,14 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import type { V2ReleaseAdapter, V2ReleaseResult } from '@/adapters/v2/release';
 
 const mockReleaseAnchor = jest.fn();
-const mockAnchorStoreState: { anchors: Array<Record<string, unknown>>; releaseAnchor: jest.Mock } = {
+const mockLinkEvolvedFrom = jest.fn();
+const mockAnchorStoreState: { anchors: Array<Record<string, unknown>>; releaseAnchor: jest.Mock; linkEvolvedFrom: jest.Mock } = {
   anchors: [],
   releaseAnchor: mockReleaseAnchor,
+  linkEvolvedFrom: mockLinkEvolvedFrom,
 };
 const mockCourseStoreState: { activeCourse: unknown } = { activeCourse: null };
 const mockReduceMotion = jest.fn(() => false);
@@ -17,6 +20,14 @@ jest.mock('@/stores/anchorStore', () => ({
 jest.mock('@/stores/courseStore', () => ({
   useCourseStore: (selector: (s: unknown) => unknown) => selector(mockCourseStoreState),
 }));
+const OPEN_ENTITLEMENTS = {
+  canCreateAnchor: true, anchorCreationLimitReason: null, entitlementReady: true,
+  anchorsCreatedToday: 1, anchorsCreatedDuringTrial: 0, tier: 'pro',
+};
+let mockEntitlements: Record<string, unknown> = OPEN_ENTITLEMENTS;
+jest.mock('@/hooks/useEntitlements', () => ({ useEntitlements: () => mockEntitlements }));
+const mockTrack = jest.fn();
+jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: (...args: unknown[]) => mockTrack(...args) } }));
 jest.mock('@/hooks/v2', () => ({
   useV2ReduceMotion: () => mockReduceMotion(),
   v2Haptics: { selection: jest.fn(), completion: jest.fn(), confirmation: jest.fn(), warning: jest.fn(), destructiveCommit: jest.fn() },
@@ -59,6 +70,9 @@ describe('V2ReleaseScreen: Evolve at Release', () => {
     useCelebrationStore.getState().reset();
     useEvolveSessionStore.getState().clear();
     mockReleaseAnchor.mockClear();
+    mockLinkEvolvedFrom.mockClear();
+    mockTrack.mockClear();
+    mockEntitlements = OPEN_ENTITLEMENTS;
     mockReduceMotion.mockReturnValue(false);
     mockAnchorStoreState.anchors = [oldAnchor];
     mockCourseStoreState.activeCourse = null;
@@ -147,6 +161,100 @@ describe('V2ReleaseScreen: Evolve at Release', () => {
     });
   });
 
+  describe('Evolve is a paid path: the paywall appears on the choice', () => {
+    const FREE_LOCKED = { ...OPEN_ENTITLEMENTS, canCreateAnchor: false, anchorCreationLimitReason: 'create_anchor_free_locked', tier: 'free' };
+    const DAILY_CAP = { ...OPEN_ENTITLEMENTS, canCreateAnchor: false, anchorCreationLimitReason: 'pro_daily_anchor_cap_reached' };
+    const NOT_READY = { ...OPEN_ENTITLEMENTS, canCreateAnchor: false, anchorCreationLimitReason: null, entitlementReady: false };
+
+    it('a free user choosing Evolve it goes to the Paywall with the gate params; no session, no creation, nothing released', () => {
+      mockEntitlements = FREE_LOCKED;
+      const adapter = fakeAdapter();
+      const onBeginEvolve = jest.fn();
+      const onCreateSuccessor = jest.fn();
+      const onEvolvePaywall = jest.fn();
+      const view = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onBeginEvolve={onBeginEvolve}
+        onCreateSuccessor={onCreateSuccessor} onEvolvePaywall={onEvolvePaywall} {...noop} />);
+      fireEvent.press(view.getByTestId('v2-release-choice-evolve'));
+
+      expect(onEvolvePaywall).toHaveBeenCalledTimes(1);
+      expect(onEvolvePaywall).toHaveBeenCalledWith({ source: 'create_anchor_free_locked', preferredPlanId: 'annual' });
+      expect(onBeginEvolve).not.toHaveBeenCalled();
+      expect(onCreateSuccessor).not.toHaveBeenCalled();
+      expect(useEvolveSessionStore.getState().pending).toBeNull();
+      expect(useEvolveSessionStore.getState().successor).toBeNull();
+      expect(adapter.submitRelease).not.toHaveBeenCalled();
+      expect(mockReleaseAnchor).not.toHaveBeenCalled();
+      expect(noop.onCancel).not.toHaveBeenCalled();
+      // The choice stays on Release it, so coming back from the Paywall leaves Release as it was.
+      expect(view.getByTestId('v2-release-choice-release').props.accessibilityState.selected).toBe(true);
+      expect(mockTrack).toHaveBeenCalledWith('create_anchor_free_locked', expect.objectContaining({ source: 'release_evolve', tier: 'free' }));
+    });
+
+    it('the missing-successor button is gated the same way', () => {
+      mockEntitlements = FREE_LOCKED;
+      const onBeginEvolve = jest.fn();
+      const onEvolvePaywall = jest.fn();
+      const view = render(<V2ReleaseScreen anchorId="anchor-1" reason="evolve" releaseAdapter={fakeAdapter()}
+        onBeginEvolve={onBeginEvolve} onEvolvePaywall={onEvolvePaywall} {...noop} />);
+      fireEvent.press(view.getByTestId('v2-release-create-successor'));
+      expect(onEvolvePaywall).toHaveBeenCalledWith({ source: 'create_anchor_free_locked', preferredPlanId: 'annual' });
+      expect(onBeginEvolve).not.toHaveBeenCalled();
+      expect(useEvolveSessionStore.getState().pending).toBeNull();
+    });
+
+    it('the Pro daily cap keeps its alert path and does not open the Paywall', () => {
+      mockEntitlements = DAILY_CAP;
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+      const onBeginEvolve = jest.fn();
+      const onEvolvePaywall = jest.fn();
+      const view = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={fakeAdapter()} onBeginEvolve={onBeginEvolve}
+        onEvolvePaywall={onEvolvePaywall} {...noop} />);
+      fireEvent.press(view.getByTestId('v2-release-choice-evolve'));
+      expect(alert).toHaveBeenCalledTimes(1);
+      expect(alert.mock.calls[0][0]).toBe('Daily creation limit reached');
+      expect(onEvolvePaywall).not.toHaveBeenCalled();
+      expect(onBeginEvolve).not.toHaveBeenCalled();
+      expect(useEvolveSessionStore.getState().pending).toBeNull();
+      alert.mockRestore();
+    });
+
+    it('an entitlement that has not settled begins nothing, like the creation gate', () => {
+      mockEntitlements = NOT_READY;
+      const onBeginEvolve = jest.fn();
+      const onEvolvePaywall = jest.fn();
+      const view = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={fakeAdapter()} onBeginEvolve={onBeginEvolve}
+        onEvolvePaywall={onEvolvePaywall} {...noop} />);
+      fireEvent.press(view.getByTestId('v2-release-choice-evolve'));
+      expect(onEvolvePaywall).not.toHaveBeenCalled();
+      expect(onBeginEvolve).not.toHaveBeenCalled();
+      expect(useEvolveSessionStore.getState().pending).toBeNull();
+    });
+
+    it('an entitled user proceeds exactly as before: session begun, creation opened, no Paywall', () => {
+      mockEntitlements = OPEN_ENTITLEMENTS;
+      const onBeginEvolve = jest.fn();
+      const onEvolvePaywall = jest.fn();
+      const view = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={fakeAdapter()} onBeginEvolve={onBeginEvolve}
+        onEvolvePaywall={onEvolvePaywall} {...noop} />);
+      fireEvent.press(view.getByTestId('v2-release-choice-evolve'));
+      expect(onBeginEvolve).toHaveBeenCalledWith({ anchorId: 'anchor-1', intentionText: 'Publish my novel' });
+      expect(useEvolveSessionStore.getState().pending).toEqual({ fromAnchorId: 'anchor-1', fromIntention: 'Publish my novel' });
+      expect(onEvolvePaywall).not.toHaveBeenCalled();
+      expect(mockTrack).not.toHaveBeenCalled();
+    });
+
+    it('choosing Release it never asks the gate, whatever the entitlement', async () => {
+      mockEntitlements = FREE_LOCKED;
+      mockReduceMotion.mockReturnValue(true);
+      const adapter = fakeAdapter();
+      const onEvolvePaywall = jest.fn();
+      const view = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onEvolvePaywall={onEvolvePaywall} {...noop} />);
+      await holdToRelease(view);
+      expect(adapter.submitRelease).toHaveBeenCalledTimes(1);
+      expect(onEvolvePaywall).not.toHaveBeenCalled();
+    });
+  });
+
   describe('a sealed successor is attached', () => {
     const attached = (extra: Partial<React.ComponentProps<typeof V2ReleaseScreen>> = {}) => (
       <V2ReleaseScreen anchorId="anchor-1" reason="evolve" successor={successor} releaseAdapter={fakeAdapter()} {...noop} {...extra} />
@@ -195,6 +303,7 @@ describe('V2ReleaseScreen: Evolve at Release', () => {
       // Attached, but nothing is released or linked before the hold completes.
       expect(adapter.submitRelease).not.toHaveBeenCalled();
       expect(mockReleaseAnchor).not.toHaveBeenCalled();
+      expect(mockLinkEvolvedFrom).not.toHaveBeenCalled();
 
       await holdToRelease(view);
       expect(adapter.submitRelease).toHaveBeenCalledTimes(1);
@@ -206,6 +315,9 @@ describe('V2ReleaseScreen: Evolve at Release', () => {
       expect(view.getByTestId('v2-release-completion')).toBeTruthy();
       expect(mockReleaseAnchor).toHaveBeenCalledWith('anchor-1');
       expect(mockReleaseAnchor).not.toHaveBeenCalledWith('anchor-2');
+      // The link is recorded once, on the successor, when the release completes.
+      expect(mockLinkEvolvedFrom).toHaveBeenCalledTimes(1);
+      expect(mockLinkEvolvedFrom).toHaveBeenCalledWith('anchor-2', { anchorId: 'anchor-1', intention: 'Publish my novel' });
       // The existing Evolved ending, unchanged: its successor and the link note.
       expect(view.getByText(`“${successor.intentionText}”`, { includeHiddenElements: true })).toBeTruthy();
       expect(view.getByText(RELEASE_SUCCESSOR_LINK_NOTE, { includeHiddenElements: true })).toBeTruthy();
@@ -218,6 +330,7 @@ describe('V2ReleaseScreen: Evolve at Release', () => {
       fireEvent.press(view.getByTestId('v2-release-choice-release'));
       await holdToRelease(view);
       expect(adapter.submitRelease).toHaveBeenCalledWith(expect.objectContaining({ reason: 'no_longer_aligned' }));
+      expect(mockLinkEvolvedFrom).not.toHaveBeenCalled();
     });
 
     it('the Evolved ending keeps its Continue with new Anchor behaviour', async () => {
@@ -230,7 +343,11 @@ describe('V2ReleaseScreen: Evolve at Release', () => {
       await flush();
       act(() => jest.advanceTimersByTime(300));
       fireEvent.press(view.getByTestId('v2-release-completion-primary'));
-      expect(onContinueWithSuccessor).toHaveBeenCalledWith('anchor-2');
+      // The released Anchor's artwork travels with it, from the release snapshot, for the Evolved arrival's ghost.
+      expect(onContinueWithSuccessor).toHaveBeenCalledWith('anchor-2', { svg: '<svg />', imageUrl: undefined, category: 'creativity', expression: undefined });
+      // Taken once: the ending is leaving, so a second tap starts nothing more.
+      fireEvent.press(view.getByTestId('v2-release-completion-primary', { includeHiddenElements: true }));
+      expect(onContinueWithSuccessor).toHaveBeenCalledTimes(1);
     });
   });
 

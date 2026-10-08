@@ -2,10 +2,12 @@ import { act, renderHook } from '@testing-library/react-native';
 import type { V2ReleaseAdapter, V2ReleaseResult } from '@/adapters/v2/release';
 
 const mockReleaseAnchor = jest.fn();
+const mockLinkEvolvedFrom = jest.fn();
 const mockAnchorStoreState: {
   anchors: Array<Record<string, unknown>>;
   releaseAnchor: jest.Mock;
-} = { anchors: [], releaseAnchor: mockReleaseAnchor };
+  linkEvolvedFrom: jest.Mock;
+} = { anchors: [], releaseAnchor: mockReleaseAnchor, linkEvolvedFrom: mockLinkEvolvedFrom };
 const mockCourseStoreState: { activeCourse: unknown } = { activeCourse: null };
 
 jest.mock('@/stores/anchorStore', () => ({
@@ -44,6 +46,7 @@ function fakeAdapter(results: V2ReleaseResult[]): V2ReleaseAdapter & { calls: Ar
 describe('useV2Release', () => {
   beforeEach(() => {
     mockReleaseAnchor.mockClear();
+    mockLinkEvolvedFrom.mockClear();
     mockAnchorStoreState.anchors = [anchor];
     mockCourseStoreState.activeCourse = null;
   });
@@ -237,6 +240,87 @@ describe('useV2Release', () => {
     await act(async () => result.current.startRelease());
     expect(adapter.calls).toHaveLength(2);
     expect(adapter.calls[0].idempotencyKey).not.toBe(adapter.calls[1].idempotencyKey);
+  });
+
+  describe('evolve link on the successor (evolvedFrom)', () => {
+    const successorAnchor = { ...anchor, id: 'anchor-2', localId: 'anchor-2', intentionText: 'Finish my novel this year' };
+    const successor = { anchorId: 'anchor-2', intentionText: 'Finish my novel this year' };
+    beforeEach(() => { mockAnchorStoreState.anchors = [anchor, successorAnchor]; });
+
+    it('is written once, on the successor, when an evolve release completes: from the snapshot, never to the released Anchor', async () => {
+      const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+      const { result, rerender } = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason: 'evolve', successor }));
+      expect(mockLinkEvolvedFrom).not.toHaveBeenCalled();
+
+      await act(async () => result.current.startRelease());
+      await act(async () => result.current.markDissolutionComplete());
+
+      expect(result.current.stage).toBe('completed');
+      expect(mockLinkEvolvedFrom).toHaveBeenCalledTimes(1);
+      expect(mockLinkEvolvedFrom).toHaveBeenCalledWith('anchor-2', { anchorId: 'anchor-1', intention: 'Publish my novel' });
+      expect(mockLinkEvolvedFrom).not.toHaveBeenCalledWith('anchor-1', expect.anything());
+      // The same snapshot the ending shows: its successor is the one linked.
+      expect(result.current.snapshot?.successor).toEqual({ anchorId: 'anchor-2', intentionText: 'Finish my novel this year' });
+
+      // Idempotent: re-renders (and a late retry) never write it again.
+      rerender({});
+      await act(async () => result.current.retry());
+      rerender({});
+      expect(mockLinkEvolvedFrom).toHaveBeenCalledTimes(1);
+      expect(mockReleaseAnchor).toHaveBeenCalledTimes(1);
+    });
+
+    it('is written on server confirmation, even before the ceremony has finished', async () => {
+      const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+      const { result } = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason: 'evolve', successor }));
+      await act(async () => result.current.startRelease());
+      expect(result.current.stage).toBe('dissolving');
+      expect(mockLinkEvolvedFrom).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ['a manual release with a successor attached', 'no_longer_aligned'],
+      ['a destination reason the Chart does not confirm', 'destination_completed'],
+      ['no reason at all', undefined],
+    ])('is not written for %s', async (_label, reason) => {
+      const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+      const { result } = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason, successor }));
+      await act(async () => result.current.startRelease());
+      await act(async () => result.current.markDissolutionComplete());
+      expect(result.current.stage).toBe('completed');
+      expect(mockReleaseAnchor).toHaveBeenCalledWith('anchor-1');
+      expect(mockLinkEvolvedFrom).not.toHaveBeenCalled();
+    });
+
+    it('is not written when the release fails or is still unconfirmed', async () => {
+      const failing = fakeAdapter([{ status: 'failed', anchorId: 'anchor-1', message: 'nope', retryable: false }]);
+      const failed = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter: failing, reason: 'evolve', successor }));
+      await act(async () => failed.result.current.startRelease());
+      await act(async () => failed.result.current.markDissolutionComplete());
+      expect(failed.result.current.stage).toBe('failed');
+
+      const pending = fakeAdapter([{ status: 'pending', anchorId: 'anchor-1', message: 'offline', retryable: true }]);
+      const waiting = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter: pending, reason: 'evolve', successor }));
+      await act(async () => waiting.result.current.startRelease());
+      await act(async () => waiting.result.current.markDissolutionComplete());
+      expect(waiting.result.current.stage).toBe('confirming');
+
+      expect(mockLinkEvolvedFrom).not.toHaveBeenCalled();
+    });
+
+    it('is not written when there is no real successor (the release cannot even start)', async () => {
+      mockAnchorStoreState.anchors = [anchor];
+      const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+      const missing = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason: 'evolve', successor }));
+      expect(missing.result.current.canRelease).toBe(false);
+      await act(async () => missing.result.current.startRelease());
+      const self = renderHook(() => useV2Release({
+        anchorId: 'anchor-1', adapter, reason: 'evolve', successor: { anchorId: 'anchor-1', intentionText: 'Publish my novel' },
+      }));
+      await act(async () => self.result.current.startRelease());
+      expect(adapter.submitRelease).not.toHaveBeenCalled();
+      expect(mockLinkEvolvedFrom).not.toHaveBeenCalled();
+    });
   });
 
 });

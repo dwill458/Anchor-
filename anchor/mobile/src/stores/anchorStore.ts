@@ -42,6 +42,26 @@ const normalizeAnchor = (anchor: Anchor): Anchor => ({
 const matchesAnchorReference = (anchor: Anchor, referenceId: string): boolean =>
   anchor.id === referenceId || anchor.localId === referenceId;
 
+/**
+ * `evolvedFrom` is local only: a server copy of an Anchor never carries it. Every path that brings
+ * server anchors in (a full refresh, one synced anchor, a flushed retry) merges it forward from the
+ * local record, matched by id or localId in either direction, so a sync can never erase the link.
+ */
+const carryForwardEvolvedFrom = (incomingAnchors: Anchor[], localAnchors: Anchor[]): Anchor[] => {
+  const linked = localAnchors.filter((anchor) => anchor.evolvedFrom);
+  if (linked.length === 0) return incomingAnchors;
+
+  return incomingAnchors.map((anchor) => {
+    if (anchor.evolvedFrom) return anchor;
+    const local = linked.find(
+      (candidate) =>
+        matchesAnchorReference(candidate, anchor.id) ||
+        (anchor.localId ? matchesAnchorReference(candidate, anchor.localId) : false)
+    );
+    return local ? { ...anchor, evolvedFrom: local.evolvedFrom } : anchor;
+  });
+};
+
 const mergeAnchors = (existingAnchors: Anchor[], incomingAnchors: Anchor[]): Anchor[] => {
   const merged = new Map<string, Anchor>();
 
@@ -100,6 +120,12 @@ interface AnchorState {
   applySyncedAnchor: (referenceId: string, anchor: Anchor) => void;
   flushPendingSync: () => Promise<void>;
   releaseAnchor: (id: string) => void;
+  /**
+   * Record, on the successor of a completed evolve, the released Anchor it continues from. Local only:
+   * no sync, no `updatedAt` change. Written once; a successor that is already linked, is itself
+   * released/archived, or is the released Anchor itself is left untouched.
+   */
+  linkEvolvedFrom: (successorId: string, from: { anchorId: string; intention: string }) => void;
 }
 
 /**
@@ -122,11 +148,11 @@ export const useAnchorStore = create<AnchorState>()(
 
       // Actions
       setAnchors: (anchors) =>
-        set({
-          anchors: mergeAnchors([], anchors),
+        set((state) => ({
+          anchors: mergeAnchors([], carryForwardEvolvedFrom(anchors, state.anchors)),
           totalPrimes: calculateTotalPrimes(anchors),
           error: null,
-        }),
+        })),
 
       addAnchor: (anchor) => {
         const teaching = useTeachingStore.getState();
@@ -319,6 +345,10 @@ export const useAnchorStore = create<AnchorState>()(
             isReleased: existingAnchor.isReleased || anchor.isReleased,
             releasedAt: existingAnchor.releasedAt ?? normalizeDate(anchor.releasedAt),
             archivedAt: existingAnchor.archivedAt ?? normalizeDate(anchor.archivedAt),
+            // Local only: the server copy never has it.
+            ...(anchor.evolvedFrom ?? existingAnchor.evolvedFrom
+              ? { evolvedFrom: anchor.evolvedFrom ?? existingAnchor.evolvedFrom }
+              : {}),
           };
 
           return {
@@ -377,7 +407,7 @@ export const useAnchorStore = create<AnchorState>()(
               return { error: null };
             }
 
-            const nextAnchors = mergeAnchors(state.anchors, applicableAnchors);
+            const nextAnchors = mergeAnchors(state.anchors, carryForwardEvolvedFrom(applicableAnchors, state.anchors));
 
             return {
               anchors: nextAnchors,
@@ -421,6 +451,23 @@ export const useAnchorStore = create<AnchorState>()(
           };
         });
       },
+
+      linkEvolvedFrom: (successorId, from) =>
+        set((state) => {
+          const successor = state.anchors.find((anchor) => matchesAnchorReference(anchor, successorId));
+          if (!successor || successor.evolvedFrom) return state;
+          // Never onto a released or archived Anchor, and never onto the Anchor that was released.
+          if (successor.isReleased || successor.archivedAt) return state;
+          if (matchesAnchorReference(successor, from.anchorId)) return state;
+
+          return {
+            anchors: state.anchors.map((anchor) =>
+              anchor === successor
+                ? { ...anchor, evolvedFrom: { anchorId: from.anchorId, intention: from.intention } }
+                : anchor
+            ),
+          };
+        }),
     }),
     {
       name: 'anchor-vault-storage',

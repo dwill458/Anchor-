@@ -1,5 +1,5 @@
 import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -292,7 +292,14 @@ function V2ReleaseRouteScreen() {
     return () => clearTimeout(timer);
   }, [navigation, reduceMotion, route.params.anchorTransition]);
   const focused = useIsFocused();
-  const continuations = useMemo(() => createReleaseContinuations(navigation), [navigation]);
+  // Return Home reads the same Reduce Motion source Home's arrival reads, at the moment it is tapped.
+  const celebrationReduceMotion = useCelebrationReduceMotion();
+  const celebrationReduceMotionRef = useRef(celebrationReduceMotion);
+  celebrationReduceMotionRef.current = celebrationReduceMotion;
+  const continuations = useMemo(
+    () => createReleaseContinuations(navigation, undefined, { getReduceMotion: () => celebrationReduceMotionRef.current }),
+    [navigation],
+  );
   return <V2ReleaseScreen {...route.params} {...continuations} focused={focused} onSessionActiveChange={setActive} />;
 }
 

@@ -111,6 +111,19 @@ export const RELEASE_ENDING_SCENE_END_MS = RELEASE_ENDING_TIMELINE_MS.successorD
 /** The ending is a Level 3 milestone registered with the celebration coordinator. */
 export const RELEASE_ENDING_LEVEL = 3 as const;
 
+/**
+ * Return Home (RL1), the ending's side of it, in ms from the tap: the button scales .97 for
+ * `pressDuration`, the ghost, words and buttons fade from `fadeDelay` for `fadeDuration` (ease-out),
+ * and the cream paper holds until `routeChange`, when the route changes to Home (also cream) with no
+ * transition of its own. Home's side of the same 2.2s is ARRIVAL_TIMING.release. No sound, no haptic.
+ */
+export const RELEASE_EXIT_TIMELINE_MS = {
+  pressDuration: 120,
+  fadeDelay: 150,
+  fadeDuration: 450,
+  routeChange: 600,
+} as const;
+
 /** Declared scene length (over 2.5s, so skippable). It finishes at RELEASE_ENDING_SCENE_END_MS. */
 export const RELEASE_ENDING_DURATION_MS = 3800;
 

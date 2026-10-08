@@ -11,7 +11,9 @@ import type { V2HomeAnchorSummary, V2ThreadPresentation } from '@/adapters/v2/ho
 import type { Anchor } from '@/types';
 import { V2HomeAnchorCarousel, NEIGHBOUR_SCALE, type CarouselSlot } from './V2HomeAnchorCarousel';
 import { resolveHomeHeroLayout, heroIntentionFontSize, HERO_INTENTION_LINES, HERO_INTENTION_LINE_HEIGHT, HERO_INTENTION_MIN_FONT_SCALE } from './homeHeroLayout';
-import { useHomeArrivalContext } from './homeArrival';
+import { releaseArtFactors, releaseArtParams, useHomeArrivalContext } from './homeArrival';
+import { HomeArrivalCounter } from './HomeArrivalCounter';
+import { HomeArrivalUnderline, HomeEvolvedFromLine, HomeEvolvedGhost } from './HomeArrivalEvolved';
 import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { HeroHalo, HeroStatusRing } from './V2HomeHeroLight';
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
@@ -40,9 +42,11 @@ type Props = {
  * One restrained hand-drawn accent under the intention. It is intentionally
  * short, off-centre and slightly uneven — a mark, not an underline rule.
  */
+const INTENTION_MARK_WIDTH = 88;
+const INTENTION_MARK_HEIGHT = 7;
 function IntentionMark({ color }: { color: string }) {
   return (
-    <Svg width={88} height={7} viewBox="0 0 88 7" fill="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <Svg width={INTENTION_MARK_WIDTH} height={INTENTION_MARK_HEIGHT} viewBox="0 0 88 7" fill="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <Path d="M1.5 4.4C22 2.1 47 1.3 86 2.6" stroke={color} strokeWidth={2.1} strokeLinecap="round" opacity={0.72} />
       <Path d="M8 5.8C29 4.4 52 4.1 74 4.9" stroke={color} strokeWidth={0.9} strokeLinecap="round" opacity={0.34} />
     </Svg>
@@ -191,20 +195,25 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
 }) {
   const anchor = summary.anchor;
   const accent = getCategoryColor(anchor.category);
+  // A just-created Anchor arriving from creation needs to know exactly where its mark will rest.
+  const arrival = useHomeArrivalContext();
+  // A release arrival moves the art too: the centre one settles, the neighbours slide out and fade in.
+  const releaseArt = releaseArtParams(arrival?.release ?? null);
+  const restingProgress = useSharedValue(1);
+  const arrivalProgress = arrival?.progress ?? restingProgress;
   const artworkMotion = useAnimatedStyle(() => {
     const distance = Math.abs(slot * spacing + offset.value);
-    return {
-      opacity: interpolate(distance, [0, spacing], [1, 0.7], 'clamp'),
-      transform: [{ scale: interpolate(distance, [0, spacing], [1, NEIGHBOUR_SCALE], 'clamp') }],
-    };
+    const opacity = interpolate(distance, [0, spacing], [1, 0.7], 'clamp');
+    const scale = interpolate(distance, [0, spacing], [1, NEIGHBOUR_SCALE], 'clamp');
+    if (!releaseArt.on || Math.abs(slot) > 1) return { opacity, transform: [{ scale }] };
+    const arrive = releaseArtFactors(arrivalProgress.value, releaseArt, slot);
+    return { opacity: opacity * arrive.opacity, transform: [{ translateX: arrive.x }, { scale: scale * arrive.scale }] };
   });
   const tapScale = useSharedValue(1);
   const tapScaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: tapScale.value }] }));
   const textMotion = useAnimatedStyle(() => ({
     opacity: interpolate(Math.abs(slot * spacing + offset.value), [0, spacing * 0.55], [1, 0], 'clamp'),
   }));
-  // A just-created Anchor arriving from creation needs to know exactly where its mark will rest.
-  const arrival = useHomeArrivalContext();
   const entranceState = useHeroEntrance(summary.anchor, slot, reduceMotion, Boolean(arrival?.active), arrival?.reportHeroImageLoaded);
   const mountSize = anchorSize + 14;
   const discRef = useRef<View>(null);
@@ -276,7 +285,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
             onPress={onOpenAllAnchors}
             disabled={!onOpenAllAnchors}
             hitSlop={10}
-          ><Text style={styles.positionText}>{`${index + 1} OF ${total}`}</Text></Pressable>
+          ><HomeArrivalCounter index={index} total={total} active={slot === 0} style={styles.positionText} /></Pressable>
         </View>
         {onOpenAllAnchors ? (
           <Pressable
@@ -295,6 +304,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
       <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
         {/* The light stays put while the coin lifts off for Details; only the coin and its ring travel. */}
         <HeroHalo size={anchorSize} boxHeight={artworkBoxHeight} strength={thread.value} anchorId={anchor.id} reduceMotion={reduceMotion} />
+        {/* Evolved anchor lands on Home only: the released Anchor's art lingers faintly behind the new one. */}
+        <HomeEvolvedGhost anchorSize={anchorSize} boxHeight={artworkBoxHeight} active={slot === 0} />
         {/* Hidden in place (never unmounted) while the travelling copy stands in for it, leaving or returning. */}
         <View style={[styles.artworkLayer, slot === 0 && transition.copyMounted && (transition.sourcePlace === 'home' || transition.targetPlace === 'home') ? styles.artworkHidden : null]}>
         <View
@@ -344,7 +355,9 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
           {anchor.intentionText}
         </Text>
         <View style={styles.intentionMark}>
-          <IntentionMark color={accent} />
+          <HomeArrivalUnderline active={slot === 0} width={INTENTION_MARK_WIDTH} height={INTENTION_MARK_HEIGHT}>
+            <IntentionMark color={accent} />
+          </HomeArrivalUnderline>
         </View>
         </View>
 
@@ -364,6 +377,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
           <ThreadReading thread={thread} accent={accent} active={slot === 0} teachingRef={teachingThreadRef} />
         </Pressable>
       ) : null}
+      {/* Only an Anchor that carries evolvedFrom has this line; without one nothing is rendered. */}
+      <HomeEvolvedFromLine anchor={anchor} active={slot === 0} />
       </Animated.View>
     </View>
   );

@@ -76,6 +76,13 @@ export interface Anchor {
   releasedAt?: Date;
   archivedAt?: Date;
 
+  /**
+   * Local only, never sent to the server. Set on the SUCCESSOR of an evolve: the released Anchor it
+   * continues from. Written once, when that release completes (see anchorStore.linkEvolvedFrom),
+   * and carried forward across every sync/merge by id or localId.
+   */
+  evolvedFrom?: { anchorId: string; intention: string };
+
   // ───────────────────────────────────────────────────
   // TIMESTAMPS
   // ───────────────────────────────────────────────────
