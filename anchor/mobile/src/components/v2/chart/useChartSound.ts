@@ -47,6 +47,18 @@ export function waypointNoteRate(waypointNumber: number): number {
   return Math.pow(2, steps[index] / 12);
 }
 
+/**
+ * The summit's chord, as wanted: A3 E4 A4 C#5 E5 (A major pentatonic), staggered about 12 ms, decaying 1.8-2.8 s.
+ * No such asset exists yet (a new Chart cue is wanted), so `summit` plays the existing chart-stamp (the low thud) and
+ * the chart-flag cue re-pitched to the chord's A4 as a stand-in. Swap the stand-in here when the cue lands.
+ */
+export const CHART_SUMMIT_CHORD = {
+  voices: ['A3', 'E4', 'A4', 'C#5', 'E5'],
+  staggerMs: 12,
+  /** Stand-in: the chart-flag sample re-pitched to the chord's A4, in semitones from the assumed E5 base. */
+  standInSemitones: -7,
+} as const;
+
 export type ChartSound = {
   open: () => void;
   ink: (durMs: number) => void;
@@ -56,9 +68,13 @@ export type ChartSound = {
   check: () => void;
   stamp: () => void;
   wind: () => void;
+  /** The summit's stillness: the air bed falls silent for `holdMs` (then returns). */
+  hush: (holdMs: number) => void;
+  /** The summit's flag: a low thud and the chord (stand-in cues, see CHART_SUMMIT_CHORD). Kept under Reduce Motion. */
+  summit: () => void;
   startAir: () => void;
   stopAir: () => void;
-  duck: (holdMs: number) => void;
+  duck: (holdMs: number, level?: number) => void;
 };
 
 export type ChartSoundOptions = {
@@ -155,11 +171,19 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
     });
   }, [rampTo]);
 
+  /** The one pending return-to-full timer: a newer duck replaces it, so two ducks can never undo each other. */
+  const duckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const duck = useCallback(
-    (holdMs: number) => {
+    (holdMs: number, level: number = CHART_AIR_DUCKED) => {
       if (!air.current) return;
-      rampTo(CHART_AIR_DUCKED, DUCK_DOWN_MS, () => {
-        later(holdMs, () => {
+      if (duckTimer.current) {
+        clearTimeout(duckTimer.current);
+        timers.current.delete(duckTimer.current);
+        duckTimer.current = null;
+      }
+      rampTo(level, DUCK_DOWN_MS, () => {
+        duckTimer.current = later(holdMs, () => {
+          duckTimer.current = null;
           if (air.current) rampTo(CHART_AIR_VOLUME, DUCK_UP_MS);
         });
       });
@@ -210,6 +234,13 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
       },
       wind: () => {
         if (!reducedRef.current) one('chart-wind', 1, 1);
+      },
+      hush: (holdMs: number) => duck(holdMs, 0),
+      summit: () => {
+        // Exact pitch, no jitter: it is a chord note. Both stay under Reduce Motion (they mark the commitment).
+        one('chart-stamp', 1, 1);
+        one('chart-flag', 1, Math.pow(2, CHART_SUMMIT_CHORD.standInSemitones / 12));
+        duck(2200);
       },
       startAir,
       stopAir,

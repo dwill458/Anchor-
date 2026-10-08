@@ -127,7 +127,7 @@ describe('createSequenceRunner', () => {
     const order: string[] = [];
     const a = h.sv('a');
     const p = runner.run({
-      name: 'arrival',
+      name: 'summit',
       steps: [
         { kind: 'call', at: 300, run: () => order.push('late') },
         { kind: 'tween', at: 100, duration: 50, target: a, to: 9 },

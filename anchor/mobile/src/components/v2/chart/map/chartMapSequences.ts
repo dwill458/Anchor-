@@ -17,6 +17,7 @@ import { cameraTargetFor } from './chartMapGeometry';
 import { cameraSteps, focusTarget, overviewTarget, type CameraTarget } from './useChartMapCamera';
 import type {
   ChartMapAnimState,
+  ChartRouteRevision,
   MapPoint,
   RouteTable,
   SequenceEasing,
@@ -50,7 +51,7 @@ function call(at: number, run: () => void): SequenceStep {
 }
 
 /** A sound/haptic moment the host plays (ChartActiveView maps beats to useChartSound + safeHaptics). */
-export type ChartBeat = 'open' | 'ink' | 'flag' | 'check' | 'stamp' | 'wind' | 'note';
+export type ChartBeat = 'open' | 'ink' | 'flag' | 'check' | 'stamp' | 'wind' | 'note' | 'hush' | 'summit' | 'pop';
 export type ChartBeatHandler = (beat: ChartBeat) => void;
 
 /** Beat step: transient, so a skipped sequence drops it rather than firing every pending sound at once. */
@@ -548,7 +549,7 @@ export function waypointTapSequence(ctx: WaypointTapSequenceContext): SequenceSp
 export type ReachSequenceContext = {
   anim: ChartMapAnimState;
   placement: WaypointPlacement;
-  /** The waypoint being reached (0-based). Not the last one (use arrivalSequence). */
+  /** The waypoint being reached (0-based). Not the last one (use summitSequence). */
   index: number;
   /** End of the reached leg = placement.arcs[index]. */
   endArc: number;
@@ -637,64 +638,167 @@ export function reachSequence(ctx: ReachSequenceContext): SequenceSpec {
 }
 
 /* ------------------------------------------------------------------ */
-/* Arrival                                                             */
+/* Summit (S1): the destination is reached                              */
 /* ------------------------------------------------------------------ */
 
-export type ArrivalSequenceContext = {
+/** The flag's slot past the last waypoint: the summit itself (ChartMapOverlay appends the summit to its flag table). */
+export const summitFlagIndex = (placement: WaypointPlacement): number => placement.points.length;
+
+export type SummitSequenceContext = {
   anim: ChartMapAnimState;
   placement: WaypointPlacement;
   table: RouteTable;
-  /** The final waypoint being stamped. */
+  /** The final waypoint (kept for symmetry with the reach; the summit has no stamp of its own). */
   index: number;
   reducedMotion: boolean;
-  /** Arrival panel appears (3000). */
+  /** 0..1 grow of the cream completion panel (host-owned shared value). */
+  panel?: SharedValue<number>;
+  /** The flag has planted: the host keeps it on screen once the Chart is arrived. */
+  onFlag?: () => void;
+  /** The sheet gives way to the cream completion panel (host hides the sheet and mounts the panel). */
+  onPanel?: () => void;
+  /** The Chart is arrived: the host swaps its panel content and reports the reach. Idempotent. */
   onArrived?: () => void;
-  /** Sound/haptic beats (stamp, wind). */
+  /**
+   * Sound/haptic beats. `ink` (the pen) and `hush` (the stillness) are transient. `summit` is the one Heavy haptic, the
+   * thud and the chord at the flag: not transient, so a skipped scene still plays it, once.
+   */
   onBeat?: ChartBeatHandler;
 };
 
-export function arrivalSequence(ctx: ArrivalSequenceContext): SequenceSpec {
-  const { anim, table, index, reducedMotion, onArrived, onBeat } = ctx;
-  const a = T.arrival;
+/**
+ * Summit (S1). The final leg inks to the X, the Chart goes still, the flag plants (the one Heavy haptic, the thud and
+ * the chord), a glow blooms, the Anchor's artwork opens in a circle where the X was, the contours turn to ink outward
+ * from the X, and the cream panel takes the sheet's place. Reduce Motion: no travel, one short cross-fade to the settled
+ * end state, and the haptic and chord still fire (they mark the commitment).
+ */
+export function summitSequence(ctx: SummitSequenceContext): SequenceSpec {
+  const { anim, placement, table, reducedMotion, panel, onFlag, onPanel, onArrived, onBeat } = ctx;
+  const s = T.summit;
   const steps: SequenceStep[] = [];
+  const slot = summitFlagIndex(placement);
 
-  const stampOn = () => {
-    anim.stampIndex.value = index;
+  const plant = () => {
+    anim.flagIndex.value = slot;
+    anim.flagOpacity.value = 1;
+    onFlag?.();
   };
-  const settle = () => {
-    anim.stampIndex.value = -1;
+  const hideFlag = () => {
+    // The flag leaves its waypoint; it plants again at the X.
+    anim.flagOpacity.value = 0;
+    anim.flagDrop.value = 0;
   };
 
   if (reducedMotion) {
-    steps.push(call(0, stampOn));
-    beat(steps, 0, onBeat, 'stamp');
-    steps.push(tween(anim.stamp, 1, 0, 0, 'inOut', 1));
-    steps.push(tween(anim.flagOpacity, 0, 0, FADE, 'linear'));
+    steps.push(call(0, hideFlag));
+    steps.push(call(0, plant));
+    settledBeat(steps, 0, onBeat, 'summit');
+    steps.push(tween(anim.flagDrop, 1, 0, 0, 'out', 1));
     steps.push(tween(anim.revealArc, table.total, 0, 0));
     steps.push(tween(anim.coverArc, table.total, 0, 0));
     steps.push(...cameraTo(anim, overviewTarget(), 0, 0));
     steps.push(tween(anim.fog, 1, 0, FADE, 'linear'));
     steps.push(tween(anim.glyph, 1, 0, FADE, 'linear'));
     steps.push(tween(anim.goldDot, 1, 0, FADE, 'linear'));
+    if (panel) steps.push(tween(panel, 1, 0, FADE, 'linear', 0));
+    if (onPanel) steps.push(call(FADE, onPanel));
     if (onArrived) steps.push(call(FADE, onArrived));
-    steps.push(call(FADE, settle));
-    return { name: 'arrival', steps };
+    return { name: 'summit', steps };
   }
 
-  steps.push(call(a.stampAt, stampOn));
-  beat(steps, a.stampAt, onBeat, 'stamp');
-  steps.push(tween(anim.stamp, 1, a.stampAt, a.stamp, 'inOut', 0));
+  // 0-1300: the final leg draws in ink to the X (the pen, with the air bed under it).
+  steps.push(call(0, hideFlag));
+  beat(steps, s.routeAt, onBeat, 'ink');
+  steps.push(tween(anim.revealArc, table.total, s.routeAt, s.route, 'inOut'));
+  steps.push(...cameraTo(anim, overviewTarget(), s.cameraAt, s.camera));
+  // 1400-2000: stillness. Nothing sounds and nothing moves.
+  beat(steps, s.stillAt, onBeat, 'hush');
+  // 2000: the flag plants. The one Heavy haptic, the thud and the chord.
+  steps.push(call(s.flagAt, plant));
+  settledBeat(steps, s.flagAt, onBeat, 'summit');
+  steps.push(tween(anim.flagDrop, 1, s.flagAt, s.flagDrop, 'out', 0));
+  // 2200-3500: a soft glow blooms at the X. 2600-3500: the artwork opens in its circle where the X was.
+  steps.push(tween(anim.goldDot, 1, s.glowAt, s.glow, 'inOut', 0));
+  steps.push(tween(anim.glyph, 1, s.glyphAt, s.glyph, 'out', 0));
+  // 3300-4900: the contours turn to ink outward from the X, across the whole map.
+  steps.push(tween(anim.fog, 1, s.fogAt, s.fog, 'inOut', 0));
+  steps.push(tween(anim.coverArc, table.total, s.fogAt, s.fog, 'inOut'));
+  // 5500-6300: the sheet gives way and the cream completion panel grows in.
+  if (panel) steps.push(tween(panel, 1, s.panelAt, s.panel, 'settle', 0));
+  if (onPanel) steps.push(call(s.panelAt, onPanel));
+  if (onArrived) steps.push(call(s.panelAt, onArrived));
+  // The scene rests until here (the registered scene length).
+  steps.push(call(s.settleAt, () => undefined));
+  return { name: 'summit', steps };
+}
+
+/* ------------------------------------------------------------------ */
+/* Route revised (R1): the pen draws the new route, then it settles into pencil */
+/* ------------------------------------------------------------------ */
+
+export type RouteRevisedSequenceContext = {
+  anim: ChartMapAnimState;
+  revision: ChartRouteRevision;
+  reducedMotion: boolean;
+  /** The new open waypoint that pops (a real marker), or null when the revision added none. */
+  popIndex: number | null;
+  /** The new waypoint appears: the host stops holding the revised markers back. Idempotent. */
+  onPop?: () => void;
+  /** Only `pop` is ever sent: one Light haptic, no sound at all. Not transient: a preempted scene still plays it, once. */
+  onBeat?: ChartBeatHandler;
+};
+
+/**
+ * Route revised (R1). A revision is a plan, not progress: the old pencil route fades, the new one is drawn once by the
+ * pen in two halves and settles into pencil (never ink). Reduce Motion snaps to the settled pencil route with one short
+ * cross-fade and still gives the one Light haptic.
+ */
+export function routeRevisedSequence(ctx: RouteRevisedSequenceContext): SequenceSpec {
+  const { anim, revision, reducedMotion, popIndex, onPop, onBeat } = ctx;
+  const r = T.routeRevised;
+  const steps: SequenceStep[] = [];
+
+  const settle = () => {
+    revision.out.value = 1;
+    revision.pen.value = 1;
+    revision.pencil.value = 1;
+    anim.stampIndex.value = -1;
+  };
+  const pop = () => {
+    if (popIndex !== null) anim.stampIndex.value = popIndex;
+    onPop?.();
+  };
+
+  if (reducedMotion) {
+    steps.push(call(0, () => {
+      revision.out.value = 1;
+      revision.pen.value = 1;
+      revision.pencil.value = 0;
+    }));
+    steps.push(call(0, pop));
+    settledBeat(steps, 0, onBeat, 'pop');
+    steps.push(tween(revision.pencil, 1, 0, FADE, 'linear', 0));
+    steps.push(call(FADE, settle));
+    return { name: 'routeRevised', steps };
+  }
+
   steps.push(call(0, () => {
-    anim.flagOpacity.value = 0;
+    revision.out.value = 0;
+    revision.pen.value = 0;
+    revision.pencil.value = 0;
   }));
-  steps.push(tween(anim.revealArc, table.total, a.routeAt, a.route, 'inOut'));
-  steps.push(...cameraTo(anim, overviewTarget(), a.cameraAt, a.camera));
-  beat(steps, a.fogAt, onBeat, 'wind');
-  steps.push(tween(anim.fog, 1, a.fogAt, a.fog, 'inOut', 0));
-  steps.push(tween(anim.coverArc, table.total, a.fogAt, a.fog, 'inOut'));
-  steps.push(tween(anim.glyph, 1, a.glyphAt, a.glyph, 'inOut', 0));
-  steps.push(tween(anim.goldDot, 1, a.goldDotAt, a.goldDot, 'inOut', 0));
-  if (onArrived) steps.push(call(a.panelAt, onArrived));
-  steps.push(call(a.panelAt, settle));
-  return { name: 'arrival', steps };
+  // 0-900: the old route fades.
+  steps.push(tween(revision.out, 1, r.fadeAt, r.fade, 'inOut', 0));
+  // 700-1800: the new route is drawn by the pen in two halves.
+  steps.push(tween(revision.pen, 0.5, r.penAt, r.penHalf, 'linear', 0));
+  steps.push(tween(revision.pen, 1, r.penAt + r.penHalf, r.penHalf, 'linear', 0.5));
+  // 1800-2050: the new open waypoint appears (pop), with the one Light haptic.
+  steps.push(call(r.popAt, pop));
+  settledBeat(steps, r.popAt, onBeat, 'pop');
+  if (popIndex !== null) steps.push(tween(anim.stamp, 1, r.popAt, r.pop, 'inOut', 0));
+  // 2000-2500: the pen route settles into pencil.
+  steps.push(tween(revision.pencil, 1, r.pencilAt, r.pencil, 'inOut', 0));
+  // The scene rests until here.
+  steps.push(call(r.settleAt, settle));
+  return { name: 'routeRevised', steps };
 }

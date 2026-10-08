@@ -5,8 +5,9 @@ import { Canvas } from '@shopify/react-native-skia';
 import Animated, { Easing, ReduceMotion, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
   MAP_H, MAP_W,
-  type ChartMapAnimState, type ChartMapMarker, type RouteTable, type WaypointPlacement,
+  type ChartMapAnimState, type ChartMapMarker, type ChartRouteRevision, type RouteTable, type WaypointPlacement,
 } from './chartMapContracts';
+import type { ChartAnchorArt } from '../ChartLandscape';
 import { CHART_MAP_TOKENS } from './chartMapTokens';
 import { ChartMapLand, hasDecodedChartLandscape } from './ChartMapLand';
 import { ChartMapMarkers } from './ChartMapMarkers';
@@ -66,6 +67,12 @@ export type ChartMapProps = {
   introBaseVisible?: boolean;
   onMapArtReady?: (ready: boolean) => void;
   onIntroSurfaceSized?: () => void;
+  /** Route revised (R1): the pen's pass and the settle into pencil. Absent: the route draws as ever. */
+  revision?: ChartRouteRevision;
+  /** The Anchor's real artwork, shown in a circle at the summit once the destination is reached (S1). Never redrawn. */
+  summitArt?: ChartAnchorArt | null;
+  /** The flag planted at the summit (S1) stays on screen once arrived. */
+  plantedFlag?: boolean;
   onMarkerPress: (index: number) => void;
   onMapPress: () => void;
   testID?: string;
@@ -77,7 +84,7 @@ export type ChartMapProps = {
  * that is not a marker calls onMapPress. Height = width * MAP_H / MAP_W.
  */
 export const ChartMap = memo(function ChartMap({
-  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, weather = 'static', continuous = false, onShown, introProgress, introBaseVisible, onMapArtReady, onIntroSurfaceSized, onMarkerPress, onMapPress, testID, frame,
+  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, weather = 'static', continuous = false, onShown, introProgress, introBaseVisible, onMapArtReady, onIntroSurfaceSized, revision, summitArt, plantedFlag, onMarkerPress, onMapPress, testID, frame,
 }: ChartMapProps) {
   const height = viewportHeight ?? (width * MAP_H) / MAP_W;
   // The moving land shader is the expensive layer in the opening. Render this
@@ -273,6 +280,9 @@ export const ChartMap = memo(function ChartMap({
               clouds={clouds}
               livingWeather={livingActive}
               introProgress={introProgress}
+              revision={revision}
+              summitArtwork={Boolean(summitArt)}
+              plantedFlag={plantedFlag}
             /> : null}
           </Canvas>
         </View>
@@ -294,6 +304,7 @@ export const ChartMap = memo(function ChartMap({
           interactive={interactive}
           arrived={arrived}
           clouds={livingActive}
+          summitArt={summitArt}
           onMarkerPress={onMarkerPress}
         /> : null}
       </Animated.View>

@@ -206,6 +206,17 @@ export type ChartMapAnimState = {
   closed: SharedValue<number>;
 };
 
+/**
+ * Route revised (R1): how the revised route is drawn. All three rest at 1 (the settled pencil route), so a Chart that
+ * never revised its route draws exactly as before. The scene resets them to 0, fades the old pencil out (`out`), draws
+ * the new route with the pen (`pen`), then lets it settle into pencil (`pencil`): a plan is never ink.
+ */
+export type ChartRouteRevision = {
+  out: SharedValue<number>;
+  pen: SharedValue<number>;
+  pencil: SharedValue<number>;
+};
+
 export type ChartMarkerRenderState = 'done' | 'current' | 'upcoming';
 
 export type ChartMapMarker = {
@@ -250,7 +261,7 @@ export type SequenceStep =
     };
 
 export type SequenceSpec = {
-  name: 'open' | 'later' | 'moveCheck' | 'moveHold' | 'waypointTap' | 'reach' | 'arrival' | 'introFull' | 'introShort' | 'introReduced' | 'introSkip';
+  name: 'open' | 'later' | 'moveCheck' | 'moveHold' | 'waypointTap' | 'reach' | 'summit' | 'routeRevised' | 'introFull' | 'introShort' | 'introReduced' | 'introSkip';
   steps: SequenceStep[];
   /** Schedule visual tweens on the UI clock from run start; JS call steps keep their normal timers. */
   tweenClock?: 'ui';

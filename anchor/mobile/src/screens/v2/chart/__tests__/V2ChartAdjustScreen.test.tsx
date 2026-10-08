@@ -7,6 +7,7 @@ import { apiClient } from '@/services/ApiClient';
 import { resetAnchorChartCache } from '@/hooks/v2/chart/useAnchorChart';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useChartRouteRevisionStore } from '@/stores/v2/chartRouteRevisionStore';
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -385,5 +386,84 @@ describe('V2ChartAdjustScreen motion', () => {
     fireEvent.press(screen.getByTestId('chart-adjust-back'));
     expect(await screen.findByTestId('chart-adjust-active')).toBeTruthy();
     expect(withDelay.mock.calls.length).toBe(afterMount);
+  });
+});
+
+describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
+  const put = apiClient.put as jest.Mock;
+  const pending = () => useChartRouteRevisionStore.getState().pending;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReduce = true;
+    canGoBackValue = true;
+    mockParams = { anchorId: 'anchor-1' };
+    useAuthStore.setState({ user: { id: 'test-user' } as never });
+    resetAnchorChartCache();
+    useChartRouteRevisionStore.setState({ pending: null, lastNonce: 0 });
+    useAnchorStore.setState({ anchors: [anchor as never] });
+    serveChart();
+  });
+
+  async function openEditorAndApply(screen: ReturnType<typeof render>) {
+    await screen.findByTestId('v2-chart-adjust');
+    fireEvent.press(screen.getByTestId('chart-adjust-manual'));
+    await screen.findByTestId('chart-adjust-editor');
+    fireEvent.press(screen.getByTestId('chart-adjust-apply'));
+  }
+
+  const changedCourse = () => ({
+    ...activeCourse,
+    version: 2,
+    waypoints: activeCourse.waypoints.map((item) => (item.id === 'wp-3' ? { ...item, title: 'Reach $250k ARR' } : item)),
+  });
+
+  it('fires once for a saved revision that changed the route', async () => {
+    put.mockResolvedValueOnce({ data: { success: true, data: changedCourse() } });
+    const screen = render(<V2ChartAdjustScreen />);
+    await openEditorAndApply(screen);
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    expect(pending()).toMatchObject({ nonce: 1, anchorId: 'anchor-1', courseId: 'course-1' });
+  });
+
+  it('does not fire for a no-op apply (the server returns the same route)', async () => {
+    put.mockResolvedValueOnce({ data: { success: true, data: { ...activeCourse, version: 2 } } });
+    const screen = render(<V2ChartAdjustScreen />);
+    await openEditorAndApply(screen);
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    expect(pending()).toBeNull();
+  });
+
+  it('does not fire when the apply fails', async () => {
+    put.mockRejectedValueOnce(new Error('network'));
+    const screen = render(<V2ChartAdjustScreen />);
+    await openEditorAndApply(screen);
+    await waitFor(() => expect(put).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('chart-adjust-apply').props.accessibilityState?.busy ?? false).toBe(false));
+    expect(mockGoBack).not.toHaveBeenCalled();
+    expect(pending()).toBeNull();
+  });
+
+  it('does not fire when the user backs out without applying', async () => {
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('v2-chart-adjust');
+    fireEvent.press(screen.getByTestId('chart-adjust-manual'));
+    await screen.findByTestId('chart-adjust-editor');
+    fireEvent.press(screen.getByTestId('chart-adjust-back'));
+    fireEvent.press(await screen.findByTestId('chart-adjust-back'));
+    expect(put).not.toHaveBeenCalled();
+    expect(pending()).toBeNull();
+  });
+
+  it('does not fire while the rewrite is only awaiting confirmation, and fires once when it is confirmed', async () => {
+    const { ApiClientError } = jest.requireMock('@/services/ApiClient');
+    put.mockRejectedValueOnce(new ApiClientError('confirm', 'ROUTE_REWRITE_CONFIRMATION_REQUIRED', 409));
+    put.mockResolvedValueOnce({ data: { success: true, data: changedCourse() } });
+    const screen = render(<V2ChartAdjustScreen />);
+    await openEditorAndApply(screen);
+    fireEvent.press(await screen.findByTestId('chart-rewrite-yes'));
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    expect(put).toHaveBeenCalledTimes(2);
+    expect(pending()).toMatchObject({ nonce: 1, courseId: 'course-1' });
   });
 });

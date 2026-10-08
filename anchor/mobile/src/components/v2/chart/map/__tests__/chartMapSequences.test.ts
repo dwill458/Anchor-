@@ -3,7 +3,6 @@ import { PROGRESS_CAP, type ChartMapAnimState, type SequenceStep } from '../char
 import { buildRouteTable, cameraTargetFor, OVERVIEW_CAMERA, waypointPlacement } from '../chartMapGeometry';
 import { overviewTarget } from '../useChartMapCamera';
 import {
-  arrivalSequence,
   laterSequence,
   moveCheckSequence,
   moveHoldArc,
@@ -11,7 +10,10 @@ import {
   openSequence,
   reachCoverArc,
   reachSequence,
+  routeRevisedSequence,
   sequenceDuration,
+  summitFlagIndex,
+  summitSequence,
   waypointTapSequence,
   type ChartBeat,
 } from '../chartMapSequences';
@@ -418,55 +420,149 @@ describe('reachSequence', () => {
   });
 });
 
-describe('arrivalSequence', () => {
+describe('summitSequence (S1)', () => {
   const build = (reducedMotion = false) => {
     const anim = makeAnim();
+    const panel = sv();
+    const onFlag = jest.fn();
+    const onPanel = jest.fn();
     const onArrived = jest.fn();
-    const spec = arrivalSequence({ anim, placement, table, index: 4, reducedMotion, onArrived });
-    return { anim, spec, onArrived };
+    const beats: ChartBeat[] = [];
+    const spec = summitSequence({ anim, placement, table, index: 4, reducedMotion, panel, onFlag, onPanel, onArrived, onBeat: (b) => beats.push(b) });
+    return { anim, panel, spec, onFlag, onPanel, onArrived, beats };
+  };
+  const at = (steps: SequenceStep[], ms: number) => calls(steps).filter((s) => s.at === ms) as any[];
+
+  it('follows the S1 timeline: pen 0-1300, still 1400-2000, flag 2000, glow 2200-3500, artwork 2600-3500, contours 3300-4900, panel 5500-6300, rest to 7600', () => {
+    const { anim, panel, spec } = build();
+    expect(spec.name).toBe('summit');
+    expect(forTarget(spec.steps, anim.revealArc)[0]).toMatchObject({ at: 0, duration: 1300, to: table.total });
+    expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 100, duration: 900, to: 1 });
+    expect(forTarget(spec.steps, anim.flagDrop)[0]).toMatchObject({ at: 2000, duration: 280, from: 0, to: 1, easing: 'out' });
+    expect(forTarget(spec.steps, anim.goldDot)[0]).toMatchObject({ at: 2200, duration: 1300, to: 1 });
+    expect(forTarget(spec.steps, anim.glyph)[0]).toMatchObject({ at: 2600, duration: 900, to: 1 });
+    expect(forTarget(spec.steps, anim.fog)[0]).toMatchObject({ at: 3300, duration: 1600, to: 1 });
+    expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 3300, duration: 1600, to: table.total });
+    expect(forTarget(spec.steps, panel)[0]).toMatchObject({ at: 5500, duration: 800, to: 1 });
+    expect(at(spec.steps, 5500).length).toBeGreaterThanOrEqual(2);
+    expect(sequenceDuration(spec)).toBe(CHART_MAP_TIMING.summit.settleAt);
+    expect(CHART_MAP_TIMING.summit.settleAt).toBe(7600);
+    // Nothing draws or moves in the stillness (1400-2000).
+    const moving = tweens(spec.steps).filter((s) => s.at < 2000 && s.at + s.duration > 1400);
+    expect(moving).toHaveLength(0);
+  });
+
+  it('exactly one Heavy-bearing beat, at the flag, and it is not transient (a skip still plays it once); ink and hush are transient', () => {
+    const { spec, beats } = build();
+    const summary: Array<[number, ChartBeat, boolean]> = [];
+    calls(spec.steps).forEach((s) => {
+      beats.length = 0;
+      (s as any).run();
+      if (beats.length) summary.push([s.at, beats[0], Boolean((s as any).transient)]);
+    });
+    expect(summary).toEqual([[0, 'ink', true], [1400, 'hush', true], [2000, 'summit', false]]);
+    expect(summary.filter(([, beat]) => beat === 'summit')).toHaveLength(1);
+    expect(summary.some(([, beat]) => beat === 'stamp' || beat === 'note' || beat === 'wind')).toBe(false);
+  });
+
+  it('a skip (non-transient calls only) plays the summit beat once and plants the flag at the summit slot', () => {
+    const { anim, spec, beats, onFlag, onPanel, onArrived } = build();
+    calls(spec.steps).filter((s) => !(s as any).transient).forEach((s) => (s as any).run());
+    expect(beats).toEqual(['summit']);
+    expect(anim.flagIndex.value).toBe(placement.points.length);
+    expect(anim.flagIndex.value).toBe(summitFlagIndex(placement));
+    expect(anim.flagOpacity.value).toBe(1);
+    expect(onFlag).toHaveBeenCalledTimes(1);
+    expect(onPanel).toHaveBeenCalledTimes(1);
+    expect(onArrived).toHaveBeenCalledTimes(1);
+  });
+
+  it('the flag leaves its waypoint at 0 and drops from nothing at the summit', () => {
+    const { anim, spec } = build();
+    anim.flagOpacity.value = 1;
+    anim.flagDrop.value = 1;
+    (at(spec.steps, 0)[0] as any).run();
+    expect(anim.flagOpacity.value).toBe(0);
+    expect(anim.flagDrop.value).toBe(0);
+  });
+
+  it('Reduce Motion: no travel, one short cross-fade, and the haptic beat still fires once (no ink, no hush)', () => {
+    const { anim, panel, spec, beats, onArrived, onPanel } = build(true);
+    expect(sequenceDuration(spec)).toBeLessThanOrEqual(CHART_MAP_REDUCED_FADE);
+    expect(Math.max(...tweens(spec.steps).map((s) => s.duration))).toBeLessThanOrEqual(CHART_MAP_REDUCED_FADE);
+    expect(cameraSteps(anim, spec.steps).every((s) => s.duration === 0)).toBe(true);
+    expect(forTarget(spec.steps, anim.revealArc)[0]).toMatchObject({ duration: 0, to: table.total });
+    expect(forTarget(spec.steps, panel)[0]).toMatchObject({ duration: CHART_MAP_REDUCED_FADE, to: 1 });
+    expect(calls(spec.steps).some((s) => (s as any).transient)).toBe(false);
+    runAll(spec.steps);
+    expect(beats).toEqual(['summit']);
+    expect(onPanel).toHaveBeenCalledTimes(1);
+    expect(onArrived).toHaveBeenCalledTimes(1);
+    expect(anim.flagIndex.value).toBe(placement.points.length);
+  });
+});
+
+describe('routeRevisedSequence (R1)', () => {
+  const makeRevision = () => ({ out: sv(1), pen: sv(1), pencil: sv(1) });
+  const build = (reducedMotion = false, popIndex: number | null = 2) => {
+    const anim = makeAnim();
+    const revision = makeRevision();
+    const onPop = jest.fn();
+    const beats: ChartBeat[] = [];
+    const spec = routeRevisedSequence({ anim, revision: revision as any, reducedMotion, popIndex, onPop, onBeat: (b) => beats.push(b) });
+    return { anim, revision, spec, onPop, beats };
   };
 
-  it('uses the section 10 offsets', () => {
-    const { anim, spec } = build();
-    expect(forTarget(spec.steps, anim.stamp)[0]).toMatchObject({ at: 0, duration: 300 });
-    expect(forTarget(spec.steps, anim.revealArc)[0]).toMatchObject({ at: 150, duration: 1200, to: table.total });
-    expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 300, duration: 900, to: 1 });
-    expect(forTarget(spec.steps, anim.fog)[0]).toMatchObject({ at: 800, duration: 1600, to: 1 });
-    expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 800, duration: 1600, to: table.total });
-    expect(forTarget(spec.steps, anim.glyph)[0]).toMatchObject({ at: 1400, duration: 500, to: 1 });
-    expect(forTarget(spec.steps, anim.goldDot)[0]).toMatchObject({ at: 2300, duration: 500, to: 1 });
-    expect(calls(spec.steps).some((s) => s.at === 3000)).toBe(true);
-    // The arrival panel fade (~500ms) lands the whole sequence at ~3.5s.
-    expect(sequenceDuration(spec)).toBe(3000);
+  it('follows the R1 timeline: old route fades 0-900, pen in two halves 700-1800, pop 1800-2050, pencil 2000-2500, rests to 3200', () => {
+    const { anim, revision, spec } = build();
+    expect(spec.name).toBe('routeRevised');
+    expect(forTarget(spec.steps, revision.out)[0]).toMatchObject({ at: 0, duration: 900, to: 1 });
+    const pen = forTarget(spec.steps, revision.pen);
+    expect(pen).toHaveLength(2);
+    expect(pen[0]).toMatchObject({ at: 700, duration: 550, from: 0, to: 0.5 });
+    expect(pen[1]).toMatchObject({ at: 1250, duration: 550, from: 0.5, to: 1 });
+    expect(pen[0].at + pen[0].duration).toBeLessThanOrEqual(pen[1].at);
+    expect(forTarget(spec.steps, anim.stamp)[0]).toMatchObject({ at: 1800, duration: 250 });
+    expect(forTarget(spec.steps, revision.pencil)[0]).toMatchObject({ at: 2000, duration: 500, to: 1 });
+    expect(sequenceDuration(spec)).toBe(CHART_MAP_TIMING.routeRevised.settleAt);
+    expect(CHART_MAP_TIMING.routeRevised.registeredMs).toBe(2500);
   });
 
-  it('beats: stamp at 0, wind with the fog lift; reduced motion keeps only the stamp', () => {
-    const anim = makeAnim();
-    expect(beatsOf((onBeat) => arrivalSequence({ anim, placement, table, index: 4, reducedMotion: false, onBeat })))
-      .toEqual([[0, 'stamp'], [800, 'wind']]);
-    expect(beatsOf((onBeat) => arrivalSequence({ anim, placement, table, index: 4, reducedMotion: true, onBeat })).map(([, b]) => b))
-      .toEqual(['stamp']);
+  it('has exactly one beat, pop, at 1800, not transient; no ink, flag, note or any sound beat', () => {
+    const { spec, beats } = build();
+    const fired: Array<[number, ChartBeat, boolean]> = [];
+    calls(spec.steps).forEach((s) => {
+      beats.length = 0;
+      (s as any).run();
+      if (beats.length) fired.push([s.at, beats[0], Boolean((s as any).transient)]);
+    });
+    expect(fired).toEqual([[1800, 'pop', false]]);
   });
 
-  it('hides the flag at 0 and clears the stamp; call steps are idempotent', () => {
-    const { anim, spec, onArrived } = build();
-    anim.flagOpacity.value = 1;
+  it('resets to nothing drawn at 0 and rests at the settled pencil route', () => {
+    const { anim, revision, spec } = build();
+    (calls(spec.steps).find((s) => s.at === 0) as any).run();
+    expect([revision.out.value, revision.pen.value, revision.pencil.value]).toEqual([0, 0, 0]);
     runAll(spec.steps);
-    runAll(spec.steps);
-    expect(anim.flagOpacity.value).toBe(0);
+    expect([revision.out.value, revision.pen.value, revision.pencil.value]).toEqual([1, 1, 1]);
     expect(anim.stampIndex.value).toBe(-1);
-    expect(onArrived).toHaveBeenCalledTimes(2);
   });
 
-  it('reduced motion: camera is set to overview instantly, crossfades only', () => {
-    const { anim, spec, onArrived } = build(true);
-    const cam = cameraSteps(anim, spec.steps);
-    expect(cam).toHaveLength(3);
-    expect(cam.every((s) => s.duration === 0)).toBe(true);
-    expect(forTarget(spec.steps, anim.camera.s)[0].to).toBe(1);
-    expect(Math.max(...tweens(spec.steps).map((s) => s.duration))).toBe(CHART_MAP_REDUCED_FADE);
+  it('pops the new waypoint only when there is one', () => {
+    const withPop = build(false, 3);
+    expect(forTarget(withPop.spec.steps, withPop.anim.stamp)).toHaveLength(1);
+    const without = build(false, null);
+    expect(forTarget(without.spec.steps, without.anim.stamp)).toHaveLength(0);
+  });
+
+  it('Reduce Motion: snaps to the settled pencil route with one short cross-fade and still gives the one pop beat', () => {
+    const { revision, spec, beats, onPop } = build(true);
     expect(sequenceDuration(spec)).toBeLessThanOrEqual(CHART_MAP_REDUCED_FADE);
+    expect(forTarget(spec.steps, revision.pencil)[0]).toMatchObject({ at: 0, duration: CHART_MAP_REDUCED_FADE, from: 0, to: 1 });
+    expect(forTarget(spec.steps, revision.pen)).toHaveLength(0);
     runAll(spec.steps);
-    expect(onArrived).toHaveBeenCalledTimes(1);
+    expect(beats).toEqual(['pop']);
+    expect(onPop).toHaveBeenCalledTimes(1);
+    expect([revision.out.value, revision.pen.value, revision.pencil.value]).toEqual([1, 1, 1]);
   });
 });

@@ -264,7 +264,7 @@ export const CHART_MAP_TIMING = {
     cover: 1200,
     coverLead: 0.3,
     revealAt: 1100,
-    /** Also the arrival sequence's pen length for its sound (ChartActiveView), so it stays 600. */
+    /** The next-leg reveal's length (the pen length used for its sound in ChartActiveView), so it stays 600. */
     reveal: 600,
     flagAt: 1700,
     flagDrop: 250,
@@ -276,20 +276,53 @@ export const CHART_MAP_TIMING = {
     /** The scene rests, settled, until here (the registered scene length). */
     settleAt: 3200,
   },
-  arrival: {
-    stampAt: 0,
-    stamp: 300,
-    routeAt: 150,
-    route: 1200,
-    cameraAt: 300,
+  /**
+   * Summit: the destination is reached (S1, about 7.6s, L4, skippable). The final leg inks to the X (0-1300),
+   * the Chart goes still (1400-2000), the gold flag plants with the one Heavy haptic, a thud and the chord (2000),
+   * a glow blooms (2200-3500), the Anchor's artwork opens in a circle where the X was (2600-3500), the contours
+   * turn to ink outward from the X (3300-4900), it rests, then the sheet gives way to the cream completion panel
+   * (5500-6300) and the scene rests until `settleAt`.
+   */
+  summit: {
+    routeAt: 0,
+    route: 1300,
+    cameraAt: 100,
     camera: 900,
-    fogAt: 800,
+    /** The Chart is silent from here until the flag (the air bed hushes). */
+    stillAt: 1400,
+    stillHold: 1100,
+    /** The flag plants: the one Heavy haptic, the thud and the chord land here. */
+    flagAt: 2000,
+    flagDrop: 280,
+    glowAt: 2200,
+    glow: 1300,
+    glyphAt: 2600,
+    glyph: 900,
+    fogAt: 3300,
     fog: 1600,
-    glyphAt: 1400,
-    glyph: 500,
-    goldDotAt: 2300,
-    goldDot: 500,
-    panelAt: 3000,
+    panelAt: 5500,
+    panel: 800,
+    /** Reduce Motion registers a scene this short, so it is never skippable. */
+    reducedMs: 200,
+    /** The scene rests, settled, until here (the registered scene length). */
+    settleAt: 7600,
+  },
+  /**
+   * Route revised (R1, about 3.2s, L1, registered 2.5s so it is never skippable). The old route fades (0-900), the new
+   * one is drawn by the pen in two halves (700-1800) and then settles into pencil (2000-2500): a plan is not progress.
+   * The new open waypoint appears with the one Light haptic (1800-2050).
+   */
+  routeRevised: {
+    fadeAt: 0,
+    fade: 900,
+    penAt: 700,
+    penHalf: 550,
+    popAt: 1800,
+    pop: 250,
+    pencilAt: 2000,
+    pencil: 500,
+    registeredMs: 2500,
+    settleAt: 3200,
   },
 } as const;
 

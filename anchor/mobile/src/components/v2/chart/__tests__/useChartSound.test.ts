@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { CHART_AIR_DUCKED, CHART_AIR_VOLUME, CHART_WAYPOINT_NOTE, useChartSound, waypointNoteRate } from '../useChartSound';
+import { CHART_AIR_DUCKED, CHART_AIR_VOLUME, CHART_SUMMIT_CHORD, CHART_WAYPOINT_NOTE, useChartSound, waypointNoteRate } from '../useChartSound';
 
 type Player = { key: string; opts: { loop?: boolean; volume?: number }; play: jest.Mock; stop: jest.Mock; setVolume: jest.Mock; setRate: jest.Mock; pause: jest.Mock };
 
@@ -186,6 +186,37 @@ describe('useChartSound', () => {
     act(() => jest.advanceTimersByTime(1200));
     expect(lastVolume(bed)).toBeCloseTo(CHART_AIR_DUCKED);
     act(() => jest.advanceTimersByTime(800));
+    expect(lastVolume(bed)).toBeCloseTo(CHART_AIR_VOLUME);
+  });
+
+  it('the summit plays the thud and the chord stand-in once each, also under Reduce Motion, with no wind', () => {
+    for (const reduced of [false, true]) {
+      mockPooledCalls.length = 0;
+      const { result, unmount } = renderHook(() => useChartSound(reduced));
+      act(() => result.current.summit());
+      expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-stamp', 'chart-flag']);
+      expect(mockPooledCalls[1].options.rate).toBeCloseTo(Math.pow(2, CHART_SUMMIT_CHORD.standInSemitones / 12));
+      unmount();
+    }
+    expect(CHART_SUMMIT_CHORD.voices).toEqual(['A3', 'E4', 'A4', 'C#5', 'E5']);
+  });
+
+  it('hush silences the bed and brings it back; a later duck replaces the pending return instead of being undone by it', () => {
+    const { result } = renderHook(() => useChartSound(false));
+    act(() => result.current.startAir());
+    act(() => jest.advanceTimersByTime(900));
+    const bed = mockPlayers[0];
+    act(() => result.current.hush(600));
+    act(() => jest.advanceTimersByTime(150));
+    expect(lastVolume(bed)).toBeCloseTo(0);
+    // The summit lands inside the hush: its own duck takes over, so the hush's return never fires on top of it.
+    act(() => jest.advanceTimersByTime(300));
+    act(() => result.current.summit());
+    act(() => jest.advanceTimersByTime(300));
+    expect(lastVolume(bed)).toBeCloseTo(CHART_AIR_DUCKED);
+    act(() => jest.advanceTimersByTime(1500));
+    expect(lastVolume(bed)).toBeCloseTo(CHART_AIR_DUCKED);
+    act(() => jest.advanceTimersByTime(1500));
     expect(lastVolume(bed)).toBeCloseTo(CHART_AIR_VOLUME);
   });
 

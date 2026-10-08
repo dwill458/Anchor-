@@ -154,3 +154,74 @@ describe('ChartMapOverlay intro work', () => {
     screen.unmount();
   });
 });
+
+describe('ChartMapOverlay route revision (R1) and summit flag (S1)', () => {
+  const pencil = (screen: ReturnType<typeof render>) =>
+    screen.UNSAFE_getAllByType('Path' as never).find((node) => node.props.strokeWidth === 4 && node.props.end !== undefined && node.props.children);
+  const pen = (screen: ReturnType<typeof render>) =>
+    screen.UNSAFE_getAllByType('Path' as never).find((node) => node.props.strokeWidth === 4.5 && node.props.start !== undefined);
+  const value = (input: unknown) => (typeof input === 'number' ? input : (input as { value: number }).value);
+  const revisionAt = (out: number, penValue: number, pencilValue: number) => ({ out: { value: out }, pen: { value: penValue }, pencil: { value: pencilValue } }) as any;
+
+  it('draws exactly as before without a revision: the pencil route is a plain .45 and there is no pen pass', () => {
+    const screen = render(<ChartMapOverlay {...overlayProps()} />);
+    expect(pencil(screen)!.props.opacity).toBe(0.45);
+    expect(pen(screen)).toBeUndefined();
+    screen.unmount();
+  });
+
+  it('rests as the settled pencil route: pencil at .45, the pen stroke gone', () => {
+    const screen = render(<ChartMapOverlay {...overlayProps()} revision={revisionAt(1, 1, 1)} />);
+    expect(value(pencil(screen)!.props.opacity)).toBeCloseTo(0.45);
+    expect(value(pen(screen)!.props.opacity)).toBeCloseTo(0);
+    screen.unmount();
+  });
+
+  it('at the start of the scene the old pencil route is still there and the pen has drawn nothing', () => {
+    const screen = render(<ChartMapOverlay {...overlayProps()} revision={revisionAt(0, 0, 0)} />);
+    expect(value(pencil(screen)!.props.opacity)).toBeCloseTo(0.45);
+    expect(value(pen(screen)!.props.end)).toBeCloseTo(value(pen(screen)!.props.start));
+    screen.unmount();
+  });
+
+  it('mid-scene the old route has faded and the pen is half way along the route ahead, in ink, never as progress', () => {
+    const screen = render(<ChartMapOverlay {...overlayProps()} revision={revisionAt(1, 0.5, 0)} />);
+    expect(value(pencil(screen)!.props.opacity)).toBeCloseTo(0);
+    expect(value(pen(screen)!.props.opacity)).toBeCloseTo(0.9);
+    expect(value(pen(screen)!.props.end)).toBeCloseTo(0.5);
+    screen.unmount();
+  });
+
+  it('plants the flag at the summit slot, higher than a waypoint flag, and pops it 1 -> 1.12 as it drops', () => {
+    const props = overlayProps();
+    const placement = props.placement;
+    props.anim.flagIndex.value = placement.points.length;
+    props.anim.flagDrop.value = 0.5;
+    const screen = render(<ChartMapOverlay {...props} plantedFlag arrived />);
+    const flag = screen.UNSAFE_getAllByType('Group' as never).find((node) => {
+      const transform = node.props.transform?.value;
+      return Array.isArray(transform) && transform.length === 3 && Math.abs(transform[0]?.translateX - placement.summit.x) < 0.01;
+    });
+    expect(flag).toBeDefined();
+    const [x, y, scale] = flag!.props.transform.value;
+    expect(x.translateX).toBeCloseTo(placement.summit.x, 1);
+    expect(y.translateY).toBeCloseTo(placement.summit.y - 38 - 8, 1);
+    expect(scale.scale).toBeCloseTo(1.12);
+    screen.unmount();
+  });
+
+  it('a flag on a waypoint is unchanged: 30 above the marker, no pop', () => {
+    const props = overlayProps();
+    props.anim.flagIndex.value = 2;
+    props.anim.flagDrop.value = 0.5;
+    const screen = render(<ChartMapOverlay {...props} />);
+    const flag = screen.UNSAFE_getAllByType('Group' as never).find((node) => {
+      const transform = node.props.transform?.value;
+      return Array.isArray(transform) && transform.length === 3 && Math.abs(transform[0]?.translateX - props.placement.points[2].x) < 0.01;
+    });
+    const [, y, scale] = flag!.props.transform.value;
+    expect(y.translateY).toBeCloseTo(props.placement.points[2].y - 30 - 8, 1);
+    expect(scale.scale).toBe(1);
+    screen.unmount();
+  });
+});

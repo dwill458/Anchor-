@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 import type { ChartMapAnimState, SequenceSpec } from '../chartMapContracts';
 import { buildRouteTable, waypointPlacement } from '../chartMapGeometry';
-import { arrivalSequence, reachSequence } from '../chartMapSequences';
+import { reachSequence, summitSequence } from '../chartMapSequences';
 import { useChartSequencer } from '../useChartSequencer';
 
 type Anim = { to: number; config: any; cb: (finished: boolean) => void; delay?: number };
@@ -212,7 +212,7 @@ describe('useChartSequencer', () => {
       const promise = hook.result.current.run({ ...spec, onEnd }).then(() => {
         resolved = true;
       });
-      for (let t = 0; t < 4000 && !resolved; t += 25) {
+      for (let t = 0; t < 9000 && !resolved; t += 25) {
         await act(async () => {
           jest.advanceTimersByTime(25);
           all.forEach((x) => x.finish());
@@ -246,11 +246,11 @@ describe('useChartSequencer', () => {
       expect(hook.result.current.isBusy()).toBe(false);
     });
 
-    it('arrivalSequence resolves and fires onEnd once', async () => {
+    it('summitSequence resolves and fires onEnd once', async () => {
       const hook = renderHook(() => useChartSequencer(false));
       const { anim, all } = makeAnim();
       const onArrived = jest.fn();
-      const spec = arrivalSequence({ anim, placement, table, index: 4, reducedMotion: false, onArrived });
+      const spec = summitSequence({ anim, placement, table, index: 4, reducedMotion: false, onArrived });
       const { onEnd, resolved } = await drive(hook, spec, all);
       expect(resolved).toBe(true);
       expect(onEnd).toHaveBeenCalledTimes(1);

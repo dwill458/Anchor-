@@ -462,14 +462,17 @@ describe('ChartActiveView — reach ceremony', () => {
     expect(getByText('Reach 1,000 active users')).toBeTruthy();
   });
 
-  it('reaching the last waypoint plays the arrival and ends on the arrival panel with View Vision and Release', async () => {
+  it('reaching the last waypoint plays the summit and ends on the arrival panel with View Vision and Release', async () => {
     const onWaypointReached = jest.fn();
-    const { getByTestId, findByText, getByText } = render(<Harness initial={lastWaypointCourse()} next={finishedCourse()} onWaypointReached={onWaypointReached} />);
+    const { getByTestId, findByText, findByTestId, getByText } = render(<Harness initial={lastWaypointCourse()} next={finishedCourse()} onWaypointReached={onWaypointReached} />);
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
     await act(async () => { fireEvent.press(getByTestId('chart-reach-yes')); });
     expect(await findByText("You've arrived.", {}, { timeout: 3000 })).toBeTruthy();
+    // The sheet gives way to the cream completion panel; its own arrival content is still there behind it (hidden -> peek -> half -> full).
+    expect(await findByTestId('chart-summit-panel')).toBeTruthy();
+    fireEvent.press(getByTestId('chart-sheet-grabber'));
     fireEvent.press(getByTestId('chart-sheet-grabber'));
     fireEvent.press(getByTestId('chart-sheet-grabber'));
     expect(getByText('View Vision')).toBeTruthy();
@@ -526,8 +529,8 @@ describe('ChartActiveView — cycle 2 behaviours', () => {
     await settle();
   });
 
-  it('a marker tap during the arrival is a pure skip: the camera ends at overview and the arrival panel shows', async () => {
-    const spy = jest.spyOn(sequences, 'arrivalSequence');
+  it('a marker tap during the summit is a pure skip: the camera ends at overview and the arrival panel shows', async () => {
+    const spy = jest.spyOn(sequences, 'summitSequence');
     const { getByTestId, getByLabelText, findByText } = render(<Harness reducedMotion={false} initial={lastWaypointCourse()} next={finishedCourse()} />);
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));

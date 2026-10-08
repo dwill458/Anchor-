@@ -10,6 +10,8 @@ import {
   type WaypointPlacement,
 } from './chartMapContracts';
 import { clampCamera } from './chartMapGeometry';
+import { CircularAnchorRenderer } from '@/components/v2/anchor';
+import type { ChartAnchorArt } from '../ChartLandscape';
 import { getCategoryTextColor } from '@/theme/v2/categories';
 import { CHART_MAP_TOKENS } from './chartMapTokens';
 
@@ -155,10 +157,14 @@ const Marker = memo(function Marker({ marker, cx, cy, ringR, k, anim, categoryCo
  * Fog of war: the waypoint just beyond the current one only hints at itself. No numeral, no title, not
  * tappable, hidden from screen readers. It becomes a real marker when it becomes the current waypoint.
  */
-const GhostMarker = memo(function GhostMarker({ cx, cy, ringR, k, opacity = 0.4, testID = 'chart-map-ghost' }: { cx: number; cy: number; ringR: number; k: number; opacity?: number; testID?: string }) {
+const GhostMarker = memo(function GhostMarker({ cx, cy, ringR, k, opacity = 0.4, testID = 'chart-map-ghost', anim, index }: { cx: number; cy: number; ringR: number; k: number; opacity?: number; testID?: string; anim?: ChartMapAnimState; index?: number }) {
   const scale = ringR / BASE_R;
   const d = HIT_R * scale * 2 * k;
   const units = HIT_R * scale;
+  // The new waypoint of a revised route (R1) pops here too, whichever way it shows.
+  const popStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: anim && index !== undefined && anim.stampIndex.value === index ? 1 + 0.28 * Math.sin(Math.PI * anim.stamp.value) : 1 }],
+  }));
   return (
     <View
       testID={testID}
@@ -167,9 +173,50 @@ const GhostMarker = memo(function GhostMarker({ cx, cy, ringR, k, opacity = 0.4,
       importantForAccessibility="no-hide-descendants"
       style={[styles.marker, { left: cx * k - d / 2, top: cy * k - d / 2, width: d, height: d, opacity }]}
     >
-      <Svg width={d} height={d} viewBox={`${-units} ${-units} ${units * 2} ${units * 2}`}>
-        <Circle cx={0} cy={0} r={ringR} fill="none" stroke="rgba(17,24,32,0.5)" strokeWidth={2.5} strokeDasharray="4 7" />
-      </Svg>
+      <Animated.View style={[styles.fill, popStyle]}>
+        <Svg width={d} height={d} viewBox={`${-units} ${-units} ${units * 2} ${units * 2}`}>
+          <Circle cx={0} cy={0} r={ringR} fill="none" stroke="rgba(17,24,32,0.5)" strokeWidth={2.5} strokeDasharray="4 7" />
+        </Svg>
+      </Animated.View>
+    </View>
+  );
+});
+
+/** Diameter of the Anchor's circle at the summit, in map units (a waypoint ring is 60). */
+export const SUMMIT_ART_UNITS = 72;
+
+/**
+ * The Anchor's real artwork at the destination (S1). It opens in its circle where the X was: the clip grows from nothing
+ * to the full disc with `anim.glyph` (the X fades out as the same value rises), and the artwork inside never moves or
+ * scales. It is the same renderer every other surface uses, so it is never redrawn.
+ */
+const SummitArtwork = memo(function SummitArtwork({ anim, cx, cy, k, art }: { anim: ChartMapAnimState; cx: number; cy: number; k: number; art: ChartAnchorArt }) {
+  const d = SUMMIT_ART_UNITS * k;
+  const clip = useAnimatedStyle(() => {
+    const p = Math.max(0, Math.min(1, anim.glyph.value));
+    const size = d * p;
+    return { width: size, height: size, borderRadius: size / 2 };
+  }, [d]);
+  return (
+    <View
+      testID="chart-map-summit-art"
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.marker, { left: cx * k - d / 2, top: cy * k - d / 2, width: d, height: d }]}
+    >
+      <Animated.View style={[styles.artClip, clip]}>
+        <View style={{ width: d, height: d, flexShrink: 0 }}>
+          <CircularAnchorRenderer
+            svg={art.svg}
+            imageUrl={art.imageUrl ?? undefined}
+            category={art.category}
+            expression={art.expression ?? undefined}
+            size={d}
+            appearance="paper"
+          />
+        </View>
+      </Animated.View>
     </View>
   );
 });
@@ -190,6 +237,8 @@ type Props = {
    * untappable and hidden from screen readers, like the ghost: titles are only revealed by reaching them.
    */
   clouds?: boolean;
+  /** The real Anchor artwork for the summit (S1). Absent: the drawn glyph stays the stand-in. */
+  summitArt?: ChartAnchorArt | null;
   onMarkerPress: (index: number) => void;
 };
 
@@ -199,7 +248,7 @@ type Props = {
  * translate(tx, ty) scale(s), applied about the container centre.
  */
 export const ChartMapMarkers = memo(function ChartMapMarkers({
-  width, height, anim, placement, markers, categoryColor, category, interactive = true, arrived, clouds = false, onMarkerPress, frame,
+  width, height, anim, placement, markers, categoryColor, category, interactive = true, arrived, clouds = false, summitArt, onMarkerPress, frame,
 }: Props) {
   const k = width / MAP_W;
   const ordered = useMemo(() => [...markers].sort((a, b) => a.index - b.index), [markers]);
@@ -227,10 +276,10 @@ export const ChartMapMarkers = memo(function ChartMapMarkers({
         if (marker.state === 'upcoming') {
           if (arrived || currentIndex < 0) return null;
           if (marker.index === currentIndex + 1) {
-            return <GhostMarker key={marker.id} cx={p.x} cy={p.y} ringR={placement.markerRadius} k={k} />;
+            return <GhostMarker key={marker.id} cx={p.x} cy={p.y} ringR={placement.markerRadius} k={k} anim={anim} index={marker.index} />;
           }
           if (clouds && marker.index > currentIndex + 1) {
-            return <GhostMarker key={marker.id} cx={p.x} cy={p.y} ringR={placement.markerRadius} k={k} opacity={0.18} testID={`chart-map-faint-${marker.index}`} />;
+            return <GhostMarker key={marker.id} cx={p.x} cy={p.y} ringR={placement.markerRadius} k={k} opacity={0.18} testID={`chart-map-faint-${marker.index}`} anim={anim} index={marker.index} />;
           }
           return null;
         }
@@ -250,6 +299,7 @@ export const ChartMapMarkers = memo(function ChartMapMarkers({
           />
         );
       })}
+      {summitArt ? <SummitArtwork anim={anim} cx={placement.summit.x} cy={placement.summit.y} k={k} art={summitArt} /> : null}
       {arrived ? (
         <View
           testID="chart-map-summit"
@@ -270,6 +320,7 @@ export const ChartMapMarkers = memo(function ChartMapMarkers({
 const styles = StyleSheet.create({
   layer: { position: 'absolute', left: 0, top: 0 },
   marker: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+  artClip: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   fill: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   numeralWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   numeral: { fontFamily: CHART_MAP_TOKENS.serif, textAlign: 'center', includeFontPadding: false },

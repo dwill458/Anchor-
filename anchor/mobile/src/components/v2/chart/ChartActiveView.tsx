@@ -14,6 +14,7 @@ import { useChartOpenedToday } from '@/hooks/v2/chart/chartLastOpened';
 import { getChartTaughtState, setChartTaughtState, resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
+import { isRouteRevisionFresh, useChartRouteRevisionStore } from '@/stores/v2/chartRouteRevisionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { safeHaptics } from '@/utils/haptics';
 import { syncChartNotifications } from '@/services/notifications/chartNotifications';
@@ -25,12 +26,13 @@ import { chartTypography as typography } from './chartTypography';
 import { CHART_EASING, CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from './chartMotion';
 import { ChartMap } from './map/ChartMap';
 // DEFERRED: import { ChartScallop } from './map/ChartScallop';
-import type { ChartMapMarker, ChartMarkerRenderState, SequenceSpec } from './map/chartMapContracts';
+import type { ChartMapMarker, ChartMarkerRenderState, ChartRouteRevision, SequenceSpec } from './map/chartMapContracts';
 import { buildRouteTable, waypointPlacement } from './map/chartMapGeometry';
 import {
-  arrivalSequence, laterSequence, moveCheckSequence, moveHoldArc, moveHoldSequence, openSequence, reachSequence, waypointTapSequence,
+  laterSequence, moveCheckSequence, moveHoldArc, moveHoldSequence, openSequence, reachSequence, routeRevisedSequence, summitSequence, waypointTapSequence,
   type ChartBeat,
 } from './map/chartMapSequences';
+import { ChartSummitPanel } from './ChartSummitPanel';
 import { useScreenFocused } from './map/ChartMapWeather';
 import { peekChartWeatherHandoff } from './map/chartWeatherHandoff';
 import { ChartWeatherVeilPrimer } from './map/ChartWeatherNativeVeil';
@@ -140,11 +142,17 @@ type PendingMove = { baseline: number; moveId: string };
 type Ceremony = { index: number; advanced: boolean; filled: boolean; isLast: boolean };
 
 /** Celebration levels (celebrationStore): a waypoint reach outranks a checked move. */
+export const CHART_SUMMIT_SCENE_LEVEL = 4;
 export const CHART_WAYPOINT_SCENE_LEVEL = 3;
 export const CHART_MOVE_SCENE_LEVEL = 2;
+export const CHART_ROUTE_REVISED_SCENE_LEVEL = 1;
 /** One scene id per waypoint: every entry point that reaches it resolves to the same id, so it plays once. */
 export const chartWaypointSceneId = (waypointId: string) => `chart-waypoint:${waypointId}`;
 export const chartMoveSceneId = (moveId: string) => `chart-move:${moveId}`;
+/** The summit is the one scene for the whole Chart (its final waypoint never also plays a waypoint scene). */
+export const chartSummitSceneId = (courseId: string) => `chart-summit:${courseId}`;
+/** One scene per saved revision (the signal's nonce). */
+export const chartRouteRevisedSceneId = (nonce: number) => `chart-route-revised:${nonce}`;
 type ReachEvent = { index: number; result: WaypointReachResult; previousReachedCount: number; total: number };
 
 /** Waits this long for the server's new Chart before giving up on the day-closed hold. */
@@ -155,6 +163,7 @@ const OPEN_DECIDE_MAX_MS = 150;
 export function ChartActiveView({
   view,
   identity,
+  anchorArt,
   vision,
   stale,
   reducedMotion,
@@ -247,8 +256,10 @@ export function ChartActiveView({
   const sceneReduced = useCelebrationReduceMotion() || reducedMotion;
   /**
    * Beat -> sound (+ haptic). `inkMs` is the length of the pen stroke at this call site; `waypointNumber` picks the
-   * pitch of the waypoint note. A reached waypoint has one haptic (the `note` beat's Light) and a checked move has one
-   * (the tap's Light, in ChartWaypointContent), so `check` is sound only. `stamp` (Medium) now serves the arrival only.
+   * pitch of the waypoint note. A reached waypoint has one haptic (the `note` beat's Light), a checked move has one
+   * (the tap's Light, in ChartWaypointContent), the summit has one (the `summit` beat's Heavy, at the flag) and a revised
+   * route has one (the `pop` beat's Light, and no sound at all). `check` and `stamp` are sound only: nothing in the
+   * Chart gives a Medium haptic any more.
    */
   const beatHandler = useCallback(
     (inkMs: number, waypointNumber = 1) => (beat: ChartBeat) => {
@@ -266,8 +277,16 @@ export function ChartActiveView({
         s.check();
       } else if (beat === 'stamp') {
         s.stamp();
-        if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
       } else if (beat === 'wind') s.wind();
+      else if (beat === 'hush') s.hush(CHART_MAP_TIMING.summit.stillHold);
+      else if (beat === 'summit') {
+        // The flag plants: the one Heavy haptic of the summit, with the thud and the chord.
+        s.summit();
+        if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
+      } else if (beat === 'pop') {
+        // A revised route is a plan: one Light haptic and no sound at all.
+        if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+      }
     },
     []
   );
@@ -400,6 +419,8 @@ export function ChartActiveView({
   /** Coordinator scene ids this view has requested and not yet finished (waypoint, move). */
   const waypointSceneRef = useRef<string | null>(null);
   const moveSceneRef = useRef<string | null>(null);
+  const summitSceneRef = useRef<string | null>(null);
+  const routeSceneRef = useRef<string | null>(null);
   /** A reach ceremony (waypoint scene or arrival) has begun and not yet finished. */
   const ceremonyLiveRef = useRef(false);
   const lastArcRef = useRef(0);
@@ -417,15 +438,36 @@ export function ChartActiveView({
   const reachSceneId = ceremony && !ceremony.isLast && view.waypoints[ceremony.index]
     ? chartWaypointSceneId(view.waypoints[ceremony.index].id)
     : null;
-  const sceneSkippable = useCelebrationStore((state) => Boolean(reachSceneId && state.active?.id === reachSceneId && state.active.skippable));
+  // The summit is skippable too (S1): the same Skip button lands it settled.
+  const summitSceneId = chartSummitSceneId(view.courseId);
+  const sceneSkippable = useCelebrationStore((state) => Boolean(
+    state.active?.skippable && (state.active.id === summitSceneId || (reachSceneId !== null && state.active.id === reachSceneId))
+  ));
   // Leaving the Chart mid-scene releases the coordinator (an active scene is cleared, a waiting one is removed).
   useEffect(() => () => {
     const store = useCelebrationStore.getState();
     if (waypointSceneRef.current) store.finish(waypointSceneRef.current);
     if (moveSceneRef.current) store.finish(moveSceneRef.current);
+    if (summitSceneRef.current) store.finish(summitSceneRef.current);
+    if (routeSceneRef.current) store.finish(routeSceneRef.current);
     waypointSceneRef.current = null;
     moveSceneRef.current = null;
+    summitSceneRef.current = null;
+    routeSceneRef.current = null;
   }, []);
+
+  /* ---- summit + route-revised presentation state --------------------- */
+  // Summit (S1): the cream completion panel takes the sheet's place; the flag planted at the X stays once arrived.
+  const [summitPanel, setSummitPanel] = useState(false);
+  const [flagPlanted, setFlagPlanted] = useState(false);
+  const summitPanelProgress = useSharedValue(0);
+  // Route revised (R1): rests at 1 (the settled pencil route), so an unrevised Chart draws as ever.
+  const revisionOut = useSharedValue(1);
+  const revisionPen = useSharedValue(1);
+  const revisionPencil = useSharedValue(1);
+  const revision = useMemo<ChartRouteRevision>(() => ({ out: revisionOut, pen: revisionPen, pencil: revisionPencil }), [revisionOut, revisionPen, revisionPencil]);
+  /** A saved revision is waiting to play (or playing): the revised markers ahead of the current one stay back until the new waypoint appears. */
+  const [reviseHold, setReviseHold] = useState(false);
 
 // DEFERRED:   const panel = useSharedValue(0);
 // DEFERRED:   const showPanel = useCallback(() => {
@@ -818,7 +860,9 @@ export function ChartActiveView({
     setReachEvent(null);
     const isLast = result.destinationReached || index >= total - 1;
     const waypointId = view.waypoints[index]?.id ?? String(index);
-    const sceneId = chartWaypointSceneId(waypointId);
+    // The final waypoint is the summit (S1), one scene for the whole Chart; every other waypoint is W1. The two are
+    // mutually exclusive by construction: a summit never requests a waypoint scene, and a waypoint scene never a summit.
+    const sceneId = isLast ? chartSummitSceneId(view.courseId) : chartWaypointSceneId(waypointId);
     // The sheet's Mark button, the menu and a replayed report all end up here: a waypoint's ceremony begins once per
     // mount. A repeat changes nothing and never leaves the route frozen behind a ceremony that is not running.
     if (reachScenesRef.current.has(sceneId)) {
@@ -841,20 +885,33 @@ export function ChartActiveView({
         waypointSceneRef.current = null;
         useCelebrationStore.getState().finish(sceneId);
       }
+      if (summitSceneRef.current === sceneId) {
+        summitSceneRef.current = null;
+        useCelebrationStore.getState().finish(sceneId);
+      }
     };
     const start = () => {
+      ceremonyLiveRef.current = true;
       sheetRef.current?.snapTo('peek');
       setCeremony({ index, advanced: false, filled: isLast, isLast });
       zoomedRef.current = !isLast && !sceneReduced;
       let spec: SequenceSpec;
       if (isLast) {
-        spec = arrivalSequence({
+        // Summit (S1). Lands settled on skip: flag planted, artwork shown, map inked, cream panel up, the Heavy haptic
+        // and chord played once.
+        spec = summitSequence({
           anim,
           placement,
           table,
           index,
-          reducedMotion,
-          onBeat: beatHandler(CHART_MAP_TIMING.reach.reveal),
+          reducedMotion: sceneReduced,
+          panel: summitPanelProgress,
+          onBeat: beatHandler(CHART_MAP_TIMING.summit.route),
+          onFlag: () => { if (mounted.current) setFlagPlanted(true); },
+          onPanel: () => {
+            sheetRef.current?.snapTo('hidden');
+            if (mounted.current) setSummitPanel(true);
+          },
           onArrived: () => {
             setArrived(true);
             setSwapRevision(value => value + 1);
@@ -888,8 +945,15 @@ export function ChartActiveView({
       });
     };
     if (isLast) {
-      // The summit keeps its own ceremony for now (its scene is a later step); it does not go through W1.
-      start();
+      // Summit (S1, L4, skippable). It outranks everything, so a waypoint scene still playing lands settled first. Under
+      // Reduce Motion it is registered short, so it is never skippable.
+      summitSceneRef.current = sceneId;
+      const outcome = useCelebrationStore.getState().request(CHART_SUMMIT_SCENE_LEVEL, sceneId, {
+        durationMs: sceneReduced ? CHART_MAP_TIMING.summit.reducedMs : CHART_MAP_TIMING.summit.settleAt,
+        onStart: start,
+        onSkip: () => runner.skip(),
+      });
+      if (outcome !== 'deferred') start();
       return;
     }
     // Waypoint reached (W1, L3, skippable). The reached state is already real (server data); a scene that has to
@@ -910,6 +974,79 @@ export function ChartActiveView({
     if (routeAdjustEvidence(view, new Date()) === 'stalled') setShowStillRight(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ---- route revised (R1) ------------------------------------------ */
+  // Adjust Route fires one signal per SAVED revision that actually changed the route (never for cancel, failure, a no-op
+  // apply, or creation). The Chart takes it once, when it is focused again, and plays the quiet scene (L1, never
+  // skippable). If the coordinator drops it (another celebration is playing) or the Chart is busy, the new route simply
+  // shows settled: the route is never lost.
+  const pendingRevision = useChartRouteRevisionStore((state) => state.pending);
+  const revisionIsMine = Boolean(pendingRevision && pendingRevision.courseId === view.courseId && isRouteRevisionFresh(pendingRevision));
+  const waypointIds = useMemo(() => view.waypoints.map((waypoint) => waypoint.id), [view.waypoints]);
+  /** The waypoint ids as they were before the pending revision: kept current until a revision is signalled. */
+  const knownIdsRef = useRef<string[]>(waypointIds);
+  const reviseHoldRef = useRef(false);
+  reviseHoldRef.current = reviseHold;
+  useEffect(() => {
+    if (useChartRouteRevisionStore.getState().pending || reviseHoldRef.current) return;
+    knownIdsRef.current = waypointIds;
+  }, [waypointIds]);
+  useEffect(() => {
+    if (!pendingRevision || pendingRevision.courseId !== view.courseId) return;
+    const store = useChartRouteRevisionStore.getState();
+    if (!isRouteRevisionFresh(pendingRevision)) {
+      store.consume(pendingRevision.nonce);
+      return;
+    }
+    // From the moment a saved revision is known, the revised markers ahead stay back until the new waypoint appears.
+    setReviseHold(true);
+    if (!focused) return;
+    if (!store.consume(pendingRevision.nonce)) return;
+    const settleNow = () => {
+      revisionOut.value = 1;
+      revisionPen.value = 1;
+      revisionPencil.value = 1;
+      knownIdsRef.current = waypointIds;
+      setReviseHold(false);
+    };
+    const idle = openedRef.current && openingFinished && !runner.isBusy() && !reachingRef.current && !ceremony && !reachEvent && pendingMoveRef.current === null;
+    if (!idle) {
+      settleNow();
+      return;
+    }
+    const sceneId = chartRouteRevisedSceneId(pendingRevision.nonce);
+    routeSceneRef.current = sceneId;
+    const outcome = useCelebrationStore.getState().request(CHART_ROUTE_REVISED_SCENE_LEVEL, sceneId, {
+      // Registered under the skippable threshold on purpose: the route-revised scene is never skippable.
+      durationMs: CHART_MAP_TIMING.routeRevised.registeredMs,
+      // Lands settled: the pencil route, the new waypoint shown, the one Light haptic played if it had not been.
+      onSkip: () => runner.skip(),
+    });
+    if (outcome === 'dropped') {
+      routeSceneRef.current = null;
+      settleNow();
+      return;
+    }
+    const finishScene = () => {
+      if (routeSceneRef.current === sceneId) routeSceneRef.current = null;
+      knownIdsRef.current = waypointIds;
+      if (mounted.current) setReviseHold(false);
+      useCelebrationStore.getState().finish(sceneId);
+    };
+    const known = new Set(knownIdsRef.current);
+    const added = waypointIds.findIndex((id) => !known.has(id));
+    const spec = routeRevisedSequence({
+      anim,
+      revision,
+      reducedMotion: sceneReduced,
+      popIndex: added >= 0 ? added : null,
+      onPop: () => { if (mounted.current) setReviseHold(false); },
+      onBeat: beatHandler(0),
+    });
+    spec.onEnd = finishScene;
+    void runner.run(spec).finally(finishScene);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRevision, focused, openingFinished, ceremony, reachEvent, swapRevision, view.courseId]);
 
   /* ---- commit ("I'm committed") ----------------------------------- */
   // A reach reported by the screen (legacy `reached` route param) shows the same card. It plays no scene of its own
@@ -970,6 +1107,14 @@ export function ChartActiveView({
       }),
     [view.waypoints, ceremony, reachEvent, arrived, viewIdx]
   );
+
+  // Route revised (R1): until the new waypoint appears, the revised markers ahead of the current one stay back.
+  const markersShown = useMemo(
+    () => (reviseHold || revisionIsMine ? markers.filter((marker) => marker.state !== 'upcoming') : markers),
+    [markers, reviseHold, revisionIsMine]
+  );
+  // The Anchor's real artwork stands at the summit from the moment the destination is reached (and on a finished Chart).
+  const summitArt = anchorArt && (arrived || ceremony?.isLast) ? anchorArt : null;
 
   const isContentLocked = useCallback(() => runner.isBusy() || reachingRef.current || pendingMoveRef.current !== null, [runner]);
   const onDetentChange = useCallback((detent: ChartSheetDetent) => {
@@ -1123,7 +1268,7 @@ export function ChartActiveView({
       {/* Keeps the cloud bitmaps decoded for the next open's frame-one veil. */}
       <ChartWeatherVeilPrimer />
       <ChartMapHeader categoryLabel={categoryLabel} category={identity.category} accent={accent} visionImageUrl={vision?.imageUrl ?? null} hasVision={Boolean(vision)} onBack={offCurrent ? backToCurrent : onBack} onMenu={() => setMenuOpen(true)} onOpenVision={onOpenVision} />
-      <ChartMap testID="chart-hero-map" width={width} height={height} frame={frame} table={table} placement={placement} anim={anim} markers={markers} categoryColor={categoryColor} category={identity.category ?? undefined} reducedMotion={reducedMotion} arrived={arrived} clouds weather="living" continuous={entrance === 'reveal'} onShown={onMapShown} onMarkerPress={handleMarkerPress} onMapPress={handleMapPress} />
+      <ChartMap testID="chart-hero-map" width={width} height={height} frame={frame} table={table} placement={placement} anim={anim} markers={markersShown} categoryColor={categoryColor} category={identity.category ?? undefined} reducedMotion={reducedMotion} arrived={arrived} clouds weather="living" continuous={entrance === 'reveal'} onShown={onMapShown} revision={revision} summitArt={summitArt} plantedFlag={flagPlanted} onMarkerPress={handleMarkerPress} onMapPress={handleMapPress} />
       {ceremony && !ceremony.isLast && view.waypoints[ceremony.index] ? <ChartReachBeat visible={ceremony.filled && !ceremony.advanced} number={view.waypoints[ceremony.index].number} title={view.waypoints[ceremony.index].title} category={identity.category} reducedMotion={reducedMotion} bottom={height - sheetPositions.peek + 12} /> : null}
       <ChartSheet ref={sheetRef} reducedMotion={reducedMotion} busy={sequenceBusy} onDetentChange={onDetentChange} overlay={<ChartOneMoveTeaching visible={teachingVisible} replayVersion={teachingReplayVersion} reducedMotion={reducedMotion} detent={sheetDetent} targets={teachingTargets} viewportRef={oneMoveViewportRef} viewportLayoutRevision={teachingViewportRevision} onRequestVisible={requestTeachingVisibility} onReady={markTeachingShown} onDismiss={dismissTeaching} />}>
         <ChartSheetContent view={view} waypointId={panelWaypointId} chart={panelActions} category={identity.category} reducedMotion={reducedMotion} actionError={actionError} bottomInset={insets.bottom} onBack={backToCurrent} onReached={handleReached} inputs={inputs} hw={effectiveHw} vision={vision} onOpenVision={onOpenVision} onOpenLog={onOpenLog} onRelease={onRelease ?? onAdjust} onOpenPractice={onOpenPractice} onCompleteMove={handleCompleteMove} oneMoveRowRef={oneMoveRowRef} oneMoveCircleRef={oneMoveCircleRef} oneMoveBodyRef={oneMoveBodyRef} scrollViewportRef={oneMoveViewportRef} onScrollViewportLayout={onTeachingViewportLayout} onReplayTeaching={replayTeaching} commit={commit} onCommitDismiss={dismissCommit} dayClosedHold={dayHold} arrived={arrived} entrance={entrance} stale={stale} viewWaypoint={handleMarkerPress} onExpandSheet={() => { if (!runner.isBusy()) sheetRef.current?.snapTo('full'); }} swapRevision={swapRevision} isContentLocked={isContentLocked} stillRight={showStillRight ? <ChartInkCard testID="chart-still-right" style={styles.stillRight}><Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text><View style={styles.row}><ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} /><ChartInkButton label={CHART_COPY.review.adjust} onPress={() => { setShowStillRight(false); onAdjust(); }} style={styles.flex} /></View></ChartInkCard> : null} />
@@ -1134,6 +1279,9 @@ export function ChartActiveView({
         <Pressable accessibilityRole="button" accessibilityLabel="Skip" testID="chart-waypoint-skip" style={StyleSheet.absoluteFill}
           onPress={() => { useCelebrationStore.getState().skip(); }} />
       ) : null}
+
+      {/* The end of the summit scene: the existing cream completion panel, above the Skip button so its two actions stay tappable. */}
+      {summitPanel ? <ChartSummitPanel progress={summitPanelProgress} view={view} vision={vision} reducedMotion={sceneReduced} onViewJourney={onOpenLog} onRelease={onRelease ?? onAdjust} /> : null}
 
       <V2SheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} reduceMotion={reducedMotion} testID="chart-menu">
         <View style={styles.menu}>

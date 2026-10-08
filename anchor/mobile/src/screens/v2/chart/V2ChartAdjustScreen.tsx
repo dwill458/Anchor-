@@ -24,6 +24,8 @@ import { trackChart, useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { chartV2Api, classifyChartError, freshKey, type ChartProposal } from '@/services/v2/chartV2Api';
 import { liveWaypoints } from '@/adapters/v2/chart/chartV2Model';
+import { routeWasRevised } from '@/components/v2/chart/chartRouteRevision';
+import { useChartRouteRevisionStore } from '@/stores/v2/chartRouteRevisionStore';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 const ETCHED_MAP_IMAGE = require('@/../assets/chart/chart-landscape-master.webp');
 import type { CourseDetail, WaypointSummary } from '@/types/chart';
@@ -222,6 +224,10 @@ export function V2ChartAdjustScreen() {
         adjustmentReason: reason,
         confirmRewrite: confirm,
       });
+      // One quiet "route revised" signal for the Chart, only for a revision that was saved AND changed the route (never a
+      // cancel, a failure or a no-op apply). It goes out before the new Chart is published, so the Chart holds the revised
+      // markers back until it plays the scene.
+      if (routeWasRevised(course, updated)) useChartRouteRevisionStore.getState().signal(anchorId, updated.id);
       chart.commitChart(updated);
       trackChart('chart_route_adjusted', { reason: reason ?? 'MANUAL', stage: 'active', waypointCount: editedAhead.length });
       setConfirmRewrite(false);
