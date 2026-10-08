@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { useDerivedValue } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import type {
   ChartMapAnimState,
   SequenceEasing,
@@ -60,6 +62,45 @@ export function useChartMapCameraTransform(anim: ChartMapAnimState, width: numbe
     const c = clampCamera(anim.camera.cx.value, anim.camera.cy.value, s, width, height, frame);
     return [{ translateX: c.tx }, { translateY: c.ty }, { scale: s * c.k }];
   });
+}
+
+/** Entrance-only zoom about the viewport's top centre; 1.0 preserves today's map framing exactly. */
+export function useChartIntroCameraTransform(
+  scale: SharedValue<number> | undefined,
+  width: number,
+  visibleProgress?: SharedValue<number>,
+) {
+  const identity = useMemo(() => chartIntroCameraTransformFor(width, 1), [width]);
+  return useDerivedValue(() => {
+    // Returning the same object matters: a new, equal matrix still invalidates
+    // the Skia picture. Hidden layers need neither a new matrix nor a redraw.
+    if (!scale || (visibleProgress && visibleProgress.value <= 0)) return identity;
+    return chartIntroCameraTransformFor(width, scale.value);
+  }, [identity, scale, visibleProgress, width]);
+}
+
+/** Top-center entrance transform shared by Skia and the native base-land wrapper. */
+export function chartIntroCameraTransformFor(width: number, scale: number) {
+  'worklet';
+  return [
+    { translateX: width / 2 },
+    { scale },
+    { translateX: -width / 2 },
+  ];
+}
+
+/** Static base-land Canvas wrapper style; kept in lockstep with the ink Canvas camera. */
+export function chartIntroBaseLayerStyle(
+  width: number,
+  cameraScale: number,
+  land: number,
+): { opacity: number; transform?: ReturnType<typeof chartIntroCameraTransformFor> } {
+  'worklet';
+  if (land <= 0) return { opacity: 0 };
+  return {
+    opacity: land,
+    transform: chartIntroCameraTransformFor(width, cameraScale),
+  };
 }
 
 /** Extra camera response of the weather layer: the clouds sit visibly above the ground when the camera moves. */

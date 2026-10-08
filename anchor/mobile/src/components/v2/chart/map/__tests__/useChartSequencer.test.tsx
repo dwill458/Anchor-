@@ -4,7 +4,7 @@ import { buildRouteTable, waypointPlacement } from '../chartMapGeometry';
 import { arrivalSequence, reachSequence } from '../chartMapSequences';
 import { useChartSequencer } from '../useChartSequencer';
 
-type Anim = { to: number; config: any; cb: (finished: boolean) => void };
+type Anim = { to: number; config: any; cb: (finished: boolean) => void; delay?: number };
 class Shared {
   current: number;
   running: Anim | null = null;
@@ -41,7 +41,7 @@ jest.mock('react-native-reanimated', () => ({
     anim?.cb(false);
   },
   runOnJS: (fn: any) => fn,
-  withDelay: (_d: number, a: any) => a,
+  withDelay: (delay: number, a: any) => ({ ...a, delay }),
   withRepeat: (a: any) => a,
   withSequence: (...a: any[]) => a[a.length - 1],
   Easing: {
@@ -101,6 +101,23 @@ describe('useChartSequencer', () => {
     expect(resolved).toBe(true);
     expect(log).toEqual(['start', 'late', 'end']);
     expect(hook.result.current.isBusy()).toBe(false);
+  });
+
+  it('uses Reanimated withDelay for the opt-in UI-clock intro tween', () => {
+    const hook = renderHook(() => useChartSequencer(false));
+    const target = new Shared(9);
+    const log: string[] = [];
+    void hook.result.current.run({
+      name: 'introFull', tweenClock: 'ui',
+      steps: [
+        { kind: 'call', at: 0, run: () => log.push('reset') },
+        { kind: 'tween', at: 200, duration: 3200, easing: 'draw', target: target as any, to: 1, from: 0 },
+      ],
+    });
+    expect(log).toEqual(['reset']);
+    expect(target.running).toMatchObject({ delay: 200, config: { duration: 3200, easing: 'bezier', reduceMotion: 'never' } });
+    expect(target.current).toBe(0);
+    hook.unmount();
   });
 
   it('skip resolves every target to its end state and runs pending calls once', async () => {

@@ -96,6 +96,12 @@ describe('useChartSound', () => {
     expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-check', 'chart-stamp']);
   });
 
+  it('allows the intro open cue under Reduce Motion when explicitly requested', () => {
+    const { result } = renderHook(() => useChartSound(true, { playOpenWhenReducedMotion: true }));
+    act(() => result.current.open());
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-open']);
+  });
+
   it('startAir is idempotent: one looping bed that ramps in to 0.9 over 800ms', () => {
     const { result } = renderHook(() => useChartSound(false));
     act(() => result.current.startAir());
@@ -107,6 +113,14 @@ describe('useChartSound', () => {
     expect(lastVolume(beds[0])).toBeLessThan(CHART_AIR_VOLUME);
     act(() => jest.advanceTimersByTime(500));
     expect(lastVolume(beds[0])).toBeCloseTo(CHART_AIR_VOLUME);
+  });
+
+  it('uses an intro-specific 600ms air fade without changing the default ramp', () => {
+    const { result } = renderHook(() => useChartSound(false, { airFadeInMs: 600 }));
+    act(() => result.current.startAir());
+    const bed = mockPlayers[0];
+    act(() => jest.advanceTimersByTime(600));
+    expect(lastVolume(bed)).toBeCloseTo(CHART_AIR_VOLUME);
   });
 
   it('stopAir fades the bed out over 400ms, then stops it', () => {
@@ -146,6 +160,19 @@ describe('useChartSound', () => {
     const bed = mockPlayers[0];
     unmount();
     expect(bed.stop).toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('fades the intro-owned bed on unmount instead of cutting it off', () => {
+    const { result, unmount } = renderHook(() => useChartSound(false, { fadeAirOnUnmount: true }));
+    act(() => result.current.startAir());
+    act(() => jest.advanceTimersByTime(600));
+    const bed = mockPlayers[0];
+    unmount();
+    expect(bed.stop).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(400));
+    expect(lastVolume(bed)).toBeCloseTo(0);
+    expect(bed.stop).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
   });
 });

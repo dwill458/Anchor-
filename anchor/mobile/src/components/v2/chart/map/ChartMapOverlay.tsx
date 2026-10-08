@@ -1,5 +1,5 @@
 import type { ChartMapFrame } from './chartMapGeometry';
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useRef } from 'react';
 import {
   Circle, DashPathEffect, DiscretePathEffect, Group, Path, RadialGradient, Skia, vec,
 } from '@shopify/react-native-skia';
@@ -9,7 +9,8 @@ import {
 import type { ChartMapAnimState, RouteTable, WaypointPlacement } from './chartMapContracts';
 import { buildRoughRoute, hexToRgba, routeCoordAt } from './chartMapShaders';
 import { CHART_MAP_GOLD, CHART_MAP_TOKENS } from './chartMapTokens';
-import { useChartMapCameraTransform } from './useChartMapCamera';
+import { useChartIntroCameraTransform, useChartMapCameraTransform } from './useChartMapCamera';
+import type { IntroSequenceProgress } from './chartMapSequences';
 
 const INK = CHART_MAP_TOKENS.ink;
 const SUMMIT_INK = '#7D766A';
@@ -39,6 +40,7 @@ type Props = {
   clouds?: boolean;
   /** Living weather covers the map: the summit X shows only faintly through it until arrival. */
   livingWeather?: boolean;
+  introProgress?: IntroSequenceProgress;
 };
 
 /**
@@ -47,9 +49,16 @@ type Props = {
  * the continuous flag sway never re-runs the fog shader.
  */
 export const ChartMapOverlay = memo(function ChartMapOverlay({
-  width, height, anim, table, placement, categoryColor, reducedMotion, arrived, clouds = false, livingWeather = false, frame,
+  width, height, anim, table, placement, categoryColor, reducedMotion, arrived, clouds = false, livingWeather = false, introProgress, frame,
 }: Props) {
+  // The opening keeps this overlay mounted after dropping its shader progress.
+  // It still has no flag while the user reads the settled intro.
+  const introSurface = useRef(introProgress !== undefined);
+  if (introProgress) introSurface.current = true;
   const cameraTransform = useChartMapCameraTransform(anim, width, height, frame);
+  // No overlay content is visible before the survey route starts. Keep its
+  // picture static until then; the ink canvas owns the early camera movement.
+  const introTransform = useChartIntroCameraTransform(introProgress?.cameraScale, width, introProgress?.route);
   const routePath = useMemo(() => Skia.Path.MakeFromSVGString(table.svgPath), [table.svgPath]);
 
   const { arcs, count } = table;
@@ -77,6 +86,8 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
     return f < 0 ? 0 : f > 1 ? 1 : f;
   }, [clouds, livingWeather, table.total]);
 
+  const routeEnd = useDerivedValue(() => introProgress?.route.value ?? dottedEnd.value, [dottedEnd, introProgress]);
+
   // Tip / pulse position: worklet reads typed arrays only.
   const tipTransform = useDerivedValue(() => {
     const a = anim.revealArc.value;
@@ -100,7 +111,9 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
 
   const sway = useSharedValue(0);
   useEffect(() => {
-    if (reducedMotion) {
+    // The intro uses the destination X, never the flag. An invisible flag sway
+    // would still invalidate this entire canvas every frame.
+    if (reducedMotion || introSurface.current) {
       cancelAnimation(sway);
       sway.value = 0;
       return undefined;
@@ -115,20 +128,30 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
       -1,
     );
     return () => cancelAnimation(sway);
-  }, [reducedMotion, sway]);
+  }, [introProgress, reducedMotion, sway]);
   const swayTransform = useDerivedValue(() => [{ rotate: sway.value * DEG }]);
 
   // DEFERRED: const xOpacity = useDerivedValue(() => 1 - anim.glyph.value);
   const xFaint = clouds && livingWeather && !arrived;
-  const xOpacity = useDerivedValue(() => (xFaint ? 0.35 : 1) * (1 - anim.glyph.value), [xFaint]);
+  const xOpacity = useDerivedValue(() => introProgress
+    ? introProgress.marker.value
+    : (xFaint ? 0.35 : 1) * (1 - anim.glyph.value), [introProgress, xFaint]);
+  const startOpacity = useDerivedValue(() => introProgress ? introProgress.route.value : 1, [introProgress]);
+  const xScale = useDerivedValue(() => {
+    if (!introProgress) return 1;
+    const p = introProgress.marker.value;
+    return p < 0.85 ? 0.4 + (0.68 / 0.85) * p : 1.08 - (0.08 * (p - 0.85)) / 0.15;
+  }, [introProgress]);
+  const xTransform = useDerivedValue(() => [{ scale: xScale.value }], [xScale]);
   const glyphOpacity = useDerivedValue(() => anim.glyph.value);
   const goldOpacity = useDerivedValue(() => anim.goldDot.value);
 
   return (
+    <Group transform={introTransform}>
     <Group transform={cameraTransform}>
       {routePath ? (
         <>
-          <Path path={routePath} style="stroke" strokeWidth={4} strokeCap="round" color={INK} opacity={0.45} start={0} end={dottedEnd}>
+          <Path path={routePath} style="stroke" strokeWidth={4} strokeCap="round" color={INK} opacity={0.45} start={0} end={routeEnd}>
             <DashPathEffect intervals={[1, 10]} />
           </Path>
           {roughPath ? (
@@ -136,7 +159,7 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
           ) : null}
         </>
       ) : null}
-      <Circle cx={placement.start.x} cy={placement.start.y} r={9} color={INK} />
+      <Circle cx={placement.start.x} cy={placement.start.y} r={9} color={INK} opacity={startOpacity} />
 
       {!reducedMotion ? (
         <Group transform={tipTransform} opacity={pulseOpacity}>
@@ -153,7 +176,7 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
       ) : null}
 
       <Group transform={[{ translateX: placement.summit.x }, { translateY: placement.summit.y }]}>
-        <Group opacity={xOpacity}>
+        <Group opacity={xOpacity} transform={xTransform}>
           <Path path={X_A} style="stroke" strokeWidth={3.6} strokeCap="round" color={SUMMIT_INK}>
             <DiscretePathEffect length={6} deviation={1.2} seed={3} />
           </Path>
@@ -178,6 +201,7 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
         </Group>
       </Group>
       ) : null}
+    </Group>
     </Group>
   );
 });

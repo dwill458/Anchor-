@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, DeviceEventEmitter } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 const mockUpdateSetting = jest.fn(() => Promise.resolve());
@@ -72,6 +72,25 @@ const mockNotifState = {
   weeklyRecapEnabled: false,
 };
 
+const originalChartPreviewEnvironment = {
+  appEnvironment: process.env.EXPO_PUBLIC_APP_ENV,
+  v2Enabled: process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED,
+};
+
+function restoreChartPreviewEnvironment() {
+  if (originalChartPreviewEnvironment.appEnvironment === undefined) {
+    delete process.env.EXPO_PUBLIC_APP_ENV;
+  } else {
+    process.env.EXPO_PUBLIC_APP_ENV = originalChartPreviewEnvironment.appEnvironment;
+  }
+
+  if (originalChartPreviewEnvironment.v2Enabled === undefined) {
+    delete process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED;
+  } else {
+    process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED = originalChartPreviewEnvironment.v2Enabled;
+  }
+}
+
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
   CommonActions: { reset: jest.fn() },
@@ -143,6 +162,10 @@ describe('SettingsScreen', () => {
     NotificationService.getLastError = jest.fn(() => null);
   });
 
+  afterEach(() => {
+    restoreChartPreviewEnvironment();
+  });
+
   it('renders the canonical editorial settings hub with profile header and categories', () => {
     const screen = render(<SettingsScreen />);
 
@@ -157,6 +180,30 @@ describe('SettingsScreen', () => {
     expect(screen.getByTestId('settings-row-Account & data')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Privacy & support')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Sign Out')).toBeTruthy();
+  });
+
+  it('opens the Chart opening lab from Settings in an enabled staging V2 preview', () => {
+    process.env.EXPO_PUBLIC_APP_ENV = 'staging';
+    process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED = 'true';
+    const emitSpy = jest.spyOn(DeviceEventEmitter, 'emit');
+
+    try {
+      const screen = render(<SettingsScreen />);
+      fireEvent.press(screen.getByTestId('settings-row-Chart opening preview'));
+
+      expect(emitSpy).toHaveBeenCalledWith('openChartLab');
+    } finally {
+      emitSpy.mockRestore();
+    }
+  });
+
+  it('hides the Chart opening lab row in production, even with V2 enabled', () => {
+    process.env.EXPO_PUBLIC_APP_ENV = 'production';
+    process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED = 'true';
+
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.queryByTestId('settings-row-Chart opening preview')).toBeNull();
   });
 
   it('navigates to App Experience and persists an interface preference', () => {

@@ -18,6 +18,8 @@ type Props = {
   inline?: boolean;
   tone?: 'paper' | 'ink';
   onMenu?: () => void;
+  /** Optional intro tap target for non-button header content. */
+  onBackgroundPress?: () => void;
   onOpenVision: () => void;
 };
 
@@ -28,16 +30,30 @@ const CONTROL = 44;
  * menu, the category label and the polaroid Vision card. The map underneath
  * stays tappable outside these controls.
  */
-export function ChartMapHeader({ categoryLabel, category, accent, visionImageUrl, hasVision, onBack, onMenu, onOpenVision, inline = false, tone = 'paper' }: Props) {
+export function ChartMapHeader({ categoryLabel, category, accent, visionImageUrl, hasVision, onBack, onMenu, onBackgroundPress, onOpenVision, inline = false, tone = 'paper' }: Props) {
   const insets = useSafeAreaInsets();
   const ink = tone === 'ink' ? T.light : T.ink;
   return (
     <View style={[styles.root, inline && styles.inline, { paddingTop: insets.top }]} pointerEvents="box-none">
+      {onBackgroundPress ? (
+        <Pressable
+          accessible={false}
+          onPress={onBackgroundPress}
+          style={StyleSheet.absoluteFill}
+          testID="chart-intro-header-skip-surface"
+        />
+      ) : null}
       <View style={styles.bar} pointerEvents="box-none">
         <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} disabled={!onBack} accessibilityState={{ disabled: !onBack }} style={[styles.ib, tone === 'ink' && styles.inkControl, !onBack && { opacity: 0 }]} testID="chart-back">
           <ArrowLeft size={22} color={ink} />
         </Pressable>
-        <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>{CHART_COPY.title}</Text>
+        <Text
+          accessibilityRole="header"
+          pointerEvents={onBackgroundPress ? 'none' : 'auto'}
+          style={[styles.title, { color: ink }]}
+        >
+          {CHART_COPY.title}
+        </Text>
         {onMenu ? <Pressable accessibilityRole="button" accessibilityLabel="Chart options" onPress={onMenu} style={styles.ib} testID="chart-menu-button">
           <MoreHorizontal size={22} color={ink} />
         </Pressable> : <View style={{ width: CONTROL, height: CONTROL }} /> }

@@ -19,7 +19,7 @@
  */
 import { useEffect, useRef } from 'react';
 import {
-  cancelAnimation, Easing, ReduceMotion, runOnJS, withTiming, type EasingFunction, type EasingFunctionFactory, type SharedValue,
+  cancelAnimation, Easing, ReduceMotion, runOnJS, withDelay, withTiming, type EasingFunction, type EasingFunctionFactory, type SharedValue,
 } from 'react-native-reanimated';
 import { CHART_EASING, CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from '../chartMotion';
 import type { SequenceEasing, SequenceRunner } from './chartMapContracts';
@@ -60,6 +60,32 @@ export function createReanimatedSequenceDriver(isReduced: () => boolean): Sequen
           'worklet';
           if (finished) runOnJS(done)();
         },
+      );
+      return {
+        cancel() {
+          cancelled = true;
+          cancelAnimation(shared);
+        },
+      };
+    },
+    startDelayedTween(target, from, to, delay, duration, easing, onDone) {
+      const shared = asShared(target);
+      let cancelled = false;
+      const done = () => {
+        if (!cancelled) onDone();
+      };
+      cancelAnimation(shared);
+      shared.value = from;
+      shared.value = withDelay(
+        delay,
+        withTiming(
+          to,
+          { duration, easing: EASINGS[easing], reduceMotion: ReduceMotion.Never },
+          (finished) => {
+            'worklet';
+            if (finished) runOnJS(done)();
+          },
+        ),
       );
       return {
         cancel() {

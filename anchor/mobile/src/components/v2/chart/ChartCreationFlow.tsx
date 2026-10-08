@@ -1,5 +1,5 @@
 import { chartTypography as typography } from './chartTypography';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   Image,
@@ -9,11 +9,11 @@ import {
   TextInput,
   View,
   useWindowDimensions,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { ArrowRight, ArrowUpRight, Star, X } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { safeHaptics } from '@/utils/haptics';
 import { V2Button } from '@/components/v2/primitives/V2Button';
@@ -44,12 +44,14 @@ import { ChartKeyboardFrame } from './ChartKeyboardFrame';
 import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
 // DEFERRED: import { ChartJourneyWorld } from './ChartJourneyWorld';
 import { ChartStaticMap } from './panel/ChartStaticMap';
+import { ChartIntroOpening } from './ChartIntroOpening';
 import { ChartMapHeader } from './panel/ChartMapHeader';
 import { panelAccent } from './panel/chartPanelColors';
 import { CHART_MAP_TOKENS } from './map/chartMapTokens';
 import { buildRouteTable } from './map/chartMapGeometry';
 import { chartMapScreenTop } from './map/ChartWeatherHold';
-import { warmChartMapResources } from './map/ChartMapLand';
+import { prepareChartMapIntroArt, warmChartMapResources } from './map/ChartMapLand';
+import { getChartIntroSeen } from './chartIntroSeen';
 import { MAP_H, MAP_W } from './map/chartMapContracts';
 import { ChartContextStep } from './ChartContextStep';
 import { ChartReferenceTray } from './ChartReferenceTray';
@@ -94,6 +96,8 @@ type Props = {
   initialProposal?: ChartProposal | null;
   /** The Chart API. Injected only by the development fixture preview. */
   api?: ChartCreationApi;
+  /** Development-only opening replay choice; production callers leave it unset. */
+  introReplayMode?: 'full' | 'short';
   testID?: string;
 };
 
@@ -200,11 +204,20 @@ export function ChartCreationFlow({
   initialPhase = 'intro',
   initialProposal = null,
   api = chartV2Api,
+  introReplayMode,
   testID,
 }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [phase, setPhase] = useState<Phase>(initialPhase);
+  const [introSkipRequest, setIntroSkipRequest] = useState(0);
+  const requestIntroSkip = useCallback(() => setIntroSkipRequest(current => current + 1), []);
+  const [introViewportWidth, setIntroViewportWidth] = useState<number | null>(null);
+  const [introPreparation, setIntroPreparation] = useState<{ width: number; seen: boolean; artDecoded: boolean } | null>(null);
+  const [introSurfaceWidth, setIntroSurfaceWidth] = useState<number | null>(null);
+  const markIntroSurfaceReady = useCallback(() => {
+    if (introViewportWidth !== null) setIntroSurfaceWidth(introViewportWidth);
+  }, [introViewportWidth]);
   const [startingContext, setStartingContext] = useState('');
   const [followUpQuestion, setFollowUpQuestion] = useState<string | null>(null);
   const [followUpAnswer, setFollowUpAnswer] = useState('');
@@ -252,14 +265,41 @@ export function ChartCreationFlow({
   const inStage = STAGE_PHASES.includes(phase);
   // Intro and the mapping stage share the etched cream-paper map; context and clarity stay on ink.
   const paper = phase === 'intro' || inStage || (phase === 'context' && contextMode === 'photo');
+
+  const onScreenLayout = useCallback((event: LayoutChangeEvent) => {
+    if (phase !== 'intro') return;
+    const measuredWidth = event.nativeEvent.layout.width;
+    setIntroViewportWidth(current => current !== null && Math.abs(current - measuredWidth) < 0.5 ? current : measuredWidth);
+  }, [phase]);
+
   // DEFERRED: cover-fit enlarged the art past the screen edges.
-  const introMapWidth = width;
   useEffect(() => {
+    if (phase === 'intro') return undefined;
     const table = buildRouteTable();
     warmChartMapResources(table, width, width * MAP_H / MAP_W);
     const activeHeight = Math.min(width * MAP_H / MAP_W, Math.max(240, height - insets.top - insets.bottom - 360));
     warmChartMapResources(table, width, activeHeight - 100);
-  }, [width, height, insets.top, insets.bottom]);
+  }, [phase, width, height, insets.top, insets.bottom]);
+
+  useEffect(() => {
+    if (phase !== 'intro') {
+      setIntroPreparation(null);
+      setIntroSurfaceWidth(null);
+      return undefined;
+    }
+    if (introViewportWidth === null) return undefined;
+    let active = true;
+    const table = buildRouteTable();
+    const mapHeight = introViewportWidth * MAP_H / MAP_W;
+    const seenPromise = Promise.resolve().then(() => getChartIntroSeen()).catch(() => false);
+    // Only the full-resolution base uses grain. The half-resolution ink pass
+    // draws the landscape shader directly and needs no second grain texture.
+    const artPromise = Promise.resolve().then(() => prepareChartMapIntroArt(table, introViewportWidth, mapHeight)).catch(() => false);
+    void Promise.all([seenPromise, artPromise]).then(([seen, artDecoded]) => {
+      if (active) setIntroPreparation({ width: introViewportWidth, seen, artDecoded });
+    });
+    return () => { active = false; };
+  }, [phase, introViewportWidth]);
 
   useEffect(() => {
     const running = timers.current;
@@ -583,7 +623,7 @@ export function ChartCreationFlow({
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value * (1 - Math.min(1, explore.value * 2.2)) }));
 
   return (
-    <ChartInkScreen testID={testID ?? 'chart-creation'} paper={paper}>
+    <ChartInkScreen testID={testID ?? 'chart-creation'} paper={paper} onLayout={onScreenLayout}>
       {/* DEFERRED: <ChartTopBar title={title} onBack={phase === 'generating' || exploring ? undefined : goBack} identity={identity} tone={paper ? 'dark' : 'light'} /> */}
       <ChartMapHeader
         inline tone={paper ? 'paper' : 'ink'}
@@ -592,58 +632,37 @@ export function ChartCreationFlow({
         visionImageUrl={null} hasVision={false}
         onBack={phase === 'generating' || exploring ? undefined : goBack}
         onOpenVision={onOpenVision}
+        onBackgroundPress={phase === 'intro' ? requestIntroSkip : undefined}
       />
 
       {phase === 'intro' ? (
         <View style={styles.flex} testID="chart-empty-state">
-          {/* The map is scenery: faint pencil, nothing drawn yet. */}
-          <View
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
+          {introViewportWidth !== null ? <ChartIntroOpening
+            key={introViewportWidth}
+            category={identity.category}
+            categoryColor={getCategoryColor(identity.category)}
+            reducedMotion={reducedMotion}
+            replayMode={introReplayMode}
+            preparing={introPreparation?.width !== introViewportWidth || introSurfaceWidth !== introViewportWidth}
+            onIntroSurfaceReady={markIntroSurfaceReady}
+            initialSeen={introPreparation?.width === introViewportWidth ? introPreparation.seen : undefined}
+            artReadyAtMount={introPreparation?.width === introViewportWidth && introPreparation.artDecoded}
+            artPreparationSettledAtMount={introPreparation?.width === introViewportWidth}
+            introWidth={introViewportWidth}
+            skipRequest={introSkipRequest}
+            onContinue={() => {
+              trackChart('chart_creation_started', { hasVision });
+              setPhase('context');
+            }}
+          /> : null}
+          {introViewportWidth === null || introPreparation?.width !== introViewportWidth || introSurfaceWidth !== introViewportWidth ? <Pressable
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
-            // DEFERRED: onLayout={(event) => setIntroArea(event.nativeEvent.layout)}
-          >
-            {/* Width-fit keeps the summit inside the creation window. */}
-            <View style={[styles.introMap, { width: introMapWidth, left: (width - introMapWidth) / 2, top: 0 }]}>
-              <ChartStaticMap
-                width={introMapWidth}
-                categoryColor={getCategoryColor(identity.category)}
-                category={identity.category}
-                mode="empty"
-                waypointCount={3}
-                reducedMotion={reducedMotion}
-                testID="chart-intro-map"
-              />
-            </View>
-          </View>
-          <View style={styles.flexEnd}>
-            <View style={[styles.introCopy, { paddingBottom: insets.bottom + spacing[4] }]}>
-              <LinearGradient
-                pointerEvents="none"
-                colors={['rgba(244,241,233,0)', 'rgba(244,241,233,.92)', 'rgba(244,241,233,.96)']}
-                locations={[0, 0.3, 1]}
-                style={styles.introScrim}
-              />
-              <Text accessibilityRole="header" style={[styles.display, styles.displayPaper]}>
-                {CHART_COPY.empty.headline}
-              </Text>
-              <Text style={[styles.support, styles.supportPaper]}>{CHART_COPY.empty.support}</Text>
-              <V2Button
-                size="large"
-                onPress={() => {
-                  trackChart('chart_creation_started', { hasVision });
-                  setPhase('context');
-                }}
-                iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
-                testID="chart-create-cta"
-                accessibilityLabel={CHART_COPY.empty.cta}
-                style={styles.cta}
-              >
-                {CHART_COPY.empty.cta}
-              </V2Button>
-            </View>
-          </View>
+            accessible={false}
+            onPress={requestIntroSkip}
+            style={[StyleSheet.absoluteFill, styles.introPreparationCover]}
+            testID="chart-intro-preparing"
+          /> : null}
         </View>
       ) : null}
 
@@ -956,6 +975,7 @@ export function ChartCreationFlow({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  introPreparationCover: { backgroundColor: colors.canvas, zIndex: 10 },
   flexEnd: { flex: 1, justifyContent: 'flex-end' },
   hero: { paddingHorizontal: spacing[5], paddingTop: spacing[3], gap: spacing[2], zIndex: 1 },
   // DEFERRED: absolute stage hero required measuring text during the staged copy swap.

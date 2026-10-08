@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   BackHandler,
+  DeviceEventEmitter,
   Image,
   Pressable,
   ScrollView,
@@ -44,6 +45,7 @@ import { AppExperienceSubscreen } from './AppExperienceSubscreen';
 import { AccountDataSubscreen } from './AccountDataSubscreen';
 import { PrivacySupportSubscreen } from './PrivacySupportSubscreen';
 import { DeveloperToolsSubscreen } from './DeveloperToolsSubscreen';
+import { isChartOpeningPreviewEnabled } from '@/config/chartOpeningPreview';
 
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
@@ -441,6 +443,15 @@ export const SettingsScreen: React.FC = () => {
           />
 
           {/* Developer Tools Section (DEV ONLY) */}
+          {isChartOpeningPreviewEnabled() ? (
+            <SettingsRow
+              icon={<IconDev size={20} color={T.ink2} />}
+              label="Chart opening preview"
+              desc="Replay the Full or Short opening"
+              onPress={() => DeviceEventEmitter.emit('openChartLab')}
+              testID="settings-row-Chart opening preview"
+            />
+          ) : null}
           {__DEV__ || process.env.NODE_ENV === 'test' ? (
             <View style={styles.devSection}>
               <SectionLabel>Developer</SectionLabel>

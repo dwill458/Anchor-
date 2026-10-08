@@ -1,6 +1,6 @@
 import { chartTypography as typography } from './chartTypography';
 import React from 'react';
-import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, TextInput, View, type LayoutChangeEvent, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VisionHeaderRow, VisionIdentity, type VisionAnchorArt } from '@/components/v2/vision/VisionChrome';
 import { colors, radii, spacing } from '@/theme/v2';
@@ -22,15 +22,17 @@ export function ChartInkScreen({
   style,
   testID,
   paper = false,
+  onLayout,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   /** Cream map-paper ground (creation intro and mapping) instead of ink. */
   paper?: boolean;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }) {
   return (
-    <View testID={testID} style={[styles.screen, paper && styles.screenPaper, style]}>
+    <View testID={testID} onLayout={onLayout} style={[styles.screen, paper && styles.screenPaper, style]}>
       <StatusBar barStyle={paper ? 'dark-content' : 'light-content'} backgroundColor={paper ? colors.canvas : colors.ink.base} animated />
       {children}
     </View>

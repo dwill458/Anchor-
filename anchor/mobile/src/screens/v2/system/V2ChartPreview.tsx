@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { DeviceEventEmitter, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChartActiveView, type ChartCelebration } from '@/components/v2/chart/ChartActiveView';
+import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { ChartRevealHandoff } from '@/components/v2/chart/ChartRevealHandoff';
 import { ChartWeatherVeilPrimer } from '@/components/v2/chart/map/ChartWeatherNativeVeil';
 import { setChartOpenedClockOffsetForDev } from '@/hooks/v2/chart/chartLastOpened';
+import { resetChartIntroSeen } from '@/components/v2/chart/chartIntroSeen';
 import { setWeatherLayersForDev } from '@/components/v2/chart/map/ChartMapWeather';
 import { ChartCreationFlow, type ChartCreationApi } from '@/components/v2/chart/ChartCreationFlow';
 import { CHART_CATEGORY_PACK } from '@/components/v2/chart/chartRouteGeometry';
@@ -141,6 +143,7 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
   const [withVision, setWithVision] = useState(false);
   const [run, setRun] = useState(0);
   const [mode, setMode] = useState<'setup' | 'create' | 'active'>('setup');
+  const [introReplayMode, setIntroReplayMode] = useState<'full' | 'short' | undefined>();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [celebration, setCelebration] = useState<ChartCelebration | null>(null);
   const [entrance, setEntrance] = useState<'reveal' | 'open'>('reveal');
@@ -187,8 +190,12 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
       anchorArt={anchorArt}
       vision={withVision ? { imageUrl: null, description: 'A restored Regal in the driveway.', title: 'Regal' } : null}
       reducedMotion={reducedMotion}
+      introReplayMode={introReplayMode}
       api={api}
-      onBack={() => setMode('setup')}
+      onBack={() => {
+        setIntroReplayMode(undefined);
+        setMode('setup');
+      }}
       onOpenVision={() => undefined}
       onCreated={(created) => setCourse(created)}
       onExplore={() => {
@@ -292,6 +299,8 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
               setRun((value) => value + 1);
             }}
           />
+          <DevButton label={CHART_COPY.devLab.replayMoveTeaching} onPress={() => DeviceEventEmitter.emit('chartReplayOneMoveTeaching', view.courseId)} />
+          <DevButton label={CHART_COPY.devLab.resetMoveTeaching} onPress={() => DeviceEventEmitter.emit('chartResetOneMoveTeaching', view.courseId)} />
         </View>
       </View>
     );
@@ -321,6 +330,22 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
       {/* Stands in for Home's Chart card, which primes the cloud bitmaps before any Chart opens. */}
       <ChartWeatherVeilPrimer />
       <Text style={styles.body}>Runs the real Chart flow against a fake planner. Nothing is saved.</Text>
+      <Text style={styles.label}>Opening sequence</Text>
+      <DevButton label="Replay opening (full)" testID="chart-preview-opening-full" onPress={() => {
+        setCourse(null);
+        setIntroReplayMode('full');
+        setRun(value => value + 1);
+        setMode('create');
+      }} />
+      <DevButton label="Replay opening (short)" testID="chart-preview-opening-short" onPress={() => {
+        setCourse(null);
+        setIntroReplayMode('short');
+        setRun(value => value + 1);
+        setMode('create');
+      }} />
+      <DevButton label="Reset intro seen" testID="chart-preview-opening-reset" onPress={() => {
+        void resetChartIntroSeen().then(() => setIntroReplayMode(undefined));
+      }} />
       <Text style={styles.label}>Journey fixture count</Text>
       <View style={styles.row}>{[3,5,8,12].map(count=><DevChip key={count} label={`${count} waypoints`} active={waypointCount===count} onPress={()=>setWaypointCount(count)}/>)}</View>
       <DevButton label="Open journey fixture" testID="chart-preview-journey" onPress={()=>{
@@ -362,6 +387,7 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
         onPress={() => {
           setCourse(null);
           setCelebration(null);
+          setIntroReplayMode(undefined);
           setRun((value) => value + 1);
           setMode('create');
         }}

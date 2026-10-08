@@ -12,6 +12,7 @@
  *   an explicit `from` so they never depend on the previous value.
  */
 import { CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from '../chartMotion';
+import { CHART_INTRO_TIMING } from '../chartMotion';
 import { cameraTargetFor } from './chartMapGeometry';
 import { cameraSteps, focusTarget, overviewTarget, type CameraTarget } from './useChartMapCamera';
 import type {
@@ -23,10 +24,12 @@ import type {
   SequenceStep,
   WaypointPlacement,
 } from './chartMapContracts';
+import type { SharedValue } from 'react-native-reanimated';
 
 type Target = ChartMapAnimState['revealArc'];
 
 const T = CHART_MAP_TIMING;
+const INTRO = CHART_INTRO_TIMING;
 const FADE = CHART_MAP_REDUCED_FADE;
 
 function tween(
@@ -74,6 +77,153 @@ export function sequenceDuration(spec: SequenceSpec): number {
     (max, step) => Math.max(max, step.at + (step.kind === 'tween' ? step.duration : 0)),
     0,
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Creation intro opening                                              */
+/* ------------------------------------------------------------------ */
+
+export type ChartIntroBeat = 'open' | 'ink' | 'flag' | 'duck';
+
+/** Normalized presentation progress driven by the intro sequence on the UI thread. */
+export type IntroSequenceProgress = {
+  contour: SharedValue<number>;
+  tone: SharedValue<number>;
+  route: SharedValue<number>;
+  copy: SharedValue<number>;
+  marker: SharedValue<number>;
+  continue: SharedValue<number>;
+  land: SharedValue<number>;
+  cameraScale: SharedValue<number>;
+};
+
+export type IntroSequenceContext = {
+  progress: IntroSequenceProgress;
+  /** Sound callbacks are transient, so skip drops all remaining effects. */
+  onBeat?: (beat: ChartIntroBeat) => void;
+  /** Starts the ambient bed at the sequence's first frame. */
+  onStartAir?: () => void;
+  /** Enables Continue at the beginning of its fade, without a host timer. */
+  onContinueVisible?: () => void;
+  /** Mark the per-account intro as seen when its survey route begins. */
+  onRouteStart?: () => void;
+  /** Mounts the settled land layer when its existing crossfade begins. */
+  onLandReveal?: () => void;
+  /** Runs after the visual sequence fully completes, including on skip. */
+  onEnd?: () => void;
+};
+
+function introBeat(steps: SequenceStep[], at: number, onBeat: IntroSequenceContext['onBeat'], which: ChartIntroBeat): void {
+  if (!onBeat) return;
+  steps.push({ kind: 'call', at, run: () => onBeat(which), transient: true });
+}
+
+/** First-ever account intro, with every frame state driven by the shared sequencer. */
+export function introFullSequence(ctx: IntroSequenceContext): SequenceSpec {
+  const { progress: p, onBeat, onStartAir, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const steps: SequenceStep[] = [];
+  steps.push(call(0, () => {
+    p.contour.value = 0;
+    p.tone.value = 0;
+    p.route.value = 0;
+    p.copy.value = 0;
+    p.marker.value = 0;
+    p.continue.value = 0;
+    p.land.value = 0;
+    p.cameraScale.value = INTRO.cameraFrom;
+    onStartAir?.();
+  }));
+  introBeat(steps, INTRO.openAt, onBeat, 'open');
+  steps.push(tween(p.cameraScale, INTRO.cameraTo, INTRO.cameraAt, INTRO.camera, 'deliberate', INTRO.cameraFrom));
+  steps.push(tween(p.contour, 1, INTRO.contourAt, INTRO.contour, 'draw', 0));
+  steps.push(tween(p.tone, 1, INTRO.toneAt, INTRO.tone, 'draw', 0));
+  steps.push(call(INTRO.routeAt, () => onRouteStart?.()));
+  introBeat(steps, INTRO.routeAt, onBeat, 'ink');
+  steps.push(tween(p.route, 1, INTRO.routeAt, INTRO.route, 'draw', 0));
+  steps.push(tween(p.copy, 1, INTRO.copyAt, INTRO.copy, 'settle', 0));
+  steps.push(call(INTRO.landPrepareAt, () => onLandReveal?.()));
+  steps.push(call(INTRO.continueAt, () => onContinueVisible?.()));
+  steps.push(tween(p.continue, 1, INTRO.continueAt, INTRO.continue, 'settle', 0));
+  introBeat(steps, INTRO.markerAt, onBeat, 'flag');
+  steps.push(tween(p.marker, 1, INTRO.markerAt, INTRO.marker, 'out', 0));
+  steps.push(tween(p.land, 1, INTRO.landCrossfadeAt, INTRO.landCrossfade, 'linear', 0));
+  introBeat(steps, INTRO.duckAt, onBeat, 'duck');
+  return { name: 'introFull', steps, tweenClock: 'ui', onEnd: ctx.onEnd };
+}
+
+/** Returning-account intro: compact parallel ink passes, route, then copy. */
+export function introShortSequence(ctx: IntroSequenceContext): SequenceSpec {
+  const { progress: p, onBeat, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const steps: SequenceStep[] = [];
+  steps.push(call(0, () => {
+    p.contour.value = 0;
+    p.tone.value = 0;
+    p.route.value = 0;
+    p.copy.value = 0;
+    p.marker.value = 1;
+    p.continue.value = 0;
+    p.land.value = 0;
+    p.cameraScale.value = INTRO.cameraTo;
+    onRouteStart?.();
+    onLandReveal?.();
+  }));
+  introBeat(steps, 0, onBeat, 'open');
+  introBeat(steps, 0, onBeat, 'ink');
+  steps.push(tween(p.contour, 1, 0, INTRO.shortInk, 'draw', 0));
+  steps.push(tween(p.tone, 1, 0, INTRO.shortInk, 'draw', 0));
+  steps.push(tween(p.route, 1, 0, INTRO.shortRoute, 'draw', 0));
+  steps.push(tween(p.land, 1, INTRO.shortLandCrossfadeAt, INTRO.shortInk - INTRO.shortLandCrossfadeAt, 'linear', 0));
+  steps.push(tween(p.copy, 1, INTRO.shortCopyAt, INTRO.shortCopy, 'settle', 0));
+  steps.push(call(INTRO.shortCopyAt, () => onContinueVisible?.()));
+  steps.push(tween(p.continue, 1, INTRO.shortCopyAt, INTRO.shortCopy, 'settle', 0));
+  return { name: 'introShort', steps, tweenClock: 'ui', onEnd: ctx.onEnd };
+}
+
+/** Reduced motion: snap all content to its final presentation and cross-fade the land once. */
+export function introReducedSequence(ctx: IntroSequenceContext): SequenceSpec {
+  const { progress: p, onBeat, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const steps: SequenceStep[] = [];
+  steps.push(call(0, () => {
+    p.contour.value = 1;
+    p.tone.value = 1;
+    p.route.value = 1;
+    p.copy.value = 1;
+    p.marker.value = 1;
+    p.continue.value = 1;
+    p.land.value = 0;
+    p.cameraScale.value = INTRO.cameraTo;
+    onRouteStart?.();
+    onContinueVisible?.();
+    onLandReveal?.();
+  }));
+  introBeat(steps, 0, onBeat, 'open');
+  steps.push(tween(p.land, 1, 0, FADE, 'linear', 0));
+  return { name: 'introReduced', steps, onEnd: ctx.onEnd };
+}
+
+/** Tap-to-skip transition: finish the ink/map presentation without any sound beats. */
+export function introSkipSequence(ctx: IntroSequenceContext): SequenceSpec {
+  const { progress: p, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const duration = INTRO.skip;
+  return {
+    name: 'introSkip',
+    steps: [
+      call(0, () => {
+        onRouteStart?.();
+        onContinueVisible?.();
+        onLandReveal?.();
+      }),
+      tween(p.contour, 1, 0, duration, 'linear'),
+      tween(p.tone, 1, 0, duration, 'linear'),
+      tween(p.route, 1, 0, duration, 'linear'),
+      tween(p.copy, 1, 0, duration, 'linear'),
+      tween(p.marker, 1, 0, duration, 'linear'),
+      tween(p.continue, 1, 0, duration, 'linear'),
+      tween(p.land, 1, 0, duration, 'linear'),
+      tween(p.cameraScale, INTRO.cameraTo, 0, duration, 'linear'),
+    ],
+    onEnd: ctx.onEnd,
+  };
 }
 
 /* ------------------------------------------------------------------ */

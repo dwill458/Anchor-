@@ -8,6 +8,8 @@ import { CHART_EASING } from '../chartMotion';
 import { CHART_MAP_TOKENS as T } from '../map/chartMapTokens';
 
 export type ChartSheetDetent = 'hidden' | 'peek' | 'half' | 'full';
+/** A stable native frame that matches the clipped ScrollView viewport. */
+export type ChartSheetViewport = View;
 export type ChartSheetHandle = { snapTo: (detent: ChartSheetDetent) => void; collapse: () => boolean };
 export function chartSheetDetents(height: number, top: number, bottom: number) {
   return { hidden: height, peek: height - (162 + bottom), half: height - Math.round(.56 * height), full: Math.min(top + 45 + 128, height * .38) };
@@ -38,10 +40,14 @@ export function ChartSheetTier({ children, tier }: { children: React.ReactNode; 
   return <Animated.View testID={`chart-sheet-${tier}`} style={[styles.tier, style]} pointerEvents={hidden ? 'none' : 'auto'} accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}>{children}</Animated.View>;
 }
 
-export function ChartSheetScrollArea({ children }: { children: React.ReactNode }) {
+export function ChartSheetScrollArea({ children, viewportRef, onLayout }: { children: React.ReactNode; viewportRef?: React.Ref<ChartSheetViewport>; onLayout?: () => void }) {
   const context = useContext(SheetContext);
   const scrollY = context?.scrollY;
   const scroll = useRef<React.ElementRef<typeof Animated.ScrollView>>(null);
+  const setViewportRef = useCallback((node: View | null) => {
+    if (typeof viewportRef === 'function') viewportRef(node);
+    else if (viewportRef) viewportRef.current = node;
+  }, [viewportRef]);
   useEffect(() => {
     if (context?.detent !== 'full') {
       scroll.current?.scrollTo({ y: 0, animated: false });
@@ -49,16 +55,19 @@ export function ChartSheetScrollArea({ children }: { children: React.ReactNode }
     }
   }, [context?.detent, scrollY]);
   const onScroll = useAnimatedScrollHandler({ onScroll: event => { if (scrollY) scrollY.value = event.contentOffset.y; } });
-  if (!context) return <View>{children}</View>;
-  return <GestureDetector gesture={Gesture.Simultaneous(context.pan, context.native)}>
-    <Animated.ScrollView ref={scroll} style={styles.scroll} scrollEnabled={context.detent === 'full'} onScroll={onScroll} scrollEventThrottle={16} bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} testID="chart-sheet-scroll">{children}</Animated.ScrollView>
-  </GestureDetector>;
+  if (!context) return <View ref={setViewportRef} onLayout={onLayout}>{children}</View>;
+  return <View ref={setViewportRef} onLayout={onLayout} style={styles.scroll}>
+    <GestureDetector gesture={Gesture.Simultaneous(context.pan, context.native)}>
+      <Animated.ScrollView ref={scroll} style={styles.scroll} scrollEnabled={context.detent === 'full'} onScroll={onScroll} scrollEventThrottle={16} bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} testID="chart-sheet-scroll">{children}</Animated.ScrollView>
+    </GestureDetector>
+  </View>;
 }
 
 export const ChartSheet = forwardRef<ChartSheetHandle, {
   children: React.ReactNode; reducedMotion: boolean; busy: SharedValue<boolean>;
   onDetentChange?: (detent: ChartSheetDetent) => void;
-}>(function ChartSheet({ children, reducedMotion, busy, onDetentChange }, ref) {
+  overlay?: React.ReactNode;
+}>(function ChartSheet({ children, reducedMotion, busy, onDetentChange, overlay }, ref) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const positions = useMemo(() => chartSheetDetents(height, insets.top, insets.bottom), [height, insets.top, insets.bottom]);
@@ -136,6 +145,7 @@ export const ChartSheet = forwardRef<ChartSheetHandle, {
       </View></GestureDetector>
       {children}
     </Animated.View>
+    {overlay}
   </SheetContext.Provider>;
 });
 

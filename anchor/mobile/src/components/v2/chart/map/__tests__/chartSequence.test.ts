@@ -7,6 +7,7 @@ type Fake = { id: string; value: number };
 function makeDriver() {
   const log: string[] = [];
   const tweens: Array<{ target: Fake; to: number; done: () => void; cancelled: boolean; handle: TweenHandle }> = [];
+  const delayed: Array<{ target: Fake; to: number; delay: number; duration: number; done: () => void; cancelled: boolean; handle: TweenHandle }> = [];
   const driver: SequenceDriver = {
     startTween(target, _from, to, _duration, _easing, onDone) {
       const t = { target: target as Fake, to, done: onDone, cancelled: false, handle: { cancel: () => undefined } };
@@ -19,6 +20,13 @@ function makeDriver() {
       log.push(`tween:${(target as Fake).id}`);
       return t.handle;
     },
+    startDelayedTween(target, _from, to, delay, duration, _easing, onDone) {
+      const t = { target: target as Fake, to, delay, duration, done: onDone, cancelled: false, handle: { cancel: () => undefined } };
+      t.handle = { cancel: () => { t.cancelled = true; } };
+      delayed.push(t);
+      log.push(`delayed:${(target as Fake).id}@${delay}+${duration}`);
+      return t.handle;
+    },
     setValue(target, value) {
       (target as Fake).value = value;
       log.push(`set:${(target as Fake).id}=${value}`);
@@ -29,11 +37,11 @@ function makeDriver() {
   };
   const sv = (id: string, value = 0): SharedValue<number> => ({ id, value } as unknown as SharedValue<number>);
   /** Complete every live tween, as the UI thread would. */
-  const finishTweens = () => tweens.filter((t) => !t.cancelled).forEach((t) => {
+  const finishTweens = () => [...tweens, ...delayed].filter((t) => !t.cancelled).forEach((t) => {
     (t.target as Fake).value = t.to;
     t.done();
   });
-  return { driver, log, tweens, sv, finishTweens };
+  return { driver, log, tweens, delayed, sv, finishTweens };
 }
 
 const spec = (h: ReturnType<typeof makeDriver>, calls: string[], onEnd?: () => void): SequenceSpec => {
@@ -318,5 +326,96 @@ describe('createSequenceRunner', () => {
     expect(h.log).toEqual(['set:r=200']);
     expect(onEnd).toHaveBeenCalledTimes(1);
     expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('schedules opted-in UI tweens immediately on the UI clock while JS calls keep their offsets', async () => {
+    const h = makeDriver();
+    const runner = createSequenceRunner(h.driver, { timeScale: 2 });
+    const target = h.sv('contour');
+    const calls: string[] = [];
+    const done = runner.run({
+      name: 'introFull', tweenClock: 'ui',
+      steps: [
+        { kind: 'call', at: 0, run: () => { target.value = 0; calls.push('reset'); } },
+        { kind: 'tween', at: 200, duration: 3200, target, to: 1, from: 0, easing: 'draw' },
+        { kind: 'call', at: 150, run: () => calls.push('open'), transient: true },
+      ],
+    });
+    expect(calls).toEqual(['reset']);
+    expect(h.delayed.map(({ delay, duration }) => ({ delay, duration }))).toEqual([{ delay: 400, duration: 6400 }]);
+    expect(h.tweens).toHaveLength(0);
+    jest.advanceTimersByTime(300);
+    expect(calls).toEqual(['reset', 'open']);
+    h.finishTweens();
+    await done;
+  });
+
+  it('cancels a delayed UI tween before it starts and prevents stale completion', async () => {
+    const h = makeDriver();
+    const runner = createSequenceRunner(h.driver);
+    const target = h.sv('tone');
+    const end = jest.fn();
+    const done = runner.run({ name: 'introShort', tweenClock: 'ui', onEnd: end, steps: [
+      { kind: 'tween', at: 300, duration: 1000, target, to: 1 },
+    ] });
+    expect(h.delayed).toHaveLength(1);
+    runner.cancel();
+    await done;
+    expect(h.delayed[0].cancelled).toBe(true);
+    h.delayed[0].done();
+    jest.advanceTimersByTime(2000);
+    expect(end).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('skip during a delayed UI tween cancels it, applies final state, drops transient beats, and ends once', async () => {
+    const h = makeDriver();
+    const runner = createSequenceRunner(h.driver);
+    const target = h.sv('route');
+    const onEnd = jest.fn();
+    const beat = jest.fn();
+    const done = runner.run({ name: 'introFull', tweenClock: 'ui', onEnd, steps: [
+      { kind: 'tween', at: 4100, duration: 1000, target, to: 1 },
+      { kind: 'call', at: 500, run: beat, transient: true },
+    ] });
+    runner.skip();
+    await done;
+    expect(h.delayed[0].cancelled).toBe(true);
+    expect((target as unknown as Fake).value).toBe(1);
+    expect(beat).not.toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('falls back to JS tween scheduling for duplicate UI targets and for reduced or legacy specs', async () => {
+    const h = makeDriver();
+    const target = h.sv('shared');
+    const runner = createSequenceRunner(h.driver);
+    const duplicate = runner.run({ name: 'introFull', tweenClock: 'ui', steps: [
+      { kind: 'tween', at: 0, duration: 100, target, to: 1 },
+      { kind: 'tween', at: 200, duration: 100, target, to: 2 },
+    ] });
+    expect(h.delayed).toHaveLength(0);
+    expect(h.tweens).toHaveLength(1);
+    runner.cancel();
+    await duplicate;
+
+    const reducedRunner = createSequenceRunner(h.driver, { reducedMotion: true });
+    const reduced = reducedRunner.run({ name: 'introFull', tweenClock: 'ui', steps: [
+      { kind: 'tween', at: 100, duration: 100, target: h.sv('reduced'), to: 1 },
+    ] });
+    jest.advanceTimersByTime(100);
+    await reduced;
+    expect(h.delayed).toHaveLength(0);
+
+    const legacyRunner = createSequenceRunner(h.driver);
+    const legacy = legacyRunner.run({ name: 'open', steps: [
+      { kind: 'tween', at: 100, duration: 100, target: h.sv('legacy'), to: 1 },
+    ] });
+    expect(h.delayed).toHaveLength(0);
+    jest.advanceTimersByTime(100);
+    expect(h.tweens).toHaveLength(2);
+    legacyRunner.cancel();
+    await legacy;
   });
 });

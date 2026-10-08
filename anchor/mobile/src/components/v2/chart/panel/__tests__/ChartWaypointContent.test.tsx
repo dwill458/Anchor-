@@ -1,4 +1,5 @@
 import React from 'react';
+import { View } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ChartWaypointContent } from '../../ChartWaypointContent';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -18,6 +19,7 @@ import {
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 
 type ContentProps = Partial<React.ComponentProps<typeof ChartWaypointContent>>;
+const rowScrollTiers: NonNullable<ContentProps['renderTiers']> = ({ peek, oneMove }) => <View>{peek}{oneMove}</View>;
 
 function renderContent(view: ChartViewModel, props: ContentProps = {}) {
   const actions = (props.chart as ReturnType<typeof chartActions> | undefined) ?? chartActions();
@@ -143,13 +145,16 @@ describe('ChartWaypointContent — ink panel', () => {
     }
   });
 
-  it('"Do another move now" hides the day-closed card for the session and brings the next move back', () => {
-    const { getByText, queryByText, queryByTestId } = renderContent(viewOf(dayClosedCourse()));
-    expect(queryByTestId('chart-one-move')).toBeNull();
+  it('"Do another move now" hides the day-closed card and replaces the retained checked row with the next move', () => {
+    const { getByText, queryByText, queryByTestId } = renderContent(viewOf(dayClosedCourse()), { renderTiers: rowScrollTiers });
+    expect(getByText('Finish onboarding redesign')).toBeTruthy();
+    expect(queryByTestId('chart-one-move-check')?.props.accessibilityState.checked).toBe(true);
     fireEvent.press(getByText('Do another move now'));
     expect(queryByTestId('chart-day-closed')).toBeNull();
     expect(queryByText("Today's move is done.")).toBeNull();
     expect(getByText('Launch creator campaign')).toBeTruthy();
+    expect(queryByText('Finish onboarding redesign')).toBeNull();
+    expect(queryByTestId('chart-one-move-check')?.props.accessibilityState.checked).toBe(false);
   });
 
   it('a new completion re-closes the day after "Do another move now" hid the card', () => {
@@ -180,13 +185,87 @@ describe('ChartWaypointContent — ink panel', () => {
   // DEFERRED: });
 
 
-  it('with no next move there is no "Do another move now", and only the day-closed card shows', () => {
-    const { getByText, queryByText, queryByTestId, getByTestId } = renderContent(viewOf(dayClosedNoNextCourse()));
+  it('with no next move there is no "Do another move now", while the completed move remains checked beside Day Closed', () => {
+    const { getByText, queryByText, queryByTestId, getByTestId } = renderContent(viewOf(dayClosedNoNextCourse()), { renderTiers: rowScrollTiers });
     expect(getByText("Today's move is done.")).toBeTruthy();
     expect(queryByText('Do another move now')).toBeNull();
     expect(queryByText('Every move on this waypoint is done.')).toBeNull();
-    expect(queryByTestId('chart-one-move')).toBeNull();
+    expect(getByText('Finish onboarding redesign')).toBeTruthy();
+    expect(queryByTestId('chart-one-move-check')?.props.accessibilityState.checked).toBe(true);
     expect(getByTestId('chart-day-closed')).toBeTruthy();
+  });
+
+  it('does not let a completion on a previous waypoint replace the current waypoint move', () => {
+    const courseWithPriorCompletion = course({
+      moves: [
+        move({ id: 'old', waypointId: 'w1', title: 'Previous waypoint done', status: 'COMPLETED', completedAt: EARLIER_TODAY }),
+        move({ id: 'current', waypointId: 'w2', title: 'Current waypoint active', isCurrent: true }),
+      ],
+    });
+    const { getByText, getByTestId, queryByText } = renderContent(viewOf(courseWithPriorCompletion), { renderTiers: rowScrollTiers });
+    expect(getByTestId('chart-day-closed')).toBeTruthy();
+    expect(getByText('Current waypoint active')).toBeTruthy();
+    expect(getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(false);
+    expect(queryByText('Previous waypoint done')).toBeNull();
+  });
+
+  it('drops a locally retained row immediately when the current waypoint advances', async () => {
+    const base = course();
+    const props = { chart: chartActions() as never, category: 'desire', reducedMotion: true, actionError: null, bottomInset: 0, onBack: jest.fn(), onReached: jest.fn(), now: NOW, practiced: false, renderTiers: rowScrollTiers };
+    const { getByTestId, rerender } = render(<ChartWaypointContent view={viewOf(base)} waypointId="w2" onCompleteMove={jest.fn(async () => true)} {...props} />);
+    fireEvent.press(getByTestId('chart-one-move-check'));
+    await waitFor(() => expect(getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(true));
+
+    const advanced = course({
+      currentWaypointId: 'w3',
+      currentMoveId: 'next',
+      waypoints: base.waypoints.map((item) => item.id === 'w2'
+        ? { ...item, state: 'REACHED' as const, reachedAt: EARLIER_TODAY }
+        : item.id === 'w3' ? { ...item, state: 'CURRENT' as const } : item),
+      moves: [
+        move({ id: 'just-finished', waypointId: 'w2', title: 'Finish onboarding redesign', status: 'COMPLETED', completedAt: EARLIER_TODAY }),
+        move({ id: 'next', waypointId: 'w3', title: 'Move on the new waypoint', isCurrent: true }),
+      ],
+    });
+    rerender(<ChartWaypointContent view={viewOf(advanced)} waypointId="w3" {...props} />);
+    expect(getByTestId('chart-one-move-title').props.children).toBe('Move on the new waypoint');
+    expect(getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(false);
+  });
+
+  it('keeps the checked row after the toast expires, and restores it from server data after remount', async () => {
+    jest.useFakeTimers({ now: NOW });
+    try {
+      const onCompleteMove = jest.fn(async () => true);
+      const first = renderContent(viewOf(), { onCompleteMove, renderTiers: rowScrollTiers });
+      fireEvent.press(first.getByTestId('chart-one-move-check'));
+      await act(async () => { await Promise.resolve(); });
+      expect(first.getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(true);
+      expect(first.getByTestId('chart-one-move-toast')).toBeTruthy();
+      await act(async () => { jest.advanceTimersByTime(1800); });
+      expect(first.queryByTestId('chart-one-move-toast')).toBeNull();
+      expect(first.getByText('Finish onboarding redesign')).toBeTruthy();
+      expect(first.getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(true);
+      first.unmount();
+
+      const restored = renderContent(viewOf(dayClosedCourse()), { renderTiers: rowScrollTiers });
+      expect(restored.getByTestId('chart-day-closed')).toBeTruthy();
+      expect(restored.getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(true);
+      expect(restored.getByText('Finish onboarding redesign')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('restores a completed current-waypoint row on a later day when no active move remains', () => {
+    const yesterday = new Date(NOW.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const noActiveMove = course({
+      currentMoveId: null,
+      moves: [move({ id: 'done-current', waypointId: 'w2', title: 'Completed earlier move', status: 'COMPLETED', completedAt: yesterday })],
+    });
+    const { getByText, getByTestId, queryByTestId } = renderContent(viewOf(noActiveMove), { renderTiers: rowScrollTiers });
+    expect(queryByTestId('chart-day-closed')).toBeNull();
+    expect(getByText('Completed earlier move')).toBeTruthy();
+    expect(getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(true);
   });
 
   it('a day-closed card never outlives midnight (the clock refreshes on its own)', async () => {

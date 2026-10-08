@@ -82,6 +82,7 @@ import {
 import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
 import { WIDGETS_ENABLED } from './src/config';
 import { isAnchorV2Enabled } from './src/config/v2FeatureFlag';
+import { isChartOpeningPreviewEnabled } from './src/config/chartOpeningPreview';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { ChartLabDevHost } from './src/screens/v2/system/ChartLabDevHost';
 import { VisionVisualQADevHost } from './src/screens/v2/system/VisionVisualQADevHost';
@@ -938,7 +939,7 @@ export default function App() {
                     <StatusBar style="light" />
                     {anchorV2Enabled ? <AnchorV2Navigator /> : <RootNavigator />}
                   </NavigationContainer>
-                  {__DEV__ ? <ChartLabDevHost /> : null}
+                  {__DEV__ || isChartOpeningPreviewEnabled() ? <ChartLabDevHost /> : null}
                   {__DEV__ ? <VisionVisualQADevHost /> : null}
                   {__DEV__ ? <CreationFlowQADevHost /> : null}
                 </SettingsRevealProvider>

@@ -13,7 +13,9 @@ import {
 } from './chartMapShaders';
 import { CHART_MAP_TOKENS } from './chartMapTokens';
 import { loadCloudTiles } from './chartCloudTiles';
-import { useChartMapCameraTransform } from './useChartMapCamera';
+import { useChartIntroCameraTransform, useChartMapCameraTransform } from './useChartMapCamera';
+import { getChartInkEffect } from './chartInkShader';
+import type { IntroSequenceProgress } from './chartMapSequences';
 
 // 1704 x 2360 grayscale master, exactly 2x the 852 x 1180 design space.
 const LANDSCAPE = require('@/../assets/chart/chart-landscape-master.webp');
@@ -55,6 +57,16 @@ async function buildFogImages(table: RouteTable): Promise<FogImages | null> {
 
 let landscapeImageCache: SkImage | null = null;
 let landscapeLoad: Promise<SkImage | null> | null = null;
+let tintEffectCache: ReturnType<typeof makeEffect> | undefined;
+let fogEffectCache: ReturnType<typeof makeEffect> | undefined;
+function getTintEffect(): ReturnType<typeof makeEffect> {
+  if (tintEffectCache === undefined) tintEffectCache = makeEffect(TINT_SKSL);
+  return tintEffectCache;
+}
+function getFogEffect(): ReturnType<typeof makeEffect> {
+  if (fogEffectCache === undefined) fogEffectCache = makeEffect(FOG_SKSL);
+  return fogEffectCache;
+}
 const grainImages = new Map<string, SkImage>();
 const grainLoads = new Map<string, Promise<SkImage | null>>();
 const grainKey = (width: number, height: number) => `${width}:${height}:${Math.min(PixelRatio.get(), 2)}`;
@@ -69,6 +81,29 @@ function loadLandscape(): Promise<SkImage | null> {
     return landscapeImageCache;
   }).finally(() => { landscapeLoad = null; });
   return landscapeLoad;
+}
+
+/** Resolve the one decoded landscape resource required before the intro's first visible frame. */
+export async function prepareChartMapIntroArt(table?: RouteTable, width?: number, height?: number): Promise<boolean> {
+  try {
+    const image = await loadLandscape();
+    // Compile the synchronous SkSL dependencies before the intro's first visible frame too.
+    const tintEffect = getTintEffect();
+    const inkEffect = getChartInkEffect();
+    getFogEffect();
+    // The full-land stack is intentionally drawn only during the final crossfade.
+    // Warm its CPU-built fog field and grain image in the parent's paper hold,
+    // outside the time-critical intro sequence.
+    if (table && width !== undefined && height !== undefined) {
+      await Promise.allSettled([
+        loadFogImages(table),
+        loadGrain(width, height),
+      ]);
+    }
+    return image !== null && tintEffect !== null && inkEffect !== null;
+  } catch {
+    return false;
+  }
 }
 
 function loadGrain(width: number, height: number): Promise<SkImage | null> {
@@ -112,6 +147,11 @@ type Props = {
   reducedMotion?: boolean;
   /** Fog of war: dense cloud over undiscovered ground. Off for surfaces that show the bare map (intro). */
   clouds?: boolean;
+  introProgress?: IntroSequenceProgress;
+  /** Keep the settled land/fog stack out of the animated intro ink pass. */
+  introBaseVisible?: boolean;
+  /** Intro uses distinct fixed-resolution canvases for base art and the ink sweep. */
+  introPass?: 'base' | 'ink';
   onArtReady?: (ready: boolean) => void;
 };
 
@@ -120,7 +160,9 @@ type Props = {
  * masked by the fog shader, then grain. Redraws only when revealArc, fog or the
  * camera move; the flag sway lives on the separate overlay canvas.
  */
-export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, table, categoryColor, reducedMotion = false, clouds = false, onArtReady, frame }: Props) {
+export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, table, categoryColor, reducedMotion = false, clouds = false, introProgress, introBaseVisible, introPass, onArtReady, frame }: Props) {
+  const drawBaseLand = introPass !== 'ink' && (!introProgress || introBaseVisible !== false);
+  const drawIntroInk = introPass !== 'base' && Boolean(introProgress);
   const decodedImage = useImage(landscapeImageCache ? null : LANDSCAPE);
   const [warmedImage, setWarmedImage] = useState<SkImage | null>(() => landscapeImageCache);
   const image = warmedImage ?? decodedImage;
@@ -129,19 +171,20 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
     loadLandscape().then(value => { if (alive && value) setWarmedImage(value); }).catch(() => undefined);
     return () => { alive = false; };
   }, []);
-  const tintEffect = useMemo(() => makeEffect(TINT_SKSL), []);
-  const fogEffect = useMemo(() => makeEffect(FOG_SKSL), []);
+  const tintEffect = useMemo(() => getTintEffect(), []);
+  const fogEffect = useMemo(() => getFogEffect(), []);
   const cloudEffect = useMemo(() => (clouds ? makeEffect(CLOUD_SKSL) : null), [clouds]);
   // First frames render faint-only; the ink layer appears when the field is ready.
   const [fogImages, setFogImages] = useState<FogImages | null>(() => cachedFogImages(table));
   useEffect(() => {
+    if (!drawBaseLand) return undefined;
     if (!fogEffect) return undefined;
     let alive = true;
     loadFogImages(table)
       .then(images => { if (alive) setFogImages(images); })
       .catch(error => { if (__DEV__) console.warn('[chart-map] fog field failed', error); });
     return () => { alive = false; };
-  }, [fogEffect, table]);
+  }, [drawBaseLand, fogEffect, table]);
   // Ink fades in over 300 ms once the fog images resolve (instantly under reduced motion).
   const inkFade = useSharedValue(cachedFogImages(table) ? 1 : 0);
   useEffect(() => {
@@ -160,12 +203,25 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
   // DEFERRED: grain was rendered anew for every mount; the viewport cache shares it across the handoff.
   const [grain, setGrain] = useState<SkImage | null>(() => grainImages.get(grainKey(width, height)) ?? null);
   useEffect(() => {
+    if (!drawBaseLand) return undefined;
     let alive = true;
     loadGrain(width, height).then(value => { if (alive) setGrain(value); })
       .catch(error => { if (__DEV__) console.warn('[chart-map] grain render failed', error); });
     return () => { alive = false; };
-  }, [width, height]);
+  }, [drawBaseLand, width, height]);
   const cameraTransform = useChartMapCameraTransform(anim, width, height, frame);
+  const introTransform = useChartIntroCameraTransform(introProgress?.cameraScale, width);
+  const inkEffect = useMemo(() => introProgress ? getChartInkEffect() : null, [introProgress]);
+  const introInkColor = useMemo(() => hexToVec3(CHART_MAP_TOKENS.ink), []);
+  const introInkUniforms = useDerivedValue(() => ({
+    size: [MAP_W, MAP_H],
+    contourP: introProgress?.contour.value ?? 0,
+    toneP: introProgress?.tone.value ?? 0,
+    landP: introProgress?.land.value ?? 0,
+    inkColor: introInkColor,
+  }), [introInkColor, introProgress]);
+  // If the intro SkSL cannot compile, keep the decoded tinted land visible as a safe fallback.
+  const landOpacity = introProgress && inkEffect ? introProgress.land : 1;
 
   const paper = useMemo(() => hexToVec3(CHART_MAP_TOKENS.paper), []);
   const cat = useMemo(() => hexToVec3(categoryColor), [categoryColor]);
@@ -193,45 +249,56 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
 
   return (
     <>
-      <Group transform={cameraTransform}>
-        <Rect x={0} y={0} width={MAP_W} height={MAP_H} color={CHART_MAP_TOKENS.paper} />
-        {showArt && tintEffect ? (
-          <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
-            <Shader source={tintEffect} uniforms={faintUniforms}>
-              <ImageShader image={image} fit="cover" rect={MAP_RECT} sampling={SAMPLING_ART} />
-            </Shader>
-          </Rect>
-        ) : null}
-        {showInk && tintEffect && fogEffect && fogImages ? (
-          <Group layer={<Paint />} opacity={inkFade}>
+      <Group transform={introTransform}>
+        <Group transform={cameraTransform}>
+          {introPass !== 'ink' ? <Rect x={0} y={0} width={MAP_W} height={MAP_H} color={CHART_MAP_TOKENS.paper} /> : null}
+          {drawBaseLand ? <Group opacity={landOpacity}>
+            {showArt && tintEffect ? (
+              <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
+                <Shader source={tintEffect} uniforms={faintUniforms}>
+                  <ImageShader image={image} fit="cover" rect={MAP_RECT} sampling={SAMPLING_ART} />
+                </Shader>
+              </Rect>
+            ) : null}
+            {showInk && tintEffect && fogEffect && fogImages ? (
+              <Group layer={<Paint />} opacity={inkFade}>
+                <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
+                  <Shader source={tintEffect} uniforms={inkUniforms}>
+                    <ImageShader image={image} fit="cover" rect={MAP_RECT} sampling={SAMPLING_ART} />
+                  </Shader>
+                </Rect>
+                <Rect x={0} y={0} width={MAP_W} height={MAP_H} blendMode="dstIn">
+                  <Shader source={fogEffect} uniforms={fogUniforms}>
+                    <ImageShader image={fogImages.fieldDist} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                    <ImageShader image={fogImages.fieldArc} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                    <ImageShader image={fogImages.noise} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                  </Shader>
+                </Rect>
+              </Group>
+            ) : null}
+            {showInk && cloudEffect && fogImages ? (
+              <Group opacity={cloudFade}>
+                <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
+                  <Shader source={cloudEffect} uniforms={cloudUniforms}>
+                    <ImageShader image={fogImages.fieldDist} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                    <ImageShader image={fogImages.fieldArc} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                    <ImageShader image={fogImages.noise} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                  </Shader>
+                </Rect>
+              </Group>
+            ) : null}
+          </Group> : null}
+          {drawIntroInk && introProgress && inkEffect && showArt && image ? (
             <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
-              <Shader source={tintEffect} uniforms={inkUniforms}>
+              <Shader source={inkEffect} uniforms={introInkUniforms}>
                 <ImageShader image={image} fit="cover" rect={MAP_RECT} sampling={SAMPLING_ART} />
               </Shader>
             </Rect>
-            <Rect x={0} y={0} width={MAP_W} height={MAP_H} blendMode="dstIn">
-              <Shader source={fogEffect} uniforms={fogUniforms}>
-                <ImageShader image={fogImages.fieldDist} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
-                <ImageShader image={fogImages.fieldArc} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
-                <ImageShader image={fogImages.noise} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
-              </Shader>
-            </Rect>
-          </Group>
-        ) : null}
-        {showInk && cloudEffect && fogImages ? (
-          <Group opacity={cloudFade}>
-            <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
-              <Shader source={cloudEffect} uniforms={cloudUniforms}>
-                <ImageShader image={fogImages.fieldDist} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
-                <ImageShader image={fogImages.fieldArc} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
-                <ImageShader image={fogImages.noise} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
-              </Shader>
-            </Rect>
-          </Group>
-        ) : null}
+          ) : null}
+        </Group>
       </Group>
-      {grain ? (
-        <SkiaImage image={grain} x={0} y={0} width={width} height={height} fit="fill" blendMode="multiply" />
+      {grain && drawBaseLand ? (
+        <SkiaImage image={grain} x={0} y={0} width={width} height={height} fit="fill" blendMode="multiply" opacity={landOpacity} />
       ) : null}
     </>
   );

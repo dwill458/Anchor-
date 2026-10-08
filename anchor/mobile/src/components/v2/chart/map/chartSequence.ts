@@ -29,6 +29,16 @@ export type SequenceDriver = {
     easing: SequenceEasing,
     onDone: () => void
   ): TweenHandle;
+  /** Optional native-clock tween with an absolute delay from when it is scheduled. */
+  startDelayedTween?(
+    target: SequenceTarget,
+    from: number,
+    to: number,
+    delay: number,
+    duration: number,
+    easing: SequenceEasing,
+    onDone: () => void,
+  ): TweenHandle;
   setValue(target: SequenceTarget, value: number): void;
   getValue(target: SequenceTarget): number;
   setTimer(ms: number, fn: () => void): TimerHandle;
@@ -113,6 +123,40 @@ export function createSequenceRunner(driver: SequenceDriver, opts: SequenceRunne
 
   const maybeFinish = (run: ActiveRun): void => {
     if (!run.ended && run.steps.every((s) => s.status === 'done')) finish(run, true);
+  };
+
+  const startUiTween = (run: ActiveRun, s: StepState, k: number): void => {
+    if (run.ended || s.status !== 'pending' || s.step.kind !== 'tween' || !driver.startDelayedTween) return;
+    const step = s.step;
+    const delay = Math.max(0, step.at * k);
+    const duration = Math.max(0, step.duration * k);
+    if (!(duration > 0)) {
+      fire(run, s, false, k);
+      return;
+    }
+    const from = step.from !== undefined ? step.from : driver.getValue(step.target);
+    s.status = 'running';
+    s.tween = driver.startDelayedTween(step.target, from, step.to, delay, duration, step.easing ?? 'inOut', () => {
+      if (run.ended || run.clearing || s.status !== 'running') return;
+      clearSafety(s);
+      s.tween = null;
+      s.status = 'done';
+      maybeFinish(run);
+    });
+    if (s.status === 'running') {
+      s.hasSafety = true;
+      s.safety = driver.setTimer(delay + duration + SAFETY_MS, () => {
+        s.hasSafety = false;
+        s.safety = null;
+        if (run.ended || s.status !== 'running') return;
+        const handle = s.tween;
+        s.tween = null;
+        s.status = 'done';
+        handle?.cancel();
+        driver.setValue(step.target, step.to);
+        maybeFinish(run);
+      });
+    }
   };
 
   const runCall = (s: StepState & { step: Extract<SequenceStep, { kind: 'call' }> }): void => {
@@ -222,7 +266,20 @@ export function createSequenceRunner(driver: SequenceDriver, opts: SequenceRunne
       const reduced = isReduced();
       const k = scale();
       const immediate: StepState[] = [];
+      const uiCandidates = new Set<StepState>();
+      if (spec.tweenClock === 'ui' && !reduced && driver.startDelayedTween) {
+        const targetCounts = new Map<SequenceTarget, number>();
+        for (const s of run.steps) {
+          if (s.step.kind === 'tween' && s.step.duration > 0) {
+            targetCounts.set(s.step.target, (targetCounts.get(s.step.target) ?? 0) + 1);
+          }
+        }
+        for (const s of run.steps) {
+          if (s.step.kind === 'tween' && s.step.duration > 0 && targetCounts.get(s.step.target) === 1) uiCandidates.add(s);
+        }
+      }
       for (const s of run.steps) {
+        if (uiCandidates.has(s)) continue;
         const ms = Math.max(0, s.step.at * k);
         if (ms <= 0) immediate.push(s);
         else {
@@ -230,8 +287,15 @@ export function createSequenceRunner(driver: SequenceDriver, opts: SequenceRunne
           s.timer = driver.setTimer(ms, () => fire(run, s, reduced, k));
         }
       }
-      // at 0: start synchronously, in declaration order.
-      for (const s of immediate) fire(run, s, reduced, k);
+      // Reset/call steps at t=0 must land before delayed native tweens pin their from-values.
+      if (uiCandidates.size > 0) {
+        for (const s of immediate) if (s.step.kind === 'call') fire(run, s, reduced, k);
+        for (const s of immediate) if (s.step.kind !== 'call') fire(run, s, reduced, k);
+        for (const s of uiCandidates) startUiTween(run, s, k);
+      } else {
+        // at 0: start synchronously, in declaration order.
+        for (const s of immediate) fire(run, s, reduced, k);
+      }
     });
   };
 

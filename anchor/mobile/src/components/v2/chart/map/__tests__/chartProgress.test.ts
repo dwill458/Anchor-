@@ -195,7 +195,7 @@ describe('value rows', () => {
     // Started at zero says nothing the fraction does not.
     expect(progressValueRow(input({ metric: metric(340, 0, 1000) }), 'current', 0)).toEqual({ strong: '340 / 1,000', span: '' });
     expect(progressValueRow(input({ movesDone: 1, movesTotal: 3 }), 'current', 0)).toEqual({ strong: '1 of 3 moves done', span: 'moves draw this leg' });
-    expect(progressValueRow(input({ movesDone: 3, movesTotal: 3 }), 'current', 0)?.span).toBe('route holds at 90% until you confirm');
+    expect(progressValueRow(input({ movesDone: 3, movesTotal: 3 }), 'current', 0)?.span).toBe('The move is done. Mark the waypoint reached when you feel it is.');
     expect(progressValueRow(input({ metric: metric(0, 0, 5000) }), 'upcoming', 0, 'active users')).toEqual({ strong: '5,000', span: 'active users to reach' });
     expect(progressValueRow(input({ metric: metric(0, 0, 5000) }), 'reached', 0)).toEqual({ strong: '5,000', span: 'reached' });
     expect(progressValueRow(input(), 'upcoming', 0)).toBeNull();

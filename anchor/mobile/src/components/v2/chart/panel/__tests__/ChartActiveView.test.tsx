@@ -18,10 +18,32 @@ import { chartActions, course, finishedCourse, viewOf, waypoint } from './chartP
 import { loadFogImages, warmChartMapResources } from '../../map/ChartMapLand';
 import { loadCloudTiles } from '../../map/chartCloudTiles';
 import { setChartOpenedClockOffsetForDev } from '@/hooks/v2/chart/chartLastOpened';
+import { resetChartTaughtStateCache, resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
+import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
+import { useAuthStore } from '@/stores/authStore';
 
 jest.mock('@/services/notifications/chartNotifications', () => ({
   syncChartNotifications: jest.fn(async () => undefined),
 }));
+
+// ActiveView lifecycle tests observe when teaching is requested; the overlay's native
+// coordinate measurement and controls are exercised in ChartOneMoveTeaching.test.tsx.
+jest.mock('../../sheet/ChartOneMoveTeaching', () => {
+  const React = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return {
+    ChartOneMoveTeaching: ({ visible, replayVersion, onReady, onDismiss }: { visible: boolean; replayVersion: number; onReady: () => void; onDismiss: () => void }) => {
+      const [beat, setBeat] = React.useState(0);
+      React.useEffect(() => { setBeat(0); }, [replayVersion]);
+      React.useEffect(() => { if (visible) onReady(); }, [onReady, visible]);
+      if (!visible) return null;
+      const titles = ['This is your one move.', 'The circle is for done.', 'The words open the whole move.'];
+      return React.createElement(View, { testID: 'chart-one-move-teaching' },
+        React.createElement(Text, null, titles[beat]),
+        React.createElement(Pressable, { onPress: () => beat === 2 ? onDismiss() : setBeat(beat + 1) }, React.createElement(Text, null, beat === 2 ? 'Got it' : 'Next')));
+    },
+  };
+});
 
 // Each test opens its Chart on a fresh day: a mark left by an earlier test would otherwise make this open a
 // same-day "later" one (the open now waits long enough for the stored day to load).
@@ -157,11 +179,56 @@ async function settle(ms = 300) {
 beforeEach(() => {
   // High-water marks are remembered per course; each test starts from a clean memory.
   resetChartHighWaterCache();
+  resetChartTaughtStateCache();
   (syncChartNotifications as jest.Mock).mockClear();
   lastActions = null;
 });
 
 describe('ChartActiveView — treasure map composition', () => {
+  it('waits for opening and a measurable row, teaches once, supports replay, and remembers dismissal across remounts', async () => {
+    await resetChartTaughtState(null, DEFAULT_COURSE.id);
+    const first = render(<Harness />);
+    expect(first.queryByTestId('chart-one-move-teaching-measure')).toBeNull();
+    await settle(1400);
+    await waitFor(() => expect(first.queryByTestId('chart-one-move-teaching-measure') ?? first.queryByTestId('chart-one-move-teaching')).toBeTruthy(), { timeout: 2500 });
+    await waitFor(() => expect(first.getByText('This is your one move.')).toBeTruthy(), { timeout: 2500 });
+    fireEvent.press(first.getByLabelText('Replay move teaching'));
+    await waitFor(() => expect(first.getByText('This is your one move.')).toBeTruthy());
+    fireEvent.press(first.getByText('Next'));
+    expect(first.getByText('The circle is for done.')).toBeTruthy();
+    fireEvent.press(first.getByText('Next'));
+    expect(first.getByText('The words open the whole move.')).toBeTruthy();
+    fireEvent.press(first.getByText('Got it'));
+    first.unmount();
+
+    const second = render(<Harness />);
+    await settle(1400);
+    expect(second.queryByTestId('chart-one-move-teaching')).toBeNull();
+    expect(second.queryByTestId('chart-one-move-teaching-measure')).toBeNull();
+    act(() => ReactNative.DeviceEventEmitter.emit('chartResetOneMoveTeaching', 'another-course'));
+    await settle(100);
+    expect(second.queryByTestId('chart-one-move-teaching')).toBeNull();
+    act(() => ReactNative.DeviceEventEmitter.emit('chartResetOneMoveTeaching', DEFAULT_COURSE.id));
+    await waitFor(() => expect(second.getByTestId('chart-one-move-teaching')).toBeTruthy());
+    second.unmount();
+  });
+
+  it('still teaches when encrypted storage is unavailable', async () => {
+    const originalUser = useAuthStore.getState().user;
+    useAuthStore.setState({ user: { id: 'teaching-storage-failure' } as never });
+    const readStorage = encryptedPersistStorage.getItem.bind(encryptedPersistStorage);
+    const getItem = jest.spyOn(encryptedPersistStorage, 'getItem').mockImplementation(key => key.includes(':taught:') ? Promise.reject(new Error('keystore locked')) : readStorage(key));
+    const screen = render(<Harness />);
+    try {
+      await settle(1400);
+      await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy(), { timeout: 2500 });
+    } finally {
+      screen.unmount();
+      getItem.mockRestore();
+      useAuthStore.setState({ user: originalUser });
+    }
+  });
+
   it('fills the 360x760dp window and keeps the One Move in the sheet', async () => {
     // Dimensions is shared by named and namespace RN imports; spying on a
     // namespace copy of useWindowDimensions would leave the view unmocked.
@@ -304,6 +371,28 @@ describe('ChartActiveView — treasure map composition', () => {
 });
 
 describe('ChartActiveView — reach ceremony', () => {
+  it('keeps a queued replay hidden during the reach ceremony, then shows it after the ceremony settles', async () => {
+    const stamped = jest.fn();
+    const reachSequence = jest.spyOn(sequences, 'reachSequence').mockImplementation(context => ({ name: 'reach', steps: [
+      { kind: 'call', at: 0, run: stamped },
+      { kind: 'call', at: 900, run: () => context.onCommitCard?.() },
+    ] }));
+    const screen = render(<Harness reducedMotion={false} next={afterFirstReach()} />);
+    await settle(1600);
+    if (screen.queryByText('Got it')) fireEvent.press(screen.getByText('Got it'));
+    fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
+    fireEvent.press(screen.getByTestId('chart-menu-button'));
+    fireEvent.press(screen.getByTestId('chart-mark-waypoint'));
+    await act(async () => { fireEvent.press(screen.getByTestId('chart-reach-yes')); });
+    act(() => ReactNative.DeviceEventEmitter.emit('chartReplayOneMoveTeaching', 'course-1'));
+    await waitFor(() => expect(stamped).toHaveBeenCalled());
+    expect(screen.queryByTestId('chart-one-move-teaching')).toBeNull();
+    await settle(1100);
+    await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy());
+    reachSequence.mockRestore();
+    screen.unmount();
+  });
+
   it('forces peek before the stamp and holds tier renders until the reach commit call', async () => {
     const stamped = jest.fn();
     const reachSequence = jest.spyOn(sequences, 'reachSequence').mockImplementation(context => ({ name: 'reach', steps: [

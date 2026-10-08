@@ -79,6 +79,40 @@ export const CHART_TRANSITION_TIMING = {
   cardStagger: 70,
 } as const;
 
+/** First-open Chart intro choreography. Offsets are measured from its first frame. */
+export const CHART_INTRO_TIMING = {
+  airFadeIn: 600,
+  openAt: 150,
+  contourAt: 200,
+  contour: 3200,
+  toneAt: 1300,
+  tone: 3600,
+  cameraAt: 100,
+  camera: 6000,
+  cameraFrom: 1.1,
+  cameraTo: 1,
+  routeAt: 4100,
+  route: 2600,
+  copyAt: 4800,
+  copy: 1100,
+  continueAt: 6200,
+  continue: 1000,
+  markerAt: 6300,
+  marker: 600,
+  duckAt: 6900,
+  /** Mount the settled Skia layers under zero opacity before the UI-clock land fade begins. */
+  landPrepareAt: 6100,
+  landCrossfadeAt: 6500,
+  landCrossfade: 700,
+  shortInk: 1200,
+  shortRoute: 1000,
+  shortLandCrossfadeAt: 500,
+  shortCopyAt: 1200,
+  shortCopy: 400,
+  shortDuration: 1600,
+  skip: 250,
+} as const;
+
 /** Permanent Chart state changes. */
 export const CHART_PROGRESS_TIMING = {
   /** Route settling on entry. */

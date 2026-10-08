@@ -7,6 +7,7 @@ import { V2Button } from '@/components/v2/primitives/V2Button';
 import { V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
+import type { MoveSummary } from '@/types/chart';
 import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
 import { useSessionStore } from '@/stores/sessionStore';
 import { localDateString } from '@/utils/primingAnalytics';
@@ -16,6 +17,7 @@ import { CHART_MAP_TOKENS as T } from './map/chartMapTokens';
 import { isWaypointReady, PROGRESS_COPY, progressModeOf, progressSteps, progressValueRow, toProgressInput, waypointFraction } from './map/chartProgress';
 import { CHART_PANEL_COPY as COPY, daysOnCourse, isDayClosed, practicedToday } from './map/chartRhythm';
 import { ChartBrushBar } from './panel/ChartBrushBar';
+import { ChartOneMoveRow } from './ChartOneMoveRow';
 import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
 import { ChartMovesManager } from './panel/ChartMovesManager';
 import {
@@ -89,11 +91,15 @@ export type ChartWaypointContentProps = {
   /** Phase 3: compose these blocks in the sheet, retaining this component as their handler/modal owner. */
   renderTiers?: (parts: ChartWaypointTiers) => React.ReactNode;
   onExpandSheet?: () => void;
+  oneMoveRowRef?: React.RefObject<View | null>;
+  oneMoveCircleRef?: React.RefObject<View | null>;
+  oneMoveBodyRef?: React.RefObject<View | null>;
 };
 
 export type ChartWaypointTiers = {
   waypoint: NonNullable<ChartViewModel['current']>;
   value: string | null; isCurrent: boolean; peek: React.ReactNode;
+  oneMove?: React.ReactNode;
   half: React.ReactNode; full: React.ReactNode; edit: React.ReactNode;
 };
 export { OneMoveCard, DayClosedCard, CommitCard, MoveListRow, PanelButton, DestinationCard, CourseLogCard } from './panel/ChartPanelCards';
@@ -145,7 +151,7 @@ export function ChartWaypointContent({
   dayClosedHold = false,
   arrived = false,
   entrance = 'open',
-  testID, renderTiers, onExpandSheet,
+  testID, renderTiers, onExpandSheet, oneMoveRowRef, oneMoveCircleRef, oneMoveBodyRef,
 }: ChartWaypointContentProps) {
   const waypoint = view.waypoints.find((item) => item.id === waypointId) ?? null;
   const accent = useMemo(() => panelAccent(category), [category]);
@@ -174,6 +180,9 @@ export function ChartWaypointContent({
   const [logOpen, setLogOpen] = useState(false);
   const [dayClosedDismissed, setDayClosedDismissed] = useState(false);
   const [checkingMove, setCheckingMove] = useState<string | null>(null);
+  // Keep the server-confirmed completion visible after its toast expires. The
+  // checked row is cleared when the person chooses the next move or leaves.
+  const [locallyCompletedMove, setLocallyCompletedMove] = useState<MoveSummary | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
@@ -183,6 +192,10 @@ export function ChartWaypointContent({
   const [sheetProgressVal, setSheetProgressVal] = useState('');
   const [editWaypointModalOpen, setEditWaypointModalOpen] = useState(false);
   const [reachError, setReachError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocallyCompletedMove(null);
+  }, [waypointId]);
 
   const input = useMemo<WaypointProgressInput | null>(() => {
     if (!waypoint) return null;
@@ -236,15 +249,29 @@ export function ChartWaypointContent({
     ? { ...input, metric: { ...input.metric, current: bump.shownValue } }
     : input;
   const valueRow = progressValueRow(shownInput, relation, mark, waypoint.metric?.label ?? null);
-  const valueText = valueRow ? `${valueRow.strong} ${valueRow.span}` : null;
+  const mode = progressModeOf(input);
+  const valueText = valueRow
+    ? mode === 'moves' && relation === 'current'
+      ? CHART_COPY.sheet.moveCount.replace('{done}', String(input.movesDone)).replace('{total}', String(input.movesTotal))
+      : `${valueRow.strong} ${valueRow.span}`
+    : null;
 
   const dayClosed = isCurrent && !dayClosedDismissed && !dayClosedHold && isDayClosed(allMoves, now);
 
-  const completeMove = async (moveId: string) => {
-    if (checkingMove) return;
+  const completeMove = async (moveId: string): Promise<boolean> => {
+    if (checkingMove) return false;
     setCheckingMove(moveId);
     try {
-      await (onCompleteMove ?? chart.completeMove)(moveId);
+      const completed = await (onCompleteMove ?? chart.completeMove)(moveId);
+      if (completed) {
+        const move = waypoint?.moves.find((item) => item.id === moveId);
+        if (move) {
+          setLocallyCompletedMove({ ...move, status: 'COMPLETED', completedAt: move.completedAt ?? now.toISOString() });
+        }
+      }
+      return completed;
+    } catch {
+      return false;
     } finally {
       setCheckingMove(null);
     }
@@ -311,14 +338,49 @@ export function ChartWaypointContent({
 
   // How this waypoint shows progress. A counter only ever appears on a numeric waypoint; a qualitative one
   // shows the checklist of its moves, and one with nothing to count shows no progress at all.
-  const mode = progressModeOf(input);
   const showProgress = mode === 'numeric' || (mode === 'moves' && (input.movesTotal > 0 || isReached));
   const canUpdateProgress = isCurrent && showProgress;
 
   const progressBlock = showProgress ? <WaypointProgressBlock p={p} accent={accent} reducedMotion={reducedMotion} barLabel={barLabel} valueRow={valueRow} valueText={valueText} canUpdateProgress={canUpdateProgress} openProgressSheet={openProgressSheet} /> : null;
 
   const moveRows = (moves: typeof waypoint.moves, current: boolean) => moves.map(move => <MoveListRow key={move.id} move={move} accent={accent} isOneMove={current && move.id === oneMoveId} canComplete={current && move.status === 'ACTIVE'} canPromote={current && move.status === 'ACTIVE'} busy={chart.busy === `move:${move.id}` || chart.busy === `move-current:${move.id}`} onComplete={() => void completeMove(move.id)} onPromote={() => promote(move.id)} onRemove={current ? () => void chart.dismissMove(move.id) : noop} />);
-  const peek = arrived ? <Text style={styles.why} numberOfLines={2}>{view.destination}</Text> : isCurrent && commit ? <CommitCard accent={accent} number={commit.number} onCommit={onCommitDismiss ?? noop} /> : isCurrent && dayClosed ? <DayClosedCard accent={accent} practiced={practiced} hasNext={hasNextMove} onFocus={() => onOpenPractice?.('focus')} onDeepFocus={() => onOpenPractice?.('deep_prime')} onAnother={() => setDayClosedDismissed(true)} /> : isCurrent ? <OneMoveCard accent={accent} variant={heroMove ? 'move' : waypoint.moves.some(move => move.status === 'COMPLETED') && incompleteMoves.length === 0 ? 'allDone' : 'empty'} title={heroMove?.title ?? null} emptyLabel={CHART_COPY.active.noMove} checked={Boolean(heroMove && checkingMove === heroMove.id)} busy={Boolean(heroMove && chart.busy === `move:${heroMove.id}`)} expanded={false} reducedMotion={reducedMotion} otherMovesCount={otherMoves.length} onCheck={() => heroMove && void completeMove(heroMove.id)} onToggle={onExpandSheet ?? (() => setExpanded(value => !value))} /> : <View style={styles.viewingPeek}><Text style={[styles.why, styles.flex]} numberOfLines={2}>{waypoint.rationale}</Text><PanelButton label={CHART_COPY.sheet.backTo.replace('{n}', String(view.currentIndex + 1))} accent={accent} onPress={onBack} testID="chart-back-to-current" /></View>;
+  const serverCompletedForWaypoint = waypoint.moves
+    .filter((move) => move.status === 'COMPLETED' && move.completedAt)
+    .sort((a, b) => Date.parse(b.completedAt ?? '') - Date.parse(a.completedAt ?? ''))[0] ?? null;
+  const serverCompletedToday = serverCompletedForWaypoint?.completedAt
+    && localDateString(new Date(serverCompletedForWaypoint.completedAt)) === dateKey
+    ? serverCompletedForWaypoint
+    : null;
+  const retainedCompletedMove = dayClosedDismissed
+    ? null
+    : locallyCompletedMove?.waypointId === waypoint.id
+      ? locallyCompletedMove
+      : serverCompletedToday ?? (!heroMove ? serverCompletedForWaypoint : null);
+  const rowMove = retainedCompletedMove ?? heroMove;
+  const moveWaypointTitle = rowMove
+    ? view.waypoints.find((item) => item.id === rowMove.waypointId)?.title ?? waypoint.title
+    : waypoint.title;
+  const oneMove = isCurrent && !arrived && !commit && rowMove
+    ? <ChartOneMoveRow
+        key={rowMove.id}
+        accent={accent}
+        move={rowMove}
+        waypointTitle={moveWaypointTitle}
+        checked={Boolean(retainedCompletedMove) || rowMove.status === 'COMPLETED'}
+        busy={Boolean(checkingMove === rowMove.id || chart.busy === `move:${rowMove.id}`)}
+        reducedMotion={reducedMotion}
+        onCheck={() => completeMove(rowMove.id)}
+        onExpandSheet={onExpandSheet}
+        rowRef={oneMoveRowRef}
+        circleRef={oneMoveCircleRef}
+        bodyRef={oneMoveBodyRef}
+      />
+    : null;
+  const showNextMove = () => {
+    setLocallyCompletedMove(null);
+    setDayClosedDismissed(true);
+  };
+  const peek = arrived ? <Text style={styles.why} numberOfLines={2}>{view.destination}</Text> : isCurrent && commit ? <CommitCard accent={accent} number={commit.number} onCommit={onCommitDismiss ?? noop} /> : isCurrent && dayClosed ? <DayClosedCard accent={accent} practiced={practiced} hasNext={hasNextMove} onFocus={() => onOpenPractice?.('focus')} onDeepFocus={() => onOpenPractice?.('deep_prime')} onAnother={showNextMove} /> : isCurrent && !rowMove ? <OneMoveCard accent={accent} variant={waypoint.moves.some(move => move.status === 'COMPLETED') && incompleteMoves.length === 0 ? 'allDone' : 'empty'} title={null} emptyLabel={CHART_COPY.active.noMove} checked={false} busy={false} expanded={false} reducedMotion={reducedMotion} otherMovesCount={otherMoves.length} onCheck={noop} onToggle={onExpandSheet ?? (() => setExpanded(value => !value))} /> : isCurrent ? null : <View style={styles.viewingPeek}><Text style={[styles.why, styles.flex]} numberOfLines={2}>{waypoint.rationale}</Text><PanelButton label={CHART_COPY.sheet.backTo.replace('{n}', String(view.currentIndex + 1))} accent={accent} onPress={onBack} testID="chart-back-to-current" /></View>;
   const half = isCurrent && !arrived ? <>
     {progressBlock}
     <PracticeRow accent={accent} practiced={practiced} onOpenPractice={onOpenPractice} />
@@ -327,7 +389,7 @@ export function ChartWaypointContent({
     {actionError && !reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-action-error">{actionError}</Text> : null}
   </> : <>{moveRows(waypoint.moves, false)}{editable ? <ChartMovesManager waypoint={waypoint} isCurrent={false} oneMoveId={oneMoveId} accent={accent} chart={chart} /> : null}{actionError ? <Text style={styles.error} testID="chart-action-error">{actionError}</Text> : null}</>;
   const full = <>
-    {isCurrent && !arrived ? <>{moveRows(otherMoves, true)}<ChartMovesManager waypoint={waypoint} isCurrent oneMoveId={oneMoveId} accent={accent} chart={chart} />{dayClosed && !practiced ? <><PanelButton label={COPY.deepFocus} accent={accent} onPress={() => onOpenPractice?.('deep_prime')} testID="chart-practice-deep-focus" />{hasNextMove && !practiced ? <PanelButton label={COPY.another} accent={accent} onPress={() => setDayClosedDismissed(true)} testID="chart-do-another" /> : null}</> : null}</> : null}
+    {isCurrent && !arrived ? <>{moveRows(otherMoves, true)}<ChartMovesManager waypoint={waypoint} isCurrent oneMoveId={oneMoveId} accent={accent} chart={chart} />{dayClosed && !practiced ? <><PanelButton label={COPY.deepFocus} accent={accent} onPress={() => onOpenPractice?.('deep_prime')} testID="chart-practice-deep-focus" />{hasNextMove && !practiced ? <PanelButton label={COPY.another} accent={accent} onPress={showNextMove} testID="chart-do-another" /> : null}</> : null}</> : null}
     {arrived ? <ArrivalCard accent={accent} vision={vision} onOpenVision={onOpenVision ?? noop} onRelease={onRelease ?? noop} /> : <DestinationCard accent={accent} destination={view.destination} vision={vision} onOpenVision={onOpenVision ?? noop} />}
     <CourseLogCard accent={accent} days={daysOnCourse(view.plottedAt, now)} rows={buildChartLogRows(view, now)} expanded={logOpen} onToggle={() => setLogOpen(value => !value)} onOpenLog={onOpenLog ?? noop} />
   </>;
@@ -409,7 +471,7 @@ export function ChartWaypointContent({
                   hasNext={hasNextMove}
                   onFocus={() => onOpenPractice?.('focus')}
                   onDeepFocus={() => onOpenPractice?.('deep_prime')}
-                  onAnother={() => setDayClosedDismissed(true)}
+                  onAnother={showNextMove}
                 />
               ) : null}
               {!dayClosed ? (
@@ -503,7 +565,7 @@ export function ChartWaypointContent({
 
   return (
     <View testID={testID ?? 'chart-waypoint-content'} style={renderTiers ? styles.sheetRoot : [styles.root, { paddingBottom: bottomInset + 24 }]}>
-      {renderTiers ? renderTiers({ waypoint, value: valueText, isCurrent, peek, half, full, edit }) : <Animated.View style={[styles.stack, fade]} testID={isCurrent && !arrived ? 'chart-current-waypoint' : 'chart-panel-body'}>
+      {renderTiers ? renderTiers({ waypoint, value: valueText, isCurrent, peek, oneMove, half, full, edit }) : <Animated.View style={[styles.stack, fade]} testID={isCurrent && !arrived ? 'chart-current-waypoint' : 'chart-panel-body'}>
         {body}
       </Animated.View>}
       <V2SheetModal
@@ -648,7 +710,7 @@ export function WaypointProgressBlock({ p, accent, reducedMotion, barLabel, valu
               accessibilityLabel={CHART_COPY.waypoint.progress}
               accessibilityHint={valueText ?? undefined}
               onPress={openProgressSheet}
-              style={styles.valueRow}
+              style={styles.valueColumn}
               testID="chart-waypoint-progress"
             >
               <Text style={styles.valueStrong}>{valueRow.strong}</Text>
@@ -738,8 +800,9 @@ const styles = StyleSheet.create({
   sheetSaveButton: { height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   sheetSaveButtonText: { fontFamily: T.sansStrong, fontSize: 16 },
   sheetContent: { paddingHorizontal: 20, paddingBottom: 24, gap: 16 },
-  progressDataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  updateProgressButton: { borderWidth: 1, borderColor: T.line, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
+  progressDataRow: { gap: 4, alignItems: 'stretch' },
+  valueColumn: { alignItems: 'stretch', minHeight: 44, justifyContent: 'center' },
+  updateProgressButton: { alignSelf: 'flex-end', borderWidth: 1, borderColor: T.line, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, minHeight: 36, justifyContent: 'center' },
   updateProgressText: { fontFamily: T.sansStrong, fontSize: 12 },
   flex: { flex: 1 },
   reachCta: { minHeight: 48, alignSelf: 'stretch' },

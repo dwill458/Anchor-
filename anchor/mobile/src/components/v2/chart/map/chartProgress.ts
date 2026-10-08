@@ -5,6 +5,7 @@
  */
 import type { WaypointSummary } from '@/types/chart';
 import type { ChartWaypointView } from '@/adapters/v2/chart/chartV2Model';
+import { CHART_COPY } from '@/constants/v2/chartCopy';
 import {
   METRIC_WEIGHT,
   MOVES_WEIGHT,
@@ -134,7 +135,7 @@ export const PROGRESS_COPY = {
   current: (cur: number, target: number) => `${formatProgressNumber(cur)} / ${formatProgressNumber(target)}`,
   startedAt: (base: number) => `started at ${formatProgressNumber(base)}`,
   movesOf: (done: number, total: number) => `${done} of ${total} ${total === 1 ? 'move' : 'moves'} done`,
-  holdsAtNinety: 'route holds at 90% until you confirm',
+  holdsAtNinety: CHART_COPY.sheet.routeHolds,
   movesDrawLeg: 'moves draw this leg',
   toReach: (unit: string | null) => `${unit ? `${unit} ` : ''}to reach`,
   targetValue: (target: number) => formatProgressNumber(target),

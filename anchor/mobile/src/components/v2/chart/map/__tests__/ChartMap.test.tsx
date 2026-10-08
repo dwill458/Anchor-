@@ -1,6 +1,6 @@
 import React from 'react';
 import { useImage } from '@shopify/react-native-skia';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ChartMap } from '../ChartMap';
 import { useChartMapAnimState } from '../useChartMapAnimState';
 import { buildRouteTable, waypointPlacement } from '../chartMapGeometry';
@@ -47,6 +47,50 @@ function Harness({
 }
 
 describe('ChartMap', () => {
+  it('uses stable full-resolution base and half-resolution intro ink canvases, and removes only ink after intro', async () => {
+    const onIntroSurfaceSized = jest.fn();
+    function IntroMap({ active }: { active: boolean }) {
+      const anim = useChartMapAnimState({ revealArc: 0 });
+      const table = React.useMemo(() => buildRouteTable(), []);
+      const placement = React.useMemo(() => waypointPlacement(5), []);
+      const introProgress = React.useMemo(() => ({
+        contour: { value: 1 } as any,
+        tone: { value: 1 } as any,
+        route: { value: 0 } as any,
+        copy: { value: 0 } as any,
+        marker: { value: 0 } as any,
+        continue: { value: 0 } as any,
+        land: { value: 0 } as any,
+        cameraScale: { value: 1 } as any,
+      }), []);
+      return <ChartMap testID="split-intro-map" width={390} table={table} placement={placement} anim={anim}
+        markers={[]} categoryColor={CAT} reducedMotion={false} arrived={false} introProgress={active ? introProgress : undefined}
+        introBaseVisible onIntroSurfaceSized={onIntroSurfaceSized} onMarkerPress={() => {}} onMapPress={() => {}} />;
+    }
+    const screen = render(<IntroMap active />);
+    const baseCanvas = screen.getByTestId('split-intro-map-land-base-canvas', { includeHiddenElements: true });
+    const inkCanvas = screen.getByTestId('split-intro-map-land-ink-canvas', { includeHiddenElements: true });
+    expect(baseCanvas.props.style).toMatchObject({ width: 390, height: 390 * 1180 / 852 });
+    expect(inkCanvas.props.style).toMatchObject({
+      width: 195,
+      height: 195 * 1180 / 852,
+      transform: [{ scale: 2 }],
+    });
+    expect(baseCanvas.props.onSize).toBeDefined();
+    expect(inkCanvas.props.onSize).toBeDefined();
+    act(() => {
+      baseCanvas.props.onSize.value = { width: 390, height: (390 * 1180) / 852 };
+      inkCanvas.props.onSize.value = { width: 195, height: (195 * 1180) / 852 };
+    });
+    await waitFor(() => expect(onIntroSurfaceSized).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('split-intro-map-land-base-canvas', { includeHiddenElements: true }).props.onSize).toBeUndefined();
+    expect(screen.getByTestId('split-intro-map-land-ink-canvas', { includeHiddenElements: true }).props.onSize).toBeUndefined();
+    expect(baseCanvas).toBeTruthy();
+    screen.rerender(<IntroMap active={false} />);
+    expect(screen.getByTestId('split-intro-map-land-base-canvas', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId('split-intro-map-land-ink-canvas', { includeHiddenElements: true })).toBeNull();
+  });
+
   // Fog of war: only reached and current waypoints are real markers; one ghost hints at the next.
   it.each([5, 12])('with %i waypoints renders only the reached and current markers, in order, with role and label', n => {
     const { getAllByRole } = render(<Harness n={n} />);

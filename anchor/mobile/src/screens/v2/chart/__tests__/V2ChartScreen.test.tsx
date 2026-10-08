@@ -2,6 +2,26 @@ jest.mock('react-native-reanimated', () => {
   const actual = jest.requireActual('react-native-reanimated');
   return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withRepeat: (value: unknown) => value, withDelay: (_ms: number, value: unknown) => value, withSequence: (...values: unknown[]) => values[values.length - 1], withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
 });
+jest.mock('@/components/v2/chart/panel/ChartStaticMap', () => {
+  const ReactActual = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  const actual = jest.requireActual('@/components/v2/chart/panel/ChartStaticMap');
+  return {
+    ...actual,
+    ChartStaticMap: (props: { introProgress?: unknown; onArtReady?: (ready: boolean) => void; onIntroSurfaceSized?: () => void; testID?: string }) => {
+      ReactActual.useEffect(() => {
+        if (props.introProgress) {
+          // Native Skia canvases report both positive sizes before the covered intro releases.
+          props.onArtReady?.(true);
+          props.onIntroSurfaceSized?.();
+        }
+      }, [props.introProgress, props.onArtReady, props.onIntroSurfaceSized]);
+      return props.introProgress
+        ? ReactActual.createElement(View, { testID: props.testID ?? 'chart-static-map-test' })
+        : ReactActual.createElement(actual.ChartStaticMap, props);
+    },
+  };
+});
 import React from 'react';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { V2ChartScreen } from '../V2ChartScreen';
@@ -29,7 +49,6 @@ jest.mock('@react-navigation/native', () => {
     useFocusEffect: (callback: () => void) => ReactActual.useEffect(() => callback(), []),
   };
 });
-
 let mockReduceMotion = true;
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => mockReduceMotion }));
 
@@ -194,8 +213,6 @@ beforeEach(async () => {
   resetV2VisionReadCache();
   useAnchorStore.setState({ anchors: [anchor as never] });
 });
-
-
 async function openFullSheet(screen: ReturnType<typeof render>) {
   await screen.findByTestId('chart-sheet-grabber');
   for (let i = 0; i < 8 && screen.getByTestId('chart-sheet-grabber').props.accessibilityLabel !== 'Collapse panel'; i++) {
@@ -205,10 +222,19 @@ async function openFullSheet(screen: ReturnType<typeof render>) {
   expect(screen.getByTestId('chart-sheet-grabber').props.accessibilityLabel).toBe('Collapse panel');
 }
 
+async function renderChartScreen(prepareIntro = false) {
+  const screen = render(<V2ChartScreen />);
+  const root = prepareIntro ? await screen.findByTestId('v2-chart-screen-empty') : null;
+  if (root) {
+    fireEvent(root, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 393, height: 844 } } });
+  }
+  return screen;
+}
+
 describe('V2ChartScreen — no Chart', () => {
   it('without Vision: shows the empty state, asks what would make it real, no fake imagery', async () => {
     serve({ chart: readModel(null), vision: null });
-    const screen = render(<V2ChartScreen />);
+    const screen = await renderChartScreen(true);
     expect(await screen.findByText('Let’s chart the distance between here and there.')).toBeTruthy();
     expect(screen.getByText('I’ll use what you’ve already given Anchor. You only need to fill in what I can’t see.')).toBeTruthy();
     // The etched map replaces the old road art.
@@ -239,7 +265,7 @@ describe('V2ChartScreen — no Chart', () => {
 
   it('with Vision: acknowledges the real Vision instead of asking for the destination again', async () => {
     serve({ chart: readModel(null), vision });
-    const screen = render(<V2ChartScreen />);
+    const screen = await renderChartScreen(true);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
     await waitFor(() => expect(screen.getByTestId('chart-vision-context')).toBeTruthy());
     expect(screen.getByText('YOUR DESTINATION')).toBeTruthy();
@@ -259,7 +285,7 @@ describe('V2ChartScreen — no Chart', () => {
       if (url.endsWith('/chart')) return { data: { success: true, data: activeChart({ id: 'course-new' }) } };
       throw new Error(`unexpected POST ${url} ${JSON.stringify(body)}`);
     });
-    const screen = render(<V2ChartScreen />);
+    const screen = await renderChartScreen(true);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
     fireEvent.press(await screen.findByTestId('chart-context-describe'));
     fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'App is launched but only has 100 users.');
@@ -312,7 +338,7 @@ describe('V2ChartScreen — no Chart', () => {
   it('skip goes straight to mapping with no context and no references', async () => {
     serve({ chart: readModel(null), vision: null });
     post.mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
-    const screen = render(<V2ChartScreen />);
+    const screen = await renderChartScreen(true);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
     fireEvent.press(await screen.findByTestId('chart-context-skip'));
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
@@ -327,7 +353,7 @@ describe('V2ChartScreen — no Chart', () => {
     post
       .mockResolvedValueOnce({ data: { success: true, data: { status: 'needs_context', followUpQuestion: 'What does the garage look like?' } } })
       .mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
-    const screen = render(<V2ChartScreen />);
+    const screen = await renderChartScreen(true);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
     fireEvent.press(await screen.findByTestId('chart-context-skip'));
     expect(await screen.findByText('ONE THING I CAN’T SEE')).toBeTruthy();
@@ -351,7 +377,7 @@ describe('V2ChartScreen — no Chart', () => {
     post
       .mockResolvedValueOnce({ data: { success: true, data: { status: 'needs_context', followUpQuestion: 'Where are you starting from now?' } } })
       .mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
-    const screen = render(<V2ChartScreen />);
+    const screen = await renderChartScreen(true);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
     fireEvent.press(await screen.findByTestId('chart-context-describe'));
     fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'Just starting');
@@ -371,7 +397,7 @@ describe('V2ChartScreen — no Chart', () => {
       if (url.endsWith('/chart/plan')) throw new Error('Network error. Please check your connection.');
       return { data: { success: true, data: activeChart() } };
     });
-    const screen = render(<V2ChartScreen />);
+    const screen = await renderChartScreen(true);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
     fireEvent.press(await screen.findByTestId('chart-context-describe'));
     fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'Starting from zero');

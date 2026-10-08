@@ -37,10 +37,22 @@ export type ChartSound = {
   duck: (holdMs: number) => void;
 };
 
+export type ChartSoundOptions = {
+  /** Optional entrance-specific air fade. Existing callers keep the 800ms default. */
+  airFadeInMs?: number;
+  /** The creation intro still plays its one `open` cue when Reduce Motion is enabled. */
+  playOpenWhenReducedMotion?: boolean;
+  /** Fade the ambient bed when this screen owns its lifetime and unmounts. */
+  fadeAirOnUnmount?: boolean;
+};
+
 const jitter = () => 0.97 + Math.random() * 0.06;
 
-export function useChartSound(reducedMotion: boolean): ChartSound {
+export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions = {}): ChartSound {
   const { createManagedPlayer } = useAudio();
+  const airFadeInMs = options.airFadeInMs ?? AIR_IN_MS;
+  const playOpenWhenReducedMotion = options.playOpenWhenReducedMotion ?? false;
+  const fadeAirOnUnmount = options.fadeAirOnUnmount ?? false;
   useEffect(() => {
     SoundPool.prewarm(['chart-open', 'chart-ink', 'chart-flag', 'chart-check', 'chart-stamp', 'chart-wind']);
     return () => {
@@ -97,7 +109,7 @@ export function useChartSound(reducedMotion: boolean): ChartSound {
   const startAir = useCallback(() => {
     if (air.current) {
       // Already playing (or fading out): bring it back up.
-      rampTo(CHART_AIR_VOLUME, AIR_IN_MS);
+      rampTo(CHART_AIR_VOLUME, airFadeInMs);
       return;
     }
     const player = createManagedPlayer('chart-air', { loop: true, volume: 0 });
@@ -105,8 +117,8 @@ export function useChartSound(reducedMotion: boolean): ChartSound {
     air.current = player;
     airVolume.current = 0;
     player.play();
-    rampTo(CHART_AIR_VOLUME, AIR_IN_MS);
-  }, [createManagedPlayer, rampTo]);
+    rampTo(CHART_AIR_VOLUME, airFadeInMs);
+  }, [airFadeInMs, createManagedPlayer, rampTo]);
 
   const stopAir = useCallback(() => {
     const player = air.current;
@@ -133,11 +145,21 @@ export function useChartSound(reducedMotion: boolean): ChartSound {
 
   useEffect(
     () => () => {
-      stopRamp();
       timers.current.forEach(clearTimeout);
       timers.current.clear();
-      air.current?.stop();
-      air.current = null;
+      if (fadeAirOnUnmount && air.current) {
+        const player = air.current;
+        rampTo(0, AIR_OUT_MS, () => {
+          if (air.current === player) {
+            air.current = null;
+            player.stop();
+          }
+        });
+      } else {
+        stopRamp();
+        air.current?.stop();
+        air.current = null;
+      }
     },
     []
   );
@@ -145,7 +167,7 @@ export function useChartSound(reducedMotion: boolean): ChartSound {
   return useMemo<ChartSound>(
     () => ({
       open: () => {
-        if (!reducedRef.current) one('chart-open', 1, 1);
+        if (!reducedRef.current || playOpenWhenReducedMotion) one('chart-open', 1, 1);
       },
       ink: (durMs: number) => {
         one('chart-ink');
@@ -164,6 +186,6 @@ export function useChartSound(reducedMotion: boolean): ChartSound {
       stopAir,
       duck,
     }),
-    [one, later, duck, startAir, stopAir]
+    [one, later, duck, startAir, stopAir, playOpenWhenReducedMotion]
   );
 }

@@ -4,11 +4,51 @@
  */
 export const CHART_COPY = {
   title: 'Chart',
+  devLab: {
+    replayMoveTeaching: 'Replay move teaching',
+    resetMoveTeaching: 'Reset move teaching',
+  },
   sheet: {
     expand: 'Expand panel', collapse: 'Collapse panel',
     eyebrow: 'Waypoint {n} of {N} · {state}',
     stateCurrent: 'Current', stateReached: 'Reached', stateUpcoming: 'Upcoming',
     routeHeading: 'Your route', reachedOn: 'Reached {date}', backTo: 'Back to waypoint {n}',
+    teachingHelp: 'Replay move teaching',
+    oneMove: 'One move this week',
+    moveCount: '{done} of {total} done',
+    readAll: 'Tap to read it all',
+    showLess: 'Show less',
+    whyThisMove: 'Why this move',
+    doneMeans: 'Done means',
+    toward: 'Toward',
+    helperIncomplete: "Tap the circle when it's done. Tap the words to see the detail.",
+    moveDoneToast: 'Move done. Your route is holding.',
+    completeMove: 'Mark this move done',
+    markMoveUndone: 'Mark this move not done',
+    routeHolds: 'The move is done. Mark the waypoint reached when you feel it is.',
+    doneFallback: 'Mark this move done when you have completed it.',
+  },
+  teaching: {
+    oneMove: {
+      beats: [
+        {
+          title: 'This is your one move.',
+          body: 'Each waypoint has one small thing to do this week. It is the only thing that moves your route forward.',
+        },
+        {
+          title: 'The circle is for done.',
+          body: 'Tap it when you have actually done the move. Your route only moves when you do.',
+        },
+        {
+          title: 'The words are for detail.',
+          body: 'Tap the text to read the full move, why it matters, and what counts as done.',
+        },
+      ],
+      next: 'Next',
+      gotIt: 'Got it',
+      steps: '{n} of 3',
+      dismiss: 'Dismiss move teaching',
+    },
   },
   labels: {
     reinforcing: 'REINFORCING',

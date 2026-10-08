@@ -22,7 +22,7 @@ function setup(overrides: Partial<Props> = {}) {
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 
-it('prioritises commit over day closed over One Move, with a fixed peek frame', () => {
+it('prioritises commit over day closed over One Move and keeps the header intrinsic', () => {
   const commit = setup({ view: viewOf(dayClosedCourse()), commit: { number: 1 } });
   expect(commit.getByTestId('chart-commit')).toBeTruthy();
   expect(commit.queryByTestId('chart-day-closed')).toBeNull();
@@ -34,7 +34,30 @@ it('prioritises commit over day closed over One Move, with a fixed peek frame', 
   closed.unmount();
   const current = setup();
   expect(current.getByTestId('chart-one-move-check')).toBeTruthy();
-  expect(current.getByTestId('chart-sheet-peek').props.style.height).toBe(134);
+  expect(current.getByTestId('chart-sheet-peek').props.style.height).toBeUndefined();
+  expect(current.getAllByTestId('chart-one-move-row')).toHaveLength(1);
+});
+
+it('replays teaching from the eyebrow and keeps the row count as short text', () => {
+  const replay = jest.fn();
+  const screen = setup({ onReplayTeaching: replay });
+  fireEvent.press(screen.getByLabelText('Replay move teaching'));
+  expect(replay).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('0 of 1 done')).toBeTruthy();
+});
+it('keeps the expanded One Move instance and its detail mounted while the sheet changes detent', () => {
+  let sheetRef: React.RefObject<ChartSheetHandle | null> | null = null;
+  const screen = setup({ onExpandSheet: () => sheetRef?.current?.snapTo('full') });
+  sheetRef = screen.ref;
+
+  fireEvent.press(screen.getByTestId('chart-one-move-body'));
+  expect(screen.getByTestId('chart-one-move-details')).toBeTruthy();
+  expect(screen.getByTestId('chart-one-move-body').props.accessibilityState.expanded).toBe(true);
+
+  act(() => screen.ref.current!.snapTo('half'));
+  expect(screen.getByTestId('chart-one-move-details')).toBeTruthy();
+  expect(screen.getByTestId('chart-one-move-body').props.accessibilityState.expanded).toBe(true);
+  expect(screen.getAllByTestId('chart-one-move-row')).toHaveLength(1);
 });
 it('keeps half mounted and inaccessible at peek, then makes the existing controls reachable', () => {
   const screen = setup();

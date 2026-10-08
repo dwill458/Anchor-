@@ -2,7 +2,7 @@ import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Canvas } from '@shopify/react-native-skia';
-import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, ReduceMotion, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
   MAP_H, MAP_W,
   type ChartMapAnimState, type ChartMapMarker, type RouteTable, type WaypointPlacement,
@@ -13,9 +13,10 @@ import { ChartMapMarkers } from './ChartMapMarkers';
 import { ChartMapOverlay } from './ChartMapOverlay';
 import { ChartMapWeather, weatherReadySync, type WeatherState } from './ChartMapWeather';
 import { ChartWeatherVeil, useCloudTiles } from './ChartWeatherHold';
-import { useChartWeatherTransform } from './useChartMapCamera';
+import { chartIntroBaseLayerStyle, useChartWeatherTransform } from './useChartMapCamera';
 import { ChartWeatherNativeVeil } from './ChartWeatherNativeVeil';
 import { CHART_MAP_REDUCED_FADE } from '../chartMotion';
+import type { IntroSequenceProgress } from './chartMapSequences';
 
 /** Wait after the weather reports ready before the land shows (~2 frames for its first draw). */
 const WEATHER_SETTLE_MS = 34;
@@ -59,6 +60,12 @@ export type ChartMapProps = {
    * Motion, is cross-fading). The open sequence starts here, so its own closed 1 -> 0 parts the clouds.
    */
   onShown?: () => void;
+  /** Creation-only opening motion, driven by the existing Chart sequence runner. */
+  introProgress?: IntroSequenceProgress;
+  /** Delay the settled land/fog/grain layer until the intro's land crossfade. */
+  introBaseVisible?: boolean;
+  onMapArtReady?: (ready: boolean) => void;
+  onIntroSurfaceSized?: () => void;
   onMarkerPress: (index: number) => void;
   onMapPress: () => void;
   testID?: string;
@@ -70,11 +77,40 @@ export type ChartMapProps = {
  * that is not a marker calls onMapPress. Height = width * MAP_H / MAP_W.
  */
 export const ChartMap = memo(function ChartMap({
-  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, weather = 'static', continuous = false, onShown, onMarkerPress, onMapPress, testID, frame,
+  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, weather = 'static', continuous = false, onShown, introProgress, introBaseVisible, onMapArtReady, onIntroSurfaceSized, onMarkerPress, onMapPress, testID, frame,
 }: ChartMapProps) {
   const height = viewportHeight ?? (width * MAP_H) / MAP_W;
+  // The moving land shader is the expensive layer in the opening. Render this
+  // single canvas at half linear resolution and let the native view upscale it;
+  // route, copy and controls remain at full resolution in their own layers.
+  const landResolutionScale = introProgress ? 0.5 : 1;
+  const landWidth = width * landResolutionScale;
+  const landHeight = height * landResolutionScale;
+  const isIntro = introProgress !== undefined;
+  const introBaseMode = useRef(isIntro);
+  if (isIntro) introBaseMode.current = true;
+  const baseCanvasSize = useSharedValue({ width: 0, height: 0 });
+  const inkCanvasSize = useSharedValue({ width: 0, height: 0 });
+  const [introSurfaceMeasured, setIntroSurfaceMeasured] = useState(false);
+  // Skia forwards onSize through a Reanimated mapper tied to the native view.
+  // Detach it after measurement while the prep cover is still up, before the
+  // short-lived ink Canvas is removed at sequence completion.
+  const markIntroSurfaceSized = useCallback(() => {
+    setIntroSurfaceMeasured(true);
+    onIntroSurfaceSized?.();
+  }, [onIntroSurfaceSized]);
+  useAnimatedReaction(
+    () => isIntro && !introSurfaceMeasured &&
+      baseCanvasSize.value.width > 0 && baseCanvasSize.value.height > 0 &&
+      inkCanvasSize.value.width > 0 && inkCanvasSize.value.height > 0,
+    (ready, previous) => { if (ready && !previous) runOnJS(markIntroSurfaceSized)(); },
+    [isIntro, introSurfaceMeasured, markIntroSurfaceSized, width, height],
+  );
   const [artReady, setArtReady] = useState(hasDecodedChartLandscape);
-  const onArtReady = useCallback((ready: boolean) => setArtReady(ready), []);
+  const onArtReady = useCallback((ready: boolean) => {
+    setArtReady(ready);
+    onMapArtReady?.(ready);
+  }, [onMapArtReady]);
 
   const living = clouds && weather === 'living';
   // A continuing map whose weather is already cached draws land and weather together on frame one.
@@ -146,6 +182,14 @@ export const ChartMap = memo(function ChartMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown]);
   const veilStyle = useAnimatedStyle(() => ({ opacity: veilOpacity.value }));
+  const introBaseStyle = useAnimatedStyle(() => {
+    if (!introProgress) return {};
+    const land = introProgress.land.value;
+    // The base layer is fully covered throughout the ink sweep. Do not send
+    // camera transforms to the native wrapper until its first visible frame.
+    if (land <= 0) return { opacity: 0 };
+    return chartIntroBaseLayerStyle(width, introProgress.cameraScale.value, land);
+  }, [introProgress, width]);
 
   return (
     <View testID={testID} style={[styles.root, { width, height }]}>
@@ -161,9 +205,30 @@ export const ChartMap = memo(function ChartMap({
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          <Canvas style={{ width, height }}>
-            <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} onArtReady={onArtReady} />
-          </Canvas>
+          {introBaseMode.current ? (
+            <Animated.View testID={testID ? `${testID}-land-base-layer` : undefined} pointerEvents="none" style={[StyleSheet.absoluteFill, styles.introBaseLayer, introBaseStyle]}>
+              <Canvas testID={testID ? `${testID}-land-base-canvas` : undefined} onSize={isIntro && !introSurfaceMeasured ? baseCanvasSize : undefined} style={{ width, height }}>
+                <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} introPass="base" onArtReady={onArtReady} />
+              </Canvas>
+            </Animated.View>
+          ) : (
+            <Canvas testID={testID ? `${testID}-land-base-canvas` : undefined} style={{ width, height }}>
+              <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} onArtReady={onArtReady} />
+            </Canvas>
+          )}
+          {isIntro ? (
+            <Canvas testID={`${testID ?? 'chart-map'}-land-ink-canvas`} onSize={introSurfaceMeasured ? undefined : inkCanvasSize} style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: landWidth,
+              height: landHeight,
+              transformOrigin: 'top left',
+              transform: [{ scale: 1 / landResolutionScale }],
+            }}>
+              <ChartMapLand frame={frame} width={landWidth} height={landHeight} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={false} introPass="ink" introProgress={introProgress} />
+            </Canvas>
+          ) : null}
         </View>
         {livingActive ? (
           <View
@@ -207,6 +272,7 @@ export const ChartMap = memo(function ChartMap({
               arrived={arrived}
               clouds={clouds}
               livingWeather={livingActive}
+              introProgress={introProgress}
             /> : null}
           </Canvas>
         </View>
@@ -242,4 +308,5 @@ export const ChartMap = memo(function ChartMap({
 
 const styles = StyleSheet.create({
   root: { overflow: 'hidden', backgroundColor: CHART_MAP_TOKENS.paper },
+  introBaseLayer: { transformOrigin: 'top left' },
 });
