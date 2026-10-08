@@ -1,0 +1,8 @@
+10-08 02:31:17.072 I/ReactNativeJS(10133): [chart-intro-probe] at=5100 contour=1.000 tone=0.999 land=0.000 base=true
+10-08 02:31:18.366 I/ReactNativeJS(10133): [chart-intro-probe] at=6350 contour=1.000 tone=1.000 land=0.000 base=true
+10-08 02:31:18.549 I/ReactNativeJS(10133): [chart-intro-probe] at=6490 contour=1.000 tone=1.000 land=0.000 base=true
+10-08 02:31:18.623 I/ReactNativeJS(10133): [chart-intro-probe] at=6600 contour=1.000 tone=1.000 land=0.000 base=true
+10-08 02:31:18.822 I/ReactNativeJS(10133): [chart-intro-probe] at=6800 contour=1.000 tone=1.000 land=0.000 base=true
+10-08 02:31:19.557 I/ReactNativeJS(10133): [chart-intro-timing] sequence-end
+10-08 02:31:19.640 F/libc    (10133): Fatal signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x28 in tid 10133 (rintentions.app), pid 10133 (rintentions.app)
+10-08 02:31:22.192 F/DEBUG   (11196):       #01 pc 0000000000705448  /data/app/~~V3NXJfuTmBGHTEyL90mHeg==/com.anchorintentions.app-Z10nm6eny0IZJIheJ5GuIg==/base.apk!librnskia.so (offset 0x9420000) (RNSkia::RNSkView::getScaledWidth()+24) (BuildId: 6821aeca6bb479020a529d10ff2a8569f30a44ec)

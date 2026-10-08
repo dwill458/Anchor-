@@ -1,0 +1,2 @@
+--------- beginning of main
+10-08 00:29:25.507  2600  2600 I ReactNative: [GESTURE HANDLER] Tearing down gesture handler registered for root view com.facebook.react.runtime.ReactSurfaceView{240f066 V.E...... ........ 0,0-786,1704 #51}

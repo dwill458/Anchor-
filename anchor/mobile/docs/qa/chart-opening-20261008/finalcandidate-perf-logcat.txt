@@ -1,0 +1,434 @@
+--------- beginning of main
+ 23794.858  4735  4735 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23795.078  3114  3114 I Finsky:background: [2] Memory trim requested to level 40
+ 23795.084  2052  2052 I Finsky  : [2] Memory trim requested to level 40
+ 23795.098 15352 15352 I Finsky:quick_launch: [2] Memory trim requested to level 40
+ 23795.111  2052  2052 I Finsky  : [2] Flushing in-memory image cache
+--------- beginning of system
+ 23795.140  1641  1730 W Looper  : Slow delivery took 87718ms android.bg app=android.process.acore main=false group=BACKGROUND h=android.database.sqlite.SQLiteConnectionPool$IdleConnectionHandler c=null m=11
+ 23795.158  3209  3209 W TimedProcessReaper: Current importance is: 400
+ 23795.177  3209  3209 W TimedProcessReaper: Killing process to refresh configuration
+ 23795.181  3209  3209 I Process : Sending signal. PID: 3209 SIG: 9
+ 23795.243  2497  2756 I ForwardSyncCache: reclaimMemory: Clearing caches
+ 23795.249  2497  2756 I BugleSpam: HadesBitmapStore: Purged 0 images during memory reclamation
+ 23795.245  4746  4746 W dmesg   : type=1400 audit(0.0:45): avc:  denied  { syslog_read } for  scontext=u:r:shell:s0 tcontext=u:r:kernel:s0 tclass=system permissive=0
+ 23795.279  2497  2756 W Bugle   : TextClassifierLibManagerImpl: Reclaiming memory at level: 40
+ 23795.326  1641  1648 W d.process.acore: Reducing the number of considered missed Gc histogram windows from 471 to 100
+ 23795.973   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 23796.141   793  1352 I ActivityManager: Process com.google.android.apps.safetyhub (pid 3209) has died: cch  +25 CEM 
+ 23796.155   583   583 I Zygote  : Process 3209 exited due to signal 9 (Killed)
+ 23796.160   793   827 I libprocessgroup: Removed cgroup /sys/fs/cgroup/apps/uid_10156/pid_3209
+ 23796.194  4748  4748 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23796.560  4623  4693 I ReactNativeJS: [chart-opening-qa] selected=perf at=23796560.1ms
+ 23796.594   793  1352 W AS.PlaybackActivityMon: No piid assigned for invalid/internal port id 15
+ 23796.691  4623  4694 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 23796.693  4623  4694 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 23796.975  4623  4693 I rintentions.app: hiddenapi: Accessing hidden method Ljava/io/ObjectStreamClass;->getConstructorId(Ljava/lang/Class;)J (runtime_flags=0, domain=core-platform, api=unsupported) from Lexpo/modules/kotlin/allocators/UnsafeAllocator$Companion; (domain=app, TargetSdkVersion=36) using reflection: allowed
+ 23797.313  4623  4623 I ExoPlayerImpl: Init 8ecd3e7 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 23797.512  4623  4623 I rintentions.app: hiddenapi: Accessing hidden method Landroid/media/AudioTrack;->getLatency()I (runtime_flags=0, domain=platform, api=unsupported) from Landroidx/media3/exoplayer/audio/AudioTrackPositionTracker; (domain=app, TargetSdkVersion=36) using reflection: allowed
+ 23797.766  4623  4623 I Choreographer: Skipped 34 frames!  The application may be doing too much work on its main thread.
+ 23797.783  4623  4623 I ExoPlayerImpl: Init f96f7e2 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 23797.810  4623  4623 I ExoPlayerImpl: Init 66c055c [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 23797.842  4623  4694 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 23797.907  4770  4770 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23797.982   793   968 I AS.AudioDeviceBroker: setCommunicationRouteForClient for uid: 10227 device: AudioDeviceAttributes: role:output type:speaker addr: name: profiles:[] descriptors:[] isPrivileged: false from API: setSpeakerphoneOn(true) from u/pid:10227/4623
+ 23798.026  4623  4623 I SkiaTextureView: onSurfaceTextureAvailable:  393x544
+ 23798.077   793   968 E AS.AudioDeviceBroker: mCommunicationDeviceUpdateCount already 0 in MSG_L_SET_COMMUNICATION_DEVICE_FOR_CLIENT
+ 23798.451  4623  4623 E GFXSTREAM: [egl.cpp(2130)] eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+ 23798.452  4623  4623 E GFXSTREAM: [egl.cpp(2131)] tid 4623: error 0x3004 (EGL_BAD_ATTRIBUTE)
+ 23798.452  4623  4623 I SkiaTextureView: onSurfaceTextureAvailable:  786x1089
+ 23798.491   793   971 I AS.AudioService: onUpdateContextualVolumes: absolute volume driving streams 3 avrcp supported: false
+ 23798.529  4623  4623 I Choreographer: Skipped 32 frames!  The application may be doing too much work on its main thread.
+ 23798.582  4623  4623 I ExoPlayerImpl: Init 750c84e [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 23798.621  4623  4623 I ExoPlayerImpl: Init 2a2605f [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 23798.676  4623  4623 I ExoPlayerImpl: Init 1673e5 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 23798.687  4623  4763 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 23798.689  4623  4765 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 23798.689  4623  4779 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 23798.689  4623  4761 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 23798.769  4623  4781 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 23798.822  4623  4786 I ApexCodecsLazy: ApexCodecs loaded
+ 23798.826  4623  4786 I Codec2Client: Available Codec2 services: "default" "software" "__ApexCodecs__"
+ 23798.827  4623  4783 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 23798.862  4623  4790 I CCodec  : setting up 'default' as default (vendor) store
+ 23798.865  4623  4784 I CCodec  : setting up 'default' as default (vendor) store
+ 23798.866  4623  4785 I CCodec  : setting up 'default' as default (vendor) store
+ 23798.866  4623  4787 I CCodec  : setting up 'default' as default (vendor) store
+ 23798.866  4623  4786 I CCodec  : setting up 'default' as default (vendor) store
+ 23798.867  4623  4791 I CCodec  : setting up 'default' as default (vendor) store
+ 23798.985  4623  4787 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 23798.986  4623  4784 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 23798.992  4623  4790 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 23798.998  4623  4786 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 23799.004  4623  4791 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 23799.009  4623  4785 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 23799.023   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 23799.056  4623  4786 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.056  4623  4784 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.056  4623  4790 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.059  4623  4787 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.070  4623  4791 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.074  4623  4785 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.090  4623  4785 I MediaCodec: MediaCodec will operate in async mode
+ 23799.093  4623  4787 I MediaCodec: MediaCodec will operate in async mode
+ 23799.093  4623  4784 I MediaCodec: MediaCodec will operate in async mode
+ 23799.096  4623  4791 I MediaCodec: MediaCodec will operate in async mode
+ 23799.096  4623  4779 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 23799.098  4623  4763 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 23799.099  4623  4761 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 23799.099  4623  4783 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 23799.100  4623  4786 I MediaCodec: MediaCodec will operate in async mode
+ 23799.103  4623  4790 I MediaCodec: MediaCodec will operate in async mode
+ 23799.104  4623  4765 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 23799.108   714  1083 E Codec2-ComponentInterface: We have a failed config
+ 23799.108   714 18882 E Codec2-ComponentInterface: We have a failed config
+ 23799.109   714  1083 E Codec2-ComponentInterface: We have a failed config
+ 23799.109  4623  4781 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 23799.109   714 18882 E Codec2-ComponentInterface: We have a failed config
+ 23799.109   714 29038 E Codec2-ComponentInterface: We have a failed config
+ 23799.114   714  1083 E Codec2-ComponentInterface: We have a failed config
+ 23799.115  4623  4784 W Codec2Client: query -- param skipped: index = 1107298332.
+ 23799.115  4623  4784 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 23799.117  4623  4786 W Codec2Client: query -- param skipped: index = 1107298332.
+ 23799.120  4623  4786 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 23799.121  4623  4784 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.121  4623  4784 E rintentions.app: Failed to query component interface for required system resources: 6
+ 23799.123  4623  4791 W Codec2Client: query -- param skipped: index = 1107298332.
+ 23799.125  4623  4791 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 23799.127  4623  4785 W Codec2Client: query -- param skipped: index = 1107298332.
+ 23799.128  4623  4787 W Codec2Client: query -- param skipped: index = 1107298332.
+ 23799.128  4623  4787 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 23799.128  4623  4790 W Codec2Client: query -- param skipped: index = 1107298332.
+ 23799.129  4623  4790 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 23799.129  4623  4791 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.131  4623  4787 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.132  4623  4786 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.133  4623  4790 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.133  4623  4791 E rintentions.app: Failed to query component interface for required system resources: 6
+ 23799.133  4623  4787 E rintentions.app: Failed to query component interface for required system resources: 6
+ 23799.134  4623  4790 E rintentions.app: Failed to query component interface for required system resources: 6
+ 23799.134  4623  4786 E rintentions.app: Failed to query component interface for required system resources: 6
+ 23799.134  4623  4785 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 23799.137  4623  4784 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23799.137  4623  4784 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23799.142  4623  4785 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23799.143  4623  4785 E rintentions.app: Failed to query component interface for required system resources: 6
+ 23799.147  4623  4786 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23799.147  4623  4786 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23799.151  4623  4790 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23799.151  4623  4790 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23799.152  4623  4787 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23799.152  4623  4787 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23799.154  4623  4791 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23799.154  4623  4791 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23799.157  4623  4785 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23799.158  4623  4785 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23799.165  4623  4784 I CCodecBufferChannel: [c2.android.mp3.decoder#162] Created output block pool with allocatorID 16 => poolID 571 - OK
+ 23799.168   714 29038 E Codec2-ComponentInterface: We have a failed config
+ 23799.175  4623  4784 I DMABUFHEAPS: Using DMA-BUF heap named: system
+ 23799.183  4623  4786 I CCodecBufferChannel: [c2.android.mp3.decoder#208] Created output block pool with allocatorID 16 => poolID 572 - OK
+ 23799.186   714 29038 E Codec2-ComponentInterface: We have a failed config
+ 23799.192  4623  4787 I CCodecBufferChannel: [c2.android.mp3.decoder#99] Created output block pool with allocatorID 16 => poolID 573 - OK
+ 23799.193   714 29038 E Codec2-ComponentInterface: We have a failed config
+ 23799.194  4623  4761 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 23799.200  4623  4791 I CCodecBufferChannel: [c2.android.mp3.decoder#702] Created output block pool with allocatorID 16 => poolID 574 - OK
+ 23799.200   714 16877 E Codec2-ComponentInterface: We have a failed config
+ 23799.211  4623  4763 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 23799.215  4623  4790 I CCodecBufferChannel: [c2.android.mp3.decoder#743] Created output block pool with allocatorID 16 => poolID 575 - OK
+ 23799.217   714 18882 E Codec2-ComponentInterface: We have a failed config
+ 23799.223  4623  4765 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 23799.227  4623  4785 I CCodecBufferChannel: [c2.android.mp3.decoder#491] Created output block pool with allocatorID 16 => poolID 576 - OK
+ 23799.227   714 25217 E Codec2-ComponentInterface: We have a failed config
+ 23799.236  4623  4781 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 23799.238   714  4797 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 23799.239   714  4795 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 23799.242  4623  4783 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 23799.249   714  4798 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 23799.271   714  4799 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 23799.281  4623  4779 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 23799.291   714  4800 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 23799.507  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-0] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23799.507  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23799.695   647  3700 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23799.700   647  3700 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23799.711  4623  4694 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 23799.839   647  3700 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23799.843   647  3700 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23799.851  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-1] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23799.852  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23799.867  4623  4693 I ReactNativeJS: [chart-intro-timing] runner-start mode=introFull
+ 23799.877  4623  4633 I rintentions.app: NativeAlloc concurrent mark compact GC freed 4837KB AllocSpace bytes, 33(3596KB) LOS objects, 49% free, 15MB/30MB, paused 1.699ms,4.924ms total 156.842ms
+ 23799.893  4623  4635 W System  : A resource failed to call Surface.release. 
+ 23799.893  4623  4635 W System  : A resource failed to call Surface.release. 
+ 23799.893  4623  4623 I ExoPlayerImpl: Init 5b2050d [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 23799.927  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-1] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23799.927  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23799.949  4623  4694 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 23799.955  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-1] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23799.956  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23799.972  4623  4816 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 23799.978  4623  4623 E Surface : [SurfaceTexture-0-4623-0](id:120f00000003) clearBuffersForDisconnectLocked: 1 buffers were freed while being dequeued!
+ 23799.992  4623  4818 I CCodec  : setting up 'default' as default (vendor) store
+ 23800.000  4623  4623 E GFXSTREAM: [egl.cpp(2130)] eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+ 23800.000  4623  4623 E GFXSTREAM: [egl.cpp(2131)] tid 4623: error 0x3004 (EGL_BAD_ATTRIBUTE)
+ 23800.000  4623  4623 I SkiaTextureView: onSurfaceTextureAvailable:  393x544
+ 23800.010  4623  4818 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 23800.019  4623  4623 E Surface : [SurfaceTexture-0-4623-0-DISCONNECTED](id:0) Surface::cancelBuffer given a leaked buffer! Deleting extra held reference.
+ 23800.035  4623  4623 E GFXSTREAM: [egl.cpp(2130)] eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+ 23800.035  4623  4623 E GFXSTREAM: [egl.cpp(2131)] tid 4623: error 0x3004 (EGL_BAD_ATTRIBUTE)
+ 23800.035  4623  4623 I SkiaTextureView: onSurfaceTextureAvailable:  786x1089
+ 23800.042  4623  4818 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23800.051  4623  4818 I MediaCodec: MediaCodec will operate in async mode
+ 23800.054  4623  4816 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 23800.060   714 18882 E Codec2-ComponentInterface: We have a failed config
+ 23800.067  4623  4818 W Codec2Client: query -- param skipped: index = 1107298332.
+ 23800.067  4623  4818 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 23800.068  4623  4818 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23800.068  4623  4818 E rintentions.app: Failed to query component interface for required system resources: 6
+ 23800.078  4623  4818 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23800.078  4623  4818 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23800.092  4623  4818 I CCodecBufferChannel: [c2.android.mp3.decoder#533] Created output block pool with allocatorID 16 => poolID 578 - OK
+ 23800.093   714 25217 E Codec2-ComponentInterface: We have a failed config
+ 23800.103  4623  4816 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 23800.110  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23800.110  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23800.117   714  4819 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 23800.140   647  3700 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23800.143   647  3700 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23800.155  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23800.155  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23800.187   793   862 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23800.192   793  1352 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23800.194   793   862 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23800.197   793 19636 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23800.207  4824  4824 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23800.209  1167  1167 I bluetooth: system/btif/avrcp/avrcp_service.cc:532 SendMediaUpdate: track_changed=false :  play_state=true :  queue=false
+ 23800.211  1167  1167 E MediaControlProfile: onCurrentPlayerStateUpdated: base actions not supported, player actions= 0, expected at least= 7f
+ 23800.211  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED support: true
+ 23800.211  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED support: true
+ 23800.212  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED support: true
+ 23800.212  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED_NOTIFY support: true
+ 23800.215  1167  1167 I BluetoothAdapterProperties: getBondedDevices: length=0
+ 23800.219  1167  1167 W MediaControlGattService: Feature TRACK_POSITION support: true
+ 23800.219  1167  1167 W MediaControlGattService: Feature TRACK_POSITION_NOTIFY support: true
+ 23800.219  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 23800.220  1167  1167 I BluetoothAdapterProperties: getBondedDevices: length=0
+ 23800.221  1167  1167 W MediaControlGattService: Feature MEDIA_CONTROL_POINT_OPCODES_SUPPORTED support: true
+ 23800.221  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 23800.221  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 23800.223  1167  1167 I BluetoothAdapterProperties: getBondedDevices: length=0
+ 23800.223  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 23800.223  1167  1167 W MediaControlGattService: Feature SEEKING_SPEED support: true
+ 23800.223  1167  1167 W MediaControlGattService: Feature SEEKING_SPEED support: true
+ 23800.223  1167  1167 W MediaControlGattService: Feature SEEKING_SPEED support: true
+ 23800.223  1167  1167 W MediaControlProfile: MCS service state fields left unhandled: 
+ 23800.223  1167  1167 W MediaControlProfile:    > PLAYER_NAME
+ 23800.223  1167  1167 W MediaControlProfile:    > PLAYING_ORDER_SUPPORTED
+ 23800.239   647 15490 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23800.245   647 15490 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23800.264   647  3700 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23800.270   647  3700 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23800.272  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23800.273  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23800.274   714  4796 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 23800.275  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23800.275  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23800.317   647  3700 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23800.319   647  3700 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23800.382  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23800.382  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23800.910  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23800.910  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23800.915  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23800.915  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23801.126  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23801.127  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23801.160  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23801.161  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23801.166  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23801.166  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23801.265  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23801.265   647   867 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23801.266  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23801.269   647   867 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23801.276  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23801.279  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23801.391   793 19636 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23801.391   793 19636 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23801.409  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23801.410  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23801.821  1031  1031 I wpa_supplicant: wlan0: CTRL-EVENT-BEACON-LOSS 
+ 23801.928  4836  4836 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23801.989  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23801.990  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23802.043   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 23802.183  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23802.183  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23802.188  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23802.188  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23802.411  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23802.411  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23802.461  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23802.462  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23802.683  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23802.684  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23802.697  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23802.697  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.057  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.057  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.159  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.159  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.227  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.231  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.258  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.259  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.377  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.377  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.409  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.409  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.446  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.447  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.595  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.595  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.675  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.676  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23803.762  4840  4840 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23803.955  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23803.955  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23804.094  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23804.094  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23804.180  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23804.180  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23804.225  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23804.225  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23804.914  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23804.914  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23804.937  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23804.937  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.021   659   659 W adbd    : timeout expired while flushing socket, closing
+ 23805.064   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 23805.154  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.155  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.286  4623  4787 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23805.291  4623  4787 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23805.291  4623  4787 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23805.312  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.312  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.316  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.317  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.382  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.382  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.403   647   867 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 23805.406   647   867 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 23805.438   793 16205 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23805.441   793  1017 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23805.459  4846  4846 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23805.471  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.471  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.546   793 16205 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23805.548   793 19636 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 23805.644  2052  2052 I Finsky  : [2] Memory trim requested to level 40
+ 23805.649  2052  2052 I Finsky  : [2] Flushing in-memory image cache
+ 23805.650  3114  3114 I Finsky:background: [2] Memory trim requested to level 40
+ 23805.650 15352 15352 I Finsky:quick_launch: [2] Memory trim requested to level 40
+ 23805.654  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.654  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.658  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.658  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.724  2497  2755 I ForwardSyncCache: reclaimMemory: Clearing caches
+ 23805.726  2497  2755 I BugleSpam: HadesBitmapStore: Purged 0 images during memory reclamation
+ 23805.743  2497  2755 W Bugle   : TextClassifierLibManagerImpl: Reclaiming memory at level: 40
+ 23805.748  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.749  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23805.978  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23805.978  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.146  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.146  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.175  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.175  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.178  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.178  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.193  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.193  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.203  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.203  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.228  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.228  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.310  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.310  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.358  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.358  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.395  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.395  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.432  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.433  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.499  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.499  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.562  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.562  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.569  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.570  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.689  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.689  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.697  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.699  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.956  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.957  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23806.962  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23806.962  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23807.081  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23807.081  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23807.090  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23807.091  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23807.233  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23807.233  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23807.245  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23807.245  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23807.295  4852  4852 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23807.342  4623  4623 I SkiaTextureView: onSurfaceTextureSizeChanged:  786x1089
+ 23807.342  4623  4623 I SkiaView: onSurfaceTextureSizeChanged 786/1089
+ 23807.361  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-2] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23807.361  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23807.419  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23807.421  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23808.081   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 23808.122   659   659 W adbd    : timeout expired while flushing socket, closing
+ 23809.098  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23809.099  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23809.099  4856  4856 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23809.757  1031  1031 I wpa_supplicant: wlan0: CTRL-EVENT-BEACON-LOSS 
+ 23810.742  4860  4860 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23810.790  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23810.790  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23811.095   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 23812.186  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23812.186  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23812.358   659   659 W adbd    : timeout expired while flushing socket, closing
+ 23812.417  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23812.418  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23812.470  4864  4864 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23812.504  4623  4818 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 23812.506  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23812.506  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23812.510  4623  4818 W Codec2Client: query -- param skipped: index = 1342179345.
+ 23812.510  4623  4818 W Codec2Client: query -- param skipped: index = 2415921170.
+ 23814.114   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 23814.139  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23814.141  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23814.171  4869  4869 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23815.825  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23815.825  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23815.838  1373  4873 I GmscoreIpa: Starting mediastore instant index [CONTEXT service_id=255 ]
+ 23815.893  4875  4875 W libbinder.BackendUnifiedServiceManager: Thread Pool max thread count is 0. Cannot cache binder as linkToDeath cannot be implemented. serviceName: gfxinfo
+ 23815.913  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23815.913  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23816.017  4623  4623 E rintentions.app: [SurfaceTexture-0-4623-3] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 23816.017  4623  4623 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 23816.109  2052  2052 I Finsky  : [2] Memory trim requested to level 40
+ 23816.109  2052  2052 I Finsky  : [2] Flushing in-memory image cache
+ 23816.111 15352 15352 I Finsky:quick_launch: [2] Memory trim requested to level 40
+ 23816.125  3114  3114 I Finsky:background: [2] Memory trim requested to level 40
+ 23816.203  2497  2755 I ForwardSyncCache: reclaimMemory: Clearing caches
+ 23816.206  2497  2755 I BugleSpam: HadesBitmapStore: Purged 0 images during memory reclamation
+ 23816.219  2497  2755 W Bugle   : TextClassifierLibManagerImpl: Reclaiming memory at level: 40
+ 23817.130   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]

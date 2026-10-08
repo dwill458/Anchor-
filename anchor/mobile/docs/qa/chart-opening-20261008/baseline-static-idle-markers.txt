@@ -1,0 +1,5 @@
+start=21355.33 112552.67
+end=21364.51 112585.81
+device=emulator-5554
+wm=786x1704 density=320 fontScale=1.0
+route=pre-change static intro from detached HEAD

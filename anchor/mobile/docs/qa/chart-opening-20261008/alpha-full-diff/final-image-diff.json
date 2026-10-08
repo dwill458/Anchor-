@@ -1,0 +1,29 @@
+{
+  "before": "anchor\\mobile\\docs\\qa\\chart-opening-20261008\\intro-before.png",
+  "after": "anchor\\mobile\\docs\\qa\\chart-opening-20261008\\alpha-full-runner-final.png",
+  "dimensions": [
+    786,
+    1704
+  ],
+  "maskedPaperZoneY": [
+    937,
+    1329
+  ],
+  "maskedSystemBandsY": [
+    [
+      0,
+      77
+    ],
+    [
+      1663,
+      1704
+    ]
+  ],
+  "includedPixels": 938484,
+  "pixelsOver12Of255": 768,
+  "pixelsOver12Pct": 0.0818,
+  "pixelsOver32Of255": 227,
+  "meanAbsoluteChannelDifference": 1.8408,
+  "diffImage": "anchor\\mobile\\docs\\qa\\chart-opening-20261008\\alpha-full-diff\\final-outside-paper-diff.png",
+  "overlayImage": "anchor\\mobile\\docs\\qa\\chart-opening-20261008\\alpha-full-diff\\final-before-after-overlay.png"
+}

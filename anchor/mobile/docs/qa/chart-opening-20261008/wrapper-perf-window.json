@@ -1,0 +1,11 @@
+{
+  "source": "docs/qa/chart-opening-20261008/wrapper-perf-polls.txt",
+  "windowUptimeMs": [
+    28618899.0,
+    28626099.0
+  ],
+  "uniqueIntendedVsyncFrames": 240,
+  "durationSeconds": 4.8,
+  "validWindow": false,
+  "reason": "Capture began at menu tap; runner-start occurred 4.478 s later, leaving only 4.8 s of the required 7.2 s sequence window in the captured framestats poll."
+}

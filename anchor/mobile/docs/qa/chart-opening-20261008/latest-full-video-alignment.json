@@ -1,0 +1,17 @@
+{
+  "selectedWallClock": "01:09:19.607",
+  "video": "latest-full-video.mp4",
+  "videoRelativeRunnerSeconds": 2.0389,
+  "sampleTargets": {
+    "runner_1_3": 3.3389,
+    "runner_6_5": 8.5389,
+    "runner_0_2": 2.2389,
+    "runner_7_2": 9.2389,
+    "runner_3_4": 5.4389
+  },
+  "runnerWallClock": "01:09:20.574",
+  "tapUptimeSeconds": 20298.53,
+  "selectedPerformanceMs": 20298541.9,
+  "runnerUptimeSeconds": 20299.5089,
+  "recordingStartUptimeSeconds": 20297.47
+}

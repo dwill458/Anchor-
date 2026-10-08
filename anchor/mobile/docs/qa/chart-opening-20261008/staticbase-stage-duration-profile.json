@@ -1,0 +1,101 @@
+{
+  "method": "Flags==0; exact recorded IntendedVsync window; latest FrameCompleted per IntendedVsync; durations in ms",
+  "runs": [
+    {
+      "run": "prechange-static",
+      "source": "docs\\qa\\chart-opening-20261008\\baseline-static-idle-polls.txt",
+      "windowUptimeMs": [
+        21355330,
+        21362530
+      ],
+      "uniqueFrames": 423,
+      "coverageSeconds": 7.183,
+      "fps": 58.75,
+      "vsyncToAnimation": {
+        "n": 423,
+        "meanMs": 3.004,
+        "medianMs": 2.589,
+        "p95Ms": 4.759,
+        "maxMs": 21.265
+      },
+      "animationToTraversals": {
+        "n": 423,
+        "meanMs": 1.5,
+        "medianMs": 1.26,
+        "p95Ms": 2.723,
+        "maxMs": 10.598
+      },
+      "traversalsToDraw": {
+        "n": 423,
+        "meanMs": 0.491,
+        "medianMs": 0.292,
+        "p95Ms": 1.76,
+        "maxMs": 5.068
+      },
+      "drawToComplete": {
+        "n": 423,
+        "meanMs": 17.019,
+        "medianMs": 15.627,
+        "p95Ms": 26.105,
+        "maxMs": 31.807
+      },
+      "totalFrame": {
+        "n": 423,
+        "meanMs": 22.014,
+        "medianMs": 20.283,
+        "p95Ms": 32.434,
+        "maxMs": 36.906
+      },
+      "over16_7ms": 383,
+      "over32ms": 23
+    },
+    {
+      "run": "staticbase-opening",
+      "source": "docs\\qa\\chart-opening-20261008\\staticbase-perf-polls.txt",
+      "windowUptimeMs": [
+        27399303,
+        27406503
+      ],
+      "uniqueFrames": 369,
+      "coverageSeconds": 7.183,
+      "fps": 51.23,
+      "vsyncToAnimation": {
+        "n": 369,
+        "meanMs": 7.093,
+        "medianMs": 3.796,
+        "p95Ms": 22.065,
+        "maxMs": 56.266
+      },
+      "animationToTraversals": {
+        "n": 369,
+        "meanMs": 3.746,
+        "medianMs": 3.436,
+        "p95Ms": 6.048,
+        "maxMs": 15.806
+      },
+      "traversalsToDraw": {
+        "n": 369,
+        "meanMs": 0.398,
+        "medianMs": 0.239,
+        "p95Ms": 1.411,
+        "maxMs": 2.499
+      },
+      "drawToComplete": {
+        "n": 369,
+        "meanMs": 17.584,
+        "medianMs": 16.868,
+        "p95Ms": 28.313,
+        "maxMs": 131.914
+      },
+      "totalFrame": {
+        "n": 369,
+        "meanMs": 28.821,
+        "medianMs": 27.27,
+        "p95Ms": 52.043,
+        "maxMs": 152.329
+      },
+      "over16_7ms": 342,
+      "over32ms": 112
+    }
+  ]
+}

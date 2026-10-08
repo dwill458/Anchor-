@@ -1,0 +1,17 @@
+{
+  "source": "docs\\qa\\chart-opening-20261008\\full-probe-window-framestats.txt",
+  "windowUptimeMs": [
+    19732659.5,
+    19739859.5
+  ],
+  "uniqueIntendedVsyncFrames": 289,
+  "durationSeconds": 6.033,
+  "fps": 47.73,
+  "framesOver16_7ms": 270,
+  "framesOver16_7Pct": 93.426,
+  "framesOver32ms": 51,
+  "maxFrameMs": 134.628,
+  "maxIntendedVsyncGapMs": 483.333,
+  "medianFrameMs": 25.973,
+  "thresholdsPass": false
+}

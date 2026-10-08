@@ -1,0 +1,12 @@
+{
+  "bundle": "E:\\Projects\\Anchor\\anchor\\mobile\\docs\\qa\\chart-opening-20261008\\drawasimage-current.bundle",
+  "sha256": "ef2df697afcc4941e33792bdd4610ec1726e5b402253584c91378f45ea244f2c",
+  "bytes": 7410927,
+  "markers": {
+    "landP": true,
+    "drawAsImage": true,
+    "[chart-intro-probe]": true,
+    "[chart-opening-qa]": true,
+    "RUNNER +": true
+  }
+}

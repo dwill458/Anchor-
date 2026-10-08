@@ -1,0 +1,17 @@
+{
+  "source": "anchor\\mobile\\docs\\qa\\chart-opening-20261008\\probe-free-perf-polls.txt",
+  "windowUptimeMs": [
+    26691106.0,
+    26698306.0
+  ],
+  "uniqueIntendedVsyncFrames": 329,
+  "durationSeconds": 7.167,
+  "fps": 45.77,
+  "framesOver16_7ms": 317,
+  "framesOver16_7Pct": 96.353,
+  "framesOver32ms": 155,
+  "maxFrameMs": 180.607,
+  "maxIntendedVsyncGapMs": 166.667,
+  "medianFrameMs": 30.412,
+  "thresholdsPass": false
+}

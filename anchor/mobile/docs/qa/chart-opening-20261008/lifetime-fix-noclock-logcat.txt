@@ -1,0 +1,9 @@
+--------- beginning of main
+ 26014.751 11351 11422 I ReactNativeJS: [chart-opening-qa] selected=perf at=26014751.3ms
+ 26015.982 11351 11422 I ReactNativeJS: [chart-intro-timing] runner-start mode=introFull
+ 26021.120 11351 11422 I ReactNativeJS: [chart-intro-probe] at=5100 contour=1.000 tone=1.000 land=0.000 base=true
+ 26022.369 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6350 contour=1.000 tone=1.000 land=0.000 base=true
+ 26022.514 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6490 contour=1.000 tone=1.000 land=0.000 base=true
+ 26022.634 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6600 contour=1.000 tone=1.000 land=0.071 base=true
+ 26022.876 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6800 contour=1.000 tone=1.000 land=0.429 base=true
+ 26023.286 11351 11422 I ReactNativeJS: [chart-intro-timing] sequence-end

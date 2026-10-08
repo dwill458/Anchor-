@@ -1,0 +1,13 @@
+--------- beginning of main
+ 25207.711 10287 10287 I ChartOpeningQA: SPLIT_REC_START_PRE
+ 25208.357 10299 10299 I ChartOpeningQA: SPLIT_REC_START_POST
+ 25208.593 10133 10199 I ReactNativeJS: [chart-opening-qa] selected=full at=25208593.6ms
+ 25208.709 10133 10199 I ReactNativeJS: [chart-opening-qa] isolated-clock-v1; sibling overlay owns clock state
+ 25210.894 10133 10199 I ReactNativeJS: [chart-intro-timing] runner-start mode=introFull
+ 25216.007 10133 10199 I ReactNativeJS: [chart-intro-probe] at=5100 contour=1.000 tone=0.999 land=0.000 base=true
+ 25217.301 10133 10199 I ReactNativeJS: [chart-intro-probe] at=6350 contour=1.000 tone=1.000 land=0.000 base=true
+ 25217.484 10133 10199 I ReactNativeJS: [chart-intro-probe] at=6490 contour=1.000 tone=1.000 land=0.000 base=true
+ 25217.559 10133 10199 I ReactNativeJS: [chart-intro-probe] at=6600 contour=1.000 tone=1.000 land=0.000 base=true
+ 25217.757 10133 10199 I ReactNativeJS: [chart-intro-probe] at=6800 contour=1.000 tone=1.000 land=0.000 base=true
+ 25218.493 10133 10199 I ReactNativeJS: [chart-intro-timing] sequence-end
+ 25222.731 11238 11238 I ChartOpeningQA: SPLIT_REC_END

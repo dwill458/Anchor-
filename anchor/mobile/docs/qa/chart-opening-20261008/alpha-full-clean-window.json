@@ -1,0 +1,17 @@
+{
+  "source": "anchor\\mobile\\docs\\qa\\chart-opening-20261008\\alpha-full-clean-polls.txt",
+  "windowUptimeMs": [
+    20937831.0,
+    20945031.0
+  ],
+  "uniqueIntendedVsyncFrames": 370,
+  "durationSeconds": 7.15,
+  "fps": 51.61,
+  "framesOver16_7ms": 333,
+  "framesOver16_7Pct": 90.0,
+  "framesOver32ms": 25,
+  "maxFrameMs": 105.119,
+  "maxIntendedVsyncGapMs": 516.667,
+  "medianFrameMs": 25.382,
+  "thresholdsPass": false
+}

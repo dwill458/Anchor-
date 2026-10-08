@@ -1,0 +1,26 @@
+{
+  "baseline": "intro-before.png",
+  "current": "finalsource-full-final.png",
+  "size": [
+    786,
+    1704
+  ],
+  "maskedYZones": [
+    [
+      0,
+      64
+    ],
+    [
+      937,
+      1329
+    ],
+    [
+      1650,
+      1704
+    ]
+  ],
+  "comparedPixels": 938484,
+  "changedPixelsAnyChannelOver12": 0,
+  "mae": 0.01305,
+  "maxChannelDelta": 1
+}

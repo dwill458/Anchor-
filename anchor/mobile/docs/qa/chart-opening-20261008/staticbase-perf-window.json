@@ -1,0 +1,17 @@
+{
+  "source": "anchor\\mobile\\docs\\qa\\chart-opening-20261008\\staticbase-perf-polls.txt",
+  "windowUptimeMs": [
+    27399303.0,
+    27406503.0
+  ],
+  "uniqueIntendedVsyncFrames": 369,
+  "durationSeconds": 7.183,
+  "fps": 51.23,
+  "framesOver16_7ms": 342,
+  "framesOver16_7Pct": 92.683,
+  "framesOver32ms": 112,
+  "maxFrameMs": 152.329,
+  "maxIntendedVsyncGapMs": 200.0,
+  "medianFrameMs": 27.27,
+  "thresholdsPass": false
+}

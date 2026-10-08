@@ -1,0 +1,5 @@
+--------- beginning of main
+10-08 00:47:48.034 20494 22245 I ReactNativeJS: Running "main"
+10-08 00:47:48.360 20494 22245 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+10-08 00:47:48.546 20494 22245 I ReactNativeJS: [chart-opening-qa] replay-root-layout=393x852
+10-08 00:47:49.006 20494 22245 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1

@@ -1,0 +1,12 @@
+--------- beginning of main
+10-08 00:56:14.792 20494 23311 I ReactNativeJS: [chart-opening-qa] selected=full at=19513728.0ms
+10-08 00:56:14.799 20494 23311 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+10-08 00:56:14.946 20494 23311 I ReactNativeJS: [chart-intro-prep] flow-commit
+10-08 00:56:14.971 20494 23311 I ReactNativeJS: [chart-intro-prep] screen-layout +169.0ms width=393.0
+10-08 00:56:14.988 20494 23311 I ReactNativeJS: [chart-intro-prep] ready +2.3ms entry=+185.5ms seen=true art=true
+10-08 00:56:15.149 20494 23311 I ReactNativeJS: [chart-intro-timing] opening-commit
+10-08 00:56:15.153 20494 23311 I ReactNativeJS: [chart-intro-timing] runner-start +3.4ms mode=introFull
+10-08 00:56:15.155 20494 23311 I ReactNativeJS: [chart-intro-timing] air-start +6.0ms
+10-08 00:56:15.255 20494 23311 I ReactNativeJS: [chart-intro-timing] root-layout +106.3ms width=393.0 localHeight=744.5 measuredHeight=744.5
+10-08 00:56:15.832 20494 23311 I ReactNativeJS: [chart-intro-timing] storage-result +682.4ms replay=full
+10-08 00:56:16.383 20494 23311 I ReactNativeJS: [chart-intro-timing] map-art-ready +1233.5ms
