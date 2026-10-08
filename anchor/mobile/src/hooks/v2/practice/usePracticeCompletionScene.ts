@@ -10,9 +10,9 @@
  *   swell to the real new value, one settle cue and a Light haptic, then "Reinforced today".
  * - P4, stage reached (level 3, about 3.8s; Reinforced level 4, about 4.6s): the bar fills, the
  *   five-segment stage strip rises, the new stage's segment fills gold and the stage chord lands with
- *   a Medium haptic. Once per Anchor per stage. Re-reaching a stage after decay is a quiet relight
- *   (level 1, about 3.0s): the segment fills, one Light haptic, no chord. A stage replaces P2 for that
- *   completion.
+ *   a Medium haptic. Once per Anchor per stage. Re-reaching a stage after decay is a relight (level 2,
+ *   under 2.0s, not skippable): the segment relights with one Light haptic. No chord, no sentence. A
+ *   stage replaces P2 for that completion.
  * - P5, Full Strength (a ceiling at 100, not a stage): first time per Anchor, level 4 (about 4.6s),
  *   the bar fills, a gold ring draws, the chord and a Medium haptic land, the ring closes with a Light
  *   haptic. Back at 100 after decay: short (level 3, about 3.2s), a Light wake haptic, no chord. A
@@ -24,10 +24,11 @@
  * - A session whose scene already played (a remount) lands on its settled end state, no replay.
  * - Reduce Motion: no travel and no draw. The bar snaps to its value; the words and figures crossfade;
  *   the settle beat (cue and haptic) fires at once; motion-timed extra haptics are dropped. Full scenes
- *   register at level 2 in that mode, the quiet relight stays at level 1.
+ *   register at level 2 in that mode; the relight is level 2 already.
  * - Skip (scenes over 2.5s): the store calls onSkip, which lands the settled end state. A tap also
  *   fires the settle beat once, because the tap is the commitment; a preemption by a higher scene
- *   lands silently so two cues never overlap. A quiet scene dropped by the coordinator lands silently.
+ *   lands silently so two cues never overlap. A level 1 scene dropped by the coordinator lands
+ *   silently (no practice scene is level 1 now; the branch is kept for the coordinator contract).
  *
  * Thread Strength is read only. The before and after values come from the caller and are never
  * computed or changed here. Sound goes through playCreationSound('threadSettle') with the once-per-
@@ -171,22 +172,25 @@ export const PRACTICE_SCENE_TIMING: Record<PlayedKind, PracticeSceneTiming> & {
     noteAtMs: 2100,
     noteInMs: 500,
   },
+  // Re-reaching a stage after decay: a short reinforcement (level 2, under 2.0s, so never skippable).
+  // The strip rises and the segment relights, with one Light haptic as it does. No chord and no
+  // sentence: nothing is rendered for the note, so noteAtMs and noteInMs are inert here.
   stageRelight: {
-    level: 1,
-    durationMs: 3000,
-    fillAtMs: 500,
-    fillMs: 1000,
+    level: 2,
+    durationMs: 1900,
+    fillAtMs: 300,
+    fillMs: 700,
     glowFrom: 0.32,
     glowTo: 0.38,
-    stripAtMs: 1000,
-    stripInMs: 350,
-    segmentAtMs: 1350,
+    stripAtMs: 600,
+    stripInMs: 250,
+    segmentAtMs: 850,
     segmentMs: 350,
-    settleAtMs: 1700,
+    settleAtMs: 1200,
     settleHaptic: Haptics.ImpactFeedbackStyle.Light,
     chord: false,
-    noteAtMs: 1900,
-    noteInMs: 300,
+    noteAtMs: 1200,
+    noteInMs: 200,
   },
   fullFirst: {
     level: 4,
@@ -673,7 +677,7 @@ export function usePracticeCompletionScene({
       };
 
       requested.current = true;
-      // Full scenes register at level 2 under Reduce Motion; the quiet relight stays at level 1.
+      // Full scenes register at level 2 under Reduce Motion; the relight is level 2 already.
       const level = (reduceMotion ? Math.min(timing.level, 2) : timing.level) as CelebrationLevel;
       const outcome = useCelebrationStore.getState().request(level, sceneKey, {
         durationMs: timing.durationMs,

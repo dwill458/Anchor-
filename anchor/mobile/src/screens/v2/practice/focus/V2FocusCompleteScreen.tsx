@@ -14,7 +14,6 @@ import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 // COPY: from the celebration brief
 const COPY = {
   stageReached: (stage: string) => `Your Anchor is now ${stage}.`,
-  stageAgain: (stage: string) => `${stage} again.`,
   fullStrength: 'Full Strength.',
   fullStrengthSubline: 'Your Anchor is fully reinforced.',
   backAtFullStrength: 'Back at full strength.',
@@ -32,8 +31,11 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const isStageScene = (kind: PracticeSceneKind) =>
   kind === 'stageFirst' || kind === 'stageReinforced' || kind === 'stageRelight';
 
-/** The closing line for a scene. Stage names come from the progress adapter's resolver, never typed here. */
-function sceneNoteText(kind: PracticeSceneKind, value: number): string {
+/**
+ * The closing line for a scene, or null when the scene has none. Stage names come from the progress
+ * adapter's resolver, never typed here. A stage relight is silent: the segment relights, no sentence.
+ */
+function sceneNoteText(kind: PracticeSceneKind, value: number): string | null {
   const stage = resolveEvolutionStage(value);
   switch (kind) {
     case 'first':
@@ -42,7 +44,7 @@ function sceneNoteText(kind: PracticeSceneKind, value: number): string {
     case 'stageReinforced':
       return COPY.stageReached(stage);
     case 'stageRelight':
-      return COPY.stageAgain(stage);
+      return null;
     case 'fullFirst':
       return COPY.fullStrength;
     case 'fullRepeat':
@@ -118,6 +120,7 @@ export function V2FocusCompleteScreen({
     reduceMotion,
   });
   const fromStruck = scene.kind === 'repeat' && scene.phase !== 'idle';
+  const noteText = sceneNoteText(scene.kind, toVal);
 
   // Presentation only: the authoritative Thread values above are already
   // resolved before this screen mounts. The Anchor is visible on the first cream
@@ -309,12 +312,14 @@ export function V2FocusCompleteScreen({
           </Animated.View>
         ) : null}
 
-        <Animated.Text
-          testID={scene.kind === 'first' ? 'focus-complete-first-line' : undefined}
-          style={[scene.kind === 'fullFirst' ? styles.fullStrengthTitle : styles.reinforcedToday, noteStyle]}
-        >
-          {sceneNoteText(scene.kind, toVal)}
-        </Animated.Text>
+        {noteText ? (
+          <Animated.Text
+            testID={scene.kind === 'first' ? 'focus-complete-first-line' : undefined}
+            style={[scene.kind === 'fullFirst' ? styles.fullStrengthTitle : styles.reinforcedToday, noteStyle]}
+          >
+            {noteText}
+          </Animated.Text>
+        ) : null}
         {scene.kind === 'fullFirst' ? (
           <Animated.Text testID="focus-complete-full-strength-subline" style={[styles.sublineText, sublineStyle]}>
             {COPY.fullStrengthSubline}

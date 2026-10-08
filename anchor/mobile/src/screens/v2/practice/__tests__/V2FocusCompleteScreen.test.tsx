@@ -600,12 +600,24 @@ describe('V2FocusCompleteScreen stage and Full Strength scenes (celebration Step
     expect(screen.getByLabelText('Skip')).toBeTruthy();
   });
 
-  it('a stage re-reached after decay reads as a quiet relight line, with no first-time wording', async () => {
+  it('a stage re-reached after decay relights the segment with no sentence at all, at level 2 and not skippable', async () => {
     useCelebrationRecordsStore.setState({ records: { a1: { stages: { established: RECORD_DATE } } } });
     render(renderScene('screen-stage-relight', 47, 53));
     await flush();
-    expect(screen.getByText('Established again.')).toBeTruthy();
+    // The strip and the Established segment are drawn, but no line is rendered in the note's place.
+    expect(screen.getByTestId('focus-complete-stage-strip')).toBeTruthy();
+    expect(screen.queryByText('Established again.')).toBeNull();
     expect(screen.queryByText('Your Anchor is now Established.')).toBeNull();
+    expect(screen.queryByText('Reinforced today ✓')).toBeNull();
+    expect(screen.queryByTestId('focus-complete-full-strength-ring')).toBeNull();
+    expect(useCelebrationStore.getState().active).toMatchObject({ level: 2, skippable: false });
+    expect(useCelebrationStore.getState().current?.durationMs).toBeLessThanOrEqual(2000);
+    expect(screen.queryByLabelText('Skip')).toBeNull();
+    // One Light haptic as the segment relights, and no cue.
+    advance(1200);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('light');
+    expect(threadSettleCalls()).toBe(0);
   });
 
   it('a first Full Strength shows the ring, the Full Strength line and its subline, and the ring closes at 2.9s', async () => {

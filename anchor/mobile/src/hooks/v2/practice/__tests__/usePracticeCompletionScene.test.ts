@@ -341,20 +341,39 @@ describe('stage and Full Strength scenes', () => {
     expect(useCelebrationStore.getState().active).toBeNull();
   });
 
-  it('a stage re-reached after decay is a quiet relight: level 1, no chord, one Light haptic at 1.7s, and the first date is kept', async () => {
+  it('a stage re-reached after decay is a level 2 relight: 2.0s at most, not skippable, no chord, one Light haptic as the segment relights, and the first date is kept', async () => {
     useCelebrationRecordsStore.setState({ records: { a1: { stages: { established: RECORD_DATE } } } });
     const { result } = renderHook(() => usePracticeCompletionScene(stageArgs('stage-relight')));
     await flushDecision();
 
     expect(result.current.kind).toBe('stageRelight');
-    expect(useCelebrationStore.getState().current).toMatchObject({ level: 1, durationMs: 3000 });
-    advance(1699);
+    const current = useCelebrationStore.getState().current;
+    expect(current).toMatchObject({ level: 2 });
+    expect(current?.durationMs).toBeLessThanOrEqual(2000);
+    expect(useCelebrationStore.getState().active).toMatchObject({ id: 'practice-complete:stage-relight', level: 2, skippable: false });
+    expect(result.current.canSkip).toBe(false);
+    // The Light haptic lands at the end of the segment relight (850 + 350), nowhere else.
+    advance(1199);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     advance(1);
     expect(threadSettleCalls()).toBe(0);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
+    // No chord, no cue of any kind, for the whole scene.
+    advance(1000);
+    expect(playCreationSound).not.toHaveBeenCalled();
+    expect(useCelebrationStore.getState().active).toBeNull();
     expect(records().a1.stages.established).toBe(RECORD_DATE);
+  });
+
+  it('a relight is too short to skip: a tap on it is refused and plays nothing', async () => {
+    useCelebrationRecordsStore.setState({ records: { a1: { stages: { established: RECORD_DATE } } } });
+    const { result } = renderHook(() => usePracticeCompletionScene(stageArgs('stage-relight-skip')));
+    await flushDecision();
+    advance(300);
+    act(() => { result.current.skip(); });
+    expect(useCelebrationStore.getState().active).toMatchObject({ id: 'practice-complete:stage-relight-skip' });
+    expect(safeHaptics.impact).not.toHaveBeenCalled();
   });
 
   it('a completion that crosses no stage keeps the practice scene and writes no record', async () => {
@@ -489,11 +508,11 @@ describe('stage and Full Strength scenes', () => {
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
   });
 
-  it('under Reduce Motion a quiet relight stays at level 1 and its Light haptic fires at once', async () => {
+  it('under Reduce Motion a relight is level 2 and its Light haptic fires at once', async () => {
     useCelebrationRecordsStore.setState({ records: { a1: { stages: { established: RECORD_DATE } } } });
     renderHook(() => usePracticeCompletionScene(stageArgs('relight-rm', 'a1', true)));
     await flushDecision();
-    expect(useCelebrationStore.getState().current).toMatchObject({ level: 1 });
+    expect(useCelebrationStore.getState().current).toMatchObject({ level: 2 });
     expect(threadSettleCalls()).toBe(0);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
@@ -519,20 +538,25 @@ describe('stage and Full Strength scenes', () => {
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
   });
 
-  it('a quiet relight dropped by a busy coordinator lands silently on its end state and is not replayed', async () => {
+  it('a relight behind a busy higher scene waits in the coordinator, then plays from its start when promoted', async () => {
     useCelebrationRecordsStore.setState({ records: { a1: { stages: { established: RECORD_DATE } } } });
     act(() => {
       useCelebrationStore.getState().request(3, 'busy-hold', { durationMs: 1000 });
     });
-    const { result } = renderHook(() => usePracticeCompletionScene(stageArgs('dropped-relight')));
+    const { result } = renderHook(() => usePracticeCompletionScene(stageArgs('waiting-relight')));
     await flushDecision();
 
-    expect(useCelebrationStore.getState().queueLength).toBe(0);
-    expect(result.current.kind).toBe('stageRelight');
-    expect(result.current.phase).toBe('settled');
-    expect(result.current.barProgress.value).toBeCloseTo(0.53);
-    expect(threadSettleCalls()).toBe(0);
+    expect(useCelebrationStore.getState().queueLength).toBe(1);
+    expect(result.current.phase).toBe('idle');
     expect(safeHaptics.impact).not.toHaveBeenCalled();
+
+    act(() => { useCelebrationStore.getState().finish('busy-hold'); });
+    expect(useCelebrationStore.getState().active).toMatchObject({ id: 'practice-complete:waiting-relight', level: 2 });
+    expect(result.current.phase).toBe('playing');
+    advance(1200);
+    expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
+    expect(safeHaptics.impact).toHaveBeenCalledWith('light');
+    expect(threadSettleCalls()).toBe(0);
   });
 
   it('a remount of a played stage scene lands settled and does not replay the chord', async () => {
