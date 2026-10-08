@@ -84,6 +84,42 @@ export const RELEASE_CANVAS_BG = '#F4F1E9';
 /** Milestone that flips the hold label from the resting prompt to the sustained prompt. */
 export const RELEASE_HOLD_SUSTAIN_LABEL_AT = 0.12;
 
+/**
+ * Ending timeline (prototype RE, Level 3). Offsets are milliseconds from the moment the ending
+ * mounts. The paper reveal is the settle: the buttons enable and the exhale and Light haptic fire
+ * once, when it ends.
+ */
+export const RELEASE_ENDING_TIMELINE_MS = {
+  paperDelay: 450,
+  paperDuration: 1000,
+  glyphDelay: 900,
+  glyphDuration: 600,
+  headingDelay: 1200,
+  intentionDelay: 1500,
+  bodyDelay: 1800,
+  successorDelay: 2300,
+  textDuration: 500,
+  actionsFadeDuration: 300,
+} as const;
+
+/** Paper settle: the end of the circular reveal. */
+export const RELEASE_ENDING_SETTLE_MS = RELEASE_ENDING_TIMELINE_MS.paperDelay + RELEASE_ENDING_TIMELINE_MS.paperDuration;
+
+/** The scene is over, and stops being skippable, once the last text (the successor card) has revealed. */
+export const RELEASE_ENDING_SCENE_END_MS = RELEASE_ENDING_TIMELINE_MS.successorDelay + RELEASE_ENDING_TIMELINE_MS.textDuration;
+
+/** The ending is a Level 3 milestone registered with the celebration coordinator. */
+export const RELEASE_ENDING_LEVEL = 3 as const;
+
+/** Declared scene length (over 2.5s, so skippable). It finishes at RELEASE_ENDING_SCENE_END_MS. */
+export const RELEASE_ENDING_DURATION_MS = 3800;
+
+/** Reduce Motion: a short crossfade. Too short to skip; the buttons enable at its settle. */
+export const RELEASE_ENDING_REDUCED_MS = 120;
+
+/** Gold summit flag that stands in for the glyph on a destination ending. */
+export const RELEASE_FLAG_GOLD = '#C9A24A';
+
 export const RELEASE_COPY = {
   preflightKicker: 'Release this intention',
   preflightTitle: 'What releasing this Anchor means',

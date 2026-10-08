@@ -36,9 +36,12 @@ jest.mock('@/hooks/v2', () => ({
 
 // eslint-disable-next-line import/first
 import { V2ReleaseScreen } from '../V2ReleaseScreen';
-import { RELEASE_COPY, RELEASE_ENDINGS } from '@/constants/v2/release';
+import { RELEASE_COPY, RELEASE_ENDINGS, RELEASE_ENDING_REDUCED_MS, RELEASE_ENDING_SETTLE_MS } from '@/constants/v2/release';
 import { V2ReleaseCompletion } from '@/components/v2/release/V2ReleaseCompletion';
+import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { Skia } from '@shopify/react-native-skia';
+
+const exhaleCount = () => mockPlayCreationSound.mock.calls.filter(([key]) => key === 'releaseResolve').length;
 
 const anchor = {
   id: 'anchor-1',
@@ -86,30 +89,32 @@ describe('V2ReleaseScreen', () => {
     expect(view.queryByText(RELEASE_COPY.preflightSubtitle)).toBeNull();
   });
 
-  it('shows the stored ghost and prevents completion actions until the reveal', () => {
+  it('shows the stored ghost and keeps completion actions disabled until the paper settles', () => {
     const onAction = jest.fn();
     const view = render(<V2ReleaseCompletion ending={{ ...RELEASE_ENDINGS.no_longer_aligned, secondary: RELEASE_ENDINGS.no_longer_aligned.secondary ?? null, reason: 'no_longer_aligned', intentionText: anchor.intentionText, successor: null }}
       ghostSvg={anchor.baseSigilSvg} category={anchor.category} onAction={onAction} />);
     expect(view.getByTestId('v2-release-completion-ghost', { includeHiddenElements: true })).toBeTruthy();
     fireEvent.press(view.getByTestId('v2-release-completion-primary', { includeHiddenElements: true }));
     expect(onAction).not.toHaveBeenCalled();
-    act(() => jest.advanceTimersByTime(1199));
+    // The reveal settles at 450ms delay + 1000ms; the fixed 1250ms timer no longer gates actions.
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_SETTLE_MS - 1));
     fireEvent.press(view.getByTestId('v2-release-completion-primary', { includeHiddenElements: true }));
     expect(onAction).not.toHaveBeenCalled();
-    act(() => jest.advanceTimersByTime(51));
+    act(() => jest.advanceTimersByTime(1));
     fireEvent.press(view.getByTestId('v2-release-completion-primary'));
     expect(onAction).toHaveBeenCalledWith('home');
   });
 
-  it('renders every completion element immediately with Reduced Motion and no action delay', () => {
+  it('renders every completion element with Reduced Motion and enables actions at its 120ms settle', () => {
     const onAction = jest.fn();
     const view = render(<V2ReleaseCompletion ending={{ ...RELEASE_ENDINGS.no_longer_aligned, secondary: RELEASE_ENDINGS.no_longer_aligned.secondary ?? null, reason: 'no_longer_aligned', intentionText: anchor.intentionText, successor: null }}
       ghostSvg={anchor.baseSigilSvg} reduceMotion onAction={onAction} />);
     expect(view.getByTestId('v2-release-completion-ghost', { includeHiddenElements: true })).toBeTruthy();
     for (const id of ['eyebrow', 'heading', 'body', 'primary', 'secondary']) {
-      expect(view.getByTestId(`v2-release-completion-${id}`)).toBeTruthy();
+      expect(view.getByTestId(`v2-release-completion-${id}`, { includeHiddenElements: true })).toBeTruthy();
     }
     expect(view.getByText(`“${anchor.intentionText}”`)).toBeTruthy();
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_REDUCED_MS));
     fireEvent.press(view.getByTestId('v2-release-completion-primary'));
     expect(onAction).toHaveBeenCalledWith('home');
     view.unmount();
@@ -120,6 +125,7 @@ describe('V2ReleaseScreen', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    useCelebrationStore.getState().reset();
     mockReleaseAnchor.mockClear();
     mockReduceMotion.mockReturnValue(false);
     mockAudioEvents.length = 0;
@@ -252,7 +258,7 @@ describe('V2ReleaseScreen', () => {
     // Reduced ceremony has no ember particles.
     expect(getByTestId('v2-dissolution-ceremony')).toBeTruthy();
     act(() => jest.advanceTimersByTime(650));
-    expect(mockPlayCreationSound).not.toHaveBeenCalledWith('releaseResolve');
+    expect(exhaleCount()).toBe(0);
     expect(() => getByTestId('ember-0')).toThrow();
 
     // Reduced timeline resolves quickly (< 1s of ceremony).
@@ -264,8 +270,10 @@ describe('V2ReleaseScreen', () => {
 
     const completion = getByTestId('v2-release-completion');
     expect(completion).toBeTruthy();
-    expect(getByTestId('v2-release-completion-primary')).toBeTruthy();
     expect(mockReleaseAnchor).toHaveBeenCalledWith('anchor-1');
+    // The reduced crossfade settles, and only then does the exhale play, exactly once.
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_REDUCED_MS));
+    expect(exhaleCount()).toBe(1);
 
     fireEvent.press(getByTestId('v2-release-completion-primary'));
     expect(onReleaseCompleted).toHaveBeenCalledWith('anchor-1', expect.objectContaining({ reason: 'no_longer_aligned', eyebrow: 'Released' }));
@@ -312,6 +320,30 @@ describe('V2ReleaseScreen', () => {
     expect(mockReleaseAnchor).not.toHaveBeenCalled();
     expect(queryByTestId('v2-release-completion')).toBeNull();
   });
+  it('plays the exhale exactly once, at the ending settle, never in the empty pause', async () => {
+    const adapter = fakeAdapter({ status: 'released', anchorId: 'anchor-1', lifecycleState: 'released' });
+    const { getByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    // Hold completes at 1800ms; the empty pause starts 3050ms later and the ceremony completes at +3350ms.
+    act(() => jest.advanceTimersByTime(1800));
+    await flush();
+    act(() => jest.advanceTimersByTime(3050));
+    await flush();
+    expect(getByTestId('v2-dissolution-phase-emptyPause')).toBeTruthy();
+    expect(exhaleCount()).toBe(0);
+    act(() => jest.advanceTimersByTime(300));
+    await flush();
+    await flush();
+    expect(getByTestId('v2-release-completion')).toBeTruthy();
+    expect(useCelebrationStore.getState().active?.id).toBe('release-ending:anchor-1');
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_SETTLE_MS - 1));
+    expect(exhaleCount()).toBe(0);
+    act(() => jest.advanceTimersByTime(1));
+    expect(exhaleCount()).toBe(1);
+    act(() => jest.advanceTimersByTime(5000));
+    expect(exhaleCount()).toBe(1);
+  });
+
   it.each([360, 900, 1620])('cancels at %sms and never submits after leaving preflight', (duration) => {
     const adapter = fakeAdapter({ status: 'released', anchorId: 'anchor-1' });
     const { getByTestId, unmount } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
@@ -331,8 +363,8 @@ describe('V2ReleaseScreen', () => {
     await flush();
     act(() => jest.advanceTimersByTime(3050));
     expect(getByTestId('v2-dissolution-phase-emptyPause')).toBeTruthy();
-    expect(mockPlayCreationSound).toHaveBeenCalledWith('releaseResolve');
-    expect(mockPlayCreationSound.mock.calls.filter(([key]) => key === 'releaseResolve')).toHaveLength(1);
+    // The exhale belongs to the ending's settle, so the empty pause plays nothing.
+    expect(exhaleCount()).toBe(0);
     expect(queryByTestId('v2-release-status-confirming')).toBeNull();
     expect(queryByTestId('v2-release-completion')).toBeNull();
     act(() => jest.advanceTimersByTime(299));
@@ -426,6 +458,7 @@ describe('V2ReleaseScreen', () => {
     await flush();
     expect(getByTestId('v2-release-completion-heading').props.children).toBe('Evolved');
     expect(getByText(/Linked to your previous intention\./)).toBeTruthy();
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_REDUCED_MS));
     fireEvent.press(getByTestId('v2-release-completion-primary'));
     expect(onContinueWithSuccessor).toHaveBeenCalledWith('anchor-2');
   });
@@ -450,6 +483,7 @@ describe('V2ReleaseScreen', () => {
     await flush();
     await flush();
     expect(getByTestId('v2-release-completion-heading').props.children).toBe('Waypoint complete');
+    act(() => jest.advanceTimersByTime(RELEASE_ENDING_REDUCED_MS));
     fireEvent.press(getByTestId('v2-release-completion-primary'));
     expect(onContinueToChart).toHaveBeenCalledWith('course-9', 'anchor-1');
   });

@@ -159,7 +159,8 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   const handleCancel = useCallback(() => { handleHoldEnd(); onCancel(); }, [handleHoldEnd, onCancel]);
   const handleFreshHold = useCallback(() => { stopReleaseFall(); release.reset(); hold.reset(); setSilent(false); }, [release.reset, hold.reset, stopReleaseFall]);
   // The coin is gone: sound and haptics stop in the same beat the screen goes black.
-  const startSilence = useCallback(() => { sfxLog('release finish silence'); feel.end(); if (!reduceMotion) playCreationSound('releaseResolve'); setSilent(true); }, [feel.end, reduceMotion]);
+  // The exhale sound belongs to the ending's settle (V2ReleaseCompletion), so it fires once, there.
+  const startSilence = useCallback(() => { sfxLog('release finish silence'); feel.end(); setSilent(true); }, [feel.end]);
   useEffect(() => () => stopReleaseFall(), [stopReleaseFall]);
   const courseId = release.snapshot?.courseId ?? null;
   const handleAction = useCallback((action: V2ReleaseActionId) => {
@@ -256,7 +257,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
         onDismiss={stage === 'failed' ? handleCancel : undefined} /> : null}
       {stage === 'completed' && release.ending ? <V2ReleaseCompletion ending={release.ending} reduceMotion={reduceMotion}
         ghostSvg={snapshot.artworkSvg} ghostImageUrl={snapshot.imageUrl} category={snapshot.category} expression={snapshot.expression}
-        onAction={handleAction} /> : null}
+        artworkRect={art} celebrationId={`release-ending:${anchorId}`} onAction={handleAction} /> : null}
     </View>
   );
 }
