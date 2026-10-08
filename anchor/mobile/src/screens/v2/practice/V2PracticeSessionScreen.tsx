@@ -335,6 +335,7 @@ export function V2PracticeSessionScreen({
       beforeStrength={visualizeRecord?.threadStrengthBefore ?? visualizeCompletion.record?.threadStrengthBefore}
       afterStrength={visualizeRecord?.threadStrengthAfter ?? visualizeCompletion.record?.threadStrengthAfter}
       sessionSaved={visualizeCompletion.saved}
+      sessionId={visualizeCompletion.record?.id ?? null}
       onDone={finishVisualize}
       onAgain={onFocusAgain} />;
     if (!isV2VisualizeDuration(durationSeconds)) {
@@ -404,6 +405,7 @@ export function V2PracticeSessionScreen({
         beforeStrength={currentBeforeStrength}
         afterStrength={currentAfterStrength}
         sessionSaved={!focusPersistenceFailed}
+        sessionId={focusSessionId}
         onDone={handleDone}
         onAgain={handleAgain}
       />

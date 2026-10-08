@@ -345,4 +345,45 @@ describe('V2FocusActiveScreen', () => {
 
     expect(screen.getByTestId('focus-paused-overlay')).toBeTruthy();
   });
+
+  it('does not play the completion cue or haptic when unmounted inside their windows', () => {
+    let mockTime = 1000;
+    const originalPerformanceNow = global.performance.now;
+    global.performance.now = jest.fn(() => mockTime);
+
+    try {
+      const view = render(
+        <V2FocusActiveScreen
+          anchor={mockAnchor}
+          durationSeconds={10}
+          voice="female"
+          ambient={true}
+          initialStage="focus"
+          onExit={jest.fn()}
+          onComplete={jest.fn()}
+        />
+      );
+
+      // The next clock tick sees the full duration and begins the ending.
+      mockTime += 10500;
+      act(() => {
+        jest.advanceTimersByTime(250);
+      });
+
+      // Unmount before the 240ms haptic and the 300ms cue have fired.
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+      view.unmount();
+
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+
+      expect(safeHaptics.notification).not.toHaveBeenCalled();
+      expect(jest.requireMock('@/services/audio/practiceCompletionCue').playPracticeCompletionCue).not.toHaveBeenCalled();
+    } finally {
+      global.performance.now = originalPerformanceNow;
+    }
+  });
 });

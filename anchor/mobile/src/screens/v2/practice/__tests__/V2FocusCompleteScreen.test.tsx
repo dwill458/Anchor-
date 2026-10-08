@@ -3,8 +3,13 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { V2FocusCompleteScreen } from '../focus/V2FocusCompleteScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { playCreationSound } from '@/services/CreationSounds';
+import { useV2ReduceMotion } from '@/hooks/v2';
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
+jest.mock('@/hooks/v2', () => ({
+  ...jest.requireActual('@/hooks/v2'),
+  useV2ReduceMotion: jest.fn(() => false),
+}));
 
 describe('V2FocusCompleteScreen', () => {
   beforeEach(() => {
@@ -198,6 +203,87 @@ describe('V2FocusCompleteScreen', () => {
 
     fireEvent.press(screen.getByTestId('focus-complete-again-button'));
     expect(onAgain).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('V2FocusCompleteScreen Thread settle is once per session', () => {
+  const anchor = makeAnchor({ id: 'a1', threadStrength: 30 });
+  const threadSettleCalls = () =>
+    (playCreationSound as jest.Mock).mock.calls.filter(([key]) => key === 'threadSettle').length;
+  const renderMoved = (sessionId?: string) => (
+    <V2FocusCompleteScreen
+      anchor={anchor}
+      durationSeconds={30}
+      beforeStrength={30}
+      afterStrength={35}
+      sessionId={sessionId}
+      onDone={jest.fn()}
+      onAgain={jest.fn()}
+    />
+  );
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    (useV2ReduceMotion as jest.Mock).mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('plays once when the same session remounts, e.g. Focus again and back', () => {
+    const first = render(renderMoved('thread-remount-session'));
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(threadSettleCalls()).toBe(1);
+    first.unmount();
+
+    const second = render(renderMoved('thread-remount-session'));
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(threadSettleCalls()).toBe(1);
+    second.unmount();
+  });
+
+  it('plays again for a new session id', () => {
+    const first = render(renderMoved('thread-new-session-a'));
+    act(() => { jest.advanceTimersByTime(1200); });
+    first.unmount();
+
+    const second = render(renderMoved('thread-new-session-b'));
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(threadSettleCalls()).toBe(2);
+    second.unmount();
+  });
+
+  it('keeps the bar filling on a remount while the sound stays deduplicated', () => {
+    const first = render(renderMoved('thread-bar-session'));
+    act(() => { jest.advanceTimersByTime(1200); });
+    first.unmount();
+
+    const second = render(renderMoved('thread-bar-session'));
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(screen.getByTestId('focus-complete-thread-bar')).toBeTruthy();
+    expect(screen.getByTestId('focus-thread-delta')).toBeTruthy();
+    expect(threadSettleCalls()).toBe(1);
+    second.unmount();
+  });
+
+  it('keeps the Reduce Motion path playing once per session across remounts', () => {
+    (useV2ReduceMotion as jest.Mock).mockReturnValue(true);
+    const first = render(renderMoved('thread-reduce-session'));
+    expect(threadSettleCalls()).toBe(1);
+    first.unmount();
+
+    const second = render(renderMoved('thread-reduce-session'));
+    expect(threadSettleCalls()).toBe(1);
+    second.unmount();
+  });
+
+  it('still plays without a session id, once per mount, as before', () => {
+    const first = render(renderMoved());
+    act(() => { jest.advanceTimersByTime(1200); });
+    expect(threadSettleCalls()).toBe(1);
+    first.unmount();
   });
 });
 

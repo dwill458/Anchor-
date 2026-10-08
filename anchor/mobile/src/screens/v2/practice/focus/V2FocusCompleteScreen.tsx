@@ -15,6 +15,8 @@ export interface V2FocusCompleteScreenProps {
   beforeStrength?: number | null;
   afterStrength?: number | null;
   sessionSaved?: boolean;
+  /** Stable id of the completed session. Keeps the Thread settle sound to one play per session across remounts. */
+  sessionId?: string | null;
   /** Shared completion presentation; Focus keeps its original copy by default. */
   practiceTitle?: 'Deep Focus' | 'Visualize';
   /** What the session ended on: the ink field (Focus, Deep Focus) or the cream board (Visualize). */
@@ -23,11 +25,29 @@ export interface V2FocusCompleteScreenProps {
   onAgain: () => void;
 }
 
+/**
+ * Process memory only, never persisted. Holds the one session whose Thread
+ * settle sound has played. A new session id clears it, so the set cannot grow
+ * past the current session.
+ */
+let threadSettleSessionId: string | null = null;
+const threadSettlePlayedIds = new Set<string>();
+function claimThreadSettle(sessionId: string): boolean {
+  if (sessionId !== threadSettleSessionId) {
+    threadSettlePlayedIds.clear();
+    threadSettleSessionId = sessionId;
+  }
+  if (threadSettlePlayedIds.has(sessionId)) return false;
+  threadSettlePlayedIds.add(sessionId);
+  return true;
+}
+
 export function V2FocusCompleteScreen({
   anchor,
   beforeStrength: propBefore,
   afterStrength: propAfter,
   sessionSaved = true,
+  sessionId = null,
   practiceTitle,
   enterFrom = 'ink',
   onDone,
@@ -62,8 +82,9 @@ export function V2FocusCompleteScreen({
   const playThreadSettle = useCallback(() => {
     if (threadSoundPlayed.current || !sessionSaved || !hasAuthoritativeMovement || toVal <= fromVal) return;
     threadSoundPlayed.current = true;
+    if (sessionId && !claimThreadSettle(sessionId)) return;
     playCreationSound('threadSettle');
-  }, [fromVal, hasAuthoritativeMovement, sessionSaved, toVal]);
+  }, [fromVal, hasAuthoritativeMovement, sessionId, sessionSaved, toVal]);
 
   // Presentation only: the authoritative Thread values above are already
   // resolved before this screen mounts. Reanimated owns the entrance and fill.

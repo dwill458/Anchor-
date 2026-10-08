@@ -137,6 +137,8 @@ export function V2FocusActiveScreen({
   const doneRef = useRef<boolean>(initialResolving);
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const completionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const completionCueTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const completionHapticTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Session State
   const [elapsedMs, setElapsedMs] = useState<number>(initialElapsedMs);
@@ -519,7 +521,8 @@ export function V2FocusActiveScreen({
 
       ambientPlayerRef.current?.setVolume(0.04);
       voicePlayerRef.current?.stop();
-      setTimeout(() => {
+      completionCueTimerRef.current = setTimeout(() => {
+        completionCueTimerRef.current = null;
         ambientPlayerRef.current?.stop();
         // Wait for the session bed's fade to finish before playing the one-shot completion cue.
         void playPracticeCompletionCue(soundEnabled);
@@ -528,8 +531,12 @@ export function V2FocusActiveScreen({
       const playCompletionHaptic = () => {
         if (haptics) void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
       };
-      if (!reduceMotion) setTimeout(playCompletionHaptic, 240);
-      else playCompletionHaptic();
+      if (!reduceMotion) {
+        completionHapticTimerRef.current = setTimeout(() => {
+          completionHapticTimerRef.current = null;
+          playCompletionHaptic();
+        }, 240);
+      } else playCompletionHaptic();
 
       onEnding?.({
         plannedDurationSeconds: durationSeconds,
@@ -566,9 +573,12 @@ export function V2FocusActiveScreen({
     ]
   );
 
+  // An unmount inside the cue or haptic window must not play either one afterwards.
   useEffect(
     () => () => {
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+      if (completionCueTimerRef.current) clearTimeout(completionCueTimerRef.current);
+      if (completionHapticTimerRef.current) clearTimeout(completionHapticTimerRef.current);
     },
     []
   );
