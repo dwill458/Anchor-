@@ -27,8 +27,8 @@ jest.mock('@/utils/haptics', () => ({
 const REPEAT_SETTLE_MS = 1600;
 const FIRST_SETTLE_MS = 2300;
 
-const threadSettleCalls = () =>
-  (playCreationSound as jest.Mock).mock.calls.filter(([key]) => key === 'threadSettle').length;
+const threadCueCalls = () =>
+  (playCreationSound as jest.Mock).mock.calls.filter(([key]) => typeof key === 'string' && key.startsWith('thread')).length;
 
 const setTeachingFlag = (value: boolean) =>
   useTeachingStore.setState((state) => ({
@@ -289,12 +289,12 @@ describe('V2FocusCompleteScreen Thread settle is once per session', () => {
   it('plays once when the same session remounts, e.g. Focus again and back', () => {
     const first = render(renderMoved('thread-remount-session'));
     advance(REPEAT_SETTLE_MS);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     first.unmount();
 
     const second = render(renderMoved('thread-remount-session'));
     advance(REPEAT_SETTLE_MS);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     second.unmount();
   });
 
@@ -305,7 +305,7 @@ describe('V2FocusCompleteScreen Thread settle is once per session', () => {
 
     const second = render(renderMoved('thread-new-session-b'));
     advance(REPEAT_SETTLE_MS);
-    expect(threadSettleCalls()).toBe(2);
+    expect(threadCueCalls()).toBe(2);
     second.unmount();
   });
 
@@ -318,25 +318,25 @@ describe('V2FocusCompleteScreen Thread settle is once per session', () => {
     advance(REPEAT_SETTLE_MS);
     expect(screen.getByTestId('focus-complete-thread-bar')).toBeTruthy();
     expect(screen.getByTestId('focus-thread-delta')).toBeTruthy();
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     second.unmount();
   });
 
   it('keeps the Reduce Motion path playing once per session across remounts', () => {
     (useCelebrationReduceMotion as jest.Mock).mockReturnValue(true);
     const first = render(renderMoved('thread-reduce-session'));
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     first.unmount();
 
     const second = render(renderMoved('thread-reduce-session'));
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     second.unmount();
   });
 
   it('still plays without a session id, once per mount, as before', () => {
     const first = render(renderMoved());
     advance(REPEAT_SETTLE_MS);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     first.unmount();
   });
 });
@@ -368,10 +368,10 @@ describe('V2FocusCompleteScreen first practice scene (P1)', () => {
   it('settles at the end of the fill: one threadSettle and one Medium haptic', () => {
     render(renderScene('p1-settle', 30, 35));
     advance(FIRST_SETTLE_MS - 1);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     advance(1);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
   });
@@ -390,7 +390,7 @@ describe('V2FocusCompleteScreen first practice scene (P1)', () => {
     render(renderScene('p1-skip', 30, 35));
     fireEvent.press(screen.getByLabelText('Skip'));
     expect(useCelebrationStore.getState().active).toBeNull();
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
@@ -405,7 +405,7 @@ describe('V2FocusCompleteScreen first practice scene (P1)', () => {
 
     render(renderScene('p1-remount', 30, 35));
     advance(FIRST_SETTLE_MS);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
     expect(useCelebrationStore.getState().active).toBeNull();
@@ -418,7 +418,7 @@ describe('V2FocusCompleteScreen first practice scene (P1)', () => {
     });
     expect(useCelebrationStore.getState().active?.id).toBe('other-major');
     expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
   });
 
@@ -437,7 +437,7 @@ describe('V2FocusCompleteScreen first practice scene (P1)', () => {
       level: 2,
       skippable: true,
     });
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     expect(screen.getByText('Your Thread has begun.')).toBeTruthy();
     advance(300);
@@ -471,9 +471,9 @@ describe('V2FocusCompleteScreen repeat practice scene (P2)', () => {
     expect(struck.textDecorationLine).toBe('line-through');
 
     advance(1499);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     advance(1);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
     expect(screen.getByText('Reinforced today ✓')).toBeTruthy();
@@ -510,7 +510,7 @@ describe('V2FocusCompleteScreen with no real gain', () => {
     advance(FIRST_SETTLE_MS + 500);
     expect(useCelebrationStore.getState().active).toBeNull();
     expect(useCelebrationStore.getState().queueLength).toBe(0);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     expect(useTeachingStore.getState().userFlags.hasSeenFirstPracticeScene).toBe(false);
   });
@@ -537,14 +537,14 @@ describe('V2FocusCompleteScreen coordinator sequencing', () => {
     render(renderScene('p2-queued', 30, 35));
     expect(useCelebrationStore.getState().queueLength).toBe(1);
     advance(REPEAT_SETTLE_MS);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
 
     act(() => {
       useCelebrationStore.getState().finish('hold-l3');
     });
     expect(useCelebrationStore.getState().active?.id).toBe('practice-complete:p2-queued');
     advance(REPEAT_SETTLE_MS);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
   });
 });
@@ -613,11 +613,11 @@ describe('V2FocusCompleteScreen stage and Full Strength scenes (celebration Step
     expect(useCelebrationStore.getState().active).toMatchObject({ level: 2, skippable: false });
     expect(useCelebrationStore.getState().current?.durationMs).toBeLessThanOrEqual(2000);
     expect(screen.queryByLabelText('Skip')).toBeNull();
-    // One Light haptic as the segment relights, and no cue.
+    // One Light haptic and the short relight cue land together.
     advance(1200);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(1);
   });
 
   it('a first Full Strength shows the ring, the Full Strength line and its subline, and the ring closes at 2.9s', async () => {
@@ -627,9 +627,9 @@ describe('V2FocusCompleteScreen stage and Full Strength scenes (celebration Step
     expect(screen.getByText('Full Strength.')).toBeTruthy();
     expect(screen.getByText('Your Anchor is fully reinforced.')).toBeTruthy();
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 4, durationMs: 4600 });
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     advance(2000);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     advance(900);
     expect(safeHaptics.impact).toHaveBeenLastCalledWith('light');
@@ -660,10 +660,10 @@ describe('V2FocusCompleteScreen stage and Full Strength scenes (celebration Step
     fireEvent.press(screen.getByLabelText('Skip'));
     expect(screen.getByText('Full Strength.')).toBeTruthy();
     expect(screen.getByTestId('focus-complete-full-strength-ring')).toBeTruthy();
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     advance(5000);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
   });
 
@@ -672,7 +672,7 @@ describe('V2FocusCompleteScreen stage and Full Strength scenes (celebration Step
     render(renderScene('screen-stage-rm', 47, 53));
     await flush();
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 2 });
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     expect(screen.getByText('Your Anchor is now Established.')).toBeTruthy();
   });

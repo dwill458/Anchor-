@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { playCreationSound } from '@/services/CreationSounds';
+import { SoundPool } from '@/services/audio/SoundPool';
 import { safeHaptics } from '@/utils/haptics';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -16,6 +17,7 @@ import {
 } from '../usePracticeCompletionScene';
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
+jest.mock('@/services/audio/SoundPool', () => ({ SoundPool: { prewarm: jest.fn(), releaseIdle: jest.fn() } }));
 jest.mock('@/utils/haptics', () => ({
   safeHaptics: {
     impact: jest.fn(() => Promise.resolve()),
@@ -37,12 +39,31 @@ const setFlag = (value: boolean) =>
     userFlags: { ...state.userFlags, hasSeenFirstPracticeScene: value },
   }));
 
-const threadSettleCalls = () =>
-  (playCreationSound as jest.Mock).mock.calls.filter(([key]) => key === 'threadSettle').length;
+const threadCueCalls = () =>
+  (playCreationSound as jest.Mock).mock.calls.filter(([key]) => typeof key === 'string' && key.startsWith('thread')).length;
 
 const advance = (ms: number) => act(() => { jest.advanceTimersByTime(ms); });
 
 describe('practice scene helpers', () => {
+  it('prewarms all wired Thread celebration cues through the shared pool', () => {
+    const { unmount } = renderHook(() => usePracticeCompletionScene({
+      sessionId: 'prewarm-thread', fromValue: 30, toValue: 35, eligible: true, reduceMotion: false,
+    }));
+    const keys = (SoundPool.prewarm as jest.Mock).mock.calls[0][0] as string[];
+    expect(keys).toEqual(expect.arrayContaining([
+      'creation:threadWake',
+      'creation:threadStageChord_building',
+      'creation:threadStageChord_established',
+      'creation:threadStageChord_integrated',
+      'creation:threadReinforcedLow',
+      'creation:threadFullStrengthChord',
+      'creation:threadReinforce',
+      'creation:threadStageRelight',
+    ]));
+    unmount();
+    expect(SoundPool.releaseIdle).toHaveBeenCalledWith(keys);
+  });
+
   beforeEach(() => {
     setHistory([]);
     setFlag(false);
@@ -147,9 +168,10 @@ describe('usePracticeCompletionScene', () => {
       usePracticeCompletionScene({ sessionId: 'hook-timing', fromValue: 30, toValue: 35, eligible: true, reduceMotion: false }),
     );
     advance(2299);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     advance(1);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadWake');
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     advance(1600);
@@ -165,7 +187,8 @@ describe('usePracticeCompletionScene', () => {
     expect(result.current.canSkip).toBe(false);
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 2, durationMs: 2500 });
     advance(1500);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadSettle');
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
   });
 
@@ -182,12 +205,12 @@ describe('usePracticeCompletionScene', () => {
     expect(result.current.noteOpacity.value).toBe(1);
     expect(result.current.phase).toBe('settled');
     expect(useCelebrationStore.getState().active).toBeNull();
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
 
     advance(5000);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
   });
 
@@ -201,7 +224,7 @@ describe('usePracticeCompletionScene', () => {
     expect(useCelebrationStore.getState().active?.id).toBe('major-other');
     expect(result.current.barProgress.value).toBeCloseTo(0.35);
     expect(result.current.noteOpacity.value).toBe(1);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
   });
 
@@ -211,7 +234,7 @@ describe('usePracticeCompletionScene', () => {
     );
     expect(useCelebrationStore.getState().current).toMatchObject({ id: 'practice-complete:hook-reduce', level: 2 });
     expect(result.current.barProgress.value).toBeCloseTo(0.35);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     advance(240);
     expect(useCelebrationStore.getState().active).toBeNull();
@@ -226,7 +249,7 @@ describe('usePracticeCompletionScene', () => {
     advance(4000);
     expect(useCelebrationStore.getState().active).toBeNull();
     expect(useCelebrationStore.getState().queueLength).toBe(0);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     expect(useTeachingStore.getState().userFlags.hasSeenFirstPracticeScene).toBe(false);
   });
@@ -236,7 +259,7 @@ describe('usePracticeCompletionScene', () => {
       usePracticeCompletionScene({ sessionId: 'hook-unsaved', fromValue: 30, toValue: 35, eligible: false, reduceMotion: false }),
     );
     expect(useCelebrationStore.getState().active).toBeNull();
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
   });
 
   it('the once-ever flag is written when the scene starts, not when it is queued', () => {
@@ -272,7 +295,7 @@ describe('usePracticeCompletionScene', () => {
     expect(second.result.current.barProgress.value).toBeCloseTo(0.35);
     expect(useCelebrationStore.getState().active).toBeNull();
     advance(4000);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
   });
 
@@ -284,7 +307,7 @@ describe('usePracticeCompletionScene', () => {
     unmount();
     expect(useCelebrationStore.getState().active).toBeNull();
     advance(4000);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
   });
 });
@@ -331,17 +354,18 @@ describe('stage and Full Strength scenes', () => {
     expect(records().a1.stages.established).toBe(RECORD_DATE);
 
     advance(1949);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     advance(1);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadStageChord_established');
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     advance(1900);
     expect(useCelebrationStore.getState().active).toBeNull();
   });
 
-  it('a stage re-reached after decay is a level 2 relight: 2.0s at most, not skippable, no chord, one Light haptic as the segment relights, and the first date is kept', async () => {
+  it('a stage re-reached after decay is a level 2 relight: the relight cue and one Light haptic land as the segment relights', async () => {
     useCelebrationRecordsStore.setState({ records: { a1: { stages: { established: RECORD_DATE } } } });
     const { result } = renderHook(() => usePracticeCompletionScene(stageArgs('stage-relight')));
     await flushDecision();
@@ -356,12 +380,13 @@ describe('stage and Full Strength scenes', () => {
     advance(1199);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     advance(1);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadStageRelight');
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
-    // No chord, no cue of any kind, for the whole scene.
+    // The relight cue fires only once for the scene.
     advance(1000);
-    expect(playCreationSound).not.toHaveBeenCalled();
+    expect(playCreationSound).toHaveBeenCalledTimes(1);
     expect(useCelebrationStore.getState().active).toBeNull();
     expect(records().a1.stages.established).toBe(RECORD_DATE);
   });
@@ -389,6 +414,8 @@ describe('stage and Full Strength scenes', () => {
     expect(result.current.kind).toBe('stageReinforced');
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 4, durationMs: 4600 });
     expect(records().a1.stages.reinforced).toBeDefined();
+    advance(1950);
+    expect(playCreationSound).toHaveBeenCalledWith('threadReinforcedLow');
   });
 
   it('reaching 100 for the first time plays Full Strength at level 4, closes the ring at 2.9s with a Light haptic, and records it', async () => {
@@ -401,9 +428,11 @@ describe('stage and Full Strength scenes', () => {
     expect(records().a1.fullStrengthAt).toBe(RECORD_DATE);
 
     advance(1999);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     advance(1);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadFullStrengthChord');
+    expect(playCreationSound).not.toHaveBeenCalledWith('threadFullStrengthWake');
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     advance(899);
@@ -426,7 +455,8 @@ describe('stage and Full Strength scenes', () => {
     advance(1699);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     advance(1);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadReinforce');
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
     expect(records().a1.fullStrengthAt).toBe(RECORD_DATE);
     expect(records().a1.fullStrengthLastAt).toBe(LATER_DATE);
@@ -438,7 +468,7 @@ describe('stage and Full Strength scenes', () => {
     expect(result.current.kind).toBe('none');
     expect(useCelebrationStore.getState().active).toBeNull();
     advance(5000);
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).not.toHaveBeenCalled();
     expect(records()).toEqual({});
   });
@@ -488,7 +518,7 @@ describe('stage and Full Strength scenes', () => {
     await flushDecision();
     expect(result.current.kind).toBe('stageFirst');
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 2 });
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     expect(records().a1.stages.established).toBeDefined();
@@ -501,7 +531,7 @@ describe('stage and Full Strength scenes', () => {
     await flushDecision();
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 2 });
     expect(result.current.barProgress.value).toBeCloseTo(1);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     advance(5000);
@@ -513,7 +543,7 @@ describe('stage and Full Strength scenes', () => {
     renderHook(() => usePracticeCompletionScene(stageArgs('relight-rm', 'a1', true)));
     await flushDecision();
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 2 });
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
   });
@@ -530,11 +560,11 @@ describe('stage and Full Strength scenes', () => {
     expect(result.current.noteOpacity.value).toBe(1);
     expect(result.current.phase).toBe('settled');
     expect(useCelebrationStore.getState().active).toBeNull();
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
 
     advance(5000);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
   });
 
@@ -556,7 +586,8 @@ describe('stage and Full Strength scenes', () => {
     advance(1200);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(1);
+    expect(playCreationSound).toHaveBeenCalledWith('threadStageRelight');
   });
 
   it('a remount of a played stage scene lands settled and does not replay the chord', async () => {
@@ -570,7 +601,7 @@ describe('stage and Full Strength scenes', () => {
     expect(second.result.current.phase).toBe('settled');
     expect(useCelebrationStore.getState().active).toBeNull();
     advance(4000);
-    expect(threadSettleCalls()).toBe(1);
+    expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
   });
 
@@ -580,6 +611,6 @@ describe('stage and Full Strength scenes', () => {
     await flushDecision();
     expect(useCelebrationStore.getState().active).toBeNull();
     expect(records()).toEqual({});
-    expect(threadSettleCalls()).toBe(0);
+    expect(threadCueCalls()).toBe(0);
   });
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useAudio, type ManagedAudioPlayer, type SoundKey } from '@/hooks/useAudio';
 import { SoundPool } from '@/services/audio/SoundPool';
+import { VOLUME } from '@/services/CreationSounds';
 
 /**
  * Chart's sound world: paper, pen, brass and air (design/sound/chart). Short
@@ -22,56 +23,24 @@ const AIR_OUT_MS = 400;
 const DUCK_DOWN_MS = 120;
 const DUCK_UP_MS = 600;
 const RAMP_STEPS = 16;
+const WAYPOINT_CUES = ['chart-waypoint_1', 'chart-waypoint_2', 'chart-waypoint_3'] as const satisfies readonly SoundKey[];
 /** Second pen stroke for long draws: starts at this fraction of the draw. */
 const INK_SECOND_AT = 0.45;
 const INK_SECOND_MIN_MS = 500;
-
-/**
- * The one note of a reached waypoint: the existing `chart-flag` cue, re-pitched by playback rate so each waypoint
- * sounds a step higher on the A major pentatonic (C#5, E5, F#5, A5, B5, C#6). Everything pitch-related lives here.
- *
- * UNVERIFIED: `basePitch` is an assumption. The sample's true pitch has not been confirmed (a crude spectrum read of
- * assets/sounds/chart-flag.mp3 found most energy near 410 Hz and 550 Hz, not 659 Hz, and the cue is inharmonic).
- * When the real pitch is known, change `basePitch` and `semitones` together; nothing else needs to move.
- */
-export const CHART_WAYPOINT_NOTE = {
-  /** Assumed pitch of the chart-flag sample, played at rate 1. */
-  basePitch: 'E5',
-  /** Semitones from `basePitch` for waypoint 1, 2, 3, ... Later waypoints hold the last step. */
-  semitones: [-3, 0, 2, 5, 7, 9],
-} as const;
-
-/** Playback rate for the note of waypoint number `waypointNumber` (1-based; below 1 reads as 1). */
-export function waypointNoteRate(waypointNumber: number): number {
-  const steps = CHART_WAYPOINT_NOTE.semitones;
-  const index = Math.min(steps.length - 1, Math.max(0, Math.floor(waypointNumber) - 1));
-  return Math.pow(2, steps[index] / 12);
-}
-
-/**
- * The summit's chord, as wanted: A3 E4 A4 C#5 E5 (A major pentatonic), staggered about 12 ms, decaying 1.8-2.8 s.
- * No such asset exists yet (a new Chart cue is wanted), so `summit` plays the existing chart-stamp (the low thud) and
- * the chart-flag cue re-pitched to the chord's A4 as a stand-in. Swap the stand-in here when the cue lands.
- */
-export const CHART_SUMMIT_CHORD = {
-  voices: ['A3', 'E4', 'A4', 'C#5', 'E5'],
-  staggerMs: 12,
-  /** Stand-in: the chart-flag sample re-pitched to the chord's A4, in semitones from the assumed E5 base. */
-  standInSemitones: -7,
-} as const;
 
 export type ChartSound = {
   open: () => void;
   ink: (durMs: number) => void;
   flag: () => void;
-  /** The single waypoint-reached note (climbs per waypoint). Kept under Reduce Motion: it marks the commitment. */
+  /** One authored waypoint cue. Kept under Reduce Motion because it marks the commitment. */
   note: (waypointNumber: number) => void;
+  inkHold: () => void;
   check: () => void;
   stamp: () => void;
   wind: () => void;
   /** The summit's stillness: the air bed falls silent for `holdMs` (then returns). */
   hush: (holdMs: number) => void;
-  /** The summit's flag: a low thud and the chord (stand-in cues, see CHART_SUMMIT_CHORD). Kept under Reduce Motion. */
+  /** The summit's flag: a low thud followed by the chord. Kept under Reduce Motion. */
   summit: () => void;
   startAir: () => void;
   stopAir: () => void;
@@ -95,9 +64,14 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
   const playOpenWhenReducedMotion = options.playOpenWhenReducedMotion ?? false;
   const fadeAirOnUnmount = options.fadeAirOnUnmount ?? false;
   useEffect(() => {
-    SoundPool.prewarm(['chart-open', 'chart-ink', 'chart-flag', 'chart-check', 'chart-stamp', 'chart-wind']);
+    const cues: SoundKey[] = [
+      'chart-open', 'chart-ink', 'chart-flag', 'chart-wind',
+      ...WAYPOINT_CUES,
+      'chart-move-done', 'chart-ink-hold', 'chart-summit-thud', 'chart-summit-chord',
+    ];
+    SoundPool.prewarm(cues);
     return () => {
-      SoundPool.releaseIdle(['chart-open', 'chart-ink', 'chart-flag', 'chart-check', 'chart-stamp', 'chart-wind']);
+      SoundPool.releaseIdle(cues);
     };
   }, []);
   const reducedRef = useRef(reducedMotion);
@@ -150,7 +124,7 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
   }, []);
 
   const one = useCallback(
-    (key: SoundKey, volume = 1, rate = jitter()) => {
+    (key: SoundKey, volume = VOLUME[key], rate = jitter()) => {
       SoundPool.play(key, { volume, rate });
     },
     []
@@ -249,11 +223,12 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
       },
       flag: () => one('chart-flag'),
       note: (waypointNumber: number) => {
-        // Exact pitch: no jitter, or the climb would wobble.
-        one('chart-flag', 1, waypointNoteRate(waypointNumber));
+        const index = Math.min(WAYPOINT_CUES.length - 1, Math.max(0, Math.floor(waypointNumber) - 1));
+        one(WAYPOINT_CUES[index]);
         duck(1300);
       },
-      check: () => one('chart-check'),
+      inkHold: () => one('chart-ink-hold'),
+      check: () => one('chart-move-done'),
       stamp: () => {
         one('chart-stamp');
         duck(1300);
@@ -263,9 +238,8 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
       },
       hush: (holdMs: number) => duck(holdMs, 0),
       summit: () => {
-        // Exact pitch, no jitter: it is a chord note. Both stay under Reduce Motion (they mark the commitment).
-        one('chart-stamp', 1, 1);
-        one('chart-flag', 1, Math.pow(2, CHART_SUMMIT_CHORD.standInSemitones / 12));
+        one('chart-summit-thud');
+        later(20, () => one('chart-summit-chord'));
         duck(2200);
       },
       startAir,

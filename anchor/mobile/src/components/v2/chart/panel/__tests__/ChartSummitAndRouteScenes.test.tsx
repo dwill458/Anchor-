@@ -37,7 +37,6 @@ import { loadFogImages, warmChartMapResources } from '../../map/ChartMapLand';
 import { loadCloudTiles } from '../../map/chartCloudTiles';
 import { buildRouteTable } from '../../map/chartMapGeometry';
 import * as sequences from '../../map/chartMapSequences';
-import { CHART_SUMMIT_CHORD } from '../../useChartSound';
 import { chartActions, course, viewOf, waypoint } from './chartPanelFixtures';
 
 const impact = safeHaptics.impact as jest.Mock;
@@ -218,7 +217,7 @@ describe('Summit (S1)', () => {
     screen.unmount();
   }, 30000);
 
-  it('plays exactly one Heavy haptic, at the flag (~2000ms), with the thud and chord stand-ins once; the stillness is silent; no Medium', async () => {
+  it('plays exactly one Heavy haptic and the authored summit thud and chord at the flag; the stillness is silent; no Medium', async () => {
     const screen = await openChart({ initial: fourWaypoints(3), next: finished() });
     await reachFromMenu(screen);
     await wait(900);
@@ -230,20 +229,20 @@ describe('Summit (S1)', () => {
     await wait(800);
     expect(impact).not.toHaveBeenCalled();
     expect(mockSoundPlay.mock.calls.length).toBeLessThanOrEqual(before + 1);
-    expect(soundCalls('chart-stamp')).toHaveLength(0);
+    expect(soundCalls('chart-summit-thud')).toHaveLength(0);
     await wait(700);
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(HEAVY);
-    expect(soundCalls('chart-stamp')).toHaveLength(1);
-    expect(soundCalls('chart-flag')).toHaveLength(1);
-    expect(soundCalls('chart-flag')[0][1].rate).toBeCloseTo(Math.pow(2, CHART_SUMMIT_CHORD.standInSemitones / 12));
+    expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    expect(soundCalls('chart-summit-chord')).toHaveLength(1);
     // The rest of the scene adds nothing of its own.
     await wait(5600);
     expect(active()).toBeNull();
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact.mock.calls.some(([style]) => style === MEDIUM || style === LIGHT)).toBe(false);
     expect(selection).not.toHaveBeenCalled();
-    expect(soundCalls('chart-stamp')).toHaveLength(1);
+    expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    expect(soundCalls('chart-summit-chord')).toHaveLength(1);
     expect(soundKeys()).not.toContain('chart-wind');
     // It ends on the existing cream completion panel.
     expect(screen.getByTestId('chart-summit-panel')).toBeTruthy();
@@ -251,7 +250,7 @@ describe('Summit (S1)', () => {
     screen.unmount();
   }, 40000);
 
-  it('Skip lands settled: flag planted, panel shown, and the Heavy haptic and chord play once if they had not', async () => {
+  it('Skip lands settled: flag planted, panel shown, and the Heavy haptic and summit cues play once if they had not', async () => {
     const onWaypointReached = jest.fn();
     const screen = await openChart({ initial: fourWaypoints(3), next: finished(), onWaypointReached });
     await reachFromMenu(screen);
@@ -262,14 +261,15 @@ describe('Summit (S1)', () => {
     expect(active()).toBeNull();
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(HEAVY);
-    expect(soundCalls('chart-stamp')).toHaveLength(1);
-    expect(soundCalls('chart-flag')).toHaveLength(1);
+    expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    expect(soundCalls('chart-summit-chord')).toHaveLength(1);
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('Waypoint 4: Waypoint 4 title, reached')).toBeTruthy();
     // Nothing fires again afterwards.
     await wait(1500);
     expect(impact).toHaveBeenCalledTimes(1);
-    expect(soundCalls('chart-stamp')).toHaveLength(1);
+    expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    expect(soundCalls('chart-summit-chord')).toHaveLength(1);
     screen.unmount();
   }, 30000);
 
@@ -281,8 +281,8 @@ describe('Summit (S1)', () => {
     act(() => { fireEvent.press(screen.getByLabelText('Skip')); });
     await waitFor(() => expect(active()).toBeNull());
     expect(impact).toHaveBeenCalledTimes(1);
-    expect(soundCalls('chart-stamp')).toHaveLength(1);
-    expect(soundCalls('chart-flag')).toHaveLength(1);
+    expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    expect(soundCalls('chart-summit-chord')).toHaveLength(1);
     screen.unmount();
   }, 30000);
 
@@ -303,7 +303,8 @@ describe('Summit (S1)', () => {
     await waitFor(() => expect(active()).toBeNull());
     await wait(300);
     expect(impact).toHaveBeenCalledTimes(1);
-    expect(soundCalls('chart-stamp')).toHaveLength(1);
+    expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    expect(soundCalls('chart-summit-chord')).toHaveLength(1);
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
     expect(summit).toHaveBeenCalledTimes(1);
     summit.mockRestore();
@@ -341,8 +342,8 @@ describe('Summit (S1)', () => {
     await reachFromMenu(screen);
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(HEAVY);
-    expect(soundCalls('chart-stamp')).toHaveLength(1);
-    expect(soundCalls('chart-flag')).toHaveLength(1);
+    expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    expect(soundCalls('chart-summit-chord')).toHaveLength(1);
     expect(screen.queryByLabelText('Skip')).toBeNull();
     // No pen: it belongs to the travel that no longer plays.
     expect(soundKeys()).not.toContain('chart-ink');

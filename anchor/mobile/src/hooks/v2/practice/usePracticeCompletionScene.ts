@@ -4,17 +4,17 @@
  * coordinator request live in one place rather than in each screen.
  *
  * - P1, first practice ever (level 3, about 3.9s): the Thread label appears, the bar fills to the
- *   real new value, the settle cue and a Medium haptic land at the end of the fill, then
+ *   real new value, the Thread wake cue and a Medium haptic land at the end of the fill, then
  *   "Your Thread has begun." settles in.
  * - P2, repeat practice (level 2, about 2.5s): the old value is struck through, the bar and the glow
- *   swell to the real new value, one settle cue and a Light haptic, then "Reinforced today".
+ *   swell to the real new value, the reinforcement cue and a Light haptic, then "Reinforced today".
  * - P4, stage reached (level 3, about 3.8s; Reinforced level 4, about 4.6s): the bar fills, the
- *   five-segment stage strip rises, the new stage's segment fills gold and the stage chord lands with
+ *   five-segment stage strip rises, the new stage's segment fills gold and its stage chord lands with
  *   a Medium haptic. Once per Anchor per stage. Re-reaching a stage after decay is a relight (level 2,
- *   under 2.0s, not skippable): the segment relights with one Light haptic. No chord, no sentence. A
+ *   under 2.0s, not skippable): the segment relights with its short cue and one Light haptic. The cue is omitted under Reduce Motion. No sentence. A
  *   stage replaces P2 for that completion.
  * - P5, Full Strength (a ceiling at 100, not a stage): first time per Anchor, level 4 (about 4.6s),
- *   the bar fills, a gold ring draws, the chord and a Medium haptic land, the ring closes with a Light
+ *   the bar fills, a gold ring draws, the Full Strength cue and a Medium haptic land, the ring closes with a Light
  *   haptic. Back at 100 after decay: short (level 3, about 3.2s), a Light wake haptic, no chord. A
  *   completion that crosses a stage and reaches 100 plays P5 only, and the stage is still recorded.
  * - Records come from celebrationRecordsStore and are read only after hydration. Before hydration, or
@@ -47,7 +47,8 @@ import {
 } from 'react-native-reanimated';
 import { resolveEvolutionStage } from '@/adapters/v2/progress/progressAdapter';
 import { AnchorMotion } from '@/theme/v2';
-import { playCreationSound } from '@/services/CreationSounds';
+import { playCreationSound, type CreationSoundKey } from '@/services/CreationSounds';
+import { SoundPool } from '@/services/audio/SoundPool';
 import {
   celebrationRecordsReady,
   useCelebrationRecordsStore,
@@ -86,7 +87,7 @@ export interface PracticeSceneTiming {
   /** When the settle beat fires: the cue (if any) and the settle haptic. */
   settleAtMs: number;
   settleHaptic: Haptics.ImpactFeedbackStyle;
-  /** Whether the settle beat carries the Thread chord. Quiet scenes are haptic only. */
+  /** Whether the settle beat carries a once-per-session Thread cue. */
   chord: boolean;
   noteAtMs: number;
   noteInMs: number;
@@ -258,6 +259,17 @@ function rememberPlayed(key: string, kind: PlayedKind): void {
 let mountCounter = 0;
 
 const clampStrength = (value: number): number => Math.max(0, Math.min(100, value));
+const THREAD_CELEBRATION_POOL_KEYS = [
+  'threadSettle',
+  'threadWake',
+  'threadStageChord_building',
+  'threadStageChord_established',
+  'threadStageChord_integrated',
+  'threadReinforcedLow',
+  'threadFullStrengthChord',
+  'threadReinforce',
+  'threadStageRelight',
+].map((key) => `creation:${key}`);
 
 const STAGE_RANK: Record<string, number> = {
   Unestablished: -1,
@@ -400,9 +412,29 @@ export function practiceSceneValues(
   };
 }
 
-/** The settle beat: the chord (once per session) when the scene carries one, then the scene's haptic. */
-function playSettle(sessionId: string | null, timing: PracticeSceneTiming): void {
-  if (timing.chord && (!sessionId || claimThreadSettle(sessionId))) playCreationSound('threadSettle');
+/** The cue lands on the existing settle beat; the scene timing and haptic remain unchanged. */
+function playSettle(sessionId: string | null, timing: PracticeSceneTiming, kind: PlayedKind, toValue: number, reduceMotion: boolean): void {
+  let cue: CreationSoundKey;
+  switch (kind) {
+    case 'first': cue = 'threadWake'; break;
+    case 'stageFirst': {
+      const stage = resolveEvolutionStage(toValue);
+      cue = stage === 'Building'
+        ? 'threadStageChord_building'
+        : stage === 'Established'
+          ? 'threadStageChord_established'
+          : 'threadStageChord_integrated';
+      break;
+    }
+    case 'stageReinforced': cue = 'threadReinforcedLow'; break;
+    case 'stageRelight': cue = 'threadStageRelight'; break;
+    case 'fullFirst': cue = 'threadFullStrengthChord'; break;
+    case 'fullRepeat': cue = 'threadReinforce'; break;
+    default: cue = 'threadSettle'; break;
+  }
+  const newCelebrationCue = kind !== 'repeat' && !(kind === 'stageRelight' && reduceMotion);
+  if (newCelebrationCue && (!timing.chord || !sessionId || claimThreadSettle(sessionId))) playCreationSound(cue);
+  else if (timing.chord && (!sessionId || claimThreadSettle(sessionId))) playCreationSound('threadSettle');
   void safeHaptics.impact(timing.settleHaptic);
 }
 
@@ -497,6 +529,12 @@ export function usePracticeCompletionScene({
     phase: initial.phase,
   });
 
+  useEffect(() => {
+    const poolKeys = THREAD_CELEBRATION_POOL_KEYS;
+    SoundPool.prewarm(poolKeys);
+    return () => SoundPool.releaseIdle(poolKeys);
+  }, []);
+
   const runKey = useRef<string | null>(null);
   const started = useRef(false);
   const settled = useRef(false);
@@ -573,7 +611,7 @@ export function usePracticeCompletionScene({
       const settle = () => {
         if (settled.current) return;
         settled.current = true;
-        playSettle(sessionId, timing);
+        playSettle(sessionId, timing, kind, to, reduceMotion);
       };
       const finishScene = () => {
         clearTimers();

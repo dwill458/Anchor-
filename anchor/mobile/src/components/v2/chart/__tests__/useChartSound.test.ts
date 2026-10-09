@@ -1,19 +1,20 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { AppState, type AppStateStatus } from 'react-native';
-import { CHART_AIR_DUCKED, CHART_AIR_VOLUME, CHART_SUMMIT_CHORD, CHART_WAYPOINT_NOTE, useChartSound, waypointNoteRate } from '../useChartSound';
+import { CHART_AIR_DUCKED, CHART_AIR_VOLUME, useChartSound } from '../useChartSound';
 
 type Player = { key: string; opts: { loop?: boolean; volume?: number }; play: jest.Mock; stop: jest.Mock; setVolume: jest.Mock; setRate: jest.Mock; pause: jest.Mock };
 
 let mockEnabled = true;
 const mockPlayers: Player[] = [];
 const mockPooledCalls: Array<{ key: string; options: { volume?: number; rate?: number } }> = [];
+const mockPrewarm = jest.fn();
 const mockSoundPoolPlay = jest.fn((key: string, options: { volume?: number; rate?: number } = {}) => {
   if (!mockEnabled) return null;
   mockPooledCalls.push({ key, options });
   return { stop: jest.fn() };
 });
 jest.mock('@/services/audio/SoundPool', () => ({
-  SoundPool: { play: (...args: [string, { volume?: number; rate?: number }?]) => mockSoundPoolPlay(...args), prewarm: jest.fn(), releaseIdle: jest.fn() },
+  SoundPool: { play: (...args: [string, { volume?: number; rate?: number }?]) => mockSoundPoolPlay(...args), prewarm: (...args: [string[]]) => mockPrewarm(...args), releaseIdle: jest.fn() },
 }));
 jest.mock('@/hooks/useAudio', () => ({
   useAudio: () => ({
@@ -36,6 +37,7 @@ beforeEach(() => {
   mockPlayers.length = 0;
   mockPooledCalls.length = 0;
   mockSoundPoolPlay.mockClear();
+  mockPrewarm.mockClear();
 });
 afterEach(() => {
   jest.clearAllTimers();
@@ -44,6 +46,14 @@ afterEach(() => {
 });
 
 describe('useChartSound', () => {
+  it('prewarms every registered authored Chart celebration cue', () => {
+    renderHook(() => useChartSound(false));
+    expect(mockPrewarm).toHaveBeenCalledWith(expect.arrayContaining([
+      'chart-waypoint_1', 'chart-waypoint_2', 'chart-waypoint_3',
+      'chart-move-done', 'chart-ink-hold', 'chart-summit-thud', 'chart-summit-chord',
+    ]));
+  });
+
   it('plays each beat once, with a small random rate on repeating one-shots', () => {
     const { result } = renderHook(() => useChartSound(false));
     act(() => {
@@ -52,7 +62,7 @@ describe('useChartSound', () => {
       result.current.check();
       result.current.wind();
     });
-    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-open', 'chart-flag', 'chart-check', 'chart-wind']);
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-open', 'chart-flag', 'chart-move-done', 'chart-wind']);
     const rate = mockPooledCalls[2].options.rate!;
     expect(rate).toBeGreaterThanOrEqual(0.97);
     expect(rate).toBeLessThanOrEqual(1.03);
@@ -96,10 +106,10 @@ describe('useChartSound', () => {
       result.current.check();
       result.current.stamp();
     });
-    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-check', 'chart-stamp']);
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-move-done', 'chart-stamp']);
   });
 
-  it('the waypoint note is the chart-flag cue at the pentatonic rate: C#5 0.8409, E5 1, F#5 1.1225, then climbing', () => {
+  it('uses the three authored waypoint cues in order and clamps later waypoints to the third cue', () => {
     const { result } = renderHook(() => useChartSound(false));
     act(() => {
       result.current.note(1);
@@ -107,34 +117,13 @@ describe('useChartSound', () => {
       result.current.note(3);
       result.current.note(4);
     });
-    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-flag', 'chart-flag', 'chart-flag', 'chart-flag']);
-    const rates = mockPooledCalls.map(({ options }) => options.rate!);
-    expect(rates[0]).toBeCloseTo(0.8409, 4);
-    expect(rates[1]).toBe(1);
-    expect(rates[2]).toBeCloseTo(1.1225, 4);
-    expect(rates[3]).toBeCloseTo(Math.pow(2, 5 / 12), 6);
-    // Exact pitch: the note takes no random jitter (a repeat of one waypoint sounds identical).
-    mockPooledCalls.length = 0;
-    act(() => { result.current.note(1); result.current.note(1); });
-    expect(mockPooledCalls[0].options.rate).toBe(mockPooledCalls[1].options.rate);
-  });
-
-  it('the pitch lives in one constants object; later waypoints hold the last step; the rate stays inside the pool clamp', () => {
-    expect(CHART_WAYPOINT_NOTE.basePitch).toBe('E5');
-    expect(CHART_WAYPOINT_NOTE.semitones.slice(0, 3)).toEqual([-3, 0, 2]);
-    expect(waypointNoteRate(1)).toBeCloseTo(2 ** (-3 / 12));
-    expect(waypointNoteRate(99)).toBe(waypointNoteRate(CHART_WAYPOINT_NOTE.semitones.length));
-    expect(waypointNoteRate(0)).toBe(waypointNoteRate(1));
-    for (let n = 1; n <= 12; n++) {
-      expect(waypointNoteRate(n)).toBeGreaterThanOrEqual(0.5);
-      expect(waypointNoteRate(n)).toBeLessThanOrEqual(2);
-    }
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-waypoint_1', 'chart-waypoint_2', 'chart-waypoint_3', 'chart-waypoint_3']);
   });
 
   it('Reduce Motion keeps the waypoint note (it marks the commitment, not motion)', () => {
     const { result } = renderHook(() => useChartSound(true));
     act(() => result.current.note(2));
-    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-flag']);
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-waypoint_2']);
   });
 
   it('allows the intro open cue under Reduce Motion when explicitly requested', () => {
@@ -242,16 +231,22 @@ describe('useChartSound', () => {
     expect(lastVolume(bed)).toBeCloseTo(CHART_AIR_VOLUME);
   });
 
-  it('the summit plays the thud and the chord stand-in once each, also under Reduce Motion, with no wind', () => {
+  it('the summit plays the authored thud at the flag and the chord 20ms later, also under Reduce Motion', () => {
     for (const reduced of [false, true]) {
       mockPooledCalls.length = 0;
       const { result, unmount } = renderHook(() => useChartSound(reduced));
       act(() => result.current.summit());
-      expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-stamp', 'chart-flag']);
-      expect(mockPooledCalls[1].options.rate).toBeCloseTo(Math.pow(2, CHART_SUMMIT_CHORD.standInSemitones / 12));
+      expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-summit-thud']);
+      act(() => jest.advanceTimersByTime(20));
+      expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-summit-thud', 'chart-summit-chord']);
       unmount();
     }
-    expect(CHART_SUMMIT_CHORD.voices).toEqual(['A3', 'E4', 'A4', 'C#5', 'E5']);
+  });
+
+  it('plays the move completion and ink-hold cues at their distinct semantic beats', () => {
+    const { result } = renderHook(() => useChartSound(false));
+    act(() => { result.current.check(); result.current.inkHold(); });
+    expect(mockPooledCalls.map(({ key }) => key)).toEqual(['chart-move-done', 'chart-ink-hold']);
   });
 
   it('hush silences the bed and brings it back; a later duck replaces the pending return instead of being undone by it', () => {

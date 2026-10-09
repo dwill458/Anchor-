@@ -1,10 +1,10 @@
 import { SoundPool } from '@/services/audio/SoundPool';
-import { CREATION_SOUND_SOURCES } from '@/services/audio/soundSources';
+import { CREATION_SOUND_SOURCES, type SoundKey } from '@/services/audio/soundSources';
 import { sfxLog } from '@/services/audio/sfxLog';
 
 export type CreationSoundKey = keyof typeof CREATION_SOUND_SOURCES;
 
-const VOLUME: Record<CreationSoundKey, number> = {
+export const VOLUME: Record<CreationSoundKey | SoundKey, number> = {
   seal: 0.9,
   practiceComplete: 0.6,
   anchorPulse: 0.85,
@@ -22,9 +22,39 @@ const VOLUME: Record<CreationSoundKey, number> = {
   releaseIgnite: 0.8,
   formBed: 0.12,
   threadSettle: 0.5,
+  threadWake: 0.6,
+  threadStageChord_building: 0.6,
+  threadStageChord_established: 0.6,
+  threadStageChord_integrated: 0.6,
+  threadReinforcedLow: 0.9,
+  threadFullStrengthChord: 0.9,
+  threadReinforce: 0.6,
+  threadStageRelight: 0.42,
+  // Reserved for a possible Full Strength lead-in; not wired without listening QA.
+  threadFullStrengthWake: 0.45,
   onboardingSealed: 0.6,
   homeArrival: 0.5,
   visionPin: 0.45,
+  'forge-seal': 1,
+  'letter-drop': 1,
+  'prime-begin': 1,
+  'prime-complete': 1,
+  'haptic-tone': 1,
+  'ui-select': 1,
+  'chart-air': 0.9,
+  'chart-open': 1,
+  'chart-ink': 1,
+  'chart-flag': 1,
+  'chart-check': 1,
+  'chart-stamp': 1,
+  'chart-wind': 1,
+  'chart-waypoint_1': 0.6,
+  'chart-waypoint_2': 0.6,
+  'chart-waypoint_3': 0.6,
+  'chart-move-done': 0.6,
+  'chart-ink-hold': 0.6,
+  'chart-summit-thud': 0.99,
+  'chart-summit-chord': 0.9,
 };
 
 export interface CreationSoundHandle {

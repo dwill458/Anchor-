@@ -267,6 +267,7 @@ export function ChartActiveView({
       const haptics = hapticsRef.current;
       if (beat === 'open') s.open();
       else if (beat === 'ink') s.ink(inkMs);
+      else if (beat === 'inkHold') s.inkHold();
       else if (beat === 'note') {
         s.note(waypointNumber);
         if (haptics) void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);

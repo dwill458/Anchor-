@@ -51,7 +51,7 @@ function call(at: number, run: () => void): SequenceStep {
 }
 
 /** A sound/haptic moment the host plays (ChartActiveView maps beats to useChartSound + safeHaptics). */
-export type ChartBeat = 'open' | 'ink' | 'flag' | 'check' | 'stamp' | 'wind' | 'note' | 'hush' | 'summit' | 'pop';
+export type ChartBeat = 'open' | 'ink' | 'inkHold' | 'flag' | 'check' | 'stamp' | 'wind' | 'note' | 'hush' | 'summit' | 'pop';
 export type ChartBeatHandler = (beat: ChartBeat) => void;
 
 /** Beat step: transient, so a skipped sequence drops it rather than firing every pending sound at once. */
@@ -504,6 +504,7 @@ export function moveHoldSequence(ctx: MoveHoldSequenceContext): SequenceSpec {
     if (extends_) {
       beat(steps, m.routeAt, onBeat, 'ink');
       steps.push(tween(anim.revealArc, to, m.routeAt, m.route, 'inOut', from));
+      beat(steps, m.routeAt + m.route, onBeat, 'inkHold');
     }
     if (coverMoves) steps.push(tween(anim.coverArc, to, m.coverAt, m.cover, 'settle'));
     // Pulse rests at 1 (invisible); it is left there at the end.

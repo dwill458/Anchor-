@@ -35,7 +35,6 @@ import { loadFogImages, warmChartMapResources } from '../../map/ChartMapLand';
 import { loadCloudTiles } from '../../map/chartCloudTiles';
 import { buildRouteTable, waypointPlacement } from '../../map/chartMapGeometry';
 import * as sequences from '../../map/chartMapSequences';
-import { waypointNoteRate } from '../../useChartSound';
 import { chartActions, course, move, viewOf, waypoint } from './chartPanelFixtures';
 
 const impact = safeHaptics.impact as jest.Mock;
@@ -155,7 +154,7 @@ function Harness({ initial, next = null, afterMove = null, reducedMotion = false
 }
 
 const wait = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
-const noteCalls = () => mockSoundPlay.mock.calls.filter(([key]) => key === 'chart-flag');
+const noteCalls = () => mockSoundPlay.mock.calls.filter(([key]) => typeof key === 'string' && key.startsWith('chart-waypoint_'));
 const soundKeys = () => mockSoundPlay.mock.calls.map(([key]) => key as string);
 const active = () => useCelebrationStore.getState().active;
 
@@ -206,7 +205,7 @@ describe('Waypoint reached (W1)', () => {
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(LIGHT);
     expect(noteCalls()).toHaveLength(1);
-    expect(noteCalls()[0][1].rate).toBeCloseTo(waypointNoteRate(2));
+    expect(noteCalls()[0][0]).toBe('chart-waypoint_2');
     // The rest of the scene adds nothing: it ends at 3200 with the same single haptic and note.
     await wait(2500);
     expect(active()).toBeNull();
@@ -219,16 +218,12 @@ describe('Waypoint reached (W1)', () => {
     screen.unmount();
   }, 20000);
 
-  it.each([
-    [1, 0.8409],
-    [2, 1],
-    [3, 1.1225],
-  ])('waypoint %i sounds its note at rate %f (C#5, E5, F#5 on an assumed E5 sample)', async (number, rate) => {
+  it.each([1, 2, 3])('waypoint %i plays its authored cue', async (number) => {
     const screen = await openChart({ initial: fourWaypoints(number - 1), next: fourWaypoints(number) });
     await reachFromMenu(screen);
     act(() => { fireEvent.press(screen.getByLabelText('Skip')); });
     await waitFor(() => expect(noteCalls()).toHaveLength(1));
-    expect(noteCalls()[0][1].rate).toBeCloseTo(rate, 4);
+    expect(noteCalls()[0][0]).toBe(`chart-waypoint_${number}`);
     screen.unmount();
   }, 20000);
 
@@ -362,6 +357,7 @@ describe('One Move done (M1)', () => {
     act(() => { fireEvent.press(circle); fireEvent.press(circle); });
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(LIGHT);
+    expect(soundKeys()).toContain('chart-move-done');
     await waitFor(() => expect(completeMoveCalls).toBe(1));
     await wait(300);
     // The route ink that follows adds no haptic of its own, and no selection.
@@ -393,6 +389,8 @@ describe('One Move done (M1)', () => {
     expect(ctx.toArc!).toBeLessThan(leg.end);
     expect(ctx.anim.revealArc.value).toBeLessThanOrEqual(holdArc + 1e-6);
     expect(ctx.anim.revealArc.value).toBeLessThan(leg.end);
+    await wait(1800);
+    expect(soundKeys()).toContain('chart-ink-hold');
     // The marker stays open: the move did not reach it (state current, no stamp).
     expect(ctx.anim.stampIndex.value).toBe(-1);
     expect(screen.getByLabelText('Waypoint 2: Reach 1,000 active users, current')).toBeTruthy();
@@ -426,6 +424,8 @@ describe('One Move done (M1)', () => {
     fireEvent.press(screen.getByTestId('chart-one-move-check'));
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(LIGHT);
+    expect(soundKeys()).toContain('chart-move-done');
+    expect(soundKeys()).not.toContain('chart-ink-hold');
     await waitFor(() => expect(hold).toHaveBeenCalled());
     expect(hold.mock.calls[0][0].reducedMotion).toBe(true);
     expect(impact).toHaveBeenCalledTimes(1);
