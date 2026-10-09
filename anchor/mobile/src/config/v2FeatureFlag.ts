@@ -4,11 +4,5 @@ export function isAnchorV2Enabled(
   appEnvironment: string | undefined = process.env.EXPO_PUBLIC_APP_ENV
 ): boolean {
   if (value === 'false') return false;
-  return (
-    value === 'true' ||
-    isDevelopment ||
-    appEnvironment === 'staging' ||
-    appEnvironment === 'preview' ||
-    appEnvironment === 'development'
-  );
+  return true;
 }
