@@ -14,15 +14,27 @@ export const VisionBoardPreview = memo(function VisionBoardPreview({ tiles, stat
   const { width: windowWidth } = useWindowDimensions();
   const [width, setWidth] = useState(Math.max(1, windowWidth - 48));
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const hero = tiles[0]?.imageUrl?.trim();
+  // Older and partially synchronized Visions can contain active scenes whose
+  // storage asset has not resolved yet. Keep their order, but don't let one
+  // unresolved scene hide a later image that can actually be rendered.
+  const heroTile = tiles.find(tile => Boolean(tile.imageUrl?.trim()));
+  const hero = heroTile?.imageUrl?.trim();
+  const heroIndex = heroTile ? tiles.indexOf(heroTile) : -1;
+  const imageFailed = Boolean(hero && failedUrl === hero);
   const height = width * (variant === 'home' ? 0.35 : 0.48);
-  return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
-    onPress={onPress} disabled={!onPress} onLayout={event => setWidth(Math.max(1, event.nativeEvent.layout.width))}
+  return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={imageFailed ? 'Vision image unavailable. Tap to retry.' : accessibilityLabel}
+    onPress={() => {
+      if (imageFailed) {
+        setFailedUrl(null);
+        return;
+      }
+      onPress?.();
+    }} disabled={!onPress && !imageFailed} onLayout={event => setWidth(Math.max(1, event.nativeEvent.layout.width))}
     style={({ pressed }) => [styles.preview, { height: height + (statement ? 44 : 0), backgroundColor: variant === 'home' ? colors.ink.base : colors.canvas }, pressed && styles.pressed]}>
     <View style={{ height, overflow: 'hidden' }}>
-    {hero && hero !== failedUrl ? <Image testID={imageTestID ?? `${testID}-image-0`} source={{ uri: hero }}
+    {hero && !imageFailed ? <Image testID={imageTestID ?? `${testID}-image-${heroIndex}`} source={{ uri: hero }}
       onError={() => setFailedUrl(hero)} resizeMode="cover" accessibilityIgnoresInvertColors style={StyleSheet.absoluteFill} /> :
-      <View style={styles.unavailable}><Text style={[styles.message, variant === 'details' && { color: colors.text.secondary }]}>{hero ? 'Image unavailable' : 'Your Vision has no images yet'}</Text></View>}
+      <View style={styles.unavailable}><Text style={[styles.message, variant === 'details' && { color: colors.text.secondary }]}>{hero ? 'Image unavailable. Tap to retry.' : 'Your Vision has no images yet'}</Text></View>}
     <VisionImageEdge color={variant === 'home' ? colors.ink.base : colors.canvas} />
     </View>
     {statement ? <View pointerEvents="none" style={styles.caption}>

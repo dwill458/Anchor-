@@ -29,7 +29,7 @@ export function toProgressInput(w: ChartWaypointView, raw?: WaypointSummary['met
   if (w.metric) {
     const target = w.metric.target;
     const baseline =
-      raw && typeof raw.baseline === 'number' && Number.isFinite(raw.baseline) && raw.baseline < target ? raw.baseline : 0;
+      raw && typeof raw.baseline === 'number' && Number.isFinite(raw.baseline) && raw.baseline !== target ? raw.baseline : w.metric.baseline ?? 0;
     metric = { baseline, current: w.metric.current === null ? baseline : w.metric.current, target };
   }
   // ChartWaypointView.moves already holds ACTIVE + COMPLETED only; filter again defensively.
@@ -39,6 +39,8 @@ export function toProgressInput(w: ChartWaypointView, raw?: WaypointSummary['met
     mode: w.progress,
     completed: w.state === 'completed',
     metric,
+    requirementsDone: w.requirements?.filter(r => r.completed).length ?? 0,
+    requirementsTotal: w.requirements?.length ?? 0,
     movesDone: counted.filter((m) => m.status === 'COMPLETED').length,
     movesTotal: counted.length,
   };
@@ -48,7 +50,7 @@ export function metricFraction(input: WaypointProgressInput): number {
   const m = input.metric;
   if (!m) return 0;
   const span = m.target - m.baseline;
-  if (!(span > 0)) return m.current >= m.target ? 1 : 0;
+  if (span === 0) return m.current === m.target ? 1 : 0;
   return clamp01((m.current - m.baseline) / span);
 }
 
@@ -57,14 +59,16 @@ export function movesFraction(input: WaypointProgressInput): number {
 }
 
 /** Where a waypoint's progress is a number, its moves, or nothing at all. */
-export function progressModeOf(input: WaypointProgressInput): 'numeric' | 'moves' | 'none' {
+export function progressModeOf(input: WaypointProgressInput): 'numeric' | 'checklist' | 'completion' | 'moves' | 'none' {
   if (input.metric) return 'numeric';
+  if (input.mode === 'checklist' || input.mode === 'completion') return input.mode;
   return input.mode === 'none' ? 'none' : 'moves';
 }
 
 export function rawFraction(input: WaypointProgressInput): number {
   // A waypoint with no progress has nothing to draw: its leg fills only when it is reached.
-  if (progressModeOf(input) === 'none') return 0;
+  if (progressModeOf(input) === 'none' || progressModeOf(input) === 'completion') return 0;
+  if (progressModeOf(input) === 'checklist') return (input.requirementsTotal ?? 0) > 0 ? clamp01((input.requirementsDone ?? 0) / input.requirementsTotal!) : 0;
   const mv = movesFraction(input);
   return input.metric ? METRIC_WEIGHT * metricFraction(input) + MOVES_WEIGHT * mv : mv;
 }
@@ -79,7 +83,8 @@ export function waypointFraction(input: WaypointProgressInput, hw: number): Wayp
 export function isWaypointReady(input: WaypointProgressInput, hw: number): boolean {
   if (input.completed) return false;
   if (input.metric) return metricFraction(input) >= 1;
-  if (progressModeOf(input) === 'none') return false;
+  if (progressModeOf(input) === 'none' || progressModeOf(input) === 'completion') return false;
+  if (progressModeOf(input) === 'checklist') return (input.requirementsTotal ?? 0) > 0 && input.requirementsDone === input.requirementsTotal;
   return Math.max(Number.isFinite(hw) ? hw : 0, rawFraction(input)) >= 1;
 }
 
@@ -128,8 +133,8 @@ export function firstRunSeed(_inputs: WaypointProgressInput[]): { startInked: tr
 /* Value-row copy (prototype valHTML)                                  */
 /* ------------------------------------------------------------------ */
 
-const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
-export const formatProgressNumber = (n: number): string => numberFormat.format(Math.round(n));
+const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 });
+export const formatProgressNumber = (n: number): string => numberFormat.format(n);
 
 export const PROGRESS_COPY = {
   current: (cur: number, target: number) => `${formatProgressNumber(cur)} / ${formatProgressNumber(target)}`,
@@ -154,6 +159,8 @@ export function progressValueRow(
   hw: number,
   unit: string | null = null
 ): ProgressValueRow {
+  if (progressModeOf(input) === 'completion') return { strong: relation === 'reached' ? 'Reached' : 'Not reached', span: '' };
+  if (progressModeOf(input) === 'checklist') return { strong: `${input.requirementsDone ?? 0} of ${input.requirementsTotal ?? 0} requirements`, span: '' };
   if (relation === 'upcoming') {
     return input.metric
       ? { strong: formatProgressNumber(input.metric.target), span: PROGRESS_COPY.toReach(unit) }
@@ -198,8 +205,10 @@ function niceStep(raw: number): number {
  * Stepper chips for "Update progress", sized to the target: a 50,000 target steps in thousands, a 100
  * target in fives. About twenty nudges cover the whole distance, and one tap is never a rounding error.
  */
-export function progressSteps(target: number): ProgressStep[] {
-  const unit = niceStep((Number.isFinite(target) && target > 0 ? target : 100) / 20);
-  const label = (value: number) => `${value < 0 ? '−' : '+'}${formatProgressNumber(Math.abs(value))}`;
-  return [-unit, unit, unit * 5, unit * 10].map((value) => ({ value, label: label(value) }));
+export function progressSteps(target: number, baseline = 0, label: string | null = null): ProgressStep[] {
+  const countUnit = /users?|clients?|items?|books?|applications?/i.test(label ?? '');
+  const span = Math.abs(target - baseline);
+  const unit = countUnit ? 1 : span < 20 && span > 0 ? Number((span / 20).toPrecision(1)) : niceStep((span || 100) / 20);
+  const stepLabel = (value: number) => `${value < 0 ? '−' : '+'}${new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 }).format(Math.abs(value))}`;
+  return [-unit, unit, unit * 5, unit * 10].map((value) => ({ value, label: stepLabel(value) }));
 }

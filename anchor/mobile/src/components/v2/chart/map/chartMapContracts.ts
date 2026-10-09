@@ -90,7 +90,9 @@ export type WaypointProgressInput = {
   id: string;
   completed: boolean;
   /** How this waypoint shows progress. Absent reads as numeric when there is a metric, otherwise moves. */
-  mode?: 'numeric' | 'moves' | 'none';
+  mode?: 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
+  requirementsDone?: number;
+  requirementsTotal?: number;
   /** null for moves-only waypoints. */
   metric: { baseline: number; current: number; target: number } | null;
   movesDone: number;

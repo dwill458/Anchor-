@@ -71,7 +71,7 @@ export function ChartAdjustPanel({
         tone="cream"
         value={detail}
         onChangeText={setDetail}
-        placeholder="Tell us more (optional)..."
+        placeholder="Tell Anchor what feels too difficult, too easy, or missing"
         maxLength={500}
         accessibilityLabel="Tell us more about what should change"
         testID="chart-adjust-detail"
@@ -93,7 +93,7 @@ export function ChartAdjustPanel({
       <V2Button
         size="large"
         onPress={() => effectiveReason && onSubmit({ reason: effectiveReason, detail: detail.trim() || null })}
-        disabled={!canSubmit}
+        disabled={!canSubmit || loading}
         loading={loading}
         style={canSubmit && categoryColor ? { backgroundColor: categoryColor } : undefined}
         iconRight={<ArrowRight size={18} color={canSubmit ? colors.text.inverse : colors.text.disabled} />}

@@ -222,8 +222,8 @@ describe('progressSteps', () => {
     expect(values(1000)).toEqual([-50, 50, 250, 500]);
     expect(values(50000)).toEqual([-2000, 2000, 10000, 20000]);
   });
-  it('never steps below one', () => {
-    expect(values(12)[1]).toBe(1);
+  it('uses fractional steps for short continuous goals', () => {
+    expect(values(12)[1]).toBe(0.6);
     expect(values(0)[1]).toBeGreaterThanOrEqual(1);
   });
   it('labels with a real minus and a plus', () => {

@@ -64,6 +64,8 @@ export interface VisionPrintProps {
   active?: boolean;
   revealDelayMs?: number;
   onDeveloped?: (uri: string) => void;
+  /** Reports an asset that failed to load so the owning flow can offer recovery. */
+  onImageError?: (uri: string) => void;
   /** Fires once per image, the moment its reveal begins. */
   onRevealStart?: (uri: string) => void;
   imageRef?: React.Ref<View>;
@@ -74,6 +76,8 @@ export interface VisionPrintProps {
   captionStripPts?: number;
   /** Reveal duration; defaults to the Develop reveal. The ink layer keeps its ratio to it. */
   revealMs?: number;
+  /** Increment to retry the same failed URI without remounting the enclosing print stack. */
+  retryToken?: number;
   /** An empty frame that hides whatever is behind it. */
   opaque?: boolean;
   /** Reveals without the settle sound or haptic. */
@@ -84,8 +88,8 @@ export interface VisionPrintProps {
 }
 
 export function VisionPrint({ uri: uriProp, source, developing, revealed, showCaption, caption, onChangeCaption, pinned,
-  reframe, onReframe, empty = false, active = true, revealDelayMs = 0, onDeveloped, onRevealStart, imageRef, pressed = false,
-  label, captionStripPts, revealMs, opaque = false, silent = false, instant = false, testID = 'vision-print' }: VisionPrintProps) {
+  reframe, onReframe, empty = false, active = true, revealDelayMs = 0, onDeveloped, onImageError, onRevealStart, imageRef, pressed = false,
+  label, captionStripPts, revealMs, opaque = false, silent = false, instant = false, retryToken = 0, testID = 'vision-print' }: VisionPrintProps) {
   const reduced = useV2ReduceMotion();
   const uri = uriProp ?? sourceUri(source);
   const imageSource = source ?? (uri ? { uri } : undefined);
@@ -110,8 +114,9 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
 
   useEffect(() => {
     startedUri.current = null; finishedUri.current = null;
+    setLoadedUri(null); setFailedUri(null); setSettledUri(null);
     ink.value = instant ? 0 : 1; blur.value = instant ? 0 : 1; scale.value = instant ? 1 : CEREMONY.revealScaleFrom;
-  }, [uri, instant]);
+  }, [uri, instant, retryToken]);
   const canReveal = Boolean(uri && prefetched && loadedUri === uri && revealed && active && !instant);
   useEffect(() => {
     if (!canReveal || !uri || finishedUri.current === uri) return;
@@ -172,8 +177,8 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
       <View pointerEvents="none" style={styles.grain}>{Array.from({ length: 28 }, (_, i) => <View key={i} style={[styles.fleck, { left: `${(i * 37) % 100}%`, top: `${(i * 23) % 100}%` }]} />)}</View>
       <GestureDetector gesture={pan}><Animated.View ref={imageRef} collapsable={false} style={[styles.window, windowStyle]}>
         {uri ? <Animated.View style={[styles.fill, imageStyle]}>
-          <Image testID={`${testID}-sharp`} source={imageSource!} resizeMode="cover" resizeMethod="resize" style={styles.photo} onLoad={() => setLoadedUri(uri)} onError={() => setFailedUri(uri)} accessible={false} />
-          {instant || settledUri === uri ? null : <Animated.View pointerEvents="none" style={[styles.fill, blurStyle]}><Image source={imageSource!} blurRadius={24} resizeMode="cover" resizeMethod="resize" style={styles.photo} accessible={false} /></Animated.View>}
+          <Image key={`${uri}:${retryToken}`} testID={`${testID}-sharp`} source={imageSource!} resizeMode="cover" resizeMethod="resize" style={styles.photo} onLoad={() => setLoadedUri(uri)} onError={() => { setFailedUri(uri); if (uri) onImageError?.(uri); }} accessible={false} />
+          {instant || settledUri === uri ? null : <Animated.View pointerEvents="none" style={[styles.fill, blurStyle]}><Image key={`blur:${uri}:${retryToken}`} source={imageSource!} blurRadius={24} resizeMode="cover" resizeMethod="resize" style={styles.photo} accessible={false} /></Animated.View>}
         </Animated.View> : null}
         <Animated.View pointerEvents="none" testID={`${testID}-ink`} style={[styles.fill, styles.ink, inkStyle]} />
         {developing ? <Animated.View pointerEvents="none" style={[styles.fill, sheenStyle]}><LinearGradient colors={['transparent', '#FFFFFF14', 'transparent']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.fill} /></Animated.View> : null}

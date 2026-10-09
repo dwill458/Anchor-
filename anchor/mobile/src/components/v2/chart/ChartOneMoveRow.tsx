@@ -118,7 +118,7 @@ export function ChartOneMoveRow({
           style={styles.body}
           testID="chart-one-move-body"
         >
-          <Text numberOfLines={expanded ? undefined : 2} style={[styles.title, checked && styles.titleDone]} testID="chart-one-move-title">
+          <Text numberOfLines={expanded || checked ? undefined : 2} style={[styles.title, checked && styles.titleDone]} testID="chart-one-move-title">
             {move.title}
           </Text>
           {expanded ? (
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   checkCircleDone: { borderColor: SAGE, backgroundColor: SAGE },
   body: { flex: 1, minWidth: 0, paddingTop: 2, paddingBottom: 2 },
   title: { fontFamily: T.sans, fontSize: 14, lineHeight: 19, color: T.light },
-  titleDone: { color: T.muted, textDecorationLine: 'line-through', textDecorationColor: T.muted },
+  titleDone: { color: T.light },
   hintRow: { minHeight: 20, flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
   hint: { fontFamily: T.sans, fontSize: 11, lineHeight: 16, color: T.muted },
   details: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(239,234,223,.18)', marginTop: 7, paddingTop: 8, paddingBottom: 3 },

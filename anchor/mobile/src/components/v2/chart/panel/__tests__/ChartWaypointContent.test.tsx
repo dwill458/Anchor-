@@ -404,9 +404,9 @@ describe('ChartWaypointContent — update progress sheet', () => {
     expect(getByText('Target: 1,000 active users')).toBeTruthy();
     expect(getByTestId('chart-progress-input')).toBeTruthy();
 
-    // A 1,000 target steps in fifties: -50 / +50 / +250 / +500.
-    fireEvent.press(getByTestId('chart-sheet-chip-+50'));
-    fireEvent.press(getByTestId('chart-sheet-chip-+250'));
+    // Active-user counts use whole-user nudges.
+    fireEvent.press(getByTestId('chart-sheet-chip-+1'));
+    fireEvent.press(getByTestId('chart-sheet-chip-+5'));
 
     // Tap save
     fireEvent.press(getByTestId('chart-save-progress'));

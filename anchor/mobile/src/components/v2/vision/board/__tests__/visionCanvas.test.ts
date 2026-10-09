@@ -1,14 +1,14 @@
 import { selectBoardLayout, selectDetailBoardLayout, detailBoardSizeForWidth, toSceneRect, boardSizeForWidth, emptyBoardPlaceholderSlots } from '../visionBoardLayouts';
 
 describe('editorial Vision Canvas geometry', () => {
-  it.each([3, 4, 5, 6])('centres the Anchor on the entire %i-image collage', count => {
+  it.each([3, 4, 5, 6, 7, 8])('centres the Anchor on the entire %i-image collage', count => {
     const layout = selectDetailBoardLayout(count);
     const scene = detailBoardSizeForWidth(320, count);
     const rect = toSceneRect(layout.card, scene);
     expect(rect.x + rect.width / 2).toBeCloseTo(scene.width / 2);
     expect(rect.y + rect.height / 2).toBeCloseTo(scene.height / 2);
   });
-  it.each([4, 5, 6])('shows every saved image in a %i-photo detail board', count => {
+  it.each([4, 5, 6, 7, 8])('shows every saved image in a %i-photo detail board', count => {
     const layout = selectDetailBoardLayout(count);
     expect(layout.photos).toHaveLength(count);
     const scene = detailBoardSizeForWidth(320, count);

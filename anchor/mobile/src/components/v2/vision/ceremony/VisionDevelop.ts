@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Image } from 'react-native';
 
 export const CEREMONY = {
-  stageFadeMs: 550, printMoveMs: 900, frameMarchMs: 14000,
+  stageFadeMs: 400, printMoveMs: 650, frameMarchMs: 14000,
   wordLightMaxMs: 160, wordLightTotalMs: 2600, sheenLoopMs: 2400,
   revealInkMs: 1600, revealBlurMs: 3400, revealScaleFrom: 1.06,
   choiceExitRotateDeg: 8, captionStripPts: 62,
-  sealHoldMs: 1600, sealHoldLaterMs: 900, sealDecayMs: 350, stampMs: 550, rippleMs: 1100, pressMs: 500,
-  sealedMinHoldMs: 1600, boardRiseMs: 1100, pinDropMs: 550, pinDelayMs: 350,
+  sealHoldMs: 1600, sealHoldLaterMs: 900, sealDecayMs: 350, stampMs: 400, rippleMs: 800, pressMs: 500,
+  sealedMinHoldMs: 200, boardRiseMs: 450, pinDropMs: 550, pinDelayMs: 350,
 } as const;
 
 export function ceremonyDuration(ms: number, reduceMotion: boolean): number {

@@ -43,6 +43,7 @@ function fromWaypoint(waypoint: WaypointSummary): DraftWaypoint {
     rationale: waypoint.description,
     kind: waypoint.kind ?? 'MILESTONE',
     progressMode: waypoint.progressMode,
+    requirements: waypoint.requirements, completionCriteria: waypoint.completionCriteria,
     metricLabel: waypoint.metric?.label ?? null,
     metricTarget: waypoint.metric?.target ?? null,
     metricBaseline: waypoint.metric?.baseline ?? null,
@@ -68,7 +69,11 @@ export function draftFromProposal(course: CourseDetail, proposal: ChartProposal)
   const proposed: DraftWaypoint[] = proposal.waypoints
     .filter((waypoint) => !historyTitles.has(waypoint.title.trim().toLowerCase()))
     .map((waypoint) => {
-      const existingId = byTitle.get(waypoint.title.trim().toLowerCase()) ?? null;
+      let existingId = byTitle.get(waypoint.title.trim().toLowerCase()) ?? null;
+      const existing = ahead.find(w => w.id === existingId);
+      const mergedRequirements = (waypoint.requirements ?? []).map(r => existing?.requirements?.find(old => old.title.trim().toLowerCase() === r.title.trim().toLowerCase()) ?? r);
+      if (existing?.metric?.current != null && (existing.metric.target !== waypoint.metricTarget || existing.metric.baseline !== waypoint.metricBaseline || existing.metric.label !== waypoint.metricLabel)) existingId = null;
+      if (existing?.requirements?.some(r => r.completed && !mergedRequirements.some(next => next.id === r.id && next.completed))) existingId = null;
       if (existingId) byTitle.delete(waypoint.title.trim().toLowerCase());
       return {
         key: existingId ?? waypoint.clientKey,
@@ -77,6 +82,7 @@ export function draftFromProposal(course: CourseDetail, proposal: ChartProposal)
         rationale: waypoint.rationale,
         kind: waypoint.kind,
         progressMode: waypoint.progressMode,
+    requirements: mergedRequirements, completionCriteria: waypoint.completionCriteria,
         metricLabel: waypoint.metricLabel,
         metricTarget: waypoint.metricTarget,
         metricBaseline: waypoint.metricBaseline,
@@ -111,14 +117,14 @@ export function V2ChartAdjustScreen() {
   const editedAhead = useMemo(() => draft.filter((waypoint) => !waypoint.locked && waypoint.title.trim()), [draft]);
 
   // The heading and panel are staged in once, when the route first appears. Asking and reviewing then swap in place.
-  const ready = Boolean(course && course.status === 'ACTIVE');
+  const ready = Boolean(course && (course.status === 'ACTIVE' || (course.status === 'COMPLETED' && course.routeScope === 'NEXT_STRETCH')));
   const arrived = useRef(false);
   const animateArrival = !arrived.current;
   useEffect(() => {
     if (ready) arrived.current = true;
   }, [ready]);
 
-  if (!course || course.status !== 'ACTIVE') {
+  if (!course || (course.status !== 'ACTIVE' && !(course.status === 'COMPLETED' && course.routeScope === 'NEXT_STRETCH'))) {
     return (
       <View testID="v2-chart-adjust-missing" style={[styles.screen, { paddingTop: insets.top }]}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} animated />
@@ -208,7 +214,10 @@ export function V2ChartAdjustScreen() {
     setError(null);
     try {
       const updated = await chartV2Api.applyRoute(course.id, {
-        expectedCourseVersion: course.version,
+        expectedCourseVersion: proposal?.baseCourseVersion ?? course.version,
+        routeScope: proposal?.routeScope,
+        destinationText: reason === 'CHANGE_DESTINATION' ? proposal?.destination : undefined,
+        oneMove: proposal?.suggestedOneMove,
         idempotencyKey: applyKey.current,
         waypoints: editedAhead.map((waypoint) => ({
           id: waypoint.id ?? null,
@@ -216,6 +225,7 @@ export function V2ChartAdjustScreen() {
           rationale: waypoint.rationale,
           kind: waypoint.kind,
           progressMode: waypoint.progressMode,
+    requirements: waypoint.requirements, completionCriteria: waypoint.completionCriteria,
           metricLabel: waypoint.metricLabel,
           metricTarget: waypoint.metricTarget,
           metricBaseline: waypoint.metricBaseline,
@@ -302,10 +312,10 @@ export function V2ChartAdjustScreen() {
                 {/* Headline section */}
                 <View style={styles.hero}>
                   <Text accessibilityRole="header" style={styles.displayHeading}>
-                    {phase === 'ask' ? 'Where does the route need to change?' : CHART_COPY.adjust.review}
+                    {phase === 'ask' ? 'What should we change?' : CHART_COPY.adjust.review}
                   </Text>
                   <Text style={styles.support}>
-                    {phase === 'ask' ? CHART_COPY.adjust.support : CHART_COPY.adjust.reviewSupport}
+                    {phase === 'ask' ? 'Tell Anchor what feels too difficult, too easy, or missing. Use your own words.' : CHART_COPY.adjust.reviewSupport}
                   </Text>
                 </View>
               </Reveal>
@@ -353,6 +363,9 @@ export function V2ChartAdjustScreen() {
                   </View>
                 ) : (
                   <View style={styles.panelContainer}>
+                    {proposal?.guidance ? <Text style={styles.note}>{proposal.guidance}</Text> : null}
+                    {reason === 'CHANGE_DESTINATION' && proposal ? <Text style={styles.note}>Proposed destination: {proposal.destination}</Text> : null}
+                    {proposal?.suggestedOneMove ? <Text style={styles.note}>Next move: {proposal.suggestedOneMove.title}</Text> : null}
                     <ChartRouteEditor waypoints={draft} onChange={setDraft} testID="chart-adjust-editor" />
                     <Text style={styles.note}>{CHART_COPY.adjust.protected}</Text>
                     {error ? <Text style={styles.error}>{error}</Text> : null}

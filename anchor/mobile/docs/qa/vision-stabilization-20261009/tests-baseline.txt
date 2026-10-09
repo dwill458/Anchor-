@@ -1,0 +1,4586 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --testPathPatterns=vision|Vision|visualizeVisionPlan
+
+FAIL src/screens/vault/__tests__/AnchorDetailScreen.test.tsx (17.553 s)
+  ● AnchorDetailScreen › shows the delete action in production and recommends burn & release first
+
+    Unable to find an element with text: Burn & Release is the proper practice.
+
+    <View>
+      <BlurView>
+        <View
+          accessible={true}
+        >
+          <Text>
+            ←
+          </Text>
+        </View>
+        <Text>
+          ANCHOR DETAILS
+        </Text>
+      </BlurView>
+      <RCTScrollView>
+        <View>
+          <View>
+            <View
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <LinearGradient>
+                  <Text>
+                    CURRENT ANCHOR
+                  </Text>
+                  <Text>
+                    Test Intention
+                  </Text>
+                  <View>
+                    <View>
+                      <View />
+                      <Text>
+                        Health
+                      </Text>
+                    </View>
+                    <View>
+                      <Text>
+                        💤
+                      </Text>
+                      <Text>
+                        Dormant
+                      </Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+                <View
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <LinearGradient />
+                </View>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View>
+                  <LinearGradient>
+                    <View>
+                      <LinearGradient />
+                    </View>
+                    <View>
+                      <View
+                        testID="sigil-svg"
+                      />
+                    </View>
+                  </LinearGradient>
+                </View>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View
+                accessibilityLabel="Open this anchor thread strength"
+                accessibilityRole="button"
+                accessible={true}
+                testID="anchor-thread-strength-row"
+              >
+                <View>
+                  <LinearGradient>
+                    <View>
+                      <View>
+                        <View>
+                          <Zap />
+                        </View>
+                        <View>
+                          <Text
+                            testID="anchor-detail-streak-value"
+                          >
+                            1
+                            <Text>
+                               
+                              Day
+                            </Text>
+                          </Text>
+                          <Text>
+                            Thread Strength
+                          </Text>
+                        </View>
+                      </View>
+                      <View>
+                        <View>
+                          <View />
+                        </View>
+                        <View>
+                          <View>
+                            <Text>
+                              M
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              T
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              W
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              T
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              F
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              S
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              S
+                            </Text>
+                            <View />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    <Text>
+                      Each return strengthens the signal.
+                    </Text>
+                    <View>
+                      <View
+                        accessibilityLabel="Why this matters"
+                        accessibilityRole="button"
+                        accessible={true}
+                      >
+                        <View>
+                          <Svg>
+                            <Circle />
+                            <Circle />
+                            <Line />
+                          </Svg>
+                        </View>
+                        <Text>
+                          Why this matters
+                        </Text>
+                      </View>
+                    </View>
+                    <View>
+                      <View>
+                        <Text>
+                          DISTILLED
+                        </Text>
+                        <Text>
+                          ⓘ
+                        </Text>
+                      </View>
+                      <View>
+                        <View>
+                          <Text>
+                            T
+                          </Text>
+                        </View>
+                        <View>
+                          <Text>
+                            S
+                          </Text>
+                        </View>
+                        <View>
+                          <Text>
+                            T
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </LinearGradient>
+                  <View
+                    style={
+                      {
+                        "opacity": 0,
+                      }
+                    }
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <View
+              accessible={true}
+            >
+              <View>
+                <View>
+                  <Text>
+                    Ready to prime?
+                  </Text>
+                  <Text>
+                    Open Practice
+                  </Text>
+                </View>
+                <View>
+                  <ChevronRight />
+                </View>
+              </View>
+            </View>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <LinearGradient>
+              <Text>
+                WALLPAPER & EXPORT
+              </Text>
+              <Text>
+                Keep your anchor where you will actually see it.
+              </Text>
+              <Text>
+                Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.
+              </Text>
+              <View>
+                <View>
+                  <View
+                    accessibilityRole="button"
+                    accessible={true}
+                  >
+                    <Text>
+                      SQUARE
+                    </Text>
+                    <Text>
+                      1:1
+                    </Text>
+                  </View>
+                  <View
+                    accessibilityRole="button"
+                    accessible={true}
+                  >
+                    <Text>
+                      STORIES
+                    </Text>
+                    <Text>
+                      9:16
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="anchor-detail-share-button"
+                >
+                  <View>
+                    <Share2 />
+                    <Text>
+                      SHARE MY ANCHOR
+                    </Text>
+                  </View>
+                </View>
+                <View>
+                  <View
+                    accessibilityRole="button"
+                    accessibilityState={
+                      {
+                        "disabled": false,
+                      }
+                    }
+                    accessible={true}
+                    testID="anchor-detail-set-wallpaper-button"
+                  >
+                    <Text>
+                      SET AS WALLPAPER
+                    </Text>
+                  </View>
+                  <View
+                    accessibilityRole="button"
+                    accessible={true}
+                    testID="anchor-detail-download-png-button"
+                  >
+                    <Text>
+                      SAVE PNG
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <View
+              accessible={true}
+            >
+              <Text>
+                Delete Anchor
+              </Text>
+            </View>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <Text>
+              Created 
+              October 9, 2026
+            </Text>
+          </View>
+        </View>
+      </RCTScrollView>
+      <Modal
+        testID="confirm-delete-anchor-sheet"
+      >
+        <View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <View
+              accessibilityLabel="Cancel deletion"
+              accessibilityRole="button"
+              accessible={true}
+            />
+          </View>
+          <View>
+            <SafeAreaView
+              accessibilityViewIsModal={true}
+            >
+              <View>
+                <View />
+                <Text
+                  accessibilityRole="none"
+                >
+                  ANCHOR ARCHIVE
+                </Text>
+                <Text
+                  accessibilityRole="header"
+                >
+                  Release is the proper practice.
+                </Text>
+              </View>
+              <View>
+                <Text>
+                  "
+                  Test Intention
+                  "
+                </Text>
+              </View>
+              <Text>
+                Deleting skips the ceremony and quietly archives this Anchor. If you are ready to let it go, Release is the intended path.
+              </Text>
+              <View>
+                <View
+                  accessibilityLabel="Burn and Release"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="confirm-delete-burn-instead-btn"
+                >
+                  <View>
+                    <View />
+                    <Text>
+                      Release with Ceremony
+                    </Text>
+                    <View />
+                  </View>
+                </View>
+                <View
+                  accessibilityLabel="Delete Anyway"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="confirm-delete-anyway-btn"
+                >
+                  <View>
+                    <View />
+                    <Text>
+                      Delete Anyway
+                    </Text>
+                    <View />
+                  </View>
+                </View>
+                <View
+                  accessibilityLabel="Cancel"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="confirm-delete-cancel-btn"
+                >
+                  <View>
+                    <View />
+                    <Text>
+                      Keep Anchor
+                    </Text>
+                    <View />
+                  </View>
+                </View>
+              </View>
+            </SafeAreaView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+
+      425 |         fireEvent.press(screen.getByText('Delete Anchor'));
+      426 |
+    > 427 |         expect(screen.getByText('Burn & Release is the proper practice.')).toBeTruthy();
+          |                       ^
+      428 |         expect(screen.getByText('Delete Anyway')).toBeTruthy();
+      429 |
+      430 |         fireEvent.press(screen.getByText('Delete Anyway'));
+
+      at Object.getByText (src/screens/vault/__tests__/AnchorDetailScreen.test.tsx:427:23)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/components/chart/__tests__/ChartPreview.test.tsx (9.111 s)
+  ● hero ChartPreview › renders and snapshots empty, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots empty, and delegates presses 1`
+
+    - Snapshot  - 4
+    + Received  + 5
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -112,25 +112,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="72"
+    +           nativeID="96"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -239,11 +240,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="73"
+    +             nativeID="97"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots normal, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots normal, and delegates presses 1`
+
+    - Snapshot  - 26
+    + Received  + 81
+
+    @@ -1,7 +1,7 @@
+      <View
+    -   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 25% progress. started at 84. Next move: Publish one useful story"
+    +   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 19% progress. started at 84. Next move: Publish one useful story"
+        accessibilityRole="button"
+        accessibilityState={
+          {
+            "busy": undefined,
+            "checked": undefined,
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -112,25 +112,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="74"
+    +           nativeID="98"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -239,11 +240,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="75"
+    +             nativeID="99"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -320,11 +321,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="76"
+    +                 nativeID="100"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -416,34 +417,88 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 95.52283053019305,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+                  >
+    -               <Svg
+    -                 height={39.06103286384976}
+    -                 viewBox="-52 -52 104 104"
+    -                 width={39.06103286384976}
+    +               <View
+    +                 collapsable={false}
+    +                 jestAnimatedProps={
+    +                   {
+    +                     "value": {},
+    +                   }
+    +                 }
+    +                 jestAnimatedStyle={
+    +                   {
+    +                     "value": {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   }
+    +                 }
+    +                 jestInlineStyle={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                   ]
+    +                 }
+    +                 nativeID="101"
+    +                 style={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                     {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   ]
+    +                 }
+                    >
+    -                 <Circle
+    -                   cx={0}
+    -                   cy={0}
+    -                   fill="none"
+    -                   r={30}
+    -                   stroke="rgba(17,24,32,0.5)"
+    -                   strokeDasharray="4 7"
+    -                   strokeWidth={2.5}
+    -                 />
+    -               </Svg>
+    +                 <Svg
+    +                   height={39.06103286384976}
+    +                   viewBox="-52 -52 104 104"
+    +                   width={39.06103286384976}
+    +                 >
+    +                   <Circle
+    +                     cx={0}
+    +                     cy={0}
+    +                     fill="none"
+    +                     r={30}
+    +                     stroke="rgba(17,24,32,0.5)"
+    +                     strokeDasharray="4 7"
+    +                     strokeWidth={2.5}
+    +                   />
+    +                 </Svg>
+    +               </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+    @@ -548,11 +603,11 @@
+            accessibilityRole="progressbar"
+            accessibilityValue={
+              {
+                "max": 100,
+                "min": 0,
+    -           "now": 25.4,
+    +           "now": 18.5589519650655,
+              }
+            }
+            accessible={true}
+            style={
+              {
+    @@ -572,11 +627,11 @@
+                    "maxWidth": "100%",
+                  },
+                  {
+                    "backgroundColor": "#8A8175",
+                    "minWidth": 4,
+    -               "width": "25.4%",
+    +               "width": "18.5589519650655%",
+                  },
+                ]
+              }
+              testID="chart-progress-fill"
+            />
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots regressed, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots regressed, and delegates presses 1`
+
+    - Snapshot  - 27
+    + Received  + 82
+
+    @@ -1,7 +1,7 @@
+      <View
+    -   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 5% progress. started at 84. Next move: Publish one useful story"
+    +   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 0% progress. started at 84. Next move: Publish one useful story"
+        accessibilityRole="button"
+        accessibilityState={
+          {
+            "busy": undefined,
+            "checked": undefined,
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -112,25 +112,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="77"
+    +           nativeID="102"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -239,11 +240,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="78"
+    +             nativeID="103"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -320,11 +321,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="79"
+    +                 nativeID="104"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -416,34 +417,88 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 95.52283053019305,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+                  >
+    -               <Svg
+    -                 height={39.06103286384976}
+    -                 viewBox="-52 -52 104 104"
+    -                 width={39.06103286384976}
+    +               <View
+    +                 collapsable={false}
+    +                 jestAnimatedProps={
+    +                   {
+    +                     "value": {},
+    +                   }
+    +                 }
+    +                 jestAnimatedStyle={
+    +                   {
+    +                     "value": {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   }
+    +                 }
+    +                 jestInlineStyle={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                   ]
+    +                 }
+    +                 nativeID="105"
+    +                 style={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                     {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   ]
+    +                 }
+                    >
+    -                 <Circle
+    -                   cx={0}
+    -                   cy={0}
+    -                   fill="none"
+    -                   r={30}
+    -                   stroke="rgba(17,24,32,0.5)"
+    -                   strokeDasharray="4 7"
+    -                   strokeWidth={2.5}
+    -                 />
+    -               </Svg>
+    +                 <Svg
+    +                   height={39.06103286384976}
+    +                   viewBox="-52 -52 104 104"
+    +                   width={39.06103286384976}
+    +                 >
+    +                   <Circle
+    +                     cx={0}
+    +                     cy={0}
+    +                     fill="none"
+    +                     r={30}
+    +                     stroke="rgba(17,24,32,0.5)"
+    +                     strokeDasharray="4 7"
+    +                     strokeWidth={2.5}
+    +                   />
+    +                 </Svg>
+    +               </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+    @@ -548,11 +603,11 @@
+            accessibilityRole="progressbar"
+            accessibilityValue={
+              {
+                "max": 100,
+                "min": 0,
+    -           "now": 5.4,
+    +           "now": 0,
+              }
+            }
+            accessible={true}
+            style={
+              {
+    @@ -571,12 +626,12 @@
+                    "height": "100%",
+                    "maxWidth": "100%",
+                  },
+                  {
+                    "backgroundColor": "#8A8175",
+    -               "minWidth": 4,
+    -               "width": "5.4%",
+    +               "minWidth": 0,
+    +               "width": "0%",
+                  },
+                ]
+              }
+              testID="chart-progress-fill"
+            />
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots reached, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots reached, and delegates presses 1`
+
+    - Snapshot  - 23
+    + Received  + 78
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -112,25 +112,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="80"
+    +           nativeID="106"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -239,11 +240,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="81"
+    +             nativeID="107"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -320,11 +321,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="82"
+    +                 nativeID="108"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -416,34 +417,88 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 95.52283053019305,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+                  >
+    -               <Svg
+    -                 height={39.06103286384976}
+    -                 viewBox="-52 -52 104 104"
+    -                 width={39.06103286384976}
+    +               <View
+    +                 collapsable={false}
+    +                 jestAnimatedProps={
+    +                   {
+    +                     "value": {},
+    +                   }
+    +                 }
+    +                 jestAnimatedStyle={
+    +                   {
+    +                     "value": {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   }
+    +                 }
+    +                 jestInlineStyle={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                   ]
+    +                 }
+    +                 nativeID="109"
+    +                 style={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                     {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   ]
+    +                 }
+                    >
+    -                 <Circle
+    -                   cx={0}
+    -                   cy={0}
+    -                   fill="none"
+    -                   r={30}
+    -                   stroke="rgba(17,24,32,0.5)"
+    -                   strokeDasharray="4 7"
+    -                   strokeWidth={2.5}
+    -                 />
+    -               </Svg>
+    +                 <Svg
+    +                   height={39.06103286384976}
+    +                   viewBox="-52 -52 104 104"
+    +                   width={39.06103286384976}
+    +                 >
+    +                   <Circle
+    +                     cx={0}
+    +                     cy={0}
+    +                     fill="none"
+    +                     r={30}
+    +                     stroke="rgba(17,24,32,0.5)"
+    +                     strokeDasharray="4 7"
+    +                     strokeWidth={2.5}
+    +                   />
+    +                 </Svg>
+    +               </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots complete, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots complete, and delegates presses 1`
+
+    - Snapshot  - 21
+    + Received  + 22
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -112,25 +112,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="83"
+    +           nativeID="110"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -239,11 +240,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="84"
+    +             nativeID="111"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -320,11 +321,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="85"
+    +                 nativeID="112"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -407,12 +408,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    -                     "top": 248.21423312057163,
+    +                     "left": 95.52283053019305,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-1"
+    @@ -446,11 +447,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="86"
+    +                 nativeID="113"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -533,12 +534,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 135.74563965575743,
+    -                     "top": 202.87587204371914,
+    +                     "left": 146.43688198417516,
+    +                     "top": 192.3522921740891,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-2"
+    @@ -572,11 +573,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="87"
+    +                 nativeID="114"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -659,12 +660,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 180.62793642665952,
+    -                     "top": 154.15505143606396,
+    +                     "left": 196.57612603732042,
+    +                     "top": 141.94411867653514,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-3"
+    @@ -698,11 +699,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="88"
+    +                 nativeID="115"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -785,12 +786,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 230.79737327147745,
+    -                     "top": 110.75379557256646,
+    +                     "left": 242.4866092523394,
+    +                     "top": 90.82350442040544,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-4"
+    @@ -824,11 +825,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="89"
+    +                 nativeID="116"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -912,12 +913,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 48,
+    -                     "left": 251.68075237363877,
+    -                     "top": 47.36152004964963,
+    +                     "left": 254.30985915492954,
+    +                     "top": 18.065727699530512,
+                          "width": 48,
+                        },
+                      ]
+                    }
+                    testID="chart-map-summit"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots empty, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots empty, and delegates presses 1`
+
+    - Snapshot  - 5
+    + Received  + 6
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -132.40638847564406,
+    +           "top": -121.88280860601395,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -114,25 +114,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="90"
+    +           nativeID="117"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -241,11 +242,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="91"
+    +             nativeID="118"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots normal, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots normal, and delegates presses 1`
+
+    - Snapshot  - 27
+    + Received  + 82
+
+    @@ -1,7 +1,7 @@
+      <View
+    -   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 25% progress. Next move: Publish one useful story"
+    +   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 19% progress. Next move: Publish one useful story"
+        accessibilityRole="button"
+        accessibilityState={
+          {
+            "busy": undefined,
+            "checked": undefined,
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -226.00528846528022,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -114,25 +114,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="92"
+    +           nativeID="119"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -241,11 +242,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="93"
+    +             nativeID="120"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -322,11 +323,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="94"
+    +                 nativeID="121"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -418,34 +419,88 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 95.52283053019305,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+                  >
+    -               <Svg
+    -                 height={39.06103286384976}
+    -                 viewBox="-52 -52 104 104"
+    -                 width={39.06103286384976}
+    +               <View
+    +                 collapsable={false}
+    +                 jestAnimatedProps={
+    +                   {
+    +                     "value": {},
+    +                   }
+    +                 }
+    +                 jestAnimatedStyle={
+    +                   {
+    +                     "value": {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   }
+    +                 }
+    +                 jestInlineStyle={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                   ]
+    +                 }
+    +                 nativeID="122"
+    +                 style={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                     {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   ]
+    +                 }
+                    >
+    -                 <Circle
+    -                   cx={0}
+    -                   cy={0}
+    -                   fill="none"
+    -                   r={30}
+    -                   stroke="rgba(17,24,32,0.5)"
+    -                   strokeDasharray="4 7"
+    -                   strokeWidth={2.5}
+    -                 />
+    -               </Svg>
+    +                 <Svg
+    +                   height={39.06103286384976}
+    +                   viewBox="-52 -52 104 104"
+    +                   width={39.06103286384976}
+    +                 >
+    +                   <Circle
+    +                     cx={0}
+    +                     cy={0}
+    +                     fill="none"
+    +                     r={30}
+    +                     stroke="rgba(17,24,32,0.5)"
+    +                     strokeDasharray="4 7"
+    +                     strokeWidth={2.5}
+    +                   />
+    +                 </Svg>
+    +               </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+    @@ -516,11 +571,11 @@
+            accessibilityRole="progressbar"
+            accessibilityValue={
+              {
+                "max": 100,
+                "min": 0,
+    -           "now": 25.4,
+    +           "now": 18.5589519650655,
+              }
+            }
+            accessible={true}
+            style={
+              {
+    @@ -540,11 +595,11 @@
+                    "maxWidth": "100%",
+                  },
+                  {
+                    "backgroundColor": "#8A8175",
+                    "minWidth": 4,
+    -               "width": "25.4%",
+    +               "width": "18.5589519650655%",
+                  },
+                ]
+              }
+              testID="chart-progress-fill"
+            />
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots regressed, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots regressed, and delegates presses 1`
+
+    - Snapshot  - 28
+    + Received  + 83
+
+    @@ -1,7 +1,7 @@
+      <View
+    -   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 5% progress. Next move: Publish one useful story"
+    +   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 0% progress. Next move: Publish one useful story"
+        accessibilityRole="button"
+        accessibilityState={
+          {
+            "busy": undefined,
+            "checked": undefined,
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -226.00528846528022,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -114,25 +114,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="95"
+    +           nativeID="123"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -241,11 +242,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="96"
+    +             nativeID="124"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -322,11 +323,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="97"
+    +                 nativeID="125"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -418,34 +419,88 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 95.52283053019305,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+                  >
+    -               <Svg
+    -                 height={39.06103286384976}
+    -                 viewBox="-52 -52 104 104"
+    -                 width={39.06103286384976}
+    +               <View
+    +                 collapsable={false}
+    +                 jestAnimatedProps={
+    +                   {
+    +                     "value": {},
+    +                   }
+    +                 }
+    +                 jestAnimatedStyle={
+    +                   {
+    +                     "value": {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   }
+    +                 }
+    +                 jestInlineStyle={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                   ]
+    +                 }
+    +                 nativeID="126"
+    +                 style={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                     {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   ]
+    +                 }
+                    >
+    -                 <Circle
+    -                   cx={0}
+    -                   cy={0}
+    -                   fill="none"
+    -                   r={30}
+    -                   stroke="rgba(17,24,32,0.5)"
+    -                   strokeDasharray="4 7"
+    -                   strokeWidth={2.5}
+    -                 />
+    -               </Svg>
+    +                 <Svg
+    +                   height={39.06103286384976}
+    +                   viewBox="-52 -52 104 104"
+    +                   width={39.06103286384976}
+    +                 >
+    +                   <Circle
+    +                     cx={0}
+    +                     cy={0}
+    +                     fill="none"
+    +                     r={30}
+    +                     stroke="rgba(17,24,32,0.5)"
+    +                     strokeDasharray="4 7"
+    +                     strokeWidth={2.5}
+    +                   />
+    +                 </Svg>
+    +               </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+    @@ -516,11 +571,11 @@
+            accessibilityRole="progressbar"
+            accessibilityValue={
+              {
+                "max": 100,
+                "min": 0,
+    -           "now": 5.4,
+    +           "now": 0,
+              }
+            }
+            accessible={true}
+            style={
+              {
+    @@ -539,12 +594,12 @@
+                    "height": "100%",
+                    "maxWidth": "100%",
+                  },
+                  {
+                    "backgroundColor": "#8A8175",
+    -               "minWidth": 4,
+    -               "width": "5.4%",
+    +               "minWidth": 0,
+    +               "width": "0%",
+                  },
+                ]
+              }
+              testID="chart-progress-fill"
+            />
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots reached, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots reached, and delegates presses 1`
+
+    - Snapshot  - 24
+    + Received  + 79
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -226.00528846528022,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -114,25 +114,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="98"
+    +           nativeID="127"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -241,11 +242,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="99"
+    +             nativeID="128"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -322,11 +323,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="100"
+    +                 nativeID="129"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -418,34 +419,88 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 95.52283053019305,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+                  >
+    -               <Svg
+    -                 height={39.06103286384976}
+    -                 viewBox="-52 -52 104 104"
+    -                 width={39.06103286384976}
+    +               <View
+    +                 collapsable={false}
+    +                 jestAnimatedProps={
+    +                   {
+    +                     "value": {},
+    +                   }
+    +                 }
+    +                 jestAnimatedStyle={
+    +                   {
+    +                     "value": {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   }
+    +                 }
+    +                 jestInlineStyle={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                   ]
+    +                 }
+    +                 nativeID="130"
+    +                 style={
+    +                   [
+    +                     {
+    +                       "alignItems": "center",
+    +                       "bottom": 0,
+    +                       "justifyContent": "center",
+    +                       "left": 0,
+    +                       "position": "absolute",
+    +                       "right": 0,
+    +                       "top": 0,
+    +                     },
+    +                     {
+    +                       "transform": [
+    +                         {
+    +                           "scale": 1,
+    +                         },
+    +                       ],
+    +                     },
+    +                   ]
+    +                 }
+                    >
+    -                 <Circle
+    -                   cx={0}
+    -                   cy={0}
+    -                   fill="none"
+    -                   r={30}
+    -                   stroke="rgba(17,24,32,0.5)"
+    -                   strokeDasharray="4 7"
+    -                   strokeWidth={2.5}
+    -                 />
+    -               </Svg>
+    +                 <Svg
+    +                   height={39.06103286384976}
+    +                   viewBox="-52 -52 104 104"
+    +                   width={39.06103286384976}
+    +                 >
+    +                   <Circle
+    +                     cx={0}
+    +                     cy={0}
+    +                     fill="none"
+    +                     r={30}
+    +                     stroke="rgba(17,24,32,0.5)"
+    +                     strokeDasharray="4 7"
+    +                     strokeWidth={2.5}
+    +                   />
+    +                 </Svg>
+    +               </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots complete, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots complete, and delegates presses 1`
+
+    - Snapshot  - 22
+    + Received  + 23
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -40.28431200449134,
+    +           "top": -20.354020852330336,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -114,25 +114,26 @@
+                      "right": 0,
+                      "top": 0,
+                    },
+                  ]
+                }
+    -           nativeID="101"
+    +           nativeID="131"
+                style={
+                  [
+                    {
+                      "bottom": 0,
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -241,11 +242,11 @@
+                        "position": "absolute",
+                        "top": 0,
+                      },
+                    ]
+                  }
+    -             nativeID="102"
+    +             nativeID="132"
+                  pointerEvents="box-none"
+                  style={
+                    [
+                      {
+                        "height": 443.1924882629108,
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 50.082303796703584,
+    +                     "top": 296.47477203335535,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -322,11 +323,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="103"
+    +                 nativeID="133"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -409,12 +410,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    -                     "top": 248.21423312057163,
+    +                     "left": 95.52283053019305,
+    +                     "top": 241.62683611467435,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-1"
+    @@ -448,11 +449,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="104"
+    +                 nativeID="134"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -535,12 +536,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 135.74563965575743,
+    -                     "top": 202.87587204371914,
+    +                     "left": 146.43688198417516,
+    +                     "top": 192.3522921740891,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-2"
+    @@ -574,11 +575,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="105"
+    +                 nativeID="135"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -661,12 +662,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 180.62793642665952,
+    -                     "top": 154.15505143606396,
+    +                     "left": 196.57612603732042,
+    +                     "top": 141.94411867653514,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-3"
+    @@ -700,11 +701,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="106"
+    +                 nativeID="136"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -787,12 +788,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 230.79737327147745,
+    -                     "top": 110.75379557256646,
+    +                     "left": 242.4866092523394,
+    +                     "top": 90.82350442040544,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-4"
+    @@ -826,11 +827,11 @@
+                            "right": 0,
+                            "top": 0,
+                          },
+                        ]
+                      }
+    -                 nativeID="107"
+    +                 nativeID="137"
+                      pointerEvents="none"
+                      style={
+                        [
+                          {
+                            "alignItems": "center",
+    @@ -914,12 +915,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 48,
+    -                     "left": 251.68075237363877,
+    -                     "top": 47.36152004964963,
+    +                     "left": 254.30985915492954,
+    +                     "top": 18.065727699530512,
+                          "width": 48,
+                        },
+                      ]
+                    }
+                    testID="chart-map-summit"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● row ChartPreview › renders and snapshots normal, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `row ChartPreview renders and snapshots normal, and delegates presses 1`
+
+    - Snapshot  - 3
+    + Received  + 3
+
+    @@ -1,7 +1,7 @@
+      <View
+    -   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 25% progress. Next move: Publish one useful story"
+    +   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 19% progress. Next move: Publish one useful story"
+        accessibilityRole="button"
+        accessibilityState={
+          {
+            "busy": undefined,
+            "checked": undefined,
+    @@ -88,11 +88,11 @@
+            accessibilityRole="progressbar"
+            accessibilityValue={
+              {
+                "max": 100,
+                "min": 0,
+    -           "now": 25.4,
+    +           "now": 18.5589519650655,
+              }
+            }
+            accessible={true}
+            style={
+              {
+    @@ -112,11 +112,11 @@
+                    "maxWidth": "100%",
+                  },
+                  {
+                    "backgroundColor": "#8A8175",
+                    "minWidth": 4,
+    -               "width": "25.4%",
+    +               "width": "18.5589519650655%",
+                  },
+                ]
+              }
+              testID="chart-progress-fill"
+            />
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● row ChartPreview › renders and snapshots regressed, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `row ChartPreview renders and snapshots regressed, and delegates presses 1`
+
+    - Snapshot  - 4
+    + Received  + 4
+
+    @@ -1,7 +1,7 @@
+      <View
+    -   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 5% progress. Next move: Publish one useful story"
+    +   accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 0% progress. Next move: Publish one useful story"
+        accessibilityRole="button"
+        accessibilityState={
+          {
+            "busy": undefined,
+            "checked": undefined,
+    @@ -88,11 +88,11 @@
+            accessibilityRole="progressbar"
+            accessibilityValue={
+              {
+                "max": 100,
+                "min": 0,
+    -           "now": 5.4,
+    +           "now": 0,
+              }
+            }
+            accessible={true}
+            style={
+              {
+    @@ -111,12 +111,12 @@
+                    "height": "100%",
+                    "maxWidth": "100%",
+                  },
+                  {
+                    "backgroundColor": "#8A8175",
+    -               "minWidth": 4,
+    -               "width": "5.4%",
+    +               "minWidth": 0,
+    +               "width": "0%",
+                  },
+                ]
+              }
+              testID="chart-progress-fill"
+            />
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+ › 12 snapshots failed.
+FAIL src/services/__tests__/AuthHydrationService.test.ts
+  ● AuthHydrationService › preserves unsynced local temp anchors during authenticated hydration
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: ArrayContaining [ObjectContaining {"id": "server-anchor-1"}, ObjectContaining {"id": "anchor-1779092632674"}]
+    Received: [{"activationCount": 0, "archivedAt": undefined, "baseSigilSvg": "<svg></svg>", "category": "career", "chargedAt": undefined, "createdAt": 2024-01-15T00:00:00.000Z, "distilledLetters": ["B", "L", "D", "M", "Y", "C", "R", "R", "N", "T", …], "firstChargedAt": undefined, "id": "server-anchor-1", "ignitedAt": undefined, "intentionText": "Build my career in tech", "isCharged": false, "lastActivatedAt": undefined, "releasedAt": undefined, "structureVariant": "balanced", "updatedAt": 2026-05-18T08:10:00.000Z, "userId": "test-user-123"}]
+
+      152 |     await AuthHydrationService.hydrateAuthenticatedData();
+      153 |
+    > 154 |     expect(useAnchorStore.getState().anchors).toEqual(
+          |                                               ^
+      155 |       expect.arrayContaining([
+      156 |         expect.objectContaining({ id: 'server-anchor-1' }),
+      157 |         expect.objectContaining({ id: 'anchor-1779092632674' }),
+
+      at Object.toEqual (src/services/__tests__/AuthHydrationService.test.ts:154:47)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● AuthHydrationService › keeps local progress when anchor hydration fails after login
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 5
+    + Received  + 1
+
+    - Array [
+    -   ObjectContaining {
+    -     "id": "anchor-local-only",
+    -   },
+    - ]
+    + Array []
+
+      606 |       expect.objectContaining({ id: user.id }),
+      607 |     );
+    > 608 |     expect(useAnchorStore.getState().anchors).toEqual([
+          |                                               ^
+      609 |       expect.objectContaining({ id: 'anchor-local-only' }),
+      610 |     ]);
+      611 |     expect(useSettingsStore.getState().focusSessionMode).toBe('deep');
+
+      at Object.toEqual (src/services/__tests__/AuthHydrationService.test.ts:608:47)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/adapters/v2/home/__tests__/isolation.test.ts
+  ● UI-D isolation › does not touch backend, central V2 navigation, or legacy theme
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "E:\\Projects\\Anchor\\anchor\\mobile\\src\\screens\\v2\\home\\dailyShell.tsx",
+    + ]
+
+      43 |     const forbidden = /from ['"]@\/(navigation\/v2\/(routes|types|AnchorV2Navigator)|theme\/colors|theme\/typography)['"]/;
+      44 |     const offenders = uiDFiles.filter((file) => forbidden.test(readFileSync(file, 'utf8')));
+    > 45 |     expect(offenders).toEqual([]);
+         |                       ^
+      46 |   });
+      47 |
+      48 |   it('is never imported by production (non-v2) screens or navigation', () => {
+
+      at Object.toEqual (src/adapters/v2/home/__tests__/isolation.test.ts:45:23)
+
+FAIL src/services/audio/__tests__/sfxLog.test.ts
+  ● does not record or expose lines when disabled
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "[SFX] +0ms hidden",
+    + ]
+
+      26 |
+      27 |   sfxLog('hidden');
+    > 28 |   expect(getSfxLog()).toEqual([]);
+         |                       ^
+      29 | });
+      30 |
+
+      at Object.toEqual (src/services/audio/__tests__/sfxLog.test.ts:28:23)
+
+PASS src/components/v2/chart/panel/__tests__/ChartSummitAndRouteScenes.test.tsx (72.719 s)
+PASS src/components/v2/chart/panel/__tests__/ChartActiveView.test.tsx (71.153 s)
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (77.437 s)
+  ● Vision ceremony › personal-photo completion uses Complete Vision and starts sealing on that tap
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      112 |     expect(view.queryByTestId('vision-seal-hold')).toBeNull();
+      113 |     expect(view.getByText(copy.sealed)).toBeTruthy();
+    > 114 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+          |                             ^
+      115 |   });
+      116 |   it('See both again and neither retain the description without saving', async () => {
+      117 |     mockJob = job(); const view = setup(); await choose(view);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:114:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › the first-image completion tap starts the L4 scene immediately, which is skippable
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      367 |     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      368 |     await advance(0);
+    > 369 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+          |                             ^
+      370 |     expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 4, skippable: true });
+      371 |   });
+      372 |   it('a later image completion tap starts the L2 scene immediately', async () => {
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:369:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › a later image completion tap starts the L2 scene immediately
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      374 |     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      375 |     await advance(0);
+    > 376 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+          |                             ^
+      377 |     expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 2, skippable: true });
+      378 |   });
+      379 |   it('completion fires one Heavy haptic after the print movement and no Medium haptic', async () => {
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:376:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › Skip is offered only while the skippable scene is active, and a tap lands the print on the board once
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      389 |     expect(view.queryByLabelText('Skip')).toBeNull();
+      390 |     await sealNow(view, 1600);
+    > 391 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+          |                             ^
+      392 |     expect(view.getByLabelText('Skip')).toBeTruthy();
+      393 |     fireEvent.press(view.getByLabelText('Skip'));
+      394 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:391:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › a skip before the save completes lands once the save succeeds, with no rise
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      406 |     expect(scene()).toBeNull(); expect(view.onPinned).not.toHaveBeenCalled();
+      407 |     await act(async () => { resolveSave(true); }); await advance(1); await advance(200);
+    > 408 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+          |                           ^
+      409 |     await advance(5000); expect(view.onPinned).toHaveBeenCalledTimes(1);
+      410 |   });
+      411 |   it('Reduce Motion resolves to a short L2 scene that is not skippable; the seal cue and Heavy haptic still fire', async () => {
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:408:27)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › a higher scene that preempts a later-image seal lands it on the settled board
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      424 |     expect(view.onPinned).not.toHaveBeenCalled();
+      425 |     act(() => { useCelebrationStore.getState().request(4, 'test-higher-scene', { durationMs: 6000 }); });
+    > 426 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+          |                           ^
+      427 |     await advance(6000);
+      428 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+      429 |     expect(scene()?.id).toBe('test-higher-scene');
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:426:27)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › a seal deferred behind a higher scene still saves, and leaves the queue at its hand-off
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      433 |     act(() => { useCelebrationStore.getState().request(4, 'test-higher-scene', { durationMs: 6000 }); });
+      434 |     await sealNow(view, 1600);
+    > 435 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+          |                             ^
+      436 |     expect(useCelebrationStore.getState().queueLength).toBe(1);
+      437 |     await advance(3500); await advance(1200); await advance(200);
+      438 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:435:29)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS src/screens/rituals/__tests__/ActivationScreen.test.tsx (50.992 s)
+PASS src/components/v2/chart/panel/__tests__/ChartCelebrationScenes.test.tsx (53.059 s)
+PASS src/screens/v2/practice/deepFocus/__tests__/V2DeepFocusActiveScreen.test.tsx (62.338 s)
+FAIL src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (33.989 s)
+  ● V2VisionScreen ceremony additions › drops the arrival pin on the saved scene id after regenerate even when the read model re-signs its URL
+
+    Unable to find an element with testID: vision-seal-hold
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="360"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="361"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="362"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="363"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="364"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="365"
+                >
+                  <View
+                    nativeID="395"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="396"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="366"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="367"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="368"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="369"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="370"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="371"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="372"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="373"
+                >
+                  <View
+                    nativeID="397"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="374"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="375"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="376"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="377"
+          >
+            <View
+              nativeID="401"
+            />
+            <View
+              nativeID="378"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="402"
+        >
+          <View>
+            <Text
+              accessibilityRole="header"
+            >
+              Sealed.
+            </Text>
+            <Text>
+              This is where it leads.
+            </Text>
+          </View>
+        </View>
+        <View
+          accessibilityLabel="Skip"
+          accessibilityRole="button"
+          accessible={true}
+          testID="vision-ceremony-skip"
+        />
+      </View>
+    </View>
+
+      104 |       fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+      105 |       fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    > 106 |       fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn'); await advance(1600); await advance(200);
+          |                      ^
+      107 |     }
+      108 |     await advance(3200); await advance(1200); await advance(200); await advance(600);
+      109 |     expect(view.getByTestId('vision-board-photo-sc-4-arrival-pin')).toBeTruthy();
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:106:22)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › persists all 7 selected personal photos in picker order with their source metadata
+
+    Unable to find an element with testID: vision-complete-vision
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="826"
+          testID="vision-ceremony-slot-2"
+        >
+          <View
+            nativeID="827"
+          >
+            <View
+              testID="vision-ceremony-print-2"
+            >
+              <View
+                nativeID="828"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="829"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="830"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="831"
+                >
+                  <View
+                    nativeID="832"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-2-sharp"
+                    />
+                    <View
+                      nativeID="833"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="834"
+                    testID="vision-ceremony-print-2-ink"
+                  />
+                  <View
+                    nativeID="835"
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+                <View
+                  nativeID="836"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="776"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="777"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="778"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="779"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="780"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="781"
+                >
+                  <View
+                    nativeID="837"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="838"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="782"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                  <View
+                    nativeID="839"
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+                <View
+                  nativeID="783"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="784"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="785"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="786"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="787"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="788"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="789"
+                >
+                  <View
+                    nativeID="840"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="790"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                  <View
+                    nativeID="842"
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+                <View
+                  nativeID="791"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="823"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="824"
+          >
+            <View
+              nativeID="825"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="843"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Developing
+            </Text>
+            <Svg
+              accessible={false}
+            >
+              <Path />
+            </Svg>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      184 |     await view.findByText("When it's true, what do you see?"); await advance(ASK_READY);
+      185 |     await ownPhoto(view, 'library');
+    > 186 |     fireEvent.press(view.getByTestId('vision-complete-vision'));
+          |                          ^
+      187 |     await advance(200);
+      188 |
+      189 |     expect(savedScenes).toEqual(Array.from({ length: count }, (_, i) => ({
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:186:26)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › persists all 8 selected personal photos in picker order with their source metadata
+
+    Unable to find an element with testID: vision-complete-vision
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="896"
+          testID="vision-ceremony-slot-2"
+        >
+          <View
+            nativeID="897"
+          >
+            <View
+              testID="vision-ceremony-print-2"
+            >
+              <View
+                nativeID="898"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="899"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="900"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="901"
+                >
+                  <View
+                    nativeID="902"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-2-sharp"
+                    />
+                    <View
+                      nativeID="903"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="904"
+                    testID="vision-ceremony-print-2-ink"
+                  />
+                  <View
+                    nativeID="905"
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+                <View
+                  nativeID="906"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="846"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="847"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="848"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="849"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="850"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="851"
+                >
+                  <View
+                    nativeID="907"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="908"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="852"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                  <View
+                    nativeID="909"
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+                <View
+                  nativeID="853"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="854"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="855"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="856"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="857"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="858"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="859"
+                >
+                  <View
+                    nativeID="910"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="860"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                  <View
+                    nativeID="912"
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+                <View
+                  nativeID="861"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="893"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="894"
+          >
+            <View
+              nativeID="895"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="913"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Developing
+            </Text>
+            <Svg
+              accessible={false}
+            >
+              <Path />
+            </Svg>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      184 |     await view.findByText("When it's true, what do you see?"); await advance(ASK_READY);
+      185 |     await ownPhoto(view, 'library');
+    > 186 |     fireEvent.press(view.getByTestId('vision-complete-vision'));
+          |                          ^
+      187 |     await advance(200);
+      188 |
+      189 |     expect(savedScenes).toEqual(Array.from({ length: count }, (_, i) => ({
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:186:26)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › sealed regeneration on a 6-image board resumes unfinished mutations
+
+    Unable to find an element with testID: vision-seal-hold
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="934"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="935"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="936"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="937"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="938"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="939"
+                >
+                  <View
+                    nativeID="969"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="970"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="940"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="941"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="942"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="943"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="944"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="945"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="946"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="947"
+                >
+                  <View
+                    nativeID="971"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="948"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="949"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="950"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="951"
+          >
+            <View
+              nativeID="975"
+            />
+            <View
+              nativeID="952"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="976"
+        >
+          <View>
+            <Text
+              accessibilityRole="header"
+            >
+              Sealed.
+            </Text>
+            <Text>
+              This is where it leads.
+            </Text>
+          </View>
+        </View>
+        <View
+          accessibilityLabel="Skip"
+          accessibilityRole="button"
+          accessible={true}
+          testID="vision-ceremony-skip"
+        />
+      </View>
+    </View>
+
+      217 |     fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+      218 |     fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    > 219 |     fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn'); await advance(1600); await advance(200);
+          |                    ^
+      220 |     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
+      221 |     await act(async () => { fireEvent.press(view.getByTestId('vision-ceremony-save-retry')); }); await advance(200);
+      222 |     expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes'))).toHaveLength(count === 6 ? 2 : 1);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:219:20)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › sealed regeneration on a 3-image board resumes unfinished mutations
+
+    Unable to find an element with testID: vision-seal-hold
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="991"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="992"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="993"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="994"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="995"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="996"
+                >
+                  <View
+                    nativeID="1026"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="1027"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="997"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="998"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="999"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="1000"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="1001"
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1002"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1003"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1004"
+                >
+                  <View
+                    nativeID="1028"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="1005"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1006"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1007"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="1008"
+          >
+            <View
+              nativeID="1032"
+            />
+            <View
+              nativeID="1009"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1033"
+        >
+          <View>
+            <Text
+              accessibilityRole="header"
+            >
+              Sealed.
+            </Text>
+            <Text>
+              This is where it leads.
+            </Text>
+          </View>
+        </View>
+        <View
+          accessibilityLabel="Skip"
+          accessibilityRole="button"
+          accessible={true}
+          testID="vision-ceremony-skip"
+        />
+      </View>
+    </View>
+
+      217 |     fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+      218 |     fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    > 219 |     fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn'); await advance(1600); await advance(200);
+          |                    ^
+      220 |     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
+      221 |     await act(async () => { fireEvent.press(view.getByTestId('vision-ceremony-save-retry')); }); await advance(200);
+      222 |     expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes'))).toHaveLength(count === 6 ? 2 : 1);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:219:20)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS src/components/v2/creation/__tests__/V2CreationFlow.test.tsx (23.406 s)
+  ● Console
+
+    console.log
+      [CreationTiming] 9/9: Reveal completes | +0ms | total: 0ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 9/9: Reveal completes | +166ms | total: 166ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 1/9: Distillation begins | +0ms | total: 0ms | {"intention":"I finish the project","letterCount":9,"reduceMotion":true}
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 2/9: Distillation ends | +528ms | total: 528ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 3/9: Kamea mapping begins | +197ms | total: 725ms | {"hurried":false,"pace":1}
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 4/9: First letter begins movement | +254ms | total: 979ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 5/9: Final letter reaches mapped position | +109ms | total: 1088ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 6/9: First geometry stroke begins | +62ms | total: 1150ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 7/9: Final geometry stroke completes | +250ms | total: 1400ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 8/9: Final reveal begins | +573ms | total: 1973ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 9/9: Reveal completes | +30ms | total: 2003ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+    console.log
+      [CreationTiming] 9/9: Reveal completes | +19807ms | total: 21810ms
+
+      at CreationTimingTracker.log [as record] (src/components/v2/creation/creationTelemetry.ts:90:13)
+
+PASS src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx (8.443 s)
+  ● Console
+
+    console.log
+      [VisualProfiler] overlayMounted {
+        direction: 'forward',
+        sourcePlace: 'details',
+        targetPlace: 'practiceSetup'
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsNavigationDispatched { direction: 'forward', targetPlace: 'practiceSetup', exitProgress: 0 }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+

@@ -84,7 +84,15 @@ export function useV2DailyShellIntents(): Required<
    * frames where the Anchor carousel is settling.
    */
   return useMemo(() => ({
-    onOpenPractice: value.onOpenPractice ?? noopWarn('onOpenPractice'),
+    onOpenPractice: value.onOpenPractice ?? ((anchorId, recommendedMode, options) => {
+      navigation.navigate('V2Practice', {
+        anchorId,
+        recommendedMode,
+        ...(options?.anchorTransition ? { anchorTransition: true } : {}),
+        returnRoute: options?.returnRoute,
+        source: options?.source,
+      });
+    }),
     onOpenVision: value.onOpenVision ?? ((anchorId, options) => navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) })),
     onCreateVision: value.onCreateVision ?? noopWarn('onCreateVision'),
     onOpenChart: value.onOpenChart ?? ((anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId })),

@@ -268,16 +268,16 @@ describe('V2ChartJourneyScreen — Course log redesign', () => {
     expect(screen.getByText('Practice completed.')).toBeTruthy();
 
     // Check move completed appears with move text
-    await waitFor(() => expect(screen.getByText('Move completed')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Completed')).toBeTruthy());
     expect(screen.getByText('Buy new running shoes')).toBeTruthy();
 
     // Check waypoint reached appears
-    expect(screen.getByText('Waypoint reached')).toBeTruthy();
+    expect(screen.getByText('Reached')).toBeTruthy();
     expect(screen.getByText('Complete 10k run')).toBeTruthy();
 
     // Check course created appears with 5 waypoints copy
     expect(screen.getByText('Course created')).toBeTruthy();
-    expect(screen.getByText('Five waypoints plotted toward your destination.')).toBeTruthy();
+    expect(screen.queryByText('Five waypoints plotted toward your destination.')).toBeNull();
   });
 
   it('shows synthesized Course created item in empty state', async () => {
@@ -286,6 +286,6 @@ describe('V2ChartJourneyScreen — Course log redesign', () => {
 
     const screen = render(<V2ChartJourneyScreen />);
     await waitFor(() => expect(screen.getByText('Course created')).toBeTruthy());
-    expect(screen.getByText('Five waypoints plotted toward your destination.')).toBeTruthy();
+    expect(screen.queryByText('Five waypoints plotted toward your destination.')).toBeNull();
   });
 });

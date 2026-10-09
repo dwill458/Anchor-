@@ -8,9 +8,14 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { ENTRANCE } from '@/components/v2/vision/ceremony/VisionEntrance';
 const mockNavigate = jest.fn();
+const mockSetOptions = jest.fn();
+const mockPreventRemove = jest.fn();
+const mockNavigationListeners: Record<string, (event: any) => void> = {};
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({ navigate: mockNavigate, setParams: jest.fn(), goBack: jest.fn(), canGoBack: () => true }),
+  UNSTABLE_usePreventRemove: (...args: unknown[]) => mockPreventRemove(...args),
+  useNavigation: () => ({ navigate: mockNavigate, setOptions: mockSetOptions, setParams: jest.fn(), goBack: jest.fn(), canGoBack: () => true,
+    addListener: (name: string, handler: (event: any) => void) => { mockNavigationListeners[name] = handler; return () => { delete mockNavigationListeners[name]; }; } }),
   useRoute: () => ({ params: { anchorId: 'anchor-1', initialMode: 'view' } }),
 }));
 jest.mock('@/services/ApiClient', () => ({ apiClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), put: jest.fn(), delete: jest.fn() },
@@ -34,12 +39,13 @@ const ASK_READY = ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs 
 async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); fireEvent.press(view.getByLabelText(/^Add an image/)); await advance(ASK_READY); }
 async function ownPhoto(view: ReturnType<typeof render>, source: 'camera' | 'library') {
   await act(async () => { fireEvent.press(view.getByLabelText(source === 'camera' ? 'Take a photo' : 'Use my own photo')); });
-  fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(600); await advance(4400);
+  view.getAllByTestId(/^vision-ceremony-print-\d+-sharp$/).forEach(image => fireEvent(image, 'load'));
+  await advance(0); await advance(1000); await advance(4400);
 }
-/** The first image holds 1.6s; every later image holds 900ms. */
-async function seal(view: ReturnType<typeof render>, hold = 1600) {
-  fireEvent.press(view.getByTestId('vision-ceremony-keep')); fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
-  await advance(hold - 1); expect(apiClient.post).not.toHaveBeenCalled(); await advance(1); await advance(200);
+/** Confirming personal photos saves once and begins the brief seal directly. */
+async function seal(view: ReturnType<typeof render>, _hold = 1600) {
+  fireEvent.press(view.getByTestId('vision-complete-vision'));
+  await advance(200);
 }
 describe('V2VisionScreen ceremony additions', () => {
   beforeEach(() => {
@@ -102,8 +108,8 @@ describe('V2VisionScreen ceremony additions', () => {
       fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
       await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
       fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
-      fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
-      fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn'); await advance(1600); await advance(200);
+      fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-complete-vision'));
+      await advance(200);
     }
     await advance(3200); await advance(1200); await advance(200); await advance(600);
     expect(view.getByTestId('vision-board-photo-sc-4-arrival-pin')).toBeTruthy();
@@ -113,6 +119,25 @@ describe('V2VisionScreen ceremony additions', () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library');
     fireEvent.press(view.getByLabelText('Back')); await view.findByTestId('vision-board'); expect(apiClient.post).not.toHaveBeenCalled();
   });
+  it('protects in-flight sealing from route removal and restores navigation on the completed board', async () => {
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    await openAsk(view); await ownPhoto(view, 'library');
+    const preventDefault = jest.fn();
+    act(() => {
+      fireEvent.press(view.getByTestId('vision-complete-vision'));
+      mockNavigationListeners.beforeRemove({ preventDefault });
+    });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: false });
+    expect(mockPreventRemove).toHaveBeenLastCalledWith(true, expect.any(Function));
+    await advance(200); await advance(3500); await advance(1200); await advance(200);
+    expect(view.getByTestId('vision-board')).toBeTruthy();
+    preventDefault.mockClear();
+    act(() => mockNavigationListeners.beforeRemove({ preventDefault }));
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: true });
+    expect(mockPreventRemove).toHaveBeenLastCalledWith(false, expect.any(Function));
+  });
   it('a permanent camera refusal explains permission and leaves Ask usable', async () => {
     picker.requestCameraPermissionsAsync.mockResolvedValue({ status: 'denied', canAskAgain: false } as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
@@ -121,13 +146,13 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(alert).toHaveBeenCalledWith('Permission needed', expect.any(String), expect.arrayContaining([expect.objectContaining({ text: 'Open Settings' })]));
     expect(picker.launchCameraAsync).not.toHaveBeenCalled(); expect(view.getByText('What else do you see?')).toBeTruthy();
   });
-  it('offers no add action when the real board holds six images', async () => {
-    currentVision = visionWith(6); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board');
+  it('offers no add action when the real board holds eight images', async () => {
+    currentVision = visionWith(8); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board');
     expect(view.queryByLabelText(/^Add an image/)).toBeNull();
   });
   it('one-image boards retain room to add', async () => {
     currentVision = visionWith(1); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board');
-    expect(view.getByLabelText('Add an image, 1 of 6')).toBeTruthy();
+    expect(view.getByLabelText('Add an image, 1 of 8')).toBeTruthy();
   });
   it('keeps added images when the Vision is reopened', async () => {
     currentVision = visionWith(4); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board-photo-sc-4'); view.unmount();
@@ -160,15 +185,54 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(view.getByText('Sealed.')).toBeTruthy(); expect(view.queryByTestId('vision-board')).toBeNull();
     await advance(3500); await advance(1200); await advance(200); expect(view.getByTestId('vision-board')).toBeTruthy();
   });
-  it.each([6, 3])('sealed regeneration on a %i-image board resumes unfinished mutations', async count => {
+  it.each([7, 8])('persists all %i selected personal photos in picker order with their source metadata', async count => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: null });
+    picker.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: Array.from({ length: count }, (_, i) => ({
+      uri: `file:///personal-${i}.jpg`, mimeType: 'image/jpeg',
+    })) } as never);
+    let uploadIndex = 0;
+    let savedScenes: any[] | undefined;
+    (apiClient.post as jest.Mock).mockImplementation(async (url: string, input: any) => {
+      if (url === '/api/v2/assets/upload') {
+        const i = uploadIndex++;
+        return { data: { id: `personal-asset-${i}`, resolvedUrl: `https://example.com/personal-${i}.jpg`, mimeType: 'image/jpeg', fileSizeBytes: 3, createdAt: stamp } };
+      }
+      if (url === '/api/v2/anchors/anchor-1/vision') {
+        savedScenes = input.scenes;
+        return { data: { ...visionWith(0), description: input.description,
+          scenes: input.scenes.map((item: any, i: number) => scene(i + 1, { ...item, resolvedImageUrl: `https://example.com/personal-${i}.jpg` })) } };
+      }
+      throw new Error(`Unexpected Vision request: ${url}`);
+    });
+
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    await view.findByText("When it's true, what do you see?"); await advance(ASK_READY);
+    await ownPhoto(view, 'library');
+    for (let i = 1; i < count; i++) fireEvent(view.getByTestId('vision-photo-stack-hit-target'), 'accessibilityTap');
+    expect(view.getByTestId('vision-photo-stack-count').props.children).toBe(`${count} of ${count}`);
+    fireEvent.changeText(view.getByTestId(`vision-ceremony-print-${count - 1}-caption`), 'The final photo is mine.');
+    fireEvent.press(view.getByTestId('vision-complete-vision'));
+    await advance(200);
+
+    expect(savedScenes).toEqual(Array.from({ length: count }, (_, i) => ({
+      assetId: `personal-asset-${i}`, prompt: '', sourceType: 'USER_UPLOAD',
+      caption: i === count - 1 ? 'The final photo is mine.' : 'I build what matters.',
+    })));
+    expect(uploadIndex).toBe(count);
+    await advance(3500); await advance(1200); await advance(200);
+    expect(view.getByTestId('vision-board')).toBeTruthy();
+    expect(view.getByTestId(`vision-board-photo-sc-${count}`)).toBeTruthy();
+    expect(view.getByTestId(`vision-board-photo-sc-${count}-arrival-pin`)).toBeTruthy();
+  });
+  it.each([8, 3])('sealed regeneration on a %i-image board resumes unfinished mutations', async count => {
     currentVision = visionWith(count);
     const generated = { id: 'generation', visionId: 'vision-101', status: 'COMPLETE', retryCount: 0,
       candidates: [0, 1].map(i => ({ id: `candidate-${i}`, assetId: `generated-${i}`, imageUrl: `file:///generated-${i}.jpg`, prompt: 'A new studio.', sortOrder: i })) };
     let addFailed = false, deleteFailed = false;
     (apiClient.post as jest.Mock).mockImplementation(async (url: string, input: any) => {
       if (url.endsWith('/scene-generation')) return { data: generated };
-      if (count === 6 && !addFailed) { addFailed = true; throw new Error('Add unavailable'); }
-      const added = scene(7, { ...input, resolvedImageUrl: 'file:///generated-0.jpg' }); currentVision = { ...currentVision, scenes: [...currentVision.scenes, added] };
+      if (count === 8 && !addFailed) { addFailed = true; throw new Error('Add unavailable'); }
+      const added = scene(9, { ...input, resolvedImageUrl: 'file:///generated-0.jpg' }); currentVision = { ...currentVision, scenes: [...currentVision.scenes, added] };
       return { data: added };
     });
     (apiClient.delete as jest.Mock).mockImplementation(async () => {
@@ -180,17 +244,17 @@ describe('V2VisionScreen ceremony additions', () => {
     fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
     fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
-    fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
-    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn'); await advance(1600); await advance(200);
+    fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-complete-vision'));
+    await advance(200);
     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
     await act(async () => { fireEvent.press(view.getByTestId('vision-ceremony-save-retry')); }); await advance(200);
-    expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes'))).toHaveLength(count === 6 ? 2 : 1);
-    expect(apiClient.delete).toHaveBeenCalledTimes(count === 6 ? 1 : 2);
+    expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes'))).toHaveLength(count === 8 ? 2 : 1);
+    expect(apiClient.delete).toHaveBeenCalledTimes(count === 8 ? 1 : 2);
     expect(currentVision.scenes.filter(item => item.assetId === 'generated-0')).toHaveLength(1);
     expect(currentVision.scenes.find(item => item.assetId === 'generated-0')?.sortOrder).toBe(0);
     await advance(3500); await advance(1200); await advance(200); expect(view.getByTestId('vision-board')).toBeTruthy();
   });
-  describe('the first image returns to Home', () => {
+  describe('the first image remains on its completed board', () => {
     const goHome = () => mockNavigate.mock.calls.filter(([name]) => name === 'V2DevelopmentHome');
     /** A first own-photo Vision, sealed and pinned: the board shows the print with "Sit with it now". */
     async function firstImageOnBoard() {
@@ -208,23 +272,22 @@ describe('V2VisionScreen ceremony additions', () => {
       expect(view.getByTestId('vision-board')).toBeTruthy(); expect(view.getByTestId('vision-just-added')).toBeTruthy();
       return view;
     }
-    it('navigates Home once, with the return param, after the pinned board has been sat with', async () => {
+    it('stays on the completed board after the pinned board has been sat with', async () => {
       const view = await firstImageOnBoard();
       expect(goHome()).toHaveLength(0);
-      await advance(3399); expect(goHome()).toHaveLength(0);
-      await advance(1);
-      expect(goHome()).toHaveLength(1);
-      expect(goHome()[0]).toEqual(['V2DevelopmentHome', { visionReturn: { anchorId: 'anchor-1', nonce: expect.any(Number) } }]);
-      await advance(20000); expect(goHome()).toHaveLength(1);
+      await advance(20000);
+      expect(view.getByTestId('vision-board')).toBeTruthy();
+      expect(goHome()).toHaveLength(0);
       view.unmount();
     });
-    it('Reduce Motion shortens the sit beat to reading time and still goes Home once', async () => {
+    it('does not automatically navigate after Reduce Motion sealing either', async () => {
       useSettingsStore.setState({ reduceMotion: 'on' });
       try {
-        await firstImageOnBoard();
-        await advance(2199); expect(goHome()).toHaveLength(0);
-        await advance(1); expect(goHome()).toHaveLength(1);
-        await advance(20000); expect(goHome()).toHaveLength(1);
+        const view = await firstImageOnBoard();
+        await advance(20000);
+        expect(view.getByTestId('vision-board')).toBeTruthy();
+        expect(goHome()).toHaveLength(0);
+        view.unmount();
       } finally { useSettingsStore.setState({ reduceMotion: 'off' }); }
     });
     it('does not go Home if the person leaves the screen first', async () => {

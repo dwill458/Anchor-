@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo } from 'react';
-import { liveWaypoints } from '@/adapters/v2/chart/chartV2Model';
+import { liveWaypoints, toMetricView } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import type { CourseDetail } from '@/types/chart';
 
@@ -41,7 +41,7 @@ export function selectChartPreview(course: CourseDetail | null, category: string
     : [];
   const movesDone = waypointMoves.filter(m => m.status === 'COMPLETED').length;
   // Only a waypoint without a measure shows its moves; a counter belongs to numeric waypoints alone.
-  const movesBased = !complete && target === null && waypoint?.progressMode !== 'none' && waypointMoves.length > 0;
+  const movesBased = !complete && target === null && (waypoint?.progressMode === 'moves' || waypoint?.progressMode == null) && waypointMoves.length > 0;
   const nextMove = !complete && currentWaypoint ? course.moves?.find(m =>
     m.id === course.currentMoveId && m.waypointId === currentWaypoint.id && m.status === 'ACTIVE')?.title ?? null : null;
   return {
@@ -51,10 +51,9 @@ export function selectChartPreview(course: CourseDetail | null, category: string
     waypointTotal: waypoints.length,
     title: complete ? 'Chart complete' : waypoint?.title ?? course.destinationText,
     current, target, startValue: finiteOrNull(waypoint?.metric?.baseline),
-    movesLabel: movesBased ? `${movesDone} of ${waypointMoves.length} ${waypointMoves.length === 1 ? 'move' : 'moves'} done` : null,
-    // Baseline is display-only. Keep the locked ratio separate from toMetricView.
-    progress: complete ? 1 : current !== null && target !== null && target > 0
-      ? Math.max(0, Math.min(1, current / target))
+    movesLabel: waypoint?.progressMode === 'checklist' ? `${waypoint.requirements?.filter(r => r.completed).length ?? 0} of ${waypoint.requirements?.length ?? 0} requirements` : movesBased ? `${movesDone} of ${waypointMoves.length} ${waypointMoves.length === 1 ? 'move' : 'moves'} done` : null,
+    progress: complete ? 1 : target !== null ? toMetricView(waypoint?.metric ?? null)?.fraction ?? 0
+      : waypoint?.progressMode === 'checklist' && waypoint.requirements?.length ? waypoint.requirements.filter(r => r.completed).length / waypoint.requirements.length
       : movesBased ? movesDone / waypointMoves.length : 0,
     nextMove,
   };

@@ -61,7 +61,7 @@ describe('cinematic timeline', () => {
   it('caps image count at the saved board maximum without repeating indices', () => {
     const timeline = buildCinematicTimeline(60, 20);
     expect(timeline.segments.filter(segment => segment.kind === 'immersion').map(segment => segment.imageIndex))
-      .toEqual([0, 1, 2, 3, 4, 5]);
+      .toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });
 
   it('selects the segment at exact boundaries and clamps elapsed time', () => {

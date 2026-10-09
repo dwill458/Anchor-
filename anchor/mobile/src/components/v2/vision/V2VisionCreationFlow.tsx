@@ -50,7 +50,9 @@ export interface V2VisionCreationFlowProps {
   onResumeGenerationConsumed?: () => void;
   onUploadAsset: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
   /** Puts the chosen image(s) on the Vision. The first is its hero. Resolves false when it could not be saved. */
-  onAssemble: (result: { description: string; selectedAssets: VisionFlowAsset[]; selection?: VisionTwoUpSelection }) => Promise<boolean | void>;
+  onAssemble: (result: { description: string; selectedAssets: VisionFlowAsset[]; selection?: VisionTwoUpSelection;
+    /** The print in flight; independent of the persisted picker/board order. */
+    arrivingAssetId?: string }) => Promise<boolean | void>;
   testID?: string;
 }
 

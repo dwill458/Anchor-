@@ -84,6 +84,11 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const pathOf = (url: string | null) => (url ?? '').split('?')[0];
   const sameImage = pathOf(shownUrl) === pathOf(imageUrl ?? null);
   const displayUrl = sameImage ? shownUrl : (imageUrl ?? null);
+  const imageFailed = Boolean(displayUrl && failedUrl === displayUrl);
+  const retryImage = () => {
+    setShownUrl(imageUrl ?? null);
+    setFailedUrl(null);
+  };
   useEffect(() => { if (!sameImage) setShownUrl(imageUrl ?? null); }, [imageUrl, sameImage]);
   const arrival = useVisionImageArrival();
   const imageRef = useRef<View>(null);
@@ -258,7 +263,8 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     .enabled(interactive && !exiting)
     .maxDuration(MOTION.lift.longPressMs - 20)
     .onEnd((_event, success) => {
-      if (success && onPress) runOnJS(onPress)(sceneId);
+      if (success && imageFailed) runOnJS(retryImage)();
+      else if (success && onPress) runOnJS(onPress)(sceneId);
     });
 
   // Defer actions until release: focusing while the finger is down disables
@@ -310,7 +316,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     ...(canMoveLater ? [{ name: 'moveLater', label: 'Move later' }] : []),
   ];
   const onAccessibilityAction = (event: AccessibilityActionEvent) => {
-    if (event.nativeEvent.actionName === 'activate') onPress?.(sceneId);
+    if (event.nativeEvent.actionName === 'activate') { if (imageFailed) retryImage(); else onPress?.(sceneId); }
     else if (event.nativeEvent.actionName === 'moveEarlier') onMove?.(sceneId, -1);
     else if (event.nativeEvent.actionName === 'moveLater') onMove?.(sceneId, 1);
   };
@@ -322,7 +328,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       accessible={interactive && !exiting}
       accessibilityRole={interactive ? 'imagebutton' : 'image'}
       accessibilityLabel={accessibilityLabel}
-      accessibilityHint={interactive ? 'Double tap to bring it forward. Actions can move it.' : undefined}
+      accessibilityHint={interactive ? imageFailed ? 'Image unavailable. Double tap to retry.' : 'Double tap to bring it forward. Actions can move it.' : undefined}
       accessibilityActions={interactive ? actions : undefined}
       onAccessibilityAction={interactive ? onAccessibilityAction : undefined}
       importantForAccessibility={exiting ? 'no-hide-descendants' : 'auto'}
@@ -333,7 +339,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
             onError={() => { if (displayUrl !== imageUrl) setShownUrl(imageUrl ?? null); else setFailedUrl(displayUrl); }}
             accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
         ) : (
-          <View style={styles.unavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>
+          <View style={styles.unavailable}><Text style={styles.unavailableText}>{interactive && imageFailed ? 'Image unavailable. Tap to retry.' : 'Image unavailable'}</Text></View>
         )}
         <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
         <VisionImageEdge hero={hero} brush={detailEdges} darken={edgeDarken} />

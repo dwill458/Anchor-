@@ -41,7 +41,7 @@ export function ChartDestinationReached({ view,identity,vision,released,reducedM
   const insets=useSafeAreaInsets();
   return <ChartInkScreen testID={testID ?? 'chart-destination-reached'}>
     <ScrollView contentContainerStyle={{paddingBottom:insets.bottom+spacing[6]}}>
-      <ChartTopBar title="Destination reached" onBack={onBack} />
+      <ChartTopBar title={view.isStretch ? "Stretch completed" : "Destination reached"} onBack={onBack} />
       {/*
       // DEFERRED:       <ChartJourneyWorld width={width} height={height*.46} category={identity.category} staticProgress={view.isFinished ? 1 : 0}
       // DEFERRED:         markers={view.waypoints.map(w=>({id:w.id,number:w.number,state:w.state,accessibilityLabel:w.accessibilityLabel}))} />
@@ -55,15 +55,15 @@ export function ChartDestinationReached({ view,identity,vision,released,reducedM
 /** Reused below the still-mounted active world, so completion cannot interrupt its final camera rail. */
 export function ChartCompletionPanel({ view,vision,released=false,onViewJourney,onRelease }: Pick<Props,'view'|'vision'|'onViewJourney'|'onRelease'> & {released?:boolean}) {
   return <ChartCreamPanel style={styles.panel} testID="chart-completion-panel">
-    <ChartEyebrow tone="cream">{CHART_COPY.labels.destinationReached}</ChartEyebrow>
-    <Text accessibilityRole="header" style={styles.headline}>{CHART_COPY.reached.destinationHeadline}</Text>
+    <ChartEyebrow tone="cream">{view.isStretch ? "NEXT STRETCH" : CHART_COPY.labels.destinationReached}</ChartEyebrow>
+    <Text accessibilityRole="header" style={styles.headline}>{view.isStretch ? "This stretch is complete." : CHART_COPY.reached.destinationHeadline}</Text>
     <Text style={styles.destination}>{view.destination}</Text>
     {vision?.imageUrl ? <VisionPhoto source={vision.imageUrl} scrim="none" style={styles.vision} testID="chart-reached-vision" /> : null}
     <View style={styles.rows}>{journeyRows(view).map(row=><View key={row.label} style={styles.row} accessible accessibilityLabel={`${row.label}: ${row.value}`}>
       <Text style={styles.rowLabel}>{row.label}</Text><Text style={styles.rowValue}>{row.value}</Text>
     </View>)}</View>
     <V2Button size="large" onPress={onViewJourney} iconRight={<ArrowRight size={18} color={colors.text.inverse}/>} testID="chart-view-journey" accessibilityLabel={CHART_COPY.reached.viewJourney}>{CHART_COPY.reached.viewJourney}</V2Button>
-    {!released ? <V2Button variant="secondary" size="large" onPress={onRelease} iconLeft={<Wind size={18} color={colors.text.primary}/>} testID="chart-release-anchor" accessibilityLabel={CHART_COPY.reached.release}>{CHART_COPY.reached.release}</V2Button> : null}
+    {!released ? <V2Button variant="secondary" size="large" onPress={onRelease} iconLeft={<Wind size={18} color={colors.text.primary}/>} testID="chart-release-anchor" accessibilityLabel={view.isStretch ? "Plan the next stretch" : CHART_COPY.reached.release}>{view.isStretch ? "Plan the next stretch" : CHART_COPY.reached.release}</V2Button> : null}
   </ChartCreamPanel>;
 }
 const styles=StyleSheet.create({

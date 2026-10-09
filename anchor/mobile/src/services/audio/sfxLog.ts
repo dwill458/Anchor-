@@ -3,6 +3,7 @@ const MAX_LINES = 500;
 const lines: string[] = [];
 
 export function isSfxLogEnabled(): boolean {
+  if (process.env.EXPO_PUBLIC_SFX_DEBUG === '0') return false;
   return process.env.EXPO_PUBLIC_SFX_DEBUG === '1' || process.env.NODE_ENV === 'test';
 }
 

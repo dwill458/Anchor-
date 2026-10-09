@@ -69,7 +69,9 @@ export type AnchorLinkSummary = {
 export type WaypointKind = 'MILESTONE' | 'METRIC' | 'CAPABILITY';
 
 /** How a waypoint shows progress: a number, its moves, or nothing. */
-export type WaypointProgressMode = 'numeric' | 'moves' | 'none';
+export type WaypointProgressMode = 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
+
+export type WaypointRequirement = { id: string; title: string; completed: boolean };
 
 export type WaypointMetric = {
   label: string | null;
@@ -87,6 +89,8 @@ export type WaypointSummary = {
   kind: WaypointKind;
   /** Always resolved: older waypoints without a stored mode read as numeric when they have a measure, else moves. */
   progressMode: WaypointProgressMode;
+  requirements?: WaypointRequirement[];
+  completionCriteria?: string | null;
   metric: WaypointMetric | null;
   state: WaypointState;
   blockedReason: BlockedReason | null;
@@ -126,6 +130,9 @@ export type CourseSummary = {
   id: string;
   destinationText: string;
   startingContext: string | null;
+  actualStartingPoint?: string | null;
+  routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
+  routeStartPosition?: number;
   anchorId: string | null;
   visionId: string | null;
   complexity: string | null;

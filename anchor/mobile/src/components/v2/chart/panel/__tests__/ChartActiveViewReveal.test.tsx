@@ -15,6 +15,13 @@ import { loadFogImages } from '../../map/ChartMapLand';
 import { loadCloudTiles } from '../../map/chartCloudTiles';
 import { buildRouteTable } from '../../map/chartMapGeometry';
 
+const mockSound = {
+  open: jest.fn(), ink: jest.fn(), flag: jest.fn(), note: jest.fn(), check: jest.fn(),
+  stamp: jest.fn(), wind: jest.fn(), hush: jest.fn(), summit: jest.fn(), duck: jest.fn(),
+  startAir: jest.fn(), stopAir: jest.fn(),
+};
+jest.mock('../../useChartSound', () => ({ useChartSound: () => mockSound }));
+
 jest.mock('@/services/notifications/chartNotifications', () => ({
   syncChartNotifications: jest.fn(async () => undefined),
 }));
@@ -66,6 +73,7 @@ async function settle(ms = 300) {
 }
 
 beforeEach(() => {
+  Object.values(mockSound).forEach(fn => fn.mockClear());
   resetChartHighWaterCache();
   resetChartLastOpenedCache();
   resetChartWeatherHandoff();
@@ -75,6 +83,22 @@ afterEach(() => {
 });
 
 describe('ChartActiveView — "Explore your Chart" hand-off', () => {
+  it('stops the entrance bed after the opening settles while Chart remains mounted', async () => {
+    const screen = renderChart('open');
+    await waitFor(() => expect(mockSound.startAir).toHaveBeenCalled(), { timeout: 4000 });
+    await waitFor(() => expect(mockSound.stopAir).toHaveBeenCalled(), { timeout: 4000 });
+    expect(screen.getByTestId('chart-active')).toBeTruthy();
+    screen.unmount();
+  });
+
+  it('does not start an entrance bed during the already-settled creation handoff', async () => {
+    const open = jest.spyOn(sequences, 'openSequence');
+    const screen = renderChart('reveal');
+    await waitFor(() => expect(open).toHaveBeenCalled(), { timeout: 4000 });
+    expect(mockSound.startAir).not.toHaveBeenCalled();
+    screen.unmount();
+  });
+
   it('inherits the parted cover and the standing flag, but inks only real progress (the route never retreats)', async () => {
     setChartWeatherHandoff({ coverArc: 900, inkArc: 900 });
     const open = jest.spyOn(sequences, 'openSequence');

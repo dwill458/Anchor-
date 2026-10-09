@@ -38,7 +38,9 @@ export type RouteWaypointInput = {
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;
-  progressMode?: 'numeric' | 'moves' | 'none';
+  progressMode?: 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
+  requirements?: Array<{ id: string; title: string; completed: boolean }>;
+  completionCriteria?: string | null;
 };
 
 export type ChartAnchorSummary = {
@@ -95,9 +97,9 @@ function validateRoute(waypoints: RouteWaypointInput[], min: number): void {
     if (
       waypoint.metricTarget !== undefined &&
       waypoint.metricTarget !== null &&
-      !(Number.isFinite(waypoint.metricTarget) && waypoint.metricTarget > 0)
+      !(Number.isFinite(waypoint.metricTarget) && Math.abs(waypoint.metricTarget) <= 1e12)
     ) {
-      throw new AppError('Metric targets must be positive numbers', 422, 'VALIDATION_ERROR');
+      throw new AppError('Metric targets must be finite numbers', 422, 'VALIDATION_ERROR');
     }
   }
 }
@@ -109,6 +111,7 @@ function metricInput(waypoint: RouteWaypointInput) {
     metricBaseline: waypoint.metricBaseline,
     metricTarget: waypoint.metricTarget,
     progressMode: waypoint.progressMode,
+    requirements: waypoint.requirements, completionCriteria: waypoint.completionCriteria,
   };
 }
 
@@ -204,6 +207,8 @@ export class ChartService {
       idempotencyKey: string;
       destinationText: string;
       startingContext?: string | null;
+      actualStartingPoint?: string | null;
+      routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
       proposalId?: string | null;
       complexity?: string | null;
       waypoints: RouteWaypointInput[];
@@ -255,6 +260,8 @@ export class ChartService {
             visionId: vision?.id ?? null,
             destinationText,
             startingContext: cleanOptional(input.startingContext, 500),
+            actualStartingPoint: cleanOptional(input.actualStartingPoint, 500),
+            routeScope: input.routeScope ?? 'DESTINATION',
             complexity: cleanOptional(input.complexity, 16),
             idempotencyKey: input.idempotencyKey,
             createdFromProposalId: input.proposalId ?? null,
@@ -589,10 +596,10 @@ export class ChartService {
     userId: string,
     courseId: string,
     waypointId: string,
-    input: { expectedCourseVersion: number; metricCurrent: number | null }
+    input: { expectedCourseVersion: number; metricCurrent?: number | null; requirementId?: string; completed?: boolean }
   ): Promise<CourseDetail> {
-    if (input.metricCurrent !== null && !(Number.isFinite(input.metricCurrent) && input.metricCurrent >= 0)) {
-      throw new AppError('Progress must be zero or more', 422, 'VALIDATION_ERROR');
+    if (input.metricCurrent !== undefined && input.metricCurrent !== null && !(Number.isFinite(input.metricCurrent) && Math.abs(input.metricCurrent) <= 1e12)) {
+      throw new AppError('Progress must be a finite number', 422, 'VALIDATION_ERROR');
     }
     return runSerializable(async tx => {
       const row = await findCourse(tx, userId, courseId);
@@ -602,6 +609,14 @@ export class ChartService {
       if (isTerminal(waypoint)) {
         throw new AppError('This waypoint is already behind you', 409, 'WAYPOINT_TRANSITION_INVALID');
       }
+      if (input.requirementId !== undefined) {
+        const requirements = Array.isArray(waypoint.requirements) ? waypoint.requirements as unknown as Array<{ id: string; title: string; completed: boolean }> : [];
+        if (waypoint.progressMode !== 'checklist' || !requirements.some(r => r.id === input.requirementId) || input.completed === undefined) throw new AppError('Checklist item not found', 422, 'VALIDATION_ERROR');
+        await tx.waypoint.update({ where: { id: waypointId }, data: { requirements: requirements.map(r => r.id === input.requirementId ? { ...r, completed: input.completed! } : r) } });
+        await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
+        return projection(await findCourse(tx, userId, courseId));
+      }
+      if (input.metricCurrent === undefined) throw new AppError('Progress value required', 422, 'VALIDATION_ERROR');
       if (waypoint.metricTarget === null) {
         throw new AppError('This waypoint has no measure', 422, 'VALIDATION_ERROR');
       }
@@ -628,6 +643,8 @@ export class ChartService {
       proposalId?: string | null;
       adjustmentReason?: string | null;
       confirmRewrite?: boolean;
+      routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
+      oneMove?: { title: string; rationale?: string | null } | null;
     }
   ): Promise<CourseDetail> {
     const adjustedKey = eventKey('route-adjusted', input.idempotencyKey);
@@ -641,14 +658,19 @@ export class ChartService {
       }
       const row = await findCourse(tx, userId, courseId);
       assertExpectedVersion(row, input.expectedCourseVersion);
-      assertCourseWritable(row);
-      assertCourseActive(row);
+      const extendingStretch = !row.deletedAt && row.status === 'COMPLETED' && row.routeScope === 'NEXT_STRETCH';
+      if (!extendingStretch) { assertCourseWritable(row); assertCourseActive(row); }
       ensureNoCorruption(row);
+      if (input.proposalId) {
+        const proposal = await tx.aIPlanProposal.findFirst({ where: { id: input.proposalId, userId, courseId, status: 'PENDING' } });
+        if (!proposal || proposal.expiresAt <= new Date()) throw new AppError('Proposal is unavailable', 409, 'PROPOSAL_UNAVAILABLE');
+        if (proposal.baseCourseVersion !== row.version) throw new AppError('Route changed since review', 409, 'COURSE_VERSION_CONFLICT');
+      }
 
       const reached = row.waypoints.filter(waypoint => waypoint.reachedAt);
       const ahead = row.waypoints.filter(waypoint => !isTerminal(waypoint));
       validateRoute(input.waypoints, 1);
-      if (reached.length + input.waypoints.length > MAX_COURSE_WAYPOINTS) {
+      if (!extendingStretch && reached.filter(w => w.position >= (row.routeStartPosition ?? 0)).length + input.waypoints.length > MAX_COURSE_WAYPOINTS) {
         throw new AppError(
           `A route may contain at most ${MAX_COURSE_WAYPOINTS} waypoints`,
           400,
@@ -659,6 +681,12 @@ export class ChartService {
       for (const id of keptIds) {
         const existing = row.waypoints.find(waypoint => waypoint.id === id);
         if (!existing) throw new AppError('Waypoint not found', 404, 'WAYPOINT_NOT_FOUND');
+        const candidate = input.waypoints.find(w => w.id === id)!;
+        const recorded = existing.metricCurrent !== null && existing.metricCurrent !== undefined;
+        const checked = Array.isArray(existing.requirements) && existing.requirements.some(r => typeof r === 'object' && r && 'completed' in r && r.completed === true);
+        if ((recorded && ((candidate.metricTarget !== undefined && candidate.metricTarget !== existing.metricTarget) || (candidate.metricBaseline !== undefined && candidate.metricBaseline !== existing.metricBaseline) || (candidate.metricLabel !== undefined && candidate.metricLabel !== existing.metricLabel) || (candidate.progressMode !== undefined && candidate.progressMode !== existing.progressMode))) || (checked && candidate.requirements !== undefined && JSON.stringify(candidate.requirements) !== JSON.stringify(existing.requirements))) {
+          throw new AppError('Recorded progress must stay attached to its original measure. Replace this waypoint to keep it in history.', 409, 'ROUTE_PROGRESS_CONFLICT');
+        }
         if (isTerminal(existing)) {
           throw new AppError('Reached waypoints are part of your history', 409, 'WAYPOINT_TRANSITION_INVALID');
         }
@@ -666,7 +694,7 @@ export class ChartService {
       const removed = ahead.filter(waypoint => !keptIds.has(waypoint.id));
       const removesCurrent = removed.some(waypoint => waypoint.id === row.currentWaypointId);
       const removesWorkedWaypoint = removed.some(waypoint =>
-        row.moves.some(move => move.waypointId === waypoint.id && move.status === 'COMPLETED')
+        (waypoint.metricCurrent !== null && waypoint.metricCurrent !== undefined) || (Array.isArray(waypoint.requirements) && waypoint.requirements.some(r => typeof r === 'object' && r && 'completed' in r && r.completed === true)) || row.moves.some(move => move.waypointId === waypoint.id && move.status === 'COMPLETED')
       );
       if ((removesCurrent || removesWorkedWaypoint) && !input.confirmRewrite) {
         throw new AppError(
@@ -756,12 +784,19 @@ export class ChartService {
       const nextMove = currentMoveStillValid
         ? { id: row.currentMoveId! }
         : selectNextActiveMove(refreshedMoves, nextCurrentId);
+      let revisedMoveId: string | null = null;
+      if (input.oneMove && !nextMove) {
+        revisedMoveId = randomUUID();
+        await tx.move.create({ data: { id: revisedMoveId, userId, courseId, waypointId: nextCurrentId, title: cleanTitle(input.oneMove.title, 120), rationale: cleanOptional(input.oneMove.rationale, 280), source: 'AI', status: 'ACTIVE', position: await nextMovePosition(tx, nextCurrentId) } });
+      }
       const destinationText = input.destinationText ? cleanTitle(input.destinationText, 140) : null;
       await tx.course.update({
         where: { id: courseId },
         data: {
           currentWaypointId: nextCurrentId,
-          currentMoveId: nextMove?.id ?? null,
+          currentMoveId: nextMove?.id ?? revisedMoveId,
+          ...(extendingStretch ? { status: CourseStatus.ACTIVE, completedAt: null, routeStartPosition: terminalMax + 100 } : {}),
+          ...(input.routeScope ? { routeScope: input.routeScope } : {}),
           ...(destinationText && destinationText !== row.destinationText ? { destinationText } : {}),
           version: { increment: 1 },
         },

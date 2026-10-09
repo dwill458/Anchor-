@@ -1,0 +1,28 @@
+
+E:\Projects\Anchor\backend\src\domain\v2\vision.ts
+   93:45  error  Insert `⏎··`                 prettier/prettier
+   94:1   error  Insert `··`                  prettier/prettier
+   95:1   error  Insert `··`                  prettier/prettier
+   96:3   error  Insert `··`                  prettier/prettier
+   97:1   error  Insert `··`                  prettier/prettier
+   98:3   error  Insert `··`                  prettier/prettier
+   99:1   error  Replace `··` with `····`     prettier/prettier
+  100:1   error  Replace `})` with `··})⏎··`  prettier/prettier
+  108:50  error  Insert `⏎··`                 prettier/prettier
+  109:1   error  Insert `··`                  prettier/prettier
+  110:1   error  Insert `··`                  prettier/prettier
+  111:1   error  Replace `··` with `····`     prettier/prettier
+  112:1   error  Insert `··`                  prettier/prettier
+  113:1   error  Replace `··` with `····`     prettier/prettier
+  114:1   error  Insert `··`                  prettier/prettier
+  115:1   error  Replace `})` with `··})⏎··`  prettier/prettier
+  117:55  error  Insert `⏎··`                 prettier/prettier
+  118:1   error  Insert `··`                  prettier/prettier
+  119:1   error  Insert `··`                  prettier/prettier
+  120:1   error  Insert `··`                  prettier/prettier
+  121:3   error  Insert `··`                  prettier/prettier
+  122:1   error  Replace `})` with `··})⏎··`  prettier/prettier
+
+✖ 22 problems (22 errors, 0 warnings)
+  22 errors and 0 warnings potentially fixable with the `--fix` option.
+

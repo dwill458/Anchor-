@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { AppState } from 'react-native';
 import { useAudio, type ManagedAudioPlayer, type SoundKey } from '@/hooks/useAudio';
 import { SoundPool } from '@/services/audio/SoundPool';
 
@@ -115,6 +116,15 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
   /* ---- air bed ---------------------------------------------------- */
   const air = useRef<ManagedAudioPlayer | null>(null);
   const airVolume = useRef(0);
+  const airStopping = useRef(false);
+  const duckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelDuckReturn = useCallback(() => {
+    if (duckTimer.current !== null) {
+      clearTimeout(duckTimer.current);
+      timers.current.delete(duckTimer.current);
+      duckTimer.current = null;
+    }
+  }, []);
   const ramp = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopRamp = () => {
     if (ramp.current) clearInterval(ramp.current);
@@ -147,6 +157,9 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
   );
 
   const startAir = useCallback(() => {
+    if (AppState.currentState === 'background' || AppState.currentState === 'inactive') return;
+    cancelDuckReturn();
+    airStopping.current = false;
     if (air.current) {
       // Already playing (or fading out): bring it back up.
       rampTo(CHART_AIR_VOLUME, airFadeInMs);
@@ -158,9 +171,12 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
     airVolume.current = 0;
     player.play();
     rampTo(CHART_AIR_VOLUME, airFadeInMs);
-  }, [airFadeInMs, createManagedPlayer, rampTo]);
+  }, [airFadeInMs, cancelDuckReturn, createManagedPlayer, rampTo]);
 
   const stopAir = useCallback(() => {
+    cancelDuckReturn();
+    if (airStopping.current) return;
+    airStopping.current = true;
     const player = air.current;
     if (!player) return;
     rampTo(0, AIR_OUT_MS, () => {
@@ -169,32 +185,42 @@ export function useChartSound(reducedMotion: boolean, options: ChartSoundOptions
         player.stop();
       }
     });
-  }, [rampTo]);
+  }, [cancelDuckReturn, rampTo]);
 
   /** The one pending return-to-full timer: a newer duck replaces it, so two ducks can never undo each other. */
-  const duckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const duck = useCallback(
     (holdMs: number, level: number = CHART_AIR_DUCKED) => {
-      if (!air.current) return;
-      if (duckTimer.current) {
-        clearTimeout(duckTimer.current);
-        timers.current.delete(duckTimer.current);
-        duckTimer.current = null;
-      }
+      if (!air.current || airStopping.current) return;
+      cancelDuckReturn();
       rampTo(level, DUCK_DOWN_MS, () => {
         duckTimer.current = later(holdMs, () => {
           duckTimer.current = null;
-          if (air.current) rampTo(CHART_AIR_VOLUME, DUCK_UP_MS);
+          if (air.current && !airStopping.current) rampTo(CHART_AIR_VOLUME, DUCK_UP_MS);
         });
       });
     },
-    [rampTo, later]
+    [cancelDuckReturn, rampTo, later]
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') return;
+      cancelDuckReturn();
+      airStopping.current = true;
+      stopRamp();
+      air.current?.stop();
+      air.current = null;
+      airVolume.current = 0;
+    });
+    return () => subscription.remove();
+  }, [cancelDuckReturn]);
 
   useEffect(
     () => () => {
       timers.current.forEach(clearTimeout);
       timers.current.clear();
+      duckTimer.current = null;
+      airStopping.current = true;
       if (fadeAirOnUnmount && air.current) {
         const player = air.current;
         rampTo(0, AIR_OUT_MS, () => {

@@ -13,4 +13,11 @@ describe('Vision scene caption', () => {
     expect(CreateVisionSceneSchema.safeParse(scene).success).toBe(true);
     expect(CreateVisionSceneSchema.safeParse({ ...scene, caption: null }).success).toBe(true);
   });
+  it.each([1, 2, 4, 6, 7, 8])('preserves a complete %i-photo selection', count => {
+    const scenes = Array.from({ length: count }, (_, index) => ({ ...scene, assetId: `asset-${index}`, caption: `Photo ${index + 1}`, sortOrder: index }));
+    expect(CreateVisionSchema.parse({ scenes }).scenes).toEqual(scenes);
+  });
+  it('rejects selections above eight photos', () => {
+    expect(CreateVisionSchema.safeParse({ scenes: Array.from({ length: 9 }, (_, index) => ({ ...scene, assetId: `asset-${index}` })) }).success).toBe(false);
+  });
 });

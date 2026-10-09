@@ -69,8 +69,8 @@ export const TimeZoneSchema = z
     }
   }, 'Must be a valid IANA time zone');
 
-/** A Vision is a board of at most this many photographs (the app composes 0-6). */
-export const VISION_MAX_IMAGES = 6;
+/** A Vision is a board of at most this many photographs (the app composes 0-8). */
+export const VISION_MAX_IMAGES = 8;
 
 export const CreateVisionSceneSchema = z
   .object({

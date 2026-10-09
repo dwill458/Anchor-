@@ -183,6 +183,21 @@ describe('V2AnchorDetailsScreen', () => {
     expect(onOpenChart).toHaveBeenCalledWith('a', undefined);
   });
 
+  it('opens all practice modes from the CTA under recommended practice', async () => {
+    const onOpenPractice = jest.fn();
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails({ onOpenPractice });
+
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-all-practices')).toBeTruthy());
+    expect(screen.getByText('All practice modes')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-anchor-all-practices'));
+    expect(onOpenPractice).toHaveBeenCalledWith('a', undefined, {
+      anchorTransition: false,
+      returnRoute: 'V2AnchorDetails',
+      source: 'anchor_details',
+    });
+  });
+
   it('carries the medallion into Practice setup when motion is allowed', async () => {
     useSettingsStore.setState({ reduceMotion: 'off' });
     // Every mocked native view shares one measureInWindow: answer with an on-screen rect.
@@ -381,6 +396,21 @@ describe('V2AnchorDetailsScreen', () => {
     );
     expect(screen.getByText('Seen today ✓')).toBeTruthy();
     expect(screen.UNSAFE_getAllByType(Image).some((node) => node.props.source?.uri === 'https://example.test/vision-cover.jpg')).toBe(true);
+  });
+
+  it('shows a completed Vision preview when the first scene has no URL and the description is empty', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { success: true, data: {
+      id: 'v-123', anchorId: 'a', status: 'ACTIVE', description: '', seenToday: false,
+      scenes: [
+        { id: 's-1', resolvedImageUrl: null, sortOrder: 0, isArchived: false },
+        { id: 's-2', resolvedImageUrl: 'https://example.test/vision-scene-2.jpg', sortOrder: 1, isArchived: false },
+      ],
+    } } });
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails();
+    await waitFor(() => expect(screen.UNSAFE_getAllByType(Image).some(
+      node => node.props.source?.uri === 'https://example.test/vision-scene-2.jpg',
+    )).toBe(true));
   });
 
   it('opens Release when the chart is complete', async () => {

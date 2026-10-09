@@ -27,10 +27,10 @@ router.use(authMiddleware);
 const IdempotencyKey = z.string().trim().min(8).max(200);
 const Id = z.string().min(1).max(200);
 const CourseVersion = z.number().int().min(1);
-const MetricNumber = z.number().finite().min(0).max(1e12);
+const MetricNumber = z.number().finite().min(-1e12).max(1e12);
 
 const WaypointKind = z.enum(['MILESTONE', 'METRIC', 'CAPABILITY']);
-const ProgressMode = z.enum(['numeric', 'moves', 'none']);
+const ProgressMode = z.enum(['numeric', 'checklist', 'completion', 'moves', 'none']);
 const RouteWaypoint = z
   .object({
     id: Id.nullish(),
@@ -40,7 +40,9 @@ const RouteWaypoint = z
     progressMode: ProgressMode.optional(),
     metricLabel: z.string().max(40).nullish(),
     metricBaseline: MetricNumber.nullish(),
-    metricTarget: MetricNumber.positive().nullish(),
+    metricTarget: MetricNumber.nullish(),
+    completionCriteria: z.string().trim().max(400).nullish(),
+    requirements: z.array(z.object({ id: z.string().min(1).max(80), title: z.string().trim().min(1).max(140), completed: z.boolean() }).strict()).max(12).optional(),
   })
   .strict();
 
@@ -66,6 +68,8 @@ const PlanSchema = z
   .object({
     idempotencyKey: IdempotencyKey,
     startingContext: z.string().max(500).nullish(),
+    actualStartingPoint: z.string().max(500).nullish(),
+    destinationDescription: z.string().max(500).nullish(),
     followUp: z
       // The answer may be empty when a reference answers the question instead.
       .object({ question: z.string().min(1).max(200), answer: z.string().trim().max(500).default('') })
@@ -83,6 +87,7 @@ const AdjustSchema = z
   .object({
     idempotencyKey: IdempotencyKey,
     reason: z.enum([
+      'SMALLER_STEPS', 'STARTING_FROM_ZERO', 'CHANGE_APPROACH',
       'TOO_MANY_STEPS',
       'TOO_FEW_STEPS',
       'DIFFERENT_MILESTONES',
@@ -93,6 +98,8 @@ const AdjustSchema = z
     detail: z.string().max(500).nullish(),
     courseId: Id.nullish(),
     startingContext: z.string().max(500).nullish(),
+    actualStartingPoint: z.string().max(500).nullish(),
+    destinationDescription: z.string().max(500).nullish(),
     draft: z
       .object({
         destination: z.string().trim().min(1).max(140),
@@ -104,6 +111,9 @@ const AdjustSchema = z
                 kind: WaypointKind.optional(),
                 progressMode: ProgressMode.optional(),
                 metricTarget: MetricNumber.nullish(),
+                completionCriteria: z.string().max(400).nullish(),
+                metricBaseline: MetricNumber.nullish(),
+                metricCurrent: MetricNumber.nullish(),
                 metricLabel: z.string().max(40).nullish(),
               })
               .strip()
@@ -123,7 +133,10 @@ const CreateSchema = z
     idempotencyKey: IdempotencyKey,
     destinationText: z.string().trim().min(1).max(140),
     startingContext: z.string().max(500).nullish(),
+    actualStartingPoint: z.string().max(500).nullish(),
+    destinationDescription: z.string().max(500).nullish(),
     proposalId: Id.nullish(),
+    routeScope: z.enum(['DESTINATION', 'NEXT_STRETCH']).optional(),
     complexity: z.enum(['SIMPLE', 'MODERATE', 'COMPLEX']).nullish(),
     waypoints: z.array(RouteWaypoint.omit({ id: true })).min(1).max(12),
     oneMove: z
@@ -141,6 +154,8 @@ const ApplyRouteSchema = z
     waypoints: z.array(RouteWaypoint).min(1).max(12),
     proposalId: Id.nullish(),
     adjustmentReason: z.string().max(32).nullish(),
+    routeScope: z.enum(['DESTINATION', 'NEXT_STRETCH']).optional(),
+    oneMove: z.object({ title: z.string().trim().min(1).max(120), rationale: z.string().max(280).nullish() }).strict().nullish(),
     confirmRewrite: z.boolean().optional(),
   })
   .strict();
@@ -165,8 +180,9 @@ const UpdateMoveSchema = z
   .strict();
 
 const ProgressSchema = z
-  .object({ expectedCourseVersion: CourseVersion, metricCurrent: MetricNumber.nullable() })
-  .strict();
+  .object({ expectedCourseVersion: CourseVersion, metricCurrent: MetricNumber.nullable().optional(), requirementId: z.string().min(1).max(80).optional(), completed: z.boolean().optional() })
+  .strict()
+  .refine(v => (v.metricCurrent !== undefined) !== (v.requirementId !== undefined && v.completed !== undefined), { message: 'Provide a numeric value or a checklist item update' });
 
 const ArchiveDeleteSchema = z
   .object({ expectedCourseVersion: CourseVersion.optional() })

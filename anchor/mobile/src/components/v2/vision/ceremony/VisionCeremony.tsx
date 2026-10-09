@@ -26,6 +26,7 @@ import { visionTwoUpState } from '../visionTwoUp';
 import { VisionPrint, VisionPrintSlot, type PrintPlacement } from './VisionPrint';
 import { VisionSealHold } from './VisionSealHold';
 import { VisionEntrance } from './VisionEntrance';
+import { VisionPhotoStack } from './VisionPhotoStack';
 import { editDistancePct, type VisionExample } from './visionExamples';
 import { CEREMONY, ceremonyDuration } from './VisionDevelop';
 import { prefillVisionCaption, visionCeremonyCopy as copy } from './visionCeremonyCopy';
@@ -34,8 +35,8 @@ import { useVisionCreationActions, photoVisionDescription, type CeremonyPhoto } 
 const CEREMONY_SOUND_KEYS = ['creation:uiTap', 'creation:anchorPulse', 'creation:formTick', 'creation:distillTick', 'creation:revealSettle',
   'creation:formBed', 'creation:sealRise', 'creation:seal', 'creation:visionPin'];
 
-/** Nominal scene lengths for the celebration coordinator (over 2.5s is skippable). The first image runs the L4 timeline. */
-const FIRST_SCENE_MS = 9800, LATER_SCENE_TAIL_MS = 2800, REDUCED_SCENE_MS = 1000;
+/** Seal flight + stamp + minimum hold + board rise + arrival settle, matching the hand-off timeline. */
+const SCENE_MS = 2460, REDUCED_SCENE_MS = 1000;
 let visionCeremonySequence = 0;
 
 export type VisionCeremonyBeat = 'ask' | 'describe' | 'develop' | 'choose' | 'keep' | 'seal' | 'pinned';
@@ -58,6 +59,8 @@ export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'in
   onAdd?: (choice: { assetId: string; prompt: string; caption?: string }) => Promise<boolean>;
   onPhotoConfirm?: (caption: string) => Promise<string | null>;
   onChooseAgain?: () => void;
+  /** Blocks parent route gestures while an accepted seal is being saved and presented. */
+  onSealingChange?: (active: boolean) => void;
 }
 
 function measure(node: View | null): Promise<VisionImageRect | null> {
@@ -82,8 +85,13 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const [inputPath, setInputPath] = useState<VisionInputPath>('words');
   const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(null);
   const [photos, setPhotos] = useState<CeremonyPhoto[]>(props.photo ? [{ ...props.photo, key: props.photo.uri }] : []);
+  const [activePhotoId, setActivePhotoId] = useState<string | null>(props.photo?.uri ?? null);
+  const [failedImages, setFailedImages] = useState<ReadonlySet<string>>(() => new Set());
+  const [photoCaptions, setPhotoCaptions] = useState<Readonly<Record<string, string>>>(() => props.photo
+    ? { [props.photo.uri]: prefillVisionCaption(anchorIntention) } : {});
   const [chosen, setChosen] = useState<number | null>(photos.length ? 0 : null);
   const [developed, setDeveloped] = useState<ReadonlySet<string>>(() => new Set());
+  const [imageRetryTokens, setImageRetryTokens] = useState<Readonly<Record<string, number>>>({});
   const [caption, setCaption] = useState(() => prefillVisionCaption(anchorIntention));
   const [reframe, setReframe] = useState({ x: 0, y: 0 });
   const [committed, setCommitted] = useState(false), [saving, setSaving] = useState(false);
@@ -92,6 +100,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const [generationPending, setGenerationPending] = useState(false);
   const [generationAttempt, setGenerationAttempt] = useState(0);
   const [foreground, setForeground] = useState(AppState.currentState !== 'background' && AppState.currentState !== 'inactive');
+  const foregroundRef = useRef(foreground); foregroundRef.current = foreground;
   const [litWords, setLitWords] = useState(0), [readDone, setReadDone] = useState(false), [waitBeat, setWaitBeat] = useState(0);
   const [photoStatus, setPhotoStatus] = useState(0), [photoTimeDone, setPhotoTimeDone] = useState(false);
   const [revealStarted, setRevealStarted] = useState(false), [keyboardH, setKeyboardH] = useState(0);
@@ -105,16 +114,22 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const entrancePlayed = useRef(false), previousBeat = useRef<VisionCeremonyBeat | null>(null);
   const printRefs = useRef<Array<View | null>>([]), anchorRef = useRef<View>(null);
   const savingRef = useRef(false), savedRef = useRef(false), committedRef = useRef(false), alive = useRef(true);
+  const sealingNotified = useRef(false);
+  const setSealingActive = (active: boolean) => {
+    if (sealingNotified.current === active) return;
+    sealingNotified.current = active;
+    latest.current.onSealingChange?.(active);
+  };
   const attempts = useRef(0), sealStarted = useRef(false), requestTime = useRef(0);
   const createStarted = useRef(false);
-  // The first image ever keeps the 1.6s hold and the L4 scene. Later images hold 900ms and play L2. Latched at
-  // mount: a save refreshes the board mid-ceremony, and that must not change a hold already in progress.
+  // Latch the coordinator level at mount; saving refreshes the board during the ceremony.
   const [firstImage] = useState(() => mode === 'create' && (props.firstImage ?? true));
   const [celebrationId, setCelebrationId] = useState<string | null>(null);
-  const celebrationRef = useRef<string | null>(null), boardHandedOff = useRef(false), skipRequested = useRef(false);
+  const celebrationRef = useRef<string | null>(null), boardHandedOff = useRef(false), handOffInFlight = useRef(false), skipRequested = useRef(false);
+  const boardRiseStartedAt = useRef<number | null>(null), boardRiseRemaining = useRef<number>(CEREMONY.boardRiseMs);
   const celebrationSkippable = useCelebrationStore(state => Boolean(celebrationId && state.active?.id === celebrationId && state.active.skippable));
   // A ceremony that unmounts before its hand-off leaves the coordinator here.
-  useEffect(() => () => { if (celebrationRef.current) useCelebrationStore.getState().finish(celebrationRef.current); }, []);
+  useEffect(() => () => { setSealingActive(false); if (celebrationRef.current) useCelebrationStore.getState().finish(celebrationRef.current); }, []);
   const latest = useRef(props); latest.current = props;
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const ownPhoto = photos.length > 0;
@@ -134,7 +149,11 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const state = { ...rawState, slots: rawState.slots.map(stabilize), ready: rawState.ready.map(item => stabilize(item) as VisionGenerationCandidate) };
   const reading = !ownPhoto && (!readDone || !actions.generation.job || actions.generation.job.status === 'QUEUED');
   const candidate = chosen === null ? null : state.slots[chosen];
-  const heroUri = ownPhoto ? photos[0]?.uri : candidate?.imageUrl ?? undefined;
+  const activePhotoIndex = Math.max(0, photos.findIndex(photo => photo.key === activePhotoId));
+  const activePhotoCaption = activePhotoId ? photoCaptions[activePhotoId] ?? prefillVisionCaption(anchorIntention) : caption;
+  const heroUri = ownPhoto ? photos[activePhotoIndex]?.uri : candidate?.imageUrl ?? undefined;
+  const usableGeneratedCount = state.ready.filter(item => item.imageUrl && developed.has(item.imageUrl) && !failedImages.has(item.imageUrl)).length;
+  const canChooseAnotherGenerated = !ownPhoto && usableGeneratedCount > 1;
   const later = (callback: () => void, ms: number) => {
     const timer = setTimeout(() => { timers.current.delete(timer); if (alive.current) callback(); }, ms);
     timers.current.add(timer);
@@ -186,8 +205,13 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   }, [beat, mode, anchorId]);
 
   const words = description.trim().split(/\s+/).filter(Boolean);
+  const readingAttempt = useRef<number | null>(null);
   useEffect(() => {
     if (beat !== 'develop' || ownPhoto) return;
+    // A native image retry returns to Develop without starting a new generation.
+    // Keep completed reading so a developed sibling cannot cancel its replacement timer.
+    if (readingAttempt.current === generationAttempt && readDone) return;
+    readingAttempt.current = generationAttempt;
     setLitWords(reduced ? words.length : 0); setReadDone(false); setWaitBeat(0);
     const interval = Math.min(CEREMONY.wordLightMaxMs, CEREMONY.wordLightTotalMs / Math.max(1, words.length));
     const scheduled = reduced ? [] : words.map((_, i) => setTimeout(() => {
@@ -220,15 +244,18 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       if (at <= elapsed) setPhotoStatus(value => Math.max(value, i + 1));
       else scheduled.push(setTimeout(() => { setPhotoStatus(i + 1); playCreationSound('formTick'); void v2Haptics.selection(); }, at - elapsed));
     });
-    const doneAt = reduced ? 180 : Math.max(4400, 600 + 400 * Math.min(2, photos.length - 1) + 3400);
+    const doneAt = reduced ? 180 : Math.max(4400, 400 + 80 * Math.max(0, photos.length - 1) + 3400);
     if (doneAt <= elapsed) setPhotoTimeDone(true); else scheduled.push(setTimeout(() => setPhotoTimeDone(true), doneAt - elapsed));
     return () => scheduled.forEach(clearTimeout);
   }, [beat === 'develop', ownPhoto, photos[0]?.key, foreground, reduced]);
   useEffect(() => {
     if (beat !== 'develop') return;
-    if (ownPhoto && photoTimeDone && developed.has(photos[0].uri)) setBeat('keep');
-    if (!ownPhoto && !reading && state.selectable && state.ready.some(item => item.imageUrl && developed.has(item.imageUrl))) setBeat('choose');
-  }, [beat, ownPhoto, photoTimeDone, developed, reading, state.selectable, state.ready.map(item => item.imageUrl).join('|')]);
+    if (ownPhoto && photos.length > 0 && photoTimeDone && photos.every(photo => developed.has(photo.uri))) setBeat('keep');
+    if (!ownPhoto && !reading) {
+      const usable = state.ready.filter(item => item.imageUrl && developed.has(item.imageUrl) && !failedImages.has(item.imageUrl));
+      if (state.selectable && usable.length > 0) setBeat('choose');
+    }
+  }, [beat, ownPhoto, photoTimeDone, developed, failedImages, photos, reading, state.selectable, state.ready.map(item => item.imageUrl).join('|')]);
   const resumed = useRef(false);
   useEffect(() => {
     if (!props.resumeGeneration) { resumed.current = false; return; }
@@ -246,7 +273,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         edit_distance_pct: editDistancePct(fromExampleStart.moment, text) });
     }
     const fromChoose = beat === 'choose', priorDeveloped = developed;
-    setDescription(text); setPhotos([]); setChosen(null); setDeveloped(new Set()); setRevealStarted(false); actions.setNotice(null);
+    setDescription(text); setPhotos([]); setActivePhotoId(null); setPhotoCaptions({}); setFailedImages(new Set()); setChosen(null); setDeveloped(new Set()); setRevealStarted(false); actions.setNotice(null);
     setGenerationPending(true); setGenerationAttempt(value => value + 1);
     requestTime.current = Date.now(); setBeat('develop');
     const started = await actions.generate(text, referenceId, photo);
@@ -261,12 +288,38 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: source });
     const picked = await actions.pickImages(mode === 'create', source);
     if (!picked || !alive.current) return;
-    setPhotos(picked); setChosen(0); setDeveloped(new Set()); setRevealStarted(false); setReframe({ x: 0, y: 0 }); setBeat('develop');
+    setPhotos(picked); setActivePhotoId(picked[0]?.key ?? null); setPhotoCaptions(Object.fromEntries(picked.map(photo => [photo.key, prefillVisionCaption(anchorIntention)])));
+    setFailedImages(new Set()); setChosen(0); setDeveloped(new Set()); setRevealStarted(false); setReframe({ x: 0, y: 0 }); setBeat('develop');
+  };
+  const replaceCurrentPhoto = async () => {
+    if (props.onChooseAgain) { props.onChooseAgain(); return; }
+    const previous = photos[activePhotoIndex];
+    if (!previous) return;
+    const replacement = await actions.pickImages(false, previous.sourceType === 'USER_CAMERA' ? 'camera' : 'library');
+    if (!replacement?.[0] || !alive.current) return;
+    const next = replacement[0];
+    setPhotos(current => current.map((photo, index) => index === activePhotoIndex ? next : photo));
+    setActivePhotoId(next.key);
+    setPhotoCaptions(current => ({ ...current, [next.key]: current[previous.key] ?? prefillVisionCaption(anchorIntention) }));
+    setFailedImages(current => new Set([...current].filter(uri => uri !== previous.uri)));
+    setDeveloped(current => new Set([...current].filter(uri => uri !== previous.uri)));
+    setBeat('develop');
   };
   const retryGeneration = async () => {
-    setGenerationPending(true); setGenerationAttempt(value => value + 1); setRevealStarted(false); setBeat('develop');
+    setFailedImages(new Set()); setGenerationPending(true); setGenerationAttempt(value => value + 1); setRevealStarted(false); setBeat('develop');
     await actions.generation.retry();
     if (alive.current) setGenerationPending(false);
+  };
+  const retryFailedGeneratedImages = async () => {
+    const failed = new Set(failedImages);
+    const failedSlots = state.slots.filter((item): item is VisionGenerationCandidate => Boolean(item?.imageUrl && failed.has(item.imageUrl)));
+    const keys = failedSlots.map(item => item.assetId ?? item.id);
+    setFailedImages(new Set());
+    setDeveloped(current => new Set([...current].filter(uri => !failed.has(uri))));
+    await actions.generation.refresh();
+    if (!alive.current) return;
+    stableUrls.current.clear();
+    setImageRetryTokens(current => Object.fromEntries([...new Set([...Object.keys(current), ...keys])].map(key => [key, (current[key] ?? 0) + (keys.includes(key) ? 1 : 0)])));
   };
   // One choice per Choose beat: a second tap before the beat re-renders must not repeat the cue, the haptic or the event.
   // Cleared only when Choose is entered again (See both again, or fresh candidates), never by the choice's own re-render.
@@ -285,14 +338,15 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     savingRef.current = true; setSaving(true); setSaveError(null);
     try {
       const index = chosen ?? 0;
-      const [image, anchor] = await Promise.all([measure(printRefs.current[index]), measure(anchorRef.current)]);
+      const measureIndex = ownPhoto ? activePhotoIndex : index;
+      const [image, anchor] = await Promise.all([measure(printRefs.current[measureIndex]), measure(anchorRef.current)]);
       const selection = { image, anchor };
       let result: boolean | void;
       if (ownPhoto && latest.current.onPhotoConfirm) {
-        const error = await latest.current.onPhotoConfirm(caption.trim());
+        const error = await latest.current.onPhotoConfirm(activePhotoCaption.trim());
         if (error) throw new Error(error);
         result = true;
-      } else if (ownPhoto) result = await actions.saveUploads(photos, description, caption.trim(), selection);
+      } else if (ownPhoto) result = await actions.saveUploads(photos, description, activePhotoCaption.trim(), selection, photoCaptions, activePhotoId ?? undefined);
       else {
         if (!candidate?.assetId) throw new Error(copy.saveError);
         const asset = { assetId: candidate.assetId, prompt: candidate.prompt || description.trim(), caption: caption.trim() };
@@ -304,22 +358,24 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       const elapsed = Date.now() - requestTime.current;
       later(() => setBeat('pinned'), skipRequested.current ? 0 : Math.max(0, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced) + CEREMONY.sealedMinHoldMs - elapsed));
     } catch (cause) {
+      setSealingActive(false);
       if (alive.current) setSaveError(cause instanceof Error ? cause.message : copy.saveError);
     } finally { savingRef.current = false; if (alive.current) setSaving(false); }
   };
   const commit = () => {
     if (committedRef.current) return;
+    setSealingActive(true);
     committedRef.current = true; requestTime.current = Date.now(); setCommitted(true);
-    const edited = caption.trim() !== prefillVisionCaption(anchorIntention);
+    const edited = (ownPhoto ? activePhotoCaption : caption).trim() !== prefillVisionCaption(anchorIntention);
     AnalyticsService.track('vision_seal_completed', { anchor_id: anchorId, mode: analyticsMode, path, caption_edited: edited, hold_attempts: attempts.current });
-    if (edited) AnalyticsService.track('vision_caption_edited', { anchor_id: anchorId, length: caption.trim().length });
+    if (edited) AnalyticsService.track('vision_caption_edited', { anchor_id: anchorId, length: (ownPhoto ? activePhotoCaption : caption).trim().length });
     later(() => { void safeHaptics.impact(ImpactFeedbackStyle.Heavy); playCreationSound('seal'); }, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced));
     // The seal is a celebration, so it asks the coordinator before anything else plays over it. 'deferred' means a
     // higher scene is playing: this ceremony still runs, and it leaves the coordinator at its hand-off.
     const id = `vision-ceremony:${++visionCeremonySequence}`;
     celebrationRef.current = id; setCelebrationId(id);
     const level: CelebrationLevel = firstImage && !reduced ? 4 : 2;
-    const durationMs = reduced ? REDUCED_SCENE_MS : firstImage ? FIRST_SCENE_MS : CEREMONY.sealHoldLaterMs + LATER_SCENE_TAIL_MS;
+    const durationMs = reduced ? REDUCED_SCENE_MS : SCENE_MS;
     useCelebrationStore.getState().request(level, id, { durationMs, onSkip: settleNow });
     void save();
   };
@@ -344,21 +400,28 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   }, [committed, reduced]);
   /** The print reaches its board place once: the flight to it (unless skipped), then the hand-off. */
   const handOff = (instant: boolean) => {
-    if (boardHandedOff.current) return;
-    boardHandedOff.current = true;
+    if (boardHandedOff.current || handOffInFlight.current || !foregroundRef.current) return;
+    handOffInFlight.current = true;
     void (async () => {
-      if (!instant) {
-        const [image, anchor] = await Promise.all([measure(printRefs.current[chosen ?? 0]), measure(anchorRef.current)]);
-        if (!alive.current) return;
-        const url = latest.current.savedImageUrl ?? heroUri;
-        if (url && image) {
-          arrival?.begin(url, image, anchorArt && anchor ? { ...anchorArt, category: anchorCategory, rect: anchor } : undefined, 'paper');
-          arrival?.resolve(url);
+      try {
+        if (!instant) {
+          const measureIndex = ownPhoto ? activePhotoIndex : chosen ?? 0;
+          const [image, anchor] = await Promise.all([measure(printRefs.current[measureIndex]), measure(anchorRef.current)]);
+          if (!alive.current || !foregroundRef.current) return;
+          const url = latest.current.savedImageUrl ?? heroUri;
+          if (url && image) {
+            arrival?.begin(url, image, anchorArt && anchor ? { ...anchorArt, category: anchorCategory, rect: anchor } : undefined, 'paper');
+            arrival?.resolve(url);
+          }
         }
+        if (!alive.current || !foregroundRef.current) return;
+        if (celebrationRef.current) useCelebrationStore.getState().finish(celebrationRef.current);
+        boardHandedOff.current = true;
+        setSealingActive(false);
+        latest.current.onPinned?.({ firstImage });
+      } finally {
+        handOffInFlight.current = false;
       }
-      if (!alive.current) return;
-      if (celebrationRef.current) useCelebrationStore.getState().finish(celebrationRef.current);
-      latest.current.onPinned?.({ firstImage });
     })();
   };
   /** A skip, or a higher scene preempting this one, lands the ceremony on the settled board: no rise, no flight. */
@@ -369,12 +432,24 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     handOff(true);
   };
   useEffect(() => {
-    if (beat !== 'pinned') return;
+    if (beat !== 'pinned' || !foreground) return;
     const instant = skipRequested.current;
-    boardRise.value = reduced || instant ? 0 : withTiming(0, { duration: CEREMONY.boardRiseMs, easing: Easing.bezier(.7, 0, .2, 1) });
-    const timer = setTimeout(() => handOff(instant), instant ? 0 : ceremonyDuration(CEREMONY.boardRiseMs, reduced));
-    return () => clearTimeout(timer);
-  }, [beat]);
+    const total = instant ? 0 : ceremonyDuration(CEREMONY.boardRiseMs, reduced);
+    const elapsed = boardRiseStartedAt.current === null ? 0 : Date.now() - boardRiseStartedAt.current;
+    const duration = instant || reduced ? 0 : Math.max(0, Math.min(boardRiseRemaining.current, total - elapsed));
+    if (instant || reduced) { boardRise.value = 0; boardRiseRemaining.current = 0; }
+    else { boardRiseStartedAt.current = Date.now(); boardRise.value = withTiming(0, { duration, easing: Easing.bezier(.7, 0, .2, 1) }); }
+    const timer = setTimeout(() => { boardRiseStartedAt.current = null; boardRiseRemaining.current = 0; handOff(instant); }, duration);
+    return () => {
+      clearTimeout(timer);
+      if (boardRiseStartedAt.current !== null) {
+        const passed = Date.now() - boardRiseStartedAt.current;
+        boardRiseRemaining.current = Math.max(0, boardRiseRemaining.current - passed);
+        boardRiseStartedAt.current = null;
+        cancelAnimation(boardRise);
+      }
+    };
+  }, [beat, foreground]);
   const boardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: boardRise.value }] }));
   const stampStyle = useAnimatedStyle(() => ({ transform: [{ scale: stamp.value }], opacity: 1 - breath.value * .25 }));
   const rippleStyle = useAnimatedStyle(() => ({ opacity: reduced ? 0 : (1 - ripple.value) * .8, transform: [{ scale: .6 + ripple.value * 2.6 }] }));
@@ -394,19 +469,20 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const curateY = insets.top + usable * .11, sealY = insets.top + usable * .055, keepY = curateY + usable * .04;
   // Keep: lift the hero so its caption strip clears the keyboard by 16pt.
   const lift = beat === 'keep' && keyboardH > 0 ? Math.max(0, keepY + curateW * 1.25 + 54 + 16 - (height - keyboardH)) : 0;
-  const printPlacement = (index: number): PrintPlacement => {
-    const hero = ownPhoto ? index === 0 : index === chosen;
+  const printPlacement = (index: number, stackPosition = index): PrintPlacement => {
+    const hero = ownPhoto ? stackPosition === 0 : index === chosen;
     // The entrance owns Ask; these prints stay invisible until Develop begins.
     if (beat === 'ask' || beat === 'describe') return { x: (width - askW) / 2, y: askFrameY, width: askW, height: askH, rotation: 0, opacity: 0 };
-    if (beat === 'keep') return { x: (width - curateW) / 2 + (ownPhoto ? index * 7 : 0), y: hero || ownPhoto ? keepY + index * (ownPhoto ? 7 : 0) : height + 80,
-      width: curateW, height: curateW * 1.25 + 54, rotation: hero ? 0 : ownPhoto ? index % 2 ? 3 : -3 : 8, opacity: hero || ownPhoto ? 1 : 0 };
-    if (beat === 'seal' || beat === 'pinned') return { x: (width - sealW) / 2 + (ownPhoto ? index * 5 : 0), y: sealY + index * (ownPhoto ? 5 : 0),
-      width: sealW, height: sealW * 1.25 + 54, rotation: hero ? 0 : index % 2 ? 3 : -3, opacity: hero || ownPhoto ? 1 : 0 };
-    if (ownPhoto) return { x: (width - curateW) / 2 + index * 7, y: curateY + index * 7, width: curateW, height: curateW * 1.25,
-      rotation: index === 0 ? 0 : index % 2 ? 3 : -3, opacity: 1 };
+    if (beat === 'keep') return { x: (width - curateW) / 2 + (ownPhoto ? stackPosition * 7 : 0), y: hero || ownPhoto ? keepY + stackPosition * (ownPhoto ? 7 : 0) : height + 80,
+      width: curateW, height: curateW * 1.25 + 54, rotation: hero ? 0 : ownPhoto ? stackPosition % 2 ? 3 : -3 : 8, opacity: hero || (ownPhoto && stackPosition < 3) ? 1 : 0 };
+    if (beat === 'seal' || beat === 'pinned') return { x: (width - sealW) / 2 + (ownPhoto ? stackPosition * 5 : 0), y: sealY + stackPosition * (ownPhoto ? 5 : 0),
+      width: sealW, height: sealW * 1.25 + 54, rotation: hero ? 0 : stackPosition % 2 ? 3 : -3, opacity: hero || (ownPhoto && stackPosition < 3) ? 1 : 0 };
+    if (ownPhoto) return { x: (width - curateW) / 2 + stackPosition * 7, y: curateY + stackPosition * 7, width: curateW, height: curateW * 1.25,
+      rotation: stackPosition === 0 ? 0 : stackPosition % 2 ? 3 : -3, opacity: stackPosition < 3 ? 1 : 0 };
     return { x: 24 + index * (twoW + 14), y: insets.top + usable * .33, width: twoW, height: twoW * 1.5,
       rotation: index === 0 ? -1.2 : 1.2, opacity: reading ? 0 : 1 };
   };
+  const activePrintPlacement = printPlacement(activePhotoIndex, 0);
   const anchorSize = beat === 'seal' && !committed ? 128 : committed ? 78 : 48;
   // While the entrance plays its open it owns the big centre anchor; this one appears when the lift lands.
   const openPlaying = beat === 'ask' && !entrancePlayed.current && !reduced && !handedOff;
@@ -442,13 +518,13 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     startedFromExample.current = null; setFromExample(null);
   };
   const back = () => {
-    if (committedRef.current) return;
+    if (committedRef.current) { if (beat === 'pinned') onBack(); return; }
     if (beat === 'describe') { leaveExample(); setBeat('ask'); } else if (beat === 'seal') setBeat('keep');
     else if (beat === 'keep' && !ownPhoto) { setChosen(null); setBeat('choose'); }
     else if (beat === 'develop' || beat === 'choose') setBeat('describe'); else onBack();
   };
   const link = (text: string, onPress: () => void, id?: string) => <Pressable key={text} testID={id} accessibilityRole="button" accessibilityLabel={text} onPress={onPress} style={styles.link}><Text style={styles.linkText}>{text}</Text></Pressable>;
-  const primary = (text: string, onPress: () => void, ghost = false) => <Pressable testID={text === copy.keep ? 'vision-ceremony-keep' : undefined} accessibilityRole="button" accessibilityLabel={text} onPress={() => { playCreationSound('uiTap'); onPress(); }}
+  const primary = (text: string, onPress: () => void, ghost = false) => <Pressable testID={text === copy.keep ? 'vision-ceremony-keep' : text === copy.completeVision ? 'vision-complete-vision' : undefined} accessibilityRole="button" accessibilityLabel={text} onPress={() => { playCreationSound('uiTap'); onPress(); }}
     style={[styles.button, ghost && styles.ghost]}><Text style={[styles.buttonText, ghost && styles.ghostText]}>{text}</Text></Pressable>;
 
   return <View testID={testID} style={styles.stage}>
@@ -456,24 +532,46 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     {beat === 'pinned' ? <Animated.View pointerEvents="none" style={[styles.board, { height: height + 50 }, boardStyle]}><VisionTornEdge width={width} color={colors.canvas} /><View style={styles.boardFill} /></Animated.View> : null}
     {/* DEFERRED: replaced by VisionEntrance (Oct 2026). Add mode's preview print behind the empty frame (testID vision-ceremony-preview). */}
     {/* Prints and Anchor are siblings of the changing copy, so neither ever remounts at a beat boundary. */}
-    {Array.from({ length: ownPhoto ? Math.min(3, photos.length) : 2 }, (_, index) => {
-      const uri = ownPhoto ? photos[index]?.uri : state.slots[index]?.imageUrl ?? undefined;
-      const item = state.slots[index];
-      return <VisionPrintSlot key={`print-${index}`} placement={printPlacement(index)} testID={`vision-ceremony-slot-${index}`}>
-        <Animated.View style={[styles.fill, { zIndex: ownPhoto ? 3 - index : 1 }, liftStyle]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
-          <VisionPrint uri={uri} developing={beat === 'develop'} revealed={beat !== 'ask' && beat !== 'describe' && (!reading || ownPhoto)}
-            empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption && (ownPhoto ? index === 0 : index === chosen)} caption={caption} pinned={false}
-            revealDelayMs={ownPhoto ? reduced ? 0 : 600 + index * 400 : 0} pressed={stampComplete} imageRef={node => { printRefs.current[index] = node; }}
-            onRevealStart={() => setRevealStarted(true)}
-            onDeveloped={value => setDeveloped(previous => new Set(previous).add(value))} onChangeCaption={beat === 'keep' && index === chosen ? setCaption : undefined}
-            reframe={reframe} onReframe={beat === 'keep' && index === chosen ? setReframe : undefined} testID={`vision-ceremony-print-${index}`} />
-          {/* DEFERRED: reframe returns when crop offset is persisted; the props stay wired but inert. */}
-          {/* DEFERRED: replaced by VisionEntrance (Oct 2026). The suggestion text in the empty frame (testID vision-ceremony-suggestion). */}
-          {beat === 'choose' && item ? <Pressable testID={`scene-candidate-${item.id}`} accessibilityRole="imagebutton" accessibilityLabel={`Choose image ${index + 1}`}
-            disabled={!item.imageUrl || !developed.has(item.imageUrl)} onPress={() => choose(index, item)} style={styles.fill} /> : null}
+    {ownPhoto ? <VisionPhotoStack items={photos} activeId={activePhotoId ?? photos[0]?.key ?? ''} onActiveIdChange={id => { if (!committedRef.current) setActivePhotoId(id); }}
+      interactive={(beat === 'develop' || beat === 'keep') && keyboardH === 0}
+      hitTargetStyle={{ left: activePrintPlacement.x + 12, top: activePrintPlacement.y + 8,
+        width: Math.max(0, activePrintPlacement.width - 24),
+        height: Math.max(0, activePrintPlacement.height - CEREMONY.captionStripPts - 16) }}
+      indicatorStyle={{ top: activePrintPlacement.y + activePrintPlacement.height - CEREMONY.captionStripPts - 28, bottom: undefined }}
+      renderItem={({ item, index, stackPosition, active, visible }) => <VisionPrintSlot key={item.key} placement={printPlacement(index, stackPosition)}
+        zIndex={30} testID={`vision-ceremony-slot-${index}`}>
+        <Animated.View style={[styles.fill, liftStyle, !visible && { opacity: 0 }]} pointerEvents={active && beat === 'keep' ? 'auto' : 'none'}>
+          <VisionPrint uri={item.uri} developing={beat === 'develop'} revealed={beat !== 'ask' && beat !== 'describe' && (!reading || ownPhoto)}
+            empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption && active}
+            caption={photoCaptions[item.key] ?? prefillVisionCaption(anchorIntention)} pinned={false}
+            revealDelayMs={reduced ? 0 : Math.min(400 + index * 80, 960)} pressed={stampComplete} imageRef={node => { printRefs.current[index] = node; }}
+            onRevealStart={() => setRevealStarted(true)} onImageError={uri => {
+              setFailedImages(previous => new Set(previous).add(uri));
+              setActivePhotoId(photos.find(photo => photo.uri === uri)?.key ?? activePhotoId);
+              setBeat('keep');
+            }} onDeveloped={value => setDeveloped(previous => new Set(previous).add(value))}
+            onChangeCaption={beat === 'keep' && active ? value => setPhotoCaptions(previous => ({ ...previous, [item.key]: value })) : undefined} reframe={reframe}
+            onReframe={beat === 'keep' && active ? setReframe : undefined} testID={`vision-ceremony-print-${index}`} />
         </Animated.View>
-      </VisionPrintSlot>;
-    }).reverse()}
+      </VisionPrintSlot>} />
+      : Array.from({ length: 2 }, (_, index) => {
+        const item = state.slots[index];
+        const uri = item?.imageUrl ?? undefined;
+        return <VisionPrintSlot key={item?.assetId ?? `generated-print-${index}`} placement={printPlacement(index)} testID={`vision-ceremony-slot-${index}`}>
+          <Animated.View style={[styles.fill, { zIndex: 1 }, liftStyle]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
+            <VisionPrint uri={uri} developing={beat === 'develop'} revealed={beat !== 'ask' && beat !== 'describe' && !reading}
+              empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption && index === chosen} caption={caption} pinned={false}
+              revealDelayMs={0} pressed={stampComplete} imageRef={node => { printRefs.current[index] = node; }} onRevealStart={() => setRevealStarted(true)}
+              onImageError={value => { setFailedImages(previous => new Set(previous).add(value)); setBeat('develop'); }}
+              retryToken={item ? imageRetryTokens[item.assetId ?? item.id] ?? 0 : 0}
+              onDeveloped={value => setDeveloped(previous => new Set(previous).add(value))}
+              onChangeCaption={beat === 'keep' && index === chosen ? setCaption : undefined} reframe={reframe}
+              onReframe={beat === 'keep' && index === chosen ? setReframe : undefined} testID={`vision-ceremony-print-${index}`} />
+            {beat === 'choose' && item ? <Pressable testID={`scene-candidate-${item.id}`} accessibilityRole="imagebutton" accessibilityLabel={`Choose image ${index + 1}`}
+              disabled={!item.imageUrl || !developed.has(item.imageUrl) || failedImages.has(item.imageUrl)} onPress={() => choose(index, item)} style={styles.fill} /> : null}
+          </Animated.View>
+        </VisionPrintSlot>;
+      }).reverse()}
     {beat === 'ask' ? <VisionEntrance key="entrance" mode={mode} anchorId={anchorId} category={resolveAnchorCategory(anchorCategory)} anchorArt={anchorArt}
       previewImageUrl={props.previewImageUrl} previewCaption={props.previewCaption?.trim() || anchorIntention} firstRun={!entrancePlayed.current} active={foreground}
       notice={actions.notice} anchorTarget={anchorPosition} onAnchorHandoff={() => setHandedOff(true)} onBack={back}
@@ -489,7 +587,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       </Animated.View>
     </VisionPrintSlot>
     {beat !== 'describe' && beat !== 'ask' ? <Animated.View key={beat} pointerEvents="box-none" entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
-      {!committed ? <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={back} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable> : null}
+      {!committed || (beat === 'pinned' && foreground) ? <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={back} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable> : null}
       {/* DEFERRED: replaced by VisionEntrance (Oct 2026). The old Ask copy, intention line, category eyebrow, footer and footnote:
       // {beat === 'ask' ? <>
       // <View onLayout={event => setAskCopyH(Math.round(event.nativeEvent.layout.height))} style={[styles.copy, { top: askTop }]}>
@@ -512,8 +610,8 @@ export function VisionCeremony(props: VisionCeremonyProps) {
           {beat === 'develop' ? <><Text accessibilityLiveRegion="polite" style={styles.status}>{status}</Text>
             <Svg width={150} height={10} accessible={false}><Path d="M1 5 Q75 2 149 5" stroke="#F4EDE0" strokeWidth={1.3} strokeDasharray={150} strokeDashoffset={150 * (1 - (reading ? .25 : state.ready.length ? .8 : .55))} fill="none" /></Svg>
             {!ownPhoto ? <Text style={styles.note}>{copy.waitNote}</Text> : null}</> : null}
-          {state.phase === 'failed' ? <><Text style={styles.status}>{copy.failed}</Text><Text style={styles.note}>{state.ready.length ? copy.failedPartial : copy.failedBody}</Text>
-            {link(copy.retry, () => { void retryGeneration(); })}{link(copy.edit, () => setBeat('describe'))}</> : null}
+          {state.phase === 'failed' || (!ownPhoto && failedImages.size > 0) ? <><Text style={styles.status}>{copy.failed}</Text><Text style={styles.note}>{failedImages.size > 0 ? copy.unavailable : state.ready.length ? copy.failedPartial : copy.failedBody}</Text>
+            {link(copy.retry, () => { void (failedImages.size > 0 ? retryFailedGeneratedImages() : retryGeneration()); })}{link(copy.edit, () => setBeat('describe'))}</> : null}
           {(actions.notice || actions.generation.error) && !(beat === 'choose' && limitReached) ? <Text accessibilityLiveRegion="polite" style={styles.error}>{actions.notice ?? actions.generation.error}</Text> : null}
         </View>
         {beat === 'choose' ? <View style={[styles.footer, { bottom: insets.bottom + 30 }]}>
@@ -524,13 +622,14 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       </> : null}
       {beat === 'keep' ? <>
         <View style={[styles.copy, { top: insets.top + usable * .10 }]}><Text style={styles.eyebrow}>{copy.caption}</Text></View>
-        <View style={[styles.copy, { top: insets.top + usable * .65 }]}>{link(ownPhoto ? copy.replace : copy.both,
-          () => { if (ownPhoto) { if (props.onChooseAgain) props.onChooseAgain(); else void pick(photos[0].sourceType === 'USER_CAMERA' ? 'camera' : 'library'); } else { setChosen(null); setBeat('choose'); } })}<Text style={styles.note}>{copy.hint}</Text></View>
-        {keyboardH === 0 ? <View style={[styles.footer, { bottom: insets.bottom + 20 }]}>{primary(copy.keep, () => setBeat('seal'))}</View> : null}
+        {keyboardH === 0 ? <View style={[styles.copy, { top: insets.top + usable * .65 }]}>{ownPhoto ? link(copy.replace, () => { void replaceCurrentPhoto(); })
+          : canChooseAnotherGenerated ? link(copy.both, () => { setChosen(null); setBeat('choose'); }) : null}
+          {ownPhoto && failedImages.size > 0 ? <Text accessibilityLiveRegion="polite" style={styles.note}>{copy.unavailable}</Text> : <Text style={styles.note}>{copy.hint}</Text>}</View> : null}
+        {keyboardH === 0 && (!ownPhoto || failedImages.size === 0) ? <View style={[styles.footer, { bottom: insets.bottom + 20 }]}>{primary(ownPhoto || !canChooseAnotherGenerated ? copy.completeVision : copy.keep, () => { setBeat('seal'); commit(); })}</View> : null}
       </> : null}
-      {beat === 'seal' ? <>
+      {beat === 'seal' || beat === 'pinned' ? <>
         <View style={[styles.copy, { top: insets.top + usable * .52 }]}><Text accessibilityRole="header" accessibilityLiveRegion="polite" style={styles.title}>{committed ? copy.sealed : copy.hold}</Text>
-          <Text style={styles.note}>{committed ? copy.leads : copy.commitment}</Text>{saveError ? <><Text accessibilityLiveRegion="polite" style={styles.error}>{saveError}</Text>{link(copy.retry, () => { void save(); }, 'vision-ceremony-save-retry')}</> : null}</View>
+          <Text accessibilityLiveRegion={saving ? 'polite' : undefined} testID={saving ? 'vision-ceremony-saving' : undefined} style={styles.note}>{saving ? copy.saving : committed ? copy.leads : copy.commitment}</Text>{saveError ? <><Text accessibilityLiveRegion="polite" style={styles.error}>{saveError}</Text>{link(copy.retry, () => { void save(); }, 'vision-ceremony-save-retry')}</> : null}</View>
         {!committed ? <Text style={[styles.press, { bottom: insets.bottom + 30 }]}>{copy.press}</Text> : null}
       </> : null}
     </Animated.View> : null}

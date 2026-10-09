@@ -166,8 +166,8 @@ export function V2ChartJourneyScreen() {
           id: entry.id,
           timestamp: entry.occurredAt,
           type: 'MOVE_COMPLETED',
-          title: 'Move completed',
-          subtext: moveTitle ?? 'Completed move',
+          title: moveTitle ?? 'Move completed',
+          subtext: moveTitle ? 'Completed' : null,
         });
       } else if (entry.eventType === 'WAYPOINT_REACHED') {
         const wpTitle = typeof entry.snapshot?.waypointTitle === 'string' ? entry.snapshot.waypointTitle : null;
@@ -175,8 +175,8 @@ export function V2ChartJourneyScreen() {
           id: entry.id,
           timestamp: entry.occurredAt,
           type: 'WAYPOINT_REACHED',
-          title: 'Waypoint reached',
-          subtext: wpTitle ?? 'Reached waypoint',
+          title: wpTitle ?? 'Waypoint reached',
+          subtext: wpTitle ? 'Reached' : null,
         });
       } else if (entry.eventType === 'COURSE_CREATED') {
         items.push({
@@ -184,7 +184,7 @@ export function V2ChartJourneyScreen() {
           timestamp: entry.occurredAt,
           type: 'COURSE_CREATED',
           title: 'Course created',
-          subtext: 'Five waypoints plotted toward your destination.',
+          subtext: null,
         });
       } else if (entry.eventType === 'PRACTICE_COMPLETED') {
         const mode = entry.practiceSession?.practiceMode ?? 'focus';
@@ -277,7 +277,7 @@ export function V2ChartJourneyScreen() {
         timestamp: view.plottedAt,
         type: 'COURSE_CREATED',
         title: 'Course created',
-        subtext: 'Five waypoints plotted toward your destination.',
+        subtext: null,
       });
       items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }

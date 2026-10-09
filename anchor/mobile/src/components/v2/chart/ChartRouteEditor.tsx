@@ -16,6 +16,8 @@ export type DraftWaypoint = {
   rationale: string | null;
   kind: WaypointKind;
   progressMode?: WaypointProgressMode;
+  requirements?: Array<{ id: string; title: string; completed: boolean }>;
+  completionCriteria?: string | null;
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;

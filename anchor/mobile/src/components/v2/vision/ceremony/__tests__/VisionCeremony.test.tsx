@@ -18,10 +18,10 @@ jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples
 let mockJob: any = null;
 let mockReduced = false;
 let mockError: string | null = null, mockErrorCode: string | null = null;
-const mockStart = jest.fn(async () => true), mockRetry = jest.fn(async () => true);
+const mockStart = jest.fn(async () => true), mockRetry = jest.fn(async () => true), mockRefresh = jest.fn(async () => undefined);
 const mockPicker = jest.fn(), mockSinglePick = jest.fn(), mockSourceUpload = jest.fn();
 jest.mock('@/hooks/v2/vision', () => ({
-  useV2VisionSceneGeneration: () => ({ job: mockJob, error: mockError, errorCode: mockErrorCode, lastErrorCode: () => mockErrorCode, start: mockStart, retry: mockRetry }),
+  useV2VisionSceneGeneration: () => ({ job: mockJob, error: mockError, errorCode: mockErrorCode, lastErrorCode: () => mockErrorCode, start: mockStart, retry: mockRetry, refresh: mockRefresh }),
   pickVisionPhoto: (...args: unknown[]) => mockSinglePick(...args),
   uploadVisionPhoto: (...args: unknown[]) => mockSourceUpload(...args),
   useVisionAppearanceReference: () => ({ profilePhoto: null, enabledByPreference: false, reference: null, loading: false, saving: false, upload: jest.fn(), remove: jest.fn(), setProfilePreference: jest.fn() }),
@@ -58,9 +58,9 @@ async function choose(view: ReturnType<typeof setup>, index = 0) {
   fireEvent.press(view.getByTestId(`scene-candidate-c${index}`));
 }
 async function seal(view: ReturnType<typeof setup>) {
-  fireEvent.press(view.getByTestId('vision-ceremony-keep'));
-  fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
-  await advance(1600); await advance(200);
+  fireEvent.press(view.queryByTestId('vision-complete-vision') ?? view.getByTestId('vision-ceremony-keep'));
+  await advance(200);
+  await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealedMinHoldMs + CEREMONY.boardRiseMs + 1);
 }
 
 describe('Vision ceremony', () => {
@@ -103,6 +103,72 @@ describe('Vision ceremony', () => {
     expect(view.getByText(copy.sealed)).toBeTruthy();
     await advance(3500); await advance(1200); await advance(200);
     expect(view.onPinned).toHaveBeenCalledTimes(1);
+  });
+  it('personal-photo completion uses Complete Vision and starts sealing on that tap', async () => {
+    const view = setup({ startAt: 'develop', photo: { uri: 'file:///one.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
+    await develop(view, 1);
+    expect(view.getByLabelText(copy.completeVision)).toBeTruthy();
+    fireEvent.press(view.getByTestId('vision-complete-vision'));
+    expect(view.queryByTestId('vision-seal-hold')).toBeNull();
+    expect(view.getByText(copy.sealed)).toBeTruthy();
+    await advance(200);
+    expect(view.onAssemble).toHaveBeenCalledTimes(1);
+  });
+  it('finalizes an AI Vision when a terminal job has only one usable generated image', async () => {
+    mockJob = job('COMPLETE', candidates.slice(0, 1));
+    const view = setup();
+    fireEvent.press(view.getByLabelText(copy.words));
+    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+    await develop(view, 1);
+    fireEvent.press(view.getByTestId('scene-candidate-c0'));
+    expect(view.getByLabelText(copy.completeVision)).toBeTruthy();
+    expect(view.queryByText(copy.both)).toBeNull();
+  });
+  it.each([1, 2, 4, 7, 8])('retains and develops every selected personal photo (%i)', async count => {
+    const assets = Array.from({ length: count }, (_, index) => ({ uri: `file:///personal-${index}.jpg`, mimeType: 'image/jpeg' }));
+    mockPicker.mockResolvedValueOnce({ canceled: false, assets });
+    const view = setup();
+    await act(async () => { fireEvent.press(view.getByLabelText(copy.ownPhoto)); });
+    expect(view.getAllByTestId(/vision-ceremony-print-\d+-sharp/)).toHaveLength(count);
+    await develop(view, count);
+    expect(view.getByLabelText(copy.completeVision)).toBeTruthy();
+    if (count > 1) expect(view.getByTestId('vision-photo-stack-count').props.children).toBe(`1 of ${count}`);
+  });
+  it('edits and persists the caption with the photo currently in front, preserving every selected image', async () => {
+    mockPicker.mockResolvedValueOnce({ canceled: false, assets: [
+      { uri: 'file:///first.jpg', mimeType: 'image/jpeg' }, { uri: 'file:///second.jpg', mimeType: 'image/jpeg' },
+    ] });
+    let uploadCount = 0;
+    const upload = jest.fn(async () => ({ ok: true as const, asset: { id: `photo-${++uploadCount}`, resolvedUrl: `file:///saved-${uploadCount}.jpg`, mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } }));
+    const view = setup({ onUploadAsset: upload });
+    await act(async () => { fireEvent.press(view.getByLabelText(copy.ownPhoto)); });
+    await develop(view, 2);
+    fireEvent(view.getByTestId('vision-photo-stack-hit-target'), 'accessibilityTap');
+    expect(view.getByTestId('vision-photo-stack-count').props.children).toBe('2 of 2');
+    fireEvent.changeText(view.getByTestId('vision-ceremony-print-1-caption'), 'The second photo is mine.');
+    await seal(view);
+    const selected = view.onAssemble.mock.calls[0][0].selectedAssets;
+    expect(selected).toHaveLength(2);
+    expect(selected.map((asset: any) => asset.caption)).toEqual([base.anchorIntention, 'The second photo is mine.']);
+    expect(selected.map((asset: any) => asset.sourceType)).toEqual(['USER_UPLOAD', 'USER_UPLOAD']);
+    expect(view.onAssemble.mock.calls[0][0].arrivingAssetId).toBe('photo-2');
+  });
+  it('replaces a failed photo in place and keeps the other selected images', async () => {
+    mockPicker.mockResolvedValueOnce({ canceled: false, assets: [
+      { uri: 'file:///bad.jpg', mimeType: 'image/jpeg' }, { uri: 'file:///good.jpg', mimeType: 'image/jpeg' },
+    ] });
+    mockSinglePick.mockResolvedValueOnce({ status: 'picked', photo: { uri: 'file:///replacement.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
+    const view = setup();
+    await act(async () => { fireEvent.press(view.getByLabelText(copy.ownPhoto)); });
+    fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'error');
+    expect(view.queryByLabelText(copy.completeVision)).toBeNull();
+    expect(view.getByText(copy.replace)).toBeTruthy();
+    await act(async () => { fireEvent.press(view.getByText(copy.replace)); });
+    expect(view.getAllByTestId(/vision-ceremony-print-\d+-sharp/)).toHaveLength(2);
+    fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load');
+    fireEvent(view.getByTestId('vision-ceremony-print-1-sharp'), 'load');
+    await develop(view, 2);
+    expect(view.getByLabelText(copy.completeVision)).toBeTruthy();
   });
   it('See both again and neither retain the description without saving', async () => {
     mockJob = job(); const view = setup(); await choose(view);
@@ -173,6 +239,7 @@ describe('Vision ceremony', () => {
   it('all decorative durations collapse to 200ms or less while hold remains 1600ms', () => {
     for (const key of ['stageFadeMs', 'printMoveMs', 'revealInkMs', 'revealBlurMs', 'sealDecayMs', 'stampMs', 'rippleMs', 'pressMs', 'boardRiseMs', 'pinDropMs'] as const) expect(ceremonyDuration(CEREMONY[key], true)).toBeLessThanOrEqual(200);
     expect(CEREMONY.sealHoldMs).toBe(1600);
+    expect(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealedMinHoldMs + CEREMONY.boardRiseMs).toBeLessThanOrEqual(2200);
   });
   it('approved copy contains no forbidden vocabulary and prefill never exceeds 80 characters', () => {
     expect(Object.values(copy).join(' ')).not.toMatch(/\b(sigil|ritual|charge|spell|streak|attract|mindfulness|meditation|vision board|occult|prime|priming)\b/i);
@@ -205,7 +272,7 @@ describe('Vision ceremony', () => {
     fireEvent(view.getByTestId('vision-ceremony-print-1-sharp'), 'error'); await develop(view, 1);
     expect(view.getByTestId('scene-candidate-c0').props.accessibilityState.disabled).toBeFalsy();
     expect(view.getByTestId('scene-candidate-c1').props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(view.getByTestId('scene-candidate-c0')); expect(view.getByTestId('vision-ceremony-keep')).toBeTruthy();
+    fireEvent.press(view.getByTestId('scene-candidate-c0')); expect(view.getByTestId('vision-complete-vision')).toBeTruthy();
   });
   it('retry retains development readiness for a partial image reused by the server', async () => {
     mockJob = job('FAILED', candidates.slice(0, 1)); const view = setup();
@@ -213,6 +280,21 @@ describe('Vision ceremony', () => {
     mockRetry.mockImplementationOnce(async () => { mockJob = job('COMPLETE', candidates.slice(0, 1)); return true; });
     await act(async () => { fireEvent.press(view.getByText(copy.retry)); }); await advance(3600);
     expect(view.getByText(copy.choose)).toBeTruthy(); fireEvent.press(view.getByTestId('scene-candidate-c0'));
+    expect(view.getByTestId('vision-complete-vision')).toBeTruthy();
+  });
+  it('retries a failed generated image URL and lets the user choose it after reload', async () => {
+    mockJob = job(); const view = setup(); await choose(view, 0);
+    fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'error');
+    expect(view.getByText(copy.retry)).toBeTruthy();
+    await act(async () => { fireEvent.press(view.getByText(copy.retry)); });
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    await advance(0); fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load');
+    // Re-entering Develop starts its reading beat before the image's reveal can finish.
+    await advance(CEREMONY.wordLightTotalMs); await advance(CEREMONY.revealBlurMs);
+    expect(view.getByTestId('scene-candidate-c0').props.accessibilityState.disabled).toBeFalsy();
+    expect(view.queryByText(copy.unavailable)).toBeNull();
+    expect(view.getByTestId('scene-candidate-c0')).toBeTruthy();
+    fireEvent.press(view.getByTestId('scene-candidate-c0'));
     expect(view.getByTestId('vision-ceremony-keep')).toBeTruthy();
   });
   it('create starts once across Describe re-entry and Add source follows the selected path', async () => {
@@ -347,61 +429,57 @@ describe('Vision celebration scene', () => {
   afterEach(() => { useCelebrationStore.getState().reset(); jest.clearAllTimers(); jest.useRealTimers(); });
   const scene = () => useCelebrationStore.getState().active;
   const impacts = () => (safeHaptics.impact as jest.Mock).mock.calls.map(call => call[0]);
-  async function sealNow(view: ReturnType<typeof setup>, holdMs: number) {
+  async function sealNow(view: ReturnType<typeof setup>, _holdMs: number) {
     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
-    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
-    await advance(holdMs); await advance(200);
+    await advance(200);
   }
 
-  it('the first image keeps the 1.6s hold and plays the L4 scene, which is skippable', async () => {
+  it('the first-image completion tap starts the L4 scene on the shortened timeline', async () => {
     const view = setup(); await choose(view);
     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
-    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
-    await advance(1599); expect(view.onAssemble).not.toHaveBeenCalled(); expect(scene()).toBeNull();
-    await advance(1); await advance(200);
+    await advance(200);
     expect(view.onAssemble).toHaveBeenCalledTimes(1);
-    expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 4, skippable: true });
+    expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 4, skippable: false });
   });
-  it('a later image seals on the 900ms hold and plays the L2 scene', async () => {
+  it('a later image completion tap starts the L2 scene immediately', async () => {
     const view = setup({ firstImage: false }); await choose(view);
     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
-    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
-    await advance(899); expect(view.onAssemble).not.toHaveBeenCalled(); expect(scene()).toBeNull();
-    await advance(1); await advance(200);
+    await advance(200);
     expect(view.onAssemble).toHaveBeenCalledTimes(1);
-    expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 2, skippable: true });
+    expect(scene()).toEqual({ id: expect.stringMatching(/^vision-ceremony:/), level: 2, skippable: false });
   });
-  it('the hold never fires a Medium haptic, and the seal fires one Heavy haptic at commit', async () => {
+  it('completion fires one Heavy haptic after the print movement and no Medium haptic', async () => {
     const view = setup(); await choose(view);
     (safeHaptics.impact as jest.Mock).mockClear();
     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
-    fireEvent(view.getByTestId('vision-seal-hold'), 'pressIn');
-    await advance(1000); expect(impacts()).not.toContain(ImpactFeedbackStyle.Medium);
-    await advance(600); await advance(1500);
+    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs);
     expect(impacts()).not.toContain(ImpactFeedbackStyle.Medium);
     expect(impacts().filter(style => style === ImpactFeedbackStyle.Heavy)).toHaveLength(1);
   });
-  it('Skip is offered only while the skippable scene is active, and a tap lands the print on the board once', async () => {
+  it('the short seal scene is not skippable and lands the print on the board once', async () => {
     const view = setup(); await choose(view);
     expect(view.queryByLabelText('Skip')).toBeNull();
     await sealNow(view, 1600);
     expect(view.onAssemble).toHaveBeenCalledTimes(1);
-    expect(view.getByLabelText('Skip')).toBeTruthy();
-    fireEvent.press(view.getByLabelText('Skip'));
-    expect(view.onPinned).toHaveBeenCalledTimes(1);
-    expect(scene()).toBeNull(); expect(view.queryByLabelText('Skip')).toBeNull();
-    await advance(5000);
+    expect(view.queryByLabelText('Skip')).toBeNull();
+    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealedMinHoldMs);
+    await advance(CEREMONY.boardRiseMs);
+    await advance(200); await advance(0);
+    expect(view.getByLabelText(copy.back)).toBeTruthy();
     expect(view.onPinned).toHaveBeenCalledTimes(1);
   });
-  it('a skip before the save completes lands once the save succeeds, with no rise', async () => {
+  it('a pending save remains visible until completion without a skip affordance', async () => {
     let resolveSave: (value: boolean) => void = () => undefined;
     const onAssemble = jest.fn((_result: unknown) => new Promise<boolean>(resolve => { resolveSave = resolve; }));
     const view = setup({ onAssemble: onAssemble as any }); await choose(view);
     await sealNow(view, 1600);
-    expect(view.getByLabelText('Skip')).toBeTruthy();
-    fireEvent.press(view.getByLabelText('Skip'));
-    expect(scene()).toBeNull(); expect(view.onPinned).not.toHaveBeenCalled();
-    await act(async () => { resolveSave(true); }); await advance(1); await advance(200);
+    expect(view.queryByLabelText('Skip')).toBeNull();
+    expect(view.queryByTestId('vision-ceremony-saving')).toBeTruthy();
+    expect(scene()?.id).toMatch(/^vision-ceremony:/);
+    await act(async () => { resolveSave(true); });
+    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealedMinHoldMs);
+    await advance(CEREMONY.boardRiseMs);
+    await advance(200); await advance(0);
     expect(view.onPinned).toHaveBeenCalledTimes(1);
     await advance(5000); expect(view.onPinned).toHaveBeenCalledTimes(1);
   });
@@ -434,6 +512,23 @@ describe('Vision celebration scene', () => {
     await advance(3500); await advance(1200); await advance(200);
     expect(view.onPinned).toHaveBeenCalledTimes(1);
     expect(useCelebrationStore.getState().queueLength).toBe(0);
+  });
+  it('holds the completed-board handoff while backgrounded and exposes Back after resume', async () => {
+    mockJob = job();
+    const onBack = jest.fn();
+    const view = setup({ onBack }); await choose(view);
+    const add = AppState.addEventListener as unknown as jest.Mock;
+    fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+    await advance(200);
+    const emit = (value: string) => act(() => { add.mock.calls.forEach(([, handler]) => handler(value)); });
+    emit('background'); await advance(3000);
+    expect(view.onPinned).not.toHaveBeenCalled();
+    expect(view.queryByLabelText(copy.back)).toBeNull();
+    emit('active'); await advance(1200); await advance(200);
+    expect(view.onPinned).toHaveBeenCalledTimes(1);
+    fireEvent.press(view.getByLabelText(copy.back));
+    expect(onBack).toHaveBeenCalledTimes(1);
+    await advance(4000); expect(view.onPinned).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -479,6 +574,7 @@ describe('Vision double-fire guards', () => {
   });
   it('a new photo opens the develop again', async () => {
     mockPicker.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///two.jpg', mimeType: 'image/jpeg' }] });
+    mockSinglePick.mockResolvedValueOnce({ status: 'picked', photo: { uri: 'file:///two.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
     const view = setup({ startAt: 'develop', photo }); await develop(view, 1);
     expect(view.getByText(copy.caption)).toBeTruthy();
     const before = calls('formTick').length;

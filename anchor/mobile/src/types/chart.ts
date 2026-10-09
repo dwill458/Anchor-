@@ -132,7 +132,9 @@ export type AnchorLinkSummary = {
 export type WaypointKind = 'MILESTONE' | 'METRIC' | 'CAPABILITY';
 
 /** numeric: a counter; moves: the checklist of its moves; none: no progress UI. */
-export type WaypointProgressMode = 'numeric' | 'moves' | 'none';
+export type WaypointProgressMode = 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
+
+export type WaypointRequirement = { id: string; title: string; completed: boolean };
 
 export type WaypointMetric = {
   label: string | null;
@@ -152,6 +154,8 @@ export type WaypointSummary = {
   kind?: WaypointKind;
   /** Absent on responses from servers older than progress modes. */
   progressMode?: WaypointProgressMode;
+  requirements?: WaypointRequirement[];
+  completionCriteria?: string | null;
   metric?: WaypointMetric | null;
   state: WaypointState;
   blockedReason: BlockedReason | null;
@@ -191,6 +195,9 @@ export type CourseSummary = {
   id: string;
   destinationText: string;
   startingContext?: string | null;
+  actualStartingPoint?: string | null;
+  routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
+  routeStartPosition?: number;
   anchorId?: string | null;
   visionId?: string | null;
   complexity?: string | null;
@@ -256,6 +263,8 @@ export type AddWaypointRequest = {
 export type WaypointMetricFields = {
   kind?: WaypointKind;
   progressMode?: WaypointProgressMode;
+  requirements?: WaypointRequirement[];
+  completionCriteria?: string | null;
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;

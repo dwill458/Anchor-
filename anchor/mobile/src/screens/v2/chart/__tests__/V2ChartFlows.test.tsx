@@ -150,14 +150,15 @@ describe('Waypoint detail', () => {
     const screen = render(<V2ChartWaypointScreen />);
     // DEFERRED: expect(await screen.findByText('Waypoint 2 of 3')).toBeTruthy();
     expect(await screen.findByText('Waypoint 2 of 3 · Current')).toBeTruthy();
-    expect(screen.getByText('642 / 1,000')).toBeTruthy();
+    await openFullSheet(screen);
+    expect(screen.getByText(/^642 \/ 1,000\s*$/)).toBeTruthy();
     // DEFERRED: expect(screen.getByText('YOUR MOVES')).toBeTruthy();
     // All moves, and the suggestions, live in the expanded ONE MOVE card.
-    expect(screen.getByTestId('chart-one-move')).toBeTruthy();
+    expect(screen.getByTestId('chart-one-move-row')).toBeTruthy();
     await openFullSheet(screen);
     expect(screen.getByText('SUGGESTED MOVES')).toBeTruthy();
-    // DEFERRED: expect(screen.getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
-    expect(screen.getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
+    // DEFERRED: expect(screen.getByTestId('chart-one-move-title').props.children).toBe('Finish onboarding redesign');
+    expect(screen.getByTestId('chart-one-move-title').props.children).toBe('Finish onboarding redesign');
     expect(screen.getByLabelText('Add suggested move: Launch creator campaign')).toBeTruthy();
 
     patch.mockResolvedValue({ data: { success: true, data: chart() } });
@@ -171,7 +172,7 @@ describe('Waypoint detail', () => {
     serve(chart());
     post.mockResolvedValue({ data: { success: true, data: chart() } });
     const screen = render(<V2ChartWaypointScreen />);
-    fireEvent.press(await screen.findByTestId('chart-one-move-toggle'));
+    await openFullSheet(screen);
     fireEvent.changeText(await screen.findByTestId('chart-add-move'), 'Email three creators');
     fireEvent(screen.getByTestId('chart-add-move'), 'submitEditing');
     await waitFor(() => expect(post).toHaveBeenCalled());
@@ -302,7 +303,7 @@ describe('Adjust route (active Chart)', () => {
     serve(chart());
     post.mockRejectedValue(new ApiClientError('unavailable', 'CHART_ADJUST_UNAVAILABLE', 503));
     const screen = render(<V2ChartAdjustScreen />);
-    fireEvent.press(await screen.findByTestId('chart-adjust-TOO_MANY_STEPS'));
+    fireEvent.press(await screen.findByTestId('chart-adjust-SMALLER_STEPS'));
     fireEvent.press(screen.getByTestId('chart-adjust-submit'));
     expect(await screen.findByText('We couldn’t revise the route right now. Your route is unchanged.')).toBeTruthy();
     fireEvent.press(screen.getByTestId('chart-adjust-manual'));
@@ -310,10 +311,10 @@ describe('Adjust route (active Chart)', () => {
     expect(screen.getByLabelText('Waypoint 1 of 3: Validate acquisition, reached')).toBeTruthy();
   });
 
-  it('requires detail for "Other"', async () => {
+  it('requires free-form feedback before submitting without a quick adjustment', async () => {
     serve(chart());
     const screen = render(<V2ChartAdjustScreen />);
-    fireEvent.press(await screen.findByTestId('chart-adjust-OTHER'));
+    await screen.findByTestId('chart-adjust-detail');
     expect(screen.getByTestId('chart-adjust-submit').props.accessibilityState).toMatchObject({ disabled: true });
   });
 });

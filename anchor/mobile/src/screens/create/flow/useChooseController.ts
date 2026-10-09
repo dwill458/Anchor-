@@ -24,8 +24,9 @@ import {
   snapPage,
   type PagerTouch,
 } from './choosePager';
+import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
 import { SEAL_DRAIN_RATE, SEAL_HOLD_MS, SEAL_SETTLE_SECONDS } from './creationFlowConfig';
-import { SEAL_SEQUENCE_SECONDS } from './sealMath';
+import { SEAL_PULSE_AT, SEAL_SEQUENCE_SECONDS } from './sealMath';
 
 /** The pager sits inside this strip of the design space; touches are mapped relative to it. */
 export const TOUCH_SURFACE = { top: 100, height: 675 } as const;
@@ -111,6 +112,8 @@ export function useChooseController({
   const holdingRef = useRef(false);
   const touchRef = useRef<PagerTouch | null>(null);
   const hapticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sealRiseRef = useRef<CreationSoundHandle | null>(null);
+  const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callbacksRef = useRef({ onHoldComplete, onSealAnimationDone, onSealLanded });
   callbacksRef.current = { onHoldComplete, onSealAnimationDone, onSealLanded };
   const disabledRef = useRef(disabled);
@@ -179,12 +182,22 @@ export function useChooseController({
       })
     );
     callbacksRef.current.onSealLanded();
+    const pulseDelayMs = Math.round(SEAL_PULSE_AT * sequenceMs);
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    pulseTimerRef.current = setTimeout(() => {
+      pulseTimerRef.current = null;
+      if (phaseRef.current === 'sealing') {
+        playCreationSound('anchorPulse');
+      }
+    }, pulseDelayMs);
   }, [finishSeal, flash, sealU]);
 
   /** The hold reached 100% (or assistive tech sealed directly). JS thread. */
   const completeHold = useCallback(() => {
     if (phaseRef.current !== 'choosing') return;
     stopHaptics();
+    sealRiseRef.current?.stop(150);
+    sealRiseRef.current = null;
     holdingRef.current = false;
     touchRef.current = null;
     phaseRef.current = 'sealing';
@@ -200,6 +213,8 @@ export function useChooseController({
   /** Fill from wherever the ring is, linearly, finishing at SEAL_HOLD_MS for a full ring. */
   const startHolding = useCallback(() => {
     const remaining = Math.max(0, 1 - hold.value);
+    sealRiseRef.current?.stop();
+    sealRiseRef.current = playCreationSound('sealRise', undefined, { loop: true });
     hold.value = withTiming(
       1,
       { duration: Math.max(1, remaining * SEAL_HOLD_MS), easing: Easing.linear, reduceMotion: NEVER_REDUCE },
@@ -215,6 +230,8 @@ export function useChooseController({
   /** Released early (or the finger became a swipe): drain at SEAL_DRAIN_RATE times the fill rate. */
   const stopHolding = useCallback(() => {
     stopHaptics();
+    sealRiseRef.current?.stop(200);
+    sealRiseRef.current = null;
     holdingRef.current = false;
     const current = hold.value;
     if (current <= 0) return;
@@ -238,6 +255,8 @@ export function useChooseController({
   useEffect(
     () => () => {
       stopHaptics();
+      sealRiseRef.current?.stop();
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
       cancelAnimation(hold);
       cancelAnimation(page);
       cancelAnimation(sealU);
@@ -294,6 +313,10 @@ export function useChooseController({
 
   const reset = useCallback(() => {
     stopHaptics();
+    sealRiseRef.current?.stop();
+    sealRiseRef.current = null;
+    if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    pulseTimerRef.current = null;
     phaseRef.current = 'choosing';
     setPhase('choosing');
     holdingRef.current = false;

@@ -54,6 +54,7 @@ import { getMonetizationAccess } from '../../MonetizationAccessService';
 import { visionService } from '../VisionService';
 import { VisionGenerationService } from '../VisionGenerationService';
 import { uploadImageAssetFromBuffer } from '../../StorageService';
+import { VISION_MAX_IMAGES } from '../../../domain/v2/vision';
 
 describe('VisionGenerationService', () => {
   const service = new VisionGenerationService();
@@ -311,7 +312,7 @@ describe('VisionGenerationService', () => {
       mockPrisma.vision.findFirst.mockResolvedValueOnce(null);
       await expect(service.startScene(userId, anchorId, sceneText, 'scene-job-000002')).rejects.toMatchObject({ statusCode: 404 });
       mockPrisma.vision.findFirst.mockResolvedValueOnce({ id: 'vision-1' });
-      mockPrisma.visionScene.count.mockResolvedValueOnce(6);
+      mockPrisma.visionScene.count.mockResolvedValueOnce(VISION_MAX_IMAGES);
       await expect(service.startScene(userId, anchorId, sceneText, 'scene-job-000003')).rejects.toMatchObject({ code: 'VISION_IMAGE_LIMIT' });
       expect(mockPrisma.visionGeneration.create).not.toHaveBeenCalled();
     });

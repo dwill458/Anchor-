@@ -167,12 +167,11 @@ export const CHART_COPY = {
     apply: 'Use this route',
   },
   reasons: [
-    { key: 'TOO_MANY_STEPS', label: 'Too many steps' },
-    { key: 'TOO_FEW_STEPS', label: 'Too few steps' },
-    { key: 'DIFFERENT_MILESTONES', label: 'Different milestones' },
+    { key: 'SMALLER_STEPS', label: 'Make steps smaller' },
+    { key: 'STARTING_FROM_ZERO', label: 'I’m starting from zero' },
     { key: 'FURTHER_ALONG', label: 'I’m further along' },
+    { key: 'CHANGE_APPROACH', label: 'Change the approach' },
     { key: 'CHANGE_DESTINATION', label: 'Change the destination' },
-    { key: 'OTHER', label: 'Other' },
   ] as const,
   active: {
     markComplete: 'Mark complete',

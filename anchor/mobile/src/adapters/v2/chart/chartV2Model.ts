@@ -12,6 +12,7 @@ export type ChartMarkerState = 'completed' | 'current' | 'upcoming';
 
 export type ChartMetricView = {
   current: number | null;
+  baseline?: number | null;
   target: number;
   label: string | null;
   /** 0–1, clamped. Null when no current value has been recorded. */
@@ -25,6 +26,8 @@ export type ChartWaypointView = {
   id: string;
   /** What this waypoint's progress looks like. A counter only ever appears on 'numeric'. */
   progress: WaypointProgressMode;
+  requirements?: import('@/types/chart').WaypointRequirement[];
+  completionCriteria?: string | null;
   /** 1-based position on the live route. */
   number: number;
   title: string;
@@ -46,6 +49,7 @@ export type ChartViewModel = {
   startingContext: string | null;
   status: CourseDetail['status'];
   isFinished: boolean;
+  isStretch?: boolean;
   waypoints: ChartWaypointView[];
   total: number;
   reachedCount: number;
@@ -67,13 +71,15 @@ export function formatMetricNumber(value: number): string {
 }
 
 export function toMetricView(metric: WaypointSummary['metric']): ChartMetricView | null {
-  if (!metric || !Number.isFinite(metric.target) || metric.target <= 0) return null;
+  if (!metric || !Number.isFinite(metric.target)) return null;
+  if (metric.target === (metric.baseline ?? 0)) return null;
   const current = typeof metric.current === 'number' && Number.isFinite(metric.current) ? metric.current : null;
-  const baseline = typeof metric.baseline === 'number' && Number.isFinite(metric.baseline) && metric.baseline < metric.target ? metric.baseline : 0;
+  const baseline = typeof metric.baseline === 'number' && Number.isFinite(metric.baseline) && metric.baseline !== metric.target ? metric.baseline : 0;
   const fraction =
     current === null ? null : Math.max(0, Math.min(1, (current - baseline) / (metric.target - baseline)));
   return {
     current,
+    baseline,
     target: metric.target,
     label: metric.label,
     fraction,
@@ -88,13 +94,14 @@ export function toMetricView(metric: WaypointSummary['metric']): ChartMetricView
  */
 export function resolveProgressMode(waypoint: Pick<WaypointSummary, 'progressMode' | 'metric'>, metric: ChartMetricView | null): WaypointProgressMode {
   if (metric) return 'numeric';
+  if (waypoint.progressMode === 'checklist' || waypoint.progressMode === 'completion') return waypoint.progressMode;
   return waypoint.progressMode === 'none' ? 'none' : 'moves';
 }
 
 /** Cancelled waypoints left the route; everything else is part of its story. */
 export function liveWaypoints(course: CourseDetail): WaypointSummary[] {
   return [...course.waypoints]
-    .filter((waypoint) => waypoint.state !== 'CANCELLED' && !waypoint.cancelledAt)
+    .filter((waypoint) => waypoint.state !== 'CANCELLED' && !waypoint.cancelledAt && waypoint.position >= (course.routeStartPosition ?? 0))
     .sort((left, right) => left.position - right.position);
 }
 
@@ -124,11 +131,13 @@ export function toChartViewModel(
     const base = {
       id: waypoint.id,
       progress: resolveProgressMode(waypoint, metric),
+      requirements: waypoint.requirements ?? [],
+      completionCriteria: waypoint.completionCriteria ?? null,
       number: index + 1,
       title: waypoint.title,
       rationale: waypoint.description,
       state: markerState(waypoint, course),
-      isDestination: index === total - 1,
+      isDestination: course.routeScope !== 'NEXT_STRETCH' && index === total - 1,
       metric,
       reachedAt: waypoint.reachedAt,
       moves: moves.filter((move) => move.waypointId === waypoint.id && (move.status === 'ACTIVE' || move.status === 'COMPLETED')),
@@ -151,6 +160,7 @@ export function toChartViewModel(
     startingContext: course.startingContext ?? null,
     status: course.status,
     isFinished,
+    isStretch: course.routeScope === 'NEXT_STRETCH',
     waypoints: views,
     total,
     reachedCount,

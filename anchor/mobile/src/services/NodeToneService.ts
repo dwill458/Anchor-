@@ -14,9 +14,11 @@ import {
 /** Quiet by design: the line is thinking out loud, not performing. */
 const NODE_TONE_VOLUME = 0.32;
 
+/** All 10 notes across the 2-octave pentatonic ladder: cells 1..10 cover every note key. */
+const SCALE_CELLS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
 const uriByNote = new Map<number, string>();
 const pending = new Map<number, Promise<string | null>>();
-let releaseEpoch = 0;
 
 async function buildTone(cell: number): Promise<string | null> {
   const note = nodeToneKey(cell);
@@ -38,6 +40,7 @@ async function buildTone(cell: number): Promise<string | null> {
         });
       }
       uriByNote.set(note, uri);
+      SoundPool.register(`node:${uri}`, { uri });
       return uri;
     } catch {
       // Audio is never worth interrupting the flow for.
@@ -55,36 +58,41 @@ async function buildTone(cell: number): Promise<string | null> {
  * kilobytes each, cached on disk across launches) so `play` is instant when the line reaches a node.
  */
 export const NodeToneService = {
-  async prepare(cells: number[]): Promise<void> {
+  async prepare(cells?: number[]): Promise<void> {
     if (!useSettingsStore.getState().soundEffectsEnabled) return;
-    const epoch = releaseEpoch;
-    await Promise.all(Array.from(new Set(cells.map(nodeToneKey))).map((note) => {
-      const cell = cells.find((c) => nodeToneKey(c) === note) ?? 1;
-      return buildTone(cell);
-    }));
-    const prepared = Array.from(new Set(cells.map(nodeToneKey)))
+    const targetCells = cells && cells.length > 0 ? Array.from(new Set([...SCALE_CELLS, ...cells])) : SCALE_CELLS;
+    await Promise.all(targetCells.map((c) => buildTone(c)));
+    const prepared = Array.from(new Set(targetCells.map(nodeToneKey)))
       .map((note) => uriByNote.get(note))
       .filter((uri): uri is string => Boolean(uri));
     for (const uri of prepared) SoundPool.register(`node:${uri}`, { uri });
-    // Mapping already ended while the tones were building: do not re-create players it just released.
-    if (epoch !== releaseEpoch) return;
     SoundPool.prewarm(prepared.map((uri) => `node:${uri}`));
   },
 
   release(): void {
-    releaseEpoch++;
     const keys = Array.from(uriByNote.values()).map((uri) => `node:${uri}`);
     SoundPool.releaseIdle(keys);
   },
 
   play(cell: number): void {
-    const uri = uriByNote.get(nodeToneKey(cell));
-    // Not built yet: skip this droplet rather than stutter the line.
-    if (!uri) {
-      sfxLog(`mappingTone cell=${cell} result=skipped-unprepared`);
+    if (!useSettingsStore.getState().soundEffectsEnabled) return;
+    const note = nodeToneKey(cell);
+    const uri = uriByNote.get(note);
+    if (uri) {
+      sfxLog(`mappingTone cell=${cell} note=${note} result=play`);
+      SoundPool.play(`node:${uri}`, { volume: NODE_TONE_VOLUME });
       return;
     }
-    sfxLog(`mappingTone cell=${cell} result=play`);
-    SoundPool.play(`node:${uri}`, { volume: NODE_TONE_VOLUME });
+    // If not prepared yet (e.g. fast user / disk write pending), build and play immediately without dropping.
+    sfxLog(`mappingTone cell=${cell} note=${note} result=building`);
+    void buildTone(cell).then((builtUri) => {
+      if (builtUri) {
+        SoundPool.register(`node:${builtUri}`, { uri: builtUri });
+        sfxLog(`mappingTone cell=${cell} note=${note} result=play-async`);
+        SoundPool.play(`node:${builtUri}`, { volume: NODE_TONE_VOLUME });
+      } else {
+        sfxLog(`mappingTone cell=${cell} note=${note} result=skipped-unprepared`);
+      }
+    });
   },
 };

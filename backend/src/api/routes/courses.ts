@@ -42,11 +42,13 @@ const UpdateCourseSchema = z
   .strict();
 const ExpectedVersionSchema = z.object({ expectedCourseVersion: CourseVersion }).strict();
 const MetricFields = {
+  completionCriteria: z.string().trim().max(400).nullable().optional(),
+  requirements: z.array(z.object({ id: z.string().min(1).max(80), title: z.string().trim().min(1).max(140), completed: z.boolean() }).strict()).max(12).optional(),
   kind: z.enum(['MILESTONE', 'METRIC', 'CAPABILITY']).optional(),
-  progressMode: z.enum(['numeric', 'moves', 'none']).optional(),
+  progressMode: z.enum(['numeric', 'checklist', 'completion', 'moves', 'none']).optional(),
   metricLabel: z.string().trim().max(40).nullable().optional(),
-  metricBaseline: z.number().finite().min(0).max(1e12).nullable().optional(),
-  metricTarget: z.number().finite().positive().max(1e12).nullable().optional(),
+  metricBaseline: z.number().finite().min(-1e12).max(1e12).nullable().optional(),
+  metricTarget: z.number().finite().min(-1e12).max(1e12).nullable().optional(),
 };
 const AddWaypointSchema = z
   .object({

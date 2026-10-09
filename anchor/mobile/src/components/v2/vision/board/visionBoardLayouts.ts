@@ -1,6 +1,6 @@
 /** Editorial canvas geometry shared by overview, gestures and the protected cinematic camera. */
 /** The most images a Vision holds; the board has a composition for each count up to this. */
-export const VISION_BOARD_MAX_IMAGES = 6;
+export const VISION_BOARD_MAX_IMAGES = 8;
 /** A finished board holds at least this many; fewer is a partial board (creation, uploads in flight). */
 export const VISION_BOARD_TARGET_MIN_IMAGES = 3;
 
@@ -76,7 +76,7 @@ export function selectDetailBoardLayout(imageCount: number): BoardLayout {
   if (base.count < 2) return base;
   const count = Math.min(VISION_BOARD_MAX_IMAGES, Math.floor(imageCount));
   if (count > 3) {
-    const scale = count === 4 ? 1.8 : 2;
+    const scale = count === 4 ? 1.8 : count > 6 ? 2.65 : 2;
     return { count, decor: [], card: { ...base.card, x: 0.5, y: 0.5, rotation: -3 }, photos: [
       photo('landscape', 0.5, 0.37 / scale, 1, VISION_HERO_ASPECT),
       { ...photo('portrait', 0.245, 1.0 / scale, 0.43, 0.76), rotation: -5 },
@@ -84,7 +84,9 @@ export function selectDetailBoardLayout(imageCount: number): BoardLayout {
       ...(count === 4 ? [{ ...photo('landscape', 0.60, 1.46 / scale, 0.68, 1.7, 14), rotation: -2 }]
         : [{ ...photo('square', 0.29, 1.53 / scale, 0.50, 1.04, 14), rotation: 3 },
           { ...photo('portrait', 0.75, 1.50 / scale, 0.43, 0.84, 15), rotation: -3 },
-          ...(count === 6 ? [{ ...photo('landscape', 0.53, 1.77 / scale, 0.43, 1.8, 16), rotation: 4 }] : [])]),
+          ...(count >= 6 ? [{ ...photo('landscape', 0.53, 1.77 / scale, 0.43, 1.8, 16), rotation: 4 }] : []),
+          ...(count >= 7 ? [{ ...photo('portrait', 0.245, 2.12 / scale, 0.43, 0.84, 17), rotation: -3 }] : []),
+          ...(count >= 8 ? [{ ...photo('square', 0.75, 2.12 / scale, 0.43, 1.04, 18), rotation: 3 }] : [])]),
     ] };
   }
   return {
@@ -101,7 +103,7 @@ export function selectDetailBoardLayout(imageCount: number): BoardLayout {
 }
 
 export function detailBoardSizeForWidth(width: number, count: number): Size {
-  return count > 3 ? { width, height: width * (count === 4 ? 1.8 : 2) } : boardSizeForWidth(width, count);
+  return count > 3 ? { width, height: width * (count === 4 ? 1.8 : count > 6 ? 2.65 : 2) } : boardSizeForWidth(width, count);
 }
 
 /** The slots offered as "add an image" placeholders on an empty board. */

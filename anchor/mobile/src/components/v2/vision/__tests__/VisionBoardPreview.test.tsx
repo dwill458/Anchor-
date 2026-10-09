@@ -22,12 +22,24 @@ describe('VisionBoardPreview', () => {
     expect(screen.queryByTestId('board-image-0')).toBeNull();
     expect(screen.getByText('Words only')).toBeTruthy();
   });
+  it('uses the first available image when the earliest scene has no resolved URL', () => {
+    const unresolvedFirst = [
+      { id: 'pending', imageUrl: null },
+      { id: 'resolved', imageUrl: 'https://assets.test/resolved.jpg' },
+    ];
+    render(<VisionBoardPreview tiles={unresolvedFirst} testID="board" />);
+    expect(screen.getByTestId('board-image-1').props.source).toEqual({ uri: 'https://assets.test/resolved.jpg' });
+    expect(screen.queryByText('Your Vision has no images yet')).toBeNull();
+  });
   it('reserves geometry and exposes a failed image honestly', () => {
     const view = render(<VisionBoardPreview tiles={tiles} testID="board" />);
     fireEvent(view.getByTestId('board-image-0'), 'error', { nativeEvent: { error: 'offline' } });
-    expect(view.getByText('Image unavailable')).toBeTruthy();
+    expect(view.getByText('Image unavailable. Tap to retry.')).toBeTruthy();
+    expect(view.getByTestId('board').props.accessibilityLabel).toBe('Vision image unavailable. Tap to retry.');
     const style = require('react-native').StyleSheet.flatten(view.getByTestId('board').props.style);
     expect(style.height).toBeGreaterThan(0);
+    fireEvent.press(view.getByTestId('board'));
+    expect(view.getByTestId('board-image-0').props.source).toEqual({ uri: tiles[0].imageUrl });
     view.rerender(<VisionBoardPreview tiles={[{ id: 'new', imageUrl: 'https://new.test/photo.jpg' }]} testID="board" />);
     expect(view.getByTestId('board-image-0').props.source.uri).toBe('https://new.test/photo.jpg');
   });

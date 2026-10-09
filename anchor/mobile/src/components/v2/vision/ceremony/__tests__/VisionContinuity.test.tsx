@@ -43,4 +43,27 @@ describe('Vision print asset and lifecycle continuity', () => {
     view.rerender(<VisionPrint {...props} uri="https://cdn.test/new.jpg" showCaption onDeveloped={developed} />);
     await advance(5000); expect(developed).toHaveBeenCalledTimes(2);
   });
+
+  it('reports a failed photo URI to the owning flow while keeping the visible error state', () => {
+    const onImageError = jest.fn();
+    const view = render(<VisionPrint {...props} onImageError={onImageError} />);
+    fireEvent(view.getByTestId('vision-print-sharp'), 'error');
+    expect(onImageError).toHaveBeenCalledWith(props.uri);
+    expect(view.getByText(/unavailable/i)).toBeTruthy();
+  });
+
+  it('retries the same failed image URI without remounting its enclosing print', async () => {
+    const developed = jest.fn();
+    const base = { ...props, onDeveloped: developed };
+    const view = render(<VisionPrint {...base} />);
+    fireEvent(view.getByTestId('vision-print-sharp'), 'error');
+    expect(view.getByText(/unavailable/i)).toBeTruthy();
+    view.rerender(<VisionPrint {...base} retryToken={1} />);
+    await advance(0); await advance(0);
+    expect(view.queryByText(/unavailable/i)).toBeNull();
+    fireEvent(view.getByTestId('vision-print-sharp'), 'load');
+    await advance(0);
+    await advance(3400);
+    expect(developed).toHaveBeenCalledWith(props.uri);
+  });
 });

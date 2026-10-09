@@ -185,24 +185,24 @@ describe('V2ChartAdjustScreen — Adjust Route redesign', () => {
     expect(screen.queryByTestId('chart-menu')).toBeNull();
   });
 
-  it('displays serif heading "Where does the route need to change?" without redundant eyebrow', async () => {
+  it('displays serif heading "What should we change?" without redundant eyebrow', async () => {
     const screen = render(<V2ChartAdjustScreen />);
     await screen.findByTestId('v2-chart-adjust');
 
-    expect(screen.getByText('Where does the route need to change?')).toBeTruthy();
-    expect(screen.getByText('Tell us what isn’t working and we’ll suggest a new route.')).toBeTruthy();
+    expect(screen.getByText('What should we change?')).toBeTruthy();
+    expect(screen.getByText('Tell Anchor what feels too difficult, too easy, or missing. Use your own words.')).toBeTruthy();
   });
 
   it('renders all required adjustment reason chips', async () => {
     const screen = render(<V2ChartAdjustScreen />);
     await screen.findByTestId('v2-chart-adjust');
 
-    expect(screen.getByTestId('chart-adjust-TOO_MANY_STEPS')).toBeTruthy();
-    expect(screen.getByTestId('chart-adjust-TOO_FEW_STEPS')).toBeTruthy();
-    expect(screen.getByTestId('chart-adjust-DIFFERENT_MILESTONES')).toBeTruthy();
+    expect(screen.getByTestId('chart-adjust-SMALLER_STEPS')).toBeTruthy();
+    expect(screen.getByTestId('chart-adjust-STARTING_FROM_ZERO')).toBeTruthy();
+    expect(screen.getByTestId('chart-adjust-CHANGE_APPROACH')).toBeTruthy();
     expect(screen.getByTestId('chart-adjust-FURTHER_ALONG')).toBeTruthy();
     expect(screen.getByTestId('chart-adjust-CHANGE_DESTINATION')).toBeTruthy();
-    expect(screen.getByTestId('chart-adjust-OTHER')).toBeTruthy();
+
   });
 
   it('displays textarea with 0/500 character counter and protected waypoints note', async () => {
@@ -223,11 +223,11 @@ describe('V2ChartAdjustScreen — Adjust Route redesign', () => {
     expect(submitBtn.props.accessibilityState).toMatchObject({ disabled: true });
 
     // Selecting a standard chip enables CTA
-    fireEvent.press(screen.getByTestId('chart-adjust-TOO_MANY_STEPS'));
+    fireEvent.press(screen.getByTestId('chart-adjust-SMALLER_STEPS'));
     expect(submitBtn.props.accessibilityState).toMatchObject({ disabled: false });
 
     // Deselecting chip disables CTA again
-    fireEvent.press(screen.getByTestId('chart-adjust-TOO_MANY_STEPS'));
+    fireEvent.press(screen.getByTestId('chart-adjust-SMALLER_STEPS'));
     expect(submitBtn.props.accessibilityState).toMatchObject({ disabled: true });
 
     // Entering text without chip enables CTA
@@ -365,7 +365,7 @@ describe('V2ChartAdjustScreen motion', () => {
     const screen = render(<V2ChartAdjustScreen />);
     await screen.findByTestId('v2-chart-adjust');
     expect(withDelay).toHaveBeenCalled();
-    expect(screen.getByText('Where does the route need to change?')).toBeTruthy();
+    expect(screen.getByText('What should we change?')).toBeTruthy();
     for (const id of ['chart-adjust-active', 'chart-adjust-manual', 'chart-adjust-archive', 'chart-adjust-delete']) {
       expect(screen.getByTestId(id)).toBeTruthy();
     }

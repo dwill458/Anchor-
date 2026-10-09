@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   moveRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
   moveText: { flex: 1, fontFamily: T.sans, fontSize: 15, lineHeight: 21, color: T.light, paddingVertical: 4 },
   moveStatic: { color: T.muted },
-  moveDone: { color: T.muted, textDecorationLine: 'line-through', textDecorationColor: 'rgba(154,163,175,.5)' },
+  moveDone: { color: T.light },
   toggle: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginRight: -8 },
   flipped: { transform: [{ rotate: '180deg' }] },
   list: { marginTop: 8, borderTopWidth: 1, borderTopColor: T.line },

@@ -66,55 +66,12 @@ export function buildTemplateRoute(input: {
   startingContext: string | null;
 }): TemplateRoute {
   const destination = clip(input.intention.replace(/[.!]+$/, ''), DESTINATION_MAX);
-  const intentionTarget = parseNumericTarget(input.intention);
-  // "What would make this real?" often carries the number the intention lacks
-  // ("…and 1,000 people use it"). That number is the target, never a baseline.
-  const realityTarget = !intentionTarget && input.startingContext ? parseNumericTarget(input.startingContext) : null;
-  const target = intentionTarget ?? realityTarget;
-
-  if (target && target.value >= 4) {
-    const baselineTarget =
-      intentionTarget && input.startingContext ? parseNumericTarget(input.startingContext) : null;
-    const baseline =
-      baselineTarget &&
-      baselineTarget.value < target.value &&
-      sameUnit(baselineTarget.unit, target.unit)
-        ? baselineTarget.value
-        : null;
-    const floor = baseline ?? 0;
-    const fractions = [0.1, 0.25, 0.5, 1];
-    const values: number[] = [];
-    for (const fraction of fractions) {
-      const value = fraction === 1 ? target.value : niceRound(target.value * fraction);
-      if (value <= floor || values.includes(value) || value > target.value) continue;
-      values.push(value);
-    }
-    if (values.length >= 2) {
-      const label = clip(target.unit, 40) || null;
-      const waypoints: PlannedWaypoint[] = values.map(value => ({
-        title: clip(`Reach ${formatMetricValue(value, target.prefix)}${label ? ` ${label}` : ''}`, TITLE_MAX),
-        rationale: null,
-        kind: 'METRIC',
-        progressMode: 'numeric',
-        metricLabel: label,
-        metricTarget: value,
-        metricBaseline: baseline,
-      }));
-      return {
-        destination,
-        complexity: complexityForCount(waypoints.length),
-        waypoints,
-        needsNaming: false,
-      };
-    }
-  }
-
   const waypoints: PlannedWaypoint[] = [
     {
       title: 'First clear sign of progress',
       rationale: 'Name the first change that would show this is starting to happen.',
       kind: 'MILESTONE',
-      progressMode: 'moves',
+      progressMode: 'completion',
       metricLabel: null,
       metricTarget: null,
       metricBaseline: null,
@@ -123,7 +80,7 @@ export function buildTemplateRoute(input: {
       title: 'Progress holds steady',
       rationale: 'Name what it looks like when the change is no longer a one-off.',
       kind: 'MILESTONE',
-      progressMode: 'moves',
+      progressMode: 'completion',
       metricLabel: null,
       metricTarget: null,
       metricBaseline: null,
@@ -132,7 +89,7 @@ export function buildTemplateRoute(input: {
       title: clip(destination, TITLE_MAX),
       rationale: null,
       kind: 'MILESTONE',
-      progressMode: 'moves',
+      progressMode: 'completion',
       metricLabel: null,
       metricTarget: null,
       metricBaseline: null,

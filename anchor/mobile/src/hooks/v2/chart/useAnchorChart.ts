@@ -144,6 +144,7 @@ export type UseAnchorChartResult = {
   dismissMove: (moveId: string) => Promise<boolean>;
   suggestMoves: (waypointId: string) => Promise<'ok' | 'unavailable' | 'failed'>;
   updateProgress: (waypointId: string, value: number | null) => Promise<boolean>;
+  updateRequirement: (waypointId: string, requirementId: string, completed: boolean) => Promise<boolean>;
   reachWaypoint: (waypointId: string) => Promise<WaypointReachResult | null>;
   editWaypoint: (waypointId: string, input: Omit<RouteWaypointInput, 'id'>) => Promise<boolean>;
   addWaypoint: (input: Omit<RouteWaypointInput, 'id'>, afterWaypointId?: string | null) => Promise<boolean>;
@@ -429,6 +430,14 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     [accountId, chart, id, run]
   );
 
+  const updateRequirement = useCallback(async (waypointId: string, requirementId: string, completed: boolean) => {
+    if (!chart) return false;
+    const result = await run(`progress:${waypointId}`, () => chartV2Api.updateProgress(chart.id, waypointId, { expectedCourseVersion: chart.version, requirementId, completed }));
+    if (!result) return false;
+    publishChart(id, result, accountId);
+    return true;
+  }, [accountId, chart, id, run]);
+
   const editWaypoint = useCallback(
     async (waypointId: string, input: Omit<RouteWaypointInput, 'id'>) => {
       if (!chart) return false;
@@ -437,6 +446,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
           expectedCourseVersion: chart.version,
           title: input.title,
           description: input.rationale ?? null,
+          progressMode: input.progressMode, requirements: input.requirements, completionCriteria: input.completionCriteria,
           ...(input.metricTarget !== undefined
             ? { kind: input.kind, metricLabel: input.metricLabel ?? null, metricTarget: input.metricTarget, metricBaseline: input.metricBaseline ?? null }
             : {}),
@@ -585,6 +595,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     dismissMove,
     suggestMoves,
     updateProgress,
+    updateRequirement,
     reachWaypoint,
     editWaypoint,
     addWaypoint,

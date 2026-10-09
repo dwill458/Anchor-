@@ -1,0 +1,34 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (49.218 s)
+  V2VisionScreen ceremony additions
+    √ Add image opens Ask directly with all three paths and launches nothing (1467 ms)
+    √ camera photos stay local through Keep and persist caption at Seal (1994 ms)
+    √ library photos stay local through Keep and persist caption at Seal (1917 ms)
+    √ drops the arrival pin on the saved scene id after add even when the read model re-signs its URL (1875 ms)
+    √ drops the arrival pin on the saved scene id after regenerate even when the read model re-signs its URL (1490 ms)
+    √ canceling before Seal saves no image (1613 ms)
+    √ a permanent camera refusal explains permission and leaves Ask usable (1396 ms)
+    √ offers no add action when the real board holds eight images (139 ms)
+    √ one-image boards retain room to add (76 ms)
+    √ keeps added images when the Vision is reopened (186 ms)
+    √ keeps a failed add sealed and retries without another upload or hold (1896 ms)
+    √ first own-photo creation remains mounted through Sealed and Pinned (1650 ms)
+    √ persists all 7 selected personal photos in picker order with their source metadata (5327 ms)
+    √ persists all 8 selected personal photos in picker order with their source metadata (5590 ms)
+    √ sealed regeneration on a 8-image board resumes unfinished mutations (1601 ms)
+    √ sealed regeneration on a 3-image board resumes unfinished mutations (1534 ms)
+    the first image remains on its completed board
+      √ stays on the completed board after the pinned board has been sat with (1901 ms)
+      √ does not automatically navigate after Reduce Motion sealing either (438 ms)
+      √ does not go Home if the person leaves the screen first (1819 ms)
+      √ does not go Home when the person starts adding an image first (3258 ms)
+      √ a later image never navigates (2311 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       21 passed, 21 total
+Snapshots:   0 total
+Time:        49.359 s, estimated 57 s
+Ran all test suites matching /src\\screens\\v2\\vision\\__tests__\\V2VisionScreen.addImage.test.tsx/i.

@@ -290,14 +290,13 @@ export function ChartActiveView({
     },
     []
   );
-  // The air bed plays while the Chart is focused (Practice and every other screen blur it).
+  // The entrance owns the air bed. Losing focus also stops it, including mid-opening.
   const focused = useScreenFocused();
   useEffect(() => {
     if (!focused) {
       sound.stopAir();
       return undefined;
     }
-    sound.startAir();
     return () => sound.stopAir();
   }, [focused, sound]);
 
@@ -563,7 +562,10 @@ export function ChartActiveView({
           fadeIn: false,
         });
     zoomedRef.current = false;
+    if (!instant && focused) soundRef.current.startAir();
     void runner.run(spec).then(() => {
+      // Both finishing and cancelling the opening settle its promise. Never carry ambience into reading/editing.
+      soundRef.current.stopAir();
       // A deep link to another waypoint lands there after the map has opened.
       if (cancelled) return;
       const target = viewIdxRef.current;
@@ -572,6 +574,7 @@ export function ChartActiveView({
       void runner.run(waypointTapSequence({ anim, point: placement.points[target] ?? null, toOverview: false, reducedMotion: false })).then(() => setOpeningFinished(true));
     });
     return () => {
+      soundRef.current.stopAir();
       cancelled = true;
       openedRef.current = false;
     };

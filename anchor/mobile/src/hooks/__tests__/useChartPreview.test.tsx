@@ -7,9 +7,9 @@ jest.mock('@/hooks/v2/chart/useAnchorChart', () => ({ useAnchorChart: jest.fn() 
 
 describe('Chart preview selection', () => {
   it.each([
-    [54, 1000, 0.054], [0, 1000, 0], [1200, 1000, 1], [54, 0, 0],
-    [-10, 1000, 0], [NaN, 1000, 0], [Infinity, 1000, 0], [54, -1, 0],
-  ])('clamps current %s / target %s to %s without using baseline', (current, target, progress) => {
+    [54, 1000, 0], [0, 1000, 0], [1200, 1000, 1], [54, 0, 30 / 84],
+    [-10, 1000, 0], [NaN, 1000, 0], [Infinity, 1000, 0], [54, -1, 30 / 85],
+  ])('clamps current %s / target %s to %s from the recorded baseline', (current, target, progress) => {
     const course = chartPreviewCourses.normal!;
     const changed = { ...course, waypoints: course.waypoints.map((w, i) => i === 0
       ? { ...w, metric: { label: null, baseline: 84, current, target } } : w) };
@@ -56,11 +56,11 @@ describe('Chart preview selection', () => {
     const mock = jest.mocked(useAnchorChart);
     mock.mockReturnValue({ data: { chart: chartPreviewCourses.normal }, loading: false, error: null } as ReturnType<typeof useAnchorChart>);
     const { result, rerender } = renderHook(({ id }) => useChartPreview(id), { initialProps: { id: 'a' } });
-    expect(result.current?.progress).toBe(0.254);
+    expect(result.current?.progress).toBe((254 - 84) / (1000 - 84));
     mock.mockReturnValue({ data: { chart: chartPreviewCourses.regressed }, loading: false, error: null } as ReturnType<typeof useAnchorChart>);
     rerender({ id: 'b' });
     expect(mock).toHaveBeenLastCalledWith('b');
-    expect(result.current?.progress).toBe(0.054);
+    expect(result.current?.progress).toBe(0);
   });
 
   it('carries the real Anchor category through the single preview hook', () => {

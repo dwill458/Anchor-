@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Anchor, Check, ChevronRight, Pencil } from 'lucide-react-native';
 import { formatMetricNumber } from '@/adapters/v2/chart/chartV2Model';
 import { V2Button } from '@/components/v2/primitives/V2Button';
 import { V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
+import { colors } from '@/theme/v2';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { MoveSummary } from '@/types/chart';
@@ -51,7 +52,7 @@ type ChartActions = Pick<
   | 'editWaypoint'
   | 'removeWaypoint'
 > &
-  Partial<Pick<UseAnchorChartResult, 'setCurrentMove'>>;
+  Partial<Pick<UseAnchorChartResult, 'setCurrentMove' | 'updateRequirement'>>;
 
 type VisionLike = { imageUrl: string | null; description: string | null } | null;
 
@@ -191,6 +192,12 @@ export function ChartWaypointContent({
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [rationaleDraft, setRationaleDraft] = useState('');
+  const [trackingDraft, setTrackingDraft] = useState<'numeric' | 'checklist' | 'completion' | null>(null);
+  const [unitDraft, setUnitDraft] = useState('');
+  const [baselineDraft, setBaselineDraft] = useState('');
+  const [targetDraft, setTargetDraft] = useState('');
+  const [requirementsDraft, setRequirementsDraft] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
   const [progressDraft, setProgressDraft] = useState<string | null>(null);
   const [progressSheetOpen, setProgressSheetOpen] = useState(false);
   const [sheetProgressVal, setSheetProgressVal] = useState('');
@@ -207,7 +214,7 @@ export function ChartWaypointContent({
   }, [inputs, waypoint]);
   const mark = (waypoint && hw?.[waypoint.id]) || 0;
   // Steppers scale to the target's magnitude: a 50,000 goal never nudges in tens.
-  const steps = useMemo(() => progressSteps(waypoint?.metric?.target ?? 0), [waypoint?.metric?.target]);
+  const steps = useMemo(() => progressSteps(waypoint?.metric?.target ?? 0, input?.metric?.baseline ?? 0, waypoint?.metric?.label), [waypoint?.metric?.target, waypoint?.metric?.label, input?.metric?.baseline]);
 
   const bump = useChartProgressBump({
     waypointId,
@@ -298,29 +305,46 @@ export function ChartWaypointContent({
 
   const saveEdit = async () => {
     const title = titleDraft.trim();
-    if (!title) return;
-    const ok = await chart.editWaypoint(waypoint.id, { title, rationale: rationaleDraft.trim() || null });
-    if (ok) setEditing(false);
+    if (!title) return false;
+    const changes: Parameters<typeof chart.editWaypoint>[1] = { title, rationale: rationaleDraft.trim() || null };
+    if (trackingDraft) {
+      changes.progressMode = trackingDraft;
+      changes.metricTarget = trackingDraft === 'numeric' ? Number(targetDraft) : null;
+      changes.metricBaseline = trackingDraft === 'numeric' ? Number(baselineDraft) : null;
+      changes.metricLabel = trackingDraft === 'numeric' ? unitDraft.trim() : null;
+      changes.kind = trackingDraft === 'numeric' ? 'METRIC' : 'MILESTONE';
+      if (trackingDraft === 'numeric' && (!unitDraft.trim() || !targetDraft.trim() || !baselineDraft.trim() || !Number.isFinite(changes.metricTarget) || !Number.isFinite(changes.metricBaseline) || changes.metricTarget === changes.metricBaseline)) {
+        setEditError('Enter a unit and different baseline and target values.'); return false;
+      }
+      if (trackingDraft === 'checklist') {
+        const titles = requirementsDraft.split('\n').map(t => t.trim()).filter(Boolean);
+        if (!titles.length || titles.length > 12 || new Set(titles).size !== titles.length) { setEditError('Add 1–12 distinct requirements, one per line.'); return false; }
+        changes.requirements = titles.map((title, index) => waypoint.requirements?.find(r => r.title === title) ?? { id: `requirement-${Date.now()}-${index}`, title, completed: false });
+      }
+    }
+    const ok = await chart.editWaypoint(waypoint.id, changes);
+    if (ok) { setEditing(false); setEditError(null); }
+    if (!ok) setEditError('Could not save these changes. Your draft is still here; check your connection and any recorded progress before retrying.');
+    return ok;
   };
 
   // Exact entry stays available: tap the number to type it (the chips are for quick nudges).
   const adjustSheetProgress = (delta: number) => {
     const cur = parseFloat(sheetProgressVal) || 0;
-    setSheetProgressVal(String(Math.max(0, cur + delta)));
+    setSheetProgressVal(String(cur + delta));
   };
 
   const handleSaveProgressSheet = async () => {
     const val = parseFloat(sheetProgressVal);
-    if (!isNaN(val) && val >= 0) {
-      await chart.updateProgress(waypoint.id, val);
-      setProgressSheetOpen(false);
+    if (Number.isFinite(val)) {
+      if (await chart.updateProgress(waypoint.id, val)) setProgressSheetOpen(false);
     }
   };
 
   const saveProgress = async () => {
     if (progressDraft === null) return;
     const value = progressDraft.trim() === '' ? null : Number(progressDraft.replace(/,/g, ''));
-    if (value !== null && (!Number.isFinite(value) || value < 0)) return;
+    if (value !== null && (!Number.isFinite(value))) return;
     if (await chart.updateProgress(waypoint.id, value)) setProgressDraft(null);
   };
 
@@ -346,10 +370,10 @@ export function ChartWaypointContent({
 
   // How this waypoint shows progress. A counter only ever appears on a numeric waypoint; a qualitative one
   // shows the checklist of its moves, and one with nothing to count shows no progress at all.
-  const showProgress = mode === 'numeric' || (mode === 'moves' && (input.movesTotal > 0 || isReached));
+  const showProgress = mode === 'checklist' || mode === 'numeric' || (mode === 'moves' && (input.movesTotal > 0 || isReached));
   const canUpdateProgress = isCurrent && showProgress;
 
-  const progressBlock = showProgress ? <WaypointProgressBlock p={p} accent={accent} reducedMotion={reducedMotion} barLabel={barLabel} valueRow={valueRow} valueText={valueText} canUpdateProgress={canUpdateProgress} openProgressSheet={openProgressSheet} /> : null;
+  const progressBlock = mode === 'completion' ? <Text style={styles.requirementText}>{isReached ? 'Reached' : 'Not reached'}{waypoint.completionCriteria ? ` · ${waypoint.completionCriteria}` : ''}</Text> : showProgress ? <WaypointProgressBlock p={p} accent={accent} reducedMotion={reducedMotion} barLabel={barLabel} valueRow={valueRow} valueText={valueText} canUpdateProgress={canUpdateProgress} openProgressSheet={openProgressSheet} /> : null;
 
   const moveRows = (moves: typeof waypoint.moves, current: boolean) => moves.map(move => <MoveListRow key={move.id} move={move} accent={accent} isOneMove={current && move.id === oneMoveId} canComplete={current && move.status === 'ACTIVE'} canPromote={current && move.status === 'ACTIVE'} busy={chart.busy === `move:${move.id}` || chart.busy === `move-current:${move.id}`} onComplete={() => void completeMove(move.id)} onPromote={() => promote(move.id)} onRemove={current ? () => void chart.dismissMove(move.id) : noop} />);
   const serverCompletedForWaypoint = waypoint.moves
@@ -395,7 +419,7 @@ export function ChartWaypointContent({
     <PanelButton label={waypoint.isDestination ? COPY.ctaMarkDestination : COPY.ctaMark} variant={ready ? 'primary' : 'outline'} accent={accent} loading={chart.busy === `reach:${waypoint.id}`} onPress={() => { setReachError(null); setConfirmOpen(true); }} testID="chart-mark-waypoint-cta" style={styles.reachCta} />
     {reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-reach-error">{reachError}</Text> : null}
     {actionError && !reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-action-error">{actionError}</Text> : null}
-  </> : <>{moveRows(waypoint.moves, false)}{editable ? <ChartMovesManager waypoint={waypoint} isCurrent={false} oneMoveId={oneMoveId} accent={accent} chart={chart} /> : null}{actionError ? <Text style={styles.error} testID="chart-action-error">{actionError}</Text> : null}</>;
+  </> : <>{progressBlock}{moveRows(waypoint.moves, false)}{editable ? <ChartMovesManager waypoint={waypoint} isCurrent={false} oneMoveId={oneMoveId} accent={accent} chart={chart} /> : null}{actionError ? <Text style={styles.error} testID="chart-action-error">{actionError}</Text> : null}</>;
   const full = <>
     {isCurrent && !arrived ? <>{moveRows(otherMoves, true)}<ChartMovesManager waypoint={waypoint} isCurrent oneMoveId={oneMoveId} accent={accent} chart={chart} />{dayClosed && !practiced ? <><PanelButton label={COPY.deepFocus} accent={accent} onPress={() => onOpenPractice?.('deep_prime')} testID="chart-practice-deep-focus" />{hasNextMove && !practiced ? <PanelButton label={COPY.another} accent={accent} onPress={showNextMove} testID="chart-do-another" /> : null}</> : null}</> : null}
     {arrived ? <ArrivalCard accent={accent} vision={vision} onOpenVision={onOpenVision ?? noop} onRelease={onRelease ?? noop} /> : <DestinationCard accent={accent} destination={view.destination} vision={vision} onOpenVision={onOpenVision ?? noop} />}
@@ -600,7 +624,7 @@ export function ChartWaypointContent({
                 <TextInput
                   value={sheetProgressVal}
                   onChangeText={setSheetProgressVal}
-                  keyboardType="decimal-pad"
+                  keyboardType="numbers-and-punctuation"
                   style={styles.sheetInput}
                   accessibilityLabel={waypoint?.metric?.label ? `Current ${waypoint.metric.label}` : 'Current progress value'}
                   testID="chart-progress-input"
@@ -632,6 +656,11 @@ export function ChartWaypointContent({
                   </Text>
                 </Pressable>
               </>
+            ) : mode === 'checklist' ? (
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320 }}>
+                <Text style={styles.sheetSubtitle}>{input.requirementsDone ?? 0} of {input.requirementsTotal ?? 0} requirements complete</Text>
+                {(waypoint.requirements ?? []).map(requirement => <Pressable key={requirement.id} accessibilityRole="checkbox" accessibilityState={{ checked: requirement.completed, disabled: !!chart.busy }} disabled={!!chart.busy || !chart.updateRequirement} onPress={() => void chart.updateRequirement?.(waypoint.id, requirement.id, !requirement.completed)} style={styles.requirementRow} testID={`chart-requirement-${requirement.id}`}><Text style={styles.requirementText}>{requirement.completed ? '✓ ' : '○ '}{requirement.title}</Text></Pressable>)}
+              </ScrollView>
             ) : (
               <>
                 <Text style={styles.sheetSubtitle}>{PROGRESS_COPY.movesOf(input.movesDone, input.movesTotal)}</Text>
@@ -664,15 +693,17 @@ export function ChartWaypointContent({
         reduceMotion={reducedMotion}
         testID="chart-edit-waypoint-modal"
       >
-        <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Edit Waypoint</Text>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetAvoidance}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={styles.editScroll} contentContainerStyle={[styles.sheetSurface, styles.editorSurface, { paddingBottom: Math.max(bottomInset, 20) + 20 }]}>
+          <Text style={[styles.sheetTitle, styles.editorText]}>Edit Waypoint</Text>
+          <Text style={[styles.sheetSubtitle, styles.editorMuted]}>Title</Text>
           <TextInput
             value={titleDraft}
             onChangeText={setTitleDraft}
             maxLength={60}
             accessibilityLabel="Waypoint title"
             placeholderTextColor={T.muted}
-            style={styles.editTitle}
+            style={[styles.editTitle, styles.editorField]}
           />
           <TextInput
             value={rationaleDraft}
@@ -682,13 +713,26 @@ export function ChartWaypointContent({
             placeholder="Why this matters"
             placeholderTextColor={T.muted}
             accessibilityLabel="Why this waypoint matters"
-            style={styles.editRationale}
+            style={[styles.editRationale, styles.editorField]}
           />
+          <Text style={[styles.sheetSubtitle, styles.editorMuted]}>Track progress</Text>
+          <View style={styles.chipsRow}>
+            {(['numeric', 'checklist', 'completion'] as const).map(type => <Pressable key={type} accessibilityRole="radio" accessibilityState={{ selected: (trackingDraft ?? waypoint.progress) === type }} onPress={() => { setTrackingDraft(type); setUnitDraft(waypoint.metric?.label ?? ''); setBaselineDraft(String(input.metric?.baseline ?? '')); setTargetDraft(String(waypoint.metric?.target ?? '')); setRequirementsDraft((waypoint.requirements ?? []).map(r => r.title).join('\n')); }} style={[styles.sheetChip, styles.editorField]} testID={`chart-tracking-${type}`}><Text style={[styles.sheetChipText, styles.editorText]}>{type === 'numeric' ? 'Number' : type === 'checklist' ? 'Checklist' : 'Reached'}</Text></Pressable>)}
+          </View>
+          {trackingDraft === 'numeric' ? <>
+            <TextInput style={[styles.sheetInput, styles.editorField]} value={unitDraft} onChangeText={setUnitDraft} placeholder="Unit (e.g. active users)" accessibilityLabel="Metric unit" maxLength={40} />
+            <TextInput style={[styles.sheetInput, styles.editorField]} value={baselineDraft} onChangeText={setBaselineDraft} placeholder="Baseline" accessibilityLabel="Metric baseline" keyboardType="numbers-and-punctuation" />
+            <TextInput style={[styles.sheetInput, styles.editorField]} value={targetDraft} onChangeText={setTargetDraft} placeholder="Target" accessibilityLabel="Metric target" keyboardType="numbers-and-punctuation" />
+          </> : null}
+          {trackingDraft === 'checklist' ? <TextInput style={[styles.editRationale, styles.editorField]} multiline value={requirementsDraft} onChangeText={setRequirementsDraft} placeholder="One observable requirement per line" accessibilityLabel="Checklist requirements" maxLength={1600} /> : null}
+          {editError ? <Text style={[styles.requirementText, styles.editorText]} accessibilityLiveRegion="polite">{editError}</Text> : null}
           {!isCurrent && view.total > 1 ? <PanelButton label={CHART_COPY.waypoint.remove} variant="link" accent={accent} onPress={async () => { if (await chart.removeWaypoint(waypoint.id)) { setEditWaypointModalOpen(false); onBack(); } }} testID="chart-edit-waypoint-remove" /> : null}
-          <V2Button size="large" onPress={async () => { await saveEdit(); setEditWaypointModalOpen(false); }}>
+          <V2Button size="large" disabled={!!chart.busy} onPress={async () => { if (await saveEdit()) { setEditWaypointModalOpen(false); setTrackingDraft(null); } }}>
             Save
           </V2Button>
-        </View>
+          <V2Button variant="tertiary" onPress={() => { setEditWaypointModalOpen(false); setTrackingDraft(null); setEditError(null); }}>Cancel</V2Button>
+        </ScrollView>
+        </KeyboardAvoidingView>
       </V2SheetModal>
 
       <ChartConfirmSheet
@@ -782,6 +826,10 @@ const styles = StyleSheet.create({
   practiceTitleDone: { color: T.muted },
   practiceCheckIcon: { marginTop: 1 },
   practiceSubtext: { fontFamily: T.sans, fontSize: 13, color: T.muted, marginTop: 2 },
+  editorSurface: { backgroundColor: colors.background, borderColor: colors.border.default },
+  editorText: { color: colors.text.primary },
+  editorMuted: { color: colors.text.secondary },
+  editorField: { color: colors.text.primary, backgroundColor: colors.surface, borderColor: colors.border.default },
   sheetAvoidance: { width: '100%', justifyContent: 'flex-end' },
   sheetSurface: {
     backgroundColor: T.panel,
@@ -815,6 +863,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   reachCta: { minHeight: 48, alignSelf: 'stretch' },
   root: { backgroundColor: T.ink, paddingTop: 10, paddingHorizontal: 16 },
+  editScroll: { maxHeight: '85%', backgroundColor: T.panel },
+  requirementRow: { minHeight: 48, paddingVertical: 12 },
+  requirementText: { fontFamily: T.sans, fontSize: 16, lineHeight: 24, color: T.light },
   stack: { gap: 14 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 24 },
   labelEnd: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -919,7 +970,7 @@ const styles = StyleSheet.create({
 // DEFERRED:   const saveProgress = async () => {
 // DEFERRED:     if (progressDraft === null) return;
 // DEFERRED:     const value = progressDraft.trim() === '' ? null : Number(progressDraft.replace(/,/g, ''));
-// DEFERRED:     if (value !== null && (!Number.isFinite(value) || value < 0)) return;
+// DEFERRED:     if (value !== null && (!Number.isFinite(value))) return;
 // DEFERRED:     if (await chart.updateProgress(waypoint.id, value)) setProgressDraft(null);
 // DEFERRED:   };
 // DEFERRED: 
@@ -1016,7 +1067,7 @@ const styles = StyleSheet.create({
 // DEFERRED:                   <TextInput
 // DEFERRED:                     value={progressDraft}
 // DEFERRED:                     onChangeText={setProgressDraft}
-// DEFERRED:                     keyboardType="decimal-pad"
+// DEFERRED:                     keyboardType="numbers-and-punctuation"
 // DEFERRED:                     autoFocus
 // DEFERRED:                     accessibilityLabel={`Current ${waypoint.metric.label ?? 'value'}`}
 // DEFERRED:                     style={styles.progressInput}

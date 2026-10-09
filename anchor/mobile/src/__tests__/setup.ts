@@ -114,6 +114,7 @@ const mockExpoFileSystem = {
   cacheDirectory: 'file:///cache/',
   documentDirectory: 'file:///documents/',
   readAsStringAsync: jest.fn(() => Promise.resolve('')),
+  writeAsStringAsync: jest.fn(() => Promise.resolve()),
   copyAsync: jest.fn(() => Promise.resolve()),
   makeDirectoryAsync: jest.fn(() => Promise.resolve()),
   deleteAsync: jest.fn(() => Promise.resolve()),

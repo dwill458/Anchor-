@@ -1,0 +1,80 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --no-watchman --testPathPattern=src/(components/v2/vision|hooks/v2/vision|adapters/v2/vision|screens/v2/vision|screens/v2/practice/visualize|screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test|navigation/v2/__tests__/AnchorV2Navigator)
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (42.689 s)
+PASS src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts
+PASS src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx (6.326 s)
+  ● Console
+
+    console.log
+      [VisualProfiler] overlayMounted {
+        direction: 'forward',
+        sourcePlace: 'details',
+        targetPlace: 'practiceSetup'
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsNavigationDispatched { direction: 'forward', targetPlace: 'practiceSetup', exitProgress: 0 }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+PASS src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (63.408 s)
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionEntrance.test.tsx
+PASS src/navigation/v2/__tests__/AnchorV2Navigator.test.tsx
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionPhotoStack.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx
+PASS src/navigation/v2/__tests__/AnchorV2Navigator.lifecycle.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionLifecycle.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+PASS src/components/v2/vision/__tests__/VisionMomentInput.test.tsx
+PASS src/components/v2/vision/__tests__/V2SavedVision.caption.test.tsx
+PASS src/components/v2/vision/__tests__/V2SavedVision.teaching.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionReadiness.test.tsx
+PASS src/components/v2/vision/__tests__/VisionImageArrival.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/visualizeVisionPlan.test.ts
+PASS src/components/v2/vision/__tests__/VisionChrome.test.tsx
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartLink.test.tsx
+PASS src/components/v2/vision/__tests__/visionIntroArt.test.ts
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/hooks/v2/vision/__tests__/referenceFailure.test.ts
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/cinematicAssets.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartRoute.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/cinematicPhotoMotion.test.ts
+PASS src/components/v2/vision/ceremony/__tests__/visionExamples.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/visualizeGuidedPlan.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/signatureMotion.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicSessionMotion.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/useGuidedPlayback.test.ts
+PASS src/hooks/v2/vision/__tests__/useVisionGenerationAnalytics.test.tsx
+PASS src/components/v2/vision/__tests__/visionGuidance.test.ts
+PASS src/adapters/v2/vision/__tests__/visionAdapter.test.ts
+PASS src/components/v2/vision/__tests__/visionEncoding.test.ts
+PASS src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/components/v2/vision/__tests__/visionImageGeometry.test.ts
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/components/v2/vision/__tests__/visionDetailText.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/enhancedAnchorMask.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicGeometry.test.ts
+PASS src/components/v2/vision/__tests__/visionTwoUp.test.ts
+PASS src/adapters/v2/vision/__tests__/orderedVisionImages.test.ts
+
+Test Suites: 54 passed, 54 total
+Tests:       577 passed, 577 total
+Snapshots:   0 total
+Time:        149.212 s
+Ran all test suites matching /src\\(components\\v2\\vision|hooks\\v2\\vision|adapters\\v2\\vision|screens\\v2\\vision|screens\\v2\\practice\\visualize|screens\\v2\\anchors\\__tests__\\V2AnchorDetailsScreen.test|navigation\\v2\\__tests__\\AnchorV2Navigator)/i.

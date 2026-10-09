@@ -224,6 +224,7 @@ export default function AnchorCreationFlowScreen() {
   useEffect(() => () => useIntentionHandoffStore.getState().release(), []);
   useEffect(() => {
     SoundPool.prewarm(['creation:uiTap', 'creation:distillTick']);
+    void NodeToneService.prepare();
     return () => {
       NodeToneService.release();
       // Only this flow's own cues: the next screen (Vision ceremony, Home) prewarms its own keys
@@ -240,6 +241,10 @@ export default function AnchorCreationFlowScreen() {
     } else if (phase === 'choose') {
       SoundPool.releaseIdle(['creation:bloom', 'creation:formTick', 'creation:formSettle']);
       SoundPool.prewarm(['creation:revealSettle', 'creation:sealRise', 'creation:seal']);
+      if (!firedEventsRef.current.has('revealSettle')) {
+        firedEventsRef.current.add('revealSettle');
+        playCreationSound('revealSettle');
+      }
     }
   }, [phase]);
 
@@ -346,10 +351,21 @@ export default function AnchorCreationFlowScreen() {
       foregroundRef.current = state === 'active';
       // Resume from a fresh frame clock; never replay background time as craft events.
       lastNowRef.current = 0;
-      if (!foregroundRef.current) { stopFormSounds(); stopFormBedSound(); }
+      if (!foregroundRef.current) {
+        stopFormSounds();
+        stopFormBedSound();
+      } else {
+        if (phaseRef.current === 'form' && generationRef.current.status === 'running') {
+          startFormBedSound();
+        }
+      }
     });
-    return () => { subscription.remove(); stopFormSounds(); stopFormBedSound(); };
-  }, [stopFormBedSound, stopFormSounds]);
+    return () => {
+      subscription.remove();
+      stopFormSounds();
+      stopFormBedSound();
+    };
+  }, [startFormBedSound, stopFormBedSound, stopFormSounds]);
   useEffect(
     () => () => {
       bloomSoundRef.current?.stop();
@@ -367,6 +383,17 @@ export default function AnchorCreationFlowScreen() {
     () => (built ? mapLetterEventTimes(built.context.timeline, built.context.map?.points.length ?? 0) : []),
     [built]
   );
+
+  const distillEventTimes = useMemo(() => {
+    if (!built) return [];
+    const tl = built.context.timeline;
+    const uniqCount = built.context.layout.uniq.length;
+    if (uniqCount <= 0 || tl.distill <= 0) return [];
+    return Array.from({ length: uniqCount }, (_, i) => {
+      const fraction = 0.58 + (i / Math.max(1, uniqCount)) * 0.32;
+      return Math.round((tl.start.distill + fraction * tl.distill) * 1000) / 1000;
+    });
+  }, [built]);
 
   // ---- generation ---------------------------------------------------------------------------
 
@@ -392,11 +419,18 @@ export default function AnchorCreationFlowScreen() {
     if (phase !== 'form') return;
     return () => stopFormBedSound();
   }, [phase, stopFormBedSound]);
-  const generationRef = useRef<{ result: AnchorGenerationResult | null; attempt: number; abort: AbortController | null; style: RefineStyleOption | null }>({
+  const generationRef = useRef<{
+    result: AnchorGenerationResult | null;
+    attempt: number;
+    abort: AbortController | null;
+    style: RefineStyleOption | null;
+    status: Generation['status'];
+  }>({
     result: null,
     attempt: 1,
     abort: null,
     style: null,
+    status: 'idle',
   });
   /** 100 once the request resolved, 0 otherwise; the hairline between is time-based. */
   const targetProgressRef = useRef(0);
@@ -426,6 +460,7 @@ export default function AnchorCreationFlowScreen() {
     formFailedRef.current = false;
     setFormBackLocked(true);
     setFormRetryReady(false);
+    generationRef.current.status = 'running';
     setGeneration({ status: 'running' });
     startFormBedSound();
 
@@ -442,6 +477,7 @@ export default function AnchorCreationFlowScreen() {
       });
       if (!mountedRef.current || controller.signal.aborted) return;
       generationRef.current.result = result;
+      generationRef.current.status = 'done';
       targetProgressRef.current = 100;
       const nextForms = normalizeGeneratedForms(result.variations);
       // Warm both Forms while the Form beat still plays, so nothing downloads once Choose is up.
@@ -455,6 +491,7 @@ export default function AnchorCreationFlowScreen() {
       setFormBackLocked(false);
     } catch (error) {
       if (!mountedRef.current || controller.signal.aborted) return;
+      generationRef.current.status = 'failed';
       formFailedRef.current = true;
       stopFormBedSound();
       stopFormSounds();
@@ -553,6 +590,7 @@ export default function AnchorCreationFlowScreen() {
     setFormBackLocked(false);
     setFormRetryReady(false);
     styleStepRef.current?.reset();
+    generationRef.current.status = 'idle';
     setGeneration({ status: 'idle' });
     styleURef.current = 0;
     setPhase('style');
@@ -823,13 +861,20 @@ export default function AnchorCreationFlowScreen() {
 
         // Events on the timeline.
         if (prev < 0.03 && next >= 0.03) tick(Haptics.ImpactFeedbackStyle.Light);
+        distillEventTimes.forEach((time, i) => {
+          if (prev < time && next >= time && !firedEventsRef.current.has(`distill-${i}`)) {
+            firedEventsRef.current.add(`distill-${i}`);
+            playCreationSound('distillTick', 0.5);
+            tick(Haptics.ImpactFeedbackStyle.Light);
+          }
+        });
         mapEventTimes.forEach((time, i) => {
-          if (prev < time && next >= time) {
+          if (prev < time && next >= time && !firedEventsRef.current.has(`map-${i}`)) {
+            firedEventsRef.current.add(`map-${i}`);
             // One generative droplet per traced node: its pitch is the grid cell it lands in.
             const cell = flow.context.map?.points[i]?.cell;
             if (cell) NodeToneService.play(cell);
             tick(Haptics.ImpactFeedbackStyle.Light);
-            firedEventsRef.current.add(`map-${i}`);
           }
         });
 
@@ -987,6 +1032,10 @@ export default function AnchorCreationFlowScreen() {
         if (u >= 1) {
           chooseOpacity.value = 1;
           setPhase('choose');
+          if (!firedEventsRef.current.has('revealSettle')) {
+            firedEventsRef.current.add('revealSettle');
+            playCreationSound('revealSettle');
+          }
         }
         return {
           frame: {
@@ -1141,7 +1190,10 @@ export default function AnchorCreationFlowScreen() {
               step={styleStep}
               strokes={heroStrokes}
               reduceMotion={reduceMotion}
-              onOpenAll={styleStep.openSheet}
+              onOpenAll={() => {
+                playCreationSound('uiTap');
+                styleStep.openSheet();
+              }}
               onPick={() => undefined}
             />
           </View>

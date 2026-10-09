@@ -1,11 +1,9 @@
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, UNSTABLE_usePreventRemove as usePreventRemove, type RouteProp } from '@react-navigation/native';
 import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
 import { playCreationSound } from '@/services/CreationSounds';
-import { VISION_HOME_RETURN } from '@/constants/v2/visionHomeReturn';
-import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
 import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
@@ -44,6 +42,12 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
 }
 
 function VisionScreenContent(props: V2VisionScreenProps) {
+  const alive = useRef(true);
+  const warmedImages = useRef(new Map<string, Promise<void>>());
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
   const lastVisionPinAt = useRef<number | null>(null);
   const playVisionPin = useCallback(() => {
     const now = Date.now();
@@ -63,11 +67,25 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const warmUrls = model.tiles.map(tile => tile.imageUrl).concat(anchor?.enhancedImageUrl ?? null).filter((url): url is string => Boolean(url)).join('|');
   useEffect(() => {
     if (typeof Image.prefetch !== 'function') return;
-    warmUrls.split('|').filter(Boolean).forEach(url => { void Promise.resolve(Image.prefetch(url)).catch(() => false); });
+    warmUrls.split('|').filter(Boolean).forEach(url => { void warmImage(url); });
   }, [warmUrls]);
   const anchorChart = useAnchorChart(anchor?.id ?? null);
   const chartSummary = useMemo(() => toChartSummary(anchorChart.data?.chart), [anchorChart.data?.chart]);
   const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'addScene'>(props.initialMode ?? route.params?.initialMode ?? 'view');
+  const [sealingBusy, setSealingBusy] = useState(false);
+  const sealingBusyRef = useRef(false);
+  const handleSealingChange = useCallback((active: boolean) => {
+    sealingBusyRef.current = active;
+    setSealingBusy(active);
+  }, []);
+  // React Navigation 6's hook also informs the native stack, unlike a listener alone.
+  usePreventRemove(sealingBusy, () => undefined);
+  useEffect(() => {
+    navigation.setOptions?.({ gestureEnabled: !sealingBusy });
+    return navigation.addListener?.('beforeRemove', (event: { preventDefault: () => void }) => {
+      if (sealingBusyRef.current) event.preventDefault();
+    });
+  }, [navigation, sealingBusy]);
   useEffect(() => {
     if (route.params?.resumeGeneration && mode !== 'addScene') setMode('create');
   }, [route.params?.resumeGeneration]);
@@ -82,15 +100,12 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   };
   const uploadedPhoto = useRef<{ uri: string; assetId: string } | null>(null);
   useEffect(() => navigation.addListener?.('blur', () => setJustAdded(undefined)), [navigation]);
-  // Only the first image ever returns to Home (set at its pin); later images stay on the board.
-  const [returnHome, setReturnHome] = useState(false);
-  const navigationRef = useRef(navigation); navigationRef.current = navigation;
-  const celebrationReduced = useCelebrationReduceMotion();
   const finishCeremony = (kind: 'create' | 'add') => {
     setJustAdded(kind); playVisionPin();
     // The board mounts again from scratch, so every photograph is decoded before it shows (each wait is bounded).
     // The ceremony stays up until then.
     void Promise.all(model.tiles.map(tile => warmImage(tile.imageUrl))).then(() => {
+      if (!alive.current) return;
       setPendingPhoto(null); setReplaceSceneId(null); setMode('view');
     });
   };
@@ -104,19 +119,6 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [arrivedFrom, setArrivedFrom] = useState<string[] | null>(null);
   // A photo chosen or taken for the board, previewed until the person confirms it.
   const [pendingPhoto, setPendingPhoto] = useState<PickedVisionPhoto | null>(null);
-  // The pin drops, the board is still, "Sit with it now" is read, then Home. Anything the person does first (leaving,
-  // adding, picking) keeps them where they are.
-  useEffect(() => {
-    // The dwell starts when the board shows the pinned print (the ceremony stays up until the images are decoded).
-    if (!returnHome || mode !== 'view') return;
-    if (pendingPhoto || photoPickerOpen) { setReturnHome(false); return; }
-    const timer = setTimeout(() => {
-      setReturnHome(false);
-      navigationRef.current.navigate('V2DevelopmentHome', { visionReturn: { anchorId: anchor?.id ?? anchorId, nonce: Date.now() } });
-    }, celebrationReduced ? VISION_HOME_RETURN.reducedSitDwellMs : VISION_HOME_RETURN.sitDwellMs);
-    return () => clearTimeout(timer);
-  }, [returnHome, mode, pendingPhoto, photoPickerOpen]);
-  useEffect(() => navigation.addListener?.('blur', () => setReturnHome(false)), [navigation]);
   const anchorIntention = (anchor as { intention?: string } | undefined)?.intention ?? anchor?.intentionText ?? 'Your Anchor';
   const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
@@ -166,11 +168,17 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   /** Loads the new board image before the board is shown, so it does not arrive as an empty frame. */
   const warmImage = async (url?: string | null) => {
     if (!url || typeof Image.prefetch !== 'function') return;
+    const previous = warmedImages.current.get(url);
+    if (previous) return previous;
     // A prefetch that never settles must not hold the save open: the board shows the image either way.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const bound = new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), WARM_IMAGE_MAX_MS); });
-    await Promise.race([Promise.resolve(Image.prefetch(url)).catch(() => false), bound]);
-    if (timer) clearTimeout(timer);
+    const warming = (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const bound = new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), WARM_IMAGE_MAX_MS); });
+      await Promise.race([Promise.resolve(Image.prefetch(url)).catch(() => false), bound]);
+      if (timer) clearTimeout(timer);
+    })();
+    warmedImages.current.set(url, warming);
+    return warming;
   };
 
   /** Chooses or takes a photo; it is previewed, and nothing is uploaded until the person confirms. */
@@ -308,7 +316,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     <VisionCeremony mode="add" startAt="develop" photo={pendingPhoto} anchorId={anchorId}
       anchorIntention={anchorIntention} anchorCategory={anchorCategory} anchorArt={anchorArt} anchorImageUrl={anchor?.enhancedImageUrl}
       onUploadAsset={model.uploadAsset} onAssemble={async () => false} onPhotoConfirm={confirmAddPhoto}
-      savedImageUrl={savedImageUrl} onPinned={() => finishCeremony('add')}
+      savedImageUrl={savedImageUrl} onPinned={() => finishCeremony('add')} onSealingChange={handleSealingChange}
       onChooseAgain={() => {
         const source = pendingPhoto.sourceType === 'USER_CAMERA' ? 'camera' : 'library';
         setPendingPhoto(null); void startAddPhoto(source);
@@ -323,7 +331,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
       onBack={() => { setReplaceSceneId(null); setMode('view'); }} onAdd={placeGeneratedScene}
-      savedImageUrl={savedImageUrl} onPinned={() => finishCeremony('add')}
+      savedImageUrl={savedImageUrl} onPinned={() => finishCeremony('add')} onSealingChange={handleSealingChange}
       onAssemble={async ({ selectedAssets }) => {
         const asset = selectedAssets[0];
         if (!asset) return false;
@@ -343,7 +351,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       anchorArt={anchorArt}
       initialDescription={model.vision?.description ?? ''}
       savedImageUrl={savedImageUrl}
-      onPinned={({ firstImage }) => { finishCeremony('create'); if (firstImage) setReturnHome(true); }}
+      onPinned={() => finishCeremony('create')} onSealingChange={handleSealingChange}
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
       onBack={handleBack}
@@ -354,7 +362,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
         return Boolean(saved);
       }}
       onUploadAsset={model.uploadAsset}
-      onAssemble={async ({ description, selectedAssets }) => {
+      onAssemble={async ({ description, selectedAssets, arrivingAssetId }) => {
         // Stay mounted while first-photo persistence changes the read model.
         setMode('create');
         const saved = await model.createVision({
@@ -364,8 +372,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
           })),
         });
         if (!saved) return false;
-        const destination = recordSaved(saved.scenes, selectedAssets[0]?.assetId);
-        await warmImage(destination);
+        const destination = recordSaved(saved.scenes, arrivingAssetId ?? selectedAssets[0]?.assetId);
+        await Promise.all(saved.scenes.map(scene => warmImage(scene.resolvedImageUrl)));
         setSavedImageUrl(destination ?? null);
         return true;
       }}

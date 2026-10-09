@@ -29,6 +29,8 @@ export type ChartProposalWaypoint = {
   rationale: string | null;
   kind: WaypointKind;
   progressMode?: WaypointProgressMode;
+  requirements?: Array<{ id: string; title: string; completed: boolean }>;
+  completionCriteria?: string | null;
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
@@ -41,6 +43,7 @@ export type ChartProposal = {
   courseId: string | null;
   baseCourseVersion: number | null;
   destination: string;
+  routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
   complexity: ChartComplexity;
   waypoints: ChartProposalWaypoint[];
   suggestedOneMove: { title: string; rationale: string | null } | null;
@@ -61,6 +64,9 @@ export type ChartPlanResponse =
   | { status: 'proposal'; proposal: ChartProposal };
 
 export type ChartAdjustmentReason =
+  | 'SMALLER_STEPS'
+  | 'STARTING_FROM_ZERO'
+  | 'CHANGE_APPROACH'
   | 'TOO_MANY_STEPS'
   | 'TOO_FEW_STEPS'
   | 'DIFFERENT_MILESTONES'
@@ -74,6 +80,8 @@ export type RouteWaypointInput = {
   rationale?: string | null;
   kind?: WaypointKind;
   progressMode?: WaypointProgressMode;
+  requirements?: Array<{ id: string; title: string; completed: boolean }>;
+  completionCriteria?: string | null;
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;
@@ -164,6 +172,8 @@ export const chartV2Api = {
     body: {
       idempotencyKey: string;
       startingContext?: string | null;
+      actualStartingPoint?: string | null;
+      destinationDescription?: string | null;
       /** `answer` may be empty when `references` answer the question instead. */
       followUp?: { question: string; answer: string } | null;
       references?: ChartReferenceWire[] | null;
@@ -182,7 +192,9 @@ export const chartV2Api = {
       detail?: string | null;
       courseId?: string | null;
       startingContext?: string | null;
-      draft?: { destination: string; waypoints: Array<Pick<RouteWaypointInput, 'title' | 'kind' | 'progressMode' | 'metricTarget' | 'metricLabel'>> } | null;
+      actualStartingPoint?: string | null;
+      destinationDescription?: string | null;
+      draft?: { destination: string; waypoints: Array<Pick<RouteWaypointInput, 'title' | 'kind' | 'progressMode' | 'metricTarget' | 'metricLabel' | 'metricBaseline' | 'completionCriteria'>> } | null;
     }
   ): Promise<ChartPlanResponse> {
     return call(() =>
@@ -196,7 +208,10 @@ export const chartV2Api = {
       idempotencyKey: string;
       destinationText: string;
       startingContext?: string | null;
+      actualStartingPoint?: string | null;
+      destinationDescription?: string | null;
       proposalId?: string | null;
+      routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
       complexity?: ChartComplexity | null;
       waypoints: Omit<RouteWaypointInput, 'id'>[];
       oneMove?: { title: string; rationale?: string | null } | null;
@@ -215,6 +230,8 @@ export const chartV2Api = {
       proposalId?: string | null;
       adjustmentReason?: string | null;
       confirmRewrite?: boolean;
+      routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
+      oneMove?: { title: string; rationale?: string | null } | null;
     }
   ): Promise<CourseDetail> {
     return call(() => apiClient.put(`/api/v2/charts/${enc(courseId)}/route`, body));
@@ -254,7 +271,7 @@ export const chartV2Api = {
   updateProgress(
     courseId: string,
     waypointId: string,
-    body: { expectedCourseVersion: number; metricCurrent: number | null }
+    body: { expectedCourseVersion: number; metricCurrent?: number | null; requirementId?: string; completed?: boolean }
   ): Promise<CourseDetail> {
     return call(() => apiClient.patch(`/api/v2/charts/${enc(courseId)}/waypoints/${enc(waypointId)}/progress`, body));
   },

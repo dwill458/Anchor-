@@ -498,6 +498,9 @@ model Course {
 
   destinationText       String       @map("destination_text") @db.VarChar(140)
   startingContext       String?      @map("starting_context") @db.VarChar(500)
+  actualStartingPoint   String?      @map("actual_starting_point") @db.VarChar(500)
+  routeScope            String       @default("DESTINATION") @map("route_scope") @db.VarChar(16)
+  routeStartPosition    Int          @default(0) @map("route_start_position")
   // Anchor 2.0: a Chart belongs to exactly one Anchor. Nullable for legacy
   // Courses; Release never deletes the Anchor row, so history keeps this link.
   anchorId              String?      @map("anchor_id")
@@ -557,7 +560,9 @@ model Waypoint {
   metricCurrent               Float?    @map("metric_current")
   // numeric | moves | none. Declared by the route planner; null on older waypoints, where it is derived
   // (a measure means numeric, otherwise moves).
-  progressMode                String?   @map("progress_mode") @db.VarChar(8)
+  progressMode                String?   @map("progress_mode") @db.VarChar(16)
+  requirements                Json?
+  completionCriteria          String?   @map("completion_criteria") @db.VarChar(400)
   createdAt                   DateTime  @default(now()) @map("created_at")
   updatedAt                   DateTime  @updatedAt @map("updated_at")
 
@@ -689,6 +694,8 @@ model AIPlanProposal {
   inputHash                 String    @map("input_hash")
   destinationInterpretation String    @map("destination_interpretation") @db.VarChar(280)
   startingContext           String?   @map("starting_context") @db.VarChar(500)
+  actualStartingPoint       String?   @map("actual_starting_point") @db.VarChar(500)
+  routeScope                String    @default("DESTINATION") @map("route_scope") @db.VarChar(16)
   anchorId                  String?   @map("anchor_id")
   // CREATE (new route) | ADJUST (revision of a draft or active route)
   kind                      String    @default("CREATE") @db.VarChar(16)

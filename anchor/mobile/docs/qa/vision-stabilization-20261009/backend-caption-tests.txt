@@ -1,0 +1,22 @@
+
+> anchor-backend@0.1.0 test
+> jest --runInBand src/domain/v2/__tests__/visionCaption.test.ts
+
+PASS src/domain/v2/__tests__/visionCaption.test.ts (11.626 s)
+  Vision scene caption
+    √ accepts and trims one line of up to 80 characters (5 ms)
+    √ rejects captions over 80 characters (1 ms)
+    √ continues to accept older clients and null captions (1 ms)
+    √ preserves a complete 1-photo selection (2 ms)
+    √ preserves a complete 2-photo selection (1 ms)
+    √ preserves a complete 4-photo selection (1 ms)
+    √ preserves a complete 6-photo selection (1 ms)
+    √ preserves a complete 7-photo selection
+    √ preserves a complete 8-photo selection
+    √ rejects selections above eight photos (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       10 passed, 10 total
+Snapshots:   0 total
+Time:        12.056 s
+Ran all test suites matching /src\\domain\\v2\\__tests__\\visionCaption.test.ts/i.

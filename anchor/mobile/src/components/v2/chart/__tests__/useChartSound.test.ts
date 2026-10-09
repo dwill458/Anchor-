@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { CHART_AIR_DUCKED, CHART_AIR_VOLUME, CHART_SUMMIT_CHORD, CHART_WAYPOINT_NOTE, useChartSound, waypointNoteRate } from '../useChartSound';
 
 type Player = { key: string; opts: { loop?: boolean; volume?: number }; play: jest.Mock; stop: jest.Mock; setVolume: jest.Mock; setRate: jest.Mock; pause: jest.Mock };
@@ -30,6 +31,7 @@ const lastVolume = (p: Player) => p.setVolume.mock.calls[p.setVolume.mock.calls.
 
 beforeEach(() => {
   jest.useFakeTimers();
+  jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
   mockEnabled = true;
   mockPlayers.length = 0;
   mockPooledCalls.length = 0;
@@ -38,6 +40,7 @@ beforeEach(() => {
 afterEach(() => {
   jest.clearAllTimers();
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 describe('useChartSound', () => {
@@ -172,6 +175,56 @@ describe('useChartSound', () => {
     act(() => jest.advanceTimersByTime(200));
     expect(lastVolume(bed)).toBeCloseTo(0);
     expect(bed.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('stopping during a duck hold cannot be undone by the pending volume recovery', () => {
+    const { result } = renderHook(() => useChartSound(false));
+    act(() => result.current.startAir());
+    act(() => jest.advanceTimersByTime(900));
+    const bed = mockPlayers[0];
+    act(() => result.current.duck(1300));
+    act(() => jest.advanceTimersByTime(1200));
+    act(() => result.current.stopAir());
+    act(() => jest.advanceTimersByTime(2000));
+    expect(lastVolume(bed)).toBeCloseTo(0);
+    expect(bed.stop).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('a late ceremony cannot restart a bed that is already fading out', () => {
+    const { result } = renderHook(() => useChartSound(false));
+    act(() => result.current.startAir());
+    act(() => jest.advanceTimersByTime(900));
+    const bed = mockPlayers[0];
+    act(() => result.current.stopAir());
+    act(() => jest.advanceTimersByTime(100));
+    act(() => result.current.stamp());
+    act(() => jest.advanceTimersByTime(3000));
+    expect(lastVolume(bed)).toBeCloseTo(0);
+    expect(bed.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('backgrounding immediately stops the loop and cancels its pending duck return', () => {
+    let onState: ((state: AppStateStatus) => void) | undefined;
+    const remove = jest.fn();
+    const listener = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
+      onState = callback;
+      return { remove };
+    });
+    const { result, unmount } = renderHook(() => useChartSound(false));
+    act(() => result.current.startAir());
+    act(() => jest.advanceTimersByTime(900));
+    const bed = mockPlayers[0];
+    act(() => result.current.duck(1300));
+    act(() => jest.advanceTimersByTime(150));
+    act(() => onState?.('background'));
+    expect(bed.stop).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
+    act(() => onState?.('active'));
+    expect(bed.play).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(remove).toHaveBeenCalledTimes(1);
+    listener.mockRestore();
   });
 
   it('a stamp ducks the bed to 0.45 and brings it back to 0.9', () => {

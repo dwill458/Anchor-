@@ -102,11 +102,13 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
     return asset;
   };
 
-  const saveUploads = async (photos: CeremonyPhoto[], description: string, caption: string, selection: VisionTwoUpSelection) => {
+  const saveUploads = async (photos: CeremonyPhoto[], description: string, caption: string, selection: VisionTwoUpSelection,
+    photoCaptions?: Readonly<Record<string, string>>, arrivingPhotoKey?: string) => {
     const assets: VisionFlowAsset[] = [];
     for (const photo of photos) assets.push(await uploadOne(photo));
     return props.onAssemble({ description: photoVisionDescription(description.trim(), props.anchorIntention),
-      selectedAssets: assets.map((asset, i) => ({ ...asset, caption: i === 0 ? caption : undefined })), selection });
+      arrivingAssetId: assets[photos.findIndex(photo => photo.key === arrivingPhotoKey)]?.assetId,
+      selectedAssets: assets.map((asset, i) => ({ ...asset, caption: photoCaptions ? photoCaptions[photos[i].key] : i === 0 ? caption : undefined })), selection });
   };
 
   return { generation, starting, notice, setNotice, generate, pickImages, saveUploads };

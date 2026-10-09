@@ -661,7 +661,7 @@ export function V2AnchorDetailsScreen() {
   }, [chart]);
 
   const recommendation = useRecommendation(serverId);
-  const visionTile = vision.tiles[0];
+  const visionTile = vision.tiles.find(tile => tile.imageUrl?.trim()) ?? vision.tiles[0];
   const visionTiles = vision.tiles;
   const visionStatement = vision.state.state === 'ready' ? vision.state.title?.trim() || vision.state.description || vision.description || '' : '';
   const visionSeenToday = vision.state.state === 'ready' ? Boolean(vision.state.seenToday) : false;
@@ -941,6 +941,15 @@ export function V2AnchorDetailsScreen() {
     });
   };
 
+  const handleOpenAllPractices = useCallback(() => {
+    if (!serverId) return;
+    intents.onOpenPractice(serverId, undefined, {
+      anchorTransition: false,
+      returnRoute: 'V2AnchorDetails',
+      source: 'anchor_details',
+    });
+  }, [intents, serverId]);
+
   const handleMenuSelect = (action: AnchorOptionsMenuAction) => {
     setMenuOpen(false);
     if (action === 'share') {
@@ -1086,6 +1095,18 @@ export function V2AnchorDetailsScreen() {
                 <Animated.View style={[styles.practiceWrap, practiceWrapStyle]}>
                   <View style={styles.practiceInner}>
                     <TodayCard recommended={recommended} onPress={handlePracticePress} />
+                    <Pressable
+                      testID="v2-anchor-all-practices"
+                      accessibilityRole="button"
+                      accessibilityLabel="All practice modes"
+                      accessibilityHint="View all practice modes for this Anchor"
+                      onPress={handleOpenAllPractices}
+                      hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
+                      style={({ pressed }) => [styles.allPracticesLink, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.allPracticesText}>All practice modes</Text>
+                      <ChevronRight size={13} color={detailsPalette.creamMuted} strokeWidth={2} />
+                    </Pressable>
                   </View>
                 </Animated.View>
 
@@ -1299,7 +1320,7 @@ const styles = StyleSheet.create({
   },
   handlePill: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(244,237,224,.34)' },
   practiceWrap: { overflow: 'hidden' },
-  practiceInner: { height: PRACTICE_CARD_HEIGHT, paddingBottom: 24 },
+  practiceInner: { height: PRACTICE_CARD_HEIGHT, paddingBottom: 18 },
   barFade: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 6 },
   barWrap: { position: 'absolute', left: 20, right: 20, zIndex: 7 },
   barButton: {
@@ -1388,6 +1409,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+  },
+  allPracticesLink: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  allPracticesText: {
+    fontFamily: detailsFonts.ui,
+    fontSize: 13,
+    lineHeight: 17,
+    letterSpacing: 0.15,
+    color: detailsPalette.creamMuted,
   },
 
   /* Sections */

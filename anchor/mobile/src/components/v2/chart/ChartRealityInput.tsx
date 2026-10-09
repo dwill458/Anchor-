@@ -18,6 +18,8 @@ type Props = {
   intention: string;
   category?: string | null;
   value: string;
+  startingValue?: string;
+  onStartingChange?: (value: string) => void;
   onChangeText: (value: string) => void;
   onContinue: () => void;
   /** Rendered above the question (the Vision card, when there is one). */
@@ -39,6 +41,7 @@ export function ChartRealityInput({
   intention,
   category,
   value,
+  startingValue, onStartingChange,
   onChangeText,
   onContinue,
   header,
@@ -69,10 +72,11 @@ export function ChartRealityInput({
       footer={
         <ChartInkButton
           label={CHART_COPY.creation.continue}
+          paper
           variant={canContinue ? 'primary' : 'outline'}
           disabled={!canContinue}
           onPress={onContinue}
-          icon={<ArrowRight size={18} color={canContinue ? colors.text.primary : colors.ink.text.primary} />}
+          icon={<ArrowRight size={18} color={canContinue ? colors.text.primary : colors.text.primary} />}
           testID="chart-context-continue"
         />
       }
@@ -87,6 +91,7 @@ export function ChartRealityInput({
         <View style={styles.fieldBlock}>
           <Text style={styles.label}>{CHART_COPY.creation.realLabel}</Text>
           <ChartTextArea
+            tone="cream"
             value={value}
             onChangeText={onChangeText}
             placeholder={`${CHART_COPY.creation.examplePrefix}${guide.example}`}
@@ -98,6 +103,11 @@ export function ChartRealityInput({
           />
         </View>
 
+        {onStartingChange ? <View style={styles.fieldBlock}>
+          <Text style={styles.label}>Where are you starting today?</Text>
+          <Text style={styles.support}>Share your experience, resources and available time. A photo is optional.</Text>
+          <ChartTextArea tone="cream" value={startingValue ?? ''} onChangeText={onStartingChange} placeholder="What is already true, and what limits your next step?" maxLength={500} accessibilityLabel="Your actual starting point" testID="chart-actual-starting-input" />
+        </View> : null}
         <View style={styles.starters}>
           {CHART_THOUGHT_STARTERS.map((item) => {
             const active = starter === item.key;
@@ -132,35 +142,35 @@ export function ChartRealityInput({
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing[5], paddingTop: spacing[3], paddingBottom: spacing[6], gap: spacing[6] },
   section: { gap: spacing[3] },
-  question: { ...typography.displayMedium, fontFamily: CHART_MAP_TOKENS.serif, fontSize: 32, lineHeight: 37, color: colors.ink.text.primary },
-  support: { ...typography.bodyLG, color: colors.ink.text.secondary },
+  question: { ...typography.displayMedium, fontFamily: CHART_MAP_TOKENS.serif, fontSize: 32, lineHeight: 37, color: colors.text.primary },
+  support: { ...typography.bodyLG, color: colors.text.secondary },
   fieldBlock: { gap: spacing[2], marginTop: spacing[3] },
-  label: { ...typography.labelLG, color: colors.ink.text.primary },
+  label: { ...typography.labelLG, color: colors.text.primary },
   starters: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   starter: {
     minHeight: 32,
     paddingHorizontal: spacing[3],
     borderRadius: radii.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.ink.hairlineStrong,
+    borderColor: colors.border.default,
     justifyContent: 'center',
   },
-  starterActive: { borderColor: colors.ink.text.secondary, backgroundColor: colors.ink.raised },
-  starterText: { ...typography.labelMD, color: colors.ink.text.secondary },
-  starterTextActive: { color: colors.ink.text.primary },
+  starterActive: { borderColor: colors.text.secondary, backgroundColor: colors.surface },
+  starterText: { ...typography.labelMD, color: colors.text.secondary },
+  starterTextActive: { color: colors.text.primary },
   hint: {
     borderLeftWidth: 2,
-    borderLeftColor: colors.ink.hairlineStrong,
+    borderLeftColor: colors.border.default,
     paddingLeft: spacing[3],
     paddingVertical: spacing[1],
   },
-  hintText: { ...typography.bodyMD, color: colors.ink.text.secondary },
+  hintText: { ...typography.bodyMD, color: colors.text.secondary },
   footer: {
     paddingHorizontal: spacing[5],
     paddingTop: spacing[3],
-    backgroundColor: colors.ink.base,
+    backgroundColor: colors.canvas,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.ink.hairline,
+    borderTopColor: colors.border.subtle,
   },
   pressed: { opacity: 0.75 },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { VisionBoardPhoto } from '../VisionBoardPhoto';
 
 const mockGestures: Record<string, any> = {};
@@ -21,7 +21,10 @@ jest.mock('react-native-gesture-handler', () => {
 jest.mock('react-native-reanimated', () => ({
   ...require('react-native-reanimated/mock'), runOnJS: (fn: any) => fn,
 }));
-jest.mock('../../VisionPhotograph', () => ({ VisionPhotograph: () => null }));
+jest.mock('../../VisionPhotograph', () => ({ VisionPhotograph: (props: any) => {
+  const { Image } = require('react-native');
+  return <Image {...props} testID="board-image" />;
+} }));
 jest.mock('../../VisionImageEdge', () => ({ VisionImageEdge: () => null }));
 
 function mountPhoto() {
@@ -63,4 +66,17 @@ it('opens actions only when a stationary hold is released successfully', () => {
   expect(onPress).not.toHaveBeenCalled();
   act(() => mockGestures.hold.callbacks.onEnd?.({}, true));
   expect(onPress).toHaveBeenCalledWith('p1');
+});
+
+it('retries a failed saved photograph without opening board actions', () => {
+  const rect = { x: 0, y: 0, width: 100, height: 100, rotation: 0, zIndex: 1, frame: 0 };
+  const onPress = jest.fn();
+  const shared: any = { order: { value: ['p1'] }, slots: { value: [rect] }, dragging: { value: '' }, cameraScale: { value: 1 }, layoutVersion: { value: 0 } };
+  const view = render(<VisionBoardPhoto sceneId="p1" imageUrl="https://assets.test/photo.jpg" accessibilityLabel="Photo"
+    initialRect={rect} entering={false} exiting={false} shared={shared} reduceMotion interactive dragEnabled={false} onPress={onPress} />);
+  fireEvent(view.getByTestId('board-image'), 'error');
+  expect(view.getByText('Image unavailable. Tap to retry.')).toBeTruthy();
+  act(() => mockGestures.tap.callbacks.onEnd({}, true));
+  expect(view.getByTestId('board-image').props.source.uri).toBe('https://assets.test/photo.jpg');
+  expect(onPress).not.toHaveBeenCalled();
 });

@@ -232,7 +232,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         onOpenPractice={openPractice}
         onOpenLog={() => navigation.navigate('V2ChartJourney', { anchorId })}
         onAdjust={() => navigation.navigate('V2ChartAdjust', { anchorId })}
-        onRelease={() => navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
+        onRelease={() => view.isStretch ? navigation.navigate('V2ChartAdjust', { anchorId }) : navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
         actionError={actionErrorCopy(chart.lastError)}
         entrance={arrivedFromReveal.current ? 'reveal' : 'open'}
         testID={props.testID ?? 'v2-chart-screen'}
@@ -323,7 +323,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         reducedMotion={reducedMotion}
         onBack={handleBack}
         onViewJourney={() => navigation.navigate('V2ChartJourney', { anchorId })}
-        onRelease={() => navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
+        onRelease={() => view.isStretch ? navigation.navigate('V2ChartAdjust', { anchorId }) : navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
         testID="v2-chart-screen-reached"
       />
     );

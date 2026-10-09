@@ -73,6 +73,26 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
     await prisma.$disconnect();
   });
 
+  it('applies the additive intelligence migration to populated legacy tables without changing achievements', async () => {
+    const migration = require('fs').readFileSync(require('path').resolve(__dirname, '../../../../prisma/migrations/20261009000000_chart_intelligence/migration.sql'), 'utf8');
+    await prisma.$transaction(async (tx: any) => {
+      // Transaction-local tables shadow the disposable DB tables; production tables are untouched.
+      await tx.$executeRawUnsafe('CREATE TEMP TABLE courses (id TEXT, destination_text TEXT, version INTEGER) ON COMMIT DROP');
+      await tx.$executeRawUnsafe('CREATE TEMP TABLE ai_plan_proposals (id TEXT, status TEXT) ON COMMIT DROP');
+      await tx.$executeRawUnsafe('CREATE TEMP TABLE waypoints (id TEXT, progress_mode VARCHAR(8), metric_baseline DOUBLE PRECISION, metric_current DOUBLE PRECISION, metric_target DOUBLE PRECISION, reached_at TIMESTAMP) ON COMMIT DROP');
+      await tx.$executeRawUnsafe("INSERT INTO courses VALUES ('legacy-course', 'Reach $111,000 net worth', 9)");
+      await tx.$executeRawUnsafe("INSERT INTO ai_plan_proposals VALUES ('legacy-proposal', 'ACCEPTED')");
+      await tx.$executeRawUnsafe("INSERT INTO waypoints VALUES ('legacy-numeric', 'numeric', 100, 642, 1000, '2026-10-01'), ('legacy-moves', 'moves', NULL, NULL, NULL, NULL), ('legacy-none', 'none', NULL, NULL, NULL, NULL)");
+      const before = await tx.$queryRawUnsafe('SELECT id, progress_mode, metric_baseline, metric_current, metric_target, reached_at FROM waypoints ORDER BY id');
+      for (const statement of migration.split(';').map((part: string) => part.trim()).filter((part: string) => part && !part.startsWith('--'))) await tx.$executeRawUnsafe(statement);
+      const after = await tx.$queryRawUnsafe('SELECT id, progress_mode, metric_baseline, metric_current, metric_target, reached_at FROM waypoints ORDER BY id /* after column expansion */');
+      expect(after).toEqual(before);
+      expect(await tx.$queryRawUnsafe('SELECT destination_text, version, actual_starting_point, route_scope, route_start_position FROM courses')).toEqual([{ destination_text: 'Reach $111,000 net worth', version: 9, actual_starting_point: null, route_scope: 'DESTINATION', route_start_position: 0 }]);
+      expect(await tx.$queryRawUnsafe('SELECT status, actual_starting_point, route_scope FROM ai_plan_proposals')).toEqual([{ status: 'ACCEPTED', actual_starting_point: null, route_scope: 'DESTINATION' }]);
+      expect(await tx.$queryRawUnsafe('SELECT requirements, completion_criteria FROM waypoints')).toEqual(Array(3).fill({ requirements: null, completion_criteria: null }));
+    });
+  });
+
   const baseRoute = [
     { title: 'Validate repeatable acquisition', rationale: 'Growth has a source.' },
     { title: 'Reach 1,000 active users', kind: 'METRIC', metricLabel: 'active users', metricTarget: 1000, metricBaseline: 100 },
@@ -251,6 +271,9 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
     const last = chart.waypoints[2];
     await chartService.completeMove(userId, chart.id, chart.currentMoveId);
     chart = await courseService.getCourse(userId, chart.id);
+    const completedBefore = await prisma.move.findMany({ where: { courseId: chart.id, status: 'COMPLETED' }, orderBy: { id: 'asc' } });
+    const historyBefore = await prisma.courseEvent.findMany({ where: { courseId: chart.id }, orderBy: { id: 'asc' } });
+    const currentBefore = await prisma.waypoint.findUnique({ where: { id: current.id } });
 
     // Dropping the current waypoint (which has a completed Move) needs confirmation.
     const withoutCurrent = [
@@ -295,6 +318,9 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
     ]);
     expect(live[0]).toMatchObject({ id: reached.id, state: 'REACHED' });
     expect(chart.currentWaypointId).toBe(current.id);
+    expect(live.find((waypoint: any) => waypoint.id === current.id).metric).toMatchObject({ current: 642, baseline: currentBefore.metricBaseline });
+    expect(await prisma.move.findMany({ where: { courseId: chart.id, status: 'COMPLETED' }, orderBy: { id: 'asc' } })).toEqual(completedBefore);
+    expect(await prisma.courseEvent.findMany({ where: { id: { in: historyBefore.map((event: any) => event.id) } }, orderBy: { id: 'asc' } })).toEqual(historyBefore);
     expect(await events(chart.id, 'ROUTE_ADJUSTED')).toHaveLength(1);
 
     const replay = await chartService.applyRoute(userId, chart.id, {
@@ -371,6 +397,74 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
     expect(archived.currentWaypointId).toBeNull();
   });
 
+  it('persists decreasing numeric, independent checklist and binary completion through database reloads', async () => {
+    const progressAnchor = await prisma.anchor.create({ data: { userId, intentionText: 'Complete launch preparation', category: 'career' } });
+    let progressChart = await chartService.createChart(userId, {
+      anchorId: progressAnchor.id, idempotencyKey: key('flexible-create'), destinationText: 'Complete launch preparation',
+      waypoints: [
+        { title: 'A recorded debt is cleared', kind: 'METRIC', progressMode: 'numeric', metricLabel: 'debt balance', metricBaseline: 1000, metricTarget: 0 },
+        { title: 'Launch requirements are ready', progressMode: 'checklist', requirements: [{ id: 'screenshots', title: 'Store screenshots ready', completed: false }, { id: 'privacy', title: 'Privacy policy published', completed: false }] },
+        { title: 'App is published', progressMode: 'completion', completionCriteria: 'The app is publicly available' },
+      ],
+    });
+    const [numeric, checklist, binary] = progressChart.waypoints;
+    await chartService.updateWaypointProgress(userId, progressChart.id, numeric.id, { expectedCourseVersion: progressChart.version, metricCurrent: -25 });
+    progressChart = await courseService.getCourse(userId, progressChart.id);
+    expect(progressChart.waypoints[0].metric).toEqual({ label: 'debt balance', baseline: 1000, target: 0, current: -25 });
+    expect(await prisma.waypoint.findUnique({ where: { id: numeric.id } })).toMatchObject({ metricCurrent: -25, metricTarget: 0 });
+    await courseService.completeWaypoint(userId, progressChart.id, numeric.id, { expectedCourseVersion: progressChart.version, idempotencyKey: key('flexible-numeric-reach') });
+    const withMove = await chartService.addMove(userId, progressChart.id, { idempotencyKey: key('flexible-move'), waypointId: checklist.id, title: 'Draft privacy policy', makeCurrent: true });
+    await chartService.completeMove(userId, progressChart.id, withMove.currentMoveId);
+    progressChart = await courseService.getCourse(userId, progressChart.id);
+    expect(progressChart.waypoints.find((w: any) => w.id === checklist.id).requirements.every((r: any) => !r.completed)).toBe(true);
+    await chartService.updateWaypointProgress(userId, progressChart.id, checklist.id, { expectedCourseVersion: progressChart.version, requirementId: 'privacy', completed: true });
+    progressChart = await courseService.getCourse(userId, progressChart.id);
+    expect(progressChart.waypoints.find((w: any) => w.id === checklist.id).requirements).toEqual([{ id: 'screenshots', title: 'Store screenshots ready', completed: false }, { id: 'privacy', title: 'Privacy policy published', completed: true }]);
+    await courseService.completeWaypoint(userId, progressChart.id, checklist.id, { expectedCourseVersion: progressChart.version, idempotencyKey: key('flexible-checklist-reach') });
+    progressChart = await courseService.getCourse(userId, progressChart.id);
+    await expect(chartService.updateWaypointProgress(userId, progressChart.id, binary.id, { expectedCourseVersion: progressChart.version, metricCurrent: 50 })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await courseService.completeWaypoint(userId, progressChart.id, binary.id, { expectedCourseVersion: progressChart.version, idempotencyKey: key('flexible-binary-reach') });
+    const binaryRow = await prisma.waypoint.findUnique({ where: { id: binary.id } });
+    expect(binaryRow).toMatchObject({ progressMode: 'completion', metricCurrent: null, metricTarget: null });
+    expect(binaryRow.reachedAt).toBeInstanceOf(Date);
+    expect(await events(progressChart.id, 'MOVE_COMPLETED')).toHaveLength(1);
+  });
+
+  it('extends completed stretches beyond twelve historical waypoints without losing achievements', async () => {
+    const a = await prisma.anchor.create({ data: { userId, intentionText: 'Reach $111,000 net worth', category: 'abundance' } });
+    let stretch = await chartService.createChart(userId, {
+      anchorId: a.id, idempotencyKey: key('stretch-create'), destinationText: 'Reach $111,000 net worth',
+      actualStartingPoint: 'Limited savings and little spare income', routeScope: 'NEXT_STRETCH',
+      waypoints: [{ title: 'A feasible saving commitment exists', progressMode: 'completion' }, { title: 'First contribution recorded', progressMode: 'completion' }],
+      oneMove: { title: 'List essential costs and available income' },
+    });
+    const moveId = stretch.currentMoveId;
+    await chartService.completeMove(userId, stretch.id, moveId);
+    for (let iteration = 0; iteration < 7; iteration += 1) {
+      stretch = await courseService.getCourse(userId, stretch.id);
+      while (stretch.status === 'ACTIVE') {
+        await courseService.completeWaypoint(userId, stretch.id, stretch.currentWaypointId, { expectedCourseVersion: stretch.version, idempotencyKey: key('stretch-reach') });
+        stretch = await courseService.getCourse(userId, stretch.id);
+      }
+      const reached = await prisma.waypoint.findMany({ where: { courseId: stretch.id, reachedAt: { not: null } }, orderBy: { id: 'asc' } });
+      const log = await prisma.courseEvent.findMany({ where: { courseId: stretch.id }, orderBy: { id: 'asc' } });
+      stretch = await chartService.applyRoute(userId, stretch.id, {
+        expectedCourseVersion: stretch.version, idempotencyKey: key('stretch-extend'), routeScope: 'NEXT_STRETCH',
+        waypoints: [{ title: `Next feasible commitment ${iteration}`, progressMode: 'completion' }, { title: `Next contribution recorded ${iteration}`, progressMode: 'completion' }],
+        oneMove: { title: 'Review available income before choosing a contribution' },
+      });
+      expect(stretch.status).toBe('ACTIVE');
+      expect(stretch.destinationText).toBe('Reach $111,000 net worth');
+      expect(await prisma.waypoint.findMany({ where: { id: { in: reached.map((w: any) => w.id) } }, orderBy: { id: 'asc' } })).toEqual(reached);
+      expect(await prisma.courseEvent.findMany({ where: { id: { in: log.map((e: any) => e.id) } }, orderBy: { id: 'asc' } })).toEqual(log);
+      expect(stretch.moves.find((m: any) => m.id === stretch.currentMoveId)).toMatchObject({ status: 'ACTIVE', source: 'AI' });
+    }
+    expect(await prisma.waypoint.count({ where: { courseId: stretch.id, reachedAt: { not: null } } })).toBe(14);
+    expect(await prisma.move.findUnique({ where: { id: moveId } })).toMatchObject({ status: 'COMPLETED' });
+    expect(await ledger('DESTINATION_REACHED', stretch.id)).toHaveLength(0);
+    expect(await events(stretch.id, 'DESTINATION_CHANGED')).toHaveLength(0);
+  });
+
   describe('planner provider chain', () => {
     let plannerAnchorId: string;
 
@@ -397,7 +491,10 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
       ),
       suggestedOneMove: { title: 'Finish onboarding redesign', rationale: null },
       personalizedGuidance: null,
+      routeScope: 'DESTINATION',
+      analysis: { startingPointSummary: 'App launched with 100 users.', assumptions: [], firstMilestoneEvidence: 'Existing users can provide product feedback without new resources.', difficultyReduction: null, prerequisites: [0, 1, 2, 3].map(waypointIndex => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) },
     };
+    goodRoute.waypoints = goodRoute.waypoints.map(waypoint => ({ ...waypoint, metricType: 'completion', completionCriteria: waypoint.title, requirements: [] }));
 
     function planner(...providers: ChartModelProvider[]) {
       return new ChartPlannerService(() => ({ providers, primaryTimeoutMs: 1000, fallbackTimeoutMs: 1000 }));
@@ -418,6 +515,7 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
         anchorId: plannerAnchorId,
         idempotencyKey: key('plan-primary'),
         startingContext: 'App is live with 100 users.',
+        actualStartingPoint: 'App is live with 100 users.',
       });
       expect(result.status).toBe('proposal');
       expect(result.proposal.generation).toEqual({ source: 'ai', fallbackUsed: false, needsNaming: false });
@@ -440,6 +538,7 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
         const result = await planner(primary.instance, fallback.instance).generate(userId, {
           anchorId: plannerAnchorId,
           idempotencyKey: key('plan-fallback'),
+          actualStartingPoint: 'App is live with 100 users.',
         });
         expect(result.proposal.generation).toEqual({ source: 'ai', fallbackUsed: true, needsNaming: false });
         expect(JSON.stringify(result)).not.toMatch(/gemini|openai/i);
@@ -456,6 +555,7 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
       const result = await planner(flaky.instance).generate(userId, {
         anchorId: plannerAnchorId,
         idempotencyKey: key('plan-retry'),
+        actualStartingPoint: 'App is live with 100 users.',
       });
       expect(attempts).toBe(2);
       expect(result.proposal.generation.fallbackUsed).toBe(false);
@@ -472,11 +572,13 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
         anchorId: plannerAnchorId,
         idempotencyKey: key('plan-template'),
         startingContext: 'We have 100 active users',
+        actualStartingPoint: 'We have 100 active users',
       });
       expect(result.proposal.generation.source).toBe('template');
-      expect(result.proposal.waypoints.map((w: any) => w.title)).toContain('Reach 10,000 active users');
+      expect(result.proposal.generation.needsNaming).toBe(true);
+      expect(result.proposal.waypoints.every((w: any) => w.metricTarget === null)).toBe(true);
 
-      const none = await planner().generate(userId, { anchorId: plannerAnchorId, idempotencyKey: key('plan-none') });
+      const none = await planner().generate(userId, { anchorId: plannerAnchorId, idempotencyKey: key('plan-none'), actualStartingPoint: '100 users.' });
       expect(none.proposal.generation.source).toBe('template');
     });
 
@@ -490,7 +592,9 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
         anchorId: plannerAnchorId,
         idempotencyKey: key('plan-ask'),
       });
-      expect(first).toEqual({ status: 'needs_context', followUpQuestion: 'Where are you starting from now?' });
+      expect(first).toMatchObject({ status: 'needs_context' });
+      expect(first.followUpQuestion).toMatch(/starting today/);
+      expect(asks.calls).toHaveLength(0);
 
       const second = await planner(asks.instance).generate(userId, {
         anchorId: plannerAnchorId,
@@ -498,6 +602,39 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
         followUp: { question: 'Where are you starting from now?', answer: '100 users, no marketing yet.' },
       });
       expect(second.status).toBe('proposal');
+    });
+
+    it('rejects numeric subdivision for $111,000 then applies an achievable stretch without losing recorded work', async () => {
+      const financialAnchor = await prisma.anchor.create({ data: { userId, intentionText: 'Reach $111,000 net worth', category: 'abundance' } });
+      let financial = await chartService.createChart(userId, {
+        anchorId: financialAnchor.id, idempotencyKey: key('financial-create'), destinationText: 'Reach $111,000 net worth',
+        actualStartingPoint: 'I have $20 in savings, no investments, and little spare income.',
+        waypoints: [22200, 44400, 66600, 88800, 111000].map(metricTarget => ({ title: `Reach $${metricTarget} net worth`, kind: 'METRIC', metricLabel: 'USD net worth', metricTarget, metricBaseline: 20 })),
+        oneMove: { title: 'List essential costs and available income' },
+      });
+      const previousId = financial.currentWaypointId;
+      const completedMoveId = financial.currentMoveId;
+      await chartService.completeMove(userId, financial.id, completedMoveId);
+      financial = await courseService.getCourse(userId, financial.id);
+      await chartService.updateWaypointProgress(userId, financial.id, previousId, { expectedCourseVersion: financial.version, metricCurrent: 20 });
+      financial = await courseService.getCourse(userId, financial.id);
+      const oldEvents = await prisma.courseEvent.findMany({ where: { courseId: financial.id }, orderBy: { id: 'asc' } });
+      const evidence = { startingPointSummary: 'Limited savings and little spare income.', assumptions: [], firstMilestoneEvidence: 'Reviewing essential costs requires no investment capital.', difficultyReduction: 'Replace an unsupported $22,200 jump with prerequisite states grounded in available income.', prerequisites: [0, 1, 2].map(waypointIndex => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) };
+      const arithmetic = provider('openai', async () => ({ ...goodRoute, destination: 'Reach $111,000 net worth', routeScope: 'NEXT_STRETCH', analysis: { ...evidence, prerequisites: [0, 1, 2, 3, 4].map(waypointIndex => ({ waypointIndex, requires: [] })) }, waypoints: [11100, 22200, 44400, 66600, 111000].map(targetValue => ({ title: `Reach $${targetValue} net worth`, rationale: null, type: 'METRIC', metricType: 'numeric', targetMetric: 'USD net worth', targetValue, baselineValue: 20, completionCriteria: 'Recorded net worth reaches target', requirements: [] })) }));
+      await expect(planner(arithmetic.instance).adjust(userId, { anchorId: financialAnchor.id, courseId: financial.id, idempotencyKey: key('financial-bad'), reason: 'SMALLER_STEPS' })).rejects.toMatchObject({ code: 'CHART_ADJUST_UNAVAILABLE' });
+      expect((await courseService.getCourse(userId, financial.id)).version).toBe(financial.version);
+      const realistic = provider('openai', async request => request.schemaName === 'chart_revision_validation'
+        ? { startingAligned: true, prerequisitesComplete: true, materiallyEasier: true, oneMoveActionable: true, destinationConsistent: true }
+        : ({ ...goodRoute, destination: 'Reach $111,000 net worth', routeScope: 'NEXT_STRETCH', analysis: evidence, waypoints: ['A feasible surplus is identified', 'One achievable saving commitment exists', 'First chosen buffer contribution recorded'].map(title => ({ title, rationale: null, type: 'MILESTONE', metricType: 'completion', targetMetric: null, targetValue: null, baselineValue: null, completionCriteria: title, requirements: [] })), suggestedOneMove: { title: 'Write down this week’s essential costs and available income', rationale: null } }));
+      const revised = await planner(realistic.instance).adjust(userId, { anchorId: financialAnchor.id, courseId: financial.id, idempotencyKey: key('financial-good'), reason: 'SMALLER_STEPS' });
+      const reviewed = revised.proposal;
+      financial = await chartService.applyRoute(userId, financial.id, { expectedCourseVersion: financial.version, idempotencyKey: key('financial-apply'), proposalId: reviewed.proposalId, routeScope: reviewed.routeScope, destinationText: reviewed.destination, waypoints: reviewed.waypoints, oneMove: reviewed.suggestedOneMove, confirmRewrite: true });
+      expect(financial.destinationText).toBe('Reach $111,000 net worth');
+      expect(await prisma.waypoint.findUnique({ where: { id: previousId } })).toMatchObject({ metricCurrent: 20, metricBaseline: 20 });
+      expect((await prisma.waypoint.findUnique({ where: { id: previousId } })).cancelledAt).toBeInstanceOf(Date);
+      expect(await prisma.move.findUnique({ where: { id: completedMoveId } })).toMatchObject({ status: 'COMPLETED' });
+      expect(await prisma.courseEvent.findMany({ where: { id: { in: oldEvents.map((event: any) => event.id) } }, orderBy: { id: 'asc' } })).toEqual(oldEvents);
+      expect(await prisma.aIPlanProposal.findUnique({ where: { id: reviewed.proposalId } })).toMatchObject({ status: 'ACCEPTED' });
     });
 
     it('revises an active route without letting the model rewrite reached waypoints', async () => {
@@ -514,6 +651,7 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
       const revising = provider('openai', async () => ({
         ...goodRoute,
         waypoints: [goodRoute.waypoints[3]],
+        analysis: { ...goodRoute.analysis, prerequisites: [{ waypointIndex: 0, requires: [] }] },
       }));
       const result = await planner(revising.instance).adjust(userId, {
         idempotencyKey: key('plan-adjust'),

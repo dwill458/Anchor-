@@ -419,8 +419,9 @@ describe('V2ChartScreen — active Chart', () => {
     const current = await screen.findByTestId('chart-current-waypoint');
     expect(within(current).getByText('Waypoint 2 of 3 · Current')).toBeTruthy();
     expect(within(current).getByText('Reach 1,000 active users')).toBeTruthy();
-    expect(within(current).getByText('642 / 1,000')).toBeTruthy();
-    expect(within(screen.getByTestId('chart-one-move')).getByText('Finish onboarding redesign')).toBeTruthy();
+    await openFullSheet(screen);
+    expect(screen.getByText(/^642 \/ 1,000\s*$/)).toBeTruthy();
+    expect(within(screen.getByTestId('chart-one-move-row')).getByText('Finish onboarding redesign')).toBeTruthy();
     await openFullSheet(screen);
     await waitFor(() => expect(within(screen.getByTestId('chart-destination')).getByText('Reach 10,000 active users')).toBeTruthy());
     fireEvent.press(screen.getByTestId('chart-view-vision'));
@@ -443,7 +444,7 @@ describe('V2ChartScreen — active Chart', () => {
     const screen = render(<V2ChartScreen />);
     const current = await screen.findByTestId('chart-current-waypoint');
     expect(within(current).queryByText(/\/ 1,000/)).toBeNull();
-    expect(within(current).getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
+    expect(within(screen.getByTestId('chart-one-move-row')).getByText('Finish onboarding redesign')).toBeTruthy();
   });
 
   it('completes the One Move through the server and shows the next one', async () => {
@@ -459,7 +460,11 @@ describe('V2ChartScreen — active Chart', () => {
     const screen = render(<V2ChartScreen />);
     fireEvent.press(await screen.findByTestId('chart-one-move-check'));
     await waitFor(() => expect(post).toHaveBeenCalledWith('/api/v2/charts/course-1/moves/m1/complete'));
-    expect(await screen.findByText('Launch creator campaign')).toBeTruthy();
+    expect(screen.getByTestId('chart-one-move-title').props.children).toBe('Finish onboarding redesign');
+    screen.unmount();
+    serve({ chart: readModel(next), vision: null });
+    const refreshed = render(<V2ChartScreen />);
+    expect(await refreshed.findByText('Launch creator campaign')).toBeTruthy();
   });
 
   // DEFERRED: (replaced: the current waypoint is no longer a card that opens a separate view; markers focus waypoints in place)

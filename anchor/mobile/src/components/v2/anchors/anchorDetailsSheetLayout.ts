@@ -56,7 +56,7 @@ export type SheetLayout = {
   barOpacity: number;
 };
 
-export const PRACTICE_CARD_HEIGHT = 106;
+export const PRACTICE_CARD_HEIGHT = 136;
 export const SHEET_HANDLE_HEIGHT = 34;
 /** The sheet only scrolls this close to the full snap. */
 export const SHEET_SCROLL_TOLERANCE = 4;

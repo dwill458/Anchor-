@@ -126,6 +126,7 @@ export function toDraft(proposal: ChartProposal): DraftWaypoint[] {
     rationale: waypoint.rationale,
     kind: waypoint.kind,
     progressMode: waypoint.progressMode,
+    requirements: waypoint.requirements, completionCriteria: waypoint.completionCriteria,
     metricLabel: waypoint.metricLabel,
     metricTarget: waypoint.metricTarget,
     metricBaseline: waypoint.metricBaseline,
@@ -235,6 +236,7 @@ export function ChartCreationFlow({
   // The cover (and the held paper) shows until the art and the surface are ready, but never past the cap.
   const introCoverHeld = !introCoverExpired && (introViewportWidth === null || introPreparation?.width !== introViewportWidth || introSurfaceWidth !== introViewportWidth);
   const [startingContext, setStartingContext] = useState('');
+  const [actualStartingPoint, setActualStartingPoint] = useState('');
   const [followUpQuestion, setFollowUpQuestion] = useState<string | null>(null);
   const [followUpAnswer, setFollowUpAnswer] = useState('');
   // References (start photo, extra photos, places, documents). Uploaded photos remember their asset id.
@@ -280,7 +282,7 @@ export function ChartCreationFlow({
   const hasVision = Boolean(vision && (vision.imageUrl || vision.description));
   const inStage = STAGE_PHASES.includes(phase);
   // Intro and the mapping stage share the etched cream-paper map; context and clarity stay on ink.
-  const paper = phase === 'intro' || inStage || (phase === 'context' && contextMode === 'photo');
+  const paper = phase === 'intro' || inStage || phase === 'context';
 
   const onScreenLayout = useCallback((event: LayoutChangeEvent) => {
     if (phase !== 'intro') return;
@@ -371,6 +373,7 @@ export function ChartCreationFlow({
         const response = await api.plan(anchorId, {
           idempotencyKey: freshKey(`chart-plan:${anchorId}`),
           startingContext: startingContext.trim() || null,
+          actualStartingPoint: actualStartingPoint.trim() || null,
           followUp: answer,
           ...(prepared.wire.length ? { references: prepared.wire } : {}),
         });
@@ -395,7 +398,7 @@ export function ChartCreationFlow({
         setPhase('failed');
       }
     },
-    [acceptProposal, anchorId, api, hasVision, onPremiumRequired, references, startingContext]
+    [acceptProposal, anchorId, api, hasVision, onPremiumRequired, references, startingContext, actualStartingPoint]
   );
 
   // The finished map is already on screen; the cream review surface rises over it.
@@ -429,6 +432,7 @@ export function ChartCreationFlow({
         reason: reason as ChartAdjustmentReason,
         detail,
         startingContext: startingContext.trim() || null,
+        actualStartingPoint: actualStartingPoint.trim() || followUpAnswer.trim() || null,
         draft: {
           destination: destination || identity.intention.slice(0, 140),
           waypoints: draft
@@ -437,7 +441,9 @@ export function ChartCreationFlow({
               title: waypoint.title,
               kind: waypoint.kind,
               progressMode: waypoint.progressMode,
+            requirements: waypoint.requirements, completionCriteria: waypoint.completionCriteria,
               metricTarget: waypoint.metricTarget,
+              metricBaseline: waypoint.metricBaseline,
               metricLabel: waypoint.metricLabel,
             })),
         },
@@ -468,13 +474,16 @@ export function ChartCreationFlow({
         idempotencyKey: createKey.current,
         destinationText: (destination || identity.intention).slice(0, 140),
         startingContext: startingContext.trim() || null,
+        actualStartingPoint: actualStartingPoint.trim() || followUpAnswer.trim() || null,
         proposalId: proposal?.proposalId ?? null,
         complexity: proposal?.complexity ?? null,
+        routeScope: proposal?.routeScope,
         waypoints: waypoints.map((waypoint) => ({
           title: waypoint.title.trim(),
           rationale: waypoint.rationale,
           kind: waypoint.kind,
           progressMode: waypoint.progressMode,
+    requirements: waypoint.requirements, completionCriteria: waypoint.completionCriteria,
           metricLabel: waypoint.metricLabel,
           metricTarget: waypoint.metricTarget,
           metricBaseline: waypoint.metricBaseline,
@@ -723,6 +732,8 @@ export function ChartCreationFlow({
         <ChartRealityInput
           intention={identity.intention}
           category={identity.category}
+          startingValue={actualStartingPoint}
+          onStartingChange={setActualStartingPoint}
           value={startingContext}
           onChangeText={setStartingContext}
           reducedMotion={reducedMotion}

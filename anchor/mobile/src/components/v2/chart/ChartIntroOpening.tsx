@@ -63,7 +63,6 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
   const sound = useChartSound(reducedMotion, {
     airFadeInMs: CHART_INTRO_TIMING.airFadeIn,
     playOpenWhenReducedMotion: true,
-    fadeAirOnUnmount: true,
   });
   // Latched at mount: a parent clearing its one-shot replay param must never restart or cancel a running opening.
   const [replay] = useState(replayMode);
@@ -123,8 +122,9 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
     void setChartIntroSeen().catch(() => undefined);
   }, []);
   const onSequenceEnd = useCallback(() => {
+    sound.stopAir();
     setInkMounted(false);
-  }, []);
+  }, [sound.stopAir]);
   const onMapArtReady = useCallback((ready: boolean) => {
     setMapReady(ready || artPreparationSettledAtMount);
   }, [artPreparationSettledAtMount]);

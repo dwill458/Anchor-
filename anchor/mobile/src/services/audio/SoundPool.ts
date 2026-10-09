@@ -123,6 +123,15 @@ function evictOneIdleEntry(exceptKey?: string): boolean {
     }
   }
   for (const [key, entries] of entriesByKey.entries()) {
+    if (key !== exceptKey && !prewarmQueue.includes(key)) {
+      const idle = entries.find((e) => !e.busy);
+      if (idle) {
+        disposeEntry(key, idle);
+        return true;
+      }
+    }
+  }
+  for (const [key, entries] of entriesByKey.entries()) {
     if (key !== exceptKey) {
       const idle = entries.find((e) => !e.busy);
       if (idle) {
@@ -247,8 +256,9 @@ function pumpPrewarmQueue(): void {
   let createdCount = 0;
   while (prewarmQueue.length > 0 && createdCount < PREWARM_BATCH_SIZE) {
     if (countLivePlayers() >= MAX_LIVE_PLAYERS) {
-      prewarmQueue = [];
-      break;
+      if (!evictOneIdleEntry(prewarmQueue[0])) {
+        break;
+      }
     }
     const nextKey = prewarmQueue.shift()!;
     const current = (entriesByKey.get(nextKey) ?? []).filter((e) => !e.temporary).length;
@@ -258,7 +268,7 @@ function pumpPrewarmQueue(): void {
       }
     }
   }
-  if (prewarmQueue.length > 0 && countLivePlayers() < MAX_LIVE_PLAYERS) {
+  if (prewarmQueue.length > 0) {
     prewarmTimer = setTimeout(pumpPrewarmQueue, PREWARM_INTERVAL_MS);
   }
 }
@@ -342,6 +352,13 @@ export const SoundPool = {
     if (!entry) {
       const isPool = entries.length < getMaxPoolSizeForKey(key);
       entry = createEntry(key, !isPool);
+    }
+    if (!entry && entries.length > 0) {
+      // Interrupt / re-trigger policy: reuse the oldest active entry for this key rather than dropping
+      entry = entries.reduce((oldest, current) => (current.token < oldest.token ? current : oldest));
+      entry.busy = false;
+      if (entry.fadeTimer) clearInterval(entry.fadeTimer);
+      entry.fadeTimer = undefined;
     }
     if (!entry) {
       sfxLog(`play key=${key} source=none loadedAtCall=false livePlayers=${countLivePlayers()} playbackState=none seek=not-reached playReached=false retry=0 drop=no-entry`);

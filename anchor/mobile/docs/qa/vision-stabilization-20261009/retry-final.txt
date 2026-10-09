@@ -1,0 +1,71 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --no-watchman --runTestsByPath src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx --testNamePattern=retries a failed generated
+
+PASS src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (8.338 s)
+  Vision ceremony
+    √ retries a failed generated image URL and lets the user choose it after reload (1707 ms)
+    ○ skipped create starts at Ask with all three paths and launches nothing
+    ○ skipped add starts at Ask with all three paths and launches nothing
+    ○ skipped words enters the existing Describe screen with words selected and preserves edited input
+    ○ skipped a PARTIAL job develops only its real image and never reveals a missing slot
+    ○ skipped Choose is one tap, Keep edits the caption, and Seal saves once with that caption
+    ○ skipped personal-photo completion uses Complete Vision and starts sealing on that tap
+    ○ skipped finalizes an AI Vision when a terminal job has only one usable generated image
+    ○ skipped retains and develops every selected personal photo (1)
+    ○ skipped retains and develops every selected personal photo (2)
+    ○ skipped retains and develops every selected personal photo (4)
+    ○ skipped retains and develops every selected personal photo (7)
+    ○ skipped retains and develops every selected personal photo (8)
+    ○ skipped edits and persists the caption with the photo currently in front, preserving every selected image
+    ○ skipped replaces a failed photo in place and keeps the other selected images
+    ○ skipped See both again and neither retain the description without saving
+    ○ skipped failed save stays sealed; retry repeats the save without another hold
+    ○ skipped retrying a partial failure keeps the already developed candidate selectable
+    ○ skipped own-photo multi-select stays local until Seal and saves the set in picker order
+    ○ skipped own-photo retry reuses uploaded assets after a failed save
+    ○ skipped regenerate enters Describe, then follows Develop, Choose, Keep and Seal
+    ○ skipped records an added generated selection at Choose before persistence
+    ○ skipped resumeGeneration consumes the saved request once and enters Develop
+    ○ skipped all decorative durations collapse to 200ms or less while hold remains 1600ms
+    ○ skipped approved copy contains no forbidden vocabulary and prefill never exceeds 80 characters
+    ○ skipped add mode accepts the existing six-character scene minimum
+    ○ skipped photo-based generation with no written description saves the same valid draft at Seal
+    ○ skipped one loaded candidate remains choosable when the other cannot load
+    ○ skipped retry retains development readiness for a partial image reused by the server
+    ○ skipped create starts once across Describe re-entry and Add source follows the selected path
+    ○ skipped plays the bed only during the Develop wait and stops it at the first reveal
+    ○ skipped stops the bed when the app backgrounds
+    ○ skipped Ask buttons and Keep play the tap cue
+    ○ skipped tapping an example opens Describe from that moment, and generation uses the typed text
+    ○ skipped an untouched example reports an edit distance of 0
+    ○ skipped Back from Describe shows the entrance at rest without replaying the open
+    ○ skipped backing out of an untouched example does not leave its moment as a prefill
+    ○ skipped the persistent Anchor stays hidden during the open and appears when the lift lands
+    ○ skipped Reduce Motion skips the open and shows the persistent Anchor at once
+    ○ skipped hides the Anchor mark on Describe and brings it back on Develop
+    ○ skipped Keep has no reframe gesture and no reframe hint
+    ○ skipped hides "Neither" after a generation-limit error and stays on the developed pair
+    ○ skipped catches an active transition between mounting and subscribing to AppState
+  Vision celebration scene
+    ○ skipped the first-image completion tap starts the L4 scene on the shortened timeline
+    ○ skipped a later image completion tap starts the L2 scene immediately
+    ○ skipped completion fires one Heavy haptic after the print movement and no Medium haptic
+    ○ skipped the short seal scene is not skippable and lands the print on the board once
+    ○ skipped a pending save remains visible until completion without a skip affordance
+    ○ skipped Reduce Motion resolves to a short L2 scene that is not skippable; the seal cue and Heavy haptic still fire
+    ○ skipped a higher scene that preempts a later-image seal lands it on the settled board
+    ○ skipped a seal deferred behind a higher scene still saves, and leaves the queue at its hand-off
+    ○ skipped holds the completed-board handoff while backgrounded and exposes Back after resume
+  Vision double-fire guards
+    ○ skipped the own-photo develop opens once: a background-to-foreground cycle does not replay the cue, the haptic or the status
+    ○ skipped the own-photo develop still runs its status cues once each when the app never leaves
+    ○ skipped a new photo opens the develop again
+    ○ skipped two quick taps on a candidate choose once: one cue, one haptic, one event
+    ○ skipped choosing works again when Choose is entered again
+
+Test Suites: 1 passed, 1 total
+Tests:       56 skipped, 1 passed, 57 total
+Snapshots:   0 total
+Time:        8.475 s
+Ran all test suites within paths "src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx".

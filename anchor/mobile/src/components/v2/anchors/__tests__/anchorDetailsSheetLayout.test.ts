@@ -4,6 +4,7 @@ import {
   resolveRestAnchorRect,
   resolveSheetLayout,
   resolveSheetSnaps,
+  PRACTICE_CARD_HEIGHT,
 } from '../anchorDetailsSheetLayout';
 
 const W = 390;
@@ -33,7 +34,7 @@ describe('sheet layout', () => {
     expect(l.anchorTop).toBeCloseTo(86, 5);
     expect(l.centeredOpacity).toBe(1);
     expect(l.headerOpacity).toBe(0);
-    expect(l.practiceHeight).toBeCloseTo(106, 5);
+    expect(l.practiceHeight).toBeCloseTo(PRACTICE_CARD_HEIGHT, 5);
     expect(l.barOpacity).toBe(0);
   });
 

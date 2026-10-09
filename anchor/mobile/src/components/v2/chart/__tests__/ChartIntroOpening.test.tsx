@@ -92,6 +92,13 @@ beforeEach(() => {
 });
 
 describe('ChartIntroOpening', () => {
+  it('ends the entrance ambience when the full opening settles, even without Continue', async () => {
+    render(<ChartIntroOpening {...props} initialSeen={false} artReadyAtMount />);
+    await waitFor(() => expect(mockSpec?.name).toBe('introFull'));
+    act(() => mockSpec?.onEnd?.());
+    expect(mockSound.stopAir).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the native map mounted under the cover and does not start the sequence until exposure', async () => {
     const frames: FrameRequestCallback[] = [];
     jest.spyOn(global, 'requestAnimationFrame').mockImplementation(callback => {

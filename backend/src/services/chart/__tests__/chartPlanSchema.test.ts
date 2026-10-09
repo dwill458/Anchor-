@@ -103,7 +103,7 @@ describe('structured output validation', () => {
         ...route([]),
         waypoints: [
           waypoint('Reach 1,000 active users', { type: 'METRIC', targetMetric: 'active users', targetValue: 1000, baselineValue: 100 }),
-          waypoint('Retention holds', { type: 'METRIC', targetMetric: 'retention', targetValue: -4 }),
+          waypoint('Retention holds', { type: 'METRIC', targetMetric: 'retention', targetValue: null }),
         ],
       },
       { allowFollowUp: true }
@@ -172,25 +172,17 @@ describe('deterministic template route', () => {
     expect(parseNumericTarget('Move abroad in 2027')).toBeNull();
   });
 
-  it('builds measured milestones from a number the person wrote', () => {
-    const result = buildTemplateRoute({ intention: 'Anchor has 10,000 active users', startingContext: 'We have 100 active users today' });
-    expect(result.needsNaming).toBe(false);
-    expect(result.waypoints.map(item => item.title)).toEqual([
-      'Reach 1,000 active users',
-      'Reach 2,500 active users',
-      'Reach 5,000 active users',
-      'Reach 10,000 active users',
-    ]);
-    expect(result.waypoints.every(item => item.kind === 'METRIC' && item.metricBaseline === 100)).toBe(true);
+  it('never invents proportional numeric intervals when AI is unavailable', () => {
+    const result = buildTemplateRoute({ intention: 'Reach $111,000 net worth', startingContext: 'Limited resources' });
+    expect(result.needsNaming).toBe(true);
+    expect(result.waypoints.every(item => item.metricTarget === null)).toBe(true);
+    expect(result.destination).toBe('Reach $111,000 net worth');
   });
 
-  it('takes the target from "what would make this real" when the intention has no number', () => {
-    const result = buildTemplateRoute({
-      intention: 'Build a business I love',
-      startingContext: 'The app is live and 1,000 people use it every week',
-    });
-    expect(result.needsNaming).toBe(false);
-    expect(result.waypoints[result.waypoints.length - 1]).toMatchObject({ kind: 'METRIC', metricTarget: 1000, metricBaseline: null });
+  it('does not turn a destination number into a fabricated starting baseline', () => {
+    const result = buildTemplateRoute({ intention: 'Build a business I love', startingContext: 'The app has 1,000 weekly users' });
+    expect(result.needsNaming).toBe(true);
+    expect(result.waypoints.every(item => item.metricBaseline === null)).toBe(true);
   });
 
   it('falls back to a plain outline the user is invited to rename', () => {
@@ -322,5 +314,17 @@ describe('waypoint 1 is the first real move, never setup', () => {
     );
     if (result.needsMoreContext) throw new Error('unexpected follow-up');
     expect(result.waypoints).toHaveLength(2);
+  });
+});
+
+
+describe('Structured prerequisite foundation compatibility', () => {
+  it('keeps explicitly evidenced foundation milestones and their prerequisite indices intact', () => {
+    const titles = ['Document current income', 'A feasible contribution is chosen', 'First allocation completed'];
+    const analysis = { startingPointSummary: 'Limited resources', assumptions: [], firstMilestoneEvidence: 'Existing account records are available', difficultyReduction: null, prerequisites: titles.map((_title, waypointIndex) => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) };
+    const result = normalizeGenerationResult(route(titles, { analysis }), { allowFollowUp: false });
+    if (result.needsMoreContext) throw new Error('Unexpected clarification');
+    expect(result.waypoints.map(w => w.title)).toEqual(titles);
+    expect(result.analysis?.prerequisites).toEqual(analysis.prerequisites);
   });
 });

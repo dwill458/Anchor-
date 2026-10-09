@@ -149,6 +149,9 @@ export function toSummary(row: CourseRow, observations?: CourseObservation[]): C
     id: row.id,
     destinationText: row.destinationText,
     startingContext: row.startingContext ?? null,
+    actualStartingPoint: row.actualStartingPoint ?? null,
+    routeStartPosition: row.routeStartPosition ?? 0,
+    routeScope: row.routeScope === 'NEXT_STRETCH' ? 'NEXT_STRETCH' : 'DESTINATION',
     anchorId: row.anchorId ?? null,
     visionId: row.visionId ?? null,
     complexity: row.complexity ?? null,
@@ -308,12 +311,16 @@ export type WaypointMetricInput = {
   metricBaseline?: number | null;
   metricTarget?: number | null;
   metricCurrent?: number | null;
-  progressMode?: 'numeric' | 'moves' | 'none';
+  progressMode?: 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
+  requirements?: Array<{ id: string; title: string; completed: boolean }>;
+  completionCriteria?: string | null;
 };
 
 /** Only fields the caller supplied are written; a null target clears the metric. */
 export function waypointMetricData(input: WaypointMetricInput): Prisma.WaypointUpdateInput {
   const data: Prisma.WaypointUpdateInput = {};
+  if (input.requirements !== undefined) data.requirements = input.requirements;
+  if (input.completionCriteria !== undefined) data.completionCriteria = input.completionCriteria;
   if (input.kind !== undefined) data.kind = input.kind;
   if (input.metricLabel !== undefined) data.metricLabel = input.metricLabel?.trim() || null;
   if (input.metricBaseline !== undefined) data.metricBaseline = input.metricBaseline;
@@ -327,7 +334,7 @@ export function waypointMetricData(input: WaypointMetricInput): Prisma.WaypointU
       data.metricLabel = null;
       if (input.kind === undefined) data.kind = 'MILESTONE';
       // Losing the measure never leaves a numeric label behind.
-      if (input.progressMode === undefined) data.progressMode = 'moves';
+      if (input.progressMode === undefined) data.progressMode = 'completion';
     } else if (input.progressMode === undefined) {
       data.progressMode = 'numeric';
     }
@@ -342,10 +349,14 @@ export function waypointMetricCreateData(input: WaypointMetricInput): {
   metricTarget: number | null;
   metricCurrent: number | null;
   progressMode: string;
+  requirements?: Prisma.InputJsonValue;
+  completionCriteria?: string | null;
 } {
   const hasMetric = typeof input.metricTarget === 'number';
   return {
-    progressMode: hasMetric ? 'numeric' : input.progressMode === 'none' ? 'none' : 'moves',
+    requirements: input.requirements ?? [],
+    completionCriteria: input.completionCriteria ?? null,
+    progressMode: hasMetric ? 'numeric' : input.progressMode ?? 'moves',
     kind: input.kind ?? (hasMetric ? 'METRIC' : 'MILESTONE'),
     metricLabel: hasMetric ? input.metricLabel?.trim() || null : null,
     metricBaseline: hasMetric ? (input.metricBaseline ?? null) : null,
@@ -794,6 +805,13 @@ export class CourseService {
       const waypoint = assertWaypointBelongs(row, waypointId);
       if (isTerminal(waypoint))
         throw new AppError('Terminal waypoints are immutable', 409, 'WAYPOINT_TRANSITION_INVALID');
+      if (waypoint.metricCurrent !== null && ((input.metricTarget !== undefined && input.metricTarget !== waypoint.metricTarget) || (input.metricBaseline !== undefined && input.metricBaseline !== waypoint.metricBaseline) || (input.metricLabel !== undefined && input.metricLabel !== waypoint.metricLabel) || (input.progressMode !== undefined && input.progressMode !== waypoint.progressMode))) {
+        throw new AppError('Keep recorded progress attached to its original measure; replace the waypoint to preserve it in history.', 409, 'ROUTE_PROGRESS_CONFLICT');
+      }
+      const existingRequirements = Array.isArray(waypoint.requirements) ? waypoint.requirements as unknown as Array<{id: string; title: string; completed: boolean}> : [];
+      if (existingRequirements.some(r => r.completed) && (input.progressMode !== undefined && input.progressMode !== 'checklist' || input.requirements !== undefined && existingRequirements.filter(r => r.completed).some(r => !input.requirements!.some(n => n.id === r.id && n.title === r.title && n.completed)))) {
+        throw new AppError('Completed requirements must stay in history.', 409, 'ROUTE_PROGRESS_CONFLICT');
+      }
       await tx.waypoint.update({
         where: { id: waypointId },
         data: {
@@ -1035,7 +1053,7 @@ export class CourseService {
           occurredAt: now,
           idempotencyKey: eventKey('course-completed', input.idempotencyKey),
         });
-        await appendChartLedgerEvent(tx, {
+        if (row.routeScope !== 'NEXT_STRETCH') await appendChartLedgerEvent(tx, {
           userId,
           anchorId: row.anchorId,
           eventType: 'DESTINATION_REACHED',

@@ -130,7 +130,7 @@ describe('toMetricView', () => {
       percentLabel: null,
     });
   });
-  it('rejects a metric with no usable target', () => {
+  it('rejects a metric with no baseline-to-target span', () => {
     expect(toMetricView({ label: null, baseline: null, target: 0, current: 2 })).toBeNull();
     expect(toMetricView(null)).toBeNull();
   });
