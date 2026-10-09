@@ -31,12 +31,20 @@ import { ChartWeatherVeilPrimer } from './ChartWeatherNativeVeil';
 // DEFERRED:   return insetTop + CHART_MAP_TOP + home.ty;
 // DEFERRED: }
 // DEFERRED:
+/**
+ * Space between the safe-area top and map-space y = 0 on the permanent Chart. The destination X (map y 112)
+ * must sit at least 56dp below the header box (insetTop + 76). At overview the X lands at
+ * artTop + 112 * (width / 852); with this offset it clears the header by about 67dp on a 360dp-wide phone
+ * with a 48dp inset. Was 45 before the route reached the apex. Creation and the Chart share it via chartMapScreenTop.
+ */
+export const CHART_MAP_TOP = 96;
+
 /** Permanent Chart fills the window; creation aligns map-space zero to this art top. */
 export function chartMapViewportHeight(_width: number, height: number, _insetTop: number, _insetBottom: number): number {
   return height;
 }
 export function chartMapScreenTop(_width: number, _height: number, insetTop: number, _insetBottom: number): number {
-  return insetTop + 45;
+  return insetTop + CHART_MAP_TOP;
 }
 
 type Transform = Array<{ translateX: number } | { translateY: number } | { scale: number }>;

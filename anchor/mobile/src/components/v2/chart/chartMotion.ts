@@ -177,8 +177,11 @@ export const CHART_MAP_TIMING = {
   // open: { mapFade: 300, routeAt: 300, route: 700, flagAt: 1000, flagDrop: 250, cameraAt: 1000, camera: 450, panelAt: 1250, panel: 350, scale: 1.3 },
   /** First open of the day: the weather parts over the charted corridor, then the pen draws. */
   open: {
-    /** Camera starts pushed in at this scale, centred here, and eases back to overview. */
-    startCamera: { cx: 405, cy: 650, s: 1.08 },
+    /**
+     * Camera starts pushed in at this scale, centred here, and eases back to overview. cy was 650; at 650 the
+     * summit (map y 112) sat about 24dp under the header on the first frame. 560 keeps the push-in and clears it.
+     */
+    startCamera: { cx: 405, cy: 560, s: 1.08 },
     closed: 520,
     cover: 720,
     camera: 900,

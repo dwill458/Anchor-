@@ -17,15 +17,19 @@ import { writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Must match ROUTE_PTS in chartMapGeometry.ts exactly.
 const PTS = [
   [70, 992],
   [233, 790],
   [385, 606],
   [516, 490],
-  // DEFERRED: [629, 380], [713, 292], [734, 190] placed the summit in the header zone.
   [575, 430],
   [625, 400],
   [660, 370],
+  [705, 285],
+  [720, 248],
+  [731, 172],
+  [741, 112],
 ];
 const COLS = 213;
 const ROWS = 295;
@@ -34,7 +38,7 @@ const SPACING = 6;
 const STEPS = 48;
 
 // Must match fogRouteHashInput() in chartMapGeometry.ts exactly.
-const hashInput = `fog-v1|${JSON.stringify(PTS)}|cell=${CELL}|cols=${COLS}|rows=${ROWS}|spacing=${SPACING}|steps=${STEPS}`;
+const hashInput = `fog-v2|${JSON.stringify(PTS)}|cell=${CELL}|cols=${COLS}|rows=${ROWS}|spacing=${SPACING}|steps=${STEPS}`;
 function fnv1a(str) {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {

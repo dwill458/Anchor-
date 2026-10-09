@@ -8,7 +8,7 @@ import { useChartMapAnimState } from '../useChartMapAnimState';
 import { buildRouteTable, clampCamera, OVERVIEW_CAMERA, waypointPlacement } from '../chartMapGeometry';
 import { loadCloudTiles } from '../chartCloudTiles';
 import { loadFogImages } from '../ChartMapLand';
-import { chartMapScreenTop, chartMapViewportHeight } from '../ChartWeatherHold';
+import { CHART_MAP_TOP, chartMapScreenTop, chartMapViewportHeight } from '../ChartWeatherHold';
 import { peekChartWeatherHandoff, resetChartWeatherHandoff } from '../chartWeatherHandoff';
 import { laterSequence, openSequence } from '../chartMapSequences';
 import { CHART_FIRST_DRAW_HOLD_MS } from '../ChartMap';
@@ -130,7 +130,7 @@ describe('reveal hand-off into the permanent Chart', () => {
 // DEFERRED:       const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, 1, w, viewH);
 // DEFERRED:       expect(chartMapScreenTop(w, h, top, bottom)).toBeCloseTo(top + CHART_MAP_TOP + home.ty);
       expect(viewH).toBe(h);
-      const artTop = top + 45;
+      const artTop = top + CHART_MAP_TOP;
       const home = clampCamera(OVERVIEW_CAMERA.cx, OVERVIEW_CAMERA.cy, 1, w, viewH, { mode: 'fullBleed', artTop });
       expect(chartMapScreenTop(w, h, top, bottom)).toBeCloseTo(home.ty);
       const creationPageY = top + 200;

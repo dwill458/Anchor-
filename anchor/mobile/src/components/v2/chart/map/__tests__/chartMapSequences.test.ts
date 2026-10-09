@@ -66,7 +66,8 @@ describe('openSequence', () => {
     expect(anim.revealArc.value).toBe(0);
     expect(anim.mapOpacity.value).toBe(1);
     expect(anim.flagOpacity.value).toBe(0);
-    expect([anim.camera.cx.value, anim.camera.cy.value, anim.camera.s.value]).toEqual([405, 650, 1.08]);
+    // cy 560 (was 650): keeps the summit clear of the header on the first frame.
+    expect([anim.camera.cx.value, anim.camera.cy.value, anim.camera.s.value]).toEqual([405, 560, 1.08]);
     expect(forTarget(spec.steps, anim.closed)[0]).toMatchObject({ at: 0, duration: 520, from: 1, to: 0, easing: 'settle' });
     expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 0, duration: 720, from: 0, to: 1234, easing: 'settle' });
     expect(forTarget(spec.steps, anim.camera.s)[0]).toMatchObject({ at: 0, duration: 900, to: 1, easing: 'deliberate' });

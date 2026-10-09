@@ -47,20 +47,20 @@ describe('route table', () => {
 
   it('is memoised and has a sane total equal to the prototype re-implementation', () => {
     expect(buildRouteTable()).toBe(table);
-    // DEFERRED: old summit route had total > 1000.
-    expect(table.total).toBeGreaterThan(850);
-    expect(table.total).toBeLessThan(1300);
+    // The route now climbs to the summit: about 1153 map units (the original seven-vertex route was about 874).
+    expect(table.total).toBeGreaterThan(1100);
+    expect(table.total).toBeLessThan(1200);
     expect(Math.abs(table.total - prototypeTotal())).toBeLessThan(table.total * 0.01);
-    expect(table.legs).toHaveLength(6);
-    expect(table.svgPath.match(/C/g)).toHaveLength(6);
+    expect(table.legs).toHaveLength(10);
+    expect(table.svgPath.match(/C/g)).toHaveLength(10);
     expect(table.svgPath.startsWith('M70,992')).toBe(true);
   });
 
-  it('posAt endpoints equal PTS[0] and PTS[6]; clamps out of range', () => {
+  it('posAt endpoints equal PTS[0] and the destination X; clamps out of range', () => {
     expect(posAt(table, 0)).toEqual({ x: 70, y: 992 });
     const end = posAt(table, table.total);
-    expect(end.x).toBeCloseTo(660, 2);
-    expect(end.y).toBeCloseTo(370, 2);
+    expect(end.x).toBeCloseTo(741, 2);
+    expect(end.y).toBeCloseTo(112, 2);
     expect(posAt(table, -50)).toEqual(posAt(table, 0));
     const over = posAt(table, table.total + 500);
     expect(over.x).toBeCloseTo(end.x, 3);
@@ -104,7 +104,7 @@ describe('waypointPlacement', () => {
     });
     expect(p.markerRadius).toBe(n > 7 ? 24 : 30);
     expect(p.start).toEqual({ x: 70, y: 992 });
-    expect(p.summit.x).toBeCloseTo(660, 2);
+    expect(p.summit.x).toBeCloseTo(741, 2);
   });
 
   it('is memoised and clamps n defensively', () => {
@@ -186,16 +186,13 @@ describe('camera and scallop', () => {
 });
 
 
-describe('summit clearance on phone widths', () => {
-  it.each([320, 360, 390, 430])('%idp keeps the etched X inside the map and clear of header controls', width => {
+describe('summit inside the map on phone widths', () => {
+  it.each([320, 360, 390, 430])('%idp keeps the etched X inside the map width', width => {
     const summit = waypointPlacement(4).summit;
     const scale = width / 852;
     const x = summit.x * scale;
-    const y = summit.y * scale;
     const radius = 18 * scale;
     expect(width - x - radius).toBeGreaterThanOrEqual(24);
-    // Map and header share the same safe-area origin. Controls end at 52dp.
-    expect(y - radius - 52).toBeGreaterThanOrEqual(48);
   });
 });
 

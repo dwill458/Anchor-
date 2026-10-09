@@ -24,16 +24,25 @@ import {
   type WaypointPlacement,
 } from './chartMapContracts';
 
-/** Prototype PTS: route vertices in map space. PTS[0] = start, PTS[6] = summit. */
+/**
+ * Route vertices in map space. PTS[0] = start; the last vertex is the destination X, a few units under the
+ * apex of the right-hand peak (apex about (741, 80)). The first seven vertices are the original route and must
+ * not change: their arc lengths are what existing charts' progress was saved against.
+ * The climb is traced along the visible ridge and snow line. The header clearance lives in CHART_MAP_TOP
+ * (ChartWeatherHold.tsx), not in the route.
+ */
 export const ROUTE_PTS: ReadonlyArray<readonly [number, number]> = [
   [70, 992],
   [233, 790],
   [385, 606],
   [516, 490],
-  // DEFERRED: [629, 380], [713, 292], [734, 190] placed the summit in the header zone.
   [575, 430],
   [625, 400],
   [660, 370],
+  [705, 285],
+  [720, 248],
+  [731, 172],
+  [741, 112],
 ];
 
 export const OVERVIEW_CAMERA = { cx: 426, cy: 590, s: 1 } as const;
@@ -334,7 +343,7 @@ export function buildFogFieldBruteForce(table: RouteTable): FogField {
 
 /** Everything the generated fog data depends on. MUST match scripts/generate-chart-fog-field.mjs. */
 export function fogRouteHashInput(): string {
-  return `fog-v1|${JSON.stringify(ROUTE_PTS)}|cell=${FOG_CELL}|cols=${FOG_COLS}|rows=${FOG_ROWS}|spacing=${SAMPLE_SPACING}|steps=${ARC_STEPS}`;
+  return `fog-v2|${JSON.stringify(ROUTE_PTS)}|cell=${FOG_CELL}|cols=${FOG_COLS}|rows=${FOG_ROWS}|spacing=${SAMPLE_SPACING}|steps=${ARC_STEPS}`;
 }
 
 /** FNV-1a (32-bit) hex of the route constants; compared with the generated data's hash. */
