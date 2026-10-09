@@ -20,6 +20,7 @@ import {
 import { GeminiImageProviderAdapter } from './adapters/GeminiImageProviderAdapter';
 import { OpenAIImageProviderAdapter } from './adapters/OpenAIImageProviderAdapter';
 import { getStyleGenerationVersion } from '../anchor2StyleLibrary';
+import { devImageModelProvider } from './devImageModels';
 
 export interface ImageGenerationServiceOptions {
   geminiAdapter?: ImageProviderAdapter;
@@ -70,6 +71,10 @@ export class ImageGenerationService {
     primaryProvider: string;
     fallbackProvider: string;
   } {
+    if (request.devImageModel) {
+      const provider = devImageModelProvider(request.devImageModel);
+      return { primaryProvider: provider, fallbackProvider: provider };
+    }
     if (request.type === 'vision') {
       const primary = this.selectVisionProvider(request.userId);
       const fallback = (
@@ -102,7 +107,7 @@ export class ImageGenerationService {
     const requestWithId: GenerateImageRequest = { ...request, generationRequestId };
 
     // Idempotency: check if an identical generation request is already in-flight
-    const dedupeKey = `${request.type}:${request.userId || 'anon'}:${generationRequestId}`;
+    const dedupeKey = `${request.type}:${request.userId || 'anon'}:${generationRequestId}:${request.devImageModel ?? 'auto'}`;
     const existing = this.inFlightRequests.get(dedupeKey);
     if (existing) {
       logger.info('[ImageGenerationService] Attaching to in-flight generation request', {
@@ -219,6 +224,9 @@ export class ImageGenerationService {
         metadata: request.metadata,
       };
     }
+
+    // A comparison must fail visibly rather than silently return another model's artwork.
+    if (request.devImageModel) throw primaryError;
 
     // 2. Evaluate Fallback Eligibility
     // Fall back on retryable infrastructure errors (timeout, 429, 5xx, network error, provider outage)

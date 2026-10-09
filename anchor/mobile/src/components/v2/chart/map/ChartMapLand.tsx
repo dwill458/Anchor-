@@ -14,7 +14,7 @@ import {
 import { CHART_MAP_TOKENS } from './chartMapTokens';
 import { loadCloudTiles } from './chartCloudTiles';
 import { useChartIntroCameraTransform, useChartMapCameraTransform } from './useChartMapCamera';
-import { getChartInkEffect } from './chartInkShader';
+import { getChartInkEffect, getChartSweepMaskEffect } from './chartInkShader';
 import type { IntroSequenceProgress } from './chartMapSequences';
 
 // 1704 x 2360 grayscale master, exactly 2x the 852 x 1180 design space.
@@ -91,7 +91,8 @@ export async function prepareChartMapIntroArt(table?: RouteTable, width?: number
     const tintEffect = getTintEffect();
     const inkEffect = getChartInkEffect();
     getFogEffect();
-    // The full-land stack is intentionally drawn only during the final crossfade.
+    getChartSweepMaskEffect();
+    // The full-land stack is drawn under the intro's sweep mask.
     // Warm its CPU-built fog field and grain image in the parent's paper hold,
     // outside the time-critical intro sequence.
     if (table && width !== undefined && height !== undefined) {
@@ -210,18 +211,28 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
     return () => { alive = false; };
   }, [drawBaseLand, width, height]);
   const cameraTransform = useChartMapCameraTransform(anim, width, height, frame);
-  const introTransform = useChartIntroCameraTransform(introProgress?.cameraScale, width);
+  // The base canvas gets the sweep progress for its mask but its camera comes from the wrapper, so it is not applied twice.
+  const introTransform = useChartIntroCameraTransform(introPass === 'base' ? undefined : introProgress?.cameraScale, width);
   const inkEffect = useMemo(() => introProgress ? getChartInkEffect() : null, [introProgress]);
+  const sweepEffect = useMemo(() => introProgress ? getChartSweepMaskEffect() : null, [introProgress]);
   const introInkColor = useMemo(() => hexToVec3(CHART_MAP_TOKENS.ink), []);
   const introInkUniforms = useDerivedValue(() => ({
     size: [MAP_W, MAP_H],
     contourP: introProgress?.contour.value ?? 0,
-    toneP: introProgress?.tone.value ?? 0,
-    landP: introProgress?.land.value ?? 0,
+    landSweepP: introProgress?.landSweep.value ?? 0,
     inkColor: introInkColor,
   }), [introInkColor, introProgress]);
-  // If the intro SkSL cannot compile, keep the decoded tinted land visible as a safe fallback.
-  const landOpacity = introProgress && inkEffect ? introProgress.land : 1;
+  // The land (and the survey route, in the overlay) show only where the sweep has passed.
+  const introSweepUniforms = useDerivedValue(() => ({
+    size: [MAP_W, MAP_H],
+    sweepP: introProgress?.landSweep.value ?? 1,
+  }), [introProgress]);
+  const introGrainSweepUniforms = useDerivedValue(() => ({
+    size: [width, height],
+    sweepP: introProgress?.landSweep.value ?? 1,
+  }), [height, introProgress, width]);
+  // Without the sweep shader the land cannot be masked; a plain opacity crossfade of the base is the safe fallback.
+  const landOpacity = introProgress && !sweepEffect ? introProgress.landSweep : 1;
 
   const paper = useMemo(() => hexToVec3(CHART_MAP_TOKENS.paper), []);
   const cat = useMemo(() => hexToVec3(categoryColor), [categoryColor]);
@@ -252,7 +263,7 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
       <Group transform={introTransform}>
         <Group transform={cameraTransform}>
           {introPass !== 'ink' ? <Rect x={0} y={0} width={MAP_W} height={MAP_H} color={CHART_MAP_TOKENS.paper} /> : null}
-          {drawBaseLand ? <Group opacity={landOpacity}>
+          {drawBaseLand ? <Group layer={sweepEffect ? <Paint /> : undefined} opacity={landOpacity}>
             {showArt && tintEffect ? (
               <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
                 <Shader source={tintEffect} uniforms={faintUniforms}>
@@ -287,6 +298,11 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
                 </Rect>
               </Group>
             ) : null}
+            {sweepEffect ? (
+              <Rect x={0} y={0} width={MAP_W} height={MAP_H} blendMode="dstIn">
+                <Shader source={sweepEffect} uniforms={introSweepUniforms} />
+              </Rect>
+            ) : null}
           </Group> : null}
           {drawIntroInk && introProgress && inkEffect && showArt && image ? (
             <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
@@ -297,9 +313,17 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
           ) : null}
         </Group>
       </Group>
-      {grain && drawBaseLand ? (
+      {grain && drawBaseLand ? (sweepEffect ? (
+        // Grain sits in screen space, outside the camera group, so its mask uses the screen size.
+        <Group layer={<Paint />} blendMode="multiply">
+          <SkiaImage image={grain} x={0} y={0} width={width} height={height} fit="fill" />
+          <Rect x={0} y={0} width={width} height={height} blendMode="dstIn">
+            <Shader source={sweepEffect} uniforms={introGrainSweepUniforms} />
+          </Rect>
+        </Group>
+      ) : (
         <SkiaImage image={grain} x={0} y={0} width={width} height={height} fit="fill" blendMode="multiply" opacity={landOpacity} />
-      ) : null}
+      )) : null}
     </>
   );
 });

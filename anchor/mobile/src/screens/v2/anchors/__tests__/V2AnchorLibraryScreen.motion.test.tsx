@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
+import { FlatList } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
 const mockNavigate = jest.fn();
@@ -29,14 +30,15 @@ beforeEach(() => {
 });
 
 describe('V2AnchorLibraryScreen motion', () => {
-  it('stages its arrival and still renders every one of 40 Anchors', () => {
+  it('stages only the initial cards while keeping all 40 Anchors in the list', () => {
     useAnchorStore.setState({
       anchors: Array.from({ length: 40 }, (_, i) => makeAnchor({ id: `x${i}`, intentionText: `Intention ${i}` })),
     });
-    render(<V2AnchorLibraryScreen />);
+    const view = render(<V2AnchorLibraryScreen />);
     expect(withDelay).toHaveBeenCalled();
     expect(screen.getByText('Intention 0')).toBeTruthy();
-    expect(screen.getByText('Intention 39')).toBeTruthy();
+    expect(screen.queryByText('Intention 39')).toBeNull();
+    expect(view.UNSAFE_getByType(FlatList).props.data).toHaveLength(40);
     // No delay is ever longer than the stagger cap allows (cap 6 × 60ms, plus the two header slots).
     const longest = Math.max(...withDelay.mock.calls.map(([delay]) => delay as number));
     expect(longest).toBeLessThanOrEqual(6 * 60);

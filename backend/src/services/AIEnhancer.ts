@@ -20,6 +20,7 @@ import { validateAnchorArtwork } from '../utils/artworkValidation';
 import { GeminiImageService } from './GeminiImageService';
 import type { GenerationStyleId } from '../types';
 import { getStyleGenerationVersion } from './anchor2StyleLibrary';
+import { devImageModelProvider, type DevImageModel } from './image/devImageModels';
 import {
   VALID_AI_STYLES,
   buildStylePrompt,
@@ -295,6 +296,7 @@ const STRUCTURE_THRESHOLDS = {
  * Request for ControlNet-based enhancement
  */
 export interface ControlNetEnhancementRequest {
+  devImageModel?: DevImageModel;
   sigilSvg: string; // Base or reinforced SVG structure
   styleChoice: GenerationStyleId; // Selected art style (legacy or Anchor 2.0)
   userId: string; // For tracking
@@ -367,7 +369,9 @@ export async function enhanceSigilWithAI(
   const isAnchor2 = getStyleGenerationVersion(request.styleChoice) === 'anchor2';
   const hasGeminiKey = geminiService.isAvailable();
   const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
-  const isAvailable = isAnchor2 ? (hasOpenAiKey || hasGeminiKey) : hasGeminiKey;
+  const isAvailable = request.devImageModel
+    ? (devImageModelProvider(request.devImageModel) === 'openai' ? hasOpenAiKey : hasGeminiKey)
+    : isAnchor2 ? (hasOpenAiKey || hasGeminiKey) : hasGeminiKey;
 
   // Try primary provider (OpenAI for Anchor 2.0 testing, Gemini 3 for 1.5 styles)
   if (isAvailable) {
@@ -393,6 +397,7 @@ export async function enhanceSigilWithAI(
         styleApproach: request.styleChoice,
         numberOfVariations,
         tier,
+        devImageModel: request.devImageModel,
       });
 
       // Convert Gemini result format to ControlNet result format

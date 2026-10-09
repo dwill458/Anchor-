@@ -1,6 +1,7 @@
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useVisionGenerationAnalytics } from './useVisionGenerationAnalytics';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { selectedDevImageModel } from '@/stores/devImageModelStore';
 import { AppState } from 'react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
@@ -90,10 +91,12 @@ export function useV2VisionGeneration(anchorId: string, onPremiumRequired?: () =
     // Mirror the server's Pro rule so the paywall opens before a doomed request (and under a dev tier override).
     if (onPremiumRequired && isProFeatureLocked()) { onPremiumRequired(); return false; }
     const key = `vision-${Date.now()}-${Math.floor(Math.random() * 1e12)}`;
+    const devImageModel = selectedDevImageModel('vision');
     pendingKey.current = key;
     setError(null);
     try {
       const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key,
+        ...(devImageModel ? { devImageModel } : {}),
         ...(appearanceReferenceId ? { appearanceReferenceId } : {}) });
       if (mounted.current) setJob(visionApiData<VisionGenerationJob>(response));
       AnalyticsService.track('vision_image_generation_started', { anchor_id: anchorId, job_id: visionApiData<VisionGenerationJob>(response).id });

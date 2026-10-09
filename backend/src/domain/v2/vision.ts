@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEV_IMAGE_MODEL_IDS } from '../../services/image/devImageModels';
 
 export const VISION_STATUSES = ['ACTIVE', 'ARCHIVED'] as const;
 export type VisionStatus = (typeof VISION_STATUSES)[number];
@@ -90,6 +91,7 @@ export const CreateVisionSchema = z.object({
 });
 
 export const StartVisionGenerationSchema = z.object({
+  devImageModel: z.enum(DEV_IMAGE_MODEL_IDS).optional(),
   description: z.string().trim().min(12).max(2000),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
   // The server resolves this private asset itself. Clients never send raw
@@ -104,6 +106,7 @@ export const StartVisionGenerationSchema = z.object({
  */
 export const VISION_SCENE_DESCRIPTION_MAX = 2000;
 export const StartVisionSceneGenerationSchema = z.object({
+  devImageModel: z.enum(DEV_IMAGE_MODEL_IDS).optional(),
   sceneDescription: z.string().trim().min(6).max(VISION_SCENE_DESCRIPTION_MAX),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
   appearanceReferenceId: z.string().uuid().optional().nullable(),

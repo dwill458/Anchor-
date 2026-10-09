@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import Svg, { Path, Polygon } from 'react-native-svg';
 import { Check } from 'lucide-react-native';
 import type { V2HomeTodayState } from '@/adapters/v2/home';
@@ -26,6 +27,7 @@ type Props = {
   onBegin?: () => void;
   onOpenAllPractices?: () => void;
   onRetry?: () => void;
+  contentStyle?: StyleProp<ViewStyle>;
   testID?: string;
 };
 
@@ -109,7 +111,7 @@ export function todayReasonCopy(reason: string, mode: keyof typeof V2_RECOMMENDA
  */
 type ReadyToday = Extract<V2HomeTodayState, { state: 'ready' }>;
 
-function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReused, onBegin, onOpenAllPractices, onRetry, testID }: Props) {
+function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReused, onBegin, onOpenAllPractices, onRetry, contentStyle, testID }: Props) {
   const lastReadyRef = useRef<ReadyToday | null>(today.state === 'ready' ? today : null);
   if (today.state === 'ready') {
     lastReadyRef.current = today;
@@ -202,6 +204,7 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
         fade={TODAY_ART_FADE}
         style={styles.practiceArt}
       />
+      <Animated.View style={contentStyle}>
       <View style={styles.kickerRow}>
         {/* // DEFERRED: The old outlined completion tag is retained after replacing it with the filled pennant.
         <View style={[styles.ribbon, styles.doneRibbon]}>
@@ -299,6 +302,7 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
       </Text>
 
       {!doneToday ? allPractices : null}
+      </Animated.View>
     </View>
   );
 }

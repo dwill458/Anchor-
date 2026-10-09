@@ -1,4 +1,5 @@
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { selectedDevImageModel } from '@/stores/devImageModelStore';
 import { useVisionGenerationAnalytics } from './useVisionGenerationAnalytics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
@@ -80,12 +81,14 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     // Mirror the server's Pro rule so the paywall opens before a doomed request (and under a dev tier override).
     if (onPremiumRequired && isProFeatureLocked()) { onPremiumRequired(); return false; }
     starting.current = true;
+    const devImageModel = selectedDevImageModel('vision');
     setError(null); lastCode.current = null;
     try {
       const idempotencyKey = `vision-scene-${Date.now()}-${Math.floor(Math.random() * 1e12)}`;
       const response = await apiClient.post<VisionGenerationJob>(`${base}/scene-generation`, {
         sceneDescription,
         idempotencyKey,
+        ...(devImageModel ? { devImageModel } : {}),
         ...(appearanceReferenceId ? { appearanceReferenceId } : {}),
         ...(startAssetId ? { startAssetId } : {}),
       });

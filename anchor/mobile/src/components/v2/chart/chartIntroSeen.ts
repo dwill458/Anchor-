@@ -34,6 +34,15 @@ export async function getChartIntroSeen(accountId?: string | null): Promise<bool
   return seen;
 }
 
+/**
+ * Synchronous read of what is already known for this process: null until something has primed or read the flag.
+ * The Create Chart row primes it, so the intro can decide its audio on its first committed frame.
+ */
+export function peekChartIntroSeen(accountId?: string | null): boolean | null {
+  const memory = memoryKey(resolveAccount(accountId));
+  return seenByKey.has(memory) ? seenByKey.get(memory) ?? false : null;
+}
+
 /** Mark the presentation seen; persistence is best-effort and never blocks the sequence. */
 export async function setChartIntroSeen(accountId?: string | null): Promise<void> {
   const account = resolveAccount(accountId);

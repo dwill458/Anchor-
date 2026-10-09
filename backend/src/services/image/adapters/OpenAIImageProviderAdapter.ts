@@ -40,6 +40,9 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
     model: string;
     estimatedCostPerImage: number;
   } {
+    if (request.devImageModel) {
+      return { model: request.devImageModel, estimatedCostPerImage: request.devImageModel.includes('sunburst') ? 0.04 : 0.02 };
+    }
     if (request.type === 'vision') {
       // "Make it look like you": Sunburst is OpenAI's reference-preserving model.
       const hasAppearance = (request.referenceImages ?? []).some(reference => reference.role === 'appearance');
@@ -139,23 +142,26 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
         }
 
         // No response_format: GPT-Image models reject it and always return b64_json.
-        // Vision references (the Vision's own photographs and who is in them) go through the edits
-        // endpoint: it takes several input images and generates a new one from them. Without them
-        // this is plain text-to-image.
-        const visionReferences =
-          request.type === 'vision' ? orderVisionReferences(request.referenceImages) : [];
+        // Both Anchor geometry and Vision photographs must reach the edits endpoint.
+        // Text-to-image cannot preserve a sigil it has never seen.
+        const references = request.type === 'vision'
+          ? orderVisionReferences(request.referenceImages)
+          : request.referenceImages ?? [];
+        const referenceInstructions = request.type === 'vision'
+          ? visionReferenceInstructions(references)
+          : 'Image 1 is the exact Anchor geometry to preserve, not inspiration for a new symbol. Keep every stroke, endpoint, angle and intersection in the same relationship. Do not replace it with a literal anchor icon, add circles or nodes, or make it symmetrical. Change only its surface treatment and the surrounding style material field. The reference stroke colour and empty background are a diagram, not the final palette.';
         let response: Response;
-        if (visionReferences.length > 0) {
+        if (references.length > 0) {
           const form = new FormData();
           form.append('model', model);
           form.append(
             'prompt',
-            `${enhancedPrompt}\n\n${visionReferenceInstructions(visionReferences)}`
+            `${enhancedPrompt}\n\n${referenceInstructions}`
           );
           form.append('size', size);
           form.append('n', '1');
-          visionReferences.forEach((reference, index) => {
-            const type = reference.mimeType || 'image/jpeg';
+          references.forEach((reference, index) => {
+            const type = reference.mimeType || (request.type === 'anchor' ? 'image/png' : 'image/jpeg');
             const extension = type.split('/')[1] || 'jpg';
             form.append(
               'image[]',

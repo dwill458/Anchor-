@@ -1,14 +1,17 @@
 import type { ChartMapFrame } from './chartMapGeometry';
 import React, { memo, useEffect, useMemo, useRef } from 'react';
 import {
-  Circle, DashPathEffect, DiscretePathEffect, Group, Path, RadialGradient, Skia, vec,
+  Circle, DashPathEffect, DiscretePathEffect, Group, Paint, Path, RadialGradient, Rect, Shader, Skia, vec,
 } from '@shopify/react-native-skia';
 import {
   Easing, cancelAnimation, useDerivedValue, useSharedValue, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
-import type { ChartMapAnimState, ChartRouteRevision, RouteTable, WaypointPlacement } from './chartMapContracts';
+import {
+  MAP_H, MAP_W, type ChartMapAnimState, type ChartRouteRevision, type RouteTable, type WaypointPlacement,
+} from './chartMapContracts';
 import { buildRoughRoute, hexToRgba, routeCoordAt } from './chartMapShaders';
 import { CHART_MAP_GOLD, CHART_MAP_TOKENS } from './chartMapTokens';
+import { getChartSweepMaskEffect } from './chartInkShader';
 import { useChartIntroCameraTransform, useChartMapCameraTransform } from './useChartMapCamera';
 import type { IntroSequenceProgress } from './chartMapSequences';
 
@@ -104,6 +107,11 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
   }, [clouds, livingWeather, table.total]);
 
   const routeEnd = useDerivedValue(() => introProgress?.route.value ?? dottedEnd.value, [dottedEnd, introProgress]);
+  const sweepEffect = useMemo(() => introProgress ? getChartSweepMaskEffect() : null, [introProgress]);
+  const sweepUniforms = useDerivedValue(() => ({
+    size: [MAP_W, MAP_H],
+    sweepP: introProgress?.landSweep.value ?? 1,
+  }), [introProgress]);
 
   // Route revised (R1): the surveyed (pencil) route fades out and back in around the pen's pass. At rest (out = pencil = 1)
   // and with no revision it is the same .45 as ever.
@@ -197,20 +205,28 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
   return (
     <Group transform={introTransform}>
     <Group transform={cameraTransform}>
-      {routePath ? (
-        <>
-          <Path path={routePath} style="stroke" strokeWidth={4} strokeCap="round" color={INK} opacity={revision ? pencilOpacity : 0.45} start={0} end={routeEnd}>
-            <DashPathEffect intervals={[1, 10]} />
-          </Path>
-          {revision ? (
-            <Path path={routePath} style="stroke" strokeWidth={4.5} strokeCap="round" strokeJoin="round" color={INK} opacity={penOpacity} start={penStart} end={penEnd} />
-          ) : null}
-          {roughPath ? (
-            <Path path={roughPath} style="stroke" strokeWidth={5.5} strokeCap="round" strokeJoin="round" color={INK} start={0} end={end} />
-          ) : null}
-        </>
-      ) : null}
-      <Circle cx={placement.start.x} cy={placement.start.y} r={9} color={INK} opacity={startOpacity} />
+      {/* The intro's survey route is masked by the land sweep: it never draws where the terrain has not yet been revealed. */}
+      <Group layer={sweepEffect ? <Paint /> : undefined} opacity={introProgress && !sweepEffect ? introProgress.landSweep : 1}>
+        {routePath ? (
+          <>
+            <Path path={routePath} style="stroke" strokeWidth={4} strokeCap="round" color={INK} opacity={revision ? pencilOpacity : 0.45} start={0} end={routeEnd}>
+              <DashPathEffect intervals={[1, 10]} />
+            </Path>
+            {revision ? (
+              <Path path={routePath} style="stroke" strokeWidth={4.5} strokeCap="round" strokeJoin="round" color={INK} opacity={penOpacity} start={penStart} end={penEnd} />
+            ) : null}
+            {roughPath ? (
+              <Path path={roughPath} style="stroke" strokeWidth={5.5} strokeCap="round" strokeJoin="round" color={INK} start={0} end={end} />
+            ) : null}
+          </>
+        ) : null}
+        <Circle cx={placement.start.x} cy={placement.start.y} r={9} color={INK} opacity={startOpacity} />
+        {sweepEffect ? (
+          <Rect x={0} y={0} width={MAP_W} height={MAP_H} blendMode="dstIn">
+            <Shader source={sweepEffect} uniforms={sweepUniforms} />
+          </Rect>
+        ) : null}
+      </Group>
 
       {!reducedMotion ? (
         <Group transform={tipTransform} opacity={pulseOpacity}>

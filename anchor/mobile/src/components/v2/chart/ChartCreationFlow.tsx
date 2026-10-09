@@ -17,7 +17,7 @@ import { ArrowRight, ArrowUpRight, Star, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { safeHaptics } from '@/utils/haptics';
 import { V2Button } from '@/components/v2/primitives/V2Button';
-import { CHART_COPY, reviewSupportCopy } from '@/constants/v2/chartCopy';
+import { CHART_COPY, chartReviewSupport } from '@/constants/v2/chartCopy';
 import {
   chartV2Api,
   classifyChartError,
@@ -58,7 +58,7 @@ import { ChartReferenceTray } from './ChartReferenceTray';
 import { prepareReferences, withUploaded, type ChartPhotoReference, type ChartReference } from './chartReferences';
 import { ChartRealityInput } from './ChartRealityInput';
 import { ChartRouteEditor, type DraftWaypoint } from './ChartRouteEditor';
-import { CHART_EASING, CHART_TRANSITION_TIMING as TT, chartTiming } from './chartMotion';
+import { CHART_EASING, CHART_INTRO_TIMING, CHART_TRANSITION_TIMING as TT, chartTiming } from './chartMotion';
 
 export type ChartCreationVision = {
   imageUrl: string | null;
@@ -98,6 +98,8 @@ type Props = {
   api?: ChartCreationApi;
   /** Development-only opening replay choice; production callers leave it unset. */
   introReplayMode?: 'full' | 'short';
+  /** The intro opening has started; the route clears its one-shot replay param here. */
+  onIntroStarted?: () => void;
   testID?: string;
 };
 
@@ -205,6 +207,7 @@ export function ChartCreationFlow({
   initialProposal = null,
   api = chartV2Api,
   introReplayMode,
+  onIntroStarted,
   testID,
 }: Props) {
   const { width, height } = useWindowDimensions();
@@ -212,12 +215,25 @@ export function ChartCreationFlow({
   const [phase, setPhase] = useState<Phase>(initialPhase);
   const [introSkipRequest, setIntroSkipRequest] = useState(0);
   const requestIntroSkip = useCallback(() => setIntroSkipRequest(current => current + 1), []);
-  const [introViewportWidth, setIntroViewportWidth] = useState<number | null>(null);
+  // Seeded from the window width so the prefetch and the opening start on the first frame; layout corrects it below.
+  const [introViewportWidth, setIntroViewportWidth] = useState<number | null>(width);
   const [introPreparation, setIntroPreparation] = useState<{ width: number; seen: boolean; artDecoded: boolean } | null>(null);
   const [introSurfaceWidth, setIntroSurfaceWidth] = useState<number | null>(null);
+  // Set once the cold preparation cover has held for CHART_INTRO_TIMING.coverMax: the cover drops and the opening takes its reduced path.
+  const [introCoverExpired, setIntroCoverExpired] = useState(false);
   const markIntroSurfaceReady = useCallback(() => {
     if (introViewportWidth !== null) setIntroSurfaceWidth(introViewportWidth);
   }, [introViewportWidth]);
+  useEffect(() => {
+    if (phase !== 'intro' || introCoverExpired) return undefined;
+    const timer = setTimeout(() => {
+      setIntroCoverExpired(true);
+      if (__DEV__) console.warn('[chart-intro] cover cap reached; the opening takes its reduced path');
+    }, CHART_INTRO_TIMING.coverMax);
+    return () => clearTimeout(timer);
+  }, [phase, introCoverExpired]);
+  // The cover (and the held paper) shows until the art and the surface are ready, but never past the cap.
+  const introCoverHeld = !introCoverExpired && (introViewportWidth === null || introPreparation?.width !== introViewportWidth || introSurfaceWidth !== introViewportWidth);
   const [startingContext, setStartingContext] = useState('');
   const [followUpQuestion, setFollowUpQuestion] = useState<string | null>(null);
   const [followUpAnswer, setFollowUpAnswer] = useState('');
@@ -571,7 +587,7 @@ export function ChartCreationFlow({
 
   const namedCount = draft.filter((waypoint) => waypoint.title.trim()).length;
   const destinationLabel = destination || identity.intention;
-  const reviewSupport = needsNaming ? CHART_COPY.review.outline : revised ? CHART_COPY.adjust.reviewSupport : reviewSupportCopy(draft.length);
+  const reviewSupport = needsNaming ? CHART_COPY.review.outline : revised ? CHART_COPY.adjust.reviewSupport : chartReviewSupport(draft.length);
 
 // DEFERRED:   const title =
 // DEFERRED:     phase === 'intro'
@@ -643,19 +659,20 @@ export function ChartCreationFlow({
             categoryColor={getCategoryColor(identity.category)}
             reducedMotion={reducedMotion}
             replayMode={introReplayMode}
-            preparing={introPreparation?.width !== introViewportWidth || introSurfaceWidth !== introViewportWidth}
+            preparing={introCoverHeld}
             onIntroSurfaceReady={markIntroSurfaceReady}
             initialSeen={introPreparation?.width === introViewportWidth ? introPreparation.seen : undefined}
             artReadyAtMount={introPreparation?.width === introViewportWidth && introPreparation.artDecoded}
-            artPreparationSettledAtMount={introPreparation?.width === introViewportWidth}
+            artPreparationSettledAtMount={introPreparation?.width === introViewportWidth || introCoverExpired}
             introWidth={introViewportWidth}
             skipRequest={introSkipRequest}
+            onSequenceStart={onIntroStarted}
             onContinue={() => {
               trackChart('chart_creation_started', { hasVision });
               setPhase('context');
             }}
           /> : null}
-          {introViewportWidth === null || introPreparation?.width !== introViewportWidth || introSurfaceWidth !== introViewportWidth ? <Pressable
+          {introCoverHeld ? <Pressable
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
             accessible={false}

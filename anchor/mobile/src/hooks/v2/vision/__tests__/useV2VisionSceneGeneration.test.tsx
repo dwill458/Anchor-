@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { useV2VisionSceneGeneration } from '../useV2VisionSceneGeneration';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useDevImageModelStore } from '@/stores/devImageModelStore';
 
 jest.mock('@/services/ApiClient', () => ({
   apiClient: { get: jest.fn(), post: jest.fn() },
@@ -22,7 +23,18 @@ const running = {
 };
 
 describe('useV2VisionSceneGeneration', () => {
-  beforeEach(() => { jest.clearAllMocks(); });
+  beforeEach(() => { jest.clearAllMocks(); useDevImageModelStore.setState({ anchor: null, vision: null }); });
+  afterEach(() => { useDevImageModelStore.setState({ anchor: null, vision: null }); });
+
+  it('routes the selected Vision model along with its photo references', async () => {
+    useDevImageModelStore.getState().select('vision', 'gemini-nano-banana-2.1');
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true, data: running } });
+    const { result } = renderHook(() => useV2VisionSceneGeneration('anchor-1'));
+    await act(async () => { await result.current.start('Working from a beach house', 'appearance-1', 'photo-1'); });
+    expect((apiClient.post as jest.Mock).mock.calls[0][1]).toMatchObject({
+      devImageModel: 'gemini-nano-banana-2.1', appearanceReferenceId: 'appearance-1', startAssetId: 'photo-1',
+    });
+  });
 
   it('starts a described scene on its own endpoint, never on the numbered sets', async () => {
     (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true, data: running } });

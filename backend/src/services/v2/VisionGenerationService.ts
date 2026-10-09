@@ -8,6 +8,7 @@ import { GeminiError, GeminiErrorType, GeminiImageService } from '../GeminiImage
 import { imageGenerationService, ImageProviderError, ImageProviderErrorType } from '../image';
 import { readPrivateImageAsset, resolveStorageKeyUrl, uploadImageAssetFromBuffer } from '../StorageService';
 import type { ImageReference } from '../image/types';
+import { readDevImagePlan, storeDevImagePlan, type DevImageModel } from '../image/devImageModels';
 import { selectWorldReferenceScenes, type WorldReferenceScene } from './visionWorldReferences';
 import { getMonetizationAccess } from '../MonetizationAccessService';
 import { visionService } from './VisionService';
@@ -69,6 +70,7 @@ export class VisionGenerationService {
       retryCount: job.retryCount,
       status: job.status,
       stage: job.stage,
+      ...(readDevImagePlan(job.plan).devImageModel ? { devImageModel: readDevImagePlan(job.plan).devImageModel } : {}),
       error: job.error,
       candidates: await Promise.all(
         job.candidates.map(async candidate => ({
@@ -91,7 +93,8 @@ export class VisionGenerationService {
     anchorId: string,
     description: string,
     idempotencyKey: string,
-    appearanceReferenceId?: string | null
+    appearanceReferenceId?: string | null,
+    devImageModel?: DevImageModel
   ) {
     const access = await getMonetizationAccess(userId);
     if (!access.hasProAccess)
@@ -153,6 +156,7 @@ export class VisionGenerationService {
           setNumber,
           status: 'QUEUED',
           stage: 'planning',
+          ...(devImageModel ? { plan: storeDevImagePlan(null, devImageModel) as Prisma.InputJsonValue } : {}),
           appearanceReferenceId: appearanceReferenceId ?? null,
         },
       });
@@ -188,7 +192,8 @@ export class VisionGenerationService {
     sceneDescription: string,
     idempotencyKey: string,
     appearanceReferenceId?: string | null,
-    startAssetId?: string | null
+    startAssetId?: string | null,
+    devImageModel?: DevImageModel
   ) {
     const access = await getMonetizationAccess(userId);
     if (!access.hasProAccess)
@@ -260,7 +265,7 @@ export class VisionGenerationService {
           stage: 'creating_images',
           appearanceReferenceId: appearanceReferenceId ?? null,
           startAssetId: startAssetId ?? null,
-          plan: buildVisionSceneVariantPlan(trimmed) as unknown as Prisma.InputJsonValue,
+          plan: storeDevImagePlan(buildVisionSceneVariantPlan(trimmed), devImageModel) as Prisma.InputJsonValue,
         },
       });
     } catch (error) {
@@ -316,9 +321,10 @@ export class VisionGenerationService {
       orderBy: { setNumber: 'asc' },
       select: { plan: true },
     });
-    return earlier.flatMap(item =>
-      isStoredVisionScenePlan(item.plan) ? item.plan.map(scene => scene.scene) : []
-    );
+    return earlier.flatMap(item => {
+      const { scenes } = readDevImagePlan(item.plan);
+      return isStoredVisionScenePlan(scenes) ? scenes.map(scene => scene.scene) : [];
+    });
   }
 
   /**
@@ -331,7 +337,8 @@ export class VisionGenerationService {
     prompt: string,
     reference?: { buffer: Buffer; mimeType: string } | null,
     userId?: string,
-    world: ImageReference[] = []
+    world: ImageReference[] = [],
+    devImageModel?: DevImageModel
   ): Promise<Buffer> {
     const withWorld = (appearance?: { buffer: Buffer; mimeType: string } | null): ImageReference[] | undefined => {
       const all: ImageReference[] = [
@@ -345,7 +352,7 @@ export class VisionGenerationService {
       const isMock = Boolean(
         (provider.generateVisionScene as unknown as { _isMockFunction?: boolean })?._isMockFunction
       );
-      if (isMock) {
+      if (isMock && !devImageModel) {
         try {
           return await provider.generateVisionScene(prompt, appearance ?? undefined);
         } catch (error) {
@@ -364,6 +371,7 @@ export class VisionGenerationService {
           prompt,
           referenceImages: withWorld(appearance),
           userId,
+          devImageModel,
         });
         return result.images[0].buffer;
       } catch (error) {
@@ -380,6 +388,7 @@ export class VisionGenerationService {
           prompt,
           referenceImages: withWorld(appearance),
           userId,
+          devImageModel,
         });
         return retryResult.images[0].buffer;
       }
@@ -472,7 +481,7 @@ export class VisionGenerationService {
         );
       }
       const attempt = job.retryCount;
-      const savedPlan = job.plan;
+      const { scenes: savedPlan, devImageModel } = readDevImagePlan(job.plan);
       // A described scene is shot in the context of the Vision it joins.
       const boardContext =
         job.kind === 'SCENE'
@@ -552,10 +561,10 @@ export class VisionGenerationService {
         !['RUNNING', 'PARTIAL'].includes(afterPlanning.status)
       )
         return;
-      if (!job.plan)
+      if (!isStoredVisionScenePlan(savedPlan))
         await prisma.visionGeneration.update({
           where: { id: jobId },
-          data: { plan: plan as unknown as Prisma.InputJsonValue },
+          data: { plan: storeDevImagePlan(plan, devImageModel) as Prisma.InputJsonValue },
         });
       await prisma.visionGeneration.update({
         where: { id: jobId },
@@ -597,7 +606,7 @@ export class VisionGenerationService {
           startPhotoAttached: Boolean(startReference),
         });
         try {
-          const raw = await this.renderScene(provider, prompt, reference, job.userId, worldReferences);
+          const raw = await this.renderScene(provider, prompt, reference, job.userId, worldReferences, devImageModel);
           const afterProvider = await prisma.visionGeneration.findUnique({
             where: { id: jobId },
             select: { status: true, retryCount: true },
@@ -628,6 +637,7 @@ export class VisionGenerationService {
             fileSizeBytes: image.length,
             metadata: {
               visionGenerationId: jobId,
+              ...(devImageModel ? { devImageModel } : {}),
               role: scene.role,
               width: info.width,
               height: info.height,

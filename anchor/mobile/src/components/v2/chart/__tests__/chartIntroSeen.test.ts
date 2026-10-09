@@ -1,6 +1,7 @@
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import {
   getChartIntroSeen,
+  peekChartIntroSeen,
   resetChartIntroSeen,
   resetChartIntroSeenCache,
   setChartIntroSeen,
@@ -44,6 +45,15 @@ describe('chart intro seen flag', () => {
     await expect(resetChartIntroSeen('acct-1')).resolves.toBeUndefined();
     expect(set).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('peeks synchronously: unknown until something has primed or read the flag, then known', async () => {
+    resetChartIntroSeenCache();
+    expect(peekChartIntroSeen('acct-1')).toBeNull();
+    await getChartIntroSeen('acct-1');
+    expect(peekChartIntroSeen('acct-1')).toBe(false);
+    await setChartIntroSeen('acct-1');
+    expect(peekChartIntroSeen('acct-1')).toBe(true);
   });
 
   it('reset clears both the stored flag and the in-memory snapshot', async () => {

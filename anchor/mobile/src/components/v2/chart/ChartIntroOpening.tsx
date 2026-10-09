@@ -22,7 +22,7 @@ import {
   type ChartIntroBeat,
   type IntroSequenceProgress,
 } from './map/chartMapSequences';
-import { getChartIntroSeen, setChartIntroSeen } from './chartIntroSeen';
+import { getChartIntroSeen, peekChartIntroSeen, setChartIntroSeen } from './chartIntroSeen';
 import { MAP_H, MAP_W } from './map/chartMapContracts';
 
 type Props = {
@@ -36,22 +36,26 @@ type Props = {
   preparing?: boolean;
   onIntroSurfaceReady?: () => void;
   artReadyAtMount?: boolean;
-  /** Parent already tried decoding; allow the paper-only fallback if decoding failed. */
+  /** Parent already tried decoding, or its cold-cover cap expired: allow the reduced path if decoding failed. */
   artPreparationSettledAtMount?: boolean;
   introWidth?: number;
-  /** Development lab override; production callers leave this unset. */
+  /** Development lab override, read once at mount; production callers leave this unset. */
   replayMode?: 'full' | 'short';
   /** Parent header forwards non-button taps as a monotonically increasing request. */
   skipRequest?: number;
+  /** Fires once when the opening sequence starts; the parent clears its one-shot replay param here. */
+  onSequenceStart?: () => void;
 };
 
 /** Creation intro: the existing map, animated ink pass, paper zone and copy. */
-export function ChartIntroOpening({ category, categoryColor, reducedMotion, onContinue, replayMode, skipRequest = 0, initialSeen, preparing = false, onIntroSurfaceReady, artReadyAtMount = false, artPreparationSettledAtMount = false, introWidth }: Props) {
+export function ChartIntroOpening({ category, categoryColor, reducedMotion, onContinue, replayMode, skipRequest = 0, initialSeen, preparing = false, onIntroSurfaceReady, artReadyAtMount = false, artPreparationSettledAtMount = false, introWidth, onSequenceStart }: Props) {
   const { width: windowWidth, height } = useWindowDimensions();
   const width = introWidth ?? windowWidth;
   const performanceTier = usePerformanceTier();
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
+  const onSequenceStartRef = useRef(onSequenceStart);
+  onSequenceStartRef.current = onSequenceStart;
   const insets = useSafeAreaInsets();
   const runner = useChartSequencer(reducedMotion);
   const performanceTierRef = useRef(performanceTier);
@@ -61,8 +65,10 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
     playOpenWhenReducedMotion: true,
     fadeAirOnUnmount: true,
   });
+  // Latched at mount: a parent clearing its one-shot replay param must never restart or cancel a running opening.
+  const [replay] = useState(replayMode);
   const contour = useSharedValue(0);
-  const tone = useSharedValue(0);
+  const landSweep = useSharedValue(0);
   const route = useSharedValue(0);
   const copy = useSharedValue(0);
   const marker = useSharedValue(0);
@@ -70,34 +76,47 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
   const land = useSharedValue(0);
   const cameraScale = useSharedValue(1);
   const progress = useMemo<IntroSequenceProgress>(
-    () => ({ contour, tone, route, copy, marker, continue: continueProgress, land, cameraScale }),
-    [cameraScale, continueProgress, copy, contour, land, marker, route, tone],
+    () => ({ contour, landSweep, route, copy, marker, continue: continueProgress, land, cameraScale }),
+    [cameraScale, continueProgress, copy, contour, land, landSweep, marker, route],
   );
   const [inkMounted, setInkMounted] = useState(true);
-  // The settled layer is prepared under the paper cover from mount; its UI-clock opacity remains zero until the final crossfade.
-  const [baseLandVisible, setBaseLandVisible] = useState(true);
   const [continueEnabled, setContinueEnabled] = useState(false);
   const [mapReady, setMapReady] = useState(artReadyAtMount || artPreparationSettledAtMount);
   const [introCanvasSized, setIntroCanvasSized] = useState(false);
-  const [seen, setSeen] = useState<boolean | null>(replayMode ? replayMode === 'short' : initialSeen ?? null);
-  const resolvedSeen = replayMode ? replayMode === 'short' : initialSeen ?? seen;
+  // What the audio needs on the first committed frame: the prefetch primes the flag, so this is usually known.
+  const [knownSeen] = useState<boolean | null>(() => (replay ? replay === 'short' : initialSeen ?? peekChartIntroSeen()));
+  const [seen, setSeen] = useState<boolean | null>(replay ? replay === 'short' : initialSeen ?? null);
+  const resolvedSeen = replay ? replay === 'short' : initialSeen ?? seen;
   const [bodyFrame, setBodyFrame] = useState({ y: 0, height: 0 });
   const rootRef = useRef<View>(null);
   const started = useRef(false);
+  const airStarted = useRef(false);
   const skipOnStart = useRef(skipRequest > 0);
   const skipStarted = useRef(false);
   const introSurfaceFrameReady = useRef(false);
   const handledSkipRequest = useRef(skipRequest);
   const activeMode = useRef<'full' | 'short' | 'reduced'>('full');
-  const openPlayed = useRef(false);
   const onBeat = useCallback((beat: ChartIntroBeat) => {
     switch (beat) {
-      case 'open': openPlayed.current = true; sound.open(); break;
       case 'ink': sound.ink(activeMode.current === 'short' ? CHART_INTRO_TIMING.shortRoute : CHART_INTRO_TIMING.route); break;
       case 'flag': sound.flag(); break;
       case 'duck': sound.duck(1300); break;
     }
   }, [sound]);
+
+  // The open cue, and the air bed for a first-time opening, start on this screen's first committed frame.
+  // When the flag is not yet known, the air waits for the sequence (see the layout effect below).
+  useEffect(() => {
+    sound.open();
+    // A settled-without-art opening takes the reduced path, which never plays the air bed.
+    const reducedPath = reducedMotionRef.current || (artPreparationSettledAtMount && !artReadyAtMount);
+    if (!reducedPath && knownSeen === false && !airStarted.current) {
+      airStarted.current = true;
+      sound.startAir();
+    }
+    // Mount-only: this is the first committed frame of the screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onRouteStart = useCallback(() => {
     // The helper catches storage errors; a failed write must never restart the opening.
@@ -106,7 +125,6 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
   const onSequenceEnd = useCallback(() => {
     setInkMounted(false);
   }, []);
-  const onLandReveal = useCallback(() => setBaseLandVisible(true), []);
   const onMapArtReady = useCallback((ready: boolean) => {
     setMapReady(ready || artPreparationSettledAtMount);
   }, [artPreparationSettledAtMount]);
@@ -131,13 +149,8 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
   }, [introCanvasSized, mapReady, onIntroSurfaceReady, preparing]);
 
   useEffect(() => {
-    if (replayMode) setSeen(replayMode === 'short');
-    else if (initialSeen !== undefined) setSeen(initialSeen);
-  }, [initialSeen, replayMode]);
-
-  useEffect(() => {
-    if (artPreparationSettledAtMount && !artReadyAtMount) setBaseLandVisible(true);
-  }, [artPreparationSettledAtMount, artReadyAtMount]);
+    if (initialSeen !== undefined) setSeen(initialSeen);
+  }, [initialSeen]);
 
   const runSkipTransition = useCallback(() => {
     if (skipStarted.current) return;
@@ -147,13 +160,12 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
       progress,
       onContinueVisible: () => setContinueEnabled(true),
       onRouteStart,
-      onLandReveal,
       onEnd: onSequenceEnd,
     }));
-  }, [onLandReveal, onRouteStart, onSequenceEnd, progress, runner]);
+  }, [onRouteStart, onSequenceEnd, progress, runner]);
 
   useEffect(() => {
-    if (preparing || initialSeen !== undefined || replayMode) return undefined;
+    if (preparing || initialSeen !== undefined || replay) return undefined;
     let active = true;
     void getChartIntroSeen().then(value => {
       if (active) setSeen(value);
@@ -161,7 +173,7 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
       if (active) setSeen(false);
     });
     return () => { active = false; };
-  }, [initialSeen, preparing, replayMode]);
+  }, [initialSeen, preparing, replay]);
 
   useLayoutEffect(() => {
     const sequenceReady = mapReady || artReadyAtMount || artPreparationSettledAtMount;
@@ -169,12 +181,12 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
     started.current = true;
     if (skipOnStart.current) {
       runSkipTransition();
-      return () => runner.cancel();
+      return undefined;
     }
     const shaderFallback = artPreparationSettledAtMount && !artReadyAtMount;
     const shouldReduceMotion = reducedMotionRef.current || shaderFallback;
-    const useShortSequence = replayMode
-      ? replayMode === 'short'
+    const useShortSequence = replay
+      ? replay === 'short'
       : resolvedSeen || performanceTierRef.current === 'low';
     activeMode.current = shouldReduceMotion ? 'reduced' : useShortSequence ? 'short' : 'full';
     const context = {
@@ -182,19 +194,21 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
       onBeat,
       onContinueVisible: () => setContinueEnabled(true),
       onRouteStart,
-      onLandReveal,
       onEnd: onSequenceEnd,
     };
     const spec = shouldReduceMotion
       ? introReducedSequence(context)
       : useShortSequence
         ? introShortSequence(context)
-        : introFullSequence({ ...context, onStartAir: () => {
-          sound.startAir();
-        } });
+        : introFullSequence(context);
+    if (activeMode.current === 'full' && !airStarted.current) {
+      airStarted.current = true;
+      sound.startAir();
+    }
     void runner.run(spec);
-    return () => runner.cancel();
-  }, [artPreparationSettledAtMount, artReadyAtMount, mapReady, onBeat, onLandReveal, onRouteStart, onSequenceEnd, preparing, progress, replayMode, resolvedSeen, runSkipTransition, runner, sound.startAir]);
+    onSequenceStartRef.current?.();
+    return undefined;
+  }, [artPreparationSettledAtMount, artReadyAtMount, mapReady, onBeat, onRouteStart, onSequenceEnd, preparing, progress, replay, resolvedSeen, runSkipTransition, runner, sound.startAir]);
 
   useEffect(() => {
     if (!reducedMotion || !started.current || activeMode.current === 'reduced' || !runner.isBusy()) return;
@@ -203,13 +217,11 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
     sound.stopAir();
     void runner.run(introReducedSequence({
       progress,
-      onBeat: openPlayed.current ? undefined : onBeat,
       onContinueVisible: () => setContinueEnabled(true),
       onRouteStart,
-      onLandReveal,
       onEnd: onSequenceEnd,
     }));
-  }, [onBeat, onLandReveal, onRouteStart, onSequenceEnd, progress, reducedMotion, runner, sound.stopAir]);
+  }, [onBeat, onRouteStart, onSequenceEnd, progress, reducedMotion, runner, sound.stopAir]);
 
   const skip = useCallback(() => {
     if (runner.isBusy()) runSkipTransition();
@@ -269,8 +281,7 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
           mode="empty"
           waypointCount={3}
           reducedMotion={reducedMotion}
-            introProgress={inkMounted ? progress : undefined}
-            introBaseVisible={baseLandVisible}
+          introProgress={inkMounted ? progress : undefined}
           onArtReady={onMapArtReady}
           onIntroSurfaceSized={onIntroCanvasSized}
           onMapPress={skip}

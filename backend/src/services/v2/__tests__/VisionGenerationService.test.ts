@@ -272,6 +272,16 @@ describe('VisionGenerationService', () => {
 
     afterEach(() => { jest.restoreAllMocks(); });
 
+    it('persists the pinned model with both scene variants for background execution and retries', async () => {
+      jest.spyOn(service as any, 'run').mockResolvedValue(undefined);
+      jest.spyOn(service, 'latest').mockResolvedValue({ id: 'scene-compare', status: 'QUEUED' } as never);
+      await service.startScene(userId, anchorId, sceneText, 'scene-compare', null, null, 'gemini-nano-banana-2.1');
+      const data = mockPrisma.visionGeneration.create.mock.calls[0][0].data;
+      expect(data.plan.devImageModel).toBe('gemini-nano-banana-2.1');
+      expect(data.plan.scenes).toHaveLength(2);
+      expect(data.plan.scenes.every((item: { scene: string }) => item.scene === sceneText)).toBe(true);
+    });
+
     it('creates a SCENE job with two planned shots, without touching the Vision description or the set count', async () => {
       const run = jest.spyOn(service as any, 'run').mockResolvedValue(undefined);
       jest.spyOn(service, 'latest').mockResolvedValue({ id: 'scene-job-000001', status: 'QUEUED' } as never);
@@ -359,7 +369,7 @@ describe('VisionGenerationService', () => {
         { role: 'The moment itself', scene: sceneText, framing: 'medium' },
         { role: 'The place around it', scene: sceneText, framing: 'wide' },
       ];
-      const arrange = async (scenes: unknown[], unreadable = false) => {
+      const arrange = async (scenes: unknown[], unreadable = false, pinned = false) => {
         const provider = { planVisionScenes: mockPlanVisionScenes, generateVisionScene: async () => Buffer.alloc(0) };
         (GeminiImageService as unknown as jest.Mock).mockImplementationOnce(() => provider);
         mockImageGenerate.mockResolvedValue({ images: [{ buffer: await png('#334455') }] });
@@ -369,7 +379,8 @@ describe('VisionGenerationService', () => {
         });
         mockPrisma.visionGeneration.findUnique.mockImplementation(async (query: { select?: unknown }) =>
           query.select ? { status: 'RUNNING', retryCount: 0 } : {
-            id: 'scene-job-1', userId, anchorId, visionId: 'vision-1', kind: 'SCENE', description: sceneText, retryCount: 0, plan,
+            id: 'scene-job-1', userId, anchorId, visionId: 'vision-1', kind: 'SCENE', description: sceneText, retryCount: 0,
+            plan: pinned ? { devImageModel: 'gemini-nano-banana-2.1', scenes: plan } : plan,
           });
         mockPrisma.vision.findUnique.mockResolvedValue({ description: 'I own a black 1987 Buick Regal.', scenes });
         mockPrisma.visionGeneration.updateMany.mockResolvedValue({ count: 1 });
@@ -382,6 +393,16 @@ describe('VisionGenerationService', () => {
       };
       const scene = (id: string, sourceType: string, sortOrder: number, key: string) => ({
         id, prompt: null, sourceType, sortOrder, createdAt: new Date(2026, 8, sortOrder + 1), asset: { storageKey: key, mimeType: 'image/jpeg' },
+      });
+
+      it('loads the pinned model from a stored job and uses it for both candidates', async () => {
+        await arrange([], false, true);
+        expect(mockImageGenerate).toHaveBeenCalledTimes(2);
+        mockImageGenerate.mock.calls.forEach(([input]) => expect(input.devImageModel).toBe('gemini-nano-banana-2.1'));
+        expect(mockPlanVisionScenes).not.toHaveBeenCalled();
+        expect(mockPrisma.visionGeneration.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ status: 'COMPLETE' }),
+        }));
       });
 
       it('attaches the person\'s own photograph first, as an image, ahead of generated ones', async () => {

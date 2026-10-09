@@ -21,7 +21,9 @@ import {
   anchorEnhanceLimiter,
   anchorEnhanceConcurrencyGuard,
   aiPlanningLimiter,
+  isAiDeveloper,
 } from '../middleware/aiRateLimit';
+import { DEV_IMAGE_MODEL_IDS } from '../../services/image/devImageModels';
 import { prisma } from '../../lib/prisma';
 import {
   getCostEstimate,
@@ -56,6 +58,7 @@ const RESERVATION_TTL_MINUTES = 30;
 // --- Zod schemas ---
 
 const EnhanceSchema = z.object({
+  devImageModel: z.enum(DEV_IMAGE_MODEL_IDS).optional(),
   sigilSvg: z.string().min(1),
   styleChoice: z.preprocess(
     (val) => (val === 'mineral_wash_v2' || val === 'mineral-wash-v2' || val === 'mineral-wash' || val === 'mineral_wash' ? 'clay_v2' : val),
@@ -121,10 +124,11 @@ function buildVariationFingerprint(input: {
   sigilSvg: string;
   intentionText?: string;
   styleChoice: string;
+  devImageModel?: string;
 }): { fingerprint: string; intentionKey: string; structureHash: string } {
   const intentionKey = normalizeIntentionKey(input.intentionText);
   const structureHash = hashSigilSvg(input.sigilSvg);
-  const fingerprint = `${input.styleChoice}::${structureHash}::${intentionKey}`;
+  const fingerprint = `${input.styleChoice}::${structureHash}::${intentionKey}${input.devImageModel ? `::dev:${input.devImageModel}` : ''}`;
   return { fingerprint, intentionKey, structureHash };
 }
 
@@ -202,6 +206,10 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
   try {
     const parsed = validateOrRespond(EnhanceSchema, req.body, res);
     if (!parsed) return;
+    if (parsed.devImageModel && !isAiDeveloper(req)) {
+      res.status(403).json({ error: 'Developer model selection requires a developer account.' });
+      return;
+    }
 
     // Onboarding flow generates a "temp-*" anchor before the user has an
     // account. Those requests are permitted without auth (still IP rate
@@ -338,74 +346,77 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       sigilSvg,
       intentionText,
       styleChoice,
+      devImageModel: parsed.devImageModel,
     });
 
     let reservedPoolVariations: ClientVariation[] = [];
     let reservedPoolRows: Awaited<ReturnType<typeof prisma.anchorVariationPool.findMany>> = [];
     try {
-      await prisma.anchorVariationPool.updateMany({
-        where: {
-          status: 'reserved',
-          reservedUntil: { lt: new Date() },
-        },
-        data: {
-          status: 'available',
-          reservedByRequestId: null,
-          reservedAt: null,
-          reservedUntil: null,
-        },
-      });
-
-      const poolCandidates = await prisma.anchorVariationPool.findMany({
-        where: {
-          fingerprint,
-          status: 'available',
-        },
-        orderBy: {
-          createdAt: 'asc',
-        },
-        take: Math.min(MAX_REUSED_VARIATIONS, requestedVariations),
-      });
-
-      if (poolCandidates.length > 0) {
-        const candidateIds = poolCandidates.map(variation => variation.id);
+      if (!parsed.devImageModel) {
         await prisma.anchorVariationPool.updateMany({
           where: {
-            id: { in: candidateIds },
-            status: 'available',
+            status: 'reserved',
+            reservedUntil: { lt: new Date() },
           },
           data: {
-            status: 'reserved',
-            reservedByRequestId: reuseRequestId,
-            reservedAt: new Date(),
-            reservedUntil: buildReservationExpiry(),
+            status: 'available',
+            reservedByRequestId: null,
+            reservedAt: null,
+            reservedUntil: null,
           },
         });
 
-        reservedPoolRows = await prisma.anchorVariationPool.findMany({
+        const poolCandidates = await prisma.anchorVariationPool.findMany({
           where: {
-            id: { in: candidateIds },
-            status: 'reserved',
-            reservedByRequestId: reuseRequestId,
+            fingerprint,
+            status: 'available',
           },
+          orderBy: {
+            createdAt: 'asc',
+          },
+          take: Math.min(MAX_REUSED_VARIATIONS, requestedVariations),
         });
 
-        const reservedById = new Map(reservedPoolRows.map(variation => [variation.id, variation]));
-        reservedPoolVariations = candidateIds
-          .map(id => reservedById.get(id))
-          .filter((variation): variation is NonNullable<typeof variation> => Boolean(variation))
-          .map(variation => ({
-            variationId: variation.id,
-            imageUrl: variation.imageUrl,
-            structureMatchScore: variation.structureMatchScore ?? 0,
-            iouScore: variation.iouScore ?? 0,
-            edgeOverlapScore: variation.edgeOverlapScore ?? 0,
-            structurePreserved: variation.structurePreserved ?? false,
-            classification: variation.classification ?? 'Reused',
-            wasComposited: false,
-            seed: variation.seed ?? 0,
-            reusedFromPool: true,
-          }));
+        if (poolCandidates.length > 0) {
+          const candidateIds = poolCandidates.map(variation => variation.id);
+          await prisma.anchorVariationPool.updateMany({
+            where: {
+              id: { in: candidateIds },
+              status: 'available',
+            },
+            data: {
+              status: 'reserved',
+              reservedByRequestId: reuseRequestId,
+              reservedAt: new Date(),
+              reservedUntil: buildReservationExpiry(),
+            },
+          });
+
+          reservedPoolRows = await prisma.anchorVariationPool.findMany({
+            where: {
+              id: { in: candidateIds },
+              status: 'reserved',
+              reservedByRequestId: reuseRequestId,
+            },
+          });
+
+          const reservedById = new Map(reservedPoolRows.map(variation => [variation.id, variation]));
+          reservedPoolVariations = candidateIds
+            .map(id => reservedById.get(id))
+            .filter((variation): variation is NonNullable<typeof variation> => Boolean(variation))
+            .map(variation => ({
+              variationId: variation.id,
+              imageUrl: variation.imageUrl,
+              structureMatchScore: variation.structureMatchScore ?? 0,
+              iouScore: variation.iouScore ?? 0,
+              edgeOverlapScore: variation.edgeOverlapScore ?? 0,
+              structurePreserved: variation.structurePreserved ?? false,
+              classification: variation.classification ?? 'Reused',
+              wasComposited: false,
+              seed: variation.seed ?? 0,
+              reusedFromPool: true,
+            }));
+        }
       }
     } catch (poolError) {
       logger.warn('[AI Enhance] Variation pool lookup failed; continuing with fresh generation', {
@@ -437,7 +448,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       // --- AI Generation (with timeout) ---
       // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
       // Or use enhanceSigilWithControlNet directly for Replicate-only
-      const useNewPipeline = provider !== 'replicate';
+      const useNewPipeline = Boolean(parsed.devImageModel) || provider !== 'replicate';
 
       let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
       try {
@@ -452,6 +463,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
                 autoComposite: autoComposite === true,
                 tier: effectiveTier,
                 numberOfVariations: numberOfVariationsToGenerate,
+                devImageModel: parsed.devImageModel,
               })
             : enhanceSigilWithControlNet({
                 sigilSvg,

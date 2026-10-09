@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
+import { FlatList, ScrollView } from 'react-native';
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -34,13 +35,16 @@ describe('V2AnchorLibraryScreen', () => {
     expect(screen.getByText('Health · Current')).toBeTruthy();
   });
 
-  it('handles many Anchors without crashing', () => {
+  it('keeps a 60-Anchor collection available without mounting all its artwork at once', () => {
     useAnchorStore.setState({
-      anchors: Array.from({ length: 24 }, (_, i) => makeAnchor({ id: `x${i}`, intentionText: `Intention ${i}` })),
+      anchors: Array.from({ length: 60 }, (_, i) => makeAnchor({ id: `x${i}`, intentionText: `Intention ${i}` })),
     });
-    render(<V2AnchorLibraryScreen />);
+    const view = render(<V2AnchorLibraryScreen />);
     expect(screen.getByText('Intention 0')).toBeTruthy();
-    expect(screen.getByText('Intention 23')).toBeTruthy();
+    expect(screen.queryByText('Intention 59')).toBeNull();
+    const list = view.UNSAFE_getByType(FlatList);
+    expect(list.props.data).toHaveLength(60);
+    expect(view.UNSAFE_getAllByType(ScrollView)).toHaveLength(1);
   });
 
   it('opens Anchor Details on gallery selection', () => {

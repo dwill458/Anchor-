@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
 import { ActivityIndicator, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -350,6 +351,7 @@ export function VisionMomentInput({
           <Animated.Text key={subtitle} entering={content.entering} exiting={content.exiting} style={styles.subtitle}>{subtitle}</Animated.Text>
         </View>
 
+        {__DEV__ ? <DevImageModelPicker purpose="vision" disabled={loading} /> : null}
         {startPhotoEnabled ? (
           <View style={styles.pathToggle} accessibilityRole="tablist" onLayout={event => setToggleWidth(event.nativeEvent.layout.width)}>
             <Animated.View pointerEvents="none" style={[styles.pathPill, pathPillStyle]} />

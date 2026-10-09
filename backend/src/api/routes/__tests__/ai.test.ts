@@ -69,6 +69,13 @@ function buildApp(): Application {
 }
 
 describe('POST /api/ai/enhance-controlnet', () => {
+  it('rejects model overrides from an ordinary authenticated account before generation', async () => {
+    const res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg></svg>', styleChoice: 'cosmic', anchorId: 'temp-compare', devImageModel: 'gemini-nano-banana-2.1',
+    });
+    expect(res.status).toBe(403);
+    expect(mockEnhanceSigilWithAI).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     mockResolveStoredAssetUrl.mockImplementation(async (url: string) => url);
@@ -338,6 +345,27 @@ describe('POST /api/ai/enhance — storage and partial retries', () => {
       `${STORED_HOST}anchors/u/a-0.png?signed=1`,
       `${STORED_HOST}anchors/u/a-1.png?signed=1`,
     ]);
+  });
+
+  it('runs the developer-selected model freshly without consuming another model from the pool', async () => {
+    const originalAllowlist = process.env.AI_DEV_ALLOWLIST;
+    process.env.AI_DEV_ALLOWLIST = 'test@example.com';
+    mockEnhanceSigilWithAI.mockResolvedValue({
+      ...result([variation(`${STORED_HOST}anchors/u/compare-0.png`, 1), variation(`${STORED_HOST}anchors/u/compare-1.png`, 2)]),
+      model: 'gemini-nano-banana-2.1',
+    });
+    try {
+      const res = await request(buildApp()).post('/api/ai/enhance').send({
+        sigilSvg: '<svg></svg>', styleChoice: 'minimal_line', anchorId: 'temp-compare', devImageModel: 'gemini-nano-banana-2.1',
+      });
+      expect(res.status).toBe(200);
+      expect(mockEnhanceSigilWithAI).toHaveBeenCalledWith(expect.objectContaining({ devImageModel: 'gemini-nano-banana-2.1', numberOfVariations: 2 }));
+      expect(mockPrisma.anchorVariationPool.findMany).not.toHaveBeenCalled();
+      expect(res.body.model).toBe('gemini-nano-banana-2.1');
+    } finally {
+      if (originalAllowlist === undefined) delete process.env.AI_DEV_ALLOWLIST;
+      else process.env.AI_DEV_ALLOWLIST = originalAllowlist;
+    }
   });
 
   it('still copies an upstream (provider-hosted) image into storage', async () => {

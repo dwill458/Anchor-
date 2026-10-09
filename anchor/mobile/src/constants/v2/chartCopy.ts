@@ -451,3 +451,11 @@ export function chartRealityGuide(intention?: string | null, category?: string |
 export function reviewSupportCopy(count: number): string {
   return `We found ${count} meaningful waypoint${count === 1 ? '' : 's'} for this destination. Keep what fits. Change what doesn’t.`;
 }
+
+/**
+ * Plan-step support line. With no waypoints the plan has not arrived yet, so no count is shown (a count of zero
+ * would read as a finding). A real zero-waypoint plan has no separate error copy; it gets this same neutral line.
+ */
+export function chartReviewSupport(count: number): string {
+  return count > 0 ? reviewSupportCopy(count) : CHART_COPY.review.evolve;
+}

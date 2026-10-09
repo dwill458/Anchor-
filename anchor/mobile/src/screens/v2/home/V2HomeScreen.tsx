@@ -679,34 +679,33 @@ export function V2HomeScreen() {
           {/* Product signature: opens the ink field, beneath the keel and above Today. */}
           <V2HomeBrandMark testID="v2-home-brand-mark" />
 
-          {/* Anchor-scoped content: veiled while the carousel moves, revealed once it commits. */}
-          <Animated.View style={contentVeilStyle}>
+          {/* Anchor-scoped copy is veiled while the carousel moves; Today artwork stays visible. */}
           <View ref={todayTeachingRef} collapsable={false}>
-          {/* Complete to Home, only when this completion changed the recommendation: the card Home showed
-              before it fades out as the new one fades in. The new card keeps one place in the tree, so it
-              never remounts when the arrival starts or ends. */}
-          <Animated.View pointerEvents={todaySwapping ? 'none' : 'auto'} style={todaySwapping ? arrival.swapInStyle : undefined}>
-          <V2HomeTodaySection
-            testID="v2-home-today"
-            today={todayForDisplay}
-            visionCoverUri={todayVisionUri}
-            visionCoverIsReused={todayVisionIsReused}
-            onBegin={handleBeginToday}
-            onOpenAllPractices={handleOpenAllPractices}
-            onRetry={handleRetryToday}
-          />
-          </Animated.View>
-          {todaySwapping && todaySwap.changed ? (
-            <Animated.View testID="v2-home-today-swap-from" pointerEvents="none" style={[StyleSheet.absoluteFill, arrival.swapOutStyle]}>
+            {/* Keep the artwork visible through the anchor veil; only the card copy fades. */}
+            <Animated.View pointerEvents={todaySwapping ? 'none' : 'auto'} style={todaySwapping ? arrival.swapInStyle : undefined}>
               <V2HomeTodaySection
-                today={todaySwap.from}
+                testID="v2-home-today"
+                today={todayForDisplay}
                 visionCoverUri={todayVisionUri}
                 visionCoverIsReused={todayVisionIsReused}
+                contentStyle={contentVeilStyle}
+                onBegin={handleBeginToday}
+                onOpenAllPractices={handleOpenAllPractices}
+                onRetry={handleRetryToday}
               />
             </Animated.View>
-          ) : null}
+            {todaySwapping && todaySwap.changed ? (
+              <Animated.View testID="v2-home-today-swap-from" pointerEvents="none" style={[StyleSheet.absoluteFill, arrival.swapOutStyle]}>
+                <V2HomeTodaySection
+                  today={todaySwap.from}
+                  visionCoverUri={todayVisionUri}
+                  visionCoverIsReused={todayVisionIsReused}
+                  contentStyle={contentVeilStyle}
+                />
+              </Animated.View>
+            ) : null}
           </View>
-
+          <Animated.View style={contentVeilStyle}>
           <View ref={visionTeachingRef} collapsable={false}>
           <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
             onOpenVision={handleOpenVision} onRetry={handleRetryVision} arrival={visionReturn.arrival} />

@@ -55,7 +55,7 @@ describe('ChartMap', () => {
       const placement = React.useMemo(() => waypointPlacement(5), []);
       const introProgress = React.useMemo(() => ({
         contour: { value: 1 } as any,
-        tone: { value: 1 } as any,
+        landSweep: { value: 1 } as any,
         route: { value: 0 } as any,
         copy: { value: 0 } as any,
         marker: { value: 0 } as any,

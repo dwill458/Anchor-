@@ -61,6 +61,9 @@ export class GeminiImageProviderAdapter implements ImageProviderAdapter {
     modelId: string;
     costPerImage: number;
   } {
+    if (request.devImageModel) {
+      return { modelId: request.devImageModel, costPerImage: request.devImageModel.includes('pro') ? 0.04 : 0.005 };
+    }
     if (request.type === 'vision') {
       const modelId =
         process.env.GEMINI_VISION_MODEL ||

@@ -1,4 +1,4 @@
-import React, { memo, useId } from 'react';
+import React, { memo, useId, useRef, useState } from 'react';
 import { Image, StyleSheet, View, type ImageResizeMode, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 
@@ -43,6 +43,13 @@ const ease = (t: number) => t * t * (3 - 2 * t);
 /** Fully the surface at the frame edge, easing to clear at the fade depth. */
 const EDGE_STOPS = RAMP.map((t) => ({ offset: t, opacity: 1 - ease(t) }));
 
+function imageSourceKey(source: ImageSourcePropType): string {
+  if (typeof source === 'number') return `asset:${source}`;
+  if (Array.isArray(source)) return `set:${source.map(imageSourceKey).join('|')}`;
+  if ('uri' in source) return `uri:${source.uri ?? ''}`;
+  return JSON.stringify(source) ?? String(source);
+}
+
 /**
  * Artwork that emerges from and dissolves back into a dark surface, with no
  * perceptible rectangle. The treatment lives in the UI rather than in the
@@ -68,6 +75,13 @@ function V2DissolvedArtworkComponent({
   testID,
 }: Props) {
   const id = useId().replace(/:/g, '');
+  const currentSourceKey = imageSourceKey(source);
+  const latestSourceKey = useRef(currentSourceKey);
+  latestSourceKey.current = currentSourceKey;
+  const [loadedSource, setLoadedSource] = useState<ImageSourcePropType | null>(null);
+  const previousSource = loadedSource && imageSourceKey(loadedSource) !== currentSourceKey
+    ? loadedSource
+    : null;
   const edges: Array<[keyof Edges, number]> = (['left', 'right', 'top', 'bottom'] as const)
     .map((edge) => [edge, fade[edge] ?? 0] as [keyof Edges, number])
     .filter(([, depth]) => depth > 0);
@@ -78,7 +92,29 @@ function V2DissolvedArtworkComponent({
 
   return (
     <View testID={testID} style={[styles.frame, style]} pointerEvents="none">
-      <Image source={source} style={styles.image} resizeMode={resizeMode} fadeDuration={0} accessibilityIgnoresInvertColors />
+      <Image
+        source={source}
+        style={styles.image}
+        resizeMode={resizeMode}
+        fadeDuration={0}
+        accessibilityIgnoresInvertColors
+        onLoad={() => {
+          if (latestSourceKey.current === currentSourceKey) {
+            setLoadedSource((previous) => (
+              previous && imageSourceKey(previous) === currentSourceKey ? previous : source
+            ));
+          }
+        }}
+      />
+      {previousSource ? (
+        <Image
+          source={previousSource}
+          style={styles.previousImage}
+          resizeMode={resizeMode}
+          fadeDuration={0}
+          accessibilityIgnoresInvertColors
+        />
+      ) : null}
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
         <Defs>
           {/*
@@ -118,6 +154,7 @@ function V2DissolvedArtworkComponent({
 const styles = StyleSheet.create({
   frame: { overflow: 'hidden' },
   image: { width: '100%', height: '100%' },
+  previousImage: { ...StyleSheet.absoluteFillObject },
 });
 
 export const V2DissolvedArtwork = memo(V2DissolvedArtworkComponent);

@@ -69,6 +69,18 @@ describe('OpenAIImageProviderAdapter request shape', () => {
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/images\/generations$/);
   });
 
+  it.each(['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'] as const)('pins %s for Anchor and Vision despite automatic tier configuration', async model => {
+    process.env.OPENAI_ANCHOR_MODEL = 'auto-model';
+    process.env.OPENAI_VISION_MODEL = 'auto-model';
+    const fetchMock = mockFetchOk();
+    for (const type of ['anchor', 'vision'] as const) {
+      const result = await new OpenAIImageProviderAdapter().generate({ type, prompt: 'same prompt', quality: 'pro_upgrade', devImageModel: model }, 1);
+      const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+      expect(JSON.parse(lastCall[1].body).model).toBe(model);
+      expect(result.model).toBe(model);
+    }
+  });
+
   it('does not send response_format for anchor requests', async () => {
     const fetchMock = mockFetchOk();
     const adapter = new OpenAIImageProviderAdapter();
@@ -77,5 +89,31 @@ describe('OpenAIImageProviderAdapter request shape', () => {
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body).not.toHaveProperty('response_format');
+  });
+
+  it('uploads the original Anchor geometry for every variation instead of inventing a text-only symbol', async () => {
+    const fetchMock = mockFetchOk();
+    const geometry = Buffer.from('original-sigil-png');
+
+    await new OpenAIImageProviderAdapter().generate({
+      type: 'anchor',
+      prompt: 'Deep Cosmos material field',
+      referenceImages: [{ buffer: geometry, mimeType: 'image/png', role: 'structure' }],
+      numberOfVariations: 2,
+    }, 1);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [url, options] of fetchMock.mock.calls) {
+      expect(url).toMatch(/\/images\/edits$/);
+      expect(options.headers).not.toHaveProperty('Content-Type');
+      const form = options.body as FormData;
+      expect(form.getAll('image[]')).toHaveLength(1);
+      const uploaded = form.getAll('image[]')[0] as File;
+      expect(uploaded.type).toBe('image/png');
+      expect(Buffer.from(await uploaded.arrayBuffer())).toEqual(geometry);
+      expect(String(form.get('prompt'))).toContain('Deep Cosmos material field');
+      expect(String(form.get('prompt'))).toContain('Image 1 is the exact Anchor geometry');
+      expect(form.has('response_format')).toBe(false);
+    }
   });
 });

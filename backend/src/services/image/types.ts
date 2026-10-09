@@ -5,6 +5,8 @@
  * Anchor artwork and Vision imagery.
  */
 
+import type { DevImageModel } from './devImageModels';
+
 export type ImageGenerationPurpose = 'anchor' | 'vision';
 
 export type QualityTier = 'draft' | 'premium' | 'pro_upgrade';
@@ -17,6 +19,8 @@ export interface ImageReference {
 }
 
 export interface GenerateImageRequest {
+  /** Server-authorized comparison: pin one model and disable cross-provider fallback. */
+  devImageModel?: DevImageModel;
   /** The purpose of generation: 'anchor' artwork or 'vision' imagery */
   type: ImageGenerationPurpose;
   /** Primary generation prompt */

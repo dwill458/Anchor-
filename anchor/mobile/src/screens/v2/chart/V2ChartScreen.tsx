@@ -27,6 +27,8 @@ export interface V2ChartRouteParams {
   /** Set by the waypoint screen after a real, server-confirmed reach. */
   reached?: { completedTitle: string; nextTitle: string | null; reachedCount: number; total: number; destinationReached: boolean };
   source?: string;
+  /** Development only: a one-shot opening replay from the DEV toolbar. Cleared once the opening starts. */
+  introReplayMode?: 'full' | 'short';
 }
 
 export interface V2ChartScreenProps {
@@ -273,6 +275,8 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
             anchorId={anchorId}
             identity={identity}
             anchorArt={context.anchorArt}
+            introReplayMode={__DEV__ ? route.params?.introReplayMode : undefined}
+            onIntroStarted={route.params?.introReplayMode ? () => navigation.setParams({ introReplayMode: undefined }) : undefined}
             vision={context.vision}
             reducedMotion={reducedMotion}
             onBack={handleBack}

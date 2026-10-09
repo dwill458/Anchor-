@@ -82,35 +82,43 @@ export const CHART_TRANSITION_TIMING = {
 /** First-open Chart intro choreography. Offsets are measured from its first frame. */
 export const CHART_INTRO_TIMING = {
   airFadeIn: 600,
-  openAt: 150,
   contourAt: 200,
   contour: 3200,
-  toneAt: 1300,
-  tone: 3600,
+  /** The real land sweep trails the contour pen by about 1.1 s in the full opening (same direction and tilt). */
+  landSweepAt: 1300,
+  landSweep: 3200,
   cameraAt: 100,
   camera: 6000,
   cameraFrom: 1.1,
   cameraTo: 1,
+  /** Route starts after the contour sweep has covered at least 70% of the scene (200 + 0.7 * 3200 = 2440 ms). */
   routeAt: 4100,
   route: 2600,
   copyAt: 4800,
   copy: 1100,
   continueAt: 6200,
   continue: 1000,
-  markerAt: 6300,
+  /** The X pops after the route ends (routeAt + route). */
+  markerAt: 6700,
   marker: 600,
   duckAt: 6900,
-  /** Mount the settled Skia layers under zero opacity before the UI-clock land fade begins. */
-  landPrepareAt: 6100,
-  landCrossfadeAt: 6500,
-  landCrossfade: 700,
-  shortInk: 1200,
-  shortRoute: 1000,
-  shortLandCrossfadeAt: 500,
-  shortCopyAt: 1200,
+  shortInk: 1400,
+  shortLandSweepAt: 250,
+  shortLandSweep: 1400,
+  /** 70% of shortInk is 980 ms; the route starts at 1000 ms. */
+  shortRouteAt: 1000,
+  shortRoute: 900,
+  /** The X pops after the short route ends (shortRouteAt + shortRoute). */
+  shortMarkerAt: 1900,
+  shortMarker: 450,
+  shortCopyAt: 1900,
   shortCopy: 400,
-  shortDuration: 1600,
+  shortContinueAt: 2200,
+  shortContinue: 300,
+  shortDuration: 2500,
   skip: 250,
+  /** Hard cap on the cold preparation cover. Past it the intro drops the cover and takes the reduced path. */
+  coverMax: 250,
 } as const;
 
 /** Permanent Chart state changes. */

@@ -8,6 +8,7 @@ import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 import type { AIStyle, AnchorCategory, GeneratedVariation } from '@/types';
 import { logger } from '@/utils/logger';
 import { DEVELOPER_MASTER_ACCOUNT_ID } from '@/utils/developerMasterAccount';
+import { selectedDevImageModel } from '@/stores/devImageModelStore';
 
 /**
  * The styling request, extracted from AIGeneratingScreen so the one-screen creation flow can
@@ -85,6 +86,7 @@ export function nextEstimatedProgress(previous: number): number {
 
 export const AnchorGenerationService = {
   async generate(request: AnchorGenerationRequest): Promise<AnchorGenerationResult> {
+    const devImageModel = selectedDevImageModel('anchor');
     const {
       sigilSvg,
       styleChoice,
@@ -136,6 +138,7 @@ export const AnchorGenerationService = {
           provider: 'gemini',
           tier: 'premium',
           generationAttempt,
+          ...(devImageModel ? { devImageModel } : {}),
         }),
         signal: controller.signal,
       });
@@ -177,7 +180,7 @@ export const AnchorGenerationService = {
     } catch (error) {
       trace.stop({ success: false });
 
-      if (__DEV__ && (userId === DEVELOPER_MASTER_ACCOUNT_ID || isConnectionError(error))) {
+      if (__DEV__ && !devImageModel && (userId === DEVELOPER_MASTER_ACCOUNT_ID || isConnectionError(error))) {
         logger.warn('[AnchorGeneration] Dev fallback with bundled fixtures');
         const FIXTURES = [
           require('@/assets/vision/vision-future-desk.jpg'),

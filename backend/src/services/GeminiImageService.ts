@@ -18,6 +18,7 @@ import {
   type VisionScenePlanItem,
 } from './v2/visionScenePlanning';
 import { validateAnchorArtwork } from '../utils/artworkValidation';
+import type { DevImageModel } from './image/devImageModels';
 
 // Re-exporting interfaces for compatibility
 export interface ImageVariation {
@@ -252,7 +253,33 @@ export class GeminiImageService {
     numberOfVariations: number;
     tier?: QualityTier;
     category?: string;
+    devImageModel?: DevImageModel;
   }): Promise<EnhancedSigilResult> {
+    if (params.devImageModel) {
+      const { imageGenerationService } = await import('./image');
+      const baseImageBuffer = await this.svgToPng(params.baseSigilSvg);
+      const start = Date.now();
+      const results = await Promise.all(Array.from({ length: params.numberOfVariations }, (_, i) =>
+        imageGenerationService.generate({
+          type: 'anchor',
+          prompt: this.createPrompt(params.intentionText, params.styleApproach, i, params.category),
+          styleId: params.styleApproach,
+          referenceImages: [{ buffer: baseImageBuffer, mimeType: 'image/png', role: 'structure' }],
+          devImageModel: params.devImageModel,
+          numberOfVariations: 1,
+        })
+      ));
+      const images = results.map((result, i) => ({
+        base64: result.images[0].buffer.toString('base64'), seed: result.images[0].seed ?? 0, variationIndex: i + 1,
+      }));
+      const costUSD = results.reduce((total, result) => total + result.costUSD, 0);
+      return {
+        images, costUSD, totalTimeSeconds: Math.round((Date.now() - start) / 1000),
+        model: params.devImageModel, tier: params.tier ?? 'premium',
+        prompt: this.createPrompt(params.intentionText, params.styleApproach, 0, params.category),
+        negativePrompt: getStyleNegativePrompt(params.styleApproach),
+      };
+    }
     const {
       baseSigilSvg,
       intentionText,

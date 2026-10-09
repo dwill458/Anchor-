@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
+import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
 import type { RefineStyleOption } from '../../constants/refineStyles';
 import { getStyleById } from '../creationStyles';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../creationFlowConfig';
@@ -37,6 +38,7 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
 
   return (
     <View style={styles.root} pointerEvents="box-none">
+      {__DEV__ ? <View style={styles.devPicker}><DevImageModelPicker purpose="anchor" /></View> : null}
       <Reveal delay={180} reduceMotion={reduceMotion} style={styles.prompt}>
         <Text style={styles.promptText}>Choose a style.</Text>
       </Reveal>
@@ -115,6 +117,7 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
 
 const styles = StyleSheet.create({
   root: { position: 'absolute', left: 0, top: 0, width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
+  devPicker: { position: 'absolute', left: 0, right: 0, top: 638 },
   prompt: { position: 'absolute', left: 0, right: 0, top: 449, alignItems: 'center' },
   promptText: {
     fontFamily: 'EBGaramond-Regular',

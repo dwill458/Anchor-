@@ -48,6 +48,7 @@ import { AnchorShareStudio } from '@/components/share/AnchorShareStudio';
 import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
 import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
+import { prefetchChartIntro } from '@/components/v2/chart/chartIntroPrefetch';
 import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
 import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
@@ -227,6 +228,7 @@ function EmptyDashedRow({
   title,
   payoff,
   onPress,
+  onPressIn,
   accessibilityLabel,
   testID,
 }: {
@@ -234,6 +236,7 @@ function EmptyDashedRow({
   title: string;
   payoff: string;
   onPress: () => void;
+  onPressIn?: () => void;
   accessibilityLabel: string;
   testID?: string;
 }) {
@@ -243,6 +246,7 @@ function EmptyDashedRow({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
+      onPressIn={onPressIn}
       style={({ pressed }) => [styles.emptyDashedRow, pressed && styles.pressed]}
     >
       <View style={styles.emptyDashedIconCircle}>
@@ -490,6 +494,28 @@ function RecentPractice({
   );
 }
 
+/**
+ * Create Chart row. Mounting it (and pressing it) starts the intro's decode, shader, and seen-flag work, so the
+ * opening can begin on its first frame. Same window width and caches as the creation flow.
+ */
+function ChartCreateRow({ onPress }: { onPress: () => void }) {
+  const { width } = useWindowDimensions();
+  const prefetch = useCallback(() => {
+    void prefetchChartIntro(width).catch(() => undefined);
+  }, [width]);
+  useEffect(() => { prefetch(); }, [prefetch]);
+  return (
+    <EmptyDashedRow
+      icon={<EmptyRouteIcon size={22} color={detailsPalette.cream} />}
+      title={DETAIL_ACTION_COPY.chartTitle}
+      payoff={DETAIL_ACTION_COPY.chartPayoff}
+      onPress={onPress}
+      onPressIn={prefetch}
+      accessibilityLabel="Create Chart. Map the path from here."
+    />
+  );
+}
+
 function ChartSection({
   chart,
   width,
@@ -527,13 +553,7 @@ function ChartSection({
           <Text style={styles.quiet}>Your Chart is loading.</Text>
         </View>
       ) : (
-        <EmptyDashedRow
-          icon={<EmptyRouteIcon size={22} color={detailsPalette.cream} />}
-          title={DETAIL_ACTION_COPY.chartTitle}
-          payoff={DETAIL_ACTION_COPY.chartPayoff}
-          onPress={() => onOpenChart()}
-          accessibilityLabel="Create Chart. Map the path from here."
-        />
+        <ChartCreateRow onPress={() => onOpenChart()} />
       )}
     </View>
   );

@@ -22,6 +22,7 @@ import {
   globalAiCeilingLimiter,
   visionGenerationLimiter,
   visionAppearanceLimiter,
+  isAiDeveloper,
 } from '../../middleware/aiRateLimit';
 
 const router = Router();
@@ -135,7 +136,8 @@ router.post(
     try {
       const userId = await getAuthenticatedUserId(req);
       const input = validateBody(StartVisionGenerationSchema, req.body);
-      const job = await visionGenerationService.start(userId, req.params.anchorId, input.description, input.idempotencyKey, input.appearanceReferenceId);
+      if (input.devImageModel && !isAiDeveloper(req)) throw new AppError('Developer model selection requires a developer account.', 403, 'DEV_MODEL_FORBIDDEN');
+      const job = await visionGenerationService.start(userId, req.params.anchorId, input.description, input.idempotencyKey, input.appearanceReferenceId, input.devImageModel);
       res.status(202).json({ success: true, data: job });
     } catch (error) { next(error); }
   }
@@ -150,7 +152,8 @@ router.post(
     try {
       const userId = await getAuthenticatedUserId(req);
       const input = validateBody(StartVisionSceneGenerationSchema, req.body);
-      const job = await visionGenerationService.startScene(userId, req.params.anchorId, input.sceneDescription, input.idempotencyKey, input.appearanceReferenceId, input.startAssetId);
+      if (input.devImageModel && !isAiDeveloper(req)) throw new AppError('Developer model selection requires a developer account.', 403, 'DEV_MODEL_FORBIDDEN');
+      const job = await visionGenerationService.startScene(userId, req.params.anchorId, input.sceneDescription, input.idempotencyKey, input.appearanceReferenceId, input.startAssetId, input.devImageModel);
       res.status(202).json({ success: true, data: job });
     } catch (error) { next(error); }
   }

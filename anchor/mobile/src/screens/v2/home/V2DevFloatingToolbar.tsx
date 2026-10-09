@@ -14,6 +14,7 @@ import { seedV2DemoAnchor, DEMO_ANCHOR_ID } from '@/utils/v2DevSeeder';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { resetChartIntroSeen } from '@/components/v2/chart/chartIntroSeen';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export function V2DevFloatingToolbar() {
@@ -49,6 +50,20 @@ export function V2DevFloatingToolbar() {
     setOpen(false);
     const id = activeAnchor?.id ?? DEMO_ANCHOR_ID;
     navigation.navigate('V2Chart', { anchorId: id });
+  };
+
+  // Dev only: the one-shot replay mode rides on the route and the Chart screen clears it once the opening starts.
+  const handleReplayChartOpening = (mode: 'full' | 'short') => {
+    setOpen(false);
+    const id = activeAnchor?.id ?? DEMO_ANCHOR_ID;
+    void resetChartIntroSeen()
+      .catch(() => undefined)
+      .then(() => navigation.navigate('V2Chart', { anchorId: id, introReplayMode: mode }));
+  };
+
+  const handleResetChartIntro = () => {
+    setOpen(false);
+    void resetChartIntroSeen().catch(() => undefined);
   };
 
   const handleVisionQA = () => {
@@ -132,6 +147,22 @@ export function V2DevFloatingToolbar() {
               <Pressable style={styles.actionRow} onPress={handleChartLab}>
                 <Text style={styles.actionRowText}>📊 Chart Motion Lab</Text>
               </Pressable>
+
+              {__DEV__ ? (
+                <>
+                  <Pressable style={styles.actionRow} onPress={() => handleReplayChartOpening('full')}>
+                    <Text style={styles.actionRowText}>Replay opening (full)</Text>
+                  </Pressable>
+
+                  <Pressable style={styles.actionRow} onPress={() => handleReplayChartOpening('short')}>
+                    <Text style={styles.actionRowText}>Replay opening (short)</Text>
+                  </Pressable>
+
+                  <Pressable style={styles.actionRow} onPress={handleResetChartIntro}>
+                    <Text style={styles.actionRowText}>Reset intro seen</Text>
+                  </Pressable>
+                </>
+              ) : null}
 
               <View style={styles.divider} />
 

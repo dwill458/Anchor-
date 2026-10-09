@@ -64,7 +64,7 @@ function IntroOverlay({
   const placement = React.useMemo(() => waypointPlacement(5), []);
   const progress = React.useMemo<IntroSequenceProgress>(() => ({
     contour: { value: 0 } as any,
-    tone: { value: 0 } as any,
+    landSweep: { value: 0 } as any,
     route: { value: 0 } as any,
     copy: { value: 0 } as any,
     marker: { value: 0 } as any,

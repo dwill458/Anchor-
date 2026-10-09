@@ -5,10 +5,11 @@ import {
   chartContourStrength,
   chartInkReveal,
   chartInkStrength,
-  chartToneStrength,
   getChartInkEffect,
+  getChartSweepMaskEffect,
   INK_SKSL,
   resetChartInkEffectCache,
+  SWEEP_MASK_SKSL,
 } from '../chartInkShader';
 
 describe('chart ink shader helpers', () => {
@@ -45,15 +46,45 @@ describe('chart ink shader helpers', () => {
     }
   });
 
-  it('matches luminance, contour, and tone constants used by INK_SKSL', () => {
+  it('matches luminance and contour constants used by INK_SKSL', () => {
     expect(chartInkStrength(0)).toBe(1);
     expect(chartInkStrength(1)).toBe(0);
     expect(chartInkStrength(0.9)).toBeCloseTo(0);
     expect(chartInkStrength(0.51)).toBeCloseTo(0.5);
     expect(chartContourStrength(0.42)).toBe(0);
     expect(chartContourStrength(1)).toBe(1);
-    expect(chartToneStrength(1)).toBe(0.92);
-    expect(chartToneStrength(0)).toBe(0);
+  });
+
+  it('is a contour-only pen accent: no tone layer, band between the contour and land sweeps', () => {
+    expect(INK_SKSL).not.toContain('toneP');
+    expect(INK_SKSL).not.toContain('landP;');
+    expect(INK_SKSL).toContain('uniform float landSweepP;');
+    expect(INK_SKSL).toContain('float band = max(0.0, reveal(contourP, s) - reveal(landSweepP, s));');
+    expect(INK_SKSL).toContain('float a = contour * band * 0.9;');
+  });
+
+  it('sweep mask shares the reveal math and writes the reveal as alpha', () => {
+    expect(SWEEP_MASK_SKSL).toContain('const float tilt = 0.14;');
+    expect(SWEEP_MASK_SKSL).toContain('const float soft = 0.06;');
+    expect(SWEEP_MASK_SKSL).toContain('float a = reveal(sweepP, s);');
+    expect(SWEEP_MASK_SKSL).toContain('return half4(0.0, 0.0, 0.0, a);');
+  });
+
+  it('compiles the sweep mask once and caches a failed compile too', () => {
+    const make = jest.spyOn(Skia.RuntimeEffect, 'Make').mockReturnValue({} as any);
+    resetChartInkEffectCache();
+    expect(getChartSweepMaskEffect()).toBeDefined();
+    expect(getChartSweepMaskEffect()).toBeDefined();
+    expect(make).toHaveBeenCalledWith(SWEEP_MASK_SKSL);
+    expect(make.mock.calls.filter(([source]) => source === SWEEP_MASK_SKSL)).toHaveLength(1);
+
+    make.mockReturnValue(null);
+    resetChartInkEffectCache();
+    expect(getChartSweepMaskEffect()).toBeNull();
+    expect(getChartSweepMaskEffect()).toBeNull();
+    expect(make.mock.calls.filter(([source]) => source === SWEEP_MASK_SKSL)).toHaveLength(2);
+    make.mockRestore();
+    resetChartInkEffectCache();
   });
 
   it('compiles once and caches a failed compile too', () => {

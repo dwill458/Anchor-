@@ -93,12 +93,18 @@ export function sequenceDuration(spec: SequenceSpec): number {
 /* Creation intro opening                                              */
 /* ------------------------------------------------------------------ */
 
-export type ChartIntroBeat = 'open' | 'ink' | 'flag' | 'duck';
+/** The open cue and the air bed start on the screen's first committed frame (ChartIntroOpening), not in the sequence. */
+export type ChartIntroBeat = 'ink' | 'flag' | 'duck';
 
-/** Normalized presentation progress driven by the intro sequence on the UI thread. */
+/**
+ * Normalized presentation progress driven by the intro sequence on the UI thread.
+ * - contour: the pen sweep (dark strokes only, via the accent layer).
+ * - landSweep: the real land revealed through the same tilted sweep, trailing the pen. At 1 the land is the settled map.
+ * - land: the base layer's own opacity. It is 1 for the sweeps and only fades in the reduced-motion crossfade.
+ */
 export type IntroSequenceProgress = {
   contour: SharedValue<number>;
-  tone: SharedValue<number>;
+  landSweep: SharedValue<number>;
   route: SharedValue<number>;
   copy: SharedValue<number>;
   marker: SharedValue<number>;
@@ -111,14 +117,10 @@ export type IntroSequenceContext = {
   progress: IntroSequenceProgress;
   /** Sound callbacks are transient, so skip drops all remaining effects. */
   onBeat?: (beat: ChartIntroBeat) => void;
-  /** Starts the ambient bed at the sequence's first frame. */
-  onStartAir?: () => void;
   /** Enables Continue at the beginning of its fade, without a host timer. */
   onContinueVisible?: () => void;
   /** Mark the per-account intro as seen when its survey route begins. */
   onRouteStart?: () => void;
-  /** Mounts the settled land layer when its existing crossfade begins. */
-  onLandReveal?: () => void;
   /** Runs after the visual sequence fully completes, including on skip. */
   onEnd?: () => void;
 };
@@ -128,74 +130,75 @@ function introBeat(steps: SequenceStep[], at: number, onBeat: IntroSequenceConte
   steps.push({ kind: 'call', at, run: () => onBeat(which), transient: true });
 }
 
-/** First-ever account intro, with every frame state driven by the shared sequencer. */
+/**
+ * First-ever account intro, with every frame state driven by the shared sequencer.
+ * The route and the X are never visible before the terrain around them: the route is masked by the land sweep, and
+ * the X pops only after the route has ended.
+ */
 export function introFullSequence(ctx: IntroSequenceContext): SequenceSpec {
-  const { progress: p, onBeat, onStartAir, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const { progress: p, onBeat, onContinueVisible, onRouteStart } = ctx;
   const steps: SequenceStep[] = [];
   steps.push(call(0, () => {
     p.contour.value = 0;
-    p.tone.value = 0;
+    p.landSweep.value = 0;
     p.route.value = 0;
     p.copy.value = 0;
     p.marker.value = 0;
     p.continue.value = 0;
-    p.land.value = 0;
+    p.land.value = 1;
     p.cameraScale.value = INTRO.cameraFrom;
-    onStartAir?.();
   }));
-  introBeat(steps, INTRO.openAt, onBeat, 'open');
   steps.push(tween(p.cameraScale, INTRO.cameraTo, INTRO.cameraAt, INTRO.camera, 'deliberate', INTRO.cameraFrom));
   steps.push(tween(p.contour, 1, INTRO.contourAt, INTRO.contour, 'draw', 0));
-  steps.push(tween(p.tone, 1, INTRO.toneAt, INTRO.tone, 'draw', 0));
+  steps.push(tween(p.landSweep, 1, INTRO.landSweepAt, INTRO.landSweep, 'draw', 0));
   steps.push(call(INTRO.routeAt, () => onRouteStart?.()));
   introBeat(steps, INTRO.routeAt, onBeat, 'ink');
   steps.push(tween(p.route, 1, INTRO.routeAt, INTRO.route, 'draw', 0));
   steps.push(tween(p.copy, 1, INTRO.copyAt, INTRO.copy, 'settle', 0));
-  steps.push(call(INTRO.landPrepareAt, () => onLandReveal?.()));
   steps.push(call(INTRO.continueAt, () => onContinueVisible?.()));
   steps.push(tween(p.continue, 1, INTRO.continueAt, INTRO.continue, 'settle', 0));
   introBeat(steps, INTRO.markerAt, onBeat, 'flag');
   steps.push(tween(p.marker, 1, INTRO.markerAt, INTRO.marker, 'out', 0));
-  steps.push(tween(p.land, 1, INTRO.landCrossfadeAt, INTRO.landCrossfade, 'linear', 0));
   introBeat(steps, INTRO.duckAt, onBeat, 'duck');
   return { name: 'introFull', steps, tweenClock: 'ui', onEnd: ctx.onEnd };
 }
 
-/** Returning-account intro: compact parallel ink passes, route, then copy. */
+/**
+ * Returning-account intro: the pen and the land sweep together, the route after 70% of the pen, then the X and the
+ * copy. The X starts hidden and pops after the route ends.
+ */
 export function introShortSequence(ctx: IntroSequenceContext): SequenceSpec {
-  const { progress: p, onBeat, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const { progress: p, onBeat, onContinueVisible, onRouteStart } = ctx;
   const steps: SequenceStep[] = [];
   steps.push(call(0, () => {
     p.contour.value = 0;
-    p.tone.value = 0;
+    p.landSweep.value = 0;
     p.route.value = 0;
     p.copy.value = 0;
-    p.marker.value = 1;
+    p.marker.value = 0;
     p.continue.value = 0;
-    p.land.value = 0;
+    p.land.value = 1;
     p.cameraScale.value = INTRO.cameraTo;
     onRouteStart?.();
-    onLandReveal?.();
   }));
-  introBeat(steps, 0, onBeat, 'open');
-  introBeat(steps, 0, onBeat, 'ink');
   steps.push(tween(p.contour, 1, 0, INTRO.shortInk, 'draw', 0));
-  steps.push(tween(p.tone, 1, 0, INTRO.shortInk, 'draw', 0));
-  steps.push(tween(p.route, 1, 0, INTRO.shortRoute, 'draw', 0));
-  steps.push(tween(p.land, 1, INTRO.shortLandCrossfadeAt, INTRO.shortInk - INTRO.shortLandCrossfadeAt, 'linear', 0));
+  steps.push(tween(p.landSweep, 1, INTRO.shortLandSweepAt, INTRO.shortLandSweep, 'draw', 0));
+  introBeat(steps, INTRO.shortRouteAt, onBeat, 'ink');
+  steps.push(tween(p.route, 1, INTRO.shortRouteAt, INTRO.shortRoute, 'draw', 0));
+  steps.push(tween(p.marker, 1, INTRO.shortMarkerAt, INTRO.shortMarker, 'out', 0));
   steps.push(tween(p.copy, 1, INTRO.shortCopyAt, INTRO.shortCopy, 'settle', 0));
-  steps.push(call(INTRO.shortCopyAt, () => onContinueVisible?.()));
-  steps.push(tween(p.continue, 1, INTRO.shortCopyAt, INTRO.shortCopy, 'settle', 0));
+  steps.push(call(INTRO.shortContinueAt, () => onContinueVisible?.()));
+  steps.push(tween(p.continue, 1, INTRO.shortContinueAt, INTRO.shortContinue, 'settle', 0));
   return { name: 'introShort', steps, tweenClock: 'ui', onEnd: ctx.onEnd };
 }
 
-/** Reduced motion: snap all content to its final presentation and cross-fade the land once. */
+/** Reduced motion: snap all content to its final presentation, then one crossfade of the base layer. No sweep. */
 export function introReducedSequence(ctx: IntroSequenceContext): SequenceSpec {
-  const { progress: p, onBeat, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const { progress: p, onContinueVisible, onRouteStart } = ctx;
   const steps: SequenceStep[] = [];
   steps.push(call(0, () => {
     p.contour.value = 1;
-    p.tone.value = 1;
+    p.landSweep.value = 1;
     p.route.value = 1;
     p.copy.value = 1;
     p.marker.value = 1;
@@ -204,16 +207,14 @@ export function introReducedSequence(ctx: IntroSequenceContext): SequenceSpec {
     p.cameraScale.value = INTRO.cameraTo;
     onRouteStart?.();
     onContinueVisible?.();
-    onLandReveal?.();
   }));
-  introBeat(steps, 0, onBeat, 'open');
   steps.push(tween(p.land, 1, 0, FADE, 'linear', 0));
   return { name: 'introReduced', steps, onEnd: ctx.onEnd };
 }
 
 /** Tap-to-skip transition: finish the ink/map presentation without any sound beats. */
 export function introSkipSequence(ctx: IntroSequenceContext): SequenceSpec {
-  const { progress: p, onContinueVisible, onRouteStart, onLandReveal } = ctx;
+  const { progress: p, onContinueVisible, onRouteStart } = ctx;
   const duration = INTRO.skip;
   return {
     name: 'introSkip',
@@ -221,10 +222,9 @@ export function introSkipSequence(ctx: IntroSequenceContext): SequenceSpec {
       call(0, () => {
         onRouteStart?.();
         onContinueVisible?.();
-        onLandReveal?.();
       }),
       tween(p.contour, 1, 0, duration, 'linear'),
-      tween(p.tone, 1, 0, duration, 'linear'),
+      tween(p.landSweep, 1, 0, duration, 'linear'),
       tween(p.route, 1, 0, duration, 'linear'),
       tween(p.copy, 1, 0, duration, 'linear'),
       tween(p.marker, 1, 0, duration, 'linear'),

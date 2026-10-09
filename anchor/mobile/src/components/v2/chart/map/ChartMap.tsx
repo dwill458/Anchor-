@@ -215,7 +215,7 @@ export const ChartMap = memo(function ChartMap({
           {introBaseMode.current ? (
             <Animated.View testID={testID ? `${testID}-land-base-layer` : undefined} pointerEvents="none" style={[StyleSheet.absoluteFill, styles.introBaseLayer, introBaseStyle]}>
               <Canvas testID={testID ? `${testID}-land-base-canvas` : undefined} onSize={isIntro && !introSurfaceMeasured ? baseCanvasSize : undefined} style={{ width, height }}>
-                <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} introPass="base" onArtReady={onArtReady} />
+                <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} introPass="base" introProgress={introProgress} onArtReady={onArtReady} />
               </Canvas>
             </Animated.View>
           ) : (

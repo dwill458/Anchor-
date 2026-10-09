@@ -13,7 +13,7 @@ import { chartIntroBaseLayerStyle } from '../useChartMapCamera';
 
 const makeProgress = (): IntroSequenceProgress => ({
   contour: { value: 0 } as any,
-  tone: { value: 0 } as any,
+  landSweep: { value: 0 } as any,
   route: { value: 0 } as any,
   copy: { value: 0 } as any,
   marker: { value: 0 } as any,
@@ -59,60 +59,59 @@ describe('Chart intro sequence specs', () => {
     });
   });
 
-  it('full spec follows the opening beat table and runs the route start marker before its transient sound', () => {
+  it('full spec follows the revised opening table: pen, trailing land sweep, route, then the X after the route', () => {
     const progress = makeProgress();
     const spec = introFullSequence({ progress, onBeat: jest.fn() });
     expect(spec.name).toBe('introFull');
     expect(spec.tweenClock).toBe('ui');
-    expect(sequenceDuration(spec)).toBe(7200);
+    expect(sequenceDuration(spec)).toBe(7300);
     const byTarget = (target: unknown) => tweens(spec.steps).find((step) => step.target === target);
     expect(byTarget(progress.contour)).toMatchObject({ at: 200, duration: 3200, from: 0, to: 1 });
-    expect(byTarget(progress.tone)).toMatchObject({ at: 1300, duration: 3600, from: 0, to: 1 });
+    expect(byTarget(progress.landSweep)).toMatchObject({ at: 1300, duration: 3200, from: 0, to: 1 });
     expect(byTarget(progress.cameraScale)).toMatchObject({ at: 100, duration: 6000, from: 1.1, to: 1 });
     expect(byTarget(progress.route)).toMatchObject({ at: 4100, duration: 2600, from: 0, to: 1 });
     expect(byTarget(progress.copy)).toMatchObject({ at: 4800, duration: 1100 });
     expect(byTarget(progress.continue)).toMatchObject({ at: 6200, duration: 1000 });
-    expect(byTarget(progress.marker)).toMatchObject({ at: 6300, duration: 600 });
-    expect(byTarget(progress.land)).toMatchObject({ at: 6500, duration: 700, to: 1 });
-    expect(T.routeAt).toBe(4100);
-    expect(calls(spec.steps).map(step => [step.at, Boolean(step.transient)])).toEqual([
-      [0, false],
-      [150, true],
-      [4100, false],
-      [4100, true],
-      [6100, false],
-      [6200, false],
-      [6300, true],
-      [6900, true],
-    ]);
-    const routeCalls = calls(spec.steps).filter((step) => step.at === T.routeAt);
-    expect(routeCalls).toHaveLength(2);
-    expect(routeCalls.map(step => Boolean(step.transient))).toEqual([false, true]);
+    expect(byTarget(progress.marker)).toMatchObject({ at: 6700, duration: 600, from: 0, to: 1 });
   });
 
-  it('mounts settled land 400ms before the unchanged full-map crossfade', () => {
+  it('the land sweep trails the pen by about 1.1 s, and the route starts after 70% of the pen sweep', () => {
+    expect(T.landSweepAt - T.contourAt).toBe(1100);
+    expect(T.routeAt).toBeGreaterThanOrEqual(T.contourAt + 0.7 * T.contour);
+  });
+
+  it('the X pops only after the full route has ended', () => {
+    expect(T.markerAt).toBeGreaterThanOrEqual(T.routeAt + T.route);
+  });
+
+  it('full spec has no opening sound beats (open is played on the first committed frame) and keeps ink, flag, duck', () => {
     const progress = makeProgress();
-    const onLandReveal = jest.fn();
-    const spec = introFullSequence({ progress, onLandReveal });
-    const prepare = calls(spec.steps).find(step => step.at === T.landPrepareAt);
-    const landFade = tweens(spec.steps).find(step => step.target === progress.land);
-    expect(T.landPrepareAt).toBe(6100);
-    expect(landFade).toMatchObject({ at: 6500, duration: 700, from: 0, to: 1 });
-    prepare?.run();
-    expect(onLandReveal).toHaveBeenCalledTimes(1);
+    const spec = introFullSequence({ progress, onBeat: jest.fn() });
+    expect(calls(spec.steps).map(step => [step.at, Boolean(step.transient)])).toEqual([
+      [0, false],
+      [4100, false],
+      [4100, true],
+      [6200, false],
+      [6700, true],
+      [6900, true],
+    ]);
+  });
+
+  it('full spec has no end crossfade step on the land: the land is revealed only through the sweep', () => {
+    const progress = makeProgress();
+    const spec = introFullSequence({ progress });
+    expect(tweens(spec.steps).some(step => step.target === progress.land)).toBe(false);
     expect(progress.land.value).toBe(0);
   });
 
   it('skip lands every full-sequence value, marks seen at the route start, and drops pending sound beats', async () => {
     const progress = makeProgress();
     const onBeat = jest.fn();
-    const onStartAir = jest.fn();
     const onContinueVisible = jest.fn();
     const onRouteStart = jest.fn();
-    const spec = introFullSequence({ progress, onBeat, onStartAir, onContinueVisible, onRouteStart });
+    const spec = introFullSequence({ progress, onBeat, onContinueVisible, onRouteStart });
     const runner = createSequenceRunner(makeDriver());
     const done = runner.run(spec);
-    expect(onStartAir).toHaveBeenCalledTimes(1);
     expect(onBeat).not.toHaveBeenCalled();
     runner.skip();
     await done;
@@ -121,7 +120,7 @@ describe('Chart intro sequence specs', () => {
     expect(onBeat).not.toHaveBeenCalled();
     expect([
       progress.contour.value,
-      progress.tone.value,
+      progress.landSweep.value,
       progress.route.value,
       progress.copy.value,
       progress.marker.value,
@@ -131,38 +130,50 @@ describe('Chart intro sequence specs', () => {
     ]).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
   });
 
-  it('short spec finishes under two seconds with parallel ink, a one-second route, and only open/ink beats', () => {
+  it('short spec runs about 2.5 s: pen and land sweep together, the route after 70% of the pen, then the X and the copy', () => {
     const progress = makeProgress();
     const onBeat = jest.fn();
-    const onStartAir = jest.fn();
     const onContinueVisible = jest.fn();
-    const onLandReveal = jest.fn();
-    const spec = introShortSequence({ progress, onBeat, onStartAir, onContinueVisible, onLandReveal });
+    const spec = introShortSequence({ progress, onBeat, onContinueVisible });
     expect(spec.name).toBe('introShort');
     expect(spec.tweenClock).toBe('ui');
-    expect(sequenceDuration(spec)).toBeLessThan(2000);
     expect(sequenceDuration(spec)).toBe(T.shortDuration);
-    expect(tweens(spec.steps).filter((step) => step.target === progress.contour || step.target === progress.tone))
-      .toEqual(expect.arrayContaining([
-        expect.objectContaining({ at: 0, duration: 1200, to: 1 }),
-      ]));
-    expect(tweens(spec.steps).find((step) => step.target === progress.route)).toMatchObject({ at: 0, duration: 1000, to: 1 });
-    expect(tweens(spec.steps).find((step) => step.target === progress.copy)).toMatchObject({ at: 1200, duration: 400, to: 1 });
-    const continueCall = calls(spec.steps).find((step) => step.at === 1200);
+    expect(sequenceDuration(spec)).toBeGreaterThan(2400);
+    expect(sequenceDuration(spec)).toBeLessThanOrEqual(2600);
+    const byTarget = (target: unknown) => tweens(spec.steps).find((step) => step.target === target);
+    expect(byTarget(progress.contour)).toMatchObject({ at: 0, duration: 1400, from: 0, to: 1 });
+    expect(byTarget(progress.landSweep)).toMatchObject({ at: 250, duration: 1400, from: 0, to: 1 });
+    expect(byTarget(progress.route)).toMatchObject({ at: 1000, duration: 900, from: 0, to: 1 });
+    expect(byTarget(progress.marker)).toMatchObject({ at: 1900, duration: 450, from: 0, to: 1 });
+    expect(byTarget(progress.copy)).toMatchObject({ at: 1900, duration: 400, from: 0, to: 1 });
+    expect(byTarget(progress.continue)).toMatchObject({ at: 2200, duration: 300, from: 0, to: 1 });
+    expect(T.shortRouteAt).toBeGreaterThanOrEqual(0.7 * T.shortInk);
+    expect(T.shortMarkerAt).toBeGreaterThanOrEqual(T.shortRouteAt + T.shortRoute);
+    const continueCall = calls(spec.steps).find((step) => step.at === T.shortContinueAt);
     expect(continueCall).toBeDefined();
     expect(continueCall?.transient).toBeUndefined();
-    calls(spec.steps).filter((step) => step.transient).forEach((step) => step.run());
-    expect(onBeat.mock.calls).toEqual([['open'], ['ink']]);
-    expect(onStartAir).not.toHaveBeenCalled();
-    const reset = calls(spec.steps).find(step => step.at === 0 && !step.transient);
-    reset?.run();
-    expect(onLandReveal).toHaveBeenCalledTimes(1);
-    expect(progress.land.value).toBe(0);
     continueCall?.run();
     expect(onContinueVisible).toHaveBeenCalledTimes(1);
   });
 
-  it('reduced motion sets final content, crosses the land once, and plays only open', () => {
+  it('short spec plays only the ink beat, and starts with the X and the land sweep hidden', () => {
+    const progress = makeProgress();
+    const onBeat = jest.fn();
+    const spec = introShortSequence({ progress, onBeat });
+    calls(spec.steps).filter((step) => step.transient).forEach((step) => step.run());
+    expect(onBeat.mock.calls).toEqual([['ink']]);
+    const reset = calls(spec.steps).find(step => step.at === 0 && !step.transient);
+    reset?.run();
+    expect([progress.marker.value, progress.landSweep.value, progress.route.value, progress.land.value]).toEqual([0, 0, 0, 1]);
+  });
+
+  it('short spec has no end crossfade step on the land', () => {
+    const progress = makeProgress();
+    const spec = introShortSequence({ progress });
+    expect(tweens(spec.steps).some(step => step.target === progress.land)).toBe(false);
+  });
+
+  it('reduced motion sets final content, crosses the base layer once, and plays no sound beats', () => {
     const progress = makeProgress();
     const onBeat = jest.fn();
     const onRouteStart = jest.fn();
@@ -178,7 +189,7 @@ describe('Chart intro sequence specs', () => {
     reset?.run();
     expect([
       progress.contour.value,
-      progress.tone.value,
+      progress.landSweep.value,
       progress.route.value,
       progress.copy.value,
       progress.marker.value,
@@ -196,7 +207,7 @@ describe('Chart intro sequence specs', () => {
     expect(onRouteStart).toHaveBeenCalledTimes(1);
     expect(onContinueVisible).toHaveBeenCalledTimes(1);
     calls(spec.steps).filter((step) => step.transient).forEach((step) => step.run());
-    expect(onBeat.mock.calls).toEqual([['open']]);
+    expect(onBeat).not.toHaveBeenCalled();
   });
 
   it('map-tap skip completes every visual value over 250ms without transient sound calls', () => {
@@ -220,7 +231,7 @@ describe('Chart intro sequence specs', () => {
       expect(onBeat).not.toHaveBeenCalled();
       expect(onEnd).toHaveBeenCalledTimes(1);
       expect([
-        progress.contour.value, progress.tone.value, progress.route.value, progress.copy.value,
+        progress.contour.value, progress.landSweep.value, progress.route.value, progress.copy.value,
         progress.marker.value, progress.continue.value, progress.land.value, progress.cameraScale.value,
       ]).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
     });

@@ -1,0 +1,32 @@
+import React from 'react';
+import { fireEvent, render } from '@testing-library/react-native';
+import { DevImageModelPicker } from '../DevImageModelPicker';
+import { DEV_IMAGE_MODELS, selectedDevImageModel, useDevImageModelStore } from '@/stores/devImageModelStore';
+
+describe('developer image model picker', () => {
+  const originalDev = __DEV__;
+  beforeEach(() => { global.__DEV__ = true; useDevImageModelStore.setState({ anchor: null, vision: null }); });
+  afterEach(() => { global.__DEV__ = originalDev; useDevImageModelStore.setState({ anchor: null, vision: null }); });
+
+  it.each(DEV_IMAGE_MODELS)('selects $label for Anchor without changing Vision', option => {
+    const screen = render(<DevImageModelPicker purpose="anchor" />);
+    fireEvent.press(screen.getByLabelText('Dev model: Auto'));
+    fireEvent.press(screen.getByLabelText(option.label));
+    expect(selectedDevImageModel('anchor')).toBe(option.id);
+    expect(selectedDevImageModel('vision')).toBeUndefined();
+    expect(screen.getByLabelText(`Dev model: ${option.label}`)).toBeTruthy();
+  });
+
+  it('returns to Auto and never exposes or sends a saved selection in production', () => {
+    useDevImageModelStore.getState().select('vision', 'gemini-nano-banana-2.1');
+    const screen = render(<DevImageModelPicker purpose="vision" />);
+    fireEvent.press(screen.getByLabelText('Dev model: Nano Banana 2.1'));
+    fireEvent.press(screen.getByLabelText('Auto — normal routing'));
+    expect(selectedDevImageModel('vision')).toBeUndefined();
+    useDevImageModelStore.getState().select('vision', 'gpt-image-2.5-flare');
+    global.__DEV__ = false;
+    screen.rerender(<DevImageModelPicker purpose="vision" />);
+    expect(screen.queryByTestId('dev-image-model-vision')).toBeNull();
+    expect(selectedDevImageModel('vision')).toBeUndefined();
+  });
+});
