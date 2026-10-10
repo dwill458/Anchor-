@@ -1,4 +1,9 @@
-import { V2ConfirmSheet, V2SheetModal, V2SheetGrabZone } from '@/components/v2/primitives';
+import {
+  V2ConfirmSheet,
+  V2SheetModal,
+  V2SheetGrabZone,
+  V2_SHEET_SKIRT,
+} from '@/components/v2/primitives';
 import React from 'react';
 import {
   Modal,
@@ -693,8 +698,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 22,
     paddingTop: 14,
-    paddingBottom: 20,
-    maxHeight: '75%',
+    paddingBottom: 20 + V2_SHEET_SKIRT,
+    marginBottom: -V2_SHEET_SKIRT,
+    flexShrink: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
@@ -720,6 +726,7 @@ const styles = StyleSheet.create({
   },
   sheetScroll: {
     maxHeight: 340,
+    flexShrink: 1,
   },
   sheetCancelButton: {
     height: 48,

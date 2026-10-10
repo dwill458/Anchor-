@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationService from '@/services/NotificationService';
 import {
   type NotificationState,
+  type ReminderInvitationOutcome,
   daysBetween,
   getMonday12AMLocal,
   initializeNotificationState,
@@ -56,18 +57,11 @@ const SMART_NOTIFICATION_PRIORITY: NotificationCategory[] = [
   'thread_strength',
   'unfinished_anchor',
   'weekly_recap',
-  'daily_prime',
 ];
 
 /**
- * How many days of daily prime reminders are queued ahead of time.
- *
- * Local notifications are only (re)scheduled while the app runs, so a single
- * one-shot reminder means a user who stops opening Anchor stops being reminded
- * after the very first notification. Queueing a horizon keeps the reminder
- * arriving without the app running. Occurrences beyond today only ever fire on
- * days the app was not opened — which are, by definition, days without a
- * completed session — so the "skip the day you already primed" rule still holds.
+ * Legacy horizon constant preserved for migration cleanup only.
+ * Personal daily reminders now use the native repeating DAILY trigger.
  */
 const DAILY_PRIME_HORIZON_DAYS = 7;
 
@@ -104,34 +98,6 @@ const recordDeliveredNotification = (
   return next;
 };
 
-/**
- * Queue the daily prime reminder for the days after the first occurrence.
- * Occurrence 0 is scheduled by the caller as the winning rule result.
- */
-const scheduleDailyPrimeHorizon = async ({
-  firstFireDate,
-  tone,
-  template,
-  rendered,
-}: {
-  firstFireDate: Date;
-  tone: NotificationTone;
-  template: NotificationTemplate;
-  rendered: { title: string; body: string };
-}): Promise<void> => {
-  for (let dayOffset = 1; dayOffset < DAILY_PRIME_HORIZON_DAYS; dayOffset += 1) {
-    const fireDate = new Date(firstFireDate.getTime() + dayOffset * MS_PER_DAY);
-    await NotificationService.scheduleSmartNotification({
-      category: 'daily_prime',
-      templateId: template.id,
-      tone,
-      title: rendered.title,
-      body: rendered.body,
-      fireDate,
-      occurrence: dayOffset,
-    });
-  }
-};
 
 /**
  * `useNotificationController` is mounted by several screens at once, so the
@@ -144,6 +110,59 @@ const runExclusively = <T,>(task: () => Promise<T>): Promise<T> => {
   const result = schedulerQueue.then(task, task);
   schedulerQueue = result.catch(() => undefined);
   return result;
+};
+
+/*
+ * Non-hook writers for the reminder invitation's two pure state writes. Mounting the controller hook
+ * starts its app-open reconcile/scheduling effects, which a navigator route or the invitation screen
+ * must not do just by appearing. These share the hook's storage, normalization, server sync and the
+ * same `runExclusively` queue, so they never race a mounted controller.
+ */
+const loadStoredNotificationState = async (): Promise<NotificationStateWithSyncMetadata> => {
+  const stored = await AsyncStorage.getItem(NOTIFICATION_STATE_STORAGE_KEY);
+  return normalizeNotificationState(stored ? JSON.parse(stored) : initializeNotificationState());
+};
+
+const persistAndSyncStoredNotificationState = async (next: NotificationStateWithSyncMetadata) => {
+  await AsyncStorage.setItem(NOTIFICATION_STATE_STORAGE_KEY, JSON.stringify(next));
+  if (!useAuthStore.getState().isAuthenticated) return;
+  const pendingState = await getPendingNotificationStateSync();
+  const synced = await syncNotificationStateToServer(pendingState ? { ...pendingState, ...next } : next);
+  if (synced) {
+    await AsyncStorage.setItem(NOTIFICATION_STATE_STORAGE_KEY, JSON.stringify(synced));
+  }
+};
+
+/** Same contract as the hook's `markFirstPracticeCompleted`: idempotent state write, never consent. */
+export const markFirstPracticeCompletedInStorage = async (): Promise<void> => {
+  try {
+    await runExclusively(async () => {
+      const state = await loadStoredNotificationState();
+      if (state.firstPracticeCompletedAt) return;
+      await persistAndSyncStoredNotificationState({
+        ...state,
+        firstPracticeCompletedAt: new Date().toISOString(),
+      });
+    });
+  } catch (err) {
+    logger.error('[NotificationController] markFirstPracticeCompletedInStorage error:', err);
+  }
+};
+
+/** Same contract as the hook's `recordInvitationOutcome`: never sets `personalDailyReminderOptedIn`. */
+export const recordInvitationOutcomeInStorage = async (outcome: ReminderInvitationOutcome): Promise<void> => {
+  try {
+    await runExclusively(async () => {
+      const state = await loadStoredNotificationState();
+      await persistAndSyncStoredNotificationState({
+        ...state,
+        reminderInvitationShownAt: state.reminderInvitationShownAt ?? new Date().toISOString(),
+        reminderInvitationOutcome: outcome,
+      });
+    });
+  } catch (err) {
+    logger.error('[NotificationController] recordInvitationOutcomeInStorage error:', err);
+  }
 };
 
 export const useNotificationController = () => {
@@ -186,7 +205,7 @@ export const useNotificationController = () => {
       ? selectCanonicalPracticeEvents(sessionState.practiceHistory, accountId, now)
       : [];
     const metrics = buildThreadStrengthSnapshot({
-      events: sessionState.practiceHistory,
+      events: sessionState.practiceHistory ?? [],
       accountId,
       dailyGoal: dailyPracticeGoal,
       sensitivity: settingsState.threadStrengthSensitivity,
@@ -288,7 +307,7 @@ export const useNotificationController = () => {
     const now = new Date();
     const hasCanonicalLedger = Array.isArray(sessionState.practiceHistory) && Boolean(accountId);
     const metrics = buildThreadStrengthSnapshot({
-      events: sessionState.practiceHistory,
+      events: sessionState.practiceHistory ?? [],
       accountId,
       dailyGoal: settingsState.dailyPracticeGoal,
       sensitivity: settingsState.threadStrengthSensitivity,
@@ -310,9 +329,7 @@ export const useNotificationController = () => {
   const cancelSmartNotifications = useCallback(async (context?: NotificationRuleContext) => {
     await Promise.all(
       SMART_NOTIFICATION_PRIORITY.map((category) =>
-        category === 'daily_prime'
-          ? NotificationService.cancelSmartNotificationSeries(category, DAILY_PRIME_HORIZON_DAYS)
-          : NotificationService.cancelSmartNotification(category)
+        NotificationService.cancelSmartNotification(category)
       )
     );
 
@@ -322,7 +339,32 @@ export const useNotificationController = () => {
       )
     );
 
+    // Migration cleanup: clear legacy 7-day daily_prime horizon series if present
+    await NotificationService.cancelSmartNotificationSeries('daily_prime', DAILY_PRIME_HORIZON_DAYS);
+
     await writePendingSmartNotification(null);
+  }, []);
+
+  const reconcilePersonalDailyReminder = useCallback(async (
+    state: NotificationStateWithSyncMetadata
+  ): Promise<void> => {
+    const isEnabled = Boolean(
+      state.notification_enabled &&
+      state.notificationPermissionStatus === 'granted' &&
+      state.personalDailyReminderOptedIn &&
+      state.dailyPrimeEnabled &&
+      state.dailyPrimeTime
+    );
+
+    if (!isEnabled) {
+      await NotificationService.cancelPersonalDailyReminder();
+      return;
+    }
+
+    await NotificationService.schedulePersonalDailyReminder(state.dailyPrimeTime, {
+      title: 'Your moment of focus',
+      body: 'Take a moment to reconnect with what matters. Your Anchor is ready.',
+    });
   }, []);
 
   const markSmartNotificationScheduled = useCallback((
@@ -368,6 +410,17 @@ export const useNotificationController = () => {
       notificationPermissionStatus: permissionStatus,
     };
 
+    // Reconcile user-scheduled repeating personal daily reminder independently
+    await reconcilePersonalDailyReminder(stateWithPermission);
+
+    const hasActivePersonalReminder = Boolean(
+      stateWithPermission.notification_enabled &&
+      stateWithPermission.notificationPermissionStatus === 'granted' &&
+      stateWithPermission.personalDailyReminderOptedIn &&
+      stateWithPermission.dailyPrimeEnabled &&
+      stateWithPermission.dailyPrimeTime
+    );
+
     const stillQueued = Boolean(pending && !hasFired);
     if (
       stillQueued &&
@@ -384,8 +437,23 @@ export const useNotificationController = () => {
     const context = buildRuleContext();
     await cancelSmartNotifications(context);
 
-    const result = evaluateNotificationRules(stateWithPermission, context)
-      .find((candidate) => candidate.eligible && candidate.fireDate);
+    // If personal daily reminder is active for today, suppress competing discretionary engagement notifications (like thread_strength and unfinished_anchor)
+    const ruleResults = evaluateNotificationRules(stateWithPermission, context);
+    const result = ruleResults.find((candidate) => {
+      if (!candidate.eligible || !candidate.fireDate) return false;
+      if (
+        hasActivePersonalReminder &&
+        (candidate.category === 'thread_strength' ||
+          candidate.category === 'unfinished_anchor' ||
+          candidate.category === 'daily_prime')
+      ) {
+        return false;
+      }
+      if (candidate.category === 'daily_prime') {
+        return false;
+      }
+      return true;
+    });
 
     if (!result?.fireDate) {
       return stateWithPermission;
@@ -415,15 +483,6 @@ export const useNotificationController = () => {
       return stateWithPermission;
     }
 
-    if (result.category === 'daily_prime') {
-      await scheduleDailyPrimeHorizon({
-        firstFireDate: result.fireDate,
-        tone: stateWithPermission.notificationTone,
-        template,
-        rendered,
-      });
-    }
-
     await writePendingSmartNotification({
       identifier: notificationId,
       category: result.category,
@@ -440,7 +499,12 @@ export const useNotificationController = () => {
     });
 
     return markSmartNotificationScheduled(stateWithPermission, result, template.id);
-  }, [buildRuleContext, cancelSmartNotifications, markSmartNotificationScheduled]);
+  }, [
+    buildRuleContext,
+    cancelSmartNotifications,
+    markSmartNotificationScheduled,
+    reconcilePersonalDailyReminder,
+  ]);
 
   const initOnAppOpen = useCallback(async () => {
     try {
@@ -587,38 +651,47 @@ export const useNotificationController = () => {
       const isAuthenticated = useAuthStore.getState().isAuthenticated;
 
       if (!enabled) {
+        await NotificationService.cancelPersonalDailyReminder();
         await NotificationService.cancelNotification('micro-prime');
         await NotificationService.cancelWeeklySummary();
         await cancelSmartNotifications(buildRuleContext());
         if (isAuthenticated) {
-          await clearPushTokensFromServer();
+          try {
+            await clearPushTokensFromServer();
+          } catch (syncErr) {
+            logger.warn('[NotificationController] Failed to clear push tokens on disable:', syncErr);
+          }
         }
       } else {
-        // Request OS permission BEFORE scheduling. scheduleSmartNotifications()
-        // reads the resulting permission status, so on a first-time enable the
-        // prompt has to come first or every rule is rejected as undetermined.
-        // Android 13+ never shows the POST_NOTIFICATIONS prompt unless the app
-        // asks, and local reminders need it just as much as remote push does —
-        // so the ask is not gated on being signed in.
-        const registration = isAuthenticated
-          ? await NotificationService.getRemotePushRegistration()
-          : { permissionGranted: await NotificationService.requestPermissions() };
+        const granted = await NotificationService.requestPermissions();
+        state.notificationPermissionStatus = granted ? 'granted' : 'denied';
 
-        if (registration.permissionGranted) {
-          state.notificationPermissionStatus = 'granted';
+        if (granted) {
           AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_GRANTED);
-          if (isAuthenticated && 'expoPushToken' in registration) {
-            await syncPushTokensToServer({
-              expoPushToken: registration.expoPushToken,
-              fcmToken: registration.fcmToken,
-              apnsToken: registration.apnsToken,
-            });
+          if (isAuthenticated) {
+            try {
+              const registration = await NotificationService.getRemotePushRegistration();
+              if (registration.expoPushToken) {
+                await syncPushTokensToServer({
+                  expoPushToken: registration.expoPushToken,
+                  fcmToken: registration.fcmToken,
+                  apnsToken: registration.apnsToken,
+                });
+              }
+            } catch (tokenErr) {
+              logger.warn('[NotificationController] Failed to sync push tokens (local reminders still active):', tokenErr);
+            }
           }
         } else {
-          state.notificationPermissionStatus = 'denied';
           AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_DENIED);
+          await NotificationService.cancelPersonalDailyReminder();
+          await cancelSmartNotifications(buildRuleContext());
           if (isAuthenticated) {
-            await clearPushTokensFromServer();
+            try {
+              await clearPushTokensFromServer();
+            } catch (syncErr) {
+              logger.warn('[NotificationController] Failed to clear push tokens on deny:', syncErr);
+            }
           }
         }
 
@@ -668,11 +741,15 @@ export const useNotificationController = () => {
     NotificationState,
     | 'dailyPrimeEnabled'
     | 'dailyPrimeTime'
+    | 'personalDailyReminderOptedIn'
     | 'threadStrengthAlertsEnabled'
     | 'threadStrengthThreshold'
     | 'unfinishedAnchorRemindersEnabled'
     | 'weeklyRecapEnabled'
     | 'notificationTone'
+    | 'visionRemindersEnabled'
+    | 'chartRemindersEnabled'
+    | 'momentumCheckinsEnabled'
   >>) => {
     try {
       let state = reconcile(await loadState());
@@ -697,9 +774,19 @@ export const useNotificationController = () => {
         });
       }
 
+      const personalDailyReminderOptedIn =
+        typeof updates.personalDailyReminderOptedIn === 'boolean'
+          ? updates.personalDailyReminderOptedIn
+          : updates.dailyPrimeEnabled === true
+          ? true
+          : updates.dailyPrimeEnabled === false
+          ? false
+          : state.personalDailyReminderOptedIn;
+
       state = {
         ...state,
         ...updates,
+        personalDailyReminderOptedIn,
         dailyPrimeTime: updates.dailyPrimeTime ?? state.dailyPrimeTime,
         threadStrengthThreshold:
           updates.threadStrengthThreshold != null
@@ -737,6 +824,7 @@ export const useNotificationController = () => {
       if (granted) {
         state = await scheduleSmartNotifications(state, { force: true });
       } else {
+        await NotificationService.cancelPersonalDailyReminder();
         await cancelSmartNotifications(buildRuleContext());
       }
 
@@ -917,18 +1005,23 @@ export const useNotificationController = () => {
       }
 
       if (granted) {
+        state.personalDailyReminderOptedIn = true;
         state.dailyPrimeEnabled = true;
         state.dailyPrimeTime = time;
         AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_GRANTED, { source });
 
         if (useAuthStore.getState().isAuthenticated) {
-          const registration = await NotificationService.getRemotePushRegistration();
-          if (registration.permissionGranted) {
-            await syncPushTokensToServer({
-              expoPushToken: registration.expoPushToken,
-              fcmToken: registration.fcmToken,
-              apnsToken: registration.apnsToken,
-            });
+          try {
+            const registration = await NotificationService.getRemotePushRegistration();
+            if (registration.expoPushToken) {
+              await syncPushTokensToServer({
+                expoPushToken: registration.expoPushToken,
+                fcmToken: registration.fcmToken,
+                apnsToken: registration.apnsToken,
+              });
+            }
+          } catch (tokenErr) {
+            logger.warn('[NotificationController] Push token sync failed during setDailyPrimeReminder:', tokenErr);
           }
         }
 
@@ -939,6 +1032,7 @@ export const useNotificationController = () => {
         });
       } else {
         AnalyticsService.track(AnalyticsEvents.NOTIFICATION_PERMISSION_DENIED, { source });
+        await NotificationService.cancelPersonalDailyReminder();
         await cancelSmartNotifications(buildRuleContext());
       }
 
@@ -963,9 +1057,107 @@ export const useNotificationController = () => {
     syncStateToServer,
   ]);
 
+  /**
+   * Enrollment-only writer for the personal daily reminder. Turns on the master
+   * switch and the personal reminder, then schedules ONLY that reminder through
+   * reconcilePersonalDailyReminder. It never touches weeklySummaryEnabled, push
+   * tokens, or smart-category scheduling, because categories are independent.
+   * Writes nothing and returns false unless OS permission is already granted.
+   */
+  const enableDailyReminderOnly = useCallback(async (time: string): Promise<boolean> => {
+    try {
+      return await runExclusively(async () => {
+        const permission = await NotificationService.getPermissionStatus();
+        if (permission !== 'granted') {
+          return false;
+        }
+
+        const state: NotificationStateWithSyncMetadata = {
+          ...reconcile(await loadState()),
+          notification_enabled: true,
+          notificationPermissionStatus: 'granted',
+          personalDailyReminderOptedIn: true,
+          dailyPrimeEnabled: true,
+          dailyPrimeTime: time,
+        };
+        await reconcilePersonalDailyReminder(state);
+        await saveState(state);
+        AnalyticsService.track(AnalyticsEvents.DAILY_PRIME_REMINDER_SCHEDULED, {
+          source: 'enrollment',
+          time,
+        });
+
+        try {
+          const syncedState = await syncStateToServer(state);
+          if (syncedState) {
+            await saveState(syncedState);
+          }
+        } catch (syncErr) {
+          logger.warn('[NotificationController] enableDailyReminderOnly sync failed:', syncErr);
+        }
+        return true;
+      });
+    } catch (err) {
+      logger.error('[NotificationController] enableDailyReminderOnly error:', err);
+      return false;
+    }
+  }, [loadState, reconcile, reconcilePersonalDailyReminder, saveState, syncStateToServer]);
+
+  /**
+   * Record that the user finished their first practice. Idempotent (only sets
+   * when null) and a pure state write: no scheduling, no reconcile, and never
+   * consent. The reminder invitation reads this to decide whether to appear.
+   */
+  const markFirstPracticeCompleted = useCallback(async () => {
+    try {
+      await runExclusively(async () => {
+        const state = await loadState();
+        if (state.firstPracticeCompletedAt) {
+          return;
+        }
+        const next = { ...state, firstPracticeCompletedAt: new Date().toISOString() };
+        await saveState(next);
+        const syncedState = await syncStateToServer(next);
+        if (syncedState) {
+          await saveState(syncedState);
+        }
+      });
+    } catch (err) {
+      logger.error('[NotificationController] markFirstPracticeCompleted error:', err);
+    }
+  }, [loadState, saveState, syncStateToServer]);
+
+  /**
+   * Record how the reminder invitation ended. Pure state write: it stamps the
+   * first time the invitation was shown and the outcome, and never sets
+   * `personalDailyReminderOptedIn` - consent is only recorded by the explicit
+   * preference/permission path.
+   */
+  const recordInvitationOutcome = useCallback(async (outcome: ReminderInvitationOutcome) => {
+    try {
+      await runExclusively(async () => {
+        const state = await loadState();
+        const next = {
+          ...state,
+          reminderInvitationShownAt: state.reminderInvitationShownAt ?? new Date().toISOString(),
+          reminderInvitationOutcome: outcome,
+        };
+        await saveState(next);
+        const syncedState = await syncStateToServer(next);
+        if (syncedState) {
+          await saveState(syncedState);
+        }
+      });
+    } catch (err) {
+      logger.error('[NotificationController] recordInvitationOutcome error:', err);
+    }
+  }, [loadState, saveState, syncStateToServer]);
+
   return {
     notifState,
     isInitialized,
+    markFirstPracticeCompleted,
+    recordInvitationOutcome,
     handlePrimeComplete,
     handleBurnFlowEntered,
     handleSigilVaulted,
@@ -980,5 +1172,6 @@ export const useNotificationController = () => {
     markReminderPromptShown,
     completeReminderPrompt,
     setDailyPrimeReminder,
+    enableDailyReminderOnly,
   };
 };

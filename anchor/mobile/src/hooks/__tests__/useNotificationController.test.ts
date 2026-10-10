@@ -5,10 +5,14 @@ import { useNotificationController } from '../useNotificationController';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { NOTIFICATION_STATE_STORAGE_KEY } from '@/services/NotificationState';
 import { PENDING_SMART_NOTIFICATION_STORAGE_KEY } from '@/services/notifications/pendingNotificationStore';
+import NotificationService from '@/services/NotificationService';
+import { syncPushTokensToServer } from '@/services/NotificationSyncService';
 
 const mockScheduleSmartNotification = jest.fn();
 const mockCancelSmartNotification = jest.fn();
 const mockCancelSmartNotificationSeries = jest.fn();
+const mockSchedulePersonalDailyReminder = jest.fn();
+const mockCancelPersonalDailyReminder = jest.fn();
 const mockCancelNotification = jest.fn();
 const mockCancelWeeklySummary = jest.fn();
 const mockGetPermissionStatus = jest.fn();
@@ -27,6 +31,10 @@ jest.mock('@/services/NotificationService', () => ({
     cancelSmartNotification: (...args: unknown[]) => mockCancelSmartNotification(...args),
     cancelSmartNotificationSeries: (...args: unknown[]) =>
       mockCancelSmartNotificationSeries(...args),
+    schedulePersonalDailyReminder: (...args: unknown[]) =>
+      mockSchedulePersonalDailyReminder(...args),
+    cancelPersonalDailyReminder: (...args: unknown[]) =>
+      mockCancelPersonalDailyReminder(...args),
     cancelNotification: (...args: unknown[]) => mockCancelNotification(...args),
     cancelWeeklySummary: (...args: unknown[]) => mockCancelWeeklySummary(...args),
     getPermissionStatus: (...args: unknown[]) => mockGetPermissionStatus(...args),
@@ -48,6 +56,9 @@ jest.mock('@/services/AnalyticsService', () => {
     NOTIFICATION_PERMISSION_GRANTED: 'notification_permission_granted',
     NOTIFICATION_PERMISSION_DENIED: 'notification_permission_denied',
     NOTIFICATION_SCHEDULED: 'notification_scheduled',
+    DAILY_PRIME_REMINDER_SCHEDULED: 'daily_prime_reminder_scheduled',
+    DAILY_PRIME_REMINDER_DISABLED: 'daily_prime_reminder_disabled',
+    DAILY_PRIME_REMINDER_TIME_CHANGED: 'daily_prime_reminder_time_changed',
   };
 
   return {
@@ -92,8 +103,6 @@ type AsyncStorageMock = {
 
 const asyncStorage = AsyncStorage as unknown as AsyncStorageMock;
 
-// Several stores share the AsyncStorage mock, so the notification state has to
-// be looked up by key rather than by taking the most recent write.
 const readSavedNotificationState = (): Record<string, unknown> => {
   const call = asyncStorage.setItem.mock.calls
     .filter(([key]) => key === NOTIFICATION_STATE_STORAGE_KEY)
@@ -140,6 +149,8 @@ describe('useNotificationController', () => {
     mockScheduleSmartNotification.mockResolvedValue('smart-id');
     mockCancelSmartNotification.mockResolvedValue(undefined);
     mockCancelSmartNotificationSeries.mockResolvedValue(undefined);
+    mockSchedulePersonalDailyReminder.mockResolvedValue('anchor:personal-daily');
+    mockCancelPersonalDailyReminder.mockResolvedValue(undefined);
     mockCancelNotification.mockResolvedValue(undefined);
     mockCancelWeeklySummary.mockResolvedValue(undefined);
     mockSyncNotificationStateToServer.mockResolvedValue(null);
@@ -158,182 +169,194 @@ describe('useNotificationController', () => {
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
+    expect(mockSchedulePersonalDailyReminder).not.toHaveBeenCalled();
     expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
     const savedState = readSavedNotificationState();
     expect(savedState).toMatchObject({
-      dailyPrimeEnabled: true,
+      dailyPrimeEnabled: false,
+      personalDailyReminderOptedIn: false,
       dailyPrimeTime: '21:00',
-      threadStrengthAlertsEnabled: true,
+      threadStrengthAlertsEnabled: false,
       threadStrengthThreshold: 70,
-      unfinishedAnchorRemindersEnabled: true,
+      unfinishedAnchorRemindersEnabled: false,
       weeklyRecapEnabled: false,
       notificationTone: 'encouraging',
       notificationPermissionStatus: 'undetermined',
     });
   });
 
-  it('schedules a daily prime notification when permission is granted and practice is incomplete', async () => {
-    mockGetPermissionStatus.mockResolvedValue('granted');
-    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
-
+  it('marks the first practice completed once, without scheduling or opting in', async () => {
     const { result } = renderHook(() => useNotificationController());
-
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
-
-    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        category: 'daily_prime',
-        templateId: expect.any(String),
-        tone: 'encouraging',
-        title: expect.any(String),
-        body: expect.any(String),
-        fireDate: expect.any(Date),
-      })
-    );
-    expect(mockTrack).toHaveBeenCalledWith(
-      'notification_scheduled',
-      expect.objectContaining({
-        category: 'daily_prime',
-      })
-    );
-  });
-
-  it('queues a horizon of daily prime reminders so they survive the app not being opened', async () => {
-    mockGetPermissionStatus.mockResolvedValue('granted');
-    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
-
-    const { result } = renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(result.current.isInitialized).toBe(true));
-
-    // Only the first scheduling pass is asserted: the AsyncStorage mock is
-    // stateless, so a later pass does not see the pending record it wrote.
-    const dailyPrimeCalls = mockScheduleSmartNotification.mock.calls
-      .map(([options]) => options as { category: string; occurrence?: number; fireDate: Date })
-      .filter((options) => options.category === 'daily_prime')
-      .slice(0, 7);
-
-    expect(dailyPrimeCalls.map((options) => options.occurrence)).toEqual([
-      undefined,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-    ]);
-
-    const [first, second] = dailyPrimeCalls;
-    expect(second.fireDate.getTime() - first.fireDate.getTime()).toBe(24 * 60 * 60 * 1000);
-  });
-
-  it('records the queued reminder so a re-run does not cancel it', async () => {
-    mockGetPermissionStatus.mockResolvedValue('granted');
-    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
-
-    const { result } = renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(result.current.isInitialized).toBe(true));
-
-    const pending = readPendingNotification();
-    expect(pending).toMatchObject({
-      identifier: 'smart-id',
-      category: 'daily_prime',
-    });
-
-    // A second controller instance (another screen mounting) must leave the
-    // queued reminder in place rather than cancelling and re-evaluating it.
-    asyncStorage.getItem.mockImplementation((key: string) =>
-      Promise.resolve(
-        key === PENDING_SMART_NOTIFICATION_STORAGE_KEY ? JSON.stringify(pending) : null
-      )
-    );
+    mockSchedulePersonalDailyReminder.mockClear();
     mockScheduleSmartNotification.mockClear();
-    mockCancelSmartNotificationSeries.mockClear();
 
-    const second = renderHook(() => useNotificationController());
-    await waitFor(() => expect(second.result.current.isInitialized).toBe(true));
+    await act(async () => {
+      await result.current.markFirstPracticeCompleted();
+    });
+    const first = readSavedNotificationState();
+    expect(typeof first.firstPracticeCompletedAt).toBe('string');
+    expect(first.personalDailyReminderOptedIn).toBe(false);
 
-    expect(mockCancelSmartNotificationSeries).not.toHaveBeenCalled();
+    asyncStorage.getItem.mockImplementation(async (key: string) =>
+      key === NOTIFICATION_STATE_STORAGE_KEY ? JSON.stringify(first) : null
+    );
+    jest.setSystemTime(new Date('2026-06-25T15:00:00.000Z'));
+    await act(async () => {
+      await result.current.markFirstPracticeCompleted();
+    });
+    expect(readSavedNotificationState().firstPracticeCompletedAt).toBe(first.firstPracticeCompletedAt);
+    expect(mockSchedulePersonalDailyReminder).not.toHaveBeenCalled();
     expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
   });
 
-  it('re-arms the next reminder once the queued one has fired', async () => {
-    mockGetPermissionStatus.mockResolvedValue('granted');
-    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
-    asyncStorage.getItem.mockImplementation((key: string) =>
-      Promise.resolve(
-        key === PENDING_SMART_NOTIFICATION_STORAGE_KEY
-          ? JSON.stringify({
-              identifier: 'smart-id',
-              category: 'daily_prime',
-              // Fired two hours ago, so it is outside the one-per-hour cap.
-              fireDate: '2026-06-24T13:00:00.000Z',
-            })
-          : null
-      )
-    );
-
+  it('records the invitation outcome without ever recording consent', async () => {
     const { result } = renderHook(() => useNotificationController());
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
-    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ category: 'daily_prime' })
-    );
-    expect(readSavedNotificationState()).toMatchObject({
-      lastNotificationSentAt: { daily_prime: '2026-06-24T13:00:00.000Z' },
+    await act(async () => {
+      await result.current.recordInvitationOutcome('dismissed');
     });
+    const saved = readSavedNotificationState();
+    expect(saved.reminderInvitationOutcome).toBe('dismissed');
+    expect(typeof saved.reminderInvitationShownAt).toBe('string');
+    expect(saved.personalDailyReminderOptedIn).toBe(false);
+    expect(saved.dailyPrimeEnabled).toBe(false);
   });
 
-  it('schedules the next-day daily prime after a Focus Session was completed today', async () => {
+  it('schedules a personal daily reminder via native repeating DAILY trigger when permission is granted and opted in', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
-    mockSessionStoreGetState.mockReturnValue(createSessionState({
-      sessionLog: [
-        {
-          id: 'session-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          durationSeconds: 30,
-          mode: 'silent',
-          completedAt: '2026-06-24T14:00:00.000Z',
-        },
-      ],
-      totalSessionsCount: 1,
-      lastPrimedAt: '2026-06-24',
-      primingHistory: [
-        {
-          id: 'session-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          completedAt: '2026-06-24T14:00:00.000Z',
-          localDate: '2026-06-24',
-          weekKey: '2026-W26',
-          weekStart: '2026-06-22',
-          weekdayIndex: 2,
-          hourOfDay: 14,
-          timeOfDay: 'afternoon',
-        },
-      ],
-    }));
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+    asyncStorage.getItem.mockImplementation(async (key: string) =>
+      key === NOTIFICATION_STATE_STORAGE_KEY
+        ? JSON.stringify({
+            notification_enabled: true,
+            personalDailyReminderOptedIn: true,
+            dailyPrimeEnabled: true,
+            dailyPrimeTime: '21:00',
+            notificationPermissionStatus: 'granted',
+          })
+        : null
+    );
 
     const { result } = renderHook(() => useNotificationController());
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
-    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
+    expect(mockSchedulePersonalDailyReminder).toHaveBeenCalledWith(
+      '21:00',
       expect.objectContaining({
-        category: 'daily_prime',
-        fireDate: new Date(2026, 5, 25, 21, 0, 0, 0),
+        title: 'Your moment of focus',
+        body: 'Take a moment to reconnect with what matters. Your Anchor is ready.',
       })
     );
+  });
+
+  it('suppresses competing discretionary engagement notifications on days when a personal reminder is scheduled', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    // Thread strength below threshold would normally trigger thread_strength alert
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 50 }));
+    asyncStorage.getItem.mockImplementation(async (key: string) =>
+      key === NOTIFICATION_STATE_STORAGE_KEY
+        ? JSON.stringify({
+            notification_enabled: true,
+            personalDailyReminderOptedIn: true,
+            dailyPrimeEnabled: true,
+            dailyPrimeTime: '21:00',
+            notificationPermissionStatus: 'granted',
+          })
+        : null
+    );
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    // Personal reminder is active for 21:00, so competing discretionary thread_strength alert is suppressed
+    expect(mockSchedulePersonalDailyReminder).toHaveBeenCalledWith('21:00', expect.any(Object));
+    expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel the personal daily reminder when Focus practice is completed today', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+    asyncStorage.getItem.mockImplementation(async (key: string) =>
+      key === NOTIFICATION_STATE_STORAGE_KEY
+        ? JSON.stringify({
+            notification_enabled: true,
+            personalDailyReminderOptedIn: true,
+            dailyPrimeEnabled: true,
+            dailyPrimeTime: '21:00',
+            notificationPermissionStatus: 'granted',
+          })
+        : null
+    );
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+    mockCancelPersonalDailyReminder.mockClear();
+
+    await act(async () => {
+      await result.current.handlePrimeComplete();
+    });
+
+    // Personal daily reminder is a personal appointment and must NEVER be cancelled by earlier activity
+    expect(mockCancelPersonalDailyReminder).not.toHaveBeenCalled();
+    expect(mockSchedulePersonalDailyReminder).toHaveBeenCalledWith('21:00', expect.any(Object));
+  });
+
+  it('cancels the personal daily reminder when notifications are explicitly disabled', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+    mockCancelPersonalDailyReminder.mockClear();
+
+    await act(async () => {
+      await result.current.toggleNotifications(false);
+    });
+
+    expect(mockCancelPersonalDailyReminder).toHaveBeenCalled();
+  });
+
+  it('keeps local notification scheduled when remote token registration fails (Phase A decoupling)', async () => {
+    mockRequestPermissions.mockResolvedValue(true);
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockAuthStoreGetState.mockReturnValue({
+      user: { id: 'test-user-1' },
+      isAuthenticated: true,
+    });
+
+    const { result } = renderHook(() => useNotificationController());
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    await act(async () => {
+      await result.current.setDailyPrimeReminder('21:00', 'first_anchor');
+    });
+
+    const savedState = readSavedNotificationState();
+    expect(savedState.notificationPermissionStatus).toBe('granted');
+    expect(mockSchedulePersonalDailyReminder).toHaveBeenCalledWith('21:00', expect.any(Object));
   });
 
   it('persists preference changes and reschedules through the smart scheduler', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockImplementation(async (key: string) =>
+      key === NOTIFICATION_STATE_STORAGE_KEY
+        ? JSON.stringify({
+            notification_enabled: true,
+            personalDailyReminderOptedIn: true,
+            dailyPrimeEnabled: true,
+            dailyPrimeTime: '21:00',
+            notificationPermissionStatus: 'granted',
+          })
+        : null
+    );
     const { result } = renderHook(() => useNotificationController());
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
-    mockScheduleSmartNotification.mockClear();
+    mockSchedulePersonalDailyReminder.mockClear();
 
     await act(async () => {
       await result.current.updateNotificationPreferences({
@@ -349,7 +372,7 @@ describe('useNotificationController', () => {
       notificationTone: 'direct',
       threadStrengthThreshold: 85,
     });
-    expect(mockScheduleSmartNotification).toHaveBeenCalled();
+    expect(mockSchedulePersonalDailyReminder).toHaveBeenCalledWith('08:00', expect.any(Object));
   });
 
   it('does not show a blocking alert when an anchor is saved (the reminder card owns the ask)', async () => {
@@ -467,5 +490,67 @@ describe('useNotificationController', () => {
     });
 
     expect(canOffer).toBe(false);
+  });
+
+  describe('enableDailyReminderOnly (enrollment path)', () => {
+    it('enables only the personal daily reminder and leaves other categories untouched', async () => {
+      mockGetPermissionStatus.mockResolvedValue('granted');
+      mockAuthStoreGetState.mockReturnValue({ user: { id: 'u1' }, isAuthenticated: true });
+      useSettingsStore.setState({ weeklySummaryEnabled: true });
+      const { result } = renderHook(() => useNotificationController());
+      await waitFor(() => expect(result.current.isInitialized).toBe(true));
+      // Discard mount-time reconcile calls so only the enrollment write is asserted.
+      mockSchedulePersonalDailyReminder.mockClear();
+      mockScheduleSmartNotification.mockClear();
+      mockCancelSmartNotification.mockClear();
+      (syncPushTokensToServer as unknown as jest.Mock).mockClear();
+      (NotificationService.getRemotePushRegistration as unknown as jest.Mock).mockClear();
+
+      let saved = false;
+      await act(async () => {
+        saved = await result.current.enableDailyReminderOnly('07:17');
+      });
+
+      expect(saved).toBe(true);
+      expect(useSettingsStore.getState().weeklySummaryEnabled).toBe(true);
+      expect(NotificationService.getRemotePushRegistration).not.toHaveBeenCalled();
+      expect(syncPushTokensToServer).not.toHaveBeenCalled();
+      expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
+      expect(mockCancelSmartNotification).not.toHaveBeenCalled();
+      expect(mockSchedulePersonalDailyReminder).toHaveBeenCalledWith('07:17', expect.any(Object));
+
+      expect(readSavedNotificationState()).toMatchObject({
+        notification_enabled: true,
+        notificationPermissionStatus: 'granted',
+        personalDailyReminderOptedIn: true,
+        dailyPrimeEnabled: true,
+        dailyPrimeTime: '07:17',
+      });
+      expect(mockTrack).toHaveBeenCalledWith('daily_prime_reminder_scheduled', {
+        source: 'enrollment',
+        time: '07:17',
+      });
+    });
+
+    it('returns false and writes nothing when OS permission is not granted', async () => {
+      mockGetPermissionStatus.mockResolvedValue('denied');
+      const { result } = renderHook(() => useNotificationController());
+      await waitFor(() => expect(result.current.isInitialized).toBe(true));
+      asyncStorage.setItem.mockClear();
+      mockSchedulePersonalDailyReminder.mockClear();
+
+      let saved = true;
+      await act(async () => {
+        saved = await result.current.enableDailyReminderOnly('07:17');
+      });
+
+      expect(saved).toBe(false);
+      expect(asyncStorage.setItem).not.toHaveBeenCalledWith(
+        NOTIFICATION_STATE_STORAGE_KEY,
+        expect.anything()
+      );
+      expect(mockSchedulePersonalDailyReminder).not.toHaveBeenCalled();
+      expect(mockTrack).not.toHaveBeenCalledWith('daily_prime_reminder_scheduled', expect.anything());
+    });
   });
 });

@@ -3,7 +3,7 @@ import { apiClient } from '@/services/ApiClient';
 import { logger } from '@/utils/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PENDING_NOTIFICATION_SYNC_KEY = '@anchor_notification_state_pending_sync';
+export const PENDING_NOTIFICATION_SYNC_KEY = '@anchor_notification_state_pending_sync';
 
 export type SyncedNotificationState = NotificationState & {
   last_sent_at?: string;

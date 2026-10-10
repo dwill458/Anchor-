@@ -77,34 +77,32 @@ describe('NotificationService', () => {
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 
-  it('uses the bundled sound for daily, checkpoint, and weekly notifications', async () => {
+  it('configures default system notification sound and clean v4 channels', async () => {
     await NotificationService.scheduleDailyReminder('09:30');
     await NotificationService.scheduleDailyGoalCheckpoint(2, 4, new Date(Date.now() + 60_000));
     await NotificationService.scheduleWeeklySummary(0, '19:00');
 
     expect(Notifications.scheduleNotificationAsync).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      content: expect.objectContaining({ sound: 'notification-daily.wav' }),
+      trigger: expect.objectContaining({ channelId: 'daily-reminders-v4' }),
     }));
     expect(Notifications.scheduleNotificationAsync).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      content: expect.objectContaining({ sound: 'notification-checkpoint.wav' }),
+      trigger: expect.objectContaining({ channelId: 'daily-goal-checkpoints-v4' }),
     }));
     expect(Notifications.scheduleNotificationAsync).toHaveBeenNthCalledWith(3, expect.objectContaining({
-      content: expect.objectContaining({ sound: 'notification-weekly.wav' }),
+      trigger: expect.objectContaining({ channelId: 'weekly-summary-v4' }),
     }));
     expect(NOTIFICATION_CHANNELS).toMatchObject({
-      DAILY_REMINDERS: 'daily-reminders-v3',
-      DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v3',
-      WEEKLY_SUMMARY: 'weekly-summary-v3',
+      DAILY_REMINDERS: 'daily-reminders-v4',
+      DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v4',
+      WEEKLY_SUMMARY: 'weekly-summary-v4',
     });
 
     const appConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../app.json'), 'utf8'));
     const notificationsPlugin = appConfig.expo.plugins.find((plugin: unknown) => Array.isArray(plugin) && plugin[0] === 'expo-notifications');
     expect(notificationsPlugin[1].sounds).toEqual([
       './src/assets/sounds/notification.wav',
-      './src/assets/sounds/notification-daily.wav',
-      './src/assets/sounds/notification-checkpoint.wav',
-      './src/assets/sounds/notification-weekly.wav',
     ]);
+    expect(notificationsPlugin[1].icon).toBe('./assets/anchor-monochrome-v2.png');
   });
 
   it('deletes the previous versioned Android channels when new sound channels are created', async () => {
@@ -117,12 +115,12 @@ describe('NotificationService', () => {
       const freshNotifications = require('expo-notifications');
       await freshNotificationService.scheduleDailyReminder('09:30');
 
-      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('daily-reminders-v3', expect.objectContaining({ sound: 'notification-daily.wav' }));
-      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('daily-goal-checkpoints-v3', expect.objectContaining({ sound: 'notification-checkpoint.wav' }));
-      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('weekly-summary-v3', expect.objectContaining({ sound: 'notification-weekly.wav' }));
-      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('daily-reminders-v2');
-      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('daily-goal-checkpoints-v2');
-      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('weekly-summary-v2');
+      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('daily-reminders-v4', expect.objectContaining({ importance: freshNotifications.AndroidImportance.HIGH }));
+      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('daily-goal-checkpoints-v4', expect.objectContaining({ importance: freshNotifications.AndroidImportance.HIGH }));
+      expect(freshNotifications.setNotificationChannelAsync).toHaveBeenCalledWith('weekly-summary-v4', expect.objectContaining({ importance: freshNotifications.AndroidImportance.DEFAULT }));
+      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('daily-reminders-v3');
+      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('daily-goal-checkpoints-v3');
+      expect(freshNotifications.deleteNotificationChannelAsync).toHaveBeenCalledWith('weekly-summary-v3');
     } finally {
       jest.dontMock('react-native');
       jest.resetModules();
@@ -275,6 +273,76 @@ describe('NotificationService', () => {
             templateId: 'daily_prime_encouraging_1',
             tone: 'encouraging',
           }),
+        }),
+      })
+    );
+  });
+
+  it('leaves personal daily reminder untouched when desired schedule already exists with matching time, trigger, and content', async () => {
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
+      {
+        identifier: 'anchor:personal-daily',
+        content: {
+          title: 'Your moment of focus',
+          body: 'Take a moment to reconnect with what matters. Your Anchor is ready.',
+          data: {
+            scheduledTime: '20:00',
+          },
+        },
+        trigger: {
+          type: 'daily',
+          hour: 20,
+          minute: 0,
+          channelId: 'daily-reminders-v4',
+        },
+      },
+    ]);
+
+    (Notifications.cancelScheduledNotificationAsync as jest.Mock).mockClear();
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockClear();
+
+    const result = await NotificationService.schedulePersonalDailyReminder('20:00');
+
+    expect(result).toBe('anchor:personal-daily');
+    // Idempotent: zero cancellations, zero rescheduling calls
+    expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it('replaces personal daily reminder when desired time changes', async () => {
+    (Notifications.getAllScheduledNotificationsAsync as jest.Mock).mockResolvedValue([
+      {
+        identifier: 'anchor:personal-daily',
+        content: {
+          title: 'Your moment of focus',
+          body: 'Take a moment to reconnect with what matters. Your Anchor is ready.',
+          data: {
+            scheduledTime: '20:00',
+          },
+        },
+        trigger: {
+          type: 'daily',
+          hour: 20,
+          minute: 0,
+          channelId: 'daily-reminders-v4',
+        },
+      },
+    ]);
+
+    (Notifications.cancelScheduledNotificationAsync as jest.Mock).mockClear();
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockClear();
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('anchor:personal-daily');
+
+    const result = await NotificationService.schedulePersonalDailyReminder('21:00');
+
+    expect(result).toBe('anchor:personal-daily');
+    expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('anchor:personal-daily');
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifier: 'anchor:personal-daily',
+        trigger: expect.objectContaining({
+          hour: 21,
+          minute: 0,
         }),
       })
     );

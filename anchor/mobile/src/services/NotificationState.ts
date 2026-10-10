@@ -37,6 +37,7 @@ export interface NotificationState {
   unfinishedAnchorRemindersEnabled: boolean;
   weeklyRecapEnabled: boolean;
   notificationTone: NotificationTone;
+  personalDailyReminderOptedIn: boolean;
   lastNotificationSentAt: LastNotificationSentAt;
   lastTemplateIdByCategory: Partial<Record<string, string>>;
   notificationPermissionStatus: NotificationPermissionStatus;
@@ -47,7 +48,17 @@ export interface NotificationState {
   notificationPromptShownAt: string | null;
   firstAnchorReminderPromptCompleted: boolean;
   fallbackReminderPromptCompleted: boolean;
+  // Pass 2: post-first-practice reminder invitation. None of these is consent;
+  // only an explicit accept (personalDailyReminderOptedIn) enables reminders.
+  firstPracticeCompletedAt: string | null;
+  reminderInvitationShownAt: string | null;
+  reminderInvitationOutcome: ReminderInvitationOutcome | null;
+  visionRemindersEnabled: boolean;
+  chartRemindersEnabled: boolean;
+  momentumCheckinsEnabled: boolean;
 }
+
+export type ReminderInvitationOutcome = 'accepted' | 'dismissed';
 
 export const getMonday12AMLocal = (): string => {
   const now = new Date();
@@ -77,14 +88,16 @@ export const initializeNotificationState = (): NotificationState => ({
   active_hours_end: 21,
   timezone: DEFAULT_TIMEZONE,
   notification_enabled: true,
+  personalDailyReminderOptedIn: false,
   active_session: false,
   weaver_enabled: true,
   threadStrength: 50,
-  dailyPrimeEnabled: true,
+  dailyPrimeEnabled: false,
   dailyPrimeTime: '21:00',
-  threadStrengthAlertsEnabled: true,
+  // Off for new state; normalizeNotificationState keeps whatever a user already persisted.
+  threadStrengthAlertsEnabled: false,
   threadStrengthThreshold: 70,
-  unfinishedAnchorRemindersEnabled: true,
+  unfinishedAnchorRemindersEnabled: false,
   weeklyRecapEnabled: false,
   notificationTone: 'encouraging',
   lastNotificationSentAt: {},
@@ -96,6 +109,32 @@ export const initializeNotificationState = (): NotificationState => ({
   notificationPromptShownAt: null,
   firstAnchorReminderPromptCompleted: false,
   fallbackReminderPromptCompleted: false,
+  firstPracticeCompletedAt: null,
+  reminderInvitationShownAt: null,
+  reminderInvitationOutcome: null,
+  visionRemindersEnabled: false,
+  chartRemindersEnabled: false,
+  momentumCheckinsEnabled: false,
+});
+
+/** "Momentum" is one switch over three flags: on when any of them is on. */
+export const selectMomentumOn = (
+  state: Pick<
+    NotificationState,
+    'momentumCheckinsEnabled' | 'threadStrengthAlertsEnabled' | 'unfinishedAnchorRemindersEnabled'
+  >
+): boolean =>
+  Boolean(
+    state.momentumCheckinsEnabled ||
+      state.threadStrengthAlertsEnabled ||
+      state.unfinishedAnchorRemindersEnabled
+  );
+
+/** Sets all three Momentum flags together so the switch can never be half on. */
+export const momentumPatch = (on: boolean): Partial<NotificationState> => ({
+  momentumCheckinsEnabled: on,
+  threadStrengthAlertsEnabled: on,
+  unfinishedAnchorRemindersEnabled: on,
 });
 
 export const normalizeNotificationState = (
@@ -103,6 +142,21 @@ export const normalizeNotificationState = (
 ): NotificationState => {
   const defaults = initializeNotificationState();
   const state = { ...defaults, ...(raw ?? {}) };
+
+  // Explicit opt-in handling and migration for legacy preferences
+  if (typeof raw?.personalDailyReminderOptedIn === 'boolean') {
+    state.personalDailyReminderOptedIn = raw.personalDailyReminderOptedIn;
+    if (typeof raw?.dailyPrimeEnabled !== 'boolean') {
+      state.dailyPrimeEnabled = raw.personalDailyReminderOptedIn;
+    }
+  } else {
+    // Legacy fields such as notificationPromptShownAt (prompt displayed),
+    // firstAnchorReminderPromptCompleted (prompt dismissed / skipped), or
+    // fallbackReminderPromptCompleted (prompt skipped) do NOT constitute affirmative opt-in.
+    // If intent is ambiguous or unrecorded, personal daily reminders start OFF on all platforms.
+    state.personalDailyReminderOptedIn = false;
+    state.dailyPrimeEnabled = false;
+  }
 
   state.dailyPrimeTime =
     typeof state.dailyPrimeTime === 'string' && /^([0-1]?\d|2[0-3]):([0-5]\d)$/.test(state.dailyPrimeTime)
@@ -123,6 +177,10 @@ export const normalizeNotificationState = (
     state.notificationPermissionStatus === 'denied'
       ? state.notificationPermissionStatus
       : 'undetermined';
+  state.reminderInvitationOutcome =
+    state.reminderInvitationOutcome === 'accepted' || state.reminderInvitationOutcome === 'dismissed'
+      ? state.reminderInvitationOutcome
+      : null;
   state.lastNotificationSentAt =
     state.lastNotificationSentAt && typeof state.lastNotificationSentAt === 'object'
       ? state.lastNotificationSentAt

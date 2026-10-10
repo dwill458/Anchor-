@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { DeviceEventEmitter, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { T } from '@/components/settings/settingsTheme';
 import {
@@ -12,7 +12,10 @@ import {
 } from '@/components/settings/SettingsPrimitives';
 import { useSettingsState } from '@/hooks/useSettings';
 import { useSettingsStore, type ReduceMotionPreference } from '@/stores/settingsStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
 import { AnalyticsService } from '@/services/AnalyticsService';
 
 interface Props {
@@ -53,8 +56,14 @@ export const AppExperienceSubscreen: React.FC<Props> = ({ onBack }) => {
     return 'Device setting';
   };
 
+  const teachingAccountId = useAuthStore((s) => s.user?.id ?? null);
+
   const handleResetTeachingTips = () => {
     useTeachingStore.getState().reset();
+    void resetAllTeachingSeen(teachingAccountId);
+    void resetChartTaughtState(teachingAccountId);
+    DeviceEventEmitter.emit('replayAppTeaching');
+    DeviceEventEmitter.emit('chartReplayOneMoveTeaching');
     AnalyticsService.track('teaching_reset');
     setConfirmResetTips(false);
   };

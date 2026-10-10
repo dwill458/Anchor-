@@ -186,11 +186,10 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/anchor-monochrome-v2.png",
+          "color": "#D4AF37",
           "sounds": [
-            "./src/assets/sounds/notification.wav",
-            "./src/assets/sounds/notification-daily.wav",
-            "./src/assets/sounds/notification-checkpoint.wav",
-            "./src/assets/sounds/notification-weekly.wav"
+            "./src/assets/sounds/notification.wav"
           ]
         }
       ],

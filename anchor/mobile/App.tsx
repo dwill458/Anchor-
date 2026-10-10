@@ -45,6 +45,8 @@ import {
 } from '@expo-google-fonts/eb-garamond';
 import { RootNavigator } from './src/navigation';
 import { AnchorV2Navigator } from './src/navigation/v2';
+import { ANCHOR_V2_ROUTES } from './src/navigation/v2/routes';
+import { NotificationCoordinator } from './src/services/notifications/NotificationCoordinator';
 import { parseChartNotificationTarget } from './src/services/notifications/chartNotifications';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
@@ -285,6 +287,8 @@ export default function App() {
   // One-shot latch: true once the initial auth restore has settled. Must not
   // track isLoading live — Login/SignUp re-use it and would unmount the app.
   const [initialAuthResolved, setInitialAuthResolved] = React.useState(false);
+  const pendingNotificationResponseRef = useRef<Notifications.NotificationResponse | null>(null);
+  const processedResponseIdsRef = useRef<Set<string>>(new Set());
   const trackingContext = React.useMemo(
     () => ({
       anchor_count: anchorCount,
@@ -728,11 +732,13 @@ export default function App() {
         return;
       }
 
-      await syncPushTokensToServer({
-        expoPushToken: registration.expoPushToken,
-        fcmToken: registration.fcmToken,
-        apnsToken: registration.apnsToken,
-      });
+      if (registration.expoPushToken) {
+        await syncPushTokensToServer({
+          expoPushToken: registration.expoPushToken,
+          fcmToken: registration.fcmToken,
+          apnsToken: registration.apnsToken,
+        });
+      }
     };
 
     void syncRegistration();
@@ -746,6 +752,11 @@ export default function App() {
       subscription.remove();
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    const cleanupCoordinator = NotificationCoordinator.initialize();
+    return () => cleanupCoordinator();
+  }, []);
 
   useEffect(() => {
     const trackNotificationPayload = (
@@ -768,57 +779,171 @@ export default function App() {
       });
     };
 
-    let chartNavTimer: ReturnType<typeof setTimeout> | null = null;
-    const openChartFromNotification = (anchorId: string, attempt = 0) => {
-      if (chartNavTimer) {
-        clearTimeout(chartNavTimer);
-        chartNavTimer = null;
-      }
-      if (navRef.isReady() && navRef.getCurrentRoute()) {
-        // V2Chart lives in the V2 stack, not RootNavigatorParamList, so dispatch by name.
-        navRef.dispatch(
-          CommonActions.navigate({ name: 'V2Chart', params: { anchorId, source: 'notification' } })
-        );
-        return;
-      }
-      if (attempt < 40) {
-        chartNavTimer = setTimeout(() => openChartFromNotification(anchorId, attempt + 1), 500);
-      }
-    };
-
-    const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
-      const payload = response.notification.request.content.data ?? {};
+    const dispatchNotificationResponse = (response: Notifications.NotificationResponse) => {
+      const payload = (response.notification.request.content.data ?? {}) as Record<string, unknown>;
       trackNotificationPayload(AnalyticsEvents.NOTIFICATION_OPENED, payload, 'openedAt');
 
-      // Chart pushes (recap / idle nudge) open the V2 Chart. Cold starts wait
-      // for the navigator instead of dropping the tap.
-      const chartTarget = anchorV2Enabled ? parseChartNotificationTarget(payload) : null;
-      if (chartTarget) {
-        openChartFromNotification(chartTarget.anchorId);
+      if (!anchorV2Enabled) {
+        const action = NotificationService.handleNotificationClick(response);
+        switch (action.action) {
+          case 'open_ritual_reminder':
+          case 'open_daily_reminder':
+          case 'open_streak_protection':
+          case 'open_weekly_summary':
+          case 'open_notification_category':
+            navRef.navigate('Main');
+            break;
+          default:
+            break;
+        }
+        return;
+      }
+
+      // V2 Anchor 2.0 Navigation Routing
+      const authState = useAuthStore.getState();
+      if (!authState.isAuthenticated || !authState.hasCompletedOnboarding) {
+        logger.info('[Notifications] User unauthenticated or onboarding incomplete, skipping deep navigation');
         return;
       }
 
       const action = NotificationService.handleNotificationClick(response);
-      if (!navRef.isReady()) {
+      const chartTarget = parseChartNotificationTarget(payload);
+      const category = typeof payload.category === 'string' ? payload.category : '';
+
+      // 1. Chart notification -> relevant Chart
+      if (chartTarget || action.action === 'open_chart' || category === 'chart') {
+        const anchorId =
+          chartTarget?.anchorId ??
+          (typeof payload.anchorId === 'string' ? payload.anchorId : null);
+        const anchorState = useAnchorStore.getState();
+        const anchorExists = anchorId
+          ? anchorState.anchors.some(
+              (a) => !a.isReleased && !a.archivedAt && (a.id === anchorId || a.localId === anchorId)
+            )
+          : false;
+
+        if (anchorExists && anchorId) {
+          navRef.dispatch(
+            CommonActions.navigate({
+              name: ANCHOR_V2_ROUTES.chart,
+              params: { anchorId, source: 'notification' },
+            })
+          );
+        } else {
+          navRef.dispatch(CommonActions.navigate({ name: ANCHOR_V2_ROUTES.developmentHome }));
+        }
         return;
       }
 
-      switch (action.action) {
-        case 'open_ritual_reminder':
-        case 'open_daily_reminder':
-        case 'open_streak_protection':
-        case 'open_weekly_summary':
-        case 'open_notification_category':
-          navRef.navigate('Main');
-          break;
-        case 'unknown':
-        default:
-          break;
+      // 2. Vision notification -> relevant Vision
+      if (action.action === 'open_vision' || category === 'vision') {
+        const anchorId = typeof payload.anchorId === 'string' ? payload.anchorId : null;
+        const anchorState = useAnchorStore.getState();
+        const anchorExists = anchorId
+          ? anchorState.anchors.some(
+              (a) => !a.isReleased && !a.archivedAt && (a.id === anchorId || a.localId === anchorId)
+            )
+          : false;
+
+        if (anchorExists && anchorId) {
+          navRef.dispatch(
+            CommonActions.navigate({
+              name: ANCHOR_V2_ROUTES.vision,
+              params: { anchorId },
+            })
+          );
+        } else {
+          navRef.dispatch(CommonActions.navigate({ name: ANCHOR_V2_ROUTES.developmentHome }));
+        }
+        return;
+      }
+
+      // 3. Personal Daily Reminder -> appropriate Practice entry
+      if (
+        action.action === 'open_daily_reminder' ||
+        category === 'personal_daily' ||
+        category === 'daily_prime'
+      ) {
+        navRef.dispatch(
+          CommonActions.navigate({
+            name: ANCHOR_V2_ROUTES.practice,
+            params: { source: 'daily_reminder' },
+          })
+        );
+        return;
+      }
+
+      // 4. General reconnection / streak protection / weekly summary / unknown fallback
+      navRef.dispatch(CommonActions.navigate({ name: ANCHOR_V2_ROUTES.developmentHome }));
+    };
+
+    let retryTimer: ReturnType<typeof setInterval> | null = null;
+
+    const stopDrainRetryLoop = () => {
+      if (retryTimer) {
+        clearInterval(retryTimer);
+        retryTimer = null;
       }
     };
 
+    const drainPendingNotification = () => {
+      const pending = pendingNotificationResponseRef.current;
+      if (!pending) {
+        stopDrainRetryLoop();
+        return;
+      }
+
+      const isNavReady = navRef.isReady() && Boolean(navRef.getCurrentRoute());
+      const isAuthReady = initialAuthResolved && !useAuthStore.getState().isLoading;
+
+      if (isNavReady && isAuthReady) {
+        pendingNotificationResponseRef.current = null;
+        stopDrainRetryLoop();
+        dispatchNotificationResponse(pending);
+      }
+    };
+
+    const startDrainRetryLoop = () => {
+      if (retryTimer) return;
+      let retryCount = 0;
+      retryTimer = setInterval(() => {
+        if (!pendingNotificationResponseRef.current) {
+          stopDrainRetryLoop();
+          return;
+        }
+        if (retryCount++ > 30) {
+          stopDrainRetryLoop();
+          return;
+        }
+        drainPendingNotification();
+      }, 200);
+    };
+
+    const processOrQueueNotificationResponse = (response: Notifications.NotificationResponse) => {
+      const responseId = `${response.notification.request.identifier}:${response.actionIdentifier || 'default'}:${response.notification.date}`;
+      if (processedResponseIdsRef.current.has(responseId)) {
+        return;
+      }
+      processedResponseIdsRef.current.add(responseId);
+
+      const isNavReady = navRef.isReady() && Boolean(navRef.getCurrentRoute());
+      const isAuthReady = initialAuthResolved && !useAuthStore.getState().isLoading;
+
+      if (!isNavReady || !isAuthReady) {
+        logger.info('[Notifications] Navigation or auth not ready; queueing cold-start response');
+        pendingNotificationResponseRef.current = response;
+        startDrainRetryLoop();
+        return;
+      }
+
+      dispatchNotificationResponse(response);
+    };
+
+    // Attempt drain whenever dependencies settle
+    drainPendingNotification();
+
     const subscription = Notifications.addNotificationResponseReceivedListener(
-      handleNotificationResponse
+      processOrQueueNotificationResponse
     );
     const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
       trackNotificationPayload(
@@ -831,7 +956,7 @@ export default function App() {
     Notifications.getLastNotificationResponseAsync()
       .then((response) => {
         if (response) {
-          handleNotificationResponse(response);
+          processOrQueueNotificationResponse(response);
         }
       })
       .catch((error) => {
@@ -841,9 +966,9 @@ export default function App() {
     return () => {
       subscription.remove();
       receivedSubscription.remove();
-      if (chartNavTimer) clearTimeout(chartNavTimer);
+      stopDrainRetryLoop();
     };
-  }, [navRef]);
+  }, [anchorV2Enabled, initialAuthResolved, navRef]);
 
 
 

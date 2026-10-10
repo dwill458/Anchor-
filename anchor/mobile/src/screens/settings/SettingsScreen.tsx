@@ -40,7 +40,7 @@ import {
 } from '@/components/settings/SettingsPrimitives';
 import { EditProfileSheet } from '@/components/EditProfileSheet';
 import { PracticeSubscreen } from './PracticeSubscreen';
-import { NotificationsSubscreen } from './NotificationsSubscreen';
+import { NotificationSettingsScreen } from '@/screens/v2/notifications/NotificationSettingsScreen';
 import { AppExperienceSubscreen } from './AppExperienceSubscreen';
 import { AccountDataSubscreen } from './AccountDataSubscreen';
 import { PrivacySupportSubscreen } from './PrivacySupportSubscreen';
@@ -277,7 +277,7 @@ export const SettingsScreen: React.FC = () => {
     return <PracticeSubscreen onBack={() => setActiveSubscreen('main')} />;
   }
   if (activeSubscreen === 'notifications') {
-    return <NotificationsSubscreen onBack={() => setActiveSubscreen('main')} />;
+    return <NotificationSettingsScreen onBack={() => setActiveSubscreen('main')} />;
   }
   if (activeSubscreen === 'experience') {
     return <AppExperienceSubscreen onBack={() => setActiveSubscreen('main')} />;
@@ -405,7 +405,7 @@ export const SettingsScreen: React.FC = () => {
           <SettingsRow
             icon={<IconBell size={20} color={T.ink2} />}
             label="Notifications & reminders"
-            desc="Daily reminder, consistency alerts, and recap"
+            desc="Daily reminder, optional reminders, and recap"
             onPress={() => setActiveSubscreen('notifications')}
             testID="settings-row-Notifications & reminders"
           />

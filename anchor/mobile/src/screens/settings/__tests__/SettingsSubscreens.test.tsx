@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { PracticeSubscreen } from '../PracticeSubscreen';
 import { AppExperienceSubscreen } from '../AppExperienceSubscreen';
 import { PrivacySupportSubscreen } from '../PrivacySupportSubscreen';
-import { NotificationsSubscreen } from '../NotificationsSubscreen';
 
 const mockUpdateSetting = jest.fn(() => Promise.resolve());
 const mockTeachingReset = jest.fn(async (_accountId: string | null) => undefined);
@@ -75,11 +74,13 @@ const mockNotifState = {
   notification_enabled: false,
   dailyPrimeTime: '21:00',
   dailyPrimeEnabled: true,
+  personalDailyReminderOptedIn: true,
   threadStrengthAlertsEnabled: true,
   threadStrengthThreshold: 70,
   unfinishedAnchorRemindersEnabled: false,
   notificationTone: 'encouraging',
   weeklyRecapEnabled: false,
+  notificationPermissionStatus: 'granted' as 'granted' | 'denied' | 'undetermined',
 };
 
 jest.mock('@/hooks/useSettings', () => ({
@@ -312,42 +313,7 @@ describe('PracticeSubscreen', () => {
   });
 });
 
-describe('NotificationsSubscreen', () => {
-  beforeEach(() => {
-    mockNotifState.notification_enabled = false;
-    mockNotifState.threadStrengthThreshold = 70;
-  });
-
-  it('formats thread threshold as 70% and never 7000%', () => {
-    render(<NotificationsSubscreen onBack={jest.fn()} />);
-
-    expect(screen.getByText('Alert below')).toBeTruthy();
-    expect(screen.getByText('70%')).toBeTruthy();
-    expect(screen.queryByText('7000%')).toBeNull();
-  });
-
-  it('toggles weekly recap and synchronizes preferences when reminders are on', () => {
-    mockNotifState.notification_enabled = true;
-    render(<NotificationsSubscreen onBack={jest.fn()} />);
-
-    fireEvent.press(screen.getByTestId('settings-row-Weekly recap'));
-    expect(mockUpdateNotificationPreferences).toHaveBeenCalledWith({ weeklyRecapEnabled: true });
-    mockNotifState.notification_enabled = false;
-  });
-
-  it('disables child notification toggles when practice reminders are off', () => {
-    render(<NotificationsSubscreen onBack={jest.fn()} />);
-
-    const dailyPrimeRow = screen.getAllByLabelText('Daily practice reminder')[0];
-    expect(dailyPrimeRow.props.accessibilityState.disabled).toBe(true);
-
-    const threadAlertsRow = screen.getByTestId('settings-row-Consistency alerts');
-    expect(threadAlertsRow.props.accessibilityState.disabled).toBe(true);
-
-    const weeklyRecapRow = screen.getByTestId('settings-row-Weekly recap');
-    expect(weeklyRecapRow.props.accessibilityState.disabled).toBe(true);
-  });
-});
+// NotificationsSubscreen cases migrated to screens/v2/notifications/__tests__/NotificationSettingsScreen.test.tsx
 
 describe('AppExperienceSubscreen', () => {
   it('renders interface options and toggles openDailyAnchorAutomatically', () => {

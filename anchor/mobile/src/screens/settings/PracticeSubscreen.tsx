@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   BackHandler,
+  DeviceEventEmitter,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,6 +25,7 @@ import {
 } from '@/stores/settingsStore';
 import { useProfileStore, TIMEZONE_OPTIONS } from '@/stores/profileStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { updateUserSettings } from '@/services/ApiClient';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import {
@@ -41,6 +43,7 @@ import {
 import { logger } from '@/utils/logger';
 import { useToast } from '@/components/ToastProvider';
 import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
 import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
 
 interface Props {
@@ -104,6 +107,10 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const replayTeaching = async () => {
     await resetAllTeachingSeen(teachingAccountId);
+    await resetChartTaughtState(teachingAccountId);
+    useTeachingStore.getState().reset();
+    DeviceEventEmitter.emit('replayAppTeaching');
+    DeviceEventEmitter.emit('chartReplayOneMoveTeaching');
     toast.info(TEACHING_COPY.replay.confirmation);
   };
   const [panel, setPanel] = useState<PracticePanel>('main');

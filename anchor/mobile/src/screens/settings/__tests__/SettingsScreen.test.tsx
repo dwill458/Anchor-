@@ -218,34 +218,22 @@ describe('SettingsScreen', () => {
     expect(mockUpdateSetting).toHaveBeenCalledWith('soundEffectsEnabled', false);
   });
 
-  it('navigates to Notifications and requests permission before turning practice reminders on', async () => {
+  it('navigates to the redesigned Notifications screen (permission flows live in its own suite)', async () => {
     const screen = render(<SettingsScreen />);
 
-    // Tap into Notifications subscreen
     fireEvent.press(screen.getByTestId('settings-row-Notifications & reminders'));
     expect(screen.getByText('Notifications & reminders')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('settings-row-Practice Reminders'));
-
-    await waitFor(() => {
-      expect(mockRequestPermissions).toHaveBeenCalled();
-      expect(mockToggleNotifications).toHaveBeenCalledWith(true);
-    });
+    expect(screen.getByText('YOUR DAILY MOMENT')).toBeTruthy();
+    expect(screen.getByLabelText('Daily reminder')).toBeTruthy();
   });
 
-  it('keeps reminder controls blocked when notification permission is denied', async () => {
-    mockRequestPermissions.mockResolvedValueOnce(false);
-    NotificationService.getLastError = jest.fn(() => ({ message: 'Notification permissions were denied.' }));
-    const alert = jest.spyOn(Alert, 'alert');
+  it('notifications back returns to the main settings list', async () => {
     const screen = render(<SettingsScreen />);
-
     fireEvent.press(screen.getByTestId('settings-row-Notifications & reminders'));
-    fireEvent.press(screen.getByTestId('settings-row-Practice Reminders'));
-
-    await waitFor(() => {
-      expect(mockToggleNotifications).not.toHaveBeenCalled();
-      expect(alert).toHaveBeenCalledWith('Notification Permission Required', 'Notification permissions were denied.');
-    });
+    expect(screen.getByText('YOUR DAILY MOMENT')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Back'));
+    expect(screen.queryByText('YOUR DAILY MOMENT')).toBeNull();
+    expect(screen.getByTestId('settings-row-Notifications & reminders')).toBeTruthy();
   });
 
   it('persists picker choices for haptics and reduced motion in App Experience', async () => {
