@@ -324,7 +324,7 @@ export function ChartActiveView({
   const oneMoveViewportRef = useRef<ChartSheetViewport | null>(null);
   const teachingShownKey = useRef<string | null>(null);
   const accountId = useAuthStore((state) => state.user?.id ?? null);
-  const teachingKey = `${accountId ?? 'guest'}:${view.courseId}`;
+  const teachingKey = accountId ?? 'guest';
   const teachingKeyRef = useRef(teachingKey);
   teachingKeyRef.current = teachingKey;
   const teachingSessionKey = useRef(teachingKey);
@@ -336,8 +336,7 @@ export function ChartActiveView({
     let alive = true;
     setTeachingVisible(false);
     setTeachingRequested(false);
-    teachingShownKey.current = null;
-    setTaughtState({ key: teachingKey, loaded: false, taught: false });
+    setTaughtState((prev) => (prev.key === teachingKey && prev.loaded ? prev : { key: teachingKey, loaded: false, taught: false }));
     void getChartTaughtState(accountId, view.courseId).then(taught => {
       if (alive) setTaughtState({ key: teachingKey, loaded: true, taught });
     });
@@ -354,16 +353,23 @@ export function ChartActiveView({
     setTaughtState({ key: teachingKey, loaded: true, taught: true });
     setTeachingVisible(false);
   }, [accountId, teachingKey, view.courseId]);
-  const markTeachingShown = useCallback(() => { if (teachingSessionKey.current === teachingKeyRef.current) teachingShownKey.current = teachingKey; }, [teachingKey]);
+  const markTeachingShown = useCallback(() => {
+    if (teachingSessionKey.current === teachingKeyRef.current) {
+      teachingShownKey.current = teachingKey;
+      setChartTaughtState(accountId, view.courseId);
+      setTaughtState({ key: teachingKey, loaded: true, taught: true });
+    }
+  }, [accountId, teachingKey, view.courseId]);
   useEffect(() => {
     if (!__DEV__) return undefined;
     const replay = DeviceEventEmitter.addListener('chartReplayOneMoveTeaching', (courseId?: string) => {
-      if (courseId !== view.courseId) return;
+      if (courseId && courseId !== view.courseId) return;
       replayTeaching();
     });
     const reset = DeviceEventEmitter.addListener('chartResetOneMoveTeaching', (courseId?: string) => {
-      if (courseId !== view.courseId) return;
+      if (courseId && courseId !== view.courseId) return;
       void resetChartTaughtState(accountId, view.courseId).then(() => {
+        teachingShownKey.current = null;
         setTaughtState({ key: teachingKey, loaded: true, taught: false });
         replayTeaching();
       });
@@ -590,8 +596,11 @@ export function ChartActiveView({
     if (!taughtState.loaded || taughtState.key !== teachingKey || taughtState.taught || teachingShownKey.current === teachingKey) return;
     if (!oneMoveRowRef.current || !oneMoveCircleRef.current || !oneMoveBodyRef.current) return;
     teachingSessionKey.current = teachingKey;
+    teachingShownKey.current = teachingKey;
+    setChartTaughtState(accountId, view.courseId);
+    setTaughtState({ key: teachingKey, loaded: true, taught: true });
     setTeachingVisible(true);
-  }, [ceremony, confirmOpen, dayHold, menuOpen, openingFinished, reachEvent, runner, sheetDetent, swapRevision, taughtState, teachingKey, view.waypoints]);
+  }, [accountId, ceremony, confirmOpen, dayHold, menuOpen, openingFinished, reachEvent, runner, sheetDetent, swapRevision, taughtState, teachingKey, view.courseId, view.waypoints]);
 
   useEffect(() => {
     if (!teachingRequested || sheetDetent === 'hidden') return;
@@ -604,8 +613,10 @@ export function ChartActiveView({
   useEffect(() => {
     if (teachingVisible && (runner.isBusy() || reachingRef.current || ceremony || reachEvent || confirmOpen || menuOpen || sheetDetent === 'hidden')) {
       setTeachingVisible(false);
+      setChartTaughtState(accountId, view.courseId);
+      setTaughtState({ key: teachingKey, loaded: true, taught: true });
     }
-  }, [ceremony, confirmOpen, menuOpen, reachEvent, runner, sheetDetent, swapRevision, teachingVisible]);
+  }, [accountId, ceremony, confirmOpen, menuOpen, reachEvent, runner, sheetDetent, swapRevision, teachingKey, teachingVisible, view.courseId]);
 
   /* ---- route follows server data ---------------------------------- */
   useEffect(() => {

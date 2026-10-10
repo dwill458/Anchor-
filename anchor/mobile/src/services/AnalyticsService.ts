@@ -509,6 +509,12 @@ export const AnalyticsEvents = {
   DAILY_PRIME_REMINDER_SCHEDULED: 'daily_prime_reminder_scheduled',
   DAILY_PRIME_REMINDER_DISABLED: 'daily_prime_reminder_disabled',
   DAILY_PRIME_REMINDER_TIME_CHANGED: 'daily_prime_reminder_time_changed',
+  NOTIFICATION_INVITATION_SHOWN: 'notification_invitation_shown',
+  NOTIFICATION_INVITATION_ACCEPTED: 'notification_invitation_accepted',
+  NOTIFICATION_INVITATION_DISMISSED: 'notification_invitation_dismissed',
+  REMINDER_TIME_SELECTED: 'reminder_time_selected',
+  PERSONAL_REMINDER_ENABLED: 'personal_reminder_enabled',
+  NOTIFICATION_CATEGORY_TOGGLED: 'notification_category_toggled',
 
   // Merch / Physical Anchors
   MERCH_INITIATED_FROM_ANCHOR_DETAILS: 'merch_initiated_from_anchor_details',

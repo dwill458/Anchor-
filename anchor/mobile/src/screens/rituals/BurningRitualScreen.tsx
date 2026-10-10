@@ -35,7 +35,7 @@ export const BurningRitualScreen: React.FC = () => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const accountId = useAuthStore((state) => state.user?.id ?? null);
-  const { setUserFlag, queueMilestone, recordShown, userFlags } = useTeachingStore();
+  const { setUserFlag, queueMilestone, recordShown, userFlags, isExhausted } = useTeachingStore();
   const toast = useToast();
   const { handleBurnFlowEntered, handleSigilVaulted } = useNotificationController();
 
@@ -156,17 +156,20 @@ export const BurningRitualScreen: React.FC = () => {
     });
 
     // Set first-burn flag (once)
-    if (!userFlags.hasCompletedFirstBurn) {
+    const isFirstBurn = !userFlags.hasCompletedFirstBurn;
+    if (isFirstBurn) {
       setUserFlag('hasCompletedFirstBurn', true);
       queueMilestone(
         JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstRelease]
       );
     }
 
-    // Post-burn Signal Pulse — fires for ALL users on every burn ([both])
+    // Post-burn Signal Pulse — fires for first-time burn closure
     const postBurnContent = TEACHINGS['post_burn_toast_v1'];
-    if (postBurnContent) {
+    const alreadyExhausted = typeof isExhausted === 'function' ? isExhausted('post_burn_toast_v1') : false;
+    if (postBurnContent && isFirstBurn && !alreadyExhausted) {
       toast.info(postBurnContent.copy);
+      recordShown('post_burn_toast_v1', postBurnContent.pattern, postBurnContent.maxShows);
     }
 
     // Record ash line shown (if it will show)

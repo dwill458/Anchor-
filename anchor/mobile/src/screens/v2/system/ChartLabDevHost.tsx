@@ -3,6 +3,8 @@ import { DeviceEventEmitter, DevSettings, Linking, Modal, Pressable, Text, View 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { V2ChartPreview } from './V2ChartPreview';
 import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
+import { resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -16,9 +18,12 @@ export function ChartLabDevHost() {
   const accountId = useAuthStore(state => state.user?.id ?? null);
   const resetTeaching = async (replay: boolean) => {
     await resetAllTeachingSeen(accountId);
+    await resetChartTaughtState(accountId);
+    useTeachingStore.getState().reset();
     if (replay) {
       setOpen(false);
       DeviceEventEmitter.emit('replayAppTeaching');
+      DeviceEventEmitter.emit('chartReplayOneMoveTeaching');
     }
   };
   useEffect(() => {

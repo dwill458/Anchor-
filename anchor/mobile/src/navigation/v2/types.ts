@@ -48,6 +48,7 @@ export type AnchorV2StackParamList = {
   };
   V2PracticePrepare: { anchorId: string; mode?: V2PracticeMode };
   V2Vision: { edit?: boolean; anchorId?: string; initialMode?: 'view' | 'create' | 'ready'; resumeGeneration?: boolean };
+  V2VisionNoteComposer: { anchorId: string; visionId?: string };
   V2Chart: {
     courseId?: string;
     anchorId?: string;
@@ -57,9 +58,14 @@ export type AnchorV2StackParamList = {
   V2ChartWaypoint: { anchorId: string; waypointId: string };
   V2ChartAdjust: { anchorId: string };
   V2ChartJourney: { anchorId: string };
-  V2Progress: { anchorId?: string };
+  /** `anchorTransition`: the Anchor is travelling in from Details, so the route only cross-fades under it. */
+  V2Progress: { anchorId?: string; anchorTransition?: boolean };
   V2Release: V2ReleaseRouteParams;
   V2WeeklyInsight: V2WeeklyInsightRouteParams | undefined;
+  /** Post-first-practice reminder invitation. `anchorTransition`: the mark flies in from the complete screen. */
+  V2NotificationInvitation: { anchorId: string; anchorTransition?: boolean; reducedMotion?: boolean };
+  /** Choose-your-time step of the reminder invitation. */
+  V2ReminderTime: { anchorId: string };
   V2Settings: undefined;
   V2Auth: { initialMode?: 'signin' | 'create' } | undefined;
   Login: AuthScreenParams | undefined;

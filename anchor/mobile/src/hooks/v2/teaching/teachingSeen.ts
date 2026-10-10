@@ -19,14 +19,26 @@ export async function getTeachingSeen(accountId: string | null, beat: BeatId): P
   const key = keyFor(accountId, beat);
   const cached = cache.get(key);
   if (cached !== undefined) return cached;
-  if (!accountId) return false;
   const generation = generations.get(key) ?? 0;
   generations.set(key, generation);
   try {
     const value = await encryptedPersistStorage.getItem(key);
     if ((generations.get(key) ?? 0) !== generation) return cache.get(key) ?? false;
-    cache.set(key, value === '1');
-    return value === '1';
+    let seen = value === '1';
+    if (!seen && accountId) {
+      try {
+        const guestKey = keyFor(null, beat);
+        const guestValue = await encryptedPersistStorage.getItem(guestKey);
+        if (guestValue === '1') {
+          seen = true;
+          void write(key, () => encryptedPersistStorage.setItem(key, '1'));
+        }
+      } catch {
+        // ignore guest fallback error
+      }
+    }
+    cache.set(key, seen);
+    return seen;
   } catch { return false; }
 }
 
@@ -34,15 +46,27 @@ export function setTeachingSeen(accountId: string | null, beat: BeatId): void {
   const key = keyFor(accountId, beat);
   generations.set(key, (generations.get(key) ?? 0) + 1);
   cache.set(key, true);
-  if (accountId) void write(key, () => encryptedPersistStorage.setItem(key, '1'));
+  void write(key, () => encryptedPersistStorage.setItem(key, '1'));
+  if (accountId) {
+    const guestKey = keyFor(null, beat);
+    cache.set(guestKey, true);
+    void write(guestKey, () => encryptedPersistStorage.setItem(guestKey, '1'));
+  }
 }
 
 export async function resetAllTeachingSeen(accountId: string | null): Promise<void> {
-  await Promise.all(TEACHING_BEAT_IDS.map(beat => {
+  await Promise.all(TEACHING_BEAT_IDS.map(async beat => {
     const key = keyFor(accountId, beat);
     generations.set(key, (generations.get(key) ?? 0) + 1);
     cache.set(key, false);
-    return accountId ? write(key, () => encryptedPersistStorage.removeItem(key)) : Promise.resolve();
+    const tasks = [write(key, () => encryptedPersistStorage.removeItem(key))];
+    if (accountId) {
+      const guestKey = keyFor(null, beat);
+      generations.set(guestKey, (generations.get(guestKey) ?? 0) + 1);
+      cache.set(guestKey, false);
+      tasks.push(write(guestKey, () => encryptedPersistStorage.removeItem(guestKey)));
+    }
+    await Promise.all(tasks);
   }));
 }
 

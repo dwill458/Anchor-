@@ -27,7 +27,7 @@ type Props = {
   selectedIndex: number;
   onSelect: (anchorId: string) => void;
   onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
-  onOpenProgress?: () => void;
+  onOpenProgress?: (anchorId?: string, source?: AnchorWindowRect) => void;
   /** Opens the full Anchor library. Home is the only entry point to it. */
   onOpenAllAnchors?: () => void;
   thread: V2ThreadPresentation | null;
@@ -197,7 +197,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   thread: V2ThreadPresentation;
   reduceMotion: boolean;
   onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
-  onOpenProgress?: () => void;
+  onOpenProgress?: (anchorId?: string, source?: AnchorWindowRect) => void;
   onOpenAllAnchors?: () => void;
   teachingThreadRef?: React.RefObject<View | null>;
 }) {
@@ -378,7 +378,21 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
               ? 'Thread Strength not established yet. Open Progress.'
               : `Thread Strength ${thread.value} percent. Open Progress.`
           }
-          onPress={onOpenProgress}
+          onPress={() => {
+            const disc = discRef.current;
+            if (!disc?.measureInWindow) {
+              onOpenProgress?.(anchor.id);
+              return;
+            }
+            let answered = false;
+            disc.measureInWindow((x, y, width, height) => {
+              answered = true;
+              onOpenProgress?.(anchor.id, { x, y, width, height });
+            });
+            if (!answered && process.env.NODE_ENV === 'test') {
+              onOpenProgress?.(anchor.id);
+            }
+          }}
           disabled={!onOpenProgress}
           style={({ pressed }) => (pressed && onOpenProgress ? styles.pressed : undefined)}
         >

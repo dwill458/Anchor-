@@ -11,13 +11,19 @@ it('persists per account and beat using the new namespace', async () => {
   expect(await getTeachingSeen('other', 'home.today')).toBe(false);
   expect(await getTeachingSeen('a/b', 'home.progress')).toBe(false);
 });
-it('guests stay in memory only', async () => {
+it('guests persist under guest namespace', async () => {
   setTeachingSeen(null, 'home.today');
+  await Promise.resolve();
+  expect(storage.setItem).toHaveBeenCalledWith('guest:teach:home.today', '1');
   expect(await getTeachingSeen(null, 'home.today')).toBe(true);
-  expect(storage.setItem).not.toHaveBeenCalled();
+  storage.getItem.mockResolvedValue('1');
   resetTeachingSeenCache();
-  expect(await getTeachingSeen(null, 'home.today')).toBe(false);
-  expect(storage.getItem).not.toHaveBeenCalled();
+  expect(await getTeachingSeen(null, 'home.today')).toBe(true);
+  expect(storage.getItem).toHaveBeenCalledWith('guest:teach:home.today');
+});
+it('migrates guest seen state to account on read', async () => {
+  storage.getItem.mockImplementation(async (key: string) => (key === 'guest:teach:home.today' ? '1' : null));
+  expect(await getTeachingSeen('user-1', 'home.today')).toBe(true);
 });
 it('storage throws never crash', async () => {
   storage.getItem.mockImplementation(() => { throw Error('offline'); });
@@ -34,7 +40,7 @@ it('loads persisted flags after clearing cache', async () => {
   expect(await getTeachingSeen('a', 'home.today')).toBe(true);
   expect(storage.getItem).toHaveBeenCalledTimes(2);
 });
-it('reset clears only one account and ignores reads started before reset', async () => {
+it('reset clears account and guest storage and ignores reads started before reset', async () => {
   let resolve!: (value: string) => void;
   storage.getItem.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
   const read = getTeachingSeen('a', 'home.today');
@@ -43,5 +49,6 @@ it('reset clears only one account and ignores reads started before reset', async
   resolve('1');
   expect(await read).toBe(false);
   expect(await getTeachingSeen('b', 'home.today')).toBe(true);
-  expect(storage.removeItem.mock.calls.every(([key]) => key.endsWith(':a'))).toBe(true);
+  expect(storage.removeItem.mock.calls.some(([key]) => key.endsWith(':a'))).toBe(true);
+  expect(storage.removeItem.mock.calls.some(([key]) => key.startsWith('guest:teach:'))).toBe(true);
 });

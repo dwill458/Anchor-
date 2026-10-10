@@ -33,8 +33,8 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { HomeArrivalOverlay, HomeArrivalProvider, homeArrivalCelebrationId, useHomeArrival } from '@/components/v2/home/homeArrival';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { isFlightlessArrivalKind } from '@/stores/v2/homeArrivalStore';
-import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
-import { resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
+import { isUsableRect, useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
+import { predictProgressAnchorRect, resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { playCreationSound } from '@/services/CreationSounds';
 import { useAuthStore } from '@/stores/authStore';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
@@ -251,7 +251,7 @@ export function V2HomeScreen() {
     // practice stages its arrival the same way, while its complete screen is still on top.
     const topRoute: string | undefined = state?.routes?.[state.index]?.name;
     // A Release ending returning to Home stages its arrival the same way, while the ending is still on top.
-    const handoffOnTop = topRoute === 'AnchorCreationFlow' || topRoute === 'V2Creation' || topRoute === 'V2Practice' || topRoute === 'V2Release';
+    const handoffOnTop = topRoute === 'AnchorCreationFlow' || topRoute === 'V2Creation' || topRoute === 'V2Practice' || topRoute === 'V2Release' || topRoute === 'V2NotificationInvitation' || topRoute === 'V2ReminderTime';
     if (state && state.index > 0 && !handoffOnTop) navigation.popToTop();
   }, [elastic.scrollRef, navigation]);
   const arrival = useHomeArrival({
@@ -506,10 +506,35 @@ export function V2HomeScreen() {
     [focusTransition, insets.top, model.anchorList, navigation, windowHeight, windowWidth],
   );
 
-  const handleOpenProgress = useCallback(() => {
-    track('v2_home_progress_tapped');
-    intents.onOpenProgress(selectedId ?? undefined);
-  }, [intents, selectedId]);
+  const handleOpenProgress = useCallback(
+    (targetAnchorId?: string, source?: AnchorWindowRect) => {
+      track('v2_home_progress_tapped');
+      const id = (typeof targetAnchorId === 'string' && targetAnchorId) ? targetAnchorId : (selectedId ?? undefined);
+      if (!id) {
+        intents.onOpenProgress();
+        return;
+      }
+      const anchor = model.anchorList.find((item) => item.anchor.id === id)?.anchor;
+      if (!anchor || !isUsableRect(source)) {
+        intents.onOpenProgress(id);
+        return;
+      }
+      const destination = predictProgressAnchorRect({ topInset: insets.top });
+      const accepted = focusTransition.startAnchorTransition({
+        anchor,
+        from: { rect: source, appearance: 'paper', place: 'home' },
+        to: { target: 'progress', rect: destination, appearance: 'bare' },
+        onNavigate: (withHero) => {
+          if (withHero) intents.onOpenProgress(id, { anchorTransition: true });
+          else intents.onOpenProgress(id);
+        },
+      });
+      if (!accepted) {
+        intents.onOpenProgress(id);
+      }
+    },
+    [focusTransition, insets.top, intents, model.anchorList, selectedId],
+  );
 
   const handleOpenAllAnchors = useCallback(() => {
     track('v2_anchor_library_viewed', { from: 'home' });

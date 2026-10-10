@@ -874,6 +874,7 @@ export function toV2ProgressModel(
 
   const base: V2ProgressModel = {
     anchorId: anchor.id,
+    anchor,
     intention,
     category: anchor.category,
     threadStrength,

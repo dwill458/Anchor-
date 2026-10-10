@@ -413,6 +413,27 @@ describe('V2AnchorDetailsScreen', () => {
     )).toBe(true));
   });
 
+  it('keeps the intention in the header and opens the full Vision from the richer preview', async () => {
+    const intention = 'A real intention';
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { success: true, data: {
+      id: 'v-123', anchorId: 'a', status: 'ACTIVE', title: intention, description: intention,
+      scenes: [
+        { id: 's-1', resolvedImageUrl: 'https://example.test/portrait.jpg', sortOrder: 0, isArchived: false },
+        { id: 's-2', resolvedImageUrl: 'https://example.test/vehicle.jpg', sortOrder: 1, isArchived: false },
+        { id: 's-3', resolvedImageUrl: 'https://example.test/landscape.jpg', sortOrder: 2, isArchived: false },
+      ],
+    } } });
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', intentionText: intention })] });
+    const onOpenVision = jest.fn();
+    renderDetails({ onOpenVision });
+    await waitFor(() => expect(screen.getByTestId('v2-details-vision')).toBeTruthy());
+    // Both animated header modes carry the same intention; the card adds no third copy.
+    expect(screen.getAllByText(intention, { includeHiddenElements: true })).toHaveLength(2);
+    expect(screen.getByText('View Vision', { exact: false })).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-details-vision'));
+    expect(onOpenVision).toHaveBeenCalledWith('a');
+  });
+
   it('opens Release when the chart is complete', async () => {
     const completed = chartReadModel({
       chart: {

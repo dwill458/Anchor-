@@ -20,4 +20,6 @@ export const ANCHOR_V2_ROUTES = {
   progress: 'V2Progress',
   release: V2_RELEASE_ROUTE,
   weeklyInsight: V2_WEEKLY_INSIGHT_ROUTE,
+  notificationInvitation: 'V2NotificationInvitation',
+  reminderTime: 'V2ReminderTime',
 } as const;

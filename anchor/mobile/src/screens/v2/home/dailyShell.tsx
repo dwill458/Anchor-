@@ -28,7 +28,8 @@ export type V2DailyShellIntents = {
   onCreateVision?: (anchorId: string) => void;
   onOpenChart?: (anchorId?: string, courseId?: string) => void;
   onCreateChart?: (anchorId: string) => void;
-  onOpenProgress?: (anchorId?: string) => void;
+  /** `anchorTransition`: the Anchor is travelling into Progress, so the route only cross-fades beneath it. */
+  onOpenProgress?: (anchorId?: string, options?: { anchorTransition?: boolean }) => void;
   onCreateAnchor?: () => void;
   onOpenProfile?: () => void;
   onReleaseAnchor?: (anchorId: string, options?: { anchorTransition?: boolean }) => void;

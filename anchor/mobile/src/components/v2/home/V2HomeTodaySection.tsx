@@ -191,20 +191,37 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
   const usesVisionArt = displayMode === 'visualize' && Boolean(visionCoverUri);
   const artSource = usesVisionArt ? { uri: visionCoverUri } : resolvePracticeArtwork(displayMode);
   const artFocus = usesVisionArt && visionCoverIsReused ? TODAY_ART_FOCUS_REUSED_VISION : TODAY_ART_FOCUS;
+  const onArtPress = doneToday?.nextMode ? onBegin : doneToday ? onOpenAllPractices : onBegin;
+  const artAccessibilityLabel = doneToday?.nextMode
+    ? `Next · ${v2PracticeModeTitle(doneToday.nextMode)} · ${duration || 'When ready'}`
+    : doneToday
+      ? 'All Practices'
+      : activeToday.mode === 'release'
+        ? 'Open Release'
+        : `Begin ${V2_PRACTICE_MODE_BY_ID[activeToday.mode].title} practice`;
 
   return (
     <View testID={testID} style={styles.container}>
-      <V2DissolvedArtwork
-        testID={usesVisionArt ? 'v2-home-today-artwork-vision' : 'v2-home-today-artwork'}
-        source={artSource}
-        surface={colors.graphite.base}
-        focus={artFocus}
-        clearRadius={0.34}
-        radius={0.66}
-        fade={TODAY_ART_FADE}
-        style={styles.practiceArt}
-      />
-      <Animated.View style={contentStyle}>
+      <Pressable
+        testID="v2-home-today-artwork-launch"
+        accessibilityRole="button"
+        accessibilityLabel={artAccessibilityLabel}
+        onPress={onArtPress}
+        disabled={!onArtPress}
+        style={({ pressed }) => [styles.practiceArt, pressed && styles.artPressed]}
+      >
+        <V2DissolvedArtwork
+          testID={usesVisionArt ? 'v2-home-today-artwork-vision' : 'v2-home-today-artwork'}
+          source={artSource}
+          surface={colors.graphite.base}
+          focus={artFocus}
+          clearRadius={0.34}
+          radius={0.66}
+          fade={TODAY_ART_FADE}
+          style={styles.practiceArtImage}
+        />
+      </Pressable>
+      <Animated.View pointerEvents="box-none" style={contentStyle}>
       <View style={styles.kickerRow}>
         {/* // DEFERRED: The old outlined completion tag is retained after replacing it with the filled pennant.
         <View style={[styles.ribbon, styles.doneRibbon]}>
@@ -386,6 +403,13 @@ const styles = StyleSheet.create({
     // a first pass at this (1.5 -> 1.32, ~14% more height at the same width)
     // so the illustration keeps pace with Today's larger headline.
     aspectRatio: 1.32,
+  },
+  practiceArtImage: {
+    width: '100%',
+    height: '100%',
+  },
+  artPressed: {
+    opacity: 0.94,
   },
   beginText: {
     fontFamily: 'Figtree-Regular',

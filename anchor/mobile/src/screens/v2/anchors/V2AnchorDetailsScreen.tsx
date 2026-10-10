@@ -1,6 +1,6 @@
 import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Image, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
+import { BackHandler, Image, Platform, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Play, Sparkle } from 'lucide-react-native';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
@@ -33,6 +33,7 @@ import { V2_RECOMMENDATION_ACTION_TO_MODE, V2_PRACTICE_MODE_BY_ID, type V2Practi
 import { resolvePracticeArtwork } from '@/components/v2/practice';
 import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeColor } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
 import {
   PRACTICE_CARD_HEIGHT,
@@ -49,7 +50,8 @@ import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
 import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
 import { prefetchChartIntro } from '@/components/v2/chart/chartIntroPrefetch';
-import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
+import { VisionEditorialPreview } from '@/components/v2/vision/VisionEditorialPreview';
+import { useVisionEditorialNotes } from '@/components/v2/vision/useVisionEditorialNotes';
 import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
@@ -405,6 +407,7 @@ function VisionSection({
   onEditVision: () => void;
   onRetry: () => void | Promise<void>;
 }) {
+  const noteElements = useVisionEditorialNotes(state.state === 'ready' ? state.raw.notes : undefined);
   if (state.state === 'loading' || state.state === 'error') {
     return (
       <View testID="v2-details-vision-section" style={styles.sectionBlock}>
@@ -440,7 +443,8 @@ function VisionSection({
     <View testID="v2-details-vision-section" style={styles.sectionBlock}>
       <SectionHeader title="Vision" action="Edit ›" actionLabel="Edit Vision" onAction={onEditVision} />
       <View style={styles.cardClip}>
-        <VisionBoardPreview key={state.state === 'ready' ? state.visionId : 'vision'} tiles={tiles} statement={statement} variant="details" accent={accent}
+        <VisionEditorialPreview key={state.state === 'ready' ? state.visionId : 'vision'} tiles={tiles} statement={statement} variant="details" accent={accent}
+          featuredTileId={state.state === 'ready' ? state.featuredTileId : undefined} noteElements={noteElements}
           testID="v2-details-vision" accessibilityLabel="Vision" onPress={onOpenVision} />
       </View>
       {seenToday ? <Text style={[styles.quiet, { marginTop: 10 }]}>Seen today ✓</Text> : null}
@@ -635,6 +639,26 @@ export function V2AnchorDetailsScreen() {
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const backToHome = useCallback(() => {
+    if (serverId) useAnchorStore.getState().setCurrentAnchor(serverId);
+    const routeNames = (navigation as any).getState?.()?.routeNames as string[] | undefined;
+    if (routeNames?.includes('V2Home')) {
+      (navigation as any).navigate('V2Home');
+    } else {
+      (navigation as any).navigate('V2DevelopmentHome');
+    }
+  }, [navigation, serverId]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (typeof (navigation as any).isFocused === 'function' && !(navigation as any).isFocused()) return false;
+      backToHome();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [backToHome, navigation]);
+
   const showToast = useCallback((message: string) => {
     setToastText(message);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -663,9 +687,11 @@ export function V2AnchorDetailsScreen() {
   const recommendation = useRecommendation(serverId);
   const visionTile = vision.tiles.find(tile => tile.imageUrl?.trim()) ?? vision.tiles[0];
   const visionTiles = vision.tiles;
-  const visionStatement = vision.state.state === 'ready' ? vision.state.title?.trim() || vision.state.description || vision.description || '' : '';
+  const visionDescription = vision.state.state === 'ready' ? vision.state.description || vision.description || '' : '';
+  const visionStatement = visionDescription.trim() === anchor?.intentionText.trim() ? '' : visionDescription;
   const visionSeenToday = vision.state.state === 'ready' ? Boolean(vision.state.seenToday) : false;
-  const hasVisionContent = Boolean(visionTile?.imageUrl || visionStatement?.trim());
+  const hasVisionContent = Boolean(visionTile?.imageUrl || visionDescription.trim() ||
+    (vision.state.state === 'ready' && (vision.state.title?.trim() || vision.state.raw.notes?.some(note => note.content.text.trim()))));
 
   const shareStateValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
   const exportActions = useAnchorExportActions(anchor, {
@@ -886,7 +912,7 @@ export function V2AnchorDetailsScreen() {
   if (!anchor) {
     return (
       <V2Screen testID="v2-anchor-details-screen">
-        <V2TopBar title="Anchor" onBackPress={() => navigation.goBack()} />
+        <V2TopBar title="Anchor" onBackPress={backToHome} />
         <V2EmptyState title="Anchor not found" message="This Anchor may have been deleted or archived." />
       </V2Screen>
     );
@@ -896,7 +922,19 @@ export function V2AnchorDetailsScreen() {
   const threadDelta = recommendation.value?.delta ?? null;
 
   const openProgress = () => {
-    if (serverId) intents.onOpenProgress(serverId);
+    if (!serverId) return;
+    if (!anchor) {
+      intents.onOpenProgress(serverId);
+      return;
+    }
+    // The Anchor travels into the Thread Strength ring. Without a measurable
+    // artwork on screen (scrolled away, not laid out) the route opens ordinarily.
+    focusTransition.startAnchorTransition({
+      anchor,
+      from: 'details',
+      to: { target: 'progress' },
+      onNavigate: (withHero) => (withHero ? intents.onOpenProgress(serverId, { anchorTransition: true }) : intents.onOpenProgress(serverId)),
+    });
   };
 
   const openVision = (options?: { edit?: boolean }) => {
@@ -943,6 +981,7 @@ export function V2AnchorDetailsScreen() {
 
   const handleOpenAllPractices = useCallback(() => {
     if (!serverId) return;
+    useAnchorStore.getState().setCurrentAnchor(serverId);
     intents.onOpenPractice(serverId, undefined, {
       anchorTransition: false,
       returnRoute: 'V2AnchorDetails',
@@ -1043,7 +1082,7 @@ export function V2AnchorDetailsScreen() {
         </Animated.View>
 
         <View style={[styles.navRow, { top: insets.top + 4 }]} pointerEvents="box-none">
-          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => navigation.goBack()} hitSlop={4} style={styles.navButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={backToHome} hitSlop={4} style={styles.navButton}>
             <ChevronLeft color={detailsPalette.ink} size={24} />
           </Pressable>
           <Pressable

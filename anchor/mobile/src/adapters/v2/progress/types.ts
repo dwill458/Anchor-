@@ -157,6 +157,7 @@ export interface V2ProgressReflection {
 
 export interface V2ProgressModel {
   anchorId: string;
+  anchor?: import('@/types').Anchor;
   intention: string;
   category?: string | null;
   threadStrength: number | null;

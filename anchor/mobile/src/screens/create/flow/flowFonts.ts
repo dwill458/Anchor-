@@ -22,7 +22,9 @@ export function useFlowFonts(): FlowFontCache | null {
   const serif = useTypeface(SERIF_REGULAR);
   const serifItalic = useTypeface(SERIF_ITALIC);
   const sans400 = useTypeface(SANS_REGULAR);
-  const sans500 = useTypeface(SANS_MEDIUM);
+  // Keep the creation canvas renderable if Skia cannot resolve the Medium asset.
+  // Once it loads, Fast Refresh/state updates replace this with the intended face.
+  const sans500 = useTypeface(SANS_MEDIUM) ?? sans400;
   const sans600 = useTypeface(SANS_SEMIBOLD);
 
   return useMemo(() => {

@@ -58,9 +58,11 @@ export function V2AnchorLibraryScreen() {
 
   const options = hasReleased ? FILTERS : FILTERS.filter((f) => f.value !== 'released');
   const handleSelectAnchor = useCallback((anchorId: string) => {
+    const entry = entries.find((item) => item.anchor.id === anchorId || item.anchor.localId === anchorId);
+    if (entry && !entry.released) useAnchorStore.getState().setCurrentAnchor(entry.anchor.id);
     track('v2_anchor_details_viewed', { from: 'library' });
     navigation.navigate('V2AnchorDetails', { anchorId });
-  }, [navigation]);
+  }, [entries, navigation]);
 
   return (
     <V2Screen testID="v2-anchor-library-screen">

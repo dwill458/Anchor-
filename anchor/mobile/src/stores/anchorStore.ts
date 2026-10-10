@@ -148,11 +148,19 @@ export const useAnchorStore = create<AnchorState>()(
 
       // Actions
       setAnchors: (anchors) =>
-        set((state) => ({
-          anchors: mergeAnchors([], carryForwardEvolvedFrom(anchors, state.anchors)),
-          totalPrimes: calculateTotalPrimes(anchors),
-          error: null,
-        })),
+        set((state) => {
+          if (anchors && anchors.length > 0) {
+            const teaching = useTeachingStore.getState();
+            if (!teaching.userFlags.hasCreatedFirstAnchor) {
+              teaching.setUserFlag('hasCreatedFirstAnchor', true);
+            }
+          }
+          return {
+            anchors: mergeAnchors([], carryForwardEvolvedFrom(anchors, state.anchors)),
+            totalPrimes: calculateTotalPrimes(anchors),
+            error: null,
+          };
+        }),
 
       addAnchor: (anchor) => {
         const teaching = useTeachingStore.getState();
@@ -493,6 +501,12 @@ export const useAnchorStore = create<AnchorState>()(
 
           state.anchors = mergeAnchors([], state.anchors ?? []);
           state.totalPrimes = calculateTotalPrimes(state.anchors);
+          if (state.anchors.length > 0) {
+            const teaching = useTeachingStore.getState();
+            if (!teaching.userFlags.hasCreatedFirstAnchor) {
+              teaching.setUserFlag('hasCreatedFirstAnchor', true);
+            }
+          }
           state.setPersistedHydrated(true);
           span({ ok: !error, anchorCount: state.anchors.length, hasSelectedAnchor: Boolean(state.currentAnchorId) });
         };

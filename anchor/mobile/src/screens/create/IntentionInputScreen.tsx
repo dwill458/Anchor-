@@ -200,14 +200,14 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
 
     const handleFocus = () => {
         setIsFocused(true);
-        // First-time undertone: show after 1.2s of focus with no keystrokes
+        // First-time undertone: show after 3.5s of focus with no keystrokes
         if (firstTimeTeaching && !firstTimeShownRef.current) {
             idleTimerRef.current = setTimeout(() => {
                 if (firstTimeTeaching && !firstTimeShownRef.current) {
                     firstTimeShownRef.current = true;
                     showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
                 }
-            }, 1200);
+            }, 3500);
         }
         setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -227,14 +227,14 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
             // Reset idle timer on every keystroke
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
-            // Schedule hesitation hint after 8s idle (only if user has typed something)
+            // Schedule hesitation hint after 14s idle (only if user has typed something)
             if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
                 idleTimerRef.current = setTimeout(() => {
                     if (hesitationTeaching && !hesitationShownRef.current) {
                         hesitationShownRef.current = true;
                         showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
                     }
-                }, 8000);
+                }, 14000);
             }
         }
     };

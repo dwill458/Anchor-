@@ -49,6 +49,7 @@ export const V2ProgressAnchorSheet: React.FC<V2ProgressAnchorSheetProps> = ({
         <V2SheetGrabZone>
           <View style={styles.handle} />
         </V2SheetGrabZone>
+        <Text style={styles.sheetTitle}>Switch Anchor</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
           {anchors.map((anchor) => {
             const selected = anchor.id === selectedAnchorId;
@@ -111,7 +112,14 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.border.default,
-    marginBottom: 14,
+    marginBottom: 10,
+  },
+  sheetTitle: {
+    ...typography.labelMD,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 12,
+    letterSpacing: 0.5,
   },
   row: {
     flexDirection: 'row',

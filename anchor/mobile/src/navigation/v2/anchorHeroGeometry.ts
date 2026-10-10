@@ -56,6 +56,17 @@ export function predictPracticeSetupAnchorRect({
   };
 }
 
+/** Progress gauge ring (where the Anchor lands inside the 150dp Thread Strength ring). */
+export function predictProgressAnchorRect({ topInset }: { topInset: number }): AnchorWindowRect {
+  // V2ProgressHero has 22pt horizontal padding; ring is 150dp wide, artwork is 104dp centered inside it.
+  const ringX = 22;
+  const artSize = 104;
+  const x = ringX + (150 - artSize) / 2;
+  // Progress header (~44pt), category eyebrow row (~18pt), 2-line intention title (~58pt), ring top inset (~23pt)
+  const y = topInset + 44 + 18 + 58 + (150 - artSize) / 2;
+  return { x, y, width: artSize, height: artSize };
+}
+
 /** The Anchor's focal rect in each active session. */
 export function predictSessionAnchorRect({
   width, height, topInset, bottomInset, mode,

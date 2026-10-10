@@ -62,10 +62,16 @@ export interface V2ProgressRingProps {
   value: number | null;
   size?: number;
   testID?: string;
+  children?: React.ReactNode;
 }
 
-/** The Thread Strength ring. No glow or aura: just the track, the drawn arc and the number. */
-export const V2ProgressRing: React.FC<V2ProgressRingProps> = ({ value, size = 150, testID = 'v2-progress-ring' }) => {
+/** The Thread Strength ring. No glow or aura: just the track, the drawn arc, artwork inside, and the number beneath. */
+export const V2ProgressRing: React.FC<V2ProgressRingProps> = ({
+  value,
+  size = 150,
+  children,
+  testID = 'v2-progress-ring',
+}) => {
   const measured = typeof value === 'number';
   const clamped = measured ? Math.min(100, Math.max(0, Math.round(value as number))) : 0;
   const c = 75;
@@ -87,45 +93,55 @@ export const V2ProgressRing: React.FC<V2ProgressRingProps> = ({ value, size = 15
       testID={testID}
       accessible
       accessibilityLabel={measured ? `Thread Strength ${clamped} out of 100` : 'Thread Strength not established yet'}
-      style={{ width: size, height: size }}
+      style={[styles.gaugeColumn, { width: size }]}
     >
-      <Svg width={size} height={size} viewBox="0 0 150 150">
-        <Path
-          d={track}
-          fill="none"
-          stroke={progressTokens.heroTrack}
-          strokeWidth={RING_WEIGHT}
-          strokeLinecap="round"
-        />
-        {fill ? <Path d={fill} fill={progressTokens.heroText} /> : null}
-        {startCap ? <Circle cx={startCap.x} cy={startCap.y} r={RING_WEIGHT / 2.2} fill={progressTokens.heroText} /> : null}
-        {endCap ? <Circle cx={endCap.x} cy={endCap.y} r={RING_WEIGHT / 2.2} fill={progressTokens.heroText} /> : null}
-      </Svg>
-      <View style={styles.center} pointerEvents="none">
-        <Text style={[styles.number, !measured && styles.numberDim]}>{measured ? clamped : '—'}</Text>
-        <Text style={styles.label}>{'THREAD\nSTRENGTH'}</Text>
+      <View style={{ width: size, height: size }}>
+        <Svg width={size} height={size} viewBox="0 0 150 150">
+          <Path
+            d={track}
+            fill="none"
+            stroke={progressTokens.heroTrack}
+            strokeWidth={RING_WEIGHT}
+            strokeLinecap="round"
+          />
+          {fill ? <Path d={fill} fill={progressTokens.heroText} /> : null}
+          {startCap ? <Circle cx={startCap.x} cy={startCap.y} r={RING_WEIGHT / 2.2} fill={progressTokens.heroText} /> : null}
+          {endCap ? <Circle cx={endCap.x} cy={endCap.y} r={RING_WEIGHT / 2.2} fill={progressTokens.heroText} /> : null}
+        </Svg>
+        <View style={styles.center} pointerEvents="none">
+          {children}
+        </View>
+      </View>
+      <View style={styles.metricsBelow}>
+        <Text style={[styles.numberBelow, !measured && styles.numberDim]}>
+          {measured ? clamped : '—'}
+        </Text>
+        <Text style={styles.labelBelow}>THREAD STRENGTH</Text>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  gaugeColumn: { alignItems: 'center' },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  number: {
+  metricsBelow: { alignItems: 'center', marginTop: 6 },
+  numberBelow: {
     fontFamily: progressTokens.serif,
-    fontSize: 46,
-    lineHeight: 50,
-    letterSpacing: -0.9,
+    fontSize: 27,
+    lineHeight: 31,
+    letterSpacing: -0.5,
     color: progressTokens.heroText,
+    textAlign: 'center',
   },
   numberDim: { opacity: 0.35 },
-  label: {
+  labelBelow: {
     ...typography.labelSM,
     fontSize: 9.5,
-    letterSpacing: 1.3,
+    letterSpacing: 1.4,
     color: progressTokens.heroMuted,
     lineHeight: 12,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
 });

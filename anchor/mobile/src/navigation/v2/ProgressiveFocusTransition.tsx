@@ -39,6 +39,7 @@ export type AnchorTransitionDestination =
   | 'practice'
   | 'practiceSetup'
   | 'release'
+  | 'progress'
   | 'focusSession'
   | 'deepFocusSession'
   | 'visualizeSession';
@@ -83,6 +84,14 @@ export const ANCHOR_TRANSITION_TIMING = {
   visualize: { exitMs: 220, navigateAtMs: 220, travelDelayMs: 60, travelMs: 500, revealDelayMs: 280, revealMs: 340, dissolveMs: 420 },
   /** Details -> Home: Details is popped at once, uncovering Home, and the copy travels home over it. */
   back: { exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 300, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
+  /**
+   * Details -> Progress. The route change is a short native cross-fade under
+   * the copy (navigateAtMs 0); Details' UI leaves while the Anchor travels,
+   * and Progress's UI arrives behind it, finishing just after the Anchor lands.
+   */
+  progress: { exitMs: 180, navigateAtMs: 0, travelDelayMs: 0, travelMs: 540, revealDelayMs: 200, revealMs: 380, dissolveMs: 0 },
+  /** Progress -> Details: Progress's UI leaves as the Anchor does; Details is uncovered beneath the copy. */
+  progressBack: { exitMs: 180, navigateAtMs: 0, travelDelayMs: 40, travelMs: 520, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
   /** Reduce Motion, Home <-> Details: the route cuts at once and the copy cross-dissolves in place. */
   reduced: { exitMs: 0, navigateAtMs: 0, crossfadeMs: 140 },
   /** A destination measured after travel has ended is reached this quickly. */
@@ -117,6 +126,7 @@ type DestinationPreset = {
 const DESTINATIONS: Record<AnchorTransitionDestination, DestinationPreset> = {
   release: { timing: ANCHOR_TRANSITION_TIMING.fromDetails, appearance: 'paper', backdrop: null, settle: 'handoff', plainMark: false },
   details: { timing: ANCHOR_TRANSITION_TIMING.details, appearance: 'paper', backdrop: null, settle: 'handoff', plainMark: false },
+  progress: { timing: ANCHOR_TRANSITION_TIMING.progress, appearance: 'bare', backdrop: null, settle: 'handoff', plainMark: false },
   practice: { timing: ANCHOR_TRANSITION_TIMING.practice, appearance: 'bare', backdrop: null, settle: 'handoff', plainMark: false },
   practiceSetup: { timing: ANCHOR_TRANSITION_TIMING.practice, appearance: 'paper', backdrop: null, settle: 'handoff', plainMark: false },
   // Focus keeps its own dark treatment and draws the stored structure only.
@@ -178,6 +188,15 @@ export type StartAnchorTransition = {
   onNavigate: (withHero: boolean) => void;
 };
 
+/** A reverse hop between two registered places (Progress -> Details). */
+export type ReturnAnchorTransition = {
+  anchor: MovingAnchor;
+  from: AnchorTransitionDestination;
+  to: AnchorTransitionDestination;
+  /** `withHero` is false when no flight runs: navigate as the route normally would. */
+  onNavigate: (withHero: boolean) => void;
+};
+
 type FocusTransitionContextValue = {
   progress: SharedValue<number>;
   exitProgress: SharedValue<number>;
@@ -197,6 +216,8 @@ type FocusTransitionContextValue = {
   closeAnchor: (anchorId: string, navigate: () => void) => boolean;
   /** Any other hop. False when refused because another flight owns the Anchor. */
   startAnchorTransition: (request: StartAnchorTransition) => boolean;
+  /** Progress -> Details. False when refused because another flight owns the Anchor. */
+  returnAnchor: (request: ReturnAnchorTransition) => boolean;
   registerPlace: (place: AnchorTransitionDestination, entry: PlaceEntry) => void;
   unregisterPlace: (place: AnchorTransitionDestination, token: object) => void;
   measurePlace: (place: AnchorTransitionDestination, token: object) => void;
@@ -207,8 +228,15 @@ const FocusTransitionContext = createContext<FocusTransitionContextValue | null>
 const HERO_EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const GLIDE_EASE = Easing.out(Easing.quad);
 
-function isUsableRect(rect: AnchorWindowRect | null | undefined): rect is AnchorWindowRect {
+export function isUsableRect(rect: AnchorWindowRect | null | undefined): rect is AnchorWindowRect {
   return Boolean(rect) && [rect!.x, rect!.y, rect!.width, rect!.height].every(Number.isFinite) && rect!.width > 0 && rect!.height > 0;
+}
+
+/** The rect's centre is on screen: a scrolled-away artwork is not a place to fly from or to. */
+function isInWindow(rect: AnchorWindowRect, window: { width: number; height: number }): boolean {
+  const cx = rect.x + rect.width / 2;
+  const cy = rect.y + rect.height / 2;
+  return cx >= 0 && cx <= window.width && cy >= 0 && cy <= window.height;
 }
 
 function sameAnchor(anchor: MovingAnchor, anchorId: string | undefined): boolean {
@@ -241,6 +269,9 @@ export function ProgressiveFocusTransitionProvider({ children }: { children: Rea
 
 function RootTransitionProvider({ children }: { children: React.ReactNode }) {
   const reduceMotion = useReduceMotionEnabled();
+  const windowSize = useWindowDimensions();
+  const windowRef = useRef({ width: windowSize.width, height: windowSize.height });
+  windowRef.current = { width: windowSize.width, height: windowSize.height };
   const progress = useSharedValue(1);
   const exitProgress = useSharedValue(0);
   const revealProgress = useSharedValue(1);
@@ -488,12 +519,13 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
       onNavigate(false);
     };
     const begin = (source: AnchorWindowRect, sourceAppearance: AnchorTransitionAppearance, sourcePlace: AnchorTransitionPlace) => {
-      if (!isUsableRect(source)) {
+      if (!isUsableRect(source) || (to.target === 'progress' && !isInWindow(source, windowRef.current))) {
         fallback();
         return;
       }
       const registered = placesRef.current[to.target];
       const known = registered && sameAnchor(anchor, registered.anchorId) && isUsableRect(registered.rect) ? registered : null;
+      const ownTiming = to.target === 'progress';
       launch({
         anchor,
         direction: 'forward',
@@ -505,8 +537,8 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
         destinationAppearance: known?.appearance ?? to.appearance ?? preset.appearance,
         destinationPlainMark: known ? known.plainMark === true : preset.plainMark,
         targetPlace: to.target,
-        // Leaving Details changes route: cut, never fade (see ANCHOR_TRANSITION_TIMING).
-        timing: sourcePlace === 'details' ? ANCHOR_TRANSITION_TIMING.fromDetails : preset.timing,
+        // Leaving Details changes route: cut, never fade (see ANCHOR_TRANSITION_TIMING). Progress has its own staging.
+        timing: ownTiming ? preset.timing : sourcePlace === 'details' ? ANCHOR_TRANSITION_TIMING.fromDetails : preset.timing,
         backdrop: sourcePlace === 'details' ? null : preset.backdrop,
         settle: preset.settle,
         reduced: false,
@@ -531,6 +563,83 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(measureTimerRef.current);
       measureTimerRef.current = null;
       begin(centeredRect({ x, y, width, height }, entry.artSize), entry.appearance, from);
+    });
+    return true;
+  }, [launch, reduceMotion]);
+
+  /**
+   * Progress -> Details: the reverse of the flight that opened Progress. Both
+   * ends are measured now, from places that are registered for this very
+   * Anchor; anything less (another Anchor selected on Progress, Details not
+   * underneath, an end scrolled out of view, Reduce Motion) navigates without a
+   * flight so an Anchor is never sent to another Anchor's position.
+   */
+  const returnAnchor = useCallback(({ anchor, from, to, onNavigate }: ReturnAnchorTransition) => {
+    if (busyRef.current) return false;
+    if (reduceMotion) {
+      onNavigate(false);
+      return true;
+    }
+    const fromEntry = placesRef.current[from];
+    const toEntry = placesRef.current[to];
+    const fromNode = fromEntry?.ref.current;
+    const toNode = toEntry?.ref.current;
+    if (
+      !fromEntry || !toEntry || !sameAnchor(anchor, fromEntry.anchorId) || !sameAnchor(anchor, toEntry.anchorId)
+      || !fromNode || !toNode || typeof fromNode.measureInWindow !== 'function' || typeof toNode.measureInWindow !== 'function'
+    ) {
+      onNavigate(false);
+      return true;
+    }
+    busyRef.current = true;
+    setLocked(true);
+    let settled = false;
+    let source: AnchorWindowRect | null = null;
+    let destination: AnchorWindowRect | null = null;
+    const fallback = () => {
+      if (settled) return;
+      settled = true;
+      if (measureTimerRef.current) clearTimeout(measureTimerRef.current);
+      measureTimerRef.current = null;
+      busyRef.current = false;
+      setLocked(false);
+      onNavigate(false);
+    };
+    const proceed = () => {
+      if (settled || !source || !destination) return;
+      if (!isUsableRect(source) || !isUsableRect(destination) || !isInWindow(source, windowRef.current) || !isInWindow(destination, windowRef.current)) {
+        fallback();
+        return;
+      }
+      settled = true;
+      if (measureTimerRef.current) clearTimeout(measureTimerRef.current);
+      measureTimerRef.current = null;
+      launch({
+        anchor,
+        direction: 'back',
+        source,
+        sourceAppearance: fromEntry.appearance,
+        sourcePlace: from,
+        predicted: destination,
+        destination,
+        destinationAppearance: toEntry.appearance,
+        destinationPlainMark: toEntry.plainMark === true,
+        targetPlace: to,
+        timing: ANCHOR_TRANSITION_TIMING.progressBack,
+        backdrop: null,
+        settle: 'handoff',
+        reduced: false,
+      }, onNavigate);
+    };
+    // A view that never answers must not hold the lock.
+    measureTimerRef.current = setTimeout(fallback, 250);
+    fromNode.measureInWindow((x, y, width, height) => {
+      source = centeredRect({ x, y, width, height }, fromEntry.artSize);
+      proceed();
+    });
+    toNode.measureInWindow((x, y, width, height) => {
+      destination = centeredRect({ x, y, width, height }, toEntry.artSize);
+      proceed();
     });
     return true;
   }, [launch, reduceMotion]);
@@ -660,11 +769,12 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
     openAnchor,
     closeAnchor,
     startAnchorTransition,
+    returnAnchor,
     registerPlace,
     unregisterPlace,
     measurePlace,
     reset,
-  }), [progress, exitProgress, revealProgress, copyReady, copyMounted, flight, reduceMotion, openAnchor, closeAnchor, startAnchorTransition, registerPlace, unregisterPlace, measurePlace, reset]);
+  }), [progress, exitProgress, revealProgress, copyReady, copyMounted, flight, reduceMotion, openAnchor, closeAnchor, startAnchorTransition, returnAnchor, registerPlace, unregisterPlace, measurePlace, reset]);
 
   return <FocusTransitionContext.Provider value={value}>
     {children}
@@ -813,6 +923,8 @@ function isPlaceHidden(ctx: FocusTransitionContextValue | null, place: AnchorTra
   if (ctx.sourcePlace === place) return ctx.copyMounted;
   // Under Reduce Motion, Details shows its own Anchor while the copy dissolves over it.
   if (ctx.targetPlace === place && ctx.direction === 'forward') return !(ctx.reduceMotion && place === 'details');
+  // Progress -> Details: Details is uncovered beneath the copy, which stands in for its artwork until it lands.
+  if (ctx.targetPlace === place && ctx.direction === 'back' && place === 'details') return ctx.copyMounted;
   return false;
 }
 
@@ -880,8 +992,12 @@ type SceneState = Pick<FocusTransitionContextValue, 'active' | 'direction' | 'so
  * setup, session - are layer swaps within one route and keep their staging.)
  */
 function isRouteCut(state: SceneState): boolean {
+  // Progress fades in around the Anchor (and out as it leaves): the native
+  // route fade under the copy is short, so its content is staged here.
+  if (state.sourcePlace === 'progress' || state.targetPlace === 'progress') return false;
   return state.sourcePlace === 'home' || state.sourcePlace === 'details' || state.targetPlace === 'home' || state.targetPlace === 'release';
 }
+
 
 /**
  * What a place's UI does during the current flight. A route-changing flight is
@@ -952,6 +1068,19 @@ export function useAnchorTransitionReveal(place: AnchorTransitionPlace, order: 0
     const local = interpolate(revealProgress.value, [start, end], [0, 1], 'clamp');
     return { opacity: local, transform: [{ translateY: (1 - local) * travel }] };
   }, [end, revealing, start, travel]);
+}
+
+/**
+ * The UI of a place the Anchor is leaving fades with `exitProgress` while the
+ * copy travels. Opacity only: it holds the Anchor's own place, which is hidden
+ * (not moved) during a flight. Idle outside a flight out of `place`.
+ */
+export function useAnchorTransitionDeparture(place: AnchorTransitionPlace) {
+  const ctx = useContext(FocusTransitionContext);
+  const departing = sceneRole(ctx, place) === 'exit';
+  const idleValue = useSharedValue(0);
+  const exitProgress = ctx?.exitProgress ?? idleValue;
+  return useAnimatedStyle(() => ({ opacity: departing ? 1 - exitProgress.value : 1 }), [departing]);
 }
 
 const styles = StyleSheet.create({

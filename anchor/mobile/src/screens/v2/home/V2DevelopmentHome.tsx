@@ -50,7 +50,7 @@ export function V2DevelopmentHome() {
         if (isProFeatureLocked()) navigation.navigate('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
         else navigation.navigate('V2Chart', { anchorId });
       },
-      onOpenProgress: (anchorId) => navigation.navigate('V2Progress', { anchorId }),
+      onOpenProgress: (anchorId, options) => navigation.navigate('V2Progress', { anchorId, ...(options?.anchorTransition ? { anchorTransition: true } : {}) }),
       // The first Anchor is always allowed; a second one on the free plan opens the paywall,
       // which resumes creation once entitled. The server enforces the same rule on save.
       onCreateAnchor: () => {

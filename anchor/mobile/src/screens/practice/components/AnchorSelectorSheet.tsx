@@ -20,6 +20,7 @@ import { OptimizedImage } from '@/components/common';
 import { colors, spacing, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useAnchorStore } from '@/stores/anchorStore';
 
 interface AnchorSelectorSheetProps {
   visible: boolean;
@@ -240,6 +241,7 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
       }
 
       selectTimerRef.current = setTimeout(() => {
+        useAnchorStore.getState().setCurrentAnchor(anchor.id);
         onSelect(anchor);
       }, 220);
     },

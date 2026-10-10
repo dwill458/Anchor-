@@ -179,12 +179,12 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     teachingId: 'post_burn_toast_v1',
     screen: 'burning_ritual',
     trigger: 'post_burn',
-    guideOnly: false,  // [both] — fires for all users, every burn
+    guideOnly: false,
     tier: 'both',
     copy: 'Released. Give yourself time before the next anchor.',
     pattern: 'toast_achievement',
     tone: 'closure',
-    maxShows: 0,       // unlimited — never exhausted
+    maxShows: 1,
     cooldownMs: 0,
   },
 

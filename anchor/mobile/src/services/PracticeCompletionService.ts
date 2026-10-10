@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { apiClient } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { NotificationCoordinator } from '@/services/notifications/NotificationCoordinator';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -163,6 +164,7 @@ export const PracticeCompletionService = {
       options.mirrorLegacySession === true,
       options.flushImmediately !== false,
     );
+    void NotificationCoordinator.recordPracticeCompleted(record);
     AnalyticsService.track('practice_session_completed', {
       mode: record.practiceMode,
       source: record.completionSource,

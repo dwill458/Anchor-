@@ -65,7 +65,6 @@ export default function ReturningIntentionScreen() {
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
     const undertoneOpacity = useRef(new Animated.Value(0)).current;
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const firstTimeShownRef = useRef(false);
     const hesitationShownRef = useRef(false);
 
     // Reduced motion & tense nudge
@@ -75,13 +74,10 @@ export default function ReturningIntentionScreen() {
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
-    // Teaching gate — evaluated once per render cycle
-    const firstTimeTeaching = useTeachingGate({
-        screenId: 'intention_input',
-        candidateIds: ['intention_input_first_time_v1'],
-    });
+    // Teaching gate — evaluated once per render cycle (hesitation only, first-time omitted for returning users)
     const hesitationTeaching = useTeachingGate({
-        screenId: 'intention_input',
+        screenId: 'returning_intention',
+        isReturning: true,
         candidateIds: ['intention_input_hesitation_v1'],
     });
 
@@ -219,15 +215,6 @@ export default function ReturningIntentionScreen() {
 
     const handleFocus = () => {
         setIsFocused(true);
-        // First-time undertone: show after 1.2s of focus with no keystrokes
-        if (firstTimeTeaching && !firstTimeShownRef.current) {
-            idleTimerRef.current = setTimeout(() => {
-                if (firstTimeTeaching && !firstTimeShownRef.current) {
-                    firstTimeShownRef.current = true;
-                    showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
-                }
-            }, 1200);
-        }
         // Scroll to end of ScrollView to make sure text box is visible above the keyboard
         setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -265,14 +252,14 @@ export default function ReturningIntentionScreen() {
             // Reset idle timer on every keystroke
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
-            // Schedule hesitation hint after 8s idle (only if user has typed something)
+            // Schedule hesitation hint after 16s idle (only if user has typed something)
             if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
                 idleTimerRef.current = setTimeout(() => {
                     if (hesitationTeaching && !hesitationShownRef.current) {
                         hesitationShownRef.current = true;
                         showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
                     }
-                }, 8000);
+                }, 16000);
             }
 
             if (text.length === 0) {

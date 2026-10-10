@@ -78,6 +78,16 @@ const mockStoreAnchors: any[] = [];
 jest.mock('@/stores/anchorStore', () => ({ useAnchorStore: { getState: () => ({ addAnchor: jest.fn(), getAnchorById: jest.fn(), anchors: mockStoreAnchors }) } }));
 const mockHandOffPracticeToHome = jest.fn(() => Promise.resolve('started'));
 jest.mock('../practiceHandoff', () => ({ handOffPracticeToHome: (...args: any[]) => (mockHandOffPracticeToHome as any)(...args) }));
+const mockHandOffPracticeToInvitation = jest.fn(() => Promise.resolve('started'));
+jest.mock('../invitationHandoff', () => ({
+  handOffPracticeToInvitation: (...args: any[]) => (mockHandOffPracticeToInvitation as any)(...args),
+  leaveInvitationFlowToHome: jest.fn(() => Promise.resolve()),
+}));
+const mockMarkFirstPractice = jest.fn(() => Promise.resolve());
+jest.mock('@/hooks/useNotificationController', () => ({
+  ...jest.requireActual('@/hooks/useNotificationController'),
+  markFirstPracticeCompletedInStorage: () => mockMarkFirstPractice(),
+}));
 let mockCelebrationReduceMotion = false;
 jest.mock('@/hooks/useCelebrationReduceMotion', () => ({ useCelebrationReduceMotion: () => mockCelebrationReduceMotion }));
 /** What the practice screen was told when the last completion came back from the route. */
@@ -168,9 +178,16 @@ jest.mock('@/screens/v2/vision', () => {
         <RNPressable accessibilityRole="button" onPress={() => props.onVisualize({ visionId: 'v1', activeVisionAsset: null, seenToday: false, hasVision: true })}>
           <RNText>{props.onVisualize ? 'external-visualize' : 'local-prepared-visualize'}</RNText>
         </RNPressable>
+        <RNPressable accessibilityRole="button" onPress={() => props.onAddNote({ anchorId: props.anchorId, visionId: 'vision-9' })}>
+          <RNText>open-note-composer</RNText>
+        </RNPressable>
       </RNView>
     ),
   };
+});
+jest.mock('@/screens/v2/vision/V2VisionNoteComposer', () => {
+  const { Text: RNText } = require('react-native');
+  return { V2VisionNoteComposer: () => <RNText>vision-note-composer</RNText> };
 });
 
 jest.mock('@/screens/v2/chart', () => {
@@ -239,6 +256,15 @@ describe('AnchorV2Navigator Vision <-> Chart wiring', () => {
     render(<AnchorV2Navigator />);
     expect(screen.getByText('local-prepared-visualize')).toBeTruthy();
     expect(mockSetRoute).not.toHaveBeenCalled();
+  });
+
+  it('navigates from Vision into the registered note composer with anchor and Vision context', () => {
+    mockRoute = { name: 'V2Vision', params: { anchorId: 'anchor-9' } };
+    render(<AnchorV2Navigator />);
+    fireEvent.press(screen.getByText('open-note-composer'));
+    expect(mockRoute).toEqual({ name: 'V2VisionNoteComposer', params: { anchorId: 'anchor-9', visionId: 'vision-9' } });
+    render(<AnchorV2Navigator />);
+    expect(screen.getByText('vision-note-composer')).toBeTruthy();
   });
 
   it('sends a refused second Anchor to the SECOND_ANCHOR paywall, resuming creation after', () => {
@@ -398,3 +424,178 @@ describe('AnchorV2Navigator Complete to Home', () => {
   });
 });
 
+
+describe('AnchorV2Navigator reminder invitation after the first practice', () => {
+  const AsyncStorage = require('@react-native-async-storage/async-storage');
+  const { useReminderInvitationStore } = require('@/stores/v2/reminderInvitationStore');
+  const { act } = require('@testing-library/react-native');
+  const homeRoute = {
+    name: 'V2Practice',
+    params: { anchorId: 'anchor-1', recommendedMode: 'focus', returnRoute: 'V2DevelopmentHome', source: 'home' },
+  };
+  const departure = (): PracticeDeparture => ({ sessionId: 'session-1', at: Date.now(), measure: async () => null });
+  const savedState = (overrides: Record<string, unknown> = {}) =>
+    JSON.stringify({ personalDailyReminderOptedIn: false, firstPracticeCompletedAt: null, reminderInvitationOutcome: null, ...overrides });
+
+  const renderAndLoad = async () => {
+    render(<AnchorV2Navigator />);
+    // The notification snapshot is read on mount.
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  };
+
+  beforeEach(() => {
+    mockSetRoute.mockClear();
+    mockHandOffPracticeToHome.mockClear();
+    mockHandOffPracticeToInvitation.mockClear();
+    mockMarkFirstPractice.mockClear();
+    mockCompletionReturn = undefined;
+    mockCelebrationReduceMotion = false;
+    mockStoreAnchors.length = 0;
+    mockStoreAnchors.push({ id: 'anchor-1', category: 'career', baseSigilSvg: '<svg/>' });
+    takePracticeDeparture();
+    useReminderInvitationStore.getState().reset();
+    authState.isAuthenticated = true;
+    authState.isGuest = false;
+    authState.hasCompletedOnboarding = true;
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(() => Promise.resolve(savedState()));
+    mockRoute = homeRoute;
+  });
+  afterEach(() => {
+    delete authState.isAuthenticated;
+    delete authState.isGuest;
+    authState.hasCompletedOnboarding = true;
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(() => Promise.resolve(null));
+  });
+
+  it('opens the invitation (not Home) with the same Anchor and departure, and records the first practice', async () => {
+    await renderAndLoad();
+    const offered = departure();
+    offerPracticeDeparture(offered);
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToInvitation).toHaveBeenCalledTimes(1);
+    const [, input, options] = (mockHandOffPracticeToInvitation.mock.calls[0] as unknown) as [unknown, { anchor: { id: string }; departure: PracticeDeparture }, { reduceMotion: boolean }];
+    expect(input.anchor.id).toBe('anchor-1');
+    expect(input.departure).toBe(offered);
+    expect(options).toEqual({ reduceMotion: false });
+    expect(mockHandOffPracticeToHome).not.toHaveBeenCalled();
+    expect(mockCompletionReturn).toBe(true);
+    expect(mockSetRoute).not.toHaveBeenCalled();
+    expect(mockMarkFirstPractice).toHaveBeenCalledTimes(1);
+  });
+
+  it('once recorded, a later completion on the same route goes Home as before', async () => {
+    // The first hand-off is refused (another is running), so the route falls back Home and stays.
+    mockHandOffPracticeToInvitation.mockImplementationOnce(() => Promise.resolve('ignored'));
+    await renderAndLoad();
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    mockHandOffPracticeToHome.mockClear();
+    offerPracticeDeparture({ ...departure(), sessionId: 'session-2' });
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToInvitation).toHaveBeenCalledTimes(1);
+    expect(mockHandOffPracticeToHome).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['a guest', () => { authState.isAuthenticated = false; authState.isGuest = true; }],
+    ['mid-onboarding', () => { authState.hasCompletedOnboarding = false; }],
+    ['already opted in', () => { (AsyncStorage.getItem as jest.Mock).mockImplementation(() => Promise.resolve(savedState({ personalDailyReminderOptedIn: true }))); }],
+    ['previously dismissed', () => { (AsyncStorage.getItem as jest.Mock).mockImplementation(() => Promise.resolve(savedState({ reminderInvitationOutcome: 'dismissed' }))); }],
+    ['not the first practice', () => { (AsyncStorage.getItem as jest.Mock).mockImplementation(() => Promise.resolve(savedState({ firstPracticeCompletedAt: '2026-10-01T00:00:00.000Z' }))); }],
+    ['already shown this launch', () => { useReminderInvitationStore.getState().markShown(); }],
+  ])('%s: the Home hand-off is exactly as before', async (_label, arrange) => {
+    arrange();
+    await renderAndLoad();
+    const offered = departure();
+    offerPracticeDeparture(offered);
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToInvitation).not.toHaveBeenCalled();
+    expect(mockHandOffPracticeToHome).toHaveBeenCalledTimes(1);
+    const [, input, options] = (mockHandOffPracticeToHome.mock.calls[0] as unknown) as [unknown, { anchor: { id: string }; departure: PracticeDeparture }, { reduceMotion: boolean }];
+    expect(input.departure).toBe(offered);
+    expect(options).toEqual({ reduceMotion: false });
+    expect(mockCompletionReturn).toBe(true);
+    expect(mockSetRoute).not.toHaveBeenCalled();
+  });
+
+  it('a practice that returns elsewhere never opens the invitation and leaves eligibility for the next one', async () => {
+    mockRoute = { name: 'V2Practice', params: { anchorId: 'anchor-1', returnRoute: 'V2Chart', source: 'chart' } };
+    await renderAndLoad();
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToInvitation).not.toHaveBeenCalled();
+    expect(mockSetRoute).toHaveBeenCalledWith('V2Chart', { anchorId: 'anchor-1' });
+    expect(mockMarkFirstPractice).not.toHaveBeenCalled();
+  });
+
+  it('a practice that returns elsewhere for a non-eligible person still records the practice', async () => {
+    authState.isAuthenticated = false;
+    authState.isGuest = true;
+    mockRoute = { name: 'V2Practice', params: { anchorId: 'anchor-1', returnRoute: 'V2Chart', source: 'chart' } };
+    await renderAndLoad();
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockMarkFirstPractice).toHaveBeenCalledTimes(1);
+  });
+
+  it('a double Continue on the invitation path starts one hand-off and nothing else', async () => {
+    await renderAndLoad();
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    mockCompletionReturn = undefined;
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockCompletionReturn).toBe(true);
+    expect(mockHandOffPracticeToInvitation).toHaveBeenCalledTimes(1);
+    expect(mockHandOffPracticeToHome).not.toHaveBeenCalled();
+    expect(mockSetRoute).not.toHaveBeenCalled();
+    expect(mockMarkFirstPractice).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the Home hand-off when the invitation hand-off is ignored', async () => {
+    mockHandOffPracticeToInvitation.mockImplementationOnce(() => Promise.resolve('ignored'));
+    await renderAndLoad();
+    const offered = departure();
+    offerPracticeDeparture(offered);
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(mockHandOffPracticeToHome).toHaveBeenCalledTimes(1);
+    expect(((mockHandOffPracticeToHome.mock.calls[0] as unknown) as unknown[])[1]).toMatchObject({ departure: offered });
+  });
+
+  it('the practice hub stays a hub', async () => {
+    mockRoute = { name: 'V2Practice', params: { anchorId: 'anchor-1', source: 'practice_hub' } };
+    await renderAndLoad();
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-hub'));
+    expect(mockHandOffPracticeToInvitation).not.toHaveBeenCalled();
+    expect(mockHandOffPracticeToHome).not.toHaveBeenCalled();
+    expect(mockSetRoute).not.toHaveBeenCalled();
+    // Eligible but staying on the hub: the first practice is not consumed.
+    expect(mockMarkFirstPractice).not.toHaveBeenCalled();
+  });
+
+  it('before the snapshot has loaded nothing is assumed: the ordinary Home hand-off runs', () => {
+    render(<AnchorV2Navigator />);
+    offerPracticeDeparture(departure());
+    fireEvent.press(screen.getByText('practice-complete-external'));
+    expect(mockHandOffPracticeToInvitation).not.toHaveBeenCalled();
+    expect(mockHandOffPracticeToHome).toHaveBeenCalledTimes(1);
+    // Unknown state: nothing is recorded, so eligibility is not lost.
+    expect(mockMarkFirstPractice).not.toHaveBeenCalled();
+  });
+});
+
+describe('AnchorV2Navigator invitation route options', () => {
+  const { INVITATION_OPTIONS } = require('../AnchorV2Navigator');
+  const optionsFor = (params: Record<string, unknown>) => INVITATION_OPTIONS({ route: { key: 'k', name: 'V2NotificationInvitation', params } });
+  it('does not animate the push when the mark flies in, nor under Reduce Motion', () => {
+    expect(optionsFor({ anchorId: 'a', anchorTransition: true }).animation).toBe('none');
+    expect(optionsFor({ anchorId: 'a', anchorTransition: false, reducedMotion: true }).animation).toBe('none');
+  });
+  it('fades the push when nothing flies and motion is allowed; never swipe-dismissable', () => {
+    const options = optionsFor({ anchorId: 'a', anchorTransition: false });
+    expect(options.animation).toBe('fade');
+    expect(options.gestureEnabled).toBe(false);
+  });
+});

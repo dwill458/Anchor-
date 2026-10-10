@@ -9,12 +9,14 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronDown } from 'lucide-react-native';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { V2Button, V2SectionHeader } from '@/components/v2';
 import { useV2Progress } from '@/hooks/v2/progress';
+import type { Anchor } from '@/types';
 import {
   V2ProgressHero,
   V2ProgressWeekCard,
@@ -28,6 +30,7 @@ import {
   V2ThreadEventDetailSheet,
 } from '@/components/v2/progress';
 import { progressTokens } from '@/components/v2/progress/progressTokens';
+import { useAnchorTransitionDeparture, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 import { useAuthStore } from '@/stores/authStore';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
@@ -38,7 +41,10 @@ import { scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 
 export interface V2ProgressScreenProps {
   anchorId?: string;
-  onBack?: () => void;
+  /** Receives the Anchor Progress is showing, so a host can fly it back to where it came from. */
+  onBack?: (anchor?: Anchor) => void;
+  /** The Anchor currently shown (it changes with the switcher). */
+  onAnchorResolved?: (anchor?: Anchor) => void;
   onNavigateToChart?: (anchorId: string) => void;
   // DEFERRED: the Vision pill left the header; kept in the contract so hosts that pass it still type-check.
   onNavigateToVision?: (anchorId: string) => void;
@@ -51,11 +57,15 @@ export interface V2ProgressScreenProps {
 export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   anchorId,
   onBack,
+  onAnchorResolved,
   onNavigateToChart,
   onNavigateToWeeklyInsight,
   testID = 'v2-progress-screen',
 }) => {
   const insets = useSafeAreaInsets();
+  // The Anchor leaves this screen (Progress -> Details) as its UI fades; the lower sections arrive last when it opens.
+  const departure = useAnchorTransitionDeparture('progress');
+  const bodyReveal = useAnchorTransitionReveal('progress', 3);
   const {
     model,
     loading,
@@ -68,6 +78,10 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
     anchors,
     selectAnchor,
   } = useV2Progress({ anchorId });
+
+  const shownAnchor = model ? (anchors.find((a) => a.id === model.anchorId)?.anchor ?? model.anchor) : undefined;
+  React.useEffect(() => { onAnchorResolved?.(shownAnchor); }, [onAnchorResolved, shownAnchor]);
+  const handleBack = React.useCallback(() => onBack?.(shownAnchor), [onBack, shownAnchor]);
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
@@ -130,7 +144,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
         <Text style={styles.emptyTitle}>No Anchor Selected</Text>
         <Text style={styles.emptySubtext}>Select or create an Anchor to view progress and evidence.</Text>
         {onBack && (
-          <V2Button variant="tertiary" onPress={onBack}>
+          <V2Button variant="tertiary" onPress={handleBack}>
             Go Back
           </V2Button>
         )}
@@ -148,6 +162,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
     <View style={styles.root} testID={testID}>
       <StatusBar barStyle="light-content" backgroundColor={progressTokens.heroBg} animated />
 
+      <Animated.View style={[styles.departure, departure]}>
       <ScrollView
         ref={scrollRef}
         onLayout={event => { scrollMetrics.current.viewport = event.nativeEvent.layout.height; }}
@@ -177,7 +192,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
           <View style={styles.header}>
             {onBack ? (
               <Pressable
-                onPress={onBack}
+                onPress={handleBack}
                 style={styles.iconButton}
                 testID={`${testID}-back-btn`}
                 hitSlop={12}
@@ -196,11 +211,10 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
               style={styles.switcher}
               testID={`${testID}-anchor-switcher`}
               accessibilityRole={canSwitch ? 'button' : undefined}
-              accessibilityLabel={`${categoryLabel(model.category)} Anchor${canSwitch ? ', switch Anchor' : ''}`}
+              accessibilityLabel={`My Anchors${canSwitch ? ', switch Anchor' : ''}`}
             >
-              <View style={[styles.switcherDot, { backgroundColor: getCategoryColor(model.category) }]} />
               <Text style={styles.switcherText} numberOfLines={1}>
-                {categoryLabel(model.category)}
+                My Anchors
               </Text>
               {canSwitch ? <ChevronDown size={13} color={progressTokens.heroText} strokeWidth={2.6} /> : null}
             </Pressable>
@@ -208,10 +222,16 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
             <View style={styles.headerSpacer} />
           </View>
 
-          <View ref={threadTeachingRef} collapsable={false}><V2ProgressHero model={model} testID={`${testID}-hero`} /></View>
+          <View ref={threadTeachingRef} collapsable={false}>
+            <V2ProgressHero
+              model={model}
+              anchor={shownAnchor}
+              testID={`${testID}-hero`}
+            />
+          </View>
         </View>
 
-        <View style={styles.body}>
+        <Animated.View style={[styles.body, bodyReveal]}>
           {/* This week */}
           {model.week ? (
             <View ref={weekTeachingRef} collapsable={false} style={styles.section}>
@@ -293,8 +313,9 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
           {onNavigateToVision && (
             <Pressable onPress={() => onNavigateToVision(model.anchorId)} testID={`${testID}-nav-vision`}> Vision (See) </Pressable>
           )} */}
-        </View>
+        </Animated.View>
       </ScrollView>
+      </Animated.View>
 
       <ScreenTeaching screen="progress" queue={teachingQueue} reducedMotion={reducedMotion} targets={{
         'progress.thread': { getRect: () => getTeachingRect(threadTeachingRef) }, 'progress.week': { getRect: () => getTeachingRect(weekTeachingRef) },
@@ -328,6 +349,7 @@ const OVERSCROLL = 1200;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: progressTokens.bodyBg },
+  departure: { flex: 1 },
   centerContainer: {
     flex: 1,
     backgroundColor: colors.ink.base,
@@ -386,16 +408,15 @@ const styles = StyleSheet.create({
   switcher: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     maxWidth: 230,
     paddingVertical: 7,
-    paddingLeft: 10,
+    paddingLeft: 14,
     paddingRight: 12,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: progressTokens.heroHairline,
   },
-  switcherDot: { width: 8, height: 8, borderRadius: 4 },
   switcherText: { ...typography.labelMD, color: progressTokens.heroText, flexShrink: 1 },
   body: { paddingHorizontal: 18, paddingTop: 22 },
   section: { marginBottom: 26 },

@@ -237,6 +237,15 @@ describe('Home: Complete to Home arrival', () => {
     expect(mockPopToTop).not.toHaveBeenCalled();
   });
 
+  it.each(['V2NotificationInvitation', 'V2ReminderTime'])('leaves the reminder invitation (%s) in place while posing, so it can hand the Anchor over', (top) => {
+    mockNavState = { index: 2, routes: [{ name: 'V2DevelopmentHome' }, { name: 'V2Practice' }, { name: top }] };
+    useHomeArrivalStore.setState({
+      arrival: { id: 11, anchorId: 'a', kind: 'practice', svg: '<svg/>', fromRect: FROM, targetRect: null, phase: 'staging' },
+    });
+    renderHome('focus');
+    expect(mockPopToTop).not.toHaveBeenCalled();
+  });
+
   it('still pops a pushed Details screen when an arrival poses', () => {
     mockNavState = { index: 1, routes: [{ name: 'V2DevelopmentHome' }, { name: 'V2AnchorDetails' }] };
     useHomeArrivalStore.setState({

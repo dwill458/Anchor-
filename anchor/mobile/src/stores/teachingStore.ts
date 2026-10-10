@@ -68,6 +68,7 @@ export interface TeachingState {
   recordTraceHintSeen: (id: string) => void;
   exhaustTraceHint: (id: string) => void;
   isTraceHintExhausted: (id: string) => boolean;
+  isReturningUser: () => boolean;
 }
 
 const createInitialTeachingState = () => ({
@@ -183,6 +184,18 @@ export const useTeachingStore = create<TeachingState>()(
       },
 
       isTraceHintExhausted: (id) => id in get().traceHintExhaustedIds,
+
+      isReturningUser: () => {
+        const flags = get().userFlags;
+        return (
+          flags.hasCreatedFirstAnchor ||
+          flags.hasCompletedFirstCharge ||
+          flags.hasCompletedFirstBurn ||
+          flags.hasCompletedFirstStabilize ||
+          flags.hasSeenFirstAnchorArrival ||
+          flags.hasSeenFirstPracticeScene
+        );
+      },
     }),
     {
       name: 'anchor-teaching-storage',

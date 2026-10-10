@@ -7,7 +7,7 @@ import { TeachingWhisper } from './TeachingWhisper';
 export type TeachingTarget = Pick<TeachingStep, 'targetRef' | 'getRect'>;
 export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
   screen: string;
-  queue: { steps: BeatId[]; ready: boolean; markShown: () => void; dismiss: () => void };
+  queue: { steps: BeatId[]; ready: boolean; markShown: (beat?: BeatId) => void; dismiss: () => void };
   targets: Partial<Record<BeatId, TeachingTarget>>;
   reducedMotion: boolean;
 }) {
@@ -21,7 +21,7 @@ export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
     active.current = beat;
     presented.current = { beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length };
     lastDismissed.current = false;
-    queue.markShown();
+    queue.markShown(beat);
     if (shown.current.has(beat)) return;
     shown.current.add(beat);
     trackTeaching('teaching_beat_shown', { screen, beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length, reason: 'ready' });
@@ -34,13 +34,19 @@ export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
   }, [queue.dismiss, queue.steps, screen]);
   React.useEffect(() => {
     if (queue.steps.length) return;
-    if (presented.current && !lastDismissed.current) trackTeaching('teaching_beat_dismissed', { screen, ...presented.current, reason: 'interrupted' });
+    if (presented.current && !lastDismissed.current) {
+      trackTeaching('teaching_beat_dismissed', { screen, ...presented.current, reason: 'interrupted' });
+      queue.dismiss();
+    }
     presented.current = null;
     active.current = null;
-  }, [queue.steps.length, screen]);
+  }, [queue.dismiss, queue.steps.length, screen]);
   React.useEffect(() => () => {
-    if (presented.current && !lastDismissed.current) trackTeaching('teaching_beat_dismissed', { screen, ...presented.current, reason: 'blur' });
-  }, [screen]);
+    if (presented.current && !lastDismissed.current) {
+      trackTeaching('teaching_beat_dismissed', { screen, ...presented.current, reason: 'blur' });
+      queue.dismiss();
+    }
+  }, [queue.dismiss, screen]);
   if (!queue.ready || !queue.steps.length) return null;
   if (queue.steps[0] === 'vision.first') return <WhisperBeat onReady={onReady} onDismiss={onDismiss} reducedMotion={reducedMotion} />;
   return <SpotlightCoach visible steps={queue.steps.map(id => ({ id, ...TEACHING_COPY.beats[id], ...targets[id] }))} reducedMotion={reducedMotion}

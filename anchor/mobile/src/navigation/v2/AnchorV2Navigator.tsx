@@ -20,6 +20,7 @@ import IntentionInputScreen from '@/screens/create/IntentionInputScreen';
 import AnchorCreationFlowScreen from '@/screens/create/flow/AnchorCreationFlowScreen';
 import { V2PracticeScreen } from '@/screens/v2/practice';
 import { V2VisionScreen } from '@/screens/v2/vision';
+import { V2VisionNoteComposer } from '@/screens/v2/vision/V2VisionNoteComposer';
 import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypointScreen } from '@/screens/v2/chart';
 import { V2ProgressScreen } from '@/screens/v2/progress';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
@@ -38,11 +39,19 @@ import type { Anchor } from '@/types';
 import type { AnchorV2StackParamList } from './types';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { V2_TRANSITION_SETTLE_MS, v2ScreenBackground, v2StackScreenOptions } from './transitions';
+import { visionPreviewScreenOptions } from './visionPreviewTransition';
 import { ProgressiveFocusTransitionProvider, useOptionalAnchorTransition } from './ProgressiveFocusTransition';
 import { handOffToHome, prepareHomeArrival } from './creationHandoff';
 import { handOffPracticeToHome } from './practiceHandoff';
 import { takePracticeDeparture } from '@/stores/v2/practiceDeparture';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
+import { handOffPracticeToInvitation } from './invitationHandoff';
+import { V2NotificationInvitationScreen } from '@/screens/v2/notifications/V2NotificationInvitationScreen';
+import { V2ReminderTimeScreen } from '@/screens/v2/notifications/V2ReminderTimeScreen';
+import { loadNotificationStateSnapshot, shouldShowReminderInvitation } from '@/screens/v2/notifications/invitationEligibility';
+import { markFirstPracticeCompletedInStorage } from '@/hooks/useNotificationController';
+import { useReminderInvitationStore } from '@/stores/v2/reminderInvitationStore';
+import type { NotificationState } from '@/services/NotificationState';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
 
@@ -158,15 +167,74 @@ function V2PracticeRouteScreen() {
     }
   }, [anchorId, navigation, resolvedReturnRoute]);
 
+  // Reminder invitation: the notification state as it stands before this practice records itself.
+  // Read once on mount (read only) so the completion can decide synchronously; unknown means no.
+  const notificationSnapshotRef = useRef<NotificationState | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void loadNotificationStateSnapshot().then((snapshot) => {
+      if (!cancelled && notificationSnapshotRef.current === null) notificationSnapshotRef.current = snapshot;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Set once a completion has started the invitation hand-off: a second Continue changes nothing. */
+  const invitationStartedRef = useRef(false);
+
   const handleSessionCompleted = useCallback(
     (completion?: { source?: string; saved?: boolean }): boolean | void => {
+      // The invitation hand-off already owns leaving: the complete screen stays up until it does.
+      if (invitationStartedRef.current) return true;
       // The complete screen offers what it knows about itself when Continue is tapped. Taking it
       // here also clears it, so a completion that goes elsewhere leaves nothing behind.
       const departure = takePracticeDeparture();
+      const staysOnHub = completion?.source === 'practice_hub' && !returnRoute;
+      const canOpenInvitation = !staysOnHub && Boolean(suppliedAnchor) && resolvedReturnRoute === 'V2DevelopmentHome';
+      // Saved completions record the first practice (a state write only: nothing is scheduled and
+      // nothing is consented). Eligibility is decided from the state before that write. The record
+      // is withheld when the state is unknown, or when this person is eligible but this completion
+      // cannot open the invitation, so eligibility carries to the next practice that returns Home.
+      let showInvitation = false;
+      const snapshot = notificationSnapshotRef.current;
+      if (completion?.saved === true && snapshot) {
+        const auth = useAuthStore.getState();
+        const eligible = !useReminderInvitationStore.getState().shownThisSession && shouldShowReminderInvitation({
+          state: snapshot,
+          isAuthenticated: auth?.isAuthenticated === true && auth?.isGuest !== true,
+          hasCompletedOnboarding: auth?.hasCompletedOnboarding === true,
+          sessionSaved: true,
+        });
+        showInvitation = eligible && canOpenInvitation;
+        if (!eligible || showInvitation) {
+          void markFirstPracticeCompletedInStorage();
+          if (!snapshot.firstPracticeCompletedAt) {
+            notificationSnapshotRef.current = { ...snapshot, firstPracticeCompletedAt: new Date().toISOString() };
+          }
+        }
+      }
       // If the practice was launched from the practice screen itself (practice_hub)
       // and no explicit returnRoute was specified, stay on the practice screen.
-      if (completion?.source === 'practice_hub' && !returnRoute) {
+      if (staysOnHub) {
         return;
+      }
+      // First practice to the reminder invitation instead of Home: the same Anchor flies there, and
+      // the invitation hands it on to Home when the person leaves. Only for a return to Home.
+      if (showInvitation && suppliedAnchor) {
+        invitationStartedRef.current = true;
+        const anchor = suppliedAnchor;
+        const invitationDeparture = departure ?? { sessionId: null, at: Date.now(), measure: async () => null };
+        const fallBackHome = () => {
+          // This call did not run the invitation: return Home the ordinary way, never stuck.
+          invitationStartedRef.current = false;
+          if (departure) void handOffPracticeToHome(navigation, { anchor, departure }, { reduceMotion: celebrationReduceMotion });
+          else navigation.navigate('V2DevelopmentHome');
+        };
+        void handOffPracticeToInvitation(navigation, { anchor, departure: invitationDeparture }, { reduceMotion: celebrationReduceMotion })
+          .then((result) => { if (result === 'ignored') fallBackHome(); })
+          .catch(fallBackHome);
+        return true;
       }
       // Complete to Home: a saved practice that returns to Home carries its Anchor there. The
       // practice screen keeps the complete screen up (returning true) until the hand-off changes
@@ -319,6 +387,7 @@ function V2VisionRouteScreen() {
       onChart={(id: string) => {
         navigation.navigate('V2Chart', { anchorId: id });
       }}
+      onAddNote={(params: { anchorId: string; visionId?: string }) => navigation.navigate('V2VisionNoteComposer', params)}
 
     />
   );
@@ -333,14 +402,74 @@ function V2WeeklyInsightRouteScreen() {
 function V2ProgressRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Progress'>>();
+  const transition = useOptionalAnchorTransition();
+  const reduceMotion = useV2ReduceMotion();
+  const anchorTransition = route.params?.anchorTransition === true;
+  const shownAnchorRef = useRef<Anchor | undefined>(undefined);
+  const handleShownAnchor = useCallback((anchor?: Anchor) => { shownAnchorRef.current = anchor; }, []);
+
+  // Arriving with the Anchor, the push only cross-faded (see PROGRESS_OPTIONS).
+  // Once it has landed, leaving by edge swipe gets the ordinary V2 pop again.
+  useEffect(() => {
+    if (!anchorTransition) return undefined;
+    const timer = setTimeout(() => {
+      navigation.setOptions({ animation: v2StackScreenOptions(reduceMotion).animation });
+    }, V2_TRANSITION_SETTLE_MS + 400);
+    return () => clearTimeout(timer);
+  }, [anchorTransition, navigation, reduceMotion]);
+
+  const leave = useCallback(() => {
+    // Release replaces this route, so there may be nothing behind it.
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('V2DevelopmentHome');
+  }, [navigation]);
+
+  /**
+   * Back: the Anchor leaves the ring and returns to its place on the Details
+   * underneath - but only to the Anchor Details actually holds. If the person
+   * switched Anchors here, Details is not showing this one, and the route just
+   * pops (the flight refuses any pair of places that are not the same Anchor).
+   */
+  const handleBack = useCallback((anchor?: Anchor) => {
+    if (!transition || !anchor) {
+      leave();
+      return;
+    }
+    const restore = v2StackScreenOptions(reduceMotion).animation;
+    // Set well before the pop is dispatched: the route cross-fades under the returning Anchor.
+    navigation.setOptions({ animation: 'fade' });
+    const accepted = transition.returnAnchor({
+      anchor,
+      from: 'progress',
+      to: 'details',
+      onNavigate: (withHero) => {
+        if (withHero) {
+          leave();
+          return;
+        }
+        // No flight: the route's ordinary pop, after the options commit.
+        navigation.setOptions({ animation: restore });
+        setTimeout(leave, 0);
+      },
+    });
+    // Another flight owns the Anchor: swallow the tap, keep the ordinary animation.
+    if (!accepted) navigation.setOptions({ animation: restore });
+  }, [leave, navigation, reduceMotion, transition]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!navigation.isFocused()) return false;
+      handleBack(shownAnchorRef.current);
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleBack, navigation]);
+
   return (
     <V2ProgressScreen
       anchorId={route.params?.anchorId}
-      onBack={() => {
-        // Release replaces this route, so there may be nothing behind it.
-        if (navigation.canGoBack()) navigation.goBack();
-        else navigation.navigate('V2DevelopmentHome');
-      }}
+      onBack={handleBack}
+      onAnchorResolved={handleShownAnchor}
       onNavigateToChart={(id: string) => navigation.navigate('V2Chart', { anchorId: id })}
       onNavigateToWeeklyInsight={(id: string) => navigation.navigate('V2WeeklyInsight', { anchorId: id })}
     />
@@ -446,15 +575,20 @@ export function AnchorV2Navigator() {
         {/* The paywall draws a sheet over a deliberately transparent root. */}
         <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
         <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} options={PRACTICE_OPTIONS} />
-        <Stack.Screen name="V2Vision" component={V2VisionRouteScreen} options={PAPER_BACKGROUND} />
+        <Stack.Screen name="V2Vision" component={V2VisionRouteScreen} options={visionPreviewScreenOptions(reduceMotion)} />
+        <Stack.Screen name="V2VisionNoteComposer" component={V2VisionNoteComposer} options={visionPreviewScreenOptions(reduceMotion)} />
         {/* DEFERRED: GRAPHITE_BACKGROUND on V2Chart and V2ChartWaypoint; frame one of the Chart is now map paper. */}
         <Stack.Screen name="V2Chart" component={V2ChartScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={{ ...CREAM_BACKGROUND, animation: 'none', gestureEnabled: false }} />
         <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={CREAM_BACKGROUND} />
-        <Stack.Screen name="V2Progress" component={V2ProgressRouteScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2Progress" component={V2ProgressRouteScreen} options={PROGRESS_OPTIONS} />
         <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} options={({ route }) => route.params?.anchorTransition ? { animation: 'none' } : {}} />
         <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
+        {/* Reminder invitation after the first practice. The invitation owns its back (it is "Not now"),
+          and the time step must not be swiped away mid-permission. */}
+        <Stack.Screen name="V2NotificationInvitation" component={V2NotificationInvitationScreen} options={INVITATION_OPTIONS} />
+        <Stack.Screen name="V2ReminderTime" component={V2ReminderTimeScreen} options={REMINDER_TIME_OPTIONS} />
         {/* Legacy dark surfaces keep the app's transparent default. */}
         <Stack.Screen name="V2Settings" component={SettingsScreen} options={TRANSPARENT_BACKGROUND} />
         <Stack.Screen name="V2Auth" component={V2AuthRouteScreen} options={TRANSPARENT_BACKGROUND} />
@@ -468,10 +602,27 @@ const CREAM_BACKGROUND = v2ScreenBackground('cream');
 const PAPER_BACKGROUND = v2ScreenBackground('paper');
 const CREATION_OPTIONS = { gestureEnabled: false };
 const GRAPHITE_BACKGROUND = v2ScreenBackground('graphite');
+/**
+ * When the Anchor flies in from Details the shared transition owns the motion,
+ * so the route only cross-fades beneath the copy (no slide to fight it).
+ */
+const PROGRESS_OPTIONS = ({ route }: { route: RouteProp<AnchorV2StackParamList, 'V2Progress'> }) =>
+  (route.params?.anchorTransition ? { ...GRAPHITE_BACKGROUND, animation: 'fade' as const } : GRAPHITE_BACKGROUND);
 const TRANSPARENT_BACKGROUND = { contentStyle: { backgroundColor: 'transparent' } };
 /** When the Anchor flies in from Details, the shared transition owns all the motion. */
 const PRACTICE_OPTIONS = ({ route }: { route: RouteProp<AnchorV2StackParamList, 'V2Practice'> }) =>
   (route.params?.anchorTransition ? { animation: 'none' as const } : {});
+/**
+ * When the mark flies in from the complete screen the invitation owns the motion, and under Reduce
+ * Motion the screen runs its own <=reducedMs crossfade: the push itself does not animate in either
+ * case. Otherwise (no measurement) the route fades in.
+ */
+export const INVITATION_OPTIONS = ({ route }: { route: RouteProp<AnchorV2StackParamList, 'V2NotificationInvitation'> }) => ({
+  ...CREAM_BACKGROUND,
+  gestureEnabled: false,
+  animation: route.params?.anchorTransition || route.params?.reducedMotion ? ('none' as const) : ('fade' as const),
+});
+const REMINDER_TIME_OPTIONS = { ...CREAM_BACKGROUND, gestureEnabled: false };
 
 const styles = StyleSheet.create({
   // Login opens on cream paper; matching it keeps the push transition from flashing dark.

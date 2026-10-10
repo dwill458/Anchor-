@@ -301,6 +301,17 @@ describe('V2ProgressScreen', () => {
       expect(getByText('Soft, but still here.')).toBeTruthy();
     });
 
+    it('displays My Anchors in the selector and Switch Anchor in the bottom sheet', () => {
+      mockUseV2Progress.mockReturnValue(hookReturn({ anchors }));
+
+      const { getByTestId, getByText } = render(<V2ProgressScreen />);
+      const switcher = getByTestId('v2-progress-screen-anchor-switcher');
+      expect(within(switcher).getByText('My Anchors')).toBeTruthy();
+
+      fireEvent.press(switcher);
+      expect(getByText('Switch Anchor')).toBeTruthy();
+    });
+
     it('does not offer a switcher with only one Anchor', () => {
       mockUseV2Progress.mockReturnValue(hookReturn({ anchors: [anchors[0]] }));
       const { getByTestId } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
