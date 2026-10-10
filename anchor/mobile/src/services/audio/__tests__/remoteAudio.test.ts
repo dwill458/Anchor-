@@ -26,7 +26,7 @@ describe('remoteAudio', () => {
 
   it('builds content-addressed URLs and maps them back to their key', () => {
     const source = remoteAudio('embodyLina') as { uri: string };
-    expect(source.uri).toMatch(/\/session-audio\/Embody_Final_Lina_10min15_V3\.6239401c\.mp3$/);
+    expect(source.uri).toMatch(/\/session-audio\/Embody_Final_Lina_10min15_V4\.39007e56\.mp3$/);
     expect(remoteAudioKeyFor(source)).toBe('embodyLina');
     expect(remoteAudioKeyFor(42)).toBeNull();
     expect(remoteAudioKeyFor({ uri: 'https://example.com/other.mp3' })).toBeNull();

@@ -25,11 +25,11 @@ describe('GET /api/v2/session-audio/:file', () => {
   });
 
   it('redirects to a short-lived signed URL inside the session-audio prefix, without auth', async () => {
-    const response = await request(app).get('/api/v2/session-audio/DeepFocus_10min_Lina.bdbe6e66.mp3');
+    const response = await request(app).get('/api/v2/session-audio/DeepFocus_10min_Lina.24edab44.mp3');
     expect(response.status).toBe(302);
     expect(response.headers.location).toBe('https://acct.r2.cloudflarestorage.com/anchor/session-audio/x.mp3?sig=1');
     expect(response.headers['cache-control']).toBe('private, max-age=300');
-    expect(mockGetSignedUrl).toHaveBeenCalledWith('session-audio/DeepFocus_10min_Lina.bdbe6e66.mp3', 3600);
+    expect(mockGetSignedUrl).toHaveBeenCalledWith('session-audio/DeepFocus_10min_Lina.24edab44.mp3', 3600);
   });
 
   it.each(['..%2Fsecrets.mp3', 'track.wav', '.mp3', 'a..mp3', 'a%20b.mp3'])('refuses %s', async (file) => {

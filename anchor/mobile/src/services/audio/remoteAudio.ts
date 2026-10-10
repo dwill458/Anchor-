@@ -20,12 +20,12 @@ const PREFIX = 'session-audio';
 
 export const REMOTE_AUDIO_TRACKS = {
   deepPrimeAmbient: { file: 'deep-prime-ambient.748fa915.mp3', bytes: 14_916_589 },
-  deepFocus5Lina: { file: 'DeepFocus_5min_Lina.b95d8514.mp3', bytes: 4_801_141 },
-  deepFocus5Dominic: { file: 'DeepFocus_5min_Dominic.d73c8b1a.mp3', bytes: 4_801_141 },
-  deepFocus10Lina: { file: 'DeepFocus_10min_Lina.bdbe6e66.mp3', bytes: 9_600_984 },
-  deepFocus10Dominic: { file: 'DeepFocus_10min_Dominic.6aae809a.mp3', bytes: 9_600_984 },
-  embodyLina: { file: 'Embody_Final_Lina_10min15_V3.6239401c.mp3', bytes: 9_840_893 },
-  embodyDominic: { file: 'Embody_Final_10min15_V3.996e962b.mp3', bytes: 9_840_893 },
+  deepFocus5Lina: { file: 'DeepFocus_5min_Lina.7d606083.mp3', bytes: 7_201_689 },
+  deepFocus5Dominic: { file: 'DeepFocus_5min_Dominic.623af4ce.mp3', bytes: 7_201_689 },
+  deepFocus10Lina: { file: 'DeepFocus_10min_Lina.24edab44.mp3', bytes: 14_401_454 },
+  deepFocus10Dominic: { file: 'DeepFocus_10min_Dominic.90afe9af.mp3', bytes: 14_401_454 },
+  embodyLina: { file: 'Embody_Final_Lina_10min15_V4.39007e56.mp3', bytes: 14_761_317 },
+  embodyDominic: { file: 'Embody_Final_10min15_V4.4c3e3467.mp3', bytes: 14_761_317 },
   visualizeAmbient5m: { file: 'visualize_ambient_5m.7de22aad.mp3', bytes: 4_801_141 },
 } as const;
 
