@@ -36,7 +36,7 @@ let currentVision = visionWith(3);
 async function advance(ms: number) { await act(async () => { jest.advanceTimersByTime(ms); }); }
 // The entrance's controls go live once the open has finished; the persistent Anchor takes over a moment after that.
 const ASK_READY = ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs + 50;
-async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); fireEvent.press(view.getByLabelText(/^Add an image/)); await advance(ASK_READY); }
+async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); fireEvent.press(view.getByLabelText('Add to Vision')); await advance(ASK_READY); }
 async function ownPhoto(view: ReturnType<typeof render>, source: 'camera' | 'library') {
   await act(async () => { fireEvent.press(view.getByLabelText(source === 'camera' ? 'Take a photo' : 'Use my own photo')); });
   view.getAllByTestId(/^vision-ceremony-print-\d+-sharp$/).forEach(image => fireEvent(image, 'load'));
@@ -74,9 +74,26 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(view.getByText('What else do you see?')).toBeTruthy(); expect(view.queryByTestId('vision-add-sheet-generate')).toBeNull();
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(picker.launchCameraAsync).not.toHaveBeenCalled();
   });
-  it.each(['camera', 'library'] as const)('%s photos stay local through Keep and persist caption at Seal', async source => {
+  it('opens the note composer from the Ask entrance with the current Vision context', async () => {
+    const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
+    fireEvent.press(view.getByLabelText('Add a note'));
+    expect(mockNavigate).toHaveBeenCalledWith('V2VisionNoteComposer', { anchorId: 'anchor-1', visionId: 'vision-101' });
+    expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(picker.launchCameraAsync).not.toHaveBeenCalled();
+  });
+  it('keeps note entry available at the image limit and blocks image additions there', async () => {
+    currentVision = visionWith(8);
+    const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
+    expect(view.getByLabelText('Add a note')).toBeTruthy();
+    expect(view.getByLabelText(/^Imagine it from words/).props.accessibilityState.disabled).toBe(true);
+    expect(view.getByLabelText(/^Use my own photo/).props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(view.getByLabelText('Add a note'));
+    expect(mockNavigate).toHaveBeenCalledWith('V2VisionNoteComposer', { anchorId: 'anchor-1', visionId: 'vision-101' });
+    expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(apiClient.post).not.toHaveBeenCalled();
+  });
+  it.each(['camera', 'library'] as const)('%s photos upload during Keep and persist the scene and caption only at Seal', async source => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, source);
-    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(apiClient.post).toHaveBeenCalledWith('/api/v2/assets/upload', expect.anything());
+    expect((apiClient.post as jest.Mock).mock.calls.some(([url]) => url.endsWith('/scenes'))).toBe(false);
     fireEvent.changeText(view.getByTestId('vision-ceremony-print-0-caption'), 'Finished work in my studio.'); await seal(view, 900);
     expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', expect.objectContaining({
       assetId: 'own-asset', sourceType: source === 'camera' ? 'USER_CAMERA' : 'USER_UPLOAD', caption: 'Finished work in my studio.' }));
@@ -117,7 +134,8 @@ describe('V2VisionScreen ceremony additions', () => {
   });
   it('canceling before Seal saves no image', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library');
-    fireEvent.press(view.getByLabelText('Back')); await view.findByTestId('vision-board'); expect(apiClient.post).not.toHaveBeenCalled();
+    fireEvent.press(view.getByLabelText('Back')); await view.findByTestId('vision-board');
+    expect((apiClient.post as jest.Mock).mock.calls.some(([url]) => url.endsWith('/scenes'))).toBe(false);
   });
   it('protects in-flight sealing from route removal and restores navigation on the completed board', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
@@ -146,13 +164,13 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(alert).toHaveBeenCalledWith('Permission needed', expect.any(String), expect.arrayContaining([expect.objectContaining({ text: 'Open Settings' })]));
     expect(picker.launchCameraAsync).not.toHaveBeenCalled(); expect(view.getByText('What else do you see?')).toBeTruthy();
   });
-  it('offers no add action when the real board holds eight images', async () => {
+  it('keeps Add available at the eight-image limit for note entry', async () => {
     currentVision = visionWith(8); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board');
-    expect(view.queryByLabelText(/^Add an image/)).toBeNull();
+    expect(view.getByLabelText('Add to Vision')).toBeTruthy();
   });
   it('one-image boards retain room to add', async () => {
     currentVision = visionWith(1); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board');
-    expect(view.getByLabelText('Add an image, 1 of 8')).toBeTruthy();
+    expect(view.getByLabelText('Add to Vision')).toBeTruthy();
   });
   it('keeps added images when the Vision is reopened', async () => {
     currentVision = visionWith(4); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board-photo-sc-4'); view.unmount();
@@ -182,7 +200,8 @@ describe('V2VisionScreen ceremony additions', () => {
     });
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByText("When it's true, what do you see?"); await advance(ASK_READY);
     await ownPhoto(view, 'library'); await seal(view);
-    expect(view.getByText('Sealed.')).toBeTruthy(); expect(view.queryByTestId('vision-board')).toBeNull();
+    expect(view.getByTestId('vision-seal-stamp-line')).toBeTruthy(); expect(view.queryByTestId('vision-board')).toBeNull();
+    await advance(1050); expect(view.getByText('Sealed.')).toBeTruthy();
     await advance(3500); await advance(1200); await advance(200); expect(view.getByTestId('vision-board')).toBeTruthy();
   });
   it.each([7, 8])('persists all %i selected personal photos in picker order with their source metadata', async count => {
@@ -209,7 +228,7 @@ describe('V2VisionScreen ceremony additions', () => {
     await view.findByText("When it's true, what do you see?"); await advance(ASK_READY);
     await ownPhoto(view, 'library');
     for (let i = 1; i < count; i++) fireEvent(view.getByTestId('vision-photo-stack-hit-target'), 'accessibilityTap');
-    expect(view.getByTestId('vision-photo-stack-count').props.children).toBe(`${count} of ${count}`);
+    expect(view.getByTestId(`vision-photo-stack-dot-${count - 1}`).props.accessibilityState.selected).toBe(true);
     fireEvent.changeText(view.getByTestId(`vision-ceremony-print-${count - 1}-caption`), 'The final photo is mine.');
     fireEvent.press(view.getByTestId('vision-complete-vision'));
     await advance(200);
@@ -298,7 +317,7 @@ describe('V2VisionScreen ceremony additions', () => {
     it('does not go Home when the person starts adding an image first', async () => {
       const view = await firstImageOnBoard();
       await advance(1000);
-      fireEvent.press(view.getByLabelText(/^Add an image/));
+      fireEvent.press(view.getByLabelText('Add to Vision'));
       await advance(10000); expect(goHome()).toHaveLength(0);
     });
     it('a later image never navigates', async () => {

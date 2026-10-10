@@ -6,6 +6,7 @@ import type { AnchorExpression } from '@/constants/v2/creation';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { colors, getCategoryColor } from '@/theme/v2';
+import { VisionArrivalSetPrint, type VisionArrivalPhase, type VisionArrivalPrint } from './VisionArrivalSet';
 
 export type VisionImageRect = { x: number; y: number; width: number; height: number };
 /** The person's real Anchor, carried from where it was on screen to where the board holds it. */
@@ -13,6 +14,10 @@ export type VisionArrivalAnchor = { svg: string; imageUrl?: string | null; expre
 type AnchorFlight = { svg: string; imageUrl?: string | null; expression?: AnchorExpression | null; category?: string | null; source: VisionImageRect; target?: VisionImageRect };
 type Arrival = { id: number; url: string; source: VisionImageRect; target?: VisionImageRect; anchor?: AnchorFlight; resolved?: boolean; backdrop?: 'ink' | 'paper' };
 type ArrivalContext = {
+  setPrints?: readonly VisionArrivalPrint[];
+  setActive?: boolean;
+  beginSet?: (prints: Array<{ sceneId: string; url: string; source: VisionImageRect }>, firstImage: boolean) => void;
+  landSet?: (sceneId: string, target: VisionImageRect) => void;
   url: string | null;
   /** True while a real Anchor is in flight and the board should report where it holds it. */
   anchorInFlight: boolean;
@@ -51,6 +56,23 @@ const trace = (event: string, detail?: unknown) => {
 export function VisionImageArrivalProvider({ children }: { children: React.ReactNode }) {
   const { width, height } = useWindowDimensions();
   const reduced = useV2ReduceMotion();
+  const [setPrints, setSetPrints] = useState<VisionArrivalPrint[]>([]);
+  const [firstSetImage, setFirstSetImage] = useState(false);
+  const [decodedSet, setDecodedSet] = useState<ReadonlySet<string>>(new Set());
+  const setReadyToFly = setPrints.every(item => item.phase === 'failed' || Boolean(item.target && decodedSet.has(item.sceneId)));
+  const decodedSetPrint = useCallback((sceneId: string) => setDecodedSet(current => current.has(sceneId) ? current : new Set(current).add(sceneId)), []);
+  const setActive = setPrints.some(item => item.phase !== 'pinned' && item.phase !== 'failed');
+  const beginSet = useCallback((prints: Array<{ sceneId: string; url: string; source: VisionImageRect }>, firstImage: boolean) => {
+    setArrival(null); setFirstSetImage(firstImage); setDecodedSet(new Set());
+    setSetPrints(prints.filter(item => item.url && item.source.width > 0 && item.source.height > 0).map(item => ({ ...item, phase: 'waiting' })));
+  }, []);
+  const landSet = useCallback((sceneId: string, target: VisionImageRect) => {
+    if (target.width <= 0 || target.height <= 0) return;
+    setSetPrints(current => current.map(item => item.sceneId === sceneId && !item.target ? { ...item, target } : item));
+  }, []);
+  const setPhase = useCallback((sceneId: string, phase: VisionArrivalPhase) => {
+    setSetPrints(current => current.map(item => item.sceneId === sceneId && item.phase !== 'pinned' && item.phase !== 'failed' ? { ...item, phase } : item));
+  }, []);
   const [arrival, setArrival] = useState<Arrival | null>(null);
   const expand = useSharedValue(0);
   const settle = useSharedValue(0);
@@ -59,7 +81,9 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
   const [sourceReady, setSourceReady] = useState(false);
   const [dissolving, setDissolving] = useState(false);
   const clear = useCallback(() => { trace('clear'); setArrival(null); setSourceReady(false); setDissolving(false); }, []);
+  const cancel = useCallback(() => { clear(); setSetPrints([]); }, [clear]);
   const begin = useCallback((url: string, source: VisionImageRect, anchor?: VisionArrivalAnchor, backdrop: 'ink' | 'paper' = 'ink') => {
+    setSetPrints([]);
     if (!url || !Number.isFinite(source.width) || !Number.isFinite(source.height) || source.width <= 0 || source.height <= 0) return;
     const flight: AnchorFlight | undefined = anchor?.svg && anchor.rect.width > 0 && anchor.rect.height > 0
       ? { svg: anchor.svg, imageUrl: anchor.imageUrl, expression: anchor.expression, category: anchor.category, source: anchor.rect } : undefined;
@@ -174,8 +198,13 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
     backgroundColor: interpolateColor(settle.value, [0, 0.6], [paperBackdrop ? colors.canvas : colors.ink.base, colors.canvas]),
     opacity: 1 - Math.max(0, (settle.value - 0.65) / 0.35),
   }));
-  return <Context.Provider value={{ url: arrival?.url ?? null, anchorInFlight: Boolean(arrival?.anchor && !arrival.anchor.target), begin, cancel: clear, resolve, land, landAnchor }}>
+  return <Context.Provider value={{ url: arrival?.url ?? (setActive ? setPrints[0]?.url ?? null : null), setPrints, setActive, beginSet, landSet,
+    anchorInFlight: Boolean(arrival?.anchor && !arrival.anchor.target), begin, cancel, resolve, land, landAnchor }}>
     {children}
+    {setActive ? <View pointerEvents="none" accessibilityElementsHidden style={StyleSheet.absoluteFill}>
+      {setPrints.map((item, index) => <VisionArrivalSetPrint key={item.sceneId} item={item} index={index} firstImage={firstSetImage} reduced={reduced}
+        readyToFly={setReadyToFly} onDecoded={decodedSetPrint} onPhase={setPhase} />)}
+    </View> : null}
     {arrival ? <Animated.View style={[StyleSheet.absoluteFill, overlayStyle]} pointerEvents={dissolving ? 'none' : 'auto'} accessibilityElementsHidden>
       <Animated.View style={[StyleSheet.absoluteFill, backgroundStyle]} />
       <Animated.View style={[{ position: 'absolute', width: arrival.source.width, height: arrival.source.height, overflow: 'hidden' }, imageStyle]}>

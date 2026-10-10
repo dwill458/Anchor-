@@ -235,11 +235,16 @@ export function VisionVisualQADevHost() {
   else if (surface === 'create') content = <VisionMomentInput {...identity} mode="create" anchorId="qa-fixture" onBack={close} onSubmit={noop} />;
   else if (surface === 'add') content = <VisionMomentInput {...identity} mode="add" anchorId="qa-fixture" previewImageUrl={tiles[0].imageUrl} initialDescription="Working by the ocean with my family while Anchor continues to grow." onBack={close} onSubmit={noop} />;
   else if (surface === 'photo') content = <V2VisionAddPhoto {...identity} uri={tiles[0].imageUrl!} source="library" onCancel={close} onChooseAgain={noop} onConfirm={async () => null} />;
-  else if (surface === 'home' || surface === 'details') content = <ScrollView contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, flexGrow: 1, backgroundColor: surface === 'home' ? colors.ink.base : colors.canvas }}>
-    <Text style={{ ...typography.headingMD, color: surface === 'home' ? colors.paper : colors.text.primary }}>QA fixture · {surface}</Text>
-    {surface === 'home' ? <V2HomeVisionSection vision={{ state: 'ready', visionId: 'qa', tiles, previewText: description, seenToday: false }} categoryColor="#CE6091" onOpenVision={noop} /> :
-      <View style={{ marginTop: 24 }}><VisionBoardPreview tiles={tiles} statement={description} variant="details" accent="#CE6091" onPress={noop} /></View>}
-  </ScrollView>;
+  else if (surface?.startsWith('home') || surface?.startsWith('details')) {
+    const home = surface.startsWith('home');
+    const count = Math.max(0, Math.min(6, Number(surface.split('-')[1] ?? '5')));
+    const previewTiles = sessionTiles.slice(0, count);
+    content = <ScrollView contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, flexGrow: 1, backgroundColor: home ? colors.ink.base : colors.canvas }}>
+      <Text style={{ ...typography.headingMD, color: home ? colors.paper : colors.text.primary }}>QA fixture · {surface}</Text>
+      {home ? <V2HomeVisionSection vision={{ state: 'ready', visionId: 'qa', tiles: previewTiles, previewText: description, seenToday: false }} categoryColor="#CE6091" onOpenVision={noop} /> :
+        <View style={{ marginTop: 24 }}><VisionBoardPreview tiles={previewTiles} variant="details" accent="#CE6091" onPress={noop} /></View>}
+    </ScrollView>;
+  }
   else content = <V2SavedVision {...identity} key={surface} tiles={tiles.slice(0, Number(surface) || 0)} description={description} onBack={close} onVisualize={noop} onChart={noop}
     chartSummary={{ courseId: 'qa', waypointNumber: 1, total: 5, waypointTitle: 'First thousand active users', oneMoveTitle: null, isFinished: false, destination: 'Ten thousand users' }}
     onUpdateDescription={saved} onReorder={saved} onRemove={saved} onAddPhoto={noop} onAddGenerate={noop} onReplace={async () => undefined} onRegenerate={noop} canGenerateMore onArchive={saved} />;

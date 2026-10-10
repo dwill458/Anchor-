@@ -11,6 +11,7 @@ import { ImpactFeedbackStyle } from 'expo-haptics';
 import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
 import { CEREMONY, ceremonyDuration, useDevelopReveal } from './VisionDevelop';
 import { visionCeremonyCopy as copy } from './visionCeremonyCopy';
+import { VisionHairline } from './VisionHairline';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
 export type PrintPlacement = { x: number; y: number; width: number; height: number; rotation?: number; opacity?: number };
@@ -74,8 +75,11 @@ export interface VisionPrintProps {
   label?: string;
   /** Caption strip height; defaults to the ceremony's. */
   captionStripPts?: number;
+  captionHint?: boolean;
   /** Reveal duration; defaults to the Develop reveal. The ink layer keeps its ratio to it. */
   revealMs?: number;
+  /** Optional ceremony timing for ink, independent of the blur; entrance examples keep their existing ratio. */
+  inkRevealMs?: number;
   /** Increment to retry the same failed URI without remounting the enclosing print stack. */
   retryToken?: number;
   /** An empty frame that hides whatever is behind it. */
@@ -89,13 +93,13 @@ export interface VisionPrintProps {
 
 export function VisionPrint({ uri: uriProp, source, developing, revealed, showCaption, caption, onChangeCaption, pinned,
   reframe, onReframe, empty = false, active = true, revealDelayMs = 0, onDeveloped, onImageError, onRevealStart, imageRef, pressed = false,
-  label, captionStripPts, revealMs, opaque = false, silent = false, instant = false, retryToken = 0, testID = 'vision-print' }: VisionPrintProps) {
+  label, captionStripPts, captionHint = false, revealMs, inkRevealMs, opaque = false, silent = false, instant = false, retryToken = 0, testID = 'vision-print' }: VisionPrintProps) {
   const reduced = useV2ReduceMotion();
   const uri = uriProp ?? sourceUri(source);
   const imageSource = source ?? (uri ? { uri } : undefined);
   const strip = captionStripPts ?? CEREMONY.captionStripPts;
   const blurMs = revealMs ?? CEREMONY.revealBlurMs;
-  const inkMs = revealMs ? Math.round(revealMs * CEREMONY.revealInkMs / CEREMONY.revealBlurMs) : CEREMONY.revealInkMs;
+  const inkMs = inkRevealMs ?? (revealMs ? Math.round(revealMs * CEREMONY.revealInkMs / CEREMONY.revealBlurMs) : CEREMONY.revealInkMs);
   const prefetched = useDevelopReveal(uri, active, revealDelayMs);
   const [loadedUri, setLoadedUri] = useState<string | null>(null);
   const [failedUri, setFailedUri] = useState<string | null>(null);
@@ -110,14 +114,23 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
   const inset = useSharedValue(showCaption ? strip : 8), paper = useSharedValue(empty ? 0 : 1), press = useSharedValue(1);
   const offsetX = useSharedValue(reframe?.x ?? 0), offsetY = useSharedValue(reframe?.y ?? 0);
   const originX = useSharedValue(0), originY = useSharedValue(0);
+  const photoSettle = useSharedValue(0);
   useEffect(() => { offsetX.value = reframe?.x ?? 0; offsetY.value = reframe?.y ?? 0; }, [reframe?.x, reframe?.y]);
 
   useEffect(() => {
     startedUri.current = null; finishedUri.current = null;
     setLoadedUri(null); setFailedUri(null); setSettledUri(null);
     ink.value = instant ? 0 : 1; blur.value = instant ? 0 : 1; scale.value = instant ? 1 : CEREMONY.revealScaleFrom;
+    photoSettle.value = 0;
   }, [uri, instant, retryToken]);
   const canReveal = Boolean(uri && prefetched && loadedUri === uri && revealed && active && !instant);
+  useEffect(() => {
+    if (!instant || !uri || loadedUri !== uri || !revealed || !active || finishedUri.current === uri) return;
+    revealing.current?.(uri);
+    photoSettle.value = withTiming(1, { duration: reduced ? 180 : 600 });
+    const timer = setTimeout(() => { finishedUri.current = uri; setSettledUri(uri); completed.current?.(uri); }, reduced ? 180 : 600);
+    return () => clearTimeout(timer);
+  }, [instant, uri, loadedUri, revealed, active, reduced]);
   useEffect(() => {
     if (!canReveal || !uri || finishedUri.current === uri) return;
     const firstReveal = startedUri.current !== uri;
@@ -148,7 +161,10 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
     if (empty) march.value = withRepeat(withTiming(-180, { duration: CEREMONY.frameMarchMs, easing: Easing.linear }), -1, false);
     return () => { cancelAnimation(sheen); cancelAnimation(march); };
   }, [developing, canReveal, empty, active, reduced]);
-  const paperStyle = useAnimatedStyle(() => ({ opacity: paper.value, transform: [{ scale: press.value }] }));
+  const paperStyle = useAnimatedStyle(() => ({ opacity: paper.value, transform: [
+    { translateY: instant && !reduced ? 18 * (1 - photoSettle.value) : 0 },
+    { scale: press.value * (instant && !reduced ? .96 + .04 * photoSettle.value : 1) },
+  ] }));
   const frameStyle = useAnimatedStyle(() => ({ opacity: 1 - paper.value }));
   const dash = useAnimatedProps(() => ({ strokeDashoffset: march.value }));
   const windowStyle = useAnimatedStyle(() => ({ bottom: inset.value }));
@@ -175,20 +191,22 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
     <Animated.View style={[styles.paper, paperStyle]}>
       {/* Deterministic fine paper flecks, no remote texture or placeholder photography. */}
       <View pointerEvents="none" style={styles.grain}>{Array.from({ length: 28 }, (_, i) => <View key={i} style={[styles.fleck, { left: `${(i * 37) % 100}%`, top: `${(i * 23) % 100}%` }]} />)}</View>
-      <GestureDetector gesture={pan}><Animated.View ref={imageRef} collapsable={false} style={[styles.window, windowStyle]}>
+      <GestureDetector gesture={pan}><Animated.View ref={imageRef} collapsable={false} style={[styles.window, instant && { backgroundColor: '#F7F1E6' }, windowStyle]}>
         {uri ? <Animated.View style={[styles.fill, imageStyle]}>
           <Image key={`${uri}:${retryToken}`} testID={`${testID}-sharp`} source={imageSource!} resizeMode="cover" resizeMethod="resize" style={styles.photo} onLoad={() => setLoadedUri(uri)} onError={() => { setFailedUri(uri); if (uri) onImageError?.(uri); }} accessible={false} />
           {instant || settledUri === uri ? null : <Animated.View pointerEvents="none" style={[styles.fill, blurStyle]}><Image key={`blur:${uri}:${retryToken}`} source={imageSource!} blurRadius={24} resizeMode="cover" resizeMethod="resize" style={styles.photo} accessible={false} /></Animated.View>}
         </Animated.View> : null}
-        <Animated.View pointerEvents="none" testID={`${testID}-ink`} style={[styles.fill, styles.ink, inkStyle]} />
+        {!instant ? <Animated.View pointerEvents="none" testID={`${testID}-ink`} style={[styles.fill, styles.ink, inkStyle]} /> : null}
         {developing ? <Animated.View pointerEvents="none" style={[styles.fill, sheenStyle]}><LinearGradient colors={['transparent', '#FFFFFF14', 'transparent']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.fill} /></Animated.View> : null}
         {failedUri === uri && uri ? <Text style={styles.error}>{copy.unavailable}</Text> : null}
+        {instant && uri && loadedUri !== uri && failedUri !== uri ? <View style={{ position: 'absolute', bottom: 4, alignSelf: 'center' }}><VisionHairline pending label="Reading your photo" /></View> : null}
       </Animated.View></GestureDetector>
       <Animated.View style={[styles.caption, { height: strip }, label ? styles.captionCompact : null, captionStyle]}>
         {label ? <Text style={styles.label} numberOfLines={1}>{label}</Text> : null}
         {onChangeCaption ? <TextInput testID={`${testID}-caption`} accessibilityLabel={copy.captionLabel} value={caption} maxLength={80} multiline={false}
           onChangeText={text => onChangeCaption(text.replace(/[\r\n]/g, ' ').slice(0, 80))} returnKeyType="done" onSubmitEditing={Keyboard.dismiss}
           style={styles.captionText} /> : <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.captionText, label ? styles.captionTextCompact : null]}>{caption}</Text>}
+        {onChangeCaption || captionHint ? <Text style={styles.captionHint}>{copy.hint}</Text> : null}
       </Animated.View>
       {pinned ? <View style={styles.pin} /> : null}
     </Animated.View>
@@ -204,6 +222,7 @@ const styles = StyleSheet.create({
   window: { position: 'absolute', top: 8, left: 8, right: 8, overflow: 'hidden', backgroundColor: '#121427' }, ink: { backgroundColor: '#14162B' },
   caption: { position: 'absolute', left: 14, right: 14, bottom: 0, height: CEREMONY.captionStripPts, justifyContent: 'center' },
   captionText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 21, color: '#14162B', textAlign: 'center', padding: 0 },
+  captionHint: { fontFamily: 'Inter-Regular', fontSize: 9, color: '#726B60', textAlign: 'center', marginTop: 3 },
   captionCompact: { left: 10, right: 10, gap: 2 }, captionTextCompact: { fontSize: 15, lineHeight: 17 },
   label: { fontFamily: 'Inter-SemiBold', fontSize: 8.5, letterSpacing: 2.2, textTransform: 'uppercase', color: '#8D8778', textAlign: 'center' },
   opaqueFill: { backgroundColor: '#1A1D36' },

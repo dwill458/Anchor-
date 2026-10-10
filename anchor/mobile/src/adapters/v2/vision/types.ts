@@ -3,6 +3,34 @@ export type VisionStatus = 'ACTIVE' | 'ARCHIVED';
 /** Where a board image came from: the person's library, their camera, or the image generator. */
 export type VisionSceneSource = 'USER_UPLOAD' | 'AI_GENERATED' | 'USER_CAMERA';
 
+/** Stable note material IDs. Presets are presentation choices, not note content. */
+export type VisionNoteStyleId =
+  | 'sticky_blush_pink' | 'sticky_butter_yellow' | 'sticky_sky_blue' | 'sticky_sage_green' | 'sticky_lavender' | 'sticky_peach' | 'sticky_warm_ivory' | 'sticky_rose_lined'
+  | 'paper_ivory_torn' | 'paper_aged_parchment' | 'paper_handmade_cream' | 'paper_blush_torn' | 'paper_sage_handmade' | 'paper_white_deckled'
+  | 'editorial_classic_cream' | 'editorial_powder_blue' | 'editorial_minimal_quote' | 'editorial_botanical_shadow' | 'editorial_coastal_illustration' | 'editorial_atmospheric_landscape';
+
+/** Board-relative geometry uses normalized center coordinates and dimensions. */
+export interface VisionNotePresentation {
+  styleId: VisionNoteStyleId;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  scale: number;
+  layerOrder: number;
+}
+
+/** Additive read-only contract for future persisted Vision notes. */
+export interface VisionNote {
+  id: string;
+  visionId: string;
+  content: { text: string };
+  presentation: VisionNotePresentation;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VisionSceneReadModel {
   id: string;
   visionId: string;
@@ -25,6 +53,8 @@ export interface VisionReadModel {
   description: string | null;
   status: VisionStatus;
   scenes: VisionSceneReadModel[];
+  /** Optional for compatibility with servers and cached reads predating notes. */
+  notes?: VisionNote[];
   seenToday: boolean;
   createdAt: string;
   updatedAt: string;

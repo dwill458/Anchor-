@@ -6,7 +6,7 @@ import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValu
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { ImpactFeedbackStyle } from 'expo-haptics';
 import { safeHaptics } from '@/utils/haptics';
-import { VISION_GOLD } from '../VisionPaperChrome';
+import { VISION_GOLD, VISION_SERIF_ITALIC } from '../VisionPaperChrome';
 import { CEREMONY, ceremonyDuration } from '../ceremony/VisionDevelop';
 import { useVisionImageArrival } from '../VisionImageArrival';
 import { colors, typography } from '@/theme/v2';
@@ -66,16 +66,26 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove, onTeachingMotionChange,
   canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
 }: VisionBoardPhotoProps) {
+  const arrival = useVisionImageArrival();
+  const setPrint = arrival?.setPrints?.find(item => item.sceneId === sceneId);
+  const setPhase = setPrint?.phase;
+  const flightPresence = useSharedValue(setPrint && setPhase !== 'landed' && setPhase !== 'pinned' && setPhase !== 'failed' ? 0 : 1);
+  const captionPresence = useSharedValue(setPrint ? 0 : 1);
   const pin = useSharedValue(0);
   useEffect(() => {
+    if (setPrint) {
+      flightPresence.value = setPhase === 'landed' || setPhase === 'pinned' || setPhase === 'failed' ? 1 : 0;
+      if (setPhase === 'landed') pin.value = withTiming(1, { duration: ceremonyDuration(CEREMONY.pinDropMs, reduceMotion) });
+      if (setPhase === 'pinned' || setPhase === 'failed') captionPresence.value = withTiming(1, { duration: reduceMotion ? 0 : 240 });
+      return;
+    }
     if (!arriving) return;
     pin.value = withDelay(reduceMotion ? 0 : CEREMONY.pinDelayMs, withTiming(1, { duration: ceremonyDuration(CEREMONY.pinDropMs, reduceMotion) }));
     const timer = setTimeout(() => { void safeHaptics.impact(ImpactFeedbackStyle.Light); }, reduceMotion ? 180 : CEREMONY.pinDelayMs + CEREMONY.pinDropMs);
     return () => clearTimeout(timer);
-  }, [arriving, reduceMotion]);
+  }, [arriving, reduceMotion, setPhase]);
   const pinStyle = useAnimatedStyle(() => ({ opacity: pin.value, transform: reduceMotion ? [] : [{ translateY: -40 * (1 - pin.value) }, { scale: 1.6 - .6 * pin.value }] }));
-  // DEFERRED: caption on board. The existing aperture has no 24pt bottom paper margin.
-  // DEFERRED: show scene captions inside Visualize; preserve its current framing.
+  const captionStyle = useAnimatedStyle(() => ({ opacity: captionPresence.value }));
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   // Signed image URLs change on every read, so a reorder used to hand each photo a new source and reload it,
   // which left the board blank while the images decoded again. While the path is unchanged the photo keeps
@@ -90,12 +100,12 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     setFailedUrl(null);
   };
   useEffect(() => { if (!sameImage) setShownUrl(imageUrl ?? null); }, [imageUrl, sameImage]);
-  const arrival = useVisionImageArrival();
   const imageRef = useRef<View>(null);
   // The flight lands only once this photograph has decoded. Landing on layout let the arrival
   // overlay dissolve over a frame that was still blank, which read as a cream flash.
   const decodedUrl = useRef<string | null>(null);
   const landImage = () => {
+    if (setPrint) imageRef.current?.measureInWindow?.((x, y, width, height) => arrival?.landSet?.(sceneId, { x, y, width, height }));
     if (imageUrl && arrival?.url === imageUrl) imageRef.current?.measureInWindow?.((x, y, width, height) => arrival.land(imageUrl, { x, y, width, height }));
   };
   const handleDecoded = () => {
@@ -103,7 +113,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     landImage();
   };
   // A photograph that decoded before the flight began lands at once; otherwise it lands when it decodes.
-  useEffect(() => { if (imageUrl && decodedUrl.current === imageUrl) landImage(); }, [imageUrl, arrival?.url]);
+  useEffect(() => { if (imageUrl && decodedUrl.current === imageUrl) landImage(); }, [imageUrl, arrival?.url, setPrint?.sceneId]);
   const start = initialRect ?? { x: 0, y: 0, width: 1, height: 1, rotation: 0, zIndex: 12, frame: 0 };
   const x = useSharedValue(start.x);
   const y = useSharedValue(start.y);
@@ -133,7 +143,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       Math.abs(width.value - slot.width) > 0.1 || Math.abs(height.value - slot.height) > 0.1 ||
       Math.abs(rotation.value - slot.rotation) > 0.05 || Math.abs(lift.value) > 0.001 ||
       presence.value < 0.999 || Math.abs(presenceScale.value - 1) > 0.001 || Math.abs(presenceLift.value) > 0.1 ||
-      (arriving && pin.value < 0.999);
+      ((arriving || Boolean(setPrint)) && setPhase !== 'failed' && pin.value < 0.999);
   }, (moving, previous) => {
     if (onTeachingMotionChange && moving !== previous) runOnJS(onTeachingMotionChange)(sceneId, moving);
   }, [onTeachingMotionChange, sceneId, exiting, arriving]);
@@ -285,7 +295,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     width: width.value,
     height: height.value,
     zIndex: z.value + (shared.dragging.value === sceneId ? 100 : 0),
-    opacity: presence.value * (cinematicOpacity?.value ?? 1),
+    opacity: presence.value * flightPresence.value * (cinematicOpacity?.value ?? 1),
     transform: [
       { translateX: dragX.value },
       { translateY: dragY.value + presenceLift.value },
@@ -344,9 +354,11 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
         <VisionImageEdge hero={hero} brush={detailEdges} darken={edgeDarken} />
       </Animated.View>
-      {arriving ? <Animated.View pointerEvents="none" testID={`${testID}-arrival-pin`} style={[styles.attachment, { width: 16, height: 16, top: -8, left: '50%', marginLeft: -8 }, pinStyle]}>
+      {arriving || setPrint ? <Animated.View pointerEvents="none" testID={`${testID}-arrival-pin`} style={[styles.attachment, { width: 16, height: 16, top: -8, left: '50%', marginLeft: -8 }, pinStyle]}>
         <Svg width={16} height={16}><Defs><RadialGradient id="arrival-pin" cx="35%" cy="30%"><Stop offset="0" stopColor="#F3DCA0" /><Stop offset=".45" stopColor={VISION_GOLD} /><Stop offset="1" stopColor="#7d5d22" /></RadialGradient></Defs><Circle cx={8} cy={8} r={8} fill="url(#arrival-pin)" /></Svg>
       </Animated.View> : null}
+      {interactive && caption?.trim() ? <Animated.Text pointerEvents="none" testID={`${testID}-caption`} numberOfLines={1}
+        style={[{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 5, fontFamily: VISION_SERIF_ITALIC, fontSize: 12, color: colors.text.primary, textAlign: 'center' }, captionStyle]}>{caption}</Animated.Text> : null}
     </Animated.View>
   );
 

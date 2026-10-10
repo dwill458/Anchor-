@@ -8,7 +8,7 @@ import type { V2VisionTile } from '@/adapters/v2/vision';
 import { VisionBoardScene } from './VisionBoardScene';
 import type { VisionBoardCardArt } from './VisionBoardIntentionCard';
 import { useVisionBoardScene } from './useVisionBoardScene';
-import { detailBoardSizeForWidth, toSceneRect, VISION_BOARD_MAX_IMAGES } from './visionBoardLayouts';
+import { detailBoardSizeForWidth, toSceneRect } from './visionBoardLayouts';
 import { focusCamera, restCamera, type CameraState } from './visionBoardCamera';
 import { boardCameraEasing, boardDelay, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { moveBoardOrder } from './visionBoardReorder';
@@ -37,7 +37,7 @@ export type VisionBoardProps = {
   onEditVision: () => void;
   /** A new order of scene ids, after a drag or an accessibility move. */
   onReorder: (sceneIds: string[]) => void;
-  /** Omitted when the board is full. */
+  /** Opens the Vision add flow; it remains available at the image limit for note entry. */
   onAddImage?: () => void;
   /** True while a photo is being dragged (the host should stop scrolling). */
   onDragActive?: (active: boolean) => void;
@@ -134,8 +134,10 @@ export function VisionBoard({
     if (focus && !focusRect) { setFocus(null); return; }
     if (focusRect) {
       wasFocused.current = true;
+      // The Anchor is a small object: zoom in 40% further than a photo so it reads larger.
+      const zoomBoost = focus?.kind === 'card' ? 1.4 : 1;
       const target = focusCamera(focusRect, scene, viewport, {
-        fill: MOTION.focus.fill, minZoom: MOTION.focus.minZoom, maxZoom: MOTION.focus.maxZoom, clamp: true, offsetY: -24,
+        fill: MOTION.focus.fill * zoomBoost, minZoom: MOTION.focus.minZoom * zoomBoost, maxZoom: MOTION.focus.maxZoom * zoomBoost, clamp: true, offsetY: -24,
       });
       moveCamera(target, MOTION.focus.moveMs);
       controls.value = boardDelay(reduceMotion ? MOTION.reduced.focusFadeOutMs : MOTION.focus.controlsAtMs,
@@ -247,11 +249,11 @@ export function VisionBoard({
       {!focus && !dragging && annotation.trim() ? <Text testID="vision-board-annotation" pointerEvents="none"
         onLayout={event => setCaptionExtra(Math.max(0, captionTop + event.nativeEvent.layout.height + 16 - viewport.height))}
         style={[styles.annotation, { top: captionTop, width: width * 0.22, fontSize: annotation.length > 40 ? 21 : 24 }]}>{annotation.trim()}</Text> : null}
-      {!focus && !dragging && onAddImage && count < VISION_BOARD_MAX_IMAGES ? (
-        <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel={`Add an image, ${count} of ${VISION_BOARD_MAX_IMAGES}`}
+      {!focus && !dragging && onAddImage ? (
+        <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add to Vision"
           onPress={onAddImage} hitSlop={8} style={({ pressed }) => [styles.addChip, pressed && styles.pressed]}>
           <Plus size={14} color={colors.text.primary} />
-          <Text style={styles.addText}>Add image</Text>
+          <Text style={styles.addText}>Add</Text>
         </Pressable>
       ) : null}
 

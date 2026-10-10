@@ -13,6 +13,19 @@ describe('Vision print asset and lifecycle continuity', () => {
   beforeEach(() => { jest.useFakeTimers(); jest.spyOn(Image, 'prefetch').mockResolvedValue(true); });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
 
+  it('settles an own photo after decoding without an ink or blur reveal', async () => {
+    const developed = jest.fn();
+    const view = render(<VisionPrint {...props} instant onDeveloped={developed} />);
+    expect(view.queryByTestId('vision-print-ink')).toBeNull();
+    expect(developed).not.toHaveBeenCalled();
+    fireEvent(view.getByTestId('vision-print-sharp'), 'load');
+    await advance(600);
+    expect(developed).toHaveBeenCalledTimes(1);
+    view.rerender(<VisionPrint {...props} instant showCaption onDeveloped={developed} />);
+    await advance(600);
+    expect(developed).toHaveBeenCalledTimes(1);
+  });
+
   it('waits for the image load even after prefetch times out', async () => {
     (Image.prefetch as jest.Mock).mockReturnValue(new Promise(() => undefined));
     const developed = jest.fn();

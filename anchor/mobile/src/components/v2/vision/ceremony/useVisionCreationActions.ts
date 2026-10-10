@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -19,7 +19,7 @@ export function photoVisionDescription(written: string, intention: string) {
   return base.length >= VISION_DESCRIPTION_MIN_CHARS ? base : `${base} — my Vision`.trim();
 }
 
-/** Existing generation/upload contracts, with direct-photo uploads deferred until Seal. */
+/** Upload local photos while they settle; persistence still belongs to Seal. */
 export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
   const generation = useV2VisionSceneGeneration(props.anchorId, props.onPremiumRequired);
   const [notice, setNotice] = useState<string | null>(null);
@@ -27,6 +27,10 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
   const startingRef = useRef(false);
   // Successful uploads survive a failed scene save, so retry never uploads them twice.
   const uploaded = useRef(new Map<string, VisionFlowAsset>());
+  const uploading = useRef(new Map<string, Promise<VisionFlowAsset>>());
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const generate = async (description: string, appearanceReferenceId?: string | null, photo?: VisionStartPhoto | null) => {
     const trimmed = description.trim();
@@ -66,6 +70,7 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
         if (result.status === 'cancelled') return null;
         if (result.status !== 'picked') {
           setNotice(result.message);
+          if (result.status === 'error') throw new Error(result.message);
           if (result.status === 'denied' && !result.canAskAgain) Alert.alert('Permission needed', result.message, [
             { text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
           ]);
@@ -86,10 +91,10 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
       const supported = photos.filter(item => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(item.mimeType));
       if (supported.length !== photos.length) setNotice('Choose JPEG, PNG, WebP, or GIF images.');
       return supported.length ? supported : null;
-    } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Unable to open your photos.'); return null; }
+    } catch (cause) { setNotice(cause instanceof Error ? cause.message : 'Unable to open your photos.'); throw cause; }
   };
 
-  const uploadOne = async (photo: CeremonyPhoto): Promise<VisionFlowAsset> => {
+  const readAndUpload = async (photo: CeremonyPhoto): Promise<VisionFlowAsset> => {
     const prior = uploaded.current.get(photo.key);
     if (prior) return prior;
     const info = await FileSystem.getInfoAsync(photo.uri);
@@ -102,14 +107,30 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
     return asset;
   };
 
+  const uploadOne = (photo: CeremonyPhoto): Promise<VisionFlowAsset> => {
+    const prior = uploaded.current.get(photo.key);
+    if (prior) return Promise.resolve(prior);
+    const pending = uploading.current.get(photo.key);
+    if (pending) return pending;
+    if (mounted.current) setUploadingCount(value => value + 1);
+    const task = readAndUpload(photo).finally(() => {
+      uploading.current.delete(photo.key);
+      if (mounted.current) setUploadingCount(value => Math.max(0, value - 1));
+    });
+    uploading.current.set(photo.key, task);
+    return task;
+  };
+  const prepareUploads = (photos: CeremonyPhoto[]) => {
+    photos.forEach(photo => { void uploadOne(photo).catch(() => undefined); });
+  };
+
   const saveUploads = async (photos: CeremonyPhoto[], description: string, caption: string, selection: VisionTwoUpSelection,
     photoCaptions?: Readonly<Record<string, string>>, arrivingPhotoKey?: string) => {
-    const assets: VisionFlowAsset[] = [];
-    for (const photo of photos) assets.push(await uploadOne(photo));
+    const assets = await Promise.all(photos.map(uploadOne));
     return props.onAssemble({ description: photoVisionDescription(description.trim(), props.anchorIntention),
       arrivingAssetId: assets[photos.findIndex(photo => photo.key === arrivingPhotoKey)]?.assetId,
       selectedAssets: assets.map((asset, i) => ({ ...asset, caption: photoCaptions ? photoCaptions[photos[i].key] : i === 0 ? caption : undefined })), selection });
   };
 
-  return { generation, starting, notice, setNotice, generate, pickImages, saveUploads };
+  return { generation, starting, notice, setNotice, generate, pickImages, saveUploads, prepareUploads, uploadingCount };
 }

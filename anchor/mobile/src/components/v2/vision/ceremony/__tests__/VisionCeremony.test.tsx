@@ -60,7 +60,7 @@ async function choose(view: ReturnType<typeof setup>, index = 0) {
 async function seal(view: ReturnType<typeof setup>) {
   fireEvent.press(view.queryByTestId('vision-complete-vision') ?? view.getByTestId('vision-ceremony-keep'));
   await advance(200);
-  await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealedMinHoldMs + CEREMONY.boardRiseMs + 1);
+  await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealHoldMs + CEREMONY.boardRiseMs + 1);
 }
 
 describe('Vision ceremony', () => {
@@ -110,7 +110,7 @@ describe('Vision ceremony', () => {
     expect(view.getByLabelText(copy.completeVision)).toBeTruthy();
     fireEvent.press(view.getByTestId('vision-complete-vision'));
     expect(view.queryByTestId('vision-seal-hold')).toBeNull();
-    expect(view.getByText(copy.sealed)).toBeTruthy();
+    expect(view.getByTestId('vision-seal-stamp-line')).toBeTruthy();
     await advance(200);
     expect(view.onAssemble).toHaveBeenCalledTimes(1);
   });
@@ -132,7 +132,7 @@ describe('Vision ceremony', () => {
     expect(view.getAllByTestId(/vision-ceremony-print-\d+-sharp/)).toHaveLength(count);
     await develop(view, count);
     expect(view.getByLabelText(copy.completeVision)).toBeTruthy();
-    if (count > 1) expect(view.getByTestId('vision-photo-stack-count').props.children).toBe(`1 of ${count}`);
+    if (count > 1) expect(view.getAllByTestId(/vision-photo-stack-dot-\d/)).toHaveLength(count);
   });
   it('edits and persists the caption with the photo currently in front, preserving every selected image', async () => {
     mockPicker.mockResolvedValueOnce({ canceled: false, assets: [
@@ -144,7 +144,7 @@ describe('Vision ceremony', () => {
     await act(async () => { fireEvent.press(view.getByLabelText(copy.ownPhoto)); });
     await develop(view, 2);
     fireEvent(view.getByTestId('vision-photo-stack-hit-target'), 'accessibilityTap');
-    expect(view.getByTestId('vision-photo-stack-count').props.children).toBe('2 of 2');
+    expect(view.getByTestId('vision-photo-stack-dot-1').props.accessibilityState.selected).toBe(true);
     fireEvent.changeText(view.getByTestId('vision-ceremony-print-1-caption'), 'The second photo is mine.');
     await seal(view);
     const selected = view.onAssemble.mock.calls[0][0].selectedAssets;
@@ -195,11 +195,11 @@ describe('Vision ceremony', () => {
     expect(view.getByText(copy.caption)).toBeTruthy();
     expect(view.onAssemble).not.toHaveBeenCalled();
   });
-  it('own-photo multi-select stays local until Seal and saves the set in picker order', async () => {
+  it('own-photo multi-select uploads while settling and saves the set only at Seal in picker order', async () => {
     mockPicker.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///one.jpg', mimeType: 'image/jpeg' }, { uri: 'file:///two.png', mimeType: 'image/png' }] });
     const view = setup(); await act(async () => { fireEvent.press(view.getByLabelText(copy.ownPhoto)); });
-    expect(view.onUploadAsset).not.toHaveBeenCalled(); await develop(view, 2);
-    expect(view.getByText(copy.caption)).toBeTruthy(); expect(view.onUploadAsset).not.toHaveBeenCalled(); await seal(view);
+    expect(view.onUploadAsset).toHaveBeenCalledTimes(2); expect(view.onAssemble).not.toHaveBeenCalled(); await develop(view, 2);
+    expect(view.getByText(copy.caption)).toBeTruthy(); expect(view.onAssemble).not.toHaveBeenCalled(); await seal(view);
     expect(view.onUploadAsset).toHaveBeenCalledTimes(2); expect(mockStart).not.toHaveBeenCalled();
     expect(view.onAssemble.mock.calls[0][0].selectedAssets.map((asset: any) => asset.sourceType)).toEqual(['USER_UPLOAD', 'USER_UPLOAD']);
     expect(view.onAssemble.mock.calls[0][0].selectedAssets[0].caption).toBe(base.anchorIntention);
@@ -413,8 +413,9 @@ describe('Vision ceremony', () => {
     let reads = 0;
     Object.defineProperty(AppState, 'currentState', { configurable: true, get: () => ++reads === 1 ? 'background' : 'active' });
     try {
-      setup({ startAt: 'develop', photo: { uri: 'file:///one.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
-      expect(require('@/services/CreationSounds').playCreationSound).toHaveBeenCalledWith('formTick');
+      const view = setup({ startAt: 'develop', photo: { uri: 'file:///one.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
+      expect(view.getByTestId('vision-ceremony-print-0-sharp')).toBeTruthy();
+      expect(require('@/services/CreationSounds').playCreationSound).not.toHaveBeenCalledWith('formTick');
     } finally { Object.defineProperty(AppState, 'currentState', descriptor); }
   });
 });
@@ -462,7 +463,7 @@ describe('Vision celebration scene', () => {
     await sealNow(view, 1600);
     expect(view.onAssemble).toHaveBeenCalledTimes(1);
     expect(view.queryByLabelText('Skip')).toBeNull();
-    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealedMinHoldMs);
+    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealHoldMs);
     await advance(CEREMONY.boardRiseMs);
     await advance(200); await advance(0);
     expect(view.getByLabelText(copy.back)).toBeTruthy();
@@ -477,7 +478,7 @@ describe('Vision celebration scene', () => {
     expect(view.queryByTestId('vision-ceremony-saving')).toBeTruthy();
     expect(scene()?.id).toMatch(/^vision-ceremony:/);
     await act(async () => { resolveSave(true); });
-    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealedMinHoldMs);
+    await advance(CEREMONY.printMoveMs + CEREMONY.stampMs + CEREMONY.sealHoldMs);
     await advance(CEREMONY.boardRiseMs);
     await advance(200); await advance(0);
     expect(view.onPinned).toHaveBeenCalledTimes(1);
@@ -544,12 +545,12 @@ describe('Vision double-fire guards', () => {
   const selection = () => require('@/hooks/v2').v2Haptics.selection as jest.Mock;
   const photo = { uri: 'file:///one.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } as const;
 
-  it('the own-photo develop opens once: a background-to-foreground cycle does not replay the cue, the haptic or the status', async () => {
+  it('own photos have no develop cue or copy across background and foreground transitions', async () => {
     const add = AppState.addEventListener as unknown as jest.Mock;
     const before = add.mock.calls.length;
     const view = setup({ startAt: 'develop', photo });
-    expect(calls('formTick')).toHaveLength(1); expect(selection()).toHaveBeenCalledTimes(1);
-    expect(view.getByText(copy.placing)).toBeTruthy();
+    expect(calls('formTick')).toHaveLength(0); expect(selection()).not.toHaveBeenCalled();
+    expect(view.queryByText(copy.placing)).toBeNull();
     const emit = (value: string) => act(() => { add.mock.calls.slice(before).forEach(([, handler]) => handler(value)); });
     await advance(500);
     emit('background');
@@ -557,29 +558,32 @@ describe('Vision double-fire guards', () => {
     emit('active');
     await advance(0);
     // The status the clock reached while away is shown, and nothing was replayed for it.
-    expect(calls('formTick')).toHaveLength(1); expect(selection()).toHaveBeenCalledTimes(1);
-    expect(view.getByText(copy.developing)).toBeTruthy();
+    expect(calls('formTick')).toHaveLength(0); expect(selection()).not.toHaveBeenCalled();
+    expect(view.queryByText(copy.developing)).toBeNull();
     // The sequence goes on to completion from where it was, with no further cue.
     await advance(2000);
-    expect(calls('formTick')).toHaveLength(1); expect(selection()).toHaveBeenCalledTimes(1);
-    expect(view.getByText(copy.developing)).toBeTruthy();
+    expect(calls('formTick')).toHaveLength(0); expect(selection()).not.toHaveBeenCalled();
+    expect(view.queryByText(copy.developing)).toBeNull();
   });
-  it('the own-photo develop still runs its status cues once each when the app never leaves', async () => {
+  it('own photos enter Keep after decoding and a 600ms settle without a develop wait', async () => {
     const view = setup({ startAt: 'develop', photo });
-    await advance(1400); expect(view.getByText(copy.light)).toBeTruthy();
-    await advance(1200); expect(view.getByText(copy.developing)).toBeTruthy();
-    expect(calls('formTick')).toHaveLength(3); expect(selection()).toHaveBeenCalledTimes(3);
+    fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load');
+    await advance(599); expect(view.queryByTestId('vision-complete-vision')).toBeNull();
+    await advance(1); expect(view.getByTestId('vision-complete-vision')).toBeTruthy();
+    expect(view.queryByText(copy.light)).toBeNull(); expect(view.queryByText(copy.developing)).toBeNull();
+    expect(calls('formTick')).toHaveLength(0); expect(selection()).not.toHaveBeenCalled();
     await advance(5000);
-    expect(calls('formTick')).toHaveLength(3); expect(selection()).toHaveBeenCalledTimes(3);
+    expect(calls('formTick')).toHaveLength(0); expect(selection()).not.toHaveBeenCalled();
   });
-  it('a new photo opens the develop again', async () => {
+  it('a replacement photo settles without replaying develop cues', async () => {
     mockPicker.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///two.jpg', mimeType: 'image/jpeg' }] });
     mockSinglePick.mockResolvedValueOnce({ status: 'picked', photo: { uri: 'file:///two.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
     const view = setup({ startAt: 'develop', photo }); await develop(view, 1);
     expect(view.getByText(copy.caption)).toBeTruthy();
     const before = calls('formTick').length;
     await act(async () => { fireEvent.press(view.getByText(copy.replace)); });
-    expect(calls('formTick').length).toBe(before + 1);
+    expect(calls('formTick').length).toBe(before);
+    expect(view.queryByTestId('vision-ceremony-print-0-ink')).toBeNull();
   });
 
   it('two quick taps on a candidate choose once: one cue, one haptic, one event', async () => {

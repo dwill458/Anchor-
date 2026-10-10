@@ -22,8 +22,9 @@ export const ENTRANCE = {
   spawnMs: 1050, spawnStagger: 120, printFadeMs: 500, tickAt: 2050, developAt: 2050, developStagger: 160, developMs: 2400,
   headAt: 1900, headMs: 700, headRise: 10, ctaAt: 2150, ctaMs: 700, ctaRise: 14, hintAt: 2450, hintMs: 600, driftAt: 3600,
   pickMs: 900, leaveMs: 300, handoffOverlapMs: 600,
-  anchorBig: 176, ringGap: 14, captionStrip: 52, spawnTy: -130, spawnScale: 0.28, footerGap: 34, footerHeight: 160,
+  anchorBig: 176, ringGap: 14, captionStrip: 52, spawnTy: -130, spawnScale: 0.28, footerGap: 34, footerHeight: 160, noteFooterExtra: 58,
 } as const;
+export const entranceFooterHeight = (withNoteAction: boolean) => ENTRANCE.footerHeight + (withNoteAction ? ENTRANCE.noteFooterExtra : 0);
 const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 const TRANSFORM_ORIGIN = '50% 120%';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -59,13 +60,22 @@ function printBottom(W: number, H: number, top: number, slot: FanSlot): number {
  * until the hint under them clears the first button by 16pt. Prints never overlap the buttons.
  */
 export function entranceLayout({ width, anchorBottom, footerTop, positions }: { width: number; anchorBottom: number; footerTop: number; positions: FanPosition[] }) {
-  const top = anchorBottom + 128, HINT_H = 16, GAP = 16;
+  let top = anchorBottom + 128;
+  const HINT_H = 16, GAP = 16;
   const widest = Math.min(width * 0.44, 170);
   let W = widest, H = W * 244 / 170, hintTop = 0;
   for (let w = Math.floor(widest); w >= 84; w -= 1) {
     W = w; H = W * 244 / 170;
     hintTop = Math.max(...positions.map(position => printBottom(W, H, top, fanSlot(position, W)))) + GAP;
     if (hintTop + HINT_H + GAP <= footerTop) break;
+  }
+  // On compact phones the added note row consumes vertical space. Keep the fan's
+  // relative slot geometry and move the prints upward only after they reach the
+  // smallest size, preserving a clear strip below the headline.
+  if (hintTop + HINT_H + GAP > footerTop) {
+    const overflow = hintTop + HINT_H + GAP - footerTop;
+    top = Math.max(anchorBottom + 96, top - overflow);
+    hintTop = Math.max(...positions.map(position => printBottom(W, H, top, fanSlot(position, W)))) + GAP;
   }
   return { W, H, left: (width - W) / 2, top, hintTop, headlineTop: anchorBottom + 20 };
 }
@@ -104,6 +114,9 @@ export interface VisionEntranceProps {
   onPickEmpty: () => void;
   onWords: () => void;
   onPhoto: (source: 'library' | 'camera') => void;
+  onAddNote?: () => void;
+  /** False at the existing per-Vision image limit; note entry remains available. */
+  canAddImage?: boolean;
   onBack: () => void;
   /** Where the ceremony's persistent top anchor rests, so the hand-off does not jump. */
   anchorTarget: PrintPlacement;
@@ -216,7 +229,7 @@ function OpeningAnchor({ anchorArt, target, width, height }: { anchorArt?: Visio
  * category fan out beneath it and develop, and tapping one starts Describe from that moment.
  */
 export function VisionEntrance({ mode, anchorId, category, anchorArt, previewImageUrl, previewCaption, firstRun, active = true, notice,
-  onPickExample, onPickEmpty, onWords, onPhoto, onBack, anchorTarget, onAnchorHandoff }: VisionEntranceProps) {
+  onPickExample, onPickEmpty, onWords, onPhoto, onAddNote, canAddImage = true, onBack, anchorTarget, onAnchorHandoff }: VisionEntranceProps) {
   const { width, height } = useWindowDimensions(), insets = useSafeAreaInsets();
   const reduced = useV2ReduceMotion();
   const [open] = useState(() => firstRun && !reduced), [first] = useState(firstRun);
@@ -226,7 +239,8 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
   const examples = useMemo(() => visionExamplesFor(category), [category]);
   const items = useMemo(() => fanItems(mode, examples, previewImageUrl, previewCaption?.trim() || ''), [mode, examples, previewImageUrl, previewCaption]);
   const shown = items.filter(item => item.kind === 'example').length;
-  const footerTop = height - insets.bottom - ENTRANCE.footerGap - ENTRANCE.footerHeight;
+  const footerHeight = entranceFooterHeight(Boolean(onAddNote));
+  const footerTop = height - insets.bottom - ENTRANCE.footerGap - footerHeight;
   const layout = useMemo(() => entranceLayout({ width, anchorBottom: anchorTarget.y + anchorTarget.height, footerTop, positions: items.map(item => item.position) }),
     [width, anchorTarget.y, anchorTarget.height, footerTop, items]);
   const activeRef = useRef(active); activeRef.current = active;
@@ -255,14 +269,16 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
   const stop = () => { stopped.current = true; setDrifting(false); };
   const choosePrint = (index: number) => {
     const item = items[index];
-    if (!interactive || picking !== null || !item || item.kind === 'yours') return;
+    if (!interactive || picking !== null || !canAddImage || !item || item.kind === 'yours') return;
     stop(); setPicking(index); void v2Haptics.selection(); playCreationSound('revealSettle');
     if (item.kind === 'example') AnalyticsService.track('vision_example_picked', { anchor_id: anchorId, mode, category, index: item.exampleIndex });
     leave.value = withTiming(1, { duration: ENTRANCE.leaveMs });
     later(() => { if (item.kind === 'example') onPickExample(item.example, item.exampleIndex); else onPickEmpty(); }, ceremonyDuration(ENTRANCE.pickMs, reduced));
   };
-  const press = (action: () => void) => () => { if (!interactive || picking !== null) return; stop(); playCreationSound('uiTap'); action(); };
-  const hint = notice ?? (shown ? (mode === 'add' && previewImageUrl ? copy.hintAdd : copy.hintCreate) : null);
+  const press = (action: () => void, requiresImage = false) => () => { if (!interactive || picking !== null || (requiresImage && !canAddImage)) return; stop(); playCreationSound('uiTap'); action(); };
+  const addNote = () => { if (!interactive || picking !== null) return; playCreationSound('uiTap'); onAddNote?.(); };
+  const hint = notice ?? (!canAddImage ? 'This Vision is full. You can still add a note.'
+    : shown ? (mode === 'add' && previewImageUrl ? copy.hintAdd : copy.hintCreate) : null);
 
   return <Animated.View testID="vision-entrance" pointerEvents="box-none" exiting={FadeOut.duration(fadeMs)} style={styles.fill}>
     <Svg pointerEvents="none" width={width} height={height} style={styles.fill}><Defs><RadialGradient id="entrance-vignette" cx="50%" cy="42%" rx="80%" ry="55%" fx="50%" fy="42%">
@@ -274,13 +290,23 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
       <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>{mode === 'create' ? copy.askCreate : copy.askAdd}</Text>
     </Animated.View>
     {items.map((item, index) => <FanPrint key={`${item.kind}-${index}`} item={item} index={index} W={layout.W} H={layout.H} left={layout.left} top={layout.top}
-      open={open} fadeMs={fadeMs} reduced={reduced} active={active} picking={picking} drifting={drifting} interactive={interactive} onPress={choosePrint} />)}
+      open={open} fadeMs={fadeMs} reduced={reduced} active={active} picking={picking} drifting={drifting} interactive={interactive && canAddImage} onPress={choosePrint} />)}
     {hint ? <Animated.View pointerEvents="none" style={[styles.hintWrap, { top: layout.hintTop }, hintStyle]}>
       <Text accessibilityLiveRegion={notice ? 'polite' : undefined} style={[styles.hint, notice ? styles.notice : null]}>{hint}</Text></Animated.View> : null}
     <Animated.View pointerEvents={interactive && picking === null ? 'box-none' : 'none'} style={[styles.footer, { bottom: insets.bottom + ENTRANCE.footerGap }, ctaStyle]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={copy.words} onPress={press(onWords)} style={styles.button}><Text style={styles.buttonText}>{copy.words}</Text></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={copy.ownPhoto} onPress={press(() => onPhoto('library'))} style={[styles.button, styles.ghost]}><Text style={[styles.buttonText, styles.ghostText]}>{copy.ownPhoto}</Text></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={copy.camera} onPress={press(() => onPhoto('camera'))} style={styles.link}><Text style={styles.linkText}>{copy.camera}</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={copy.words} accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage}
+        onPress={press(onWords, true)} style={[styles.button, !canAddImage && styles.disabled]}><Text style={styles.buttonText}>{copy.words}</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={copy.ownPhoto} accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage}
+        onPress={press(() => onPhoto('library'), true)} style={[styles.button, styles.ghost, !canAddImage && styles.disabled]}><Text style={[styles.buttonText, styles.ghostText]}>{copy.ownPhoto}</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={copy.camera} accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage}
+        onPress={press(() => onPhoto('camera'), true)} style={[styles.link, !canAddImage && styles.disabled]}><Text style={styles.linkText}>{copy.camera}</Text></Pressable>
+      {onAddNote ? <View style={styles.noteActionWrap}>
+        <View style={styles.noteDivider} />
+        <Pressable testID="vision-entrance-add-note" accessibilityRole="button" accessibilityLabel="Add a note" onPress={addNote} style={styles.noteAction}>
+          <Text style={styles.noteActionTitle}>Add a note →</Text>
+          <Text style={styles.noteActionSubtitle}>Put your vision into words</Text>
+        </Pressable>
+      </View> : null}
     </Animated.View>
   </Animated.View>;
 }
@@ -299,6 +325,12 @@ const styles = StyleSheet.create({
   ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#F4EDE048' }, ghostText: { color: '#F4EDE0' },
   link: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   linkText: { fontFamily: 'Inter-Medium', fontSize: 13, color: '#C4BDCF', textDecorationLine: 'underline', textAlign: 'center' },
+  noteActionWrap: { marginTop: 2, alignItems: 'center' },
+  noteDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: '#F4EDE026', marginBottom: 4 },
+  noteAction: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  noteActionTitle: { fontFamily: 'Inter-Medium', fontSize: 14, lineHeight: 18, color: '#F4EDE0' },
+  noteActionSubtitle: { fontFamily: 'Inter-Regular', fontSize: 11, lineHeight: 14, color: '#9A9AB2' },
+  disabled: { opacity: 0.48 },
   openingAnchor: { position: 'absolute' },
   openingMark: { flex: 1, borderRadius: 200 },
   ring: { position: 'absolute' },

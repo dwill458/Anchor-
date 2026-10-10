@@ -17,7 +17,6 @@ import { VisionHeaderRow, VisionStatusBarScrim, type VisionAnchorArt } from './V
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { VisionBoard } from './board/VisionBoard';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
-import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 import { VisionArrivalDestination, useVisionImageArrival } from './VisionImageArrival';
 import { VisionAddSheet, type VisionAddChoice } from './VisionAddSheet';
 import { visionCeremonyCopy } from './ceremony/visionCeremonyCopy';
@@ -226,7 +225,7 @@ export function V2SavedVision({
   }, [boardTiles, onReplace, tiles]);
 
   const addImage = useCallback(() => (onAddImage ?? onAddGenerate)(), [onAddImage, onAddGenerate]);
-  // DEFERRED: VisionAddSheet is rendered but unreachable; Add image opens ceremony Ask.
+  // Add opens the existing Ask entrance so note entry sits alongside the image paths.
   const closeAddSheet = useCallback(() => setAddSheetOpen(false), []);
   const chooseAdd = useCallback((choice: VisionAddChoice) => {
     if (choice === 'generate') onAddGenerate();
@@ -297,7 +296,7 @@ export function V2SavedVision({
                   onRemove={remove}
                   onEditVision={() => setMode('edit')}
                   onReorder={reorder}
-                  onAddImage={boardTiles.length < VISION_BOARD_MAX_IMAGES ? addImage : undefined}
+                  onAddImage={addImage}
                   onDragActive={setDragging}
                 /></View>
               </View>

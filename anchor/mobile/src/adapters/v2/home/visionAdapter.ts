@@ -1,5 +1,5 @@
 import type { VisualizationScene } from '@/types/practice';
-import type { V2VisionPresentationState, V2VisionTile } from '@/adapters/v2/vision';
+import type { V2VisionPresentationState, V2VisionTile, VisionNote } from '@/adapters/v2/vision';
 
 /**
  * Honest Vision state for Home. The Vision domain currently persists only a
@@ -17,6 +17,7 @@ export type HomeVisionState =
       previewUri?: string;
       title?: string | null;
       tiles?: V2VisionTile[];
+      notes?: VisionNote[];
       featuredTileId?: string;
       /**
        * Server-computed against the client's IANA timezone, so it is a real
@@ -88,7 +89,7 @@ export function toV2HomeVisionState(
 
   const tiles = presentation.tiles.filter((tile) => Boolean(tile.imageUrl || tile.prompt?.trim()));
   const previewText = presentation.description.trim();
-  if (!previewText && tiles.length === 0) return { state: 'none' };
+  if (!previewText && tiles.length === 0 && !presentation.raw.notes?.some(note => note.content.text.trim())) return { state: 'none' };
 
   return {
     state: 'ready',
@@ -96,6 +97,7 @@ export function toV2HomeVisionState(
     previewText,
     title: presentation.title,
     tiles,
+    notes: presentation.raw.notes,
     featuredTileId: tiles.some((tile) => tile.id === presentation.featuredTileId)
       ? presentation.featuredTileId
       : tiles[0]?.id,

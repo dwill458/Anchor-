@@ -27,6 +27,14 @@ const props: VisionBoardProps = {
 };
 
 describe('VisionBoard focused controls', () => {
+  it('keeps the Add action available at the image limit and preserves its callback', () => {
+    const onAddImage = jest.fn();
+    const tiles = Array.from({ length: 8 }, (_, index) => ({ ...props.tiles[0], id: `p${index}`, sceneId: `p${index}`, sortOrder: index }));
+    const view = render(<VisionBoard {...props} tiles={tiles} onAddImage={onAddImage} />);
+    expect(view.getByText('Add')).toBeTruthy();
+    fireEvent.press(view.getByLabelText('Add to Vision'));
+    expect(onAddImage).toHaveBeenCalledTimes(1);
+  });
   it('leaves the caption empty unless the user supplied one', () => {
     const view = render(<VisionBoard {...props} />);
     expect(view.queryByTestId('vision-board-annotation')).toBeNull();

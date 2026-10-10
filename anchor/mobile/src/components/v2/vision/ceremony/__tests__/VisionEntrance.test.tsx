@@ -2,7 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
-import { ENTRANCE, VisionEntrance, entranceLayout, fanSlot, type VisionEntranceProps } from '../VisionEntrance';
+import { ENTRANCE, VisionEntrance, entranceFooterHeight, entranceLayout, fanSlot, type VisionEntranceProps } from '../VisionEntrance';
 import { visionCeremonyCopy as copy } from '../visionCeremonyCopy';
 
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
@@ -14,7 +14,7 @@ jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples
 
 const example = (i: number) => ({ image: { uri: `file:///example-${i}.webp` }, caption: `Example ${i}`, moment: `Moment ${i}.` });
 const target = { x: 171, y: 66, width: 48, height: 48, opacity: 0 };
-const handlers = () => ({ onPickExample: jest.fn(), onPickEmpty: jest.fn(), onWords: jest.fn(), onPhoto: jest.fn(), onBack: jest.fn(), onAnchorHandoff: jest.fn() });
+const handlers = () => ({ onPickExample: jest.fn(), onPickEmpty: jest.fn(), onWords: jest.fn(), onPhoto: jest.fn(), onAddNote: jest.fn(), onBack: jest.fn(), onAnchorHandoff: jest.fn() });
 function setup(overrides: Partial<VisionEntranceProps> = {}) {
   const fns = handlers();
   const props: VisionEntranceProps = { mode: 'create', anchorId: 'anchor', category: 'health', firstRun: true, anchorTarget: target, ...fns, ...overrides };
@@ -90,6 +90,28 @@ describe('VisionEntrance', () => {
     fireEvent.press(view.getByLabelText(copy.ownPhoto)); fireEvent.press(view.getByLabelText(copy.camera));
     expect(view.onPhoto.mock.calls).toEqual([['library'], ['camera']]); expect(calls('uiTap')).toHaveLength(2);
     fireEvent.press(view.getByLabelText(copy.back)); expect(view.onBack).toHaveBeenCalledTimes(1);
+  });
+  it('adds the note action below the photo actions without changing the fan geometry', async () => {
+    const view = setup({ firstRun: false, onAddNote: jest.fn() });
+    const footerHeight = entranceFooterHeight(true);
+    const footerTop = 667 - 34 - ENTRANCE.footerGap - footerHeight;
+    const short = entranceLayout({ width: 375, anchorBottom: 68, footerTop, positions: ['left', 'center', 'right'] });
+    expect(short.W).toBeGreaterThanOrEqual(84);
+    expect(short.hintTop + 16 + 16).toBeLessThanOrEqual(footerTop);
+    const action = view.getByLabelText('Add a note');
+    fireEvent.press(action);
+    expect(view.props.onAddNote).toHaveBeenCalledTimes(1);
+    expect(view.getByText('Put your vision into words')).toBeTruthy();
+  });
+  it('keeps note entry available when image capacity is full and disables image paths', () => {
+    const view = setup({ firstRun: false, canAddImage: false, onAddNote: jest.fn() });
+    fireEvent.press(view.getByLabelText('Add a note'));
+    expect(view.props.onAddNote).toHaveBeenCalledTimes(1);
+    expect(view.getByLabelText(copy.words).props.accessibilityState.disabled).toBe(true);
+    expect(view.getByLabelText(copy.ownPhoto).props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(view.getByLabelText(copy.words));
+    expect(view.onWords).not.toHaveBeenCalled();
+    expect(view.getByText('This Vision is full. You can still add a note.')).toBeTruthy();
   });
   it('shows a photo notice in place of the hint', () => {
     const view = setup({ firstRun: false, notice: 'Unable to open photo library.' });

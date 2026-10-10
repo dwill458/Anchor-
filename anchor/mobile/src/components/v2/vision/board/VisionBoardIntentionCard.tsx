@@ -78,7 +78,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
     height: height.value,
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
-  const paperStyle = useAnimatedStyle(() => ({ opacity: paperOpacity?.value ?? 1 }));
+  const paperStyle = useAnimatedStyle(() => ({ opacity: arrival?.setActive ? 0 : paperOpacity?.value ?? 1 }));
 
   // Type is laid out for the target size; the card's own motion is small.
   const paper = markAppearance === 'paper';
