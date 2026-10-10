@@ -337,56 +337,16 @@ async function sendPush(options: {
     return { sent: false };
   }
 
-  const fcmServerKey = Deno.env.get('FCM_SERVER_KEY');
-  if (!options.fcmToken || !fcmServerKey) {
-    console.log(
-      `[notifications] Push provider not configured for user ${options.userId}; payload prepared only`
+  if (options.fcmToken) {
+    // Legacy FCM endpoint (https://fcm.googleapis.com/fcm/send) was permanently shut down by Google in June 2024.
+    // Expo Push handles FCM v1 API and APNs delivery securely.
+    console.warn(
+      `[notifications] Legacy FCM endpoint is decommissioned. Direct FCM delivery skipped for user ${options.userId}; use expoPushToken.`
     );
     return { sent: false };
   }
 
-  const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-    method: 'POST',
-    headers: {
-      Authorization: `key=${fcmServerKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      to: options.fcmToken,
-      notification: {
-        title: options.title,
-        body: options.body,
-      },
-      data: {
-        deepLink: options.deepLink,
-        category: options.category,
-        templateId: options.templateId,
-        tone: options.tone,
-        milestone: options.milestone,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    const failureBody = await response.text();
-    throw new Error(failureBody || 'Failed to send FCM push.');
-  }
-
-  const payload = await response.json().catch(() => null) as
-    | { failure?: number; results?: Array<{ error?: string }> }
-    | null;
-  const errorCode = payload?.results?.[0]?.error;
-
-  if ((payload?.failure ?? 0) > 0 && errorCode) {
-    if (errorCode === 'InvalidRegistration' || errorCode === 'NotRegistered') {
-      console.log(`[notifications] Invalid FCM token for user ${options.userId}`);
-      return { sent: false, invalidFcmToken: true };
-    }
-
-    throw new Error(`FCM push error: ${errorCode}`);
-  }
-
-  return { sent: true };
+  return { sent: false };
 }
 
 async function markNotificationSent(
@@ -458,8 +418,10 @@ export async function handleTriggerAll(_req: Request): Promise<Response> {
       const eligible = {
         milestone: state.milestoneNotificationsEnabled !== false && detectMilestone(state) != null,
         threadStrength: evalThreadStrength(state, now),
-        weeklyRecap: evalWeeklyRecap(state, now),
-        dailyPrime: evalDailyPrime(state),
+        // In Anchor 2.0, personal daily reminders are scheduled directly on-device
+        // using native repeating triggers (anchor:personal-daily). Suppress remote
+        // daily_prime push to avoid double-notifying the user.
+        dailyPrime: false,
       };
 
       const toFire = resolvePriority(eligible);

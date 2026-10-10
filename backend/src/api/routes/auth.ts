@@ -1077,27 +1077,49 @@ router.put(
         throw new AppError('No fields to update', 400, 'VALIDATION_ERROR');
       }
 
-      const query = Prisma.sql`
-        UPDATE users
-        SET ${Prisma.join(assignments, ', ')}
-        WHERE id = ${user.id}
-        RETURNING notification_state, notifications_enabled, expo_push_token, fcm_token, apns_token
-      `;
+      const updated = await prisma.$transaction(async (tx) => {
+        if (pushTokens) {
+          // Disassociate non-null device tokens from any other user to prevent cross-account push contamination
+          if (pushTokens.expoPushToken) {
+            await tx.$executeRaw(
+              Prisma.sql`UPDATE users SET expo_push_token = NULL WHERE expo_push_token = ${pushTokens.expoPushToken} AND id <> ${user.id}`
+            );
+          }
+          if (pushTokens.fcmToken) {
+            await tx.$executeRaw(
+              Prisma.sql`UPDATE users SET fcm_token = NULL WHERE fcm_token = ${pushTokens.fcmToken} AND id <> ${user.id}`
+            );
+          }
+          if (pushTokens.apnsToken) {
+            await tx.$executeRaw(
+              Prisma.sql`UPDATE users SET apns_token = NULL WHERE apns_token = ${pushTokens.apnsToken} AND id <> ${user.id}`
+            );
+          }
+        }
 
-      const rows = await prisma.$queryRaw<
-        Array<{
-          notification_state: Prisma.JsonValue | null;
-          notifications_enabled: boolean;
-          expo_push_token: string | null;
-          fcm_token: string | null;
-          apns_token: string | null;
-        }>
-      >(query);
+        const query = Prisma.sql`
+          UPDATE users
+          SET ${Prisma.join(assignments, ', ')}
+          WHERE id = ${user.id}
+          RETURNING notification_state, notifications_enabled, expo_push_token, fcm_token, apns_token
+        `;
 
-      const updated = rows[0];
-      if (!updated) {
-        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-      }
+        const rows = await tx.$queryRaw<
+          Array<{
+            notification_state: Prisma.JsonValue | null;
+            notifications_enabled: boolean;
+            expo_push_token: string | null;
+            fcm_token: string | null;
+            apns_token: string | null;
+          }>
+        >(query);
+
+        const row = rows[0];
+        if (!row) {
+          throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+        }
+        return row;
+      });
 
       res.json({
         success: true,
@@ -1112,6 +1134,10 @@ router.put(
     } catch (error) {
       if (error instanceof AppError) {
         next(error);
+        return;
+      }
+      if ((error as any)?.code === 'P2002' || (error as any)?.code === '23505') {
+        next(new AppError('Push token conflict detected', 409, 'TOKEN_CONFLICT'));
         return;
       }
       next(new AppError('Failed to sync notification state', 500, 'UPDATE_ERROR'));

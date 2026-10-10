@@ -23,6 +23,7 @@ jest.mock('express-rate-limit', () => jest.fn(() => (_req: any, _res: any, next:
 // Prisma mock — provide jest.fn() for every method used in auth routes
 const mockPrisma = {
   $queryRaw: jest.fn(),
+  $executeRaw: jest.fn().mockResolvedValue(0),
   $transaction: jest.fn(),
   user: {
     findUnique: jest.fn(),
