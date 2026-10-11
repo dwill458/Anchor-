@@ -58,6 +58,18 @@ export type FocusOptions = {
   offsetY?: number;
 };
 
+/** Adds the requested 35% zoom to photo focus while keeping its focal point and camera policy. */
+export function photoFocusOptions(options: FocusOptions): FocusOptions {
+  'worklet';
+  const zoom = 1.35;
+  return {
+    ...options,
+    fill: options.fill * zoom,
+    minZoom: options.minZoom * zoom,
+    maxZoom: options.maxZoom * zoom,
+  };
+}
+
 /** The camera that brings one board object to the centre of attention. */
 export function focusCamera(rect: SceneRect, scene: Size, viewport: Size, options: FocusOptions): CameraState {
   'worklet';

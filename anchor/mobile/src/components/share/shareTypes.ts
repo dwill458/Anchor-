@@ -1,4 +1,5 @@
 import type { AnchorExpression } from '@/constants/v2/creation';
+import type { VisionNote, V2VisionTile } from '@/adapters/v2/vision';
 
 export type ShareLayoutId = 'minimal' | 'style' | 'editorial' | 'vision';
 
@@ -33,6 +34,12 @@ export interface ShareExportData {
   styleId?: string | null;
   /** The user's actual Vision image. Absent means the Vision layout is not offered. */
   visionImageUrl?: string | null;
+  /** Ordered board photographs from the user's persisted Vision. */
+  visionTiles?: readonly V2VisionTile[] | null;
+  /** Persisted board notes, including their original placement and layer order. */
+  visionNotes?: readonly VisionNote[] | null;
+  /** The board's optional handwritten annotation. */
+  visionAnnotation?: string | null;
 }
 
 export interface ShareTemplateProps {
@@ -44,8 +51,9 @@ export interface ShareTemplateProps {
   onAssetsReady?: () => void;
 }
 
-export function availableShareLayouts(data: Pick<ShareExportData, 'visionImageUrl'>): ShareLayoutId[] {
+export function availableShareLayouts(data: Pick<ShareExportData, 'visionImageUrl' | 'visionTiles' | 'visionNotes'>): ShareLayoutId[] {
   const layouts: ShareLayoutId[] = ['minimal', 'style', 'editorial'];
-  if (data.visionImageUrl) layouts.push('vision');
+  const hasBoardContent = Boolean(data.visionTiles?.some(tile => tile.imageUrl?.trim()) || data.visionNotes?.some(note => !note.isArchived && note.content.text.trim()));
+  if (hasBoardContent || data.visionImageUrl?.trim()) layouts.push('vision');
   return layouts;
 }

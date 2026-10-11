@@ -14,7 +14,7 @@ const noop = () => undefined;
 
 /** Reuses the etched map introduced in 663ce64e, including its category tint,
  * fog field, brush route, dotted future route and registered waypoint positions. */
-export function ChartMapCrop({ data, full }: { data: Pick<ChartPreviewData, 'category' | 'status' | 'waypointIndex' | 'waypointTotal' | 'title'>; full: boolean }) {
+export function ChartMapCrop({ data, full, coverArc, weatherComplete }: { data: Pick<ChartPreviewData, 'category' | 'status' | 'waypointIndex' | 'waypointTotal' | 'title'>; full: boolean; coverArc?: number; weatherComplete?: boolean }) {
   const [width, setWidth] = useState(320);
   const placement = useMemo(() => waypointPlacement(Math.max(1, data.waypointTotal)), [data.waypointTotal]);
   const index = Math.max(0, Math.min(placement.n - 1, data.waypointIndex - 1));
@@ -22,12 +22,13 @@ export function ChartMapCrop({ data, full }: { data: Pick<ChartPreviewData, 'cat
   const arrived = data.status === 'complete';
   useLayoutEffect(() => {
     anim.revealArc.value = arrived ? table.total : data.waypointIndex > 0 ? placement.arcs[index] : 0;
+    anim.coverArc.value = coverArc ?? (arrived ? table.total : data.waypointIndex > 0 ? placement.arcs[index] : 0);
     anim.flagIndex.value = index;
     anim.flagOpacity.value = arrived || data.waypointIndex === 0 ? 0 : 1;
-    anim.fog.value = arrived ? 1 : 0;
+    anim.fog.value = (weatherComplete ?? arrived) ? 1 : 0;
     anim.glyph.value = arrived ? 1 : 0;
     anim.goldDot.value = arrived ? 1 : 0;
-  }, [anim, arrived, data.waypointIndex, index, placement]);
+  }, [anim, arrived, coverArc, data.waypointIndex, index, placement, weatherComplete]);
   const markers = useMemo<ChartMapMarker[]>(() => Array.from({ length: data.waypointTotal }, (_, i) => ({
     id: `preview-waypoint-${i + 1}`, index: i, number: i + 1,
     title: i === index ? data.title : `Waypoint ${i + 1}`,
@@ -45,8 +46,8 @@ export function ChartMapCrop({ data, full }: { data: Pick<ChartPreviewData, 'cat
     <View testID="chart-preview-map-offset" style={{ position: 'absolute', top: top === 0 ? 0 : -top }}>
       <ChartMap testID="chart-preview-etched-map" width={width} table={table} placement={placement}
         anim={anim} markers={markers} categoryColor={getCategoryColor(data.category)}
-        category={data.category ?? undefined} interactive={false} reducedMotion arrived={arrived} clouds
-        onMarkerPress={noop} onMapPress={noop} />
+        category={data.category ?? undefined} interactive={false} reducedMotion arrived={arrived} clouds weather="textured"
+        onMarkerPress={noop} onMapPress={noop} weatherComplete={weatherComplete} />
     </View>
     {/* Invisible: keeps the Chart's cloud bitmaps decoded, so opening this Chart shows its weather on frame one. */}
     <ChartWeatherVeilPrimer />

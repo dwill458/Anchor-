@@ -292,7 +292,7 @@ describe('V2FirstRunFlow Screen 3 — the one question', () => {
     ['relationships', 'relationships'],
     ['money', 'abundance'],
     ['family', 'family'],
-    ['something_else', 'desire'],
+    ['something_else', 'custom'],
   ])('tapping %s sets the Anchor category to %s', (card, category) => {
     render(<V2FirstRunFlow />);
     fireEvent.press(screen.getByTestId(`focus-card-${card}`));
@@ -385,7 +385,7 @@ describe('V2FirstRunFlow first Anchor', () => {
   );
 
   it('lets the intention determine the category for Something else', () => {
-    draft.focusCategory = 'desire';
+    draft.focusCategory = 'custom';
     render(<V2FirstRunFlow />);
     expect(screen.getByTestId('tactile-creation-entry').props.chosenCategory).toBeUndefined();
   });

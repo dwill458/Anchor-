@@ -94,6 +94,7 @@ function PracticeLayer({ layerKey, depth, reduceMotion, settle = true, children 
 }
 
 type Props = Partial<V2PracticeRouteIntents> & {
+  visionEntry?: import('@/adapters/v2/vision').VisionVisualizeEntry;
   anchor?: Anchor | null;
   recommendation?: V2RecommendationContext | null;
   capabilities?: V2PracticeCapabilities;
@@ -119,6 +120,7 @@ export function V2PracticeScreen({
   resumeMode,
   resumeDuration,
   resumeSource,
+  visionEntry,
   onBack,
   leaveOnSetupBack = false,
   onPremiumCapabilityRequired,
@@ -166,7 +168,7 @@ export function V2PracticeScreen({
   const windowSize = useWindowDimensions();
   const headerPlace = useAnchorTransitionPlace('practice', fixedAnchor?.id, 'bare');
 
-  const [prepareMode, setPrepareMode] = useState<V2PracticeMode | null>(null);
+  const [prepareMode, setPrepareMode] = useState<V2PracticeMode | null>(() => visionEntry && resumeMode === 'visualize' ? 'visualize' : null);
   const [prepareSource, setPrepareSource] = useState<'practice_hub' | 'recommended_today'>('practice_hub');
   const [activeSession, setActiveSession] = useState<V2PracticeStartRequest | null>(null);
   const [justCompletedTodayAnchorId, setJustCompletedTodayAnchorId] = useState<string | null>(null);
@@ -517,7 +519,9 @@ export function V2PracticeScreen({
       <V2PracticePrepareScreen
         anchor={fixedAnchor}
         mode={prepareMode}
-        vision={model.vision}
+        vision={visionEntry?.anchorId === fixedAnchor.id ? { state: 'ready', visionId: visionEntry.visionId,
+          previewText: fixedAnchor.intentionText ?? '', seenToday: false, tiles: visionEntry.tiles, notes: visionEntry.notes } : model.vision}
+        visionEntry={visionEntry?.anchorId === fixedAnchor.id ? visionEntry : undefined}
         source={prepareSource}
         initialDuration={prepareMode === resumeMode ? resumeDuration ?? undefined : undefined}
         entitled={effectiveCapabilities[prepareMode]}

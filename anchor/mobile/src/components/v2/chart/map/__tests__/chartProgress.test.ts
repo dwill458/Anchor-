@@ -1,4 +1,5 @@
 import type { MoveSummary, WaypointSummary } from '@/types/chart';
+import type { CourseDetail } from '@/types/chart';
 import type { ChartWaypointView } from '@/adapters/v2/chart/chartV2Model';
 import { buildRouteTable, waypointPlacement } from '../chartMapGeometry';
 import {
@@ -13,6 +14,7 @@ import {
   routeRevealArc,
   toProgressInput,
   waypointFraction,
+  chartWeatherProgress,
 } from '../chartProgress';
 import type { WaypointProgressInput } from '../chartMapContracts';
 
@@ -186,6 +188,38 @@ describe('toProgressInput', () => {
     const i = toProgressInput(view({ state: 'completed' }));
     expect(i.metric).toBeNull();
     expect(i.completed).toBe(true);
+  });
+});
+
+describe('chartWeatherProgress', () => {
+  it('uses the same weighted metric and move inputs and server completion as the full Chart', () => {
+    const course = {
+      id: 'course-1', status: 'ACTIVE', currentWaypointId: 'wp-1', destinationText: 'Destination',
+      waypoints: [{ id: 'wp-1', position: 0, title: 'Current', state: 'CURRENT', progressMode: 'numeric',
+        metric: { label: null, baseline: 10, current: 50, target: 110 }, requirements: [] }],
+      moves: [
+        { id: 'm1', waypointId: 'wp-1', status: 'COMPLETED', title: 'Done' },
+        { id: 'm2', waypointId: 'wp-1', status: 'ACTIVE', title: 'Next' },
+      ],
+    } as unknown as CourseDetail;
+    const progress = chartWeatherProgress(course);
+    expect(progress.inputs[0]).toMatchObject({
+      id: 'wp-1', completed: false, metric: { baseline: 10, current: 50, target: 110 }, movesDone: 1, movesTotal: 2,
+    });
+    expect(progress.currentIndex).toBe(0);
+    expect(progress.isFinished).toBe(false);
+    expect(routeRevealArc({ inputs: progress.inputs, currentIndex: progress.currentIndex, isFinished: progress.isFinished,
+      hw: {}, placement: waypointPlacement(1), table: buildRouteTable() }))
+      .toBeCloseTo(0.42 * waypointPlacement(1).legs[0].end, 6);
+  });
+
+  it('clears the full route only for server-confirmed completion', () => {
+    const course = {
+      id: 'course-1', status: 'ACTIVE', currentWaypointId: null, destinationText: 'Destination',
+      waypoints: [{ id: 'wp-1', position: 0, title: 'Reached', state: 'REACHED', reachedAt: '2026-01-01', progressMode: 'moves' }], moves: [],
+    } as unknown as CourseDetail;
+    expect(chartWeatherProgress(course).isFinished).toBe(false);
+    expect(chartWeatherProgress({ ...course, status: 'COMPLETED' }).isFinished).toBe(true);
   });
 });
 

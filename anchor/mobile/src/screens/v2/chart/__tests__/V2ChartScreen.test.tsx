@@ -37,7 +37,8 @@ import type { CourseDetail } from '@/types/chart';
 
 const mockNavigate = jest.fn();
 const mockSetParams = jest.fn();
-const mockNavigation = { navigate: mockNavigate, goBack: jest.fn(), canGoBack: () => true, setParams: mockSetParams };
+const mockReplace = jest.fn();
+const mockNavigation = { navigate: mockNavigate, replace: mockReplace, goBack: jest.fn(), canGoBack: () => true, setParams: mockSetParams };
 let mockParams: Record<string, unknown> = { anchorId: 'anchor-1' };
 
 jest.mock('@react-navigation/native', () => {
@@ -205,6 +206,7 @@ function serve(options: { chart: ChartForAnchor | Error; vision?: typeof vision 
 
 beforeEach(async () => {
   jest.clearAllMocks();
+  useSubscriptionStore.setState({ entitlementReady: true, hasActiveEntitlement: true, isSubscribed: true, isInTrial: false, remoteCompedAccess: false, legacyMigrationAccess: false, devOverrideEnabled: false });
   useAuthStore.setState({ user: { id: 'chart-screen-user' } as never });
   await encryptedPersistStorage.removeItem('anchor:v2:chart2:chart-screen-user:anchor-1');
   mockParams = { anchorId: 'anchor-1' };
@@ -624,13 +626,15 @@ describe('V2ChartScreen — free accounts view but do not create', () => {
   beforeEach(() => useSubscriptionStore.setState({ devOverrideEnabled: true, devTierOverride: 'free' }));
   afterEach(() => useSubscriptionStore.setState({ devOverrideEnabled: false, devTierOverride: 'pro' }));
 
-  it('shows the Pro prompt instead of the creation flow and opens the Chart paywall', async () => {
+  it('opens the Chart paywall directly when a free account tries to create a Chart', async () => {
     serve({ chart: readModel(null), vision: null });
     const screen = render(<V2ChartScreen />);
-    expect(await screen.findByTestId('v2-chart-screen-locked')).toBeTruthy();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('V2Paywall', {
+      context: 'CHART',
+      resumeIntent: { type: 'open_chart', anchorId: 'anchor-1' },
+    }));
     expect(screen.queryByTestId('chart-create-cta')).toBeNull();
-    fireEvent.press(screen.getByText('See Anchor Pro'));
-    expect(mockNavigate).toHaveBeenCalledWith('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId: 'anchor-1' } });
+    expect(screen.queryByText('See Anchor Pro')).toBeNull();
   });
 
   it('still opens an existing Chart', async () => {
@@ -638,5 +642,20 @@ describe('V2ChartScreen — free accounts view but do not create', () => {
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
     expect(screen.queryByTestId('v2-chart-screen-locked')).toBeNull();
+  });
+
+  it('keeps saved Chart history available after entitlement expiry', async () => {
+    serve({ chart: { ...readModel(null), history: [{ id: 'archive-1', destinationText: 'A completed route', status: 'COMPLETED', completedAt: '2026-09-01T00:00:00Z', reachedCount: 3, waypointCount: 3 }] as ChartForAnchor['history'] }, vision: null });
+    render(<V2ChartScreen />);
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('V2ChartJourney', { anchorId: 'anchor-1' }));
+    expect(mockReplace).not.toHaveBeenCalledWith('V2Paywall', expect.anything());
+  });
+
+  it('lets an active trial create a Chart', async () => {
+    useSubscriptionStore.setState({ devOverrideEnabled: true, devTierOverride: 'trial' });
+    serve({ chart: readModel(null), vision: null });
+    const screen = render(<V2ChartScreen />);
+    expect(await screen.findByTestId('chart-create-cta')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

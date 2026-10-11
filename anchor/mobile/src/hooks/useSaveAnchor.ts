@@ -242,7 +242,12 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
       ? `pending-first-anchor-${idempotencyKey}`
       : `anchor-${idempotencyKey}`;
 
-    const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText);
+    // Precedence rule: the deterministic category -> tier map (CATEGORY_TO_TIER) is
+    // authoritative whenever the resolved category is one of the 9 specific categories.
+    // Fallback tier classification (and the Gemini /api/anchors/classify-tier endpoint)
+    // runs ONLY when the resolved category is a fallback ('desire' or 'custom'), i.e.
+    // the exact cases where the keyword system or onboarding choice declared uncertainty.
+    const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText, category);
 
     try {
       if (isGuestFirstAnchor) {

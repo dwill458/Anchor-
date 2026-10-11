@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, View, type LayoutRectangle } from 'react-native';
-import { type SharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { toSceneRect, type BoardLayout, type Size } from './visionBoardLayouts';
@@ -9,8 +9,13 @@ import type { BoardRosterEntry } from './visionBoardReorder';
 import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
 import { VisionBoardPhoto } from './VisionBoardPhoto';
 import { VisionBoardIntentionCard, type VisionBoardCardArt } from './VisionBoardIntentionCard';
+import type { VisionNote } from '@/adapters/v2/vision';
+import { VisionBoardNoteElement } from './VisionBoardNoteElement';
+import { VisionNoteRenderer } from '@/components/v2/vision/notes/VisionNoteRenderer';
+import { visionNoteZIndex } from '@/components/v2/vision/notes/visionNotePlacement';
 
 export type VisionBoardSceneProps = {
+  arrivingNoteId?: string;
   arrivingSceneId?: string | null;
   scene: Size;
   roster: BoardRosterEntry<V2VisionTile>[];
@@ -22,9 +27,17 @@ export type VisionBoardSceneProps = {
   category?: string | null;
   art?: VisionBoardCardArt | null;
   reduceMotion: boolean;
+  notes?: readonly VisionNote[];
+  selectedNoteId?: string | null;
+  onNoteSelect?: (id: string) => void;
+  onNotePresentationChange?: (id: string, presentation: VisionNote['presentation']) => Promise<boolean>;
+  onNoteDragActive?: (active: boolean) => void;
   interactive?: boolean;
   dragEnabled?: boolean;
   onPhotoPress?: (sceneId: string) => void;
+  onCaptionEdit?: (sceneId: string) => void;
+  /** Share/export readiness signal when an image asset has finished decoding. */
+  onPhotoAssetReady?: (sceneId: string) => void;
   onCardPress?: () => void;
   onBackgroundPress?: () => void;
   onDragActive?: (active: boolean) => void;
@@ -36,6 +49,11 @@ export type VisionBoardSceneProps = {
   /** Empty board: tasteful placeholders where the first photos will go. */
   onAddPress?: () => void;
   anchorTestID?: string;
+  showAnchorMark?: boolean;
+  /** Photos-only presentation leaves the editable board's card and notes unchanged. */
+  showIntentionCard?: boolean;
+  notesOpacity?: SharedValue<number>;
+  intentionCardOpacity?: SharedValue<number>;
   markAppearance?: 'bare' | 'paper';
   detailEdges?: boolean;
   edgeDarken?: SharedValue<number>;
@@ -56,15 +74,23 @@ export type VisionBoardSceneProps = {
  * camera; whoever renders it moves the view it sits in.
  */
 export const VisionBoardScene = memo(function VisionBoardScene({
-  scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion, arrivingSceneId,
-  interactive = false, dragEnabled = false, onPhotoPress, onCardPress, onBackgroundPress, onDragActive, onSwap,
-  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, markAppearance, detailEdges, edgeDarken, cinematic, onTeachingMotionChange,
+  scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion, arrivingSceneId, arrivingNoteId, notes = [], selectedNoteId = null, onNoteSelect, onNotePresentationChange,
+  interactive = false, dragEnabled = false, onPhotoPress, onCaptionEdit, onPhotoAssetReady, onCardPress, onBackgroundPress, onDragActive, onNoteDragActive, onSwap,
+  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, showAnchorMark = true, showIntentionCard = true, notesOpacity, intentionCardOpacity, markAppearance, detailEdges, edgeDarken, cinematic, onTeachingMotionChange,
 }: VisionBoardSceneProps) {
   const activeCount = roster.filter(entry => !entry.exiting).length;
   const cardRect = useMemo(() => toSceneRect(layout.card, scene), [layout.card, scene]);
+  const noteFadeStyle = useAnimatedStyle(() => ({ opacity: notesOpacity?.value ?? 1 }));
+  const cardFadeStyle = useAnimatedStyle(() => ({ opacity: intentionCardOpacity?.value ?? 1 }));
+  const renderedNotes = [...notes].filter(note => !note.isArchived).sort((a, b) => a.presentation.layerOrder - b.presentation.layerOrder).map(note =>
+    onNoteSelect && onNotePresentationChange ? <VisionBoardNoteElement key={note.id} note={note} arriving={arrivingNoteId === note.id} sceneWidth={scene.width} sceneHeight={scene.height}
+      cameraScale={shared.cameraScale} onDragActive={onNoteDragActive} reduceMotion={reduceMotion} selected={selectedNoteId === note.id} onSelect={onNoteSelect} onPresentationChange={onNotePresentationChange} /> :
+      <VisionNoteRenderer key={note.id} styleId={note.presentation.styleId} text={note.content.text} width={scene.width} height={scene.height}
+      presentation={{ ...note.presentation, layerOrder: visionNoteZIndex(note.presentation.layerOrder) }} scrollText />);
   return (
     <View style={{ width: scene.width, height: scene.height }}>
       {onBackgroundPress ? <Pressable style={styles.fill} onPress={onBackgroundPress} accessible={false} /> : null}
+      {notesOpacity ? <Animated.View pointerEvents="none" style={[styles.fill, { zIndex: 20 }, noteFadeStyle]}>{renderedNotes}</Animated.View> : renderedNotes}
       {roster.filter(entry => entry.exiting || initialRectFor(entry.tile.sceneId) !== null).map(({ tile, exiting }) => {
         const index = layout.photos.length ? roster.filter(entry => !entry.exiting).findIndex(entry => entry.tile.sceneId === tile.sceneId) : -1;
         return (
@@ -90,6 +116,8 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             interactive={interactive}
             dragEnabled={dragEnabled}
             onPress={onPhotoPress}
+            onCaptionEdit={onCaptionEdit}
+            onPhotoAssetReady={onPhotoAssetReady}
             onDragActive={onDragActive}
             onSwap={onSwap}
             onOrderCommit={onOrderCommit}
@@ -101,11 +129,11 @@ export const VisionBoardScene = memo(function VisionBoardScene({
           />
         );
       })}
-      <VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
+      {showIntentionCard ? <Animated.View pointerEvents={interactive ? 'box-none' : 'none'} style={[styles.fill, { zIndex: 40 }, cardFadeStyle]}><VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
         onTeachingMotionChange={onTeachingMotionChange}
         reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={cinematic?.bridgeOpacity ? 'paper' : markAppearance}
-        hideMark={Boolean(cinematic) && !cinematic?.bridgeOpacity} onMarkLayout={cinematic?.onMarkLayout}
-        paperOpacity={cinematic?.bridgeOpacity ?? cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} />
+        hideMark={!showAnchorMark || (Boolean(cinematic) && !cinematic?.bridgeOpacity)} onMarkLayout={cinematic?.onMarkLayout}
+        paperOpacity={cinematic?.bridgeOpacity ?? cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} /></Animated.View> : null}
     </View>
   );
 });

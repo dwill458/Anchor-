@@ -26,6 +26,7 @@ export const stopVoicePreview = (): void => {
   try {
     activePlayer?.pause();
     activePlayer?.remove();
+    activePlayer?.release?.();
   } catch {
     // Preview cleanup is best effort.
   }

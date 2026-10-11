@@ -34,7 +34,7 @@ import { resolvePracticeArtwork } from '@/components/v2/practice';
 import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeColor } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
+import { detailsFonts, detailsPalette, withAlpha } from '@/components/v2/anchors/anchorDetailsTokens';
 import {
   PRACTICE_CARD_HEIGHT,
   SHEET_HANDLE_HEIGHT,
@@ -258,7 +258,7 @@ function EmptyDashedRow({
         <Text style={styles.emptyDashedTitle}>{title}</Text>
         <Text style={styles.emptyDashedPayoff}>{payoff}</Text>
       </View>
-      <ChevronRight size={18} color="rgba(244,237,224,.7)" />
+      <ChevronRight size={18} color={withAlpha(detailsPalette.cream, 0.7)} />
     </Pressable>
   );
 }
@@ -297,14 +297,14 @@ function ThreadRow({
       hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
       style={styles.threadRow}
     >
-      <Text style={[styles.metaNumeral, { fontSize: centered ? 15 : 14, color: isEstablished ? detailsPalette.ink : 'rgba(20,22,43,.5)' }]}>
+      <Text style={[styles.metaNumeral, { fontSize: centered ? 15 : 14, color: isEstablished ? detailsPalette.ink : withAlpha(detailsPalette.ink, 0.5) }]}>
         {!isEstablished ? '—' : `${numeric}%`}
       </Text>
-      <Text style={[styles.metaStatus, styles.threadStrengthLabel]} numberOfLines={1}>Thread Strength</Text>
+      <Text style={[styles.metaStatus, styles.threadStrengthLabel]}>Thread Strength</Text>
       <HandDrawnThreadLine
         percent={numeric}
         color={accent}
-        trackColor="rgba(20,22,43,.25)"
+        trackColor={withAlpha(detailsPalette.ink, 0.25)}
         unmeasured={!isEstablished}
         compact
         showLabel={false}
@@ -315,12 +315,11 @@ function ThreadRow({
         style={[
           styles.metaStatus,
           {
-            color: isEstablished ? accent : 'rgba(20,22,43,.55)',
+            color: isEstablished ? accent : withAlpha(detailsPalette.ink, 0.55),
             fontSize: 10,
             letterSpacing: 1.6,
           },
         ]}
-        numberOfLines={1}
       >
         {level}
       </Text>
@@ -639,15 +638,41 @@ export function V2AnchorDetailsScreen() {
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * Back to Home (header back, Android hardware back, the back gesture). The
+   * Anchor flies from its place here to its place on Home, both measured now,
+   * and the route pops under the copy once it starts. With no flight (Reduce
+   * Motion, nothing measurable) the route simply pops.
+   */
+  const leavingRef = useRef(false);
   const backToHome = useCallback(() => {
-    if (serverId) useAnchorStore.getState().setCurrentAnchor(serverId);
-    const routeNames = (navigation as any).getState?.()?.routeNames as string[] | undefined;
-    if (routeNames?.includes('V2Home')) {
-      (navigation as any).navigate('V2Home');
-    } else {
-      (navigation as any).navigate('V2DevelopmentHome');
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    const navigateHome = () => {
+      if (serverId) useAnchorStore.getState().setCurrentAnchor(serverId);
+      const routeNames = (navigation as any).getState?.()?.routeNames as string[] | undefined;
+      if (routeNames?.includes('V2Home')) {
+        (navigation as any).navigate('V2Home');
+      } else {
+        (navigation as any).navigate('V2DevelopmentHome');
+      }
+    };
+    if (!anchor) {
+      navigateHome();
+      return;
     }
-  }, [navigation, serverId]);
+    const accepted = focusTransition.returnAnchor({ anchor, from: 'details', to: 'home', onNavigate: navigateHome });
+    // Another flight owns the Anchor: this back is swallowed and can be pressed again.
+    if (!accepted) leavingRef.current = false;
+  }, [anchor, focusTransition, navigation, serverId]);
+
+  // The back gesture pops Details natively, before any flight could start. The pop is held here and the flight runs instead; the pop itself is dispatched by the flight's navigation.
+  useEffect(() => (navigation as any).addListener?.('beforeRemove', (event: { preventDefault: () => void; data: { action: { type: string } } }) => {
+    const type = event.data?.action?.type;
+    if (type !== 'GO_BACK' && type !== 'POP') return;
+    event.preventDefault();
+    backToHome();
+  }), [backToHome, navigation]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
@@ -695,8 +720,10 @@ export function V2AnchorDetailsScreen() {
 
   const shareStateValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
   const exportActions = useAnchorExportActions(anchor, {
-    // Only a real Vision image makes the Vision layout available.
     visionImageUrl: visionTile?.imageUrl ?? null,
+    visionTiles: vision.tiles,
+    visionNotes: vision.state.state === 'ready' ? vision.state.raw.notes ?? [] : [],
+    visionAnnotation: vision.vision?.title ?? null,
     stateLabel: typeof shareStateValue === 'number' ? threadQualitativeLabel(shareStateValue, false) : null,
   });
 
@@ -1187,7 +1214,7 @@ export function V2AnchorDetailsScreen() {
                   >
                     <ReleaseIcon size={20} color={detailsPalette.releaseRose} />
                     <Text style={styles.releaseText}>Release this Anchor</Text>
-                    <ChevronRight size={18} color="rgba(244,237,224,.55)" />
+                    <ChevronRight size={18} color={withAlpha(detailsPalette.cream, 0.55)} />
                   </Pressable>
                 ) : null}
               </Animated.ScrollView>
@@ -1197,7 +1224,7 @@ export function V2AnchorDetailsScreen() {
 
         {/* Pinned Visualize bar: 52pt pill fading in toward full */}
         <Animated.View pointerEvents="none" style={[styles.barFade, { height: 120 + insets.bottom }, barStyle]}>
-          <LinearGradient colors={['rgba(20,22,43,0)', detailsPalette.ink]} locations={[0, 0.52]} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={[withAlpha(detailsPalette.ink, 0), detailsPalette.ink]} locations={[0, 0.52]} style={StyleSheet.absoluteFill} />
         </Animated.View>
         <Animated.View
           pointerEvents={barPointerEvents}
@@ -1308,6 +1335,7 @@ const styles = StyleSheet.create({
   },
   threadRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
     marginTop: 5,
@@ -1319,7 +1347,7 @@ const styles = StyleSheet.create({
   metaStatus: {
     fontFamily: detailsFonts.uiStrong,
   },
-  threadStrengthLabel: { color: 'rgba(20,22,43,.5)', fontSize: 10, letterSpacing: 1.6 },
+  threadStrengthLabel: { color: withAlpha(detailsPalette.ink, 0.5), fontSize: 10, letterSpacing: 1.6 },
   navRow: {
     position: 'absolute',
     left: 16,
@@ -1357,7 +1385,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: 9,
   },
-  handlePill: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(244,237,224,.34)' },
+  handlePill: { width: 40, height: 4, borderRadius: 2, backgroundColor: withAlpha(detailsPalette.cream, 0.34) },
   practiceWrap: { overflow: 'hidden' },
   practiceInner: { height: PRACTICE_CARD_HEIGHT, paddingBottom: 18 },
   barFade: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 6 },
@@ -1394,7 +1422,7 @@ const styles = StyleSheet.create({
   /* Recommended practice */
   todayCard: {
     borderRadius: 20,
-    backgroundColor: 'rgba(244,237,224,.07)',
+    backgroundColor: withAlpha(detailsPalette.cream, 0.07),
     padding: 12,
     flexDirection: 'row',
     gap: 14,
@@ -1500,11 +1528,12 @@ const styles = StyleSheet.create({
   visionPending: { width: '100%', aspectRatio: 1 / 0.6, paddingVertical: 16 },
   practiceList: { gap: 4 },
   practiceItemRow: {
-    height: 44,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginTop: 8,
+    paddingVertical: 4,
   },
   practiceIconBadge: {
     width: 36,
@@ -1539,16 +1568,17 @@ const styles = StyleSheet.create({
 
   /* Empty 76pt dashed rows */
   emptyDashedRow: {
-    height: 76,
+    minHeight: 76,
     width: '100%',
     borderRadius: 16,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: 'rgba(244,237,224,.32)',
-    backgroundColor: 'rgba(244,237,224,.04)',
+    borderColor: withAlpha(detailsPalette.cream, 0.32),
+    backgroundColor: withAlpha(detailsPalette.cream, 0.04),
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 14,
     marginTop: 12,
   },
@@ -1557,7 +1587,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(244,237,224,.3)',
+    borderColor: withAlpha(detailsPalette.cream, 0.3),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1575,7 +1605,7 @@ const styles = StyleSheet.create({
     fontFamily: detailsFonts.ui,
     fontSize: 13,
     lineHeight: 17,
-    color: 'rgba(244,237,224,.72)',
+    color: detailsPalette.creamSoft,
     marginTop: 1,
   },
 
@@ -1584,7 +1614,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(244,237,224,.14)',
+    borderTopColor: detailsPalette.creamHairline,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

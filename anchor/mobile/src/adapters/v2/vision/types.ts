@@ -7,7 +7,11 @@ export type VisionSceneSource = 'USER_UPLOAD' | 'AI_GENERATED' | 'USER_CAMERA';
 export type VisionNoteStyleId =
   | 'sticky_blush_pink' | 'sticky_butter_yellow' | 'sticky_sky_blue' | 'sticky_sage_green' | 'sticky_lavender' | 'sticky_peach' | 'sticky_warm_ivory' | 'sticky_rose_lined'
   | 'paper_ivory_torn' | 'paper_aged_parchment' | 'paper_handmade_cream' | 'paper_blush_torn' | 'paper_sage_handmade' | 'paper_white_deckled'
-  | 'editorial_classic_cream' | 'editorial_powder_blue' | 'editorial_minimal_quote' | 'editorial_botanical_shadow' | 'editorial_coastal_illustration' | 'editorial_atmospheric_landscape';
+  | 'editorial_classic_cream' | 'editorial_powder_blue' | 'editorial_minimal_quote' | 'editorial_botanical_shadow' | 'editorial_coastal_illustration' | 'editorial_atmospheric_landscape'
+  | 'editorial_vintage_letter' | 'editorial_golden_hour' | 'editorial_misty_mountains' | 'editorial_rose_editorial' | 'editorial_architectural' | 'editorial_midnight_editorial';
+
+export const VISION_NOTE_MAX_CHARS = 200;
+export const VISION_NOTE_MAX_ACTIVE = 24;
 
 /** Board-relative geometry uses normalized center coordinates and dimensions. */
 export interface VisionNotePresentation {
@@ -27,6 +31,7 @@ export interface VisionNote {
   visionId: string;
   content: { text: string };
   presentation: VisionNotePresentation;
+  isArchived?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -103,4 +108,13 @@ export interface V2VisualizeHandoff {
   activeVisionAsset: string | null;
   seenToday: boolean;
   hasVision: boolean;
+}
+
+/** Navigation-only snapshot of the board being left; never written back as a composition. */
+export interface VisionVisualizeEntry {
+  anchorId: string;
+  visionId: string;
+  tiles: V2VisionTile[];
+  notes: VisionNote[];
+  sourceFrame?: { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number };
 }

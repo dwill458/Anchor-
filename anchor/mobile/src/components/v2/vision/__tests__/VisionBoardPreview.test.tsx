@@ -5,11 +5,11 @@ jest.mock('@/hooks/v2', () => ({ useV2ReduceMotion: () => true }));
 const tiles = Array.from({ length: 6 }, (_, i) => ({ id: `t${i}`, imageUrl: `https://assets.test/${i}.jpg` }));
 
 describe('VisionBoardPreview compatibility', () => {
-  it('shows three real photos and preserves Vision navigation', () => {
+  it('shows every real photo and preserves Vision navigation', () => {
     const open = jest.fn();
     const view = render(<VisionBoardPreview tiles={tiles} statement="My real future" onPress={open} testID="board" />);
-    [0, 1, 2].forEach(index => expect(view.getByTestId(`board-image-${index}`).props.source).toEqual({ uri: tiles[index].imageUrl }));
-    expect(view.queryByTestId('board-image-3')).toBeNull();
+    tiles.forEach((tile, index) => expect(view.getByTestId(`board-image-${index}`).props.source).toEqual({ uri: tile.imageUrl }));
+    expect(view.queryByTestId('board-image-6')).toBeNull();
     fireEvent.press(view.getByTestId('board'));
     expect(open).toHaveBeenCalledTimes(1);
   });

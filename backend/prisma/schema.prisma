@@ -67,6 +67,7 @@ model User {
   visions             Vision[]
   visionGenerations    VisionGeneration[]
   visionScenes        VisionScene[]
+  visionNotes         VisionNote[]
   visionViews         VisionView[]
   visionAppearanceReferences VisionAppearanceReference[]
   assets              Asset[]
@@ -904,6 +905,7 @@ model Vision {
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
   scenes      VisionScene[]
+  notes       VisionNote[]
   views       VisionView[]
   generations VisionGeneration[]
 
@@ -934,6 +936,32 @@ model VisionScene {
   @@index([visionId, sortOrder])
   @@index([userId])
   @@map("vision_scenes")
+}
+
+model VisionNote {
+  id              String   @id @default(uuid())
+  visionId        String   @map("vision_id")
+  vision          Vision   @relation(fields: [visionId], references: [id], onDelete: Cascade)
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientRequestId String   @map("client_request_id") @db.Uuid
+  text            String   @db.VarChar(200)
+  styleId         String   @map("style_id") @db.VarChar(64)
+  x               Float
+  y               Float
+  width           Float
+  height          Float
+  rotation        Float
+  scale           Float
+  layerOrder      Int      @map("layer_order")
+  isArchived      Boolean  @default(false) @map("is_archived")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([visionId, clientRequestId])
+  @@index([visionId, isArchived, layerOrder])
+  @@index([userId, visionId])
+  @@map("vision_notes")
 }
 
 enum VisionGenerationStatus {

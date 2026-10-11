@@ -31,7 +31,7 @@ import {
 } from '@/components/ExportPreviewRenderer';
 import { ExportSuccessModal } from '@/components/ExportSuccessModal';
 import { useDownloadAnchor } from '@/hooks/useDownloadAnchor';
-import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
+import { detailsFonts, detailsPalette, withAlpha } from '@/components/v2/anchors/anchorDetailsTokens';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -87,7 +87,7 @@ function Segment({ selected, onPress, label, sub, height = 44, style, testID }) 
         {label}
       </Text>
       {sub ? (
-        <Text style={[styles.segmentSub, { color: selected ? 'rgba(20,22,43,.66)' : detailsPalette.creamMuted }]}>
+        <Text style={[styles.segmentSub, { color: selected ? withAlpha(detailsPalette.ink, 0.66) : detailsPalette.creamMuted }]}>
           {sub}
         </Text>
       ) : null}
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    backgroundColor: 'rgba(20,22,43,0.4)',
+    backgroundColor: withAlpha(detailsPalette.ink, 0.4),
   },
   sheet: {
     backgroundColor: detailsPalette.ink,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(244,237,224,.34)',
+    backgroundColor: withAlpha(detailsPalette.cream, 0.34),
     alignSelf: 'center',
     marginTop: 9,
     marginBottom: 12,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth * 2,
-    borderColor: 'rgba(244,237,224,.2)',
+    borderColor: withAlpha(detailsPalette.cream, 0.2),
   },
   label: {
     fontFamily: detailsFonts.uiStrong,

@@ -44,6 +44,11 @@ export function useSessionAudio() {
       } catch {
         // Cleanup is best effort; the session timer remains authoritative.
       }
+      try {
+        player.release?.();
+      } catch {
+        // Cleanup is best effort; the session timer remains authoritative.
+      }
       activePlayersRef.current.delete(player);
     },
     []

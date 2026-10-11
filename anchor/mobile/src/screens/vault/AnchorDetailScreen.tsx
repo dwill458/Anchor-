@@ -650,6 +650,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const toast = useToast();
   const anchorReuseTeaching = useTeachingGate({
     screenId: 'anchor_detail',
+    visitKey: route?.params?.anchorId ?? route?.params?.anchor?.id,
     candidateIds: ['anchor_reuse_v1'],
   });
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);

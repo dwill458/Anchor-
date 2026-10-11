@@ -1,26 +1,36 @@
 import { colors, practiceColors } from '@/theme/v2';
 
+/** "#RRGGBB" + 0-1 alpha -> "rgba(r, g, b, a)". Derives translucent tints from the real tokens. */
+export function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /**
  * Anchor Details 2.0 palette.
- * Exact hexes and opacities matching anchor-details-2.0-prototype.html.
+ * Grounded in the unified Anchor 2.0 paper + ink tokens (colors.canvas and colors.ink.base)
+ * matching the Home screen.
  */
 export const detailsPalette = {
-  cream: '#F4EDE0',
-  ink: '#14162B',
-  visualize: '#3B82C4',
-  release: '#DD5F2C',
-  focus: '#8B5CF6',
+  cream: colors.canvas,
+  ink: colors.ink.base,
+  visualize: practiceColors.visualize,
+  release: practiceColors.release,
+  focus: practiceColors.focus,
   /** Gold appears only on the Chart's flag. */
   gold: '#C9A24B',
   releaseRose: '#F08A7E',
   desireRose: '#A9475E',
-  creamSoft: 'rgba(244,237,224,.72)',
-  creamMuted: 'rgba(244,237,224,.66)',
-  creamFaint: 'rgba(244,237,224,.08)',
-  creamHairline: 'rgba(244,237,224,.14)',
-  inkWash: 'rgba(20,22,43,.07)',
-  checkerDark: '#2c2f48',
-  checkerDarker: '#1f2237',
+  creamSoft: withAlpha(colors.canvas, 0.72),
+  creamMuted: withAlpha(colors.canvas, 0.66),
+  creamFaint: withAlpha(colors.canvas, 0.08),
+  creamHairline: withAlpha(colors.canvas, 0.14),
+  inkWash: withAlpha(colors.ink.base, 0.07),
+  checkerDark: colors.ink.raised,
+  checkerDarker: colors.ink.deep,
 } as const;
 
 /**

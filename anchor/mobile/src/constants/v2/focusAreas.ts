@@ -18,7 +18,7 @@ export type FocusTip = { instead: string; try: string } | { note: string };
 export type FocusArea = {
   id: FocusAreaId;
   label: string;
-  /** The Anchor category this choice sets. "Something else" defaults to Desire. */
+  /** The Anchor category this choice sets. "Something else" defaults to Custom. */
   category: AnchorCategory;
   /** Selection accent. `null` keeps the card neutral. */
   accent: string | null;
@@ -86,7 +86,7 @@ export const FOCUS_AREAS: readonly FocusArea[] = [
   {
     id: "something_else",
     label: "Something else",
-    category: "desire",
+    category: "custom",
     accent: null,
     fieldLine: "Write it in your own words. It takes shape from them.",
     placeholder: "I am becoming who I’m meant to be",

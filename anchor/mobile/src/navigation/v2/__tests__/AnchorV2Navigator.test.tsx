@@ -57,7 +57,16 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@/screens/v2/home', () => { const { Text: RNText } = require('react-native'); return { V2DevelopmentHome: () => <RNText>home-screen</RNText> }; });
 jest.mock('@/screens/v2/system', () => { const { Text: RNText } = require('react-native'); return { V2SystemGallery: () => <RNText>system-gallery</RNText>, V2EvolvingAnchorPrototype: () => <RNText>evolving-anchor</RNText> }; });
 jest.mock('@/screens/v2/onboarding', () => { const { Text: RNText } = require('react-native'); return { V2FirstRunFlow: () => <RNText>first-run</RNText> }; });
-jest.mock('@/screens/v2/paywall', () => { const { Text: RNText } = require('react-native'); return { V2PaywallScreen: () => <RNText>paywall</RNText> }; });
+jest.mock('@/screens/v2/paywall', () => {
+  const { Pressable: RNPressable, Text: RNText } = require('react-native');
+  return {
+    V2PaywallScreen: (props: any) => (
+      <RNPressable accessibilityRole="button" onPress={() => props.onEntitled?.({ outcome: 'purchased' })}>
+        <RNText>paywall</RNText>
+      </RNPressable>
+    ),
+  };
+});
 jest.mock('@/screens/v2/progress', () => {
   const { View: RNView, Pressable: RNPressable, Text: RNText } = require('react-native');
   return {
@@ -233,6 +242,50 @@ describe('AnchorV2Navigator Progress wiring', () => {
     render(<AnchorV2Navigator />);
     fireEvent.press(screen.getByText('progress-back'));
     expect(mockSetRoute).toHaveBeenCalledWith('V2DevelopmentHome', undefined);
+  });
+});
+
+describe('AnchorV2Navigator premium action continuation', () => {
+  beforeEach(() => {
+    mockSetRoute.mockClear();
+  });
+
+  it('resumes Vision creation after entitlement succeeds', () => {
+    mockRoute = {
+      name: 'V2Paywall',
+      params: {
+        context: 'VISION_PREMIUM_ACTION',
+        resumeIntent: { type: 'vision_premium_action', anchorId: 'anchor-9', action: 'create' },
+      },
+    };
+
+    render(<AnchorV2Navigator />);
+    fireEvent.press(screen.getByText('paywall'));
+
+    expect(mockSetRoute).toHaveBeenCalledWith('V2Vision', {
+      anchorId: 'anchor-9',
+      initialMode: 'create',
+      resumeGeneration: false,
+    });
+  });
+
+  it('resumes the requested Vision generation after entitlement succeeds', () => {
+    mockRoute = {
+      name: 'V2Paywall',
+      params: {
+        context: 'VISION_PREMIUM_ACTION',
+        resumeIntent: { type: 'vision_premium_action', anchorId: 'anchor-9', action: 'generate' },
+      },
+    };
+
+    render(<AnchorV2Navigator />);
+    fireEvent.press(screen.getByText('paywall'));
+
+    expect(mockSetRoute).toHaveBeenCalledWith('V2Vision', {
+      anchorId: 'anchor-9',
+      initialMode: 'create',
+      resumeGeneration: true,
+    });
   });
 });
 

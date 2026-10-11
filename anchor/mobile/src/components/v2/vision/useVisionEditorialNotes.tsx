@@ -5,7 +5,7 @@ import { VisionNoteRenderer, VISION_NOTE_STYLE_IDS } from './notes';
 /** Read-only bridge: the Notes feature owns its model, materials and renderer. */
 export function useVisionEditorialNotes(notes?: readonly VisionNote[]) {
   return useMemo(() => (notes ?? [])
-    .filter(note => note.content.text.trim() && VISION_NOTE_STYLE_IDS.some(style => style === note.presentation.styleId))
+    .filter(note => !note.isArchived && note.content.text.trim() && VISION_NOTE_STYLE_IDS.some(style => style === note.presentation.styleId))
     .sort((a, b) => a.presentation.layerOrder - b.presentation.layerOrder || a.id.localeCompare(b.id))
     .map(note => ({
       id: note.id,
@@ -17,7 +17,7 @@ export function useVisionEditorialNotes(notes?: readonly VisionNote[]) {
           Math.floor(Math.max(20, width - 28) / 10) * Math.floor(Math.max(26, height - 24) / 26)));
         const excerpt = characters.length > readableBudget ? `${characters.slice(0, readableBudget - 1).join('').trimEnd()}…` : text;
         return <VisionNoteRenderer styleId={note.presentation.styleId} text={excerpt}
-          width={width} height={height} scrollText={false} testID={`vision-preview-note-${note.id}`} />;
+          width={width} height={height} compact scrollText={false} testID={`vision-preview-note-${note.id}`} />;
       },
     })), [notes]);
 }

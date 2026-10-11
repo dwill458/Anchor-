@@ -7,12 +7,18 @@ import {
   VisionReadModel,
   VisionSceneReadModel,
   VisionSceneSource,
+  VisionNoteReadModel,
+  VisionNotePresentation,
   AssetReadModel,
   CreateVisionSchema,
   UpdateVisionSchema,
   CreateVisionSceneSchema,
   ReorderScenesSchema,
   VISION_MAX_IMAGES,
+  VISION_NOTE_MAX_ACTIVE,
+  CreateVisionNoteSchema,
+  UpdateVisionNoteSchema,
+  UpdateVisionSceneCaptionSchema,
 } from '../../domain/v2/vision';
 import { z } from 'zod';
 
@@ -43,6 +49,28 @@ export function computeLocalDateKey(date: Date, timeZone: string): string {
   }
 }
 
+function isPrismaUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+function toVisionNoteColumns(presentation: VisionNotePresentation) {
+  return {
+    styleId: presentation.styleId,
+    x: presentation.x,
+    y: presentation.y,
+    width: presentation.width,
+    height: presentation.height,
+    rotation: presentation.rotation,
+    scale: presentation.scale,
+    layerOrder: presentation.layerOrder,
+  };
+}
+
+function sameVisionNotePayload(note: { text: string; styleId: string; x: number; y: number; width: number; height: number; rotation: number; scale: number; layerOrder: number }, input: z.infer<typeof CreateVisionNoteSchema>): boolean {
+  const p = input.presentation;
+  return note.text === input.content.text && note.styleId === p.styleId && note.x === p.x && note.y === p.y && note.width === p.width && note.height === p.height && note.rotation === p.rotation && note.scale === p.scale && note.layerOrder === p.layerOrder;
+}
+
 export class VisionService {
   async getAnchorVision(
     userId: string,
@@ -69,6 +97,10 @@ export class VisionService {
         views: {
           orderBy: { viewedAt: 'desc' },
           take: 20,
+        },
+        notes: {
+          where: { isArchived: false },
+          orderBy: [{ layerOrder: 'asc' }, { createdAt: 'asc' }],
         },
       },
     });
@@ -106,6 +138,25 @@ export class VisionService {
       })
     );
 
+    const notes: VisionNoteReadModel[] = (vision.notes ?? []).map(note => ({
+      id: note.id,
+      visionId: note.visionId,
+      content: { text: note.text },
+      presentation: {
+        styleId: note.styleId as VisionNotePresentation['styleId'],
+        x: note.x,
+        y: note.y,
+        width: note.width,
+        height: note.height,
+        rotation: note.rotation,
+        scale: note.scale,
+        layerOrder: note.layerOrder,
+      },
+      isArchived: note.isArchived,
+      createdAt: note.createdAt.toISOString(),
+      updatedAt: note.updatedAt.toISOString(),
+    }));
+
     return {
       id: vision.id,
       anchorId: vision.anchorId,
@@ -113,10 +164,124 @@ export class VisionService {
       description: vision.description,
       status: vision.status as 'ACTIVE' | 'ARCHIVED',
       scenes,
+      notes,
       seenToday,
       createdAt: vision.createdAt.toISOString(),
       updatedAt: vision.updatedAt.toISOString(),
     };
+  }
+
+  /** Creates an idempotent note and an empty active Vision atomically when needed. */
+  async createNote(
+    userId: string,
+    anchorId: string,
+    input: z.infer<typeof CreateVisionNoteSchema>,
+    clientTimeZone: string = 'UTC',
+  ): Promise<VisionReadModel> {
+    const presentation = input.presentation;
+    const anchor = await prisma.anchor.findFirst({ where: { id: anchorId, userId, isArchived: false }, select: { id: true } });
+    if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+
+    const persistForVision = async (visionId: string) => prisma.$transaction(async tx => {
+      // Serialize active-note count checks with note writes for this Anchor.
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${anchorId} FOR UPDATE`);
+      const activeVision = await tx.vision.findFirst({ where: { id: visionId, anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
+      if (!activeVision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
+      const duplicate = await tx.visionNote.findUnique({ where: { visionId_clientRequestId: { visionId, clientRequestId: input.clientRequestId } } });
+      if (duplicate) {
+        if (!sameVisionNotePayload(duplicate, input)) throw new AppError('Request id was already used for a different note', 409, 'IDEMPOTENCY_CONFLICT');
+        return visionId;
+      }
+      const count = await tx.visionNote.count({ where: { visionId, userId, isArchived: false } });
+      if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
+      await tx.visionNote.create({ data: { id: randomUUID(), visionId, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+      return visionId;
+    });
+
+    let active = await prisma.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
+    let visionId: string;
+    if (active) {
+      visionId = await persistForVision(active.id);
+    } else {
+      try {
+        visionId = await prisma.$transaction(async tx => {
+          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${anchorId} FOR UPDATE`);
+          const nowActive = await tx.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
+          if (nowActive) {
+            const duplicate = await tx.visionNote.findUnique({ where: { visionId_clientRequestId: { visionId: nowActive.id, clientRequestId: input.clientRequestId } } });
+            if (duplicate) {
+              if (!sameVisionNotePayload(duplicate, input)) throw new AppError('Request id was already used for a different note', 409, 'IDEMPOTENCY_CONFLICT');
+              return nowActive.id;
+            }
+            const count = await tx.visionNote.count({ where: { visionId: nowActive.id, userId, isArchived: false } });
+            if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
+            await tx.visionNote.create({ data: { id: randomUUID(), visionId: nowActive.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+            return nowActive.id;
+          }
+          const created = await tx.vision.create({ data: { id: randomUUID(), userId, anchorId, title: null, description: null, status: 'ACTIVE' }, select: { id: true } });
+          const count = await tx.visionNote.count({ where: { visionId: created.id, userId, isArchived: false } });
+          if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
+          await tx.visionNote.create({ data: { id: randomUUID(), visionId: created.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+          return created.id;
+        });
+      } catch (error) {
+        if (!isPrismaUniqueViolation(error)) throw error;
+        active = await prisma.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
+        if (!active) throw error;
+        visionId = await persistForVision(active.id);
+      }
+    }
+    const result = await this.getAnchorVision(userId, anchorId, clientTimeZone);
+    if (!result || result.id !== visionId) throw new AppError('Failed to load created note', 500, 'VISION_NOTE_ERROR');
+    return result;
+  }
+
+  async updateNote(userId: string, visionId: string, noteId: string, input: z.infer<typeof UpdateVisionNoteSchema>, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
+    const vision = await this.getActiveVisionForNote(userId, visionId);
+    const note = await prisma.visionNote.findFirst({ where: { id: noteId, visionId, userId, isArchived: false } });
+    if (!note) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
+    const data: Prisma.VisionNoteUpdateManyMutationInput = {};
+    if (input.content) data.text = input.content.text;
+    if (input.presentation) Object.assign(data, toVisionNoteColumns(input.presentation));
+    const changed = await prisma.visionNote.updateMany({ where: { id: noteId, visionId, userId, isArchived: false }, data });
+    if (!changed.count) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
+    const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
+    if (!result) throw new AppError('Failed to load updated note', 500, 'VISION_NOTE_ERROR');
+    return result;
+  }
+
+  async deleteNote(userId: string, visionId: string, noteId: string, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
+    const vision = await this.getActiveVisionForNote(userId, visionId);
+    const note = await prisma.visionNote.findFirst({ where: { id: noteId, visionId, userId } });
+    if (!note) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
+    if (!note.isArchived) await prisma.visionNote.updateMany({ where: { id: noteId, visionId, userId, isArchived: false }, data: { isArchived: true } });
+    const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
+    if (!result) throw new AppError('Failed to load deleted note', 500, 'VISION_NOTE_ERROR');
+    return result;
+  }
+
+  async restoreNote(userId: string, visionId: string, noteId: string, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
+    const vision = await this.getActiveVisionForNote(userId, visionId);
+    const note = await prisma.visionNote.findFirst({ where: { id: noteId, visionId, userId } });
+    if (!note) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
+    if (note.isArchived) await prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`);
+      const currentNote = await tx.visionNote.findFirst({ where: { id: noteId, visionId, userId } });
+      if (!currentNote) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
+      if (!currentNote.isArchived) return;
+      const count = await tx.visionNote.count({ where: { visionId, userId, isArchived: false } });
+      if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
+      await tx.visionNote.updateMany({ where: { id: noteId, visionId, userId, isArchived: true }, data: { isArchived: false } });
+    });
+    const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
+    if (!result) throw new AppError('Failed to load restored note', 500, 'VISION_NOTE_ERROR');
+    return result;
+  }
+
+  private async getActiveVisionForNote(userId: string, visionId: string) {
+    const vision = await prisma.vision.findFirst({ where: { id: visionId, userId, status: 'ACTIVE' } });
+    if (!vision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
+    return vision;
   }
 
   async createAnchorVision(
@@ -230,10 +395,14 @@ export class VisionService {
     if (input.description !== undefined) updateData.description = input.description;
     if (input.status !== undefined) updateData.status = input.status;
 
-    await prisma.vision.update({
-      where: { id: visionId },
-      data: updateData,
-    });
+    if (input.status !== undefined) {
+      await prisma.$transaction(async tx => {
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`);
+        await tx.vision.update({ where: { id: visionId }, data: updateData });
+      });
+    } else {
+      await prisma.vision.update({ where: { id: visionId }, data: updateData });
+    }
 
     const refreshed = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
     if (!refreshed) {
@@ -261,9 +430,9 @@ export class VisionService {
       throw new AppError('Vision not found', 404, 'VISION_NOT_FOUND');
     }
 
-    await prisma.vision.update({
-      where: { id: visionId },
-      data: { status: 'ARCHIVED' },
+    await prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`);
+      await tx.vision.update({ where: { id: visionId }, data: { status: 'ARCHIVED' } });
     });
 
     return { success: true };
@@ -439,6 +608,18 @@ export class VisionService {
     });
 
     return { success: true };
+  }
+
+  async updateSceneCaption(userId: string, visionId: string, sceneId: string, input: z.infer<typeof UpdateVisionSceneCaptionSchema>, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
+    const vision = await prisma.vision.findFirst({ where: { id: visionId, userId, status: 'ACTIVE' }, select: { id: true, anchorId: true } });
+    if (!vision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
+    const scene = await prisma.visionScene.findFirst({ where: { id: sceneId, visionId, userId, isArchived: false }, select: { id: true } });
+    if (!scene) throw new AppError('Active Vision image not found', 404, 'SCENE_NOT_FOUND');
+    const caption = input.caption?.trim() || null;
+    await prisma.visionScene.updateMany({ where: { id: sceneId, visionId, userId, isArchived: false }, data: { caption } });
+    const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
+    if (!result) throw new AppError('Failed to load updated Vision image', 500, 'VISION_ERROR');
+    return result;
   }
 
   async recordVisionView(

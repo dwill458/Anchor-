@@ -1,5 +1,6 @@
 import { anchorArtworkSvg, anchorKeptExpression, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { Anchor } from '@/types';
+import type { VisionNote, V2VisionTile } from '@/adapters/v2/vision';
 import { resolveShareStyleId } from './shareEnvironments';
 import type { ShareExportData } from './shareTypes';
 
@@ -14,7 +15,13 @@ type ShareAnchor = Pick<
  */
 export function buildShareExportData(
   anchor: ShareAnchor,
-  extras: { visionImageUrl?: string | null; stateLabel?: string | null } = {},
+  extras: {
+    visionImageUrl?: string | null;
+    visionTiles?: readonly V2VisionTile[] | null;
+    visionNotes?: readonly VisionNote[] | null;
+    visionAnnotation?: string | null;
+    stateLabel?: string | null;
+  } = {},
 ): ShareExportData {
   return {
     svg: anchorArtworkSvg(anchor),
@@ -25,6 +32,9 @@ export function buildShareExportData(
     styleId: resolveShareStyleId([anchor.classifierMeta?.v2StyleChoice, anchor.enhancementMetadata?.styleApplied]),
     intention: anchor.intentionText.trim(),
     stateLabel: extras.stateLabel ?? null,
-    visionImageUrl: extras.visionImageUrl || null,
+    visionImageUrl: extras.visionImageUrl || extras.visionTiles?.find(tile => tile.imageUrl?.trim())?.imageUrl || null,
+    visionTiles: extras.visionTiles ?? null,
+    visionNotes: extras.visionNotes ?? null,
+    visionAnnotation: extras.visionAnnotation ?? null,
   };
 }

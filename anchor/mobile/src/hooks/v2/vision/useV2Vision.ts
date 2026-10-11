@@ -5,7 +5,7 @@ import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { visionApiData } from './visionApi';
-import { toV2VisionPresentationState, toVisualizeHandoff, type VisionReadModel, type V2VisionPresentationState, type V2VisionTile, type V2VisualizeHandoff, type VisionSceneSource } from '@/adapters/v2/vision';
+import { toV2VisionPresentationState, toVisualizeHandoff, type VisionReadModel, type V2VisionPresentationState, type V2VisionTile, type V2VisualizeHandoff, type VisionSceneSource, type VisionNotePresentation } from '@/adapters/v2/vision';
 
 export interface UseV2VisionResult {
   state: V2VisionPresentationState;
@@ -36,6 +36,11 @@ export interface UseV2VisionResult {
   reorderScenes: (sceneOrders: Array<{ id: string; sortOrder: number }>) => Promise<VisionReadModel | null>;
   deleteScene: (sceneId: string) => Promise<VisionReadModel | null>;
   archiveVision: () => Promise<boolean>;
+  createNote: (input: { clientRequestId: string; content: { text: string }; presentation: VisionNotePresentation }) => Promise<VisionReadModel | null>;
+  updateNote: (noteId: string, input: { content?: { text: string }; presentation?: VisionNotePresentation }) => Promise<VisionReadModel | null>;
+  deleteNote: (noteId: string) => Promise<VisionReadModel | null>;
+  restoreNote: (noteId: string) => Promise<VisionReadModel | null>;
+  updateSceneCaption: (sceneId: string, caption: string | null) => Promise<VisionReadModel | null>;
   uploadAsset: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
 }
 
@@ -59,6 +64,7 @@ function resolveUserTimeZone(): string {
  * instead of drawing a spinner or an "Add Vision" card that flips a moment
  * after the navigation transition.
  */
+const visionMutationVersions = new Map<string, number>();
 const visionReadCache = new Map<string, VisionReadModel | null>();
 const persistedVisionReads = new Map<string, Promise<VisionReadModel | null | undefined>>();
 type VisionReadListener = (key: string, value: VisionReadModel | null) => void;
@@ -134,6 +140,7 @@ async function restoreVisionRead(anchorId: string, accountId: string | null): Pr
 /** Drops every cached Vision read (sign-out, account switch, tests). */
 export function resetV2VisionReadCache(): void {
   visionReadCache.clear();
+  visionMutationVersions.clear();
   persistedVisionReads.clear();
 }
 
@@ -152,6 +159,7 @@ function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = cur
   const existing = inFlightVision.get(key);
   if (existing) return existing;
 
+  const mutationVersion = visionMutationVersions.get(key) ?? 0;
   const span = HomeStartupProfiler.start('vision_request', { anchorId });
   const request = (async () => {
     const timeZone = resolveUserTimeZone();
@@ -160,12 +168,16 @@ function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = cur
         `/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`,
         { params: { timeZone }, signal },
       );
+      // A GET started before a confirmed write must not erase that write on
+      // the board, even when it finishes after the composer has returned.
+      if ((visionMutationVersions.get(key) ?? 0) !== mutationVersion) return visionReadCache.get(key) ?? null;
       const data = visionApiData<VisionReadModel | null>(response);
       setVisionRead(key, data);
       persistVisionRead(anchorId, accountId, data);
       span({ ok: true });
       return data;
     } catch (err: unknown) {
+      if ((visionMutationVersions.get(key) ?? 0) !== mutationVersion) return visionReadCache.get(key) ?? null;
       const status =
         (err instanceof ApiClientError ? err.status : undefined) ??
         (typeof err === 'object' && err !== null ? (err as { status?: number }).status : undefined);
@@ -488,6 +500,69 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     [reloadAfterMutation, vision?.id],
   );
 
+  const createNote = useCallback(async (input: { clientRequestId: string; content: { text: string }; presentation: VisionNotePresentation }): Promise<VisionReadModel | null> => {
+    try {
+      const response = await apiClient.post<VisionReadModel>(`/api/v2/anchors/${encodeURIComponent(anchorId)}/vision/notes`, input);
+      const updated = visionApiData<VisionReadModel>(response);
+      const writeKey = visionCacheKey(anchorId, accountId);
+      visionMutationVersions.set(writeKey, (visionMutationVersions.get(writeKey) ?? 0) + 1);
+      commitVision(updated, anchorId);
+      return updated;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create note');
+      // The composer owns the save interaction and must be able to present an
+      // actionable message while retaining the draft and idempotency key.
+      throw err;
+    }
+  }, [accountId, anchorId, commitVision]);
+
+  const updateNote = useCallback(async (noteId: string, input: { content?: { text: string }; presentation?: VisionNotePresentation }): Promise<VisionReadModel | null> => {
+    if (!vision?.id) return null;
+    try {
+      const response = await apiClient.patch<VisionReadModel>(`/api/v2/visions/${encodeURIComponent(vision.id)}/notes/${encodeURIComponent(noteId)}`, input);
+      const updated = visionApiData<VisionReadModel>(response);
+      const writeKey = visionCacheKey(anchorId, accountId);
+      visionMutationVersions.set(writeKey, (visionMutationVersions.get(writeKey) ?? 0) + 1);
+      commitVision(updated, anchorId);
+      return updated;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update note');
+      return null;
+    }
+  }, [accountId, anchorId, commitVision, vision?.id]);
+
+  const mutateNoteState = useCallback(async (noteId: string, restore: boolean): Promise<VisionReadModel | null> => {
+    if (!vision?.id) return null;
+    try {
+      const path = `/api/v2/visions/${encodeURIComponent(vision.id)}/notes/${encodeURIComponent(noteId)}`;
+      const response = restore ? await apiClient.post<VisionReadModel>(`${path}/restore`, {}) : await apiClient.delete<VisionReadModel>(path);
+      const updated = visionApiData<VisionReadModel>(response);
+      const writeKey = visionCacheKey(anchorId, accountId);
+      visionMutationVersions.set(writeKey, (visionMutationVersions.get(writeKey) ?? 0) + 1);
+      commitVision(updated, anchorId);
+      return updated;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : restore ? 'Failed to restore note' : 'Failed to delete note');
+      return null;
+    }
+  }, [accountId, anchorId, commitVision, vision?.id]);
+  const deleteNote = useCallback((noteId: string) => mutateNoteState(noteId, false), [mutateNoteState]);
+  const restoreNote = useCallback((noteId: string) => mutateNoteState(noteId, true), [mutateNoteState]);
+
+  const updateSceneCaption = useCallback(async (sceneId: string, caption: string | null): Promise<VisionReadModel | null> => {
+    if (!vision?.id) return null;
+    try {
+      const normalizedCaption = caption?.trim() || null;
+      const response = await apiClient.patch<VisionReadModel>(`/api/v2/visions/${encodeURIComponent(vision.id)}/scenes/${encodeURIComponent(sceneId)}`, { caption: normalizedCaption });
+      const updated = visionApiData<VisionReadModel>(response);
+      commitVision(updated, anchorId);
+      return updated;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save image caption');
+      return null;
+    }
+  }, [anchorId, commitVision, vision?.id]);
+
   const archiveVision = useCallback(async (): Promise<boolean> => {
     if (!vision?.id) return false;
     try {
@@ -557,6 +632,11 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     reorderScenes,
     deleteScene,
     archiveVision,
+    createNote,
+    updateNote,
+    deleteNote,
+    restoreNote,
+    updateSceneCaption,
     uploadAsset,
   };
 }

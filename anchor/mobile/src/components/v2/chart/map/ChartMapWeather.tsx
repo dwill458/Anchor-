@@ -63,6 +63,8 @@ type Props = {
    * in over WEATHER_FADE_IN_MS instead of appearing at once. Read at mount. Instant under Reduce Motion.
    */
   fadeIn?: boolean;
+  /** Read-only previews keep the tile phase fixed even while a full Chart is mounted elsewhere. */
+  freezeDrift?: boolean;
 };
 
 /** Pauses the drift while the screen is blurred. Safe outside a navigator (always focused). */
@@ -122,9 +124,9 @@ export function useWeatherDrift(active: boolean): void {
   }, [on, drift]);
 }
 
-function useTileTransform(layer: keyof typeof WEATHER_DRIFT, size: number) {
+function useTileTransform(layer: keyof typeof WEATHER_DRIFT, size: number, frozenAt?: number) {
   return useDerivedValue(() => {
-    const t = weatherClock.value.t;
+    const t = frozenAt ?? weatherClock.value.t;
     const scale = CLOUD_TILE_SCALE[layer];
     const p = size * scale;
     return [
@@ -152,10 +154,10 @@ export function weatherLayersDroppedForDev(): { near: boolean; wisps: boolean } 
  * Shared by the map's weather (masked by COVER_SKSL) and the loading hold
  * (unmasked: closed weather).
  */
-export function WeatherClouds({ tiles }: { tiles: CloudTiles }) {
-  const billows = useTileTransform('billows', 512);
-  const near = useTileTransform('near', 384);
-  const wisps = useTileTransform('wisps', 512);
+export function WeatherClouds({ tiles, frozenAt }: { tiles: CloudTiles; frozenAt?: number }) {
+  const billows = useTileTransform('billows', 512, frozenAt);
+  const near = useTileTransform('near', 384, frozenAt);
+  const wisps = useTileTransform('wisps', 512, frozenAt);
   const [dropped] = useState(weatherLayersDroppedForDev);
   return (
     <>
@@ -184,13 +186,14 @@ export function WeatherClouds({ tiles }: { tiles: CloudTiles }) {
  * land and ink shaders never re-run for the drift. Paper-derived colours only.
  */
 export const ChartMapWeather = memo(function ChartMapWeather({
-  width, height, anim, table, placement, currentIndex, reducedMotion, arrived, onWeatherState, fadeIn = false, frame,
+  width, height, anim, table, placement, currentIndex, reducedMotion, arrived, onWeatherState, fadeIn = false, freezeDrift = false, frame,
 }: Props) {
   // DEFERRED: const coverEffect = useMemo(() => makeEffect(COVER_SKSL), []); (now compiled once per session)
   const coverEffect = useMemo(() => coverEffectOnce(), []);
   const [tiles, setTiles] = useState<CloudTiles | null>(() => cachedCloudTiles());
   const [fogImages, setFogImages] = useState<FogImages | null>(() => cachedFogImages(table));
   const [failed, setFailed] = useState(false);
+  const [frozenAt] = useState(() => (freezeDrift ? weatherClockSeconds() : undefined));
 
   useEffect(() => {
     let alive = true;
@@ -223,7 +226,7 @@ export const ChartMapWeather = memo(function ChartMapWeather({
     if (state) onWeatherState?.(state);
   }, [state, onWeatherState]);
 
-  useWeatherDrift(!reducedMotion && ready);
+  useWeatherDrift(!reducedMotion && !freezeDrift && ready);
 
   // Late weather rolls in; weather present from the first frame (or Reduce Motion) is simply there.
   const opacity = useSharedValue(fadeIn && !reducedMotion ? 0 : 1);
@@ -256,7 +259,7 @@ export const ChartMapWeather = memo(function ChartMapWeather({
   return (
     <Group transform={transform} opacity={opacity}>
       <Group layer={<Paint />}>
-        <WeatherClouds tiles={tiles} />
+        <WeatherClouds tiles={tiles} frozenAt={frozenAt} />
         <Rect {...PAD_RECT} blendMode="dstIn">
           <Shader source={coverEffect} uniforms={coverUniforms}>
             <ImageShader image={fogImages.fieldDist} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />

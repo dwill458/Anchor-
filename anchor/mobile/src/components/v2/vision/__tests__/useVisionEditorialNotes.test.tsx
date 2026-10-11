@@ -25,7 +25,7 @@ describe('read-only Notes preview bridge', () => {
     const view = render(<Host notes={[note('Real content '.repeat(20))]} />);
     expect(view.getByTestId('vision-preview-note-n1').props.accessibilityLabel.length).toBeLessThanOrEqual(51);
     expect(view.getByTestId('vision-preview-note-n1').props.accessibilityLabel.endsWith('…')).toBe(true);
-    view.rerender(<Host notes={[note('  '), note('Future style', 'unknown' as never)]} />);
+    view.rerender(<Host notes={[note('  '), note('Future style', 'unknown' as never), { ...note('Archived private words'), isArchived: true }]} />);
     expect(view.queryByTestId('vision-preview-note-n1')).toBeNull();
   });
 });

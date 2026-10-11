@@ -51,6 +51,7 @@ export const BurningRitualScreen: React.FC = () => {
   // Ash Line (Pattern 8): shown in Phase 4 success, guide ON, first burn only
   const ashLineTeaching = useTeachingGate({
     screenId: 'burning_ritual',
+    visitKey: anchorId,
     candidateIds: ['burn_ash_line_v1'],
   });
 

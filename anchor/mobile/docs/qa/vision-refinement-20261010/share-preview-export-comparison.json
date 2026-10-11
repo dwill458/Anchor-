@@ -1,0 +1,12 @@
+{
+  "savedWidth": 1080,
+  "savedHeight": 1920,
+  "previewCrop": {
+    "left": 148,
+    "top": 200,
+    "width": 490,
+    "height": 872
+  },
+  "meanAbsoluteRGBError": 1.8251593660968661,
+  "method": "Resized saved PNG against Android preview; 20px border excluded; native interpolation and text antialiasing differ."
+}

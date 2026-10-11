@@ -3,8 +3,9 @@
  * Pure; everything is derived from server data plus a presentation-only
  * high-water map. Nothing here decides reach: the user confirms that.
  */
-import type { WaypointSummary } from '@/types/chart';
+import type { CourseDetail, WaypointSummary } from '@/types/chart';
 import type { ChartWaypointView } from '@/adapters/v2/chart/chartV2Model';
+import { toChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import {
   METRIC_WEIGHT,
@@ -16,6 +17,26 @@ import {
   type WaypointPlacement,
   type WaypointProgressInput,
 } from './chartMapContracts';
+
+export type ChartWeatherProgress = {
+  courseId: string;
+  inputs: WaypointProgressInput[];
+  currentIndex: number;
+  isFinished: boolean;
+};
+
+/** Convert server Course truth into the same progress inputs consumed by the full Chart. */
+export function chartWeatherProgress(course: CourseDetail): ChartWeatherProgress {
+  const view = toChartViewModel(course);
+  const rawWaypoints = new Map(course.waypoints.map(waypoint => [waypoint.id, waypoint]));
+  return {
+    courseId: view.courseId,
+    inputs: view.waypoints.map(waypoint => toProgressInput(waypoint, rawWaypoints.get(waypoint.id)?.metric)),
+    currentIndex: view.currentIndex,
+    // Full Chart completion is server status, even if every waypoint currently reads reached.
+    isFinished: view.isFinished,
+  };
+}
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 

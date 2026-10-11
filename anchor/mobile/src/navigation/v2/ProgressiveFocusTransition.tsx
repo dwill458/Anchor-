@@ -1,6 +1,6 @@
 import React, { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { Easing, cancelAnimation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, cancelAnimation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { circularAnchorArtworkShare, type CircularAnchorAppearance } from '@/components/v2/anchor';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
@@ -55,6 +55,8 @@ type TimingProfile = {
   navigateAtMs: number;
   travelDelayMs: number;
   travelMs: number;
+  /** Home <-> Details: travel is a damped spring (travelMs is its planning budget), not a bezier. */
+  spring?: boolean;
   /** Destination UI reveal. 0 means travel progress reveals it (Details). */
   revealDelayMs: number;
   revealMs: number;
@@ -76,14 +78,17 @@ type TimingProfile = {
  * copy - while Details was still mounting.
  */
 export const ANCHOR_TRANSITION_TIMING = {
-  details: { exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 300, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
+  details: { spring: true, exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 320, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
   practice: { exitMs: 120, navigateAtMs: 130, travelDelayMs: 80, travelMs: 400, revealDelayMs: 200, revealMs: 300, dissolveMs: 0 },
   /** Details -> Practice (another route): a cut under the copy, like Home <-> Details. */
   fromDetails: { exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 320, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
   session: { exitMs: 220, navigateAtMs: 220, travelDelayMs: 60, travelMs: 500, revealDelayMs: 280, revealMs: 340, dissolveMs: 0 },
   visualize: { exitMs: 220, navigateAtMs: 220, travelDelayMs: 60, travelMs: 500, revealDelayMs: 280, revealMs: 340, dissolveMs: 420 },
-  /** Details -> Home: Details is popped at once, uncovering Home, and the copy travels home over it. */
-  back: { exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 300, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
+  /**
+   * Details -> Home: the copy travels home over Details, which stays drawn (its artwork hidden) and is popped in the
+   * spring's near-still tail. Popping at once stalled the main thread (~150-400ms frame on an S24) mid-flight.
+   */
+  back: { spring: true, exitMs: 0, navigateAtMs: 240, travelDelayMs: 0, travelMs: 320, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
   /**
    * Details -> Progress. The route change is a short native cross-fade under
    * the copy (navigateAtMs 0); Details' UI leaves while the Anchor travels,
@@ -188,11 +193,14 @@ export type StartAnchorTransition = {
   onNavigate: (withHero: boolean) => void;
 };
 
-/** A reverse hop between two registered places (Progress -> Details). */
+/**
+ * A reverse hop between two registered places: Progress -> Details, or
+ * Details -> Home. Both ends are measured when the hop starts, never cached.
+ */
 export type ReturnAnchorTransition = {
   anchor: MovingAnchor;
   from: AnchorTransitionDestination;
-  to: AnchorTransitionDestination;
+  to: AnchorTransitionPlace;
   /** `withHero` is false when no flight runs: navigate as the route normally would. */
   onNavigate: (withHero: boolean) => void;
 };
@@ -218,13 +226,15 @@ type FocusTransitionContextValue = {
   startAnchorTransition: (request: StartAnchorTransition) => boolean;
   /** Progress -> Details. False when refused because another flight owns the Anchor. */
   returnAnchor: (request: ReturnAnchorTransition) => boolean;
-  registerPlace: (place: AnchorTransitionDestination, entry: PlaceEntry) => void;
-  unregisterPlace: (place: AnchorTransitionDestination, token: object) => void;
-  measurePlace: (place: AnchorTransitionDestination, token: object) => void;
+  registerPlace: (place: AnchorTransitionPlace, entry: PlaceEntry) => void;
+  unregisterPlace: (place: AnchorTransitionPlace, token: object) => void;
+  measurePlace: (place: AnchorTransitionPlace, token: object) => void;
   reset: () => void;
 };
 
 const FocusTransitionContext = createContext<FocusTransitionContextValue | null>(null);
+/** Damping ratio ~0.9: a hair of overshoot (<0.5%), settles without a tail. */
+const HERO_SPRING = { stiffness: 230, damping: 27, mass: 1, restDisplacementThreshold: 0.002, restSpeedThreshold: 0.15 } as const;
 const HERO_EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const GLIDE_EASE = Easing.out(Easing.quad);
 
@@ -297,7 +307,7 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
   const flightIdRef = useRef(0);
   /** Where the overlay sits in the window. Constant per window size, so measured once. */
   const overlayOriginRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
-  const placesRef = useRef<Partial<Record<AnchorTransitionDestination, PlaceEntry>>>({});
+  const placesRef = useRef<Partial<Record<AnchorTransitionPlace, PlaceEntry>>>({});
 
   const clearTimers = useCallback(() => {
     if (watchdogRef.current) clearTimeout(watchdogRef.current);
@@ -625,7 +635,8 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
         destinationAppearance: toEntry.appearance,
         destinationPlainMark: toEntry.plainMark === true,
         targetPlace: to,
-        timing: ANCHOR_TRANSITION_TIMING.progressBack,
+        // Details -> Home is the exact reverse of the Home -> Details hop: same travel, same cut under the copy.
+        timing: to === 'home' ? ANCHOR_TRANSITION_TIMING.back : ANCHOR_TRANSITION_TIMING.progressBack,
         backdrop: null,
         settle: 'handoff',
         reduced: false,
@@ -677,15 +688,15 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
     aimAt(next, rect, appearance, phase.travelDone || remaining < 60 ? ANCHOR_TRANSITION_TIMING.settleMs : remaining);
   }, [aimAt, copyReady, progress, reset]);
 
-  const registerPlace = useCallback((place: AnchorTransitionDestination, entry: PlaceEntry) => {
+  const registerPlace = useCallback((place: AnchorTransitionPlace, entry: PlaceEntry) => {
     placesRef.current[place] = entry;
   }, []);
 
-  const unregisterPlace = useCallback((place: AnchorTransitionDestination, token: object) => {
+  const unregisterPlace = useCallback((place: AnchorTransitionPlace, token: object) => {
     if (placesRef.current[place]?.token === token) delete placesRef.current[place];
   }, []);
 
-  const measurePlace = useCallback((place: AnchorTransitionDestination, token: object) => {
+  const measurePlace = useCallback((place: AnchorTransitionPlace, token: object) => {
     const entry = placesRef.current[place];
     const node = entry?.ref.current;
     if (!entry || entry.token !== token || !node || typeof node.measureInWindow !== 'function') return;
@@ -739,9 +750,13 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
     const t = current.timing;
     // A source with no exit (Home <-> Details) stays fully drawn until the route change covers or uncovers it.
     if (t.exitMs > 0) exitProgress.value = withTiming(1, { duration: t.exitMs });
-    progress.value = withDelay(t.travelDelayMs, withTiming(1, { duration: t.travelMs, easing: HERO_EASE }, (finished) => {
+    const onTravelEnd = (finished?: boolean) => {
+      'worklet';
       if (finished) runOnJS(finishTravel)(id);
-    }));
+    };
+    progress.value = withDelay(t.travelDelayMs, t.spring
+      ? withSpring(1, HERO_SPRING, onTravelEnd)
+      : withTiming(1, { duration: t.travelMs, easing: HERO_EASE }, onTravelEnd));
     if (t.revealMs > 0) {
       revealProgress.value = withDelay(t.revealDelayMs, withTiming(1, { duration: t.revealMs, easing: GLIDE_EASE }, (finished) => {
         if (finished) runOnJS(finishReveal)(id);
@@ -925,6 +940,8 @@ function isPlaceHidden(ctx: FocusTransitionContextValue | null, place: AnchorTra
   if (ctx.targetPlace === place && ctx.direction === 'forward') return !(ctx.reduceMotion && place === 'details');
   // Progress -> Details: Details is uncovered beneath the copy, which stands in for its artwork until it lands.
   if (ctx.targetPlace === place && ctx.direction === 'back' && place === 'details') return ctx.copyMounted;
+  // Details -> Home: Home's disc is hidden in place while the returning copy stands in for it.
+  if (ctx.targetPlace === place && ctx.direction === 'back' && place === 'home') return ctx.copyMounted;
   return false;
 }
 
@@ -937,23 +954,25 @@ function isPlaceHidden(ctx: FocusTransitionContextValue | null, place: AnchorTra
  * Android moves beneath the status bar after its first layout pass.
  */
 export function useAnchorTransitionPlace(
-  place: AnchorTransitionDestination,
+  place: AnchorTransitionPlace,
   anchorId: string | undefined,
   appearance: AnchorTransitionAppearance,
-  options: { artSize?: number; measureDelayMs?: number; plainMark?: boolean } = {},
+  options: { artSize?: number; measureDelayMs?: number; plainMark?: boolean; enabled?: boolean } = {},
 ): AnchorTransitionPlaceBinding {
   const ctx = useContext(FocusTransitionContext);
   const ref = useRef<View>(null);
   const tokenRef = useRef<object>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { artSize, measureDelayMs = 0, plainMark = false } = options;
+  const { artSize, measureDelayMs = 0, plainMark = false, enabled = true } = options;
   const registerPlace = ctx?.registerPlace;
   const unregisterPlace = ctx?.unregisterPlace;
   const measurePlace = ctx?.measurePlace;
 
   // A layout effect, so the place exists before its first layout event arrives.
+  // `enabled: false` keeps the ref without claiming the place (a carousel's
+  // off-centre slots must not overwrite the front Anchor's registration).
   useLayoutEffect(() => {
-    if (!registerPlace || !unregisterPlace) return undefined;
+    if (!enabled || !registerPlace || !unregisterPlace) return undefined;
     const token = {};
     tokenRef.current = token;
     registerPlace(place, { token, anchorId, ref, appearance, artSize, plainMark, rect: null });
@@ -962,7 +981,7 @@ export function useAnchorTransitionPlace(
       timerRef.current = null;
       unregisterPlace(place, token);
     };
-  }, [anchorId, appearance, artSize, place, plainMark, registerPlace, unregisterPlace]);
+  }, [anchorId, appearance, artSize, enabled, place, plainMark, registerPlace, unregisterPlace]);
 
   const onLayout = useCallback(() => {
     if (!measurePlace) return;

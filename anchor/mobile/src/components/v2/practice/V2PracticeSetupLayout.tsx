@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, type StyleProp, type View, type ViewStyle 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import Animated from 'react-native-reanimated';
+import type { LayoutChangeEvent } from 'react-native';
 import { useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 import { colors, spacing, typography } from '@/theme/v2';
 
@@ -29,6 +30,8 @@ type Props = {
   chromeStyle?: StyleProp<ViewStyle>;
   /** The full-screen root, so a setup can express a measured frame relative to its screen. */
   rootRef?: React.Ref<View>;
+  /** Reports the true height available to setup content after its dynamic footer is laid out. */
+  onScrollViewportLayout?: (height: number) => void;
 };
 
 /**
@@ -43,7 +46,7 @@ type Props = {
  * space and the footer sits at the bottom exactly as designed; on a short phone
  * it scrolls instead of compressing.
  */
-export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, sidePadding, footer, footerPaddingBottom, centered = false, overlay, backdrop, chromeStyle, rootRef }: Props) {
+export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, sidePadding, footer, footerPaddingBottom, centered = false, overlay, backdrop, chromeStyle, rootRef, onScrollViewportLayout }: Props) {
   // When the Anchor flies in, the setup arrives behind it: header, then the
   // body that holds the Anchor (opacity only, so its landing point stays put),
   // then the primary action.
@@ -68,7 +71,9 @@ export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, si
       </Animated.View>
 
       <Animated.ScrollView
+        testID={testID ? `${testID}-scroll` : undefined}
         style={[styles.scroll, bodyReveal]}
+        onLayout={onScrollViewportLayout ? (event: LayoutChangeEvent) => onScrollViewportLayout(event.nativeEvent.layout.height) : undefined}
         contentContainerStyle={[styles.body, centered && styles.bodyCentered, { paddingHorizontal: sidePadding }]}
         showsVerticalScrollIndicator={false}
         alwaysBounceVertical={false}

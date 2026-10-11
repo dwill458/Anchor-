@@ -45,10 +45,12 @@ export type AnchorV2StackParamList = {
     resumeSource?: 'practice_hub' | 'recommended_today';
     /** The Anchor is flying in from Details; the push itself must not animate. */
     anchorTransition?: boolean;
+    /** Measured photographic board and note snapshot for the Vision-to-setup handoff. */
+    visionEntry?: import('@/adapters/v2/vision').VisionVisualizeEntry;
   };
   V2PracticePrepare: { anchorId: string; mode?: V2PracticeMode };
-  V2Vision: { edit?: boolean; anchorId?: string; initialMode?: 'view' | 'create' | 'ready'; resumeGeneration?: boolean };
-  V2VisionNoteComposer: { anchorId: string; visionId?: string };
+  V2Vision: { savedNoteId?: string; edit?: boolean; anchorId?: string; initialMode?: 'view' | 'create' | 'ready'; resumeGeneration?: boolean };
+  V2VisionNoteComposer: { anchorId: string; visionId?: string; noteId?: string };
   V2Chart: {
     courseId?: string;
     anchorId?: string;

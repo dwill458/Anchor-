@@ -8,6 +8,7 @@ import type { HomeChartState } from '@/adapters/v2/home/chartAdapter';
 import { colors, getCategoryColor, getCategoryTextColor, typography } from '@/theme/v2';
 import { ChartMapCrop } from '@/components/chart/ChartMapCrop';
 import { chartArtFor, pointAt, routePathData, toFramePoint, waypointFractions } from './chartRouteGeometry';
+import { useChartWeatherCoverArc } from './map/chartPreviewWeather';
 
 type Props = {
   chart: Extract<HomeChartState, { state: 'ready' }>;
@@ -22,6 +23,7 @@ type Props = {
  * The camera window is explicit so a future transition can use this frame.
  * Copy flows below the route instead of covering nodes or clipping long Moves. */
 export const ChartWorldPreview = memo(function ChartWorldPreview({ chart, width, category, variant = 'home', onPress, testID = 'v2-home-chart' }: Props) {
+  const weatherCoverArc = useChartWeatherCoverArc(chart.weatherProgress);
   const current = chart.waypoints.find(waypoint => waypoint.isCurrent);
   const fractions = waypointFractions(chart.waypoints.length);
   const art = chartArtFor(category);
@@ -79,7 +81,7 @@ export const ChartWorldPreview = memo(function ChartWorldPreview({ chart, width,
             waypointIndex: (chart.currentWaypointIndex ?? -1) + 1,
             waypointTotal: chart.waypointCount,
             title: current?.title ?? chart.destinationText,
-          }} />
+          }} coverArc={weatherCoverArc} weatherComplete={chart.weatherProgress?.isFinished} />
           <LinearGradient colors={['transparent', colors.ink.deep]} style={styles.scrim} />
         </View>
       )}

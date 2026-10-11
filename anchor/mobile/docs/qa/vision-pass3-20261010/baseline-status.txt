@@ -1,0 +1,79 @@
+ M anchor/mobile/src/adapters/v2/vision/types.ts
+ M anchor/mobile/src/adapters/v2/vision/visionAdapter.ts
+ M anchor/mobile/src/assets/vision/notes/README.md
+ M anchor/mobile/src/assets/vision/notes/noteAssets.ts
+ M anchor/mobile/src/components/share/AnchorShareStudio.tsx
+ M anchor/mobile/src/components/share/__tests__/shareExport.test.ts
+ M anchor/mobile/src/components/share/shareData.ts
+ M anchor/mobile/src/components/share/shareTypes.ts
+ M anchor/mobile/src/components/share/templates/VisionExportTemplate.tsx
+ M anchor/mobile/src/components/share/useShareExportRenderer.tsx
+ M anchor/mobile/src/components/v2/vision/V2SavedVision.tsx
+ M anchor/mobile/src/components/v2/vision/VisionEditorialPreview.tsx
+ M anchor/mobile/src/components/v2/vision/VisionPhotograph.tsx
+ M anchor/mobile/src/components/v2/vision/__tests__/VisionEditorialPreview.test.tsx
+ M anchor/mobile/src/components/v2/vision/__tests__/visionEditorialLayout.test.ts
+ M anchor/mobile/src/components/v2/vision/board/VisionBoard.tsx
+ M anchor/mobile/src/components/v2/vision/board/VisionBoardPhoto.tsx
+ M anchor/mobile/src/components/v2/vision/board/VisionBoardScene.tsx
+ M anchor/mobile/src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx
+ M anchor/mobile/src/components/v2/vision/board/visionBoardCamera.ts
+ M anchor/mobile/src/components/v2/vision/notes/VisionNoteRenderer.tsx
+ M anchor/mobile/src/components/v2/vision/notes/__tests__/VisionNoteRenderer.test.tsx
+ M anchor/mobile/src/components/v2/vision/notes/__tests__/visionNoteStyles.test.ts
+ M anchor/mobile/src/components/v2/vision/notes/visionNoteStyles.ts
+ M anchor/mobile/src/components/v2/vision/useVisionEditorialNotes.tsx
+ M anchor/mobile/src/components/v2/vision/visionEditorialLayout.ts
+ M anchor/mobile/src/constants/v2/paywallRoutes.ts
+ M anchor/mobile/src/hooks/v2/anchors/useAnchorExportActions.tsx
+ M anchor/mobile/src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+ M anchor/mobile/src/hooks/v2/vision/useV2Vision.ts
+ M anchor/mobile/src/navigation/v2/__tests__/AnchorV2Navigator.test.tsx
+ M anchor/mobile/src/navigation/v2/types.ts
+ M anchor/mobile/src/screens/v2/anchors/V2AnchorDetailsScreen.tsx
+ M anchor/mobile/src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx
+ M anchor/mobile/src/screens/v2/chart/V2ChartScreen.tsx
+ M anchor/mobile/src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx
+ M anchor/mobile/src/screens/v2/practice/V2PracticePrepareScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/V2PracticeSessionScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/visualize/CinematicSessionStage.tsx
+ M anchor/mobile/src/screens/v2/practice/visualize/V2CinematicSessionScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/visualize/V2VisualizePrepareScreen.tsx
+ M anchor/mobile/src/screens/v2/system/VisionVisualQADevHost.tsx
+ M anchor/mobile/src/screens/v2/vision/V2VisionNoteComposer.tsx
+ M anchor/mobile/src/screens/v2/vision/V2VisionScreen.tsx
+ M anchor/mobile/src/screens/v2/vision/__tests__/V2VisionNoteComposer.test.tsx
+ M anchor/mobile/src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx
+ M anchor/mobile/src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+ M anchor/mobile/src/services/__tests__/RevenueCatService.test.ts
+ M backend/prisma/schema.prisma
+ M backend/src/api/routes/v2/visionRoutes.ts
+ M backend/src/domain/v2/vision.ts
+ M backend/src/services/v2/VisionService.ts
+ M backend/src/services/v2/__tests__/VisionService.test.ts
+?? anchor/mobile/docs/qa/vision-refinement-20261010/
+?? anchor/mobile/src/adapters/v2/vision/__tests__/visionNoteSurfaces.test.ts
+?? anchor/mobile/src/assets/vision/notes/golden-hour.png
+?? anchor/mobile/src/assets/vision/notes/misty-mountains.png
+?? anchor/mobile/src/assets/vision/notes/vintage-letter.png
+?? anchor/mobile/src/components/share/__tests__/VisionExportTemplate.test.tsx
+?? anchor/mobile/src/components/share/__tests__/useShareExportRenderer.test.ts
+?? anchor/mobile/src/components/share/visionBoardExportFrame.ts
+?? anchor/mobile/src/components/v2/vision/__tests__/VisionPhotograph.test.tsx
+?? anchor/mobile/src/components/v2/vision/board/VisionBoardNoteElement.tsx
+?? anchor/mobile/src/components/v2/vision/board/VisionPhotoCaptionEditor.tsx
+?? anchor/mobile/src/components/v2/vision/board/__tests__/VisionBoardNoteElement.test.tsx
+?? anchor/mobile/src/components/v2/vision/board/__tests__/VisionBoardScene.notes.test.tsx
+?? anchor/mobile/src/components/v2/vision/board/__tests__/VisionPhotoCaptionEditor.test.tsx
+?? anchor/mobile/src/components/v2/vision/board/__tests__/visionBoardCamera.test.ts
+?? anchor/mobile/src/components/v2/vision/notes/__tests__/freezeVisionNotes.test.ts
+?? anchor/mobile/src/components/v2/vision/notes/__tests__/noteAssetGeometry.test.ts
+?? anchor/mobile/src/components/v2/vision/notes/__tests__/visionNotePlacement.test.ts
+?? anchor/mobile/src/components/v2/vision/notes/freezeVisionNotes.ts
+?? anchor/mobile/src/components/v2/vision/notes/noteAssetGeometry.ts
+?? anchor/mobile/src/components/v2/vision/notes/visionNotePlacement.ts
+?? backend/prisma/migrations/20261010120000_add_vision_notes/
+?? backend/scripts/verify-vision-notes-database.ts
+?? backend/scripts/verify-vision-notes-http.ts
+?? backend/src/domain/v2/__tests__/visionNote.test.ts
+?? backend/src/services/v2/__tests__/VisionNoteService.test.ts

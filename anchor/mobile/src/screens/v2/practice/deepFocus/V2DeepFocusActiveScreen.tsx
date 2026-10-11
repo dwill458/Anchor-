@@ -23,12 +23,14 @@ import { deepFocusVisualAt, type DeepFocusDuration } from './deepFocusTimeline';
 import { shouldPlayDeepFocusCompletionCue } from './completionCue';
 import { useDeepFocusSession, type DeepFocusSessionData } from './useDeepFocusSession';
 
-export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambient, haptics = true, onExit, onComplete }: {
+export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambient, haptics = true, anchorHandoff = false, onExit, onComplete }: {
   anchor: Anchor;
   durationSeconds: DeepFocusDuration;
   voice: GuidanceVoice;
   ambient: boolean;
   haptics?: boolean;
+  /** The Anchor arrives by hero flight, so the entry curtain is skipped and the Anchor is already in place. */
+  anchorHandoff?: boolean;
   onExit?: () => void;
   onComplete: (data: DeepFocusSessionData) => void;
 }) {
@@ -190,10 +192,15 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
       ] as [{ scale: number }, { rotate: string }],
     };
   });
+  // Inner counter-rotation and spacing breath sit inside the field so the lines read as layered depth.
+  const weaveStyle = useAnimatedStyle(() => {
+    const visual = deepFocusVisualAt(seconds.value, durationSeconds, reduced);
+    return { transform: [{ scale: visual.weaveScale }, { rotate: `${visual.weaveRotation}deg` }] as [{ scale: number }, { rotate: string }] };
+  });
   const guidanceStyle = useAnimatedStyle(() => ({ opacity: deepFocusVisualAt(seconds.value, durationSeconds, reduced).guidance }));
   const intentionStyle = useAnimatedStyle(() => ({ opacity: deepFocusVisualAt(seconds.value, durationSeconds, reduced).intention }));
   const darknessStyle = useAnimatedStyle(() => ({ opacity: deepFocusVisualAt(seconds.value, durationSeconds, reduced).darkness }));
-  const curtainStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - seconds.value / 0.8) }));
+  const curtainStyle = useAnimatedStyle(() => ({ opacity: anchorHandoff ? 0 : Math.max(0, 1 - seconds.value / 0.8) }));
   const controlStyle = useAnimatedStyle(() => ({ opacity: controlsOpacity.value }));
   const toggleSound = () => {
     const next = !soundRef.current;
@@ -230,12 +237,17 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
       <View ref={place.ref} collapsable={false} onLayout={place.onLayout} pointerEvents="none"
         style={[styles.stage, { top: geometry.centerY - geometry.fieldSize / 2, left: (width - geometry.fieldSize) / 2, width: geometry.fieldSize, height: geometry.fieldSize }]}>
         <Animated.View style={[StyleSheet.absoluteFill, fieldStyle]}>
-          <V2FocusField size={geometry.fieldSize} category={anchor.category} progress={orbitProgress} reduceMotion={reduced} motionActive={false} />
+          <Animated.View style={[StyleSheet.absoluteFill, weaveStyle]}>
+            <V2FocusField size={geometry.fieldSize} category={anchor.category} progress={orbitProgress} reduceMotion={reduced} motionActive={false} />
+          </Animated.View>
         </Animated.View>
-        <Animated.View style={[styles.artwork, anchorStyle, place.hidden && styles.hidden]}>
-          <V2FocusAnchorArtwork svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl} category={anchor.category}
-            size={geometry.anchorSize} surface={FOCUS_SCREEN_BACKGROUND} accessibilityLabel={`${anchor.category} Anchor artwork`} testID="deep-focus-anchor-artwork" />
-        </Animated.View>
+        {/* The flight hides on a wrapper with no animated opacity, so the animated Anchor cannot override it. */}
+        <View style={[styles.artwork, place.hidden && styles.hidden]}>
+          <Animated.View style={[StyleSheet.absoluteFill, styles.artwork, anchorStyle]}>
+            <V2FocusAnchorArtwork svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl} category={anchor.category}
+              size={geometry.anchorSize} surface={FOCUS_SCREEN_BACKGROUND} accessibilityLabel={`${anchor.category} Anchor artwork`} testID="deep-focus-anchor-artwork" />
+          </Animated.View>
+        </View>
       </View>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.curtain, curtainStyle]} />
       {controls && state === 'running' && !ending && (

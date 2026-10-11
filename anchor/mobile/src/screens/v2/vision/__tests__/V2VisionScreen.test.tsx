@@ -6,6 +6,7 @@ import { V2VisionScreen } from '../V2VisionScreen';
 import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { toV2VisionCompactState } from '@/adapters/v2/vision';
 
 
@@ -20,11 +21,13 @@ jest.mock('@/screens/v2/practice/V2PracticeSessionScreen', () => ({
 
 // Mock navigation
 const mockNavigate = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   UNSTABLE_usePreventRemove: jest.fn(),
   useNavigation: () => ({
     navigate: mockNavigate,
+    replace: mockReplace,
     setParams: jest.fn(),
     goBack: jest.fn(),
     canGoBack: () => true,
@@ -119,6 +122,7 @@ describe('V2VisionScreen', () => {
     jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => callback(10, 20, 300, 500));
     mockPreparationProps = undefined; mockPracticeProps = undefined;
     useAuthStore.setState({ user: null });
+    useSubscriptionStore.setState({ entitlementReady: true, hasActiveEntitlement: true, isSubscribed: true, isInTrial: false, devOverrideEnabled: false });
     // Vision reads are cached per Anchor for the app session; each case starts cold.
     resetV2VisionReadCache();
     useAnchorStore.setState({
@@ -135,6 +139,28 @@ describe('V2VisionScreen', () => {
     expect(prefetch).toHaveBeenCalledWith('https://example.com/art2.jpg');
     expect(prefetch).toHaveBeenCalledWith('https://example.com/art3.jpg');
     prefetch.mockRestore();
+  });
+
+  it('routes a free account directly to the premium paywall when no Vision is owned', async () => {
+    useSubscriptionStore.setState({ entitlementReady: true, hasActiveEntitlement: false, isSubscribed: false, isInTrial: false });
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: null });
+
+    render(<V2VisionScreen anchorId="anchor-1" />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('V2Paywall', {
+      context: 'VISION_PREMIUM_ACTION',
+      resumeIntent: { type: 'vision_premium_action', anchorId: 'anchor-1', action: 'create' },
+    }));
+  });
+
+  it('keeps an already-owned Vision accessible after entitlement expiry', async () => {
+    useSubscriptionStore.setState({ entitlementReady: true, hasActiveEntitlement: false, isSubscribed: false, isInTrial: false });
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
+
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+
+    expect(await view.findByTestId('v2-vision-screen')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('saves a user supplied board caption through the existing Vision API', async () => {
@@ -281,6 +307,7 @@ describe('V2VisionScreen', () => {
     fireEvent.press(begin);
     expect(mockNavigate).toHaveBeenCalledWith('V2Practice', {
       anchorId: 'anchor-1', resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision',
+      visionEntry: expect.objectContaining({ anchorId: 'anchor-1', visionId: 'vision-101', tiles: expect.any(Array), notes: [] }),
     });
     expect(view.queryByTestId('canonical-visualize')).toBeNull();
     expect(mockPracticeProps).toBeUndefined();

@@ -28,10 +28,87 @@ export interface VisionReadModel {
   description: string | null;
   status: VisionStatus;
   scenes: VisionSceneReadModel[];
+  /** Notes are optional for compatibility with previously cached Vision reads. */
+  notes?: VisionNoteReadModel[];
   seenToday: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+export const VISION_NOTE_STYLE_IDS = [
+  'sticky_blush_pink', 'sticky_butter_yellow', 'sticky_sky_blue', 'sticky_sage_green', 'sticky_lavender', 'sticky_peach', 'sticky_warm_ivory', 'sticky_rose_lined',
+  'paper_ivory_torn', 'paper_aged_parchment', 'paper_handmade_cream', 'paper_blush_torn', 'paper_sage_handmade', 'paper_white_deckled',
+  'editorial_classic_cream', 'editorial_powder_blue', 'editorial_minimal_quote', 'editorial_botanical_shadow', 'editorial_coastal_illustration', 'editorial_atmospheric_landscape',
+  'editorial_vintage_letter', 'editorial_golden_hour', 'editorial_misty_mountains', 'editorial_rose_editorial', 'editorial_architectural', 'editorial_midnight_editorial',
+] as const;
+export type VisionNoteStyleId = (typeof VISION_NOTE_STYLE_IDS)[number];
+export const VISION_NOTE_MAX_CHARS = 200;
+export const VISION_NOTE_MAX_ACTIVE = 24;
+const VISION_NOTE_MIN_BOARD_ASPECT = 0.45;
+const VISION_NOTE_MAX_BOARD_ASPECT = 2.65;
+
+export interface VisionNotePresentation {
+  styleId: VisionNoteStyleId;
+  /** Normalized center coordinates and dimensions relative to the board. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  scale: number;
+  layerOrder: number;
+}
+
+export interface VisionNoteReadModel {
+  id: string;
+  visionId: string;
+  content: { text: string };
+  presentation: VisionNotePresentation;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const VisionNoteTextSchema = z.string().min(1).superRefine((text, ctx) => {
+  if (text.trim().length === 0) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Note text cannot be blank' });
+  if (Array.from(text).length > VISION_NOTE_MAX_CHARS) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Note text cannot exceed ${VISION_NOTE_MAX_CHARS} characters` });
+  }
+});
+
+export const VisionNotePresentationSchema = z.object({
+  styleId: z.enum(VISION_NOTE_STYLE_IDS),
+  x: z.number().finite().min(0).max(1),
+  y: z.number().finite().min(0).max(1),
+  width: z.number().finite().min(0.12).max(0.65),
+  height: z.number().finite().min(0.12).max(0.65),
+  rotation: z.number().finite().min(-180).max(180),
+  scale: z.number().finite().min(0.5).max(2),
+  layerOrder: z.number().int().min(0).max(1000),
+}).strict().superRefine((presentation, ctx) => {
+  const radians = presentation.rotation * Math.PI / 180;
+  // The board aspect changes with photo count. Use conservative bounds across
+  // every supported board shape so persisted notes remain safe after images change.
+  const halfWidth = (Math.abs(presentation.width * presentation.scale * Math.cos(radians)) + Math.abs(presentation.height * VISION_NOTE_MAX_BOARD_ASPECT * presentation.scale * Math.sin(radians))) / 2;
+  const halfHeight = (Math.abs(presentation.height * presentation.scale * Math.cos(radians)) + Math.abs(presentation.width / VISION_NOTE_MIN_BOARD_ASPECT * presentation.scale * Math.sin(radians))) / 2;
+  if (presentation.x < halfWidth || presentation.x > 1 - halfWidth) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['x'], message: 'Note must remain inside the Vision board' });
+  if (presentation.y < halfHeight || presentation.y > 1 - halfHeight) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['y'], message: 'Note must remain inside the Vision board' });
+});
+
+export const CreateVisionNoteSchema = z.object({
+  clientRequestId: z.string().uuid(),
+  content: z.object({ text: VisionNoteTextSchema }).strict(),
+  presentation: VisionNotePresentationSchema,
+}).strict();
+
+export const UpdateVisionNoteSchema = z.object({
+  content: z.object({ text: VisionNoteTextSchema }).strict().optional(),
+  presentation: VisionNotePresentationSchema.optional(),
+}).strict().refine(input => input.content !== undefined || input.presentation !== undefined, 'At least one note field is required');
+
+export const UpdateVisionSceneCaptionSchema = z.object({
+  caption: z.string().trim().max(80).nullable(),
+}).strict();
 
 export interface AssetReadModel {
   id: string;

@@ -229,7 +229,20 @@ const ActivateAnchorSchema = z.object({
 
 const ClassifyTierSchema = z.object({
   intentionText: z.string().min(1).max(500),
+  category: z.string().min(1).max(100).optional(),
 });
+
+const AUTHORITATIVE_CATEGORY_TIERS: Record<string, string> = {
+  health: 'mars',
+  career: 'jupiter',
+  relationships: 'venus',
+  creativity: 'sun',
+  spirituality: 'saturn',
+  abundance: 'jupiter',
+  family: 'venus',
+  learning: 'saturn',
+  adventure: 'venus',
+};
 
 const CLASSIFY_TIER_RESPONSE_SCHEMA = {
   type: 'object',
@@ -466,6 +479,7 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
  *
  * Body:
  * - intentionText
+ * - category (optional resolved AnchorCategory)
  */
 router.post(
   '/classify-tier',
@@ -473,7 +487,24 @@ router.post(
   anchorEnhanceLimiter,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { intentionText } = validate(ClassifyTierSchema, req.body);
+      const { intentionText, category } = validate(ClassifyTierSchema, req.body);
+
+      // Precedence rule: the deterministic category -> tier map (CATEGORY_TO_TIER) is
+      // authoritative for all 9 specific categories. The Gemini tier classifier runs ONLY
+      // when the resolved category is a fallback ('desire' or 'custom'), i.e. the exact
+      // cases where the keyword system has declared uncertainty. In all other cases this
+      // endpoint must not override the deterministic map.
+      const normalizedCategory = category?.trim().toLowerCase();
+      if (normalizedCategory && AUTHORITATIVE_CATEGORY_TIERS[normalizedCategory]) {
+        res.json({
+          success: true,
+          data: {
+            tier: AUTHORITATIVE_CATEGORY_TIERS[normalizedCategory],
+            confidenceScore: 0.8,
+          },
+        });
+        return;
+      }
 
       const ai = new GoogleGenAI({});
 

@@ -43,14 +43,16 @@ export type ChartMapProps = {
   interactive?: boolean;
   reducedMotion: boolean;
   arrived: boolean;
+  /** Preview-only authoritative completion for cloud clearing; leaves the displayed route state untouched. */
+  weatherComplete?: boolean;
   /** Fog of war clouds over undiscovered ground (the permanent Chart and creation after mapping). */
   clouds?: boolean;
   /**
-   * How the clouds are drawn. 'static' (default): the original cloud shader inside the land canvas
-   * (Home/Details crops, creation). 'living': drifting, parallaxed weather on its own canvas, driven by
-   * `anim.coverArc` / `anim.closed`, and nothing is visible until the weather is (the permanent Chart).
+   * How the clouds are drawn. 'static' (default): the original land shader. 'textured': the shared sculpted tile
+   * compositor with a frozen phase for read-only crops. 'living': drifting, parallaxed weather on its own canvas,
+   * driven by `anim.coverArc` / `anim.closed`, and nothing is visible until ready (the permanent Chart).
    */
-  weather?: 'static' | 'living';
+  weather?: 'static' | 'textured' | 'living';
   /**
    * The map continues from another map already on screen (creation's reveal into the permanent Chart): when
    * the living weather is ready at mount it shows on the very first frame, with no clouds-first wait or veil.
@@ -84,7 +86,7 @@ export type ChartMapProps = {
  * that is not a marker calls onMapPress. Height = width * MAP_H / MAP_W.
  */
 export const ChartMap = memo(function ChartMap({
-  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, weather = 'static', continuous = false, onShown, introProgress, introBaseVisible, onMapArtReady, onIntroSurfaceSized, revision, summitArt, plantedFlag, onMarkerPress, onMapPress, testID, frame,
+  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, weatherComplete, clouds = false, weather = 'static', continuous = false, onShown, introProgress, introBaseVisible, onMapArtReady, onIntroSurfaceSized, revision, summitArt, plantedFlag, onMarkerPress, onMapPress, testID, frame,
 }: ChartMapProps) {
   const height = viewportHeight ?? (width * MAP_H) / MAP_W;
   // The moving land shader is the expensive layer in the opening. Render this
@@ -119,7 +121,11 @@ export const ChartMap = memo(function ChartMap({
     onMapArtReady?.(ready);
   }, [onMapArtReady]);
 
-  const living = clouds && weather === 'living';
+  const textured = clouds && weather !== 'static';
+  const living = textured && weather === 'living';
+  // Read-only textured previews reveal the underlying engraved land to the same arc as the full Chart's cover.
+  // The separate overlay continues to use `anim.revealArc`, preserving its existing preview route and markers.
+  const landAnim = React.useMemo(() => weather === 'textured' ? { ...anim, revealArc: anim.coverArc } : anim, [anim, weather]);
   // A continuing map whose weather is already cached draws land and weather together on frame one.
   const [readyAtMount] = useState(() => continuous && living && weatherReadySync(table));
   const [weatherState, setWeatherState] = useState<WeatherState | null>(readyAtMount ? 'ready' : null);
@@ -144,7 +150,8 @@ export const ChartMap = memo(function ChartMap({
   const onWeatherState = useCallback((state: WeatherState) => setWeatherState(state), []);
   // If the living weather cannot be built, the land falls back to the static cloud shader.
   const livingActive = living && weatherState !== 'failed';
-  const landClouds = clouds && !livingActive;
+  const texturedReady = textured && weatherState === 'ready';
+  const landClouds = clouds && (weather === 'textured' ? !texturedReady : !livingActive);
 
   // One visibility gate covers land, weather, route, flag, and native markers. Overlay and markers mount with
   // the art (screen readers and taps keep working); with living weather they stay at opacity 0 until it shows.
@@ -215,12 +222,12 @@ export const ChartMap = memo(function ChartMap({
           {introBaseMode.current ? (
             <Animated.View testID={testID ? `${testID}-land-base-layer` : undefined} pointerEvents="none" style={[StyleSheet.absoluteFill, styles.introBaseLayer, introBaseStyle]}>
               <Canvas testID={testID ? `${testID}-land-base-canvas` : undefined} onSize={isIntro && !introSurfaceMeasured ? baseCanvasSize : undefined} style={{ width, height }}>
-                <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} introPass="base" introProgress={introProgress} onArtReady={onArtReady} />
+                <ChartMapLand frame={frame} width={width} height={height} anim={landAnim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} introPass="base" introProgress={introProgress} onArtReady={onArtReady} />
               </Canvas>
             </Animated.View>
           ) : (
             <Canvas testID={testID ? `${testID}-land-base-canvas` : undefined} style={{ width, height }}>
-              <ChartMapLand frame={frame} width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} onArtReady={onArtReady} />
+              <ChartMapLand frame={frame} width={width} height={height} anim={landAnim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={landClouds} onArtReady={onArtReady} />
             </Canvas>
           )}
           {isIntro ? (
@@ -237,7 +244,7 @@ export const ChartMap = memo(function ChartMap({
             </Canvas>
           ) : null}
         </View>
-        {livingActive ? (
+        {textured && weatherState !== 'failed' ? (
           <View
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
@@ -253,9 +260,10 @@ export const ChartMap = memo(function ChartMap({
                 placement={placement}
                 currentIndex={markers.find(marker => marker.state === 'current')?.index ?? -1}
                 reducedMotion={reducedMotion}
-                arrived={arrived}
+                arrived={weatherComplete ?? arrived}
                 onWeatherState={onWeatherState}
                 fadeIn={shownBare}
+                freezeDrift={weather === 'textured'}
               />
             </Canvas>
           </View>

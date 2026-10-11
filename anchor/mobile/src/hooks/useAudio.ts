@@ -44,6 +44,7 @@ export function useAudio() {
 
     try {
       player.remove();
+      player.release?.();
     } catch {
       // Fail silently - audio is non-critical.
     }

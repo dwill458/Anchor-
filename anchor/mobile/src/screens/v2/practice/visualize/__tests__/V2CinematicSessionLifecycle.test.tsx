@@ -18,6 +18,8 @@ let mockAppStateListener: ((state: string) => void) | null = null;
 let appStateDescriptor: PropertyDescriptor | undefined;
 let appStateSpy: jest.SpyInstance;
 const mockOnMarkLayout = jest.fn((props: any) => props.cinematic?.onMarkLayout?.({ x: 10, y: 10, width: 40, height: 60 }));
+const mockUseBoardScene = jest.fn();
+let mockCinematicStageProps: any;
 
 jest.mock('../cinematicAssets', () => ({
   freezeCinematicTiles: (tiles: unknown[]) => tiles,
@@ -46,8 +48,8 @@ jest.mock('@/components/v2/anchors/anchorPresentation', () => ({
   anchorArtworkSvg: () => '<svg viewBox="0 0 100 100"><path d="M0 0"/></svg>',
 }));
 jest.mock('@/components/v2/vision/board/useVisionBoardScene', () => ({
-  useVisionBoardScene: () => ({ roster: [], entering: {}, layout: { card: { x: 0, y: 0, width: 100, height: 100 },
-    photos: [{ x: 0, y: 0, width: 40, height: 40, frame: 'landscape' }] }, shared: {}, initialRectFor: () => null }),
+  useVisionBoardScene: (...args: unknown[]) => { mockUseBoardScene(...args); return { roster: [], entering: {}, layout: { card: { x: 0, y: 0, width: 100, height: 100 },
+    photos: [{ x: 0, y: 0, width: 40, height: 40, frame: 'landscape' }] }, shared: {}, initialRectFor: () => null }; },
 }));
 jest.mock('@/components/v2/vision/board/VisionBoardScene', () => ({
   VisionBoardScene: (props: any) => {
@@ -57,14 +59,17 @@ jest.mock('@/components/v2/vision/board/VisionBoardScene', () => ({
   },
 }));
 jest.mock('@/components/v2/vision/board/visionBoardLayouts', () => ({
-  boardAttachmentFor: () => 'pin', boardSizeForWidth: () => ({ width: 100, height: 100 }),
+  boardAttachmentFor: () => 'pin', boardSizeForWidth: (width: number) => ({ width, height: width / 1.56 }),
+  detailBoardSizeForWidth: () => ({ width: 100, height: 100 }),
+  selectBoardLayout: () => ({ card: { x: 0.5, y: 0.47, width: 0.24, aspectRatio: 1, rotation: 0, zIndex: 40 } }),
   toSceneRect: () => ({ x: 0, y: 0, width: 100, height: 100, rotation: 0 }),
 }));
 jest.mock('../cinematicSessionMotion', () => ({ cinematicSessionGeometry: () => ({}) }));
 jest.mock('../CinematicSessionStage', () => ({
-  CinematicSessionStage: ({ elapsed }: any) => {
+  CinematicSessionStage: (props: any) => {
+    mockCinematicStageProps = props;
     const React = require('react'); const { View, Text } = require('react-native');
-    return React.createElement(View, { testID: 'cinematic-stage' }, React.createElement(Text, null, String(elapsed.value)));
+    return React.createElement(View, { testID: 'cinematic-stage' }, React.createElement(Text, null, String(props.elapsed.value)));
   },
 }));
 jest.mock('../prototype/cinematicGeometry', () => ({
@@ -394,6 +399,22 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockUseCinematicAssets).not.toHaveBeenCalled();
     expect(view.getByTestId('cinematic-stage')).toBeTruthy();
     expect(mockEngine.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the full existing multi-photo composition while keeping note content out of Visualize', () => {
+    mockUseBoardScene.mockClear();
+    mockUseCinematicAssets.mockReturnValue({ resources: null, ready: true, partial: false, unavailable: false,
+      available: tiles, select: () => ({ tiles, images: [{}] }), retry: jest.fn(), timedOut: false, failedCount: 0 });
+    const note = { id: 'note-1', content: { text: 'A saved note' }, presentation: { styleId: 'paper' } } as any;
+    const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles} notes={[note]}
+      statement="Saved Vision" durationSeconds={60} voice="none" ambient={false} haptics={false}
+      source="practice_hub" onExit={jest.fn()} onContinue={jest.fn()} />);
+    measureMark();
+
+    expect(mockUseBoardScene).toHaveBeenCalledWith(tiles, expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }), 1, true);
+    expect(view.getByTestId('cinematic-stage')).toBeTruthy();
+    expect(mockCinematicStageProps).not.toHaveProperty('notes');
+    view.unmount();
   });
 
 });

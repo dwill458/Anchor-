@@ -27,48 +27,72 @@ function smooth(start: number, end: number, value: number) {
   return t * t * (3 - 2 * t);
 }
 
-/** One continuous UI-thread clock, no independent delays or repeating loops. */
+/** Field scale when the lines gather around the Anchor (session start and settle). */
+export const DEEP_FOCUS_FIELD_REST_SCALE = 0.82;
+/** Field scale at the outward turn, halfway through the session. */
+export const DEEP_FOCUS_FIELD_PEAK_SCALE = 2.2;
+/** Net rotation of the field across the whole session. Normalized, so it scales with length. */
+export const DEEP_FOCUS_FIELD_TURN_DEGREES = 90;
+
+const TAU = Math.PI * 2;
+
+/**
+ * Normalized field energy for session progress in [0, 1]: 0 when the lines gather at the Anchor,
+ * 1 at the outward turn, back to 0 as the field settles. Each half is a cosine ease, so velocity
+ * starts at zero, reverses smoothly at the midpoint, and eases to rest at the end.
+ */
+export function deepFocusFieldEnergy(progress: number) {
+  'worklet';
+  const p = Math.max(0, Math.min(1, progress));
+  return p <= 0.5 ? (1 - Math.cos(TAU * p)) / 2 : (1 + Math.cos(TAU * (p - 0.5))) / 2;
+}
+
+/**
+ * One continuous UI-thread clock. The field's motion is a function of normalized session progress,
+ * so every duration runs the same outward-and-inward arc with no restart, freeze or jump.
+ * Copy and audio keep their established second-based timings.
+ */
 export function deepFocusVisualAt(seconds: number, duration: DeepFocusDuration, reduced: boolean) {
   'worklet';
+  const progress = Math.max(0, Math.min(1, seconds / duration));
+  const energy = deepFocusFieldEnergy(progress);
   const entry = smooth(0, 0.8, seconds);
-  const descent = smooth(35, 80, seconds);
-  const immersion = smooth(80, duration - 10, seconds);
-  const immerseStillness = smooth(80, 110, seconds);
-
-  // Multi-step release: environment dissolves first, anchor stands alone, then dissolves into completion.
-  const orbitRelease = smooth(duration - 10, duration - 3.25, seconds);
+  // The field fades in over the first 15% of the session, then stays present through the whole arc.
+  const emerge = smooth(0, 0.15, progress);
+  // Completion handoff: the field and Anchor dissolve in the final seconds, after the inward settle.
+  const fieldRelease = smooth(duration - 3, duration, seconds);
   const anchorRelease = smooth(duration - 2.25, duration, seconds);
 
-  // Integrating the slower frequency keeps the motion continuous at 80s.
-  const breathTime = Math.min(seconds, 80) / 18 + Math.max(0, seconds - 80) / 40;
-  const breath = reduced ? 0 : (1 - Math.cos(breathTime * Math.PI * 2)) / 2;
-  // Drastically reduce breathing amplitude during immersion (0.012 -> 0.0025) while keeping tiny organic life.
-  const breathAmp = 0.012 - 0.0095 * immerseStillness;
+  // Audio-only envelopes. These keep the established ambient bed timing unchanged.
+  const audioDescent = smooth(35, 80, seconds);
+  const audioRelease = smooth(duration - 10, duration - 3.25, seconds);
 
-  // Continuous orbital velocity: gentle in arrive/hold (0.32 deg/s), smoothly decelerating in descent,
-  // settling into near-stillness during immersion (0.032 deg/s) with zero discontinuous jumps.
-  let orbitRotation = 0;
-  if (!reduced) {
-    if (seconds <= 35) {
-      orbitRotation = 0.32 * seconds;
-    } else if (seconds <= 80) {
-      const dt = seconds - 35;
-      orbitRotation = 11.2 + 0.32 * dt - (0.288 / 90) * dt * dt;
-    } else {
-      orbitRotation = 19.12 + 0.032 * (seconds - 80);
-    }
-  }
+  // Anchor breath stays gentle, at a constant 18s period with no mid-session change.
+  const breath = reduced ? 0 : (1 - Math.cos((seconds / 18) * TAU)) / 2;
+
+  // Field rotation: a normalized net turn plus a small swell, so angular velocity never reverses or stalls.
+  const orbitRotation = reduced ? 0 : DEEP_FOCUS_FIELD_TURN_DEGREES * progress + 6 * Math.sin(progress * TAU);
+  // The inner layer counter-rotates slightly and breathes in spacing on a short time-based cycle, for depth.
+  const weaveRotation = reduced ? 0 : -20 * progress;
+  const weaveScale = reduced ? 1 : 1 + 0.02 * Math.sin((seconds / 9) * TAU);
+
+  const fieldScale = DEEP_FOCUS_FIELD_REST_SCALE + (DEEP_FOCUS_FIELD_PEAK_SCALE - DEEP_FOCUS_FIELD_REST_SCALE) * energy;
+  // Opacity follows the same arc: lines build as they expand and brighten a little as they draw inward.
+  const fieldLevel = reduced ? 0.5 + 0.1 * energy : 0.62 - 0.14 * energy;
 
   return {
     guidance: entry * (1 - smooth(9, 15, seconds)),
     intention: smooth(15, 20, seconds) * (1 - smooth(35, 65, seconds)),
-    anchorOpacity: (0.76 + 0.24 * entry) * (1 - anchorRelease),
-    anchorScale: reduced ? 1 : (0.95 + 0.05 * entry) + breathAmp * breath * smooth(15, 25, seconds) * (1 - anchorRelease),
-    orbitScale: reduced ? 1 : 1 + 1.5 * descent + 0.06 * immersion,
-    orbitOpacity: entry * (0.62 - 0.24 * descent - 0.14 * immersion) * (1 - orbitRelease),
+    // The Anchor starts fully present, matching where the arriving copy lands, so the first frame has no dip.
+    anchorOpacity: 1 - anchorRelease,
+    anchorScale: reduced ? 1 : 1 + 0.012 * breath * smooth(15, 25, seconds) * (1 - anchorRelease),
+    orbitScale: reduced ? 1 : fieldScale,
+    orbitOpacity: emerge * fieldLevel * (1 - fieldRelease),
     orbitRotation,
-    darkness: 0.34 * descent + 0.66 * orbitRelease,
-    ambientGain: smooth(0, 3, seconds) * (0.12 - 0.05 * descent) * (1 - orbitRelease),
+    weaveRotation,
+    weaveScale,
+    darkness: Math.min(1, 0.4 * smooth(0, 1, progress) + 0.6 * fieldRelease),
+    ambientGain: smooth(0, 3, seconds) * (0.12 - 0.05 * audioDescent) * (1 - audioRelease),
   };
 }
 

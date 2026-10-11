@@ -5,11 +5,12 @@ import { ImagePlus, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react-nati
 import { v2Haptics } from '@/hooks/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
+import type { VisionNote, VisionNotePresentation } from '@/adapters/v2/vision';
 import { VisionBoardScene } from './VisionBoardScene';
 import type { VisionBoardCardArt } from './VisionBoardIntentionCard';
 import { useVisionBoardScene } from './useVisionBoardScene';
 import { detailBoardSizeForWidth, toSceneRect } from './visionBoardLayouts';
-import { focusCamera, restCamera, type CameraState } from './visionBoardCamera';
+import { focusCamera, photoFocusOptions, restCamera, type CameraState } from './visionBoardCamera';
 import { boardCameraEasing, boardDelay, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { moveBoardOrder } from './visionBoardReorder';
 import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
@@ -19,8 +20,14 @@ import { projectTeachingSlot } from '@/hooks/v2/teaching/visionTeaching';
 export type VisionBoardFocus = { kind: 'photo'; sceneId: string } | { kind: 'card' } | null;
 
 export type VisionBoardProps = {
+  arrivingNoteId?: string;
   arrivingSceneId?: string | null;
   tiles: V2VisionTile[];
+  notes?: readonly VisionNote[];
+  onNotePresentationChange?: (id: string, presentation: VisionNotePresentation) => Promise<boolean>;
+  onNoteEdit?: (id: string) => void;
+  onNoteDelete?: (id: string) => void;
+  onCaptionEdit?: (sceneId: string) => void;
   intention: string;
   /** Optional, persisted user title. Never filled with sample content. */
   annotation?: string;
@@ -42,7 +49,7 @@ export type VisionBoardProps = {
   /** True while a photo is being dragged (the host should stop scrolling). */
   onDragActive?: (active: boolean) => void;
   /** Reads the current UI-thread canvas projection once at Begin, including photo focus. */
-  captureFrame?: React.MutableRefObject<(() => { x: number; y: number; width: number; height: number }) | null>;
+  captureFrame?: React.MutableRefObject<(() => { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number }) | null>;
   testID?: string;
   onTeachingIdleChange?: (idle: boolean) => void;
   teachingTarget?: React.MutableRefObject<((sceneId: string | null) => Promise<TeachingRect | null>) | null>;
@@ -55,7 +62,7 @@ export type VisionBoardProps = {
  * Long-press lifts a photo so it can trade places with another.
  */
 export function VisionBoard({
-  tiles, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate, arrivingSceneId,
+  tiles, notes = [], onNotePresentationChange, onNoteEdit, onNoteDelete, onCaptionEdit, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate, arrivingSceneId, arrivingNoteId,
   onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board', onTeachingIdleChange, teachingTarget,
 }: VisionBoardProps) {
   const viewport = useMemo(() => detailBoardSizeForWidth(width, tiles.length), [width, tiles.length]);
@@ -72,6 +79,8 @@ export function VisionBoard({
   const sceneOpacity = useSharedValue(1);
   const controls = useSharedValue(0);
   const [focus, setFocus] = useState<VisionBoardFocus>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const selectNote = useCallback((id: string) => { setSelectedNoteId(id); v2Haptics.selection(); }, []);
   const [dragging, setDragging] = useState(false);
   const teachingViewportRef = useRef<View>(null);
   const [teachingMovingObjects, setTeachingMovingObjects] = useState<ReadonlySet<string>>(() => new Set());
@@ -129,6 +138,9 @@ export function VisionBoard({
     return index >= 0 ? slotRects[index] : null;
   }, [focus, layout.card, order, scene, slotRects]);
 
+  useEffect(() => {
+    if (arrivingNoteId) { setFocus(null); setSelectedNoteId(null); }
+  }, [arrivingNoteId]);
   const wasFocused = useRef(false);
   useEffect(() => {
     if (focus && !focusRect) { setFocus(null); return; }
@@ -136,9 +148,10 @@ export function VisionBoard({
       wasFocused.current = true;
       // The Anchor is a small object: zoom in 40% further than a photo so it reads larger.
       const zoomBoost = focus?.kind === 'card' ? 1.4 : 1;
-      const target = focusCamera(focusRect, scene, viewport, {
+      const focusOptions = {
         fill: MOTION.focus.fill * zoomBoost, minZoom: MOTION.focus.minZoom * zoomBoost, maxZoom: MOTION.focus.maxZoom * zoomBoost, clamp: true, offsetY: -24,
-      });
+      };
+      const target = focusCamera(focusRect, scene, viewport, focus?.kind === 'photo' ? photoFocusOptions(focusOptions) : focusOptions);
       moveCamera(target, MOTION.focus.moveMs);
       controls.value = boardDelay(reduceMotion ? MOTION.reduced.focusFadeOutMs : MOTION.focus.controlsAtMs,
         boardTiming(1, { duration: MOTION.focus.controlsFadeMs }));
@@ -176,6 +189,7 @@ export function VisionBoard({
       x: viewport.width / 2 - cameraScale.value * (scene.width / 2 + cameraX.value),
       y: viewport.height / 2 - cameraScale.value * (scene.height / 2 + cameraY.value),
       width: scene.width * cameraScale.value, height: scene.height * cameraScale.value,
+      sceneWidth: scene.width, sceneHeight: scene.height,
     });
     return () => { captureFrame.current = null; };
   }, [captureFrame, viewport, scene, cameraScale, cameraX, cameraY]);
@@ -216,7 +230,7 @@ export function VisionBoard({
         width: scene.width, height: scene.height,
         left: (viewport.width - scene.width) / 2, top: (viewport.height - scene.height) / 2,
       }, cameraStyle]}>
-        <VisionBoardScene
+        <VisionBoardScene arrivingNoteId={arrivingNoteId}
           scene={scene}
           roster={board.roster}
           entering={board.entering}
@@ -230,9 +244,15 @@ export function VisionBoard({
           markAppearance="paper"
           detailEdges
           reduceMotion={reduceMotion}
+          notes={notes}
+          selectedNoteId={selectedNoteId}
+          onNoteSelect={focus ? undefined : selectNote}
+          onNotePresentationChange={focus ? undefined : onNotePresentationChange}
+          onNoteDragActive={handleDragActive}
           interactive
           dragEnabled={!focus && !busy && count > 1}
           onPhotoPress={focusPhoto}
+          onCaptionEdit={onCaptionEdit}
           onCardPress={focusCard}
           onBackgroundPress={focus ? clearFocus : undefined}
           onDragActive={handleDragActive}
@@ -246,6 +266,11 @@ export function VisionBoard({
       </Animated.View>
 
       {count === 0 ? <View pointerEvents="none" style={styles.empty}><Text style={styles.emptyText}>Bring your future into view.</Text></View> : null}
+      {selectedNoteId && !focus ? <View style={styles.noteActions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit selected note" onPress={() => onNoteEdit?.(selectedNoteId)} style={styles.noteAction}><Text style={styles.noteActionText}>Edit note</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Delete selected note" onPress={() => onNoteDelete?.(selectedNoteId)} style={styles.noteAction}><Text style={styles.noteActionText}>Delete</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Deselect note" onPress={() => setSelectedNoteId(null)} style={styles.noteAction}><Text style={styles.noteActionText}>Done</Text></Pressable>
+      </View> : null}
       {!focus && !dragging && annotation.trim() ? <Text testID="vision-board-annotation" pointerEvents="none"
         onLayout={event => setCaptionExtra(Math.max(0, captionTop + event.nativeEvent.layout.height + 16 - viewport.height))}
         style={[styles.annotation, { top: captionTop, width: width * 0.22, fontSize: annotation.length > 40 ? 21 : 24 }]}>{annotation.trim()}</Text> : null}
@@ -338,4 +363,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244,237,224,0.92)', paddingHorizontal: spacing[3], paddingVertical: 4, borderRadius: radii.lg, marginBottom: spacing[2] },
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.72 },
+  noteActions: { position: 'absolute', top: 8, left: 8, flexDirection: 'row', gap: 6, zIndex: 30 },
+  noteAction: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#F8F3E9', borderWidth: 1, borderColor: '#C9BFAE' },
+  noteActionText: { ...typography.labelSM, color: colors.text.primary },
 });

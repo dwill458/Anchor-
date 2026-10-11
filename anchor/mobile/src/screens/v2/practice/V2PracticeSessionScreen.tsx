@@ -352,6 +352,7 @@ export function V2PracticeSessionScreen({
         anchor={anchor}
         accountId={accountId}
         tiles={visionModel.tiles}
+        notes={visionModel.vision?.notes}
         statement={visionModel.description}
         visionId={visionModel.vision?.id ?? null}
         durationSeconds={durationSeconds}
@@ -376,6 +377,7 @@ export function V2PracticeSessionScreen({
         }
         return <V2DeepFocusActiveScreen anchor={anchor} durationSeconds={durationSeconds}
           voice={resolvedVoice} ambient={resolvedAmbient} haptics={haptics ?? (hapticIntensity ?? 70) > 0}
+          anchorHandoff={anchorTransition}
           onExit={onBack}
           onComplete={handleFocusComplete} />;
       }

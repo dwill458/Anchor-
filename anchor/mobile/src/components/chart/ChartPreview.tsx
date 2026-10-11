@@ -39,7 +39,7 @@ export const ChartPreview = memo(function ChartPreview({ variant, anchorId, onPr
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label}
       onPress={onPress} style={({ pressed }) => [styles.frame, !row && !hero && { height: cardHeight }, row && styles.row, pressed && styles.pressed]}>
-      {data && !row ? <ChartMapCrop data={data} full={hero} /> : null}
+      {data && !row ? <ChartMapCrop data={data} full={hero} coverArc={data.weatherCoverArc} /> : null}
       <View testID="chart-preview-copy" style={[styles.copy, row && styles.rowCopy, hero && styles.panel]}>
         {data && data.status !== 'empty' && !row ? <>
           {hero && data.status === 'active' ? <Text style={styles.label}>CURRENT WAYPOINT</Text> : null}

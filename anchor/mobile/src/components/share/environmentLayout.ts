@@ -1,4 +1,4 @@
-import { detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
+import { detailsPalette, withAlpha } from '@/components/v2/anchors/anchorDetailsTokens';
 import { contrastRatio, mixHex } from './colorMath';
 import { layoutIntention, classifyIntention, type IntentionLayout } from './intentionTypography';
 import { resolveComposition, type ShareEnvironment } from './shareEnvironments';
@@ -69,7 +69,7 @@ export function environmentPalette(env: Pick<ShareEnvironment, 'tone' | 'ink' | 
   const wash = dark ? '#06070E' : '#F7F1E5';
   return {
     text: dark ? detailsPalette.cream : detailsPalette.ink,
-    meta: dark ? 'rgba(244,237,224,.78)' : 'rgba(20,22,43,.72)',
+    meta: dark ? withAlpha(detailsPalette.cream, 0.78) : withAlpha(detailsPalette.ink, 0.72),
     wash,
     halo: dark ? '#02030A' : '#2A2118',
     ink: env.ink.color,

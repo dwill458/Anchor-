@@ -1,4 +1,5 @@
 const mockPrisma = {
+  $queryRaw: jest.fn().mockResolvedValue([]),
   $transaction: jest.fn(),
   anchor: {
     findFirst: jest.fn(),
@@ -44,6 +45,8 @@ describe('VisionService (Anchor 2.0 V2)', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    mockPrisma.$transaction.mockImplementation((operation: unknown) => typeof operation === 'function' ? (operation as (tx: typeof mockPrisma) => unknown)(mockPrisma) : Promise.resolve([]));
+    mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.visionScene.findMany.mockResolvedValue([]);
     mockPrisma.visionScene.count.mockResolvedValue(0);
     (resolveStorageKeyUrl as jest.Mock).mockImplementation((key: string) =>

@@ -24,7 +24,7 @@ function makeMarkers(n: number, current: number): ChartMapMarker[] {
   }));
 }
 
-function Harness({ weather, reducedMotion = false }: { weather?: 'static' | 'living'; reducedMotion?: boolean }) {
+function Harness({ weather, reducedMotion = false }: { weather?: 'static' | 'textured' | 'living'; reducedMotion?: boolean }) {
   const anim = useChartMapAnimState({ revealArc: 400, flagIndex: 1, closed: 1 });
   const table = React.useMemo(() => buildRouteTable(), []);
   const placement = React.useMemo(() => waypointPlacement(5), []);
@@ -107,6 +107,21 @@ describe('ChartMap static weather (Home/Details crops, creation) is unchanged', 
     expect(sources).not.toContain(COVER_SKSL);
     expect(sources.some((src: string | undefined) => src?.includes('float billow = fbm'))).toBe(true);
     expect(screen.queryByTestId('chart-map-faint-3', { includeHiddenElements: true })).toBeNull();
+    screen.unmount();
+  });
+});
+
+describe('ChartMap textured weather (read-only Home/Details crops)', () => {
+  it('uses the sculpted tile compositor without the living-map veil or waypoint overlay changes', async () => {
+    const screen = render(<Harness weather="textured" reducedMotion />);
+    expect(screen.queryByTestId('map-veil', { includeHiddenElements: true })).toBeNull();
+    await waitFor(() => {
+      const sources = shaderSources(screen).map((source: { src?: string }) => source?.src);
+      expect(sources).toContain(COVER_SKSL);
+      expect(sources.some((src: string | undefined) => src?.includes('float billow = fbm'))).toBe(false);
+    }, { timeout: 8000 });
+    expect(screen.queryByTestId('chart-map-faint-3', { includeHiddenElements: true })).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(2);
     screen.unmount();
   });
 });

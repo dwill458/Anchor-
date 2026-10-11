@@ -3,6 +3,8 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockPut = jest.fn();
+const mockPatch = jest.fn();
+const mockDelete = jest.fn();
 const mockPersistedGet = jest.fn();
 
 jest.mock('@/stores/encryptedPersistStorage', () => ({
@@ -20,6 +22,8 @@ jest.mock('@/services/ApiClient', () => ({
     get: (...args: unknown[]) => mockGet(...args),
     post: (...args: unknown[]) => mockPost(...args),
     put: (...args: unknown[]) => mockPut(...args),
+    patch: (...args: unknown[]) => mockPatch(...args),
+    delete: (...args: unknown[]) => mockDelete(...args),
   },
   ApiClientError: class MockApiClientError extends Error {
     status?: number;
@@ -104,6 +108,90 @@ describe('useV2Vision', () => {
     });
     expect(result.current.vision?.id).toBe('vision-anchor-b');
     unmount();
+  });
+
+  it('creates, updates, deletes and restores notes through Vision responses and shared cache', async () => {
+    const initial = { ...vision('vision-anchor-a'), anchorId: 'anchor-a', notes: [] };
+    const withNote = { ...initial, notes: [{ id: 'note-1', visionId: initial.id, content: { text: 'Future' }, presentation: { styleId: 'sticky_blush_pink', x: .5, y: .5, width: .34, height: .34, rotation: 0, scale: 1, layerOrder: 0 }, createdAt: '', updatedAt: '' }] };
+    mockGet.mockResolvedValue(envelope(initial));
+    const { result } = renderHook(() => useV2Vision('anchor-a'));
+    await waitFor(() => expect(result.current.vision?.id).toBe(initial.id));
+    mockPost.mockResolvedValueOnce(envelope(withNote)).mockResolvedValueOnce(envelope(withNote));
+    mockPatch.mockResolvedValue(envelope(withNote));
+    mockDelete.mockResolvedValue(envelope(withNote));
+    let created;
+    await act(async () => { created = await result.current.createNote({ clientRequestId: 'a7a14c18-629f-4657-8905-a20c5d0db8bc', content: { text: 'Future' }, presentation: withNote.notes[0].presentation as never }); });
+    expect(mockPost).toHaveBeenCalledWith('/api/v2/anchors/anchor-a/vision/notes', expect.objectContaining({ clientRequestId: expect.any(String) }));
+    expect(result.current.vision?.notes?.[0]?.content.text).toBe('Future');
+    await act(async () => { await result.current.updateNote('note-1', { content: { text: 'My future' } }); });
+    expect(mockPatch).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/notes/note-1', { content: { text: 'My future' } });
+    await act(async () => { await result.current.deleteNote('note-1'); });
+    expect(mockDelete).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/notes/note-1');
+    await act(async () => { await result.current.restoreNote('note-1'); });
+    expect(mockPost).toHaveBeenLastCalledWith('/api/v2/visions/vision-anchor-a/notes/note-1/restore', {});
+    expect(created).toMatchObject({ id: initial.id });
+  });
+
+  it('does not let an older GET erase a confirmed note on either mounted surface', async () => {
+    const initial = { ...vision('vision-anchor-a'), anchorId: 'anchor-a', notes: [] };
+    mockGet.mockResolvedValue(envelope(initial));
+    const board = renderHook(() => useV2Vision('anchor-a'));
+    const composer = renderHook(() => useV2Vision('anchor-a'));
+    await waitFor(() => expect(board.result.current.vision?.id).toBe(initial.id));
+    const oldRead = deferred<ReturnType<typeof envelope>>();
+    mockGet.mockReturnValueOnce(oldRead.promise);
+    let refresh!: Promise<void>;
+    act(() => { refresh = board.result.current.refresh(); });
+    const saved = { ...initial, notes: [{ id: 'new-note', visionId: initial.id, content: { text: 'Saved' }, presentation: { styleId: 'sticky_blush_pink', x: .4, y: .4, width: .26, height: .12, rotation: -2, scale: 1, layerOrder: 0 }, createdAt: '', updatedAt: '' }] };
+    mockPost.mockResolvedValueOnce(envelope(saved));
+    await act(async () => { await composer.result.current.createNote({ clientRequestId: 'request', content: { text: 'Saved' }, presentation: saved.notes[0].presentation as never }); });
+    expect(board.result.current.vision?.notes?.[0].id).toBe('new-note');
+    await act(async () => { oldRead.resolve(envelope(initial)); await refresh; });
+    expect(board.result.current.vision?.notes?.[0].id).toBe('new-note');
+    expect(composer.result.current.vision?.notes?.[0].id).toBe('new-note');
+  });
+
+  it('rehydrates note content, material and final transform from the account-scoped persisted read', async () => {
+    const cached = { ...vision('vision-anchor-a'), anchorId: 'anchor-a', notes: [{
+      id: 'persisted-note', visionId: 'vision-anchor-a', content: { text: 'Still here' },
+      presentation: { styleId: 'paper_ivory_torn', x: .37, y: .34, width: .26, height: .13, rotation: -3, scale: 1.15, layerOrder: 2 }, createdAt: '', updatedAt: '',
+    }] };
+    resetV2VisionReadCache();
+    mockPersistedGet.mockImplementation(async (key: string) => key.endsWith(':anchor-a')
+      ? JSON.stringify({ schemaVersion: 1, accountId: 'vision-cache-user', anchorId: 'anchor-a', value: cached }) : null);
+    const pending = deferred<ReturnType<typeof envelope>>();
+    mockGet.mockReturnValueOnce(pending.promise);
+    const restored = renderHook(() => useV2Vision('anchor-a'));
+    await waitFor(() => expect(restored.result.current.vision?.notes).toEqual(cached.notes));
+    expect(restored.result.current.vision?.notes?.[0].presentation).toEqual(cached.notes[0].presentation);
+    await act(async () => { pending.resolve(envelope(cached)); });
+    restored.unmount();
+  });
+
+  it('preserves a note creation failure for the composer while recording it on the hook', async () => {
+    const initial = { ...vision('vision-anchor-a'), anchorId: 'anchor-a', notes: [] };
+    mockGet.mockResolvedValue(envelope(initial));
+    const { result } = renderHook(() => useV2Vision('anchor-a'));
+    await waitFor(() => expect(result.current.vision?.id).toBe(initial.id));
+    mockPost.mockRejectedValueOnce(new Error('Network error. Please check your connection.'));
+    const input = { clientRequestId: 'a7a14c18-629f-4657-8905-a20c5d0db8bc', content: { text: 'Future' }, presentation: { styleId: 'sticky_blush_pink', x: .5, y: .5, width: .34, height: .34, rotation: 0, scale: 1, layerOrder: 0 } as never };
+    await act(async () => {
+      await expect(result.current.createNote(input)).rejects.toThrow('Network error. Please check your connection.');
+    });
+    expect(result.current.error).toBe('Network error. Please check your connection.');
+    expect(mockPost).toHaveBeenCalledWith('/api/v2/anchors/anchor-a/vision/notes', input);
+  });
+
+  it('updates one scene caption with blank-to-null normalization and commits the returned Vision', async () => {
+    const initial = { ...vision('vision-anchor-a'), anchorId: 'anchor-a' };
+    const saved = { ...initial, scenes: [{ ...initial.scenes[0], caption: null }] };
+    mockGet.mockResolvedValue(envelope(initial));
+    mockPatch.mockResolvedValue(envelope(saved));
+    const { result } = renderHook(() => useV2Vision('anchor-a'));
+    await waitFor(() => expect(result.current.vision?.id).toBe(initial.id));
+    await act(async () => { await result.current.updateSceneCaption('scene-vision-anchor-a', '   '); });
+    expect(mockPatch).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/scenes/scene-vision-anchor-a', { caption: null });
+    expect(result.current.vision?.scenes[0].caption).toBeNull();
   });
 
   it('unwraps the real {success,data} envelope on fetch instead of treating it as the model', async () => {

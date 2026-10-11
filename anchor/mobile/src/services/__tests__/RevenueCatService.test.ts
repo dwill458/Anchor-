@@ -7,6 +7,7 @@ jest.mock('@/config', () => ({
   REVENUECAT_DEFAULT_PACKAGE_ID: 'test_package',
   REVENUECAT_ENTITLEMENT_ID: 'pro',
   REVENUECAT_MONTHLY_PACKAGE_ID: '$rc_monthly',
+  REVENUECAT_WEEKLY_PACKAGE_ID: '$rc_weekly',
 }));
 
 jest.mock('@/utils/logger', () => ({
@@ -216,7 +217,7 @@ describe('RevenueCatService', () => {
     expect(status.isSubscribed).toBe(true);
   });
 
-  it('returns monthly and annual display metadata from current offerings', async () => {
+  it('returns monthly, annual, and weekly display metadata from current offerings', async () => {
     mockPurchases.getOfferings.mockResolvedValueOnce({
       current: {
         availablePackages: [
@@ -246,6 +247,15 @@ describe('RevenueCatService', () => {
               currencyCode: 'USD',
             },
           },
+          {
+            identifier: '$rc_weekly',
+            product: {
+              identifier: 'anchor_pro_weekly',
+              price: 1.99,
+              priceString: '$1.99',
+              currencyCode: 'USD',
+            },
+          },
         ],
       },
     });
@@ -269,6 +279,13 @@ describe('RevenueCatService', () => {
       price: 59.99,
       priceString: '$59.99',
       pricePerMonthString: '$5.00',
+      currencyCode: 'USD',
+    });
+    expect(metadata.weekly).toMatchObject({
+      planId: 'weekly',
+      packageId: '$rc_weekly',
+      price: 1.99,
+      priceString: '$1.99',
       currencyCode: 'USD',
     });
   });

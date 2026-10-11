@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Download, Share2, X } from 'lucide-react-native';
-import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
+import { detailsFonts, detailsPalette, withAlpha } from '@/components/v2/anchors/anchorDetailsTokens';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { useSubscription } from '@/hooks/useSubscription';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
@@ -78,7 +78,7 @@ export function AnchorShareStudio({ visible, onClose, data }: Props) {
     setPill(null);
     AnalyticsService.track(AnalyticsEvents.SHARE_STUDIO_OPENED, {
       category: data.category,
-      has_vision: Boolean(data.visionImageUrl),
+      has_vision: layouts.includes('vision'),
     });
     // Warm the images so switching layouts never shows an empty frame.
     for (const uri of [data.imageUrl, data.visionImageUrl]) {
@@ -210,7 +210,7 @@ export function AnchorShareStudio({ visible, onClose, data }: Props) {
                 disabled={!isPro}
                 onValueChange={setMarkPreference}
                 accessibilityLabel="Show Anchor mark"
-                trackColor={{ false: 'rgba(244,237,224,.2)', true: detailsPalette.gold }}
+                trackColor={{ false: withAlpha(detailsPalette.cream, 0.2), true: detailsPalette.gold }}
                 thumbColor={detailsPalette.cream}
               />
             </View>
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   pagerWrap: { flex: 1 },
   page: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dots: { position: 'absolute', bottom: 4, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(244,237,224,.25)' },
+  dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: withAlpha(detailsPalette.cream, 0.25) },
   dotActive: { backgroundColor: detailsPalette.cream },
   controls: { height: CONTROLS_HEIGHT, justifyContent: 'flex-end', gap: 14, paddingBottom: 4 },
   markRow: {

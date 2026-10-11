@@ -101,6 +101,7 @@ function disposeEntry(key: string, entry: Entry): void {
   try { entry.errorSubscription?.remove(); } catch { /* Non-critical effect cleanup. */ }
   try { entry.player.pause(); } catch { /* Non-critical effect cleanup. */ }
   try { entry.player.remove(); } catch { /* Non-critical effect cleanup. */ }
+  try { entry.player.release?.(); } catch { /* Non-critical effect cleanup. */ }
   const entries = entriesByKey.get(key);
   if (entries) {
     const remaining = entries.filter((candidate) => candidate !== entry);
@@ -199,6 +200,7 @@ function createEntry(key: string, temporary: boolean): Entry | null {
         Array.from(entry.loadWaiters).forEach((resolve) => resolve(true));
       }
       if (status.didJustFinish && entry.busy && entry.playReached && !entry.player.loop) releaseEntry(key, entry, entry.token);
+      else if (status.playbackState === 'idle' && entry.busy && entry.playReached) releaseEntry(key, entry, entry.token, true);
     });
     try {
       const maybeEmitter = player as unknown as {

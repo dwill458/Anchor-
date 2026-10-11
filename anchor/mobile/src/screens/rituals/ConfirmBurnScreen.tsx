@@ -69,10 +69,12 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   const reflectTeaching = useTeachingGate({
     screenId: 'confirm_burn_reflect',
+    visitKey: anchorId,
     candidateIds: ['confirm_burn_reflect_v1'],
   });
   const releaseTeaching = useTeachingGate({
     screenId: 'confirm_burn_release',
+    visitKey: anchorId,
     candidateIds: ['confirm_burn_release_v1'],
   });
 

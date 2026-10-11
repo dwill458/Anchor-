@@ -121,6 +121,7 @@ function V2PracticeRouteScreen() {
   const returnRoute = route.params?.returnRoute;
   const source = route.params?.source;
   const anchorTransition = route.params?.anchorTransition === true;
+  const visionEntry = route.params?.visionEntry;
   const reduceMotion = useV2ReduceMotion();
   // The same Reduce Motion source Home's arrival reads, so both ends of a hand-off agree on the flight.
   const celebrationReduceMotion = useCelebrationReduceMotion();
@@ -129,12 +130,12 @@ function V2PracticeRouteScreen() {
   // (see PRACTICE_OPTIONS). Once it has landed, leaving gets the ordinary V2
   // pop back, including the iOS edge swipe.
   useEffect(() => {
-    if (!anchorTransition) return undefined;
+    if (!anchorTransition && !visionEntry) return undefined;
     const timer = setTimeout(() => {
       navigation.setOptions({ animation: v2StackScreenOptions(reduceMotion).animation });
     }, V2_TRANSITION_SETTLE_MS + 200);
     return () => clearTimeout(timer);
-  }, [anchorTransition, navigation, reduceMotion]);
+  }, [anchorTransition, visionEntry, navigation, reduceMotion]);
 
   const anchorStore = useAnchorStore as typeof useAnchorStore | { getState?: () => { anchors?: Anchor[] } };
   const anchors = typeof anchorStore === 'function'
@@ -263,6 +264,7 @@ function V2PracticeRouteScreen() {
       resumeMode={resumeMode}
       resumeDuration={resumeDuration}
       resumeSource={resumeSource}
+      visionEntry={route.params?.visionEntry}
       onBack={handleBack}
       leaveOnSetupBack={Boolean(resolvedReturnRoute)}
       onSessionCompleted={handleSessionCompleted}
@@ -611,7 +613,7 @@ const PROGRESS_OPTIONS = ({ route }: { route: RouteProp<AnchorV2StackParamList, 
 const TRANSPARENT_BACKGROUND = { contentStyle: { backgroundColor: 'transparent' } };
 /** When the Anchor flies in from Details, the shared transition owns all the motion. */
 const PRACTICE_OPTIONS = ({ route }: { route: RouteProp<AnchorV2StackParamList, 'V2Practice'> }) =>
-  (route.params?.anchorTransition ? { animation: 'none' as const } : {});
+  (route.params?.anchorTransition || route.params?.visionEntry ? { animation: 'none' as const } : {});
 /**
  * When the mark flies in from the complete screen the invitation owns the motion, and under Reduce
  * Motion the screen runs its own <=reducedMs crossfade: the push itself does not animate in either

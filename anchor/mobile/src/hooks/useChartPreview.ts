@@ -1,6 +1,8 @@
 import { createContext, useContext, useMemo } from 'react';
 import { liveWaypoints, toMetricView } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
+import { chartWeatherProgress } from '@/components/v2/chart/map/chartProgress';
+import { useChartWeatherCoverArc } from '@/components/v2/chart/map/chartPreviewWeather';
 import type { CourseDetail } from '@/types/chart';
 
 export type ChartPreviewData = {
@@ -14,6 +16,8 @@ export type ChartPreviewData = {
   target: number | null;
   startValue: number | null;
   progress: number;
+  /** Full Chart's routeRevealArc target, used to clear the same weather in previews. */
+  weatherCoverArc?: number;
   nextMove: string | null;
   /** "2 of 4 moves done" for a waypoint whose progress is its moves; null otherwise. */
   movesLabel?: string | null;
@@ -67,12 +71,15 @@ export function useChartPreview(anchorId: string): ChartPreviewData | null {
   const fixtures = useContext(ChartPreviewFixtureContext);
   const fixture = __DEV__ ? fixtures?.[anchorId] : undefined;
   const source = useAnchorChart(fixture ? null : anchorId);
+  const course = fixture ? null : source.data?.chart ?? null;
+  const weatherProgress = useMemo(() => course ? chartWeatherProgress(course) : null, [course]);
+  const weatherCoverArc = useChartWeatherCoverArc(weatherProgress);
   return useMemo(() => {
     if (fixture) return fixture;
-    if (source.data) return selectChartPreview(source.data.chart, source.data.anchor?.category ?? null);
+    if (source.data) return { ...selectChartPreview(source.data.chart, source.data.anchor?.category ?? null), weatherCoverArc };
     // A server-confirmed missing Chart is the empty CTA state; unresolved or
     // failed requests remain null so the card reserves its loading footprint.
-    if (!source.loading && source.error?.kind === 'not_found') return selectChartPreview(null);
+    if (!source.loading && source.error?.kind === 'not_found') return { ...selectChartPreview(null), weatherCoverArc };
     return null;
-  }, [fixture, source.data, source.error, source.loading]);
+  }, [fixture, source.data, source.error, source.loading, weatherCoverArc]);
 }

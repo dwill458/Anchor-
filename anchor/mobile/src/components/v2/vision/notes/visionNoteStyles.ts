@@ -18,11 +18,12 @@ export interface VisionNotePreset {
   surfaceAsset?: VisionNoteAssetKey;
   /** Fraction reserved for artwork so text stays on its quiet field. */
   textInsetBottom?: number;
+  textAlign?: 'left' | 'center' | 'right';
   ruled?: boolean;
   shadow: 'soft' | 'none';
 }
 
-/** The exact 20 material choices; one native renderer owns their geometry and behavior. */
+/** The exact 26 material choices; one native renderer owns their geometry and behavior. */
 export const VISION_NOTE_PRESETS: readonly VisionNotePreset[] = [
   { id: 'sticky_blush_pink', label: 'Blush Pink', family: 'sticky', surfaceColor: '#F2C8C9', inkColor: '#4B3030', fontFamily: 'Allison-Regular', fontSize: 29, lineHeight: 35, rotation: -2, shadow: 'soft' },
   { id: 'sticky_butter_yellow', label: 'Butter Yellow', family: 'sticky', surfaceColor: '#F4DF98', inkColor: '#423817', fontFamily: 'Allison-Regular', fontSize: 29, lineHeight: 35, rotation: 2, shadow: 'soft' },
@@ -38,12 +39,18 @@ export const VISION_NOTE_PRESETS: readonly VisionNotePreset[] = [
   { id: 'paper_blush_torn', label: 'Blush Torn', family: 'paper', surfaceColor: '#E9D4D0', inkColor: '#493834', fontFamily: 'Allison-Regular', fontSize: 27, lineHeight: 34, rotation: 1.5, surfaceAsset: 'tornPaper', shadow: 'soft' },
   { id: 'paper_sage_handmade', label: 'Sage Handmade', family: 'paper', surfaceColor: '#D1D8C8', inkColor: '#303B2E', fontFamily: 'Allison-Regular', fontSize: 27, lineHeight: 34, rotation: -1.5, surfaceAsset: 'handmadePaper', shadow: 'soft' },
   { id: 'paper_white_deckled', label: 'White Deckled', family: 'paper', surfaceColor: '#F7F5EF', inkColor: '#34332E', fontFamily: 'Allison-Regular', fontSize: 27, lineHeight: 34, rotation: 0.5, surfaceAsset: 'tornPaper', shadow: 'soft' },
-  { id: 'editorial_classic_cream', label: 'Classic Cream', family: 'editorial', surfaceColor: '#F4F1E9', inkColor: '#24251F', fontFamily: 'EBGaramond-Regular', fontSize: 21, lineHeight: 29, rotation: 0, shadow: 'none' },
-  { id: 'editorial_powder_blue', label: 'Powder Blue', family: 'editorial', surfaceColor: '#DFE7E7', inkColor: '#243B43', fontFamily: 'EBGaramond-Regular', fontSize: 21, lineHeight: 29, rotation: 0, borderColor: '#9BAEB1', shadow: 'none' },
-  { id: 'editorial_minimal_quote', label: 'Minimal Quote', family: 'editorial', surfaceColor: '#F3E7CA', inkColor: '#3C3427', fontFamily: 'Inter-SemiBold', fontSize: 16, lineHeight: 23, rotation: 0, borderColor: '#C8B27D', shadow: 'none' },
-  { id: 'editorial_botanical_shadow', label: 'Botanical Shadow', family: 'editorial', surfaceColor: '#F7EEE0', inkColor: '#29382A', fontFamily: 'EBGaramond-Italic', fontSize: 22, lineHeight: 29, rotation: 0, surfaceAsset: 'botanicalShadow', shadow: 'none' },
-  { id: 'editorial_coastal_illustration', label: 'Coastal Illustration', family: 'editorial', surfaceColor: '#FCF4E6', inkColor: '#24383C', fontFamily: 'EBGaramond-Italic', fontSize: 22, lineHeight: 29, rotation: 0, surfaceAsset: 'coastalIllustration', textInsetBottom: 0.3, shadow: 'none' },
-  { id: 'editorial_atmospheric_landscape', label: 'Atmospheric Landscape', family: 'editorial', surfaceColor: '#F9ECD9', inkColor: '#3D3730', fontFamily: 'EBGaramond-Regular', fontSize: 22, lineHeight: 29, rotation: 0, surfaceAsset: 'atmosphericLandscape', textInsetBottom: 0.3, shadow: 'none' },
+  { id: 'editorial_classic_cream', label: 'Classic Serif', family: 'editorial', surfaceColor: '#F4F1E9', inkColor: '#24251F', fontFamily: 'EBGaramond-Regular', fontSize: 21, lineHeight: 29, rotation: 0, textAlign: 'center', shadow: 'none' },
+  { id: 'editorial_powder_blue', label: 'Powder Blue', family: 'editorial', surfaceColor: '#DFE7E7', inkColor: '#243B43', fontFamily: 'EBGaramond-Regular', fontSize: 21, lineHeight: 29, rotation: 0, borderColor: '#9BAEB1', textAlign: 'left', shadow: 'none' },
+  { id: 'editorial_minimal_quote', label: 'Minimal Quote', family: 'editorial', surfaceColor: '#F3E7CA', inkColor: '#3C3427', fontFamily: 'EBGaramond-Regular', fontSize: 27, lineHeight: 34, rotation: 0, borderColor: '#C8B27D', textAlign: 'center', shadow: 'none' },
+  { id: 'editorial_botanical_shadow', label: 'Botanical Shadow', family: 'editorial', surfaceColor: '#F7EEE0', inkColor: '#29382A', fontFamily: 'EBGaramond-Italic', fontSize: 22, lineHeight: 29, rotation: 0, surfaceAsset: 'botanicalShadow', textAlign: 'center', shadow: 'none' },
+  { id: 'editorial_coastal_illustration', label: 'Coastal Illustration', family: 'editorial', surfaceColor: '#FCF4E6', inkColor: '#24383C', fontFamily: 'EBGaramond-Italic', fontSize: 22, lineHeight: 29, rotation: 0, surfaceAsset: 'coastalIllustration', textInsetBottom: 0.3, textAlign: 'center', shadow: 'none' },
+  { id: 'editorial_atmospheric_landscape', label: 'Atmospheric Landscape', family: 'editorial', surfaceColor: '#F9ECD9', inkColor: '#3D3730', fontFamily: 'EBGaramond-Regular', fontSize: 22, lineHeight: 29, rotation: 0, surfaceAsset: 'atmosphericLandscape', textInsetBottom: 0.3, textAlign: 'left', shadow: 'none' },
+  { id: 'editorial_vintage_letter', label: 'Vintage Letter', family: 'editorial', surfaceColor: '#F2E6CF', inkColor: '#493A2B', fontFamily: 'EBGaramond-Italic', fontSize: 22, lineHeight: 30, rotation: 0, surfaceAsset: 'vintageLetter', textAlign: 'left', shadow: 'none' },
+  { id: 'editorial_golden_hour', label: 'Golden Hour', family: 'editorial', surfaceColor: '#F5E3C5', inkColor: '#493520', fontFamily: 'EBGaramond-Regular', fontSize: 22, lineHeight: 30, rotation: 0, surfaceAsset: 'goldenHour', textAlign: 'left', shadow: 'none' },
+  { id: 'editorial_misty_mountains', label: 'Misty Mountains', family: 'editorial', surfaceColor: '#E5EAEB', inkColor: '#26373E', fontFamily: 'EBGaramond-Regular', fontSize: 23, lineHeight: 31, rotation: 0, surfaceAsset: 'mistyMountains', textInsetBottom: 0.29, textAlign: 'center', shadow: 'none' },
+  { id: 'editorial_rose_editorial', label: 'Rose Editorial', family: 'editorial', surfaceColor: '#F0DFDB', inkColor: '#493334', fontFamily: 'EBGaramond-Italic', fontSize: 23, lineHeight: 31, rotation: 0, textAlign: 'left', shadow: 'none' },
+  { id: 'editorial_architectural', label: 'Architectural', family: 'editorial', surfaceColor: '#EEECE5', inkColor: '#2D3434', fontFamily: 'Inter-Regular', fontSize: 17, lineHeight: 25, rotation: 0, textAlign: 'left', shadow: 'none' },
+  { id: 'editorial_midnight_editorial', label: 'Midnight Editorial', family: 'editorial', surfaceColor: '#263442', inkColor: '#F3EBD9', fontFamily: 'EBGaramond-Regular', fontSize: 23, lineHeight: 31, rotation: 0, textAlign: 'center', shadow: 'none' },
 ];
 
 export const VISION_NOTE_STYLE_IDS: readonly VisionNoteStyleId[] = VISION_NOTE_PRESETS.map(style => style.id);

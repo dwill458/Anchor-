@@ -26,6 +26,7 @@ jest.mock('expo-file-system/legacy', () => ({ getInfoAsync: jest.fn(async () => 
   readAsStringAsync: jest.fn(async () => 'QUJD'), EncodingType: { Base64: 'base64' } }));
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn(() => ({ stop: jest.fn() })) }));
 jest.mock('@/utils/premiumAccess', () => ({ ...jest.requireActual('@/utils/premiumAccess'), isProFeatureLocked: () => false }));
+jest.mock('@/hooks/useTrialStatus', () => ({ useTrialStatus: () => ({ entitlementReady: true, hasActiveEntitlement: true }) }));
 const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
 const stamp = '2026-10-07T00:00:00Z';
 const scene = (i: number, extra = {}) => ({ id: `sc-${i}`, visionId: 'vision-101', sourceType: 'AI_GENERATED', assetId: `ast-${i}`,
@@ -79,6 +80,8 @@ describe('V2VisionScreen ceremony additions', () => {
     fireEvent.press(view.getByLabelText('Add a note'));
     expect(mockNavigate).toHaveBeenCalledWith('V2VisionNoteComposer', { anchorId: 'anchor-1', visionId: 'vision-101' });
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(picker.launchCameraAsync).not.toHaveBeenCalled();
+    expect(view.getByTestId('vision-board')).toBeTruthy();
+    expect(view.queryByText('What else do you see?')).toBeNull();
   });
   it('keeps note entry available at the image limit and blocks image additions there', async () => {
     currentVision = visionWith(8);

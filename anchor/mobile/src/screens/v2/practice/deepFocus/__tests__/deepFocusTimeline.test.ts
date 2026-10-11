@@ -1,85 +1,125 @@
-import { deepFocusTimeline, deepFocusVisualAt, isDeepFocusDuration } from '../deepFocusTimeline';
+import { deepFocusFieldEnergy, deepFocusTimeline, deepFocusVisualAt, isDeepFocusDuration, DEEP_FOCUS_FIELD_PEAK_SCALE, DEEP_FOCUS_FIELD_REST_SCALE } from '../deepFocusTimeline';
 
-describe('Deep Focus depth timeline', () => {
-  it.each([120, 300, 600] as const)('holds the fixed phases and extends only immersion at %is', duration => {
+const DURATIONS = [120, 300, 600] as const;
+const REST = DEEP_FOCUS_FIELD_REST_SCALE;
+const PEAK = DEEP_FOCUS_FIELD_PEAK_SCALE;
+
+/** Samples every 0.1 active seconds across a session. */
+function sample(duration: number, reduced = false) {
+  return Array.from({ length: duration * 10 + 1 }, (_, i) => ({ t: i / 10, v: deepFocusVisualAt(i / 10, duration as 120, reduced) }));
+}
+
+describe('Deep Focus copy timeline', () => {
+  it.each(DURATIONS)('keeps the copy phases fixed and extends only immersion at %is', duration => {
     expect(deepFocusTimeline(duration).map(({ start, end }) => end - start)).toEqual([15, 20, 45, duration - 90, 10]);
-    const deep = deepFocusVisualAt(80, duration, false);
-    expect(deep.guidance).toBe(0);
-    expect(deep.intention).toBe(0);
-    expect(deep.orbitScale).toBeCloseTo(2.5);
-    expect(deep.anchorOpacity).toBe(1);
-    expect(deepFocusVisualAt(duration, duration, false).anchorOpacity).toBe(0);
-    expect(deepFocusVisualAt(duration, duration, false).orbitOpacity).toBe(0);
-    expect(deepFocusVisualAt(duration, duration, false).ambientGain).toBe(0);
-  });
-  it('removes spatial movement under reduced motion while preserving the phase fades', () => {
-    for (let second = 0; second <= 600; second++) {
-      const visual = deepFocusVisualAt(second, 600, true);
-      expect(visual.anchorScale).toBe(1);
-      expect(visual.orbitScale).toBe(1);
-      expect(visual.orbitRotation).toBe(0);
-    }
-    expect(deepFocusVisualAt(80, 600, true).intention).toBe(0);
-  });
-  it.each([120, 300, 600] as const)('executes multi-step release hierarchy: environment fades first, anchor stands alone, then dissolves (%is)', duration => {
-    // Step 1: Environment fades out completely by duration - 3.25s
-    const beforeEnvFade = deepFocusVisualAt(duration - 6, duration, false);
-    expect(beforeEnvFade.orbitOpacity).toBeGreaterThan(0);
-
-    const envFaded = deepFocusVisualAt(duration - 3.25, duration, false);
-    expect(envFaded.orbitOpacity).toBe(0);
-    expect(envFaded.ambientGain).toBe(0);
-    expect(envFaded.darkness).toBe(1);
-    expect(envFaded.anchorOpacity).toBe(1);
-
-    // Step 2: Anchor stands alone in darkness for ~1 second (duration - 3.25 to duration - 2.25)
-    const anchorAlone = deepFocusVisualAt(duration - 2.5, duration, false);
-    expect(anchorAlone.orbitOpacity).toBe(0);
-    expect(anchorAlone.anchorOpacity).toBe(1);
-
-    // Step 3 & 4: Anchor gently loses presence and dissolves to 0 at duration
-    const dissolving = deepFocusVisualAt(duration - 1.125, duration, false);
-    expect(dissolving.anchorOpacity).toBeGreaterThan(0);
-    expect(dissolving.anchorOpacity).toBeLessThan(1);
-
-    const completed = deepFocusVisualAt(duration, duration, false);
-    expect(completed.anchorOpacity).toBe(0);
-    expect(completed.orbitOpacity).toBe(0);
-    expect(completed.ambientGain).toBe(0);
-  });
-  it('drastically reduces movement in immersion while keeping tiny organic life', () => {
-    // Hold has full breathing swing (~0.012 amplitude)
-    // breathTime in hold (e.g. 20s): evaluate peak-to-trough variation
-    const holdV1 = deepFocusVisualAt(20, 600, false).anchorScale;
-    const holdV2 = deepFocusVisualAt(24.5, 600, false).anchorScale; // ~quarter-half period
-    const holdSwing = Math.abs(holdV1 - holdV2);
-
-    // Immersion has drastically reduced breathing swing (amplitude reduced to 0.0025)
-    const immV1 = deepFocusVisualAt(150, 600, false).anchorScale;
-    const immV2 = deepFocusVisualAt(170, 600, false).anchorScale;
-    const immSwing = Math.abs(immV1 - immV2);
-    expect(immSwing).toBeLessThan(holdSwing * 0.35); // at least ~65% reduction
-    expect(immSwing).toBeGreaterThan(0); // not frozen
-
-    // Orbit velocity decelerates by ~90% (from 0.32 deg/s in hold to 0.032 deg/s in immersion)
-    const holdVel = (deepFocusVisualAt(30, 600, false).orbitRotation - deepFocusVisualAt(29, 600, false).orbitRotation);
-    const immVel = (deepFocusVisualAt(150, 600, false).orbitRotation - deepFocusVisualAt(149, 600, false).orbitRotation);
-    expect(holdVel).toBeCloseTo(0.32, 2);
-    expect(immVel).toBeCloseTo(0.032, 2);
-    expect(immVel).toBeGreaterThan(0); // maintains tiny living drift
-  });
-  it('has continuous motion at every phase boundary and no breath resets', () => {
-    for (const boundary of [15, 35, 80, 590]) {
-      const before = deepFocusVisualAt(boundary - 0.001, 600, false);
-      const after = deepFocusVisualAt(boundary + 0.001, 600, false);
-      for (const key of Object.keys(before) as (keyof typeof before)[]) {
-        expect(Math.abs(before[key] - after[key])).toBeLessThan(0.001);
-      }
-    }
   });
   it('rejects unsupported session durations', () => {
     expect(isDeepFocusDuration(900)).toBe(false);
     expect(isDeepFocusDuration(0)).toBe(false);
     expect(isDeepFocusDuration(300)).toBe(true);
+  });
+});
+
+describe('Deep Focus field motion', () => {
+  it.each(DURATIONS)('runs one outward-and-inward arc on normalized progress at %is', duration => {
+    const energy = (p: number) => deepFocusFieldEnergy(p);
+    expect(energy(0)).toBeCloseTo(0);
+    expect(energy(0.5)).toBeCloseTo(1);
+    expect(energy(1)).toBeCloseTo(0);
+    // Expansion from 0 to 50%, contraction from 50 to 100%.
+    const frames = sample(duration);
+    const at = (p: number) => frames[Math.round(p * duration * 10)].v;
+    expect(at(0.15).orbitScale).toBeGreaterThan(at(0).orbitScale);
+    expect(at(0.5).orbitScale).toBeCloseTo(PEAK, 5);
+    expect(at(0.85).orbitScale).toBeLessThan(at(0.5).orbitScale);
+    // The inward settle ends near rest, so the final contraction aligns with completion.
+    expect(at(0.975).orbitScale).toBeLessThan(REST + 0.02);
+    for (let i = 1; i < frames.length; i++) {
+      const p = frames[i].t / duration;
+      if (p <= 0.5) expect(frames[i].v.orbitScale).toBeGreaterThanOrEqual(frames[i - 1].v.orbitScale - 1e-9);
+      else expect(frames[i].v.orbitScale).toBeLessThanOrEqual(frames[i - 1].v.orbitScale + 1e-9);
+    }
+  });
+
+  it.each(DURATIONS)('keeps the lines turning at every instant, so the field never freezes (%is)', duration => {
+    const frames = sample(duration);
+    for (let i = 1; i < frames.length; i++) {
+      const dt = frames[i].t - frames[i - 1].t;
+      const speed = (frames[i].v.orbitRotation - frames[i - 1].v.orbitRotation) / dt;
+      expect(speed).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(DURATIONS)('has no discontinuity at any sampled instant, including the old 45-second point (%is)', duration => {
+    const frames = sample(duration);
+    const keys = ['orbitScale', 'orbitRotation', 'weaveRotation', 'orbitOpacity', 'darkness'] as const;
+    for (let i = 1; i < frames.length; i++) {
+      for (const key of keys) {
+        // Per-0.1s step stays small everywhere, so no jump or restart is visible.
+        expect(Math.abs(frames[i].v[key] - frames[i - 1].v[key])).toBeLessThan(key === 'orbitRotation' ? 1 : 0.04);
+      }
+    }
+    const around45 = deepFocusVisualAt(45, duration as 120, false);
+    const before45 = deepFocusVisualAt(44.999, duration as 120, false);
+    expect(Math.abs(around45.orbitScale - before45.orbitScale)).toBeLessThan(0.001);
+    expect(around45.orbitRotation - before45.orbitRotation).toBeGreaterThan(0);
+  });
+
+  it.each(DURATIONS)('scales the same arc across durations, so only its length changes (%is)', duration => {
+    const at = (p: number) => deepFocusVisualAt(p * duration, duration, false);
+    for (const p of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+      expect(at(p).orbitScale).toBeCloseTo(REST + (PEAK - REST) * deepFocusFieldEnergy(p), 5);
+    }
+  });
+
+  it('keeps the Anchor breath gentle and constant through the middle of every session', () => {
+    const early = deepFocusVisualAt(20, 600, false).anchorScale;
+    const early2 = deepFocusVisualAt(24.5, 600, false).anchorScale;
+    const middle = deepFocusVisualAt(300, 600, false).anchorScale;
+    const middle2 = deepFocusVisualAt(304.5, 600, false).anchorScale;
+    expect(Math.abs(early - early2)).toBeGreaterThan(0);
+    expect(Math.abs(middle - middle2)).toBeLessThan(0.012 * 2);
+    expect(Math.abs(middle - middle2)).toBeGreaterThan(0);
+  });
+
+  it('removes spatial movement under reduced motion while keeping the gentle opacity arc', () => {
+    for (const { v } of sample(600, true)) {
+      expect(v.anchorScale).toBe(1);
+      expect(v.orbitScale).toBe(1);
+      expect(v.orbitRotation).toBe(0);
+      expect(v.weaveRotation).toBe(0);
+      expect(v.weaveScale).toBe(1);
+    }
+    expect(deepFocusVisualAt(80, 600, true).intention).toBe(0);
+    expect(deepFocusVisualAt(300, 600, true).orbitOpacity).toBeGreaterThan(0);
+  });
+
+  it('counter-rotates the inner layer against the field for depth', () => {
+    const late = deepFocusVisualAt(480, 600, false);
+    expect(late.weaveRotation).toBeLessThan(0);
+    expect(late.orbitRotation).toBeGreaterThan(0);
+  });
+
+  it.each(DURATIONS)('completes with a handoff: field and Anchor dissolve only in the final seconds (%is)', duration => {
+    const beforeFinal = deepFocusVisualAt(duration - 4, duration, false);
+    expect(beforeFinal.orbitOpacity).toBeGreaterThan(0);
+    expect(beforeFinal.anchorOpacity).toBe(1);
+    const fadingField = deepFocusVisualAt(duration - 1.5, duration, false);
+    expect(fadingField.orbitOpacity).toBeGreaterThan(0);
+    expect(fadingField.orbitOpacity).toBeLessThan(beforeFinal.orbitOpacity);
+    expect(fadingField.anchorOpacity).toBeLessThan(1);
+    expect(deepFocusVisualAt(duration - 3, duration, false).anchorOpacity).toBe(1);
+    const fieldGone = deepFocusVisualAt(duration, duration, false);
+    expect(fieldGone.orbitOpacity).toBe(0);
+    const completed = deepFocusVisualAt(duration, duration, false);
+    expect(completed.anchorOpacity).toBe(0);
+    expect(completed.orbitOpacity).toBe(0);
+    expect(completed.darkness).toBe(1);
+    expect(completed.ambientGain).toBe(0);
+  });
+
+  it('keeps the established ambient bed timing unchanged', () => {
+    expect(deepFocusVisualAt(80, 600, false).ambientGain).toBeCloseTo(0.07);
+    expect(deepFocusVisualAt(0, 600, false).ambientGain).toBe(0);
   });
 });

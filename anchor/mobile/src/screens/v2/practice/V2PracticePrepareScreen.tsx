@@ -22,6 +22,7 @@ import { useRemoteAudioReady } from '@/hooks/useRemoteAudioReady';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 
 type Props = {
+  visionEntry?: import('@/adapters/v2/vision').VisionVisualizeEntry;
   anchor: Anchor;
   mode: V2PracticeMode;
   vision: HomeVisionState;
@@ -50,6 +51,7 @@ export function V2PracticePrepareScreen({
   anchor,
   mode,
   vision,
+  visionEntry,
   source,
   initialDuration,
   entitled = true,
@@ -127,6 +129,8 @@ export function V2PracticePrepareScreen({
         statement={vision.previewText}
         visionId={vision.visionId}
         tiles={vision.tiles ?? []}
+        notes={vision.notes}
+        entry={visionEntry}
         initialDuration={initialDuration}
         onBack={onBack}
         onOpenVision={onOpenVision}

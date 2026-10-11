@@ -14,7 +14,7 @@ import { resolveHomeHeroLayout, heroIntentionFontSize, HERO_INTENTION_LINES, HER
 import { releaseArtFactors, releaseArtParams, useHomeArrivalContext } from './homeArrival';
 import { HomeArrivalCounter } from './HomeArrivalCounter';
 import { HomeArrivalUnderline, HomeEvolvedFromLine, HomeEvolvedGhost } from './HomeArrivalEvolved';
-import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
+import { useAnchorTransitionPlace, useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { HeroHalo, HeroStatusRing } from './V2HomeHeroLight';
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
 import { HandDrawnPercentage } from './HandDrawnPercentage';
@@ -224,7 +224,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   }));
   const entranceState = useHeroEntrance(summary.anchor, slot, reduceMotion, Boolean(arrival?.active), arrival?.reportHeroImageLoaded);
   const mountSize = anchorSize + 14;
-  const discRef = useRef<View>(null);
+  // The front disc is Home's place for this Anchor. A return from Details measures it when the copy lands, so a scrolled or re-rendered Home is never flown to a stale position.
+  const { ref: discRef } = useAnchorTransitionPlace('home', anchor.id, 'paper', { enabled: slot === 0 });
   const transition = useProgressiveFocusTransition();
   const measuring = Boolean(arrival?.active && arrival.phase === 'staging' && slot === 0);
   const reportTarget = arrival?.reportTarget;

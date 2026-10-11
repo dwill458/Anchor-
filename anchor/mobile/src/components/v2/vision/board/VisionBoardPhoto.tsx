@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
@@ -20,6 +20,7 @@ import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
 const W = BOARD_FRAME_WINDOW;
 /** Photographs fill their canvas aperture. */
 const BLEED = 0;
+const CAPTION_TOUCH_HEIGHT = 30;
 
 export type VisionBoardPhotoProps = {
   caption?: string;
@@ -40,10 +41,12 @@ export type VisionBoardPhotoProps = {
   interactive: boolean;
   dragEnabled: boolean;
   onPress?: (sceneId: string) => void;
+  onCaptionEdit?: (sceneId: string) => void;
   onDragActive?: (active: boolean) => void;
   onSwap?: () => void;
   onOrderCommit?: (order: string[]) => void;
   onExited?: (sceneId: string) => void;
+  onPhotoAssetReady?: (sceneId: string) => void;
   onMove?: (sceneId: string, direction: -1 | 1) => void;
   onTeachingMotionChange?: (sceneId: string, moving: boolean) => void;
   canMoveEarlier?: boolean;
@@ -63,7 +66,7 @@ function kindWeight(kind: number, target: number) {
 /** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, arriving = false, caption, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
-  interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove, onTeachingMotionChange,
+  interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onMove, onTeachingMotionChange,
   canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
 }: VisionBoardPhotoProps) {
   const arrival = useVisionImageArrival();
@@ -87,6 +90,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const pinStyle = useAnimatedStyle(() => ({ opacity: pin.value, transform: reduceMotion ? [] : [{ translateY: -40 * (1 - pin.value) }, { scale: 1.6 - .6 * pin.value }] }));
   const captionStyle = useAnimatedStyle(() => ({ opacity: captionPresence.value }));
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const failedFallbackReady = useRef<string | null>(null);
   // Signed image URLs change on every read, so a reorder used to hand each photo a new source and reload it,
   // which left the board blank while the images decoded again. While the path is unchanged the photo keeps
   // the URL it is showing; a URL that fails to load is replaced by the current one.
@@ -100,6 +104,20 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     setFailedUrl(null);
   };
   useEffect(() => { if (!sameImage) setShownUrl(imageUrl ?? null); }, [imageUrl, sameImage]);
+  useEffect(() => {
+    if (!imageUrl) onPhotoAssetReady?.(sceneId);
+  }, [imageUrl, onPhotoAssetReady, sceneId]);
+  useEffect(() => {
+    if (!imageFailed || !displayUrl || failedFallbackReady.current === displayUrl) return;
+    // Foreground failure replaces VisionPhotograph (and its blur layer) with
+    // the final unavailable card. Signal only after that fallback commits.
+    requestAnimationFrame(() => {
+      if (failedUrl === displayUrl && imageUrl && pathOf(displayUrl) === pathOf(imageUrl)) {
+        failedFallbackReady.current = displayUrl;
+        onPhotoAssetReady?.(sceneId);
+      }
+    });
+  }, [displayUrl, failedUrl, imageFailed, imageUrl, onPhotoAssetReady, sceneId]);
   const imageRef = useRef<View>(null);
   // The flight lands only once this photograph has decoded. Landing on layout let the arrival
   // overlay dissolve over a frame that was still blank, which read as a cream flash.
@@ -119,6 +137,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const y = useSharedValue(start.y);
   const width = useSharedValue(start.width);
   const height = useSharedValue(start.height);
+  const captionPositionStyle = useAnimatedStyle(() => ({ top: height.value + 5 }));
   const rotation = useSharedValue(start.rotation);
   const z = useSharedValue(start.zIndex);
   const landscape = useSharedValue(kindWeight(0, start.frame));
@@ -293,7 +312,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     left: x.value,
     top: y.value,
     width: width.value,
-    height: height.value,
+    height: height.value + (interactive && onCaptionEdit ? CAPTION_TOUCH_HEIGHT : 0),
     zIndex: z.value + (shared.dragging.value === sceneId ? 100 : 0),
     opacity: presence.value * flightPresence.value * (cinematicOpacity?.value ?? 1),
     transform: [
@@ -303,6 +322,8 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       { scale: presenceScale.value * (1 + (MOTION.lift.scale - 1) * lift.value) },
     ],
   }));
+
+  const frameStyle = useAnimatedStyle(() => ({ width: width.value, height: height.value }));
 
   const windowStyle = useAnimatedStyle(() => {
     const total = landscape.value + portrait.value + square.value || 1;
@@ -331,10 +352,10 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     else if (event.nativeEvent.actionName === 'moveLater') onMove?.(sceneId, 1);
   };
 
-  const body = (
+  const frame = (
     <Animated.View
       testID={testID}
-      style={[styles.photo, containerStyle]}
+      style={[styles.photo, frameStyle]}
       accessible={interactive && !exiting}
       accessibilityRole={interactive ? 'imagebutton' : 'image'}
       accessibilityLabel={accessibilityLabel}
@@ -346,6 +367,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       <Animated.View ref={imageRef} collapsable={false} style={[styles.window, windowStyle]}>
         {displayUrl && failedUrl !== displayUrl ? (
           <VisionPhotograph source={{ uri: displayUrl }} displayAspect={displayAspect} uploaded={uploaded} onLoad={handleDecoded}
+            onAssetReady={() => onPhotoAssetReady?.(sceneId)}
             onError={() => { if (displayUrl !== imageUrl) setShownUrl(imageUrl ?? null); else setFailedUrl(displayUrl); }}
             accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
         ) : (
@@ -357,20 +379,42 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       {arriving || setPrint ? <Animated.View pointerEvents="none" testID={`${testID}-arrival-pin`} style={[styles.attachment, { width: 16, height: 16, top: -8, left: '50%', marginLeft: -8 }, pinStyle]}>
         <Svg width={16} height={16}><Defs><RadialGradient id="arrival-pin" cx="35%" cy="30%"><Stop offset="0" stopColor="#F3DCA0" /><Stop offset=".45" stopColor={VISION_GOLD} /><Stop offset="1" stopColor="#7d5d22" /></RadialGradient></Defs><Circle cx={8} cy={8} r={8} fill="url(#arrival-pin)" /></Svg>
       </Animated.View> : null}
-      {interactive && caption?.trim() ? <Animated.Text pointerEvents="none" testID={`${testID}-caption`} numberOfLines={1}
-        style={[{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 5, fontFamily: VISION_SERIF_ITALIC, fontSize: 12, color: colors.text.primary, textAlign: 'center' }, captionStyle]}>{caption}</Animated.Text> : null}
     </Animated.View>
   );
 
-  return interactive ? <GestureDetector gesture={gesture}>{body}</GestureDetector> : body;
+  const body = (
+    <Animated.View pointerEvents={exiting ? 'none' : 'auto'} style={[styles.container, containerStyle]}>
+      {interactive ? <GestureDetector gesture={gesture}>{frame}</GestureDetector> : frame}
+      {interactive && onCaptionEdit ? (
+        <Animated.View style={[styles.captionHitArea, captionPositionStyle, captionStyle]}>
+          <Pressable testID={`vision-board-photo-${sceneId}-caption-edit`} accessibilityRole="button" accessibilityLabel="Edit photo caption"
+            accessibilityHint="Opens the caption for this photo" onPress={() => onCaptionEdit(sceneId)} hitSlop={6} style={styles.captionPressable}>
+            <Text testID={`${testID}-caption`} numberOfLines={1} style={[styles.captionText, !caption?.trim() && styles.captionPlaceholder]}>
+              {caption?.trim() || 'Add caption'}
+            </Text>
+          </Pressable>
+        </Animated.View>
+      ) : interactive && caption?.trim() ? (
+        <Animated.Text pointerEvents="none" testID={`${testID}-caption`} numberOfLines={1}
+          style={[styles.captionText, captionStyle, captionPositionStyle]}>{caption}</Animated.Text>
+      ) : null}
+    </Animated.View>
+  );
+
+  return body;
 });
 
 const styles = StyleSheet.create({
-  photo: { position: 'absolute', shadowColor: colors.ink.base, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 8 },
+  container: { position: 'absolute', overflow: 'visible' },
+  photo: { position: 'absolute', left: 0, top: 0, shadowColor: colors.ink.base, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 8 },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
   window: { position: 'absolute', overflow: 'hidden', backgroundColor: colors.canvas },
   fill: { width: '100%', height: '100%' },
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#CFC6B6' },
   unavailableText: { ...typography.caption, color: colors.text.secondary },
+  captionHitArea: { position: 'absolute', left: 0, right: 0, height: CAPTION_TOUCH_HEIGHT, alignItems: 'center', justifyContent: 'flex-start' },
+  captionPressable: { minHeight: CAPTION_TOUCH_HEIGHT, minWidth: '100%', alignItems: 'center', justifyContent: 'center' },
+  captionText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 12, color: colors.text.primary, textAlign: 'center' },
+  captionPlaceholder: { color: colors.text.secondary, opacity: 0.78 },
   attachment: { position: 'absolute' },
 });

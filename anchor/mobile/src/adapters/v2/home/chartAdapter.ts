@@ -3,6 +3,7 @@ import type { CourseDetail, CourseSummary, WaypointSummary } from '@/types/chart
 import type { ChartForAnchor, ChartRequestError } from '@/services/v2/chartV2Api';
 import { toMetricView } from '@/adapters/v2/chart/chartV2Model';
 import { isDayClosed } from '@/adapters/v2/chart/chartDayRhythm';
+import { chartWeatherProgress, type ChartWeatherProgress } from '@/components/v2/chart/map/chartProgress';
 
 /**
  * Chart context for Home, derived from the existing Course/Waypoint domain.
@@ -36,6 +37,8 @@ export type HomeChartState =
       currentWaypointId: string | null;
       currentWaypointIndex: number | null;
       isFinished: boolean;
+      /** Full Chart route progress used only to place the shared weather cover. */
+      weatherProgress?: ChartWeatherProgress;
       /** Details-only camera inputs. Home continues to use its existing rendering and semantics. */
       journeyMetricFraction?: number | null;
       journeyConfirmedComplete?: boolean;
@@ -121,6 +124,7 @@ export function toHomeChartState(course: CourseDetail | null | undefined, includ
       currentWaypointId: resolvedCurrentIndex === null ? null : waypoints[resolvedCurrentIndex].id,
     currentWaypointIndex: isFinished ? -1 : (resolvedCurrentIndex ?? -1),
     isFinished,
+    weatherProgress: chartWeatherProgress(course),
     ...(isDayClosed(course.moves ?? [], new Date()) ? { todayMoveDone: true } : {}),
     ...(includeCompleted ? {
       journeyConfirmedComplete: course.status === 'COMPLETED',

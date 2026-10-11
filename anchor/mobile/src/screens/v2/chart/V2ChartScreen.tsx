@@ -16,7 +16,8 @@ import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 import type { ChartRequestError } from '@/services/v2/chartV2Api';
 import { useChartContext } from './chartScreenSupport';
-import { useProFeatureLocked } from '@/utils/premiumAccess';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import revenueCatService from '@/services/RevenueCatService';
 // DEFERRED: import { ChartJourneyWorld } from '@/components/v2/chart/ChartJourneyWorld';
 import { ChartStaticMap } from '@/components/v2/chart/panel/ChartStaticMap';
 
@@ -67,8 +68,10 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   const reducedMotion = useV2ReduceMotion();
   const chart = useAnchorChart(anchorId);
   const context = useChartContext(anchorId, chart.data);
-  // Free accounts can view an existing Chart; creating one is Pro.
-  const creationLocked = useProFeatureLocked();
+  // Saved Charts remain available after expiry. A new Chart requires a
+  // hydrated RevenueCat entitlement before its creation flow can mount.
+  const { entitlementReady, hasActiveEntitlement } = useTrialStatus();
+  const creationLocked = !entitlementReady || !hasActiveEntitlement;
   const [celebration, setCelebration] = useState<ChartCelebration | null>(null);
   const [spatialFocused, setSpatialFocused] = useState(Boolean(props.initialWaypointId));
   // The creation flow stays on screen through its reveal ("Your route is
@@ -79,6 +82,8 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   // "Explore your Chart" continues into the permanent Chart without replaying the map.
   const arrivedFromReveal = useRef(false);
   const opened = useRef(false);
+  const paywallOpened = useRef(false);
+  const [entitlementRefreshAttempt, setEntitlementRefreshAttempt] = useState(0);
 
   useEffect(() => {
     if (!opened.current && anchorId) {
@@ -135,8 +140,28 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
 
   const openPaywall = () => {
     trackChart('chart_paywall_opened', { from: 'chart' });
-    navigation.navigate('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
+    navigation.replace('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
   };
+
+  const entitlementRefreshStarted = useRef(false);
+  useEffect(() => {
+    if (entitlementReady || entitlementRefreshStarted.current) return;
+    entitlementRefreshStarted.current = true;
+    void revenueCatService.refreshTrialStatus().finally(() => {
+      entitlementRefreshStarted.current = false;
+    });
+  }, [entitlementReady, entitlementRefreshAttempt]);
+
+  useEffect(() => {
+    if (chart.loading || chart.error || !chart.data || chart.data.chart || !entitlementReady || hasActiveEntitlement || paywallOpened.current) return;
+    paywallOpened.current = true;
+    if (chart.data.history.length > 0) {
+      navigation.replace('V2ChartJourney', { anchorId });
+      return;
+    }
+    trackChart('chart_paywall_opened', { from: route.params?.source ?? 'create_chart' });
+    navigation.replace('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
+  }, [anchorId, chart.data, chart.error, chart.loading, entitlementReady, hasActiveEntitlement, navigation, route.params?.source]);
 
   const openPractice = (mode?: 'focus' | 'deep_prime') => {
     trackChart('chart_practice_opened', { from: 'chart', mode: mode ?? null });
@@ -252,12 +277,11 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     }
     if (creationLocked && !revealing && !handingOff) {
       return (
-        <ChartInkScreen testID="v2-chart-screen-locked">
+        <ChartInkScreen testID={entitlementReady ? 'v2-chart-screen-premium-gate' : 'v2-chart-screen-entitlement-loading'}>
           <ChartTopBar title={CHART_COPY.title} onBack={handleBack} identity={identity} />
           <CenteredMessage
-            title={CHART_COPY.locked.title}
-            support={CHART_COPY.locked.support}
-            action={{ label: CHART_COPY.locked.action, onPress: openPaywall }}
+            title={entitlementReady ? 'Opening Anchor Pro' : 'Checking subscription access'}
+            action={!entitlementReady ? { label: 'Try again', onPress: () => setEntitlementRefreshAttempt((attempt) => attempt + 1) } : undefined}
           />
         </ChartInkScreen>
       );

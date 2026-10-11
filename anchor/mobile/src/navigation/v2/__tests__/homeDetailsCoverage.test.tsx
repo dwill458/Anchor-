@@ -71,7 +71,8 @@ describe('Home <-> Details screen coverage', () => {
   it('never schedules a screen fade or a delayed route change on a route-changing hop', () => {
     for (const t of [ANCHOR_TRANSITION_TIMING.details, ANCHOR_TRANSITION_TIMING.back, ANCHOR_TRANSITION_TIMING.fromDetails]) {
       expect(t.exitMs).toBe(0);
-      expect(t.navigateAtMs).toBe(0);
+      // Details -> Home pops late, in the spring's still tail, so the pop cannot stall the flight.
+      expect(t.navigateAtMs).toBe(t === ANCHOR_TRANSITION_TIMING.back ? 240 : 0);
       expect(t.revealMs).toBe(0);
       expect(t.travelDelayMs + t.travelMs).toBeLessThanOrEqual(320);
     }
@@ -154,8 +155,8 @@ describe('Home <-> Details flight', () => {
     act(() => { accepted = api.closeAnchor('a', closeNavigate); });
     expect(accepted).toBe(true);
     mountCopy();
-    act(() => { jest.advanceTimersByTime(0); });
-    // Details is removed at once, uncovering a fully drawn Home; nothing fades either screen.
+    act(() => { jest.advanceTimersByTime(ANCHOR_TRANSITION_TIMING.back.navigateAtMs); });
+    // Details is removed in the spring's still tail, uncovering a fully drawn Home; nothing fades either screen.
     expect(closeNavigate).toHaveBeenCalledTimes(1);
     expect(api.exitProgress.value).toBe(0);
   });

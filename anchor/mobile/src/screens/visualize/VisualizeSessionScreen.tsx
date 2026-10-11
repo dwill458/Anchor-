@@ -136,6 +136,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const performanceTier = usePerformanceTier();
   const controlsHint = useTeachingGate({
     screenId: 'visualize_session',
+    visitKey: anchorId,
     candidateIds: ['visualize_controls_hint'],
   });
 

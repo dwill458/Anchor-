@@ -255,12 +255,11 @@ export const SettingsScreen: React.FC = () => {
       await writeSecureValue('anchor-sync-retry-queue', '[]');
       await signOut();
       setHasCompletedOnboarding(false);
-      resetToOnboarding();
     } catch (error) {
       logger.warn('[SettingsScreen] Failed to sign out cleanly', error);
       Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
     }
-  }, [resetToOnboarding, setHasCompletedOnboarding, signOut]);
+  }, [setHasCompletedOnboarding, signOut]);
 
   useEffect(() => () => {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);

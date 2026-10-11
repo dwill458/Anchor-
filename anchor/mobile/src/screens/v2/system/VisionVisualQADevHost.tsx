@@ -17,27 +17,53 @@ import { VisionMethodStage } from '@/components/v2/vision/VisionMethodStage';
 import { VisionAddSheet } from '@/components/v2/vision/VisionAddSheet';
 import { V2VisionAddPhoto } from '@/components/v2/vision/V2VisionAddPhoto';
 import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
+import { VisionEditorialPreview } from '@/components/v2/vision/VisionEditorialPreview';
+import { useVisionEditorialNotes } from '@/components/v2/vision/useVisionEditorialNotes';
+import { nextVisionNotePresentation, defaultVisionNoteOccupancy, visionBoardAspectForCount } from '@/components/v2/vision/notes/visionNotePlacement';
+import { VisionNoteRenderer, VISION_NOTE_PRESETS } from '@/components/v2/vision/notes';
+import { V2VisionNoteComposer } from '@/screens/v2/vision/V2VisionNoteComposer';
+import { AnchorShareStudio } from '@/components/share/AnchorShareStudio';
+import { buildShareExportData } from '@/components/share/shareData';
 import { V2HomeVisionSection } from '@/components/v2/home/V2HomeVisionSection';
 import { V2_SAMPLE_ANCHOR_SVGS } from '@/constants/v2';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { colors, typography } from '@/theme/v2';
-import type { V2VisionTile } from '@/adapters/v2/vision';
+import type { V2VisionTile, VisionNote, VisionVisualizeEntry } from '@/adapters/v2/vision';
 import type { VisionGenerationCandidate, VisionGenerationJob } from '@/hooks/v2/vision';
 import { useV2Vision } from '@/hooks/v2/vision';
 
 // Local fixtures exercise production components; never mounted in release builds.
 const sources = [require('@/assets/vision/vision-future-desk.jpg'), require('@/assets/vision/vision-future-window.jpg'), require('@/assets/vision/vision-future-family.jpg')];
-const tiles: V2VisionTile[] = Array.from({ length: 6 }, (_, i) => ({ id: `qa-${i}`, sceneId: `qa-${i}`, imageUrl: Image.resolveAssetSource(sources[i % 3]).uri,
+const tiles: V2VisionTile[] = Array.from({ length: 8 }, (_, i) => ({ id: `qa-${i}`, sceneId: `qa-${i}`, imageUrl: Image.resolveAssetSource(sources[i % 3]).uri,
   prompt: null, sortOrder: i, isHero: i === 0, sourceType: 'AI_GENERATED' }));
 const sessionSources = [require('@/assets/vision/vision-future-desk.jpg'), require('@/assets/vision/vision-future-window-wide.jpg'),
   require('@/assets/vision/vision-future-family.jpg'), require('@/assets/vision/vision-future-home.jpg'),
-  require('@/assets/vision/vision-future-studio.jpg'), require('@/assets/vision/vision-future-movement.jpg')];
+  require('@/assets/vision/vision-future-studio.jpg'), require('@/assets/vision/vision-future-movement.jpg'),
+  require('@/assets/vision/vision-future-threshold.jpg'), require('@/assets/vision/vision-future-sanctuary.jpg')];
 const sessionTiles: V2VisionTile[] = sessionSources.map((source, i) => ({ ...tiles[i],
   imageUrl: Image.resolveAssetSource(source).uri, sourceType: 'USER_UPLOAD' }));
 const description = 'My app is thriving. I see ten thousand people using something I created, and I have the freedom to work by the ocean with my family. The work is meaningful, and there is room to enjoy the life around it.';
 const noop = () => undefined;
 const saved = async () => true;
+const fixtureNotes: VisionNote[] = [{ id: 'qa-note', visionId: 'qa', content: { text: 'A life with room for meaningful work and time together.' },
+  presentation: { styleId: 'paper_blush_torn', x: .26, y: .34, width: .3, height: .24, rotation: -3, scale: 1, layerOrder: 1 },
+  createdAt: '2026-10-10T00:00:00Z', updatedAt: '2026-10-10T00:00:00Z' }];
+
+/** Actual board-to-setup interaction, using clearly identified fixtures and no account writes. */
+function VisionEntryLab({ identity, count, onClose }: { identity: any; count: number; onClose: () => void }) {
+  const [entry, setEntry] = useState<VisionVisualizeEntry | null>(null);
+  const qaAnchor = { id: 'qa-anchor', localId: 'qa-anchor', intentionText: identity.anchorIntention, category: identity.anchorCategory,
+    baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null, enhancedImageUrl: null } as any;
+  const notes = [...fixtureNotes, { ...fixtureNotes[0], id: 'qa-note-2', content: { text: 'Create room.\nKeep growing 🌿' },
+    presentation: { ...fixtureNotes[0].presentation, styleId: 'editorial_midnight_editorial' as const, x: .74, y: .68, rotation: 2 } }];
+  return entry ? <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa" tiles={entry.tiles} notes={notes}
+    entry={entry} initialDuration={60} onBack={() => setEntry(null)} onBegin={noop} /> :
+    <V2SavedVision {...identity} tiles={sessionTiles.slice(0, count)} notes={notes} description={description} onBack={onClose}
+      onVisualize={sourceFrame => setEntry({ anchorId: qaAnchor.id, visionId: 'qa', tiles: sessionTiles.slice(0, count), notes, sourceFrame })}
+      onChart={noop} onUpdateDescription={saved} onReorder={saved} onRemove={saved} onAddPhoto={noop} onAddGenerate={noop}
+      onReplace={async () => undefined} onRegenerate={noop} canGenerateMore onArchive={saved} />;
+}
 
 /** Native presentation QA only: local artwork, with no account mutation or upload. */
 function CeremonyLab({ identity, photo, onClose }: { identity: any; photo: boolean; onClose: () => void }) {
@@ -50,6 +76,20 @@ function CeremonyLab({ identity, photo, onClose }: { identity: any; photo: boole
     photo={photo ? { uri: tiles[0].imageUrl!, mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } : undefined}
     onBack={onClose} onAssemble={saved} onUploadAsset={async () => ({ ok: false, message: 'QA fixture does not upload.' })}
     onPhotoConfirm={async () => null} savedImageUrl={tiles[0].imageUrl} onPinned={() => setPinned(true)} />;
+}
+
+/** Local material/drag fixture: never sends a write to an account. */
+function NotePlacementLab({ identity, family, onClose }: { identity: any; family: string; onClose: () => void }) {
+  const preset = VISION_NOTE_PRESETS.find(item => item.family === family) ?? VISION_NOTE_PRESETS[0];
+  const [notes, setNotes] = useState<VisionNote[]>(() => [{ id: 'pass4-placement', visionId: 'qa',
+    content: { text: 'Make room for the life I am building.' },
+    presentation: nextVisionNotePresentation(preset.id, [], defaultVisionNoteOccupancy(6), visionBoardAspectForCount(6)),
+    createdAt: '', updatedAt: '' }]);
+  return <V2SavedVision {...identity} tiles={sessionTiles.slice(0, 6)} notes={notes} arrivingNoteId="pass4-placement"
+    onNotePresentationChange={async (id, presentation) => { setNotes(previous => previous.map(note => note.id === id ? { ...note, presentation } : note)); return true; }}
+    onNoteEdit={noop} onNoteDelete={noop} description={description} onBack={onClose} onVisualize={noop} onChart={noop}
+    onUpdateDescription={saved} onReorder={saved} onRemove={saved} onAddPhoto={noop} onAddGenerate={noop}
+    onReplace={async () => undefined} onRegenerate={noop} canGenerateMore onArchive={saved} />;
 }
 
 /** Explicit QA sample content, confined to this development-only host. */
@@ -143,6 +183,7 @@ function PolishLab({ identity, candidates, onClose }: { identity: any; candidate
 }
 
 export function VisionVisualQADevHost() {
+  const fixtureNoteElements = useVisionEditorialNotes(fixtureNotes);
   const [surface, setSurface] = useState<string | null>(null);
   const frameSample = useSharedValue({ count: 0, sum: 0, slow: 0, max: 0 });
   useEffect(() => { frameSample.value = { count: 0, sum: 0, slow: 0, max: 0 }; }, [surface, frameSample]);
@@ -209,7 +250,11 @@ export function VisionVisualQADevHost() {
   if (surface === 'geometry' && anchor) return <Modal visible animationType="none" onRequestClose={close}><SavedImageGeometry anchorId={anchor.id} /></Modal>;
   const twoUp = (status: string, count: number) => ({ id: 'qa-job', kind: 'SCENE', status, stage: 'creating_images', setNumber: 1, retryCount: 0, error: null,
     candidates: candidates.slice(0, count).map((candidate, index) => ({ ...candidate, sortOrder: index })) }) as unknown as VisionGenerationJob;
-  if (surface?.startsWith('visualize')) {
+  if (surface?.startsWith('entry-')) {
+    content = <VisionEntryLab key={surface} identity={identity} count={Math.max(1, Math.min(8, Number(surface.split('-')[1]) || 6))} onClose={close} />;
+  } else if (surface?.startsWith('note-placement-')) {
+    content = <NotePlacementLab key={surface} identity={identity} family={surface.split('-')[2]} onClose={close} />;
+  } else if (surface?.startsWith('visualize')) {
     const count = Number(surface.split('-')[1] ?? '3');
     const qaAnchor = { id: 'qa-anchor', localId: 'qa-anchor', intentionText: identity.anchorIntention, category: identity.anchorCategory,
       baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null, enhancedImageUrl: null } as any;
@@ -220,7 +265,25 @@ export function VisionVisualQADevHost() {
         durationSeconds={isV2VisualizeDuration(run.durationSeconds) ? run.durationSeconds : 60} voice={qaVoice} ambient={false} haptics={run.haptics} source="practice_hub"
         prepared={run.prepared} onExit={close} onContinue={() => setFinished(true)} />
       : <V2VisualizePrepareScreen key={`${surface}-${qaDuration}`} anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={sessionTiles.slice(0, count)} initialDuration={qaDuration} onBack={close} onOpenVision={noop} onBegin={setRun} />;
-  } else if (surface?.startsWith('ceremony')) content = <VisionImageArrivalProvider key={surface}><CeremonyLab identity={identity} photo={surface.includes('photo')} onClose={close} /></VisionImageArrivalProvider>;
+  } else if (surface?.startsWith('share-')) {
+    const count = Math.max(0, Math.min(8, Number(surface.split('-')[1] ?? '3')));
+    const shareTiles = sessionTiles.slice(0, count);
+    const data = buildShareExportData({ intentionText: identity.anchorIntention, category: identity.anchorCategory,
+      baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null, enhancedImageUrl: null } as any,
+      { visionTiles: shareTiles, visionNotes: surface.includes('notes') ? fixtureNotes : [], visionAnnotation: 'Room to create' });
+    content = <AnchorShareStudio visible data={data} onClose={close} />;
+  } else if (surface === 'note-composer') content = <V2VisionNoteComposer route={{ params: { anchorId: anchor?.id ?? 'qa-fixture' } }} navigation={{ goBack: close }} />;
+  else if (surface?.startsWith('materials')) {
+    const family = surface.split('-')[1] ?? 'editorial';
+    content = <ScrollView contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, backgroundColor: colors.canvas }}>
+      <Text style={typography.headingMD}>QA materials · {family}</Text>
+      {VISION_NOTE_PRESETS.filter(preset => preset.family === family).map(preset => <View key={preset.id} style={{ alignItems: 'center', marginVertical: 16 }}>
+        <Text style={typography.labelMD}>{preset.label}</Text>
+        <VisionNoteRenderer styleId={preset.id} text="A life with room to create, grow, and enjoy the days ahead." width={260} height={260} />
+      </View>)}
+    </ScrollView>;
+  }
+  else if (surface?.startsWith('ceremony')) content = <VisionImageArrivalProvider key={surface}><CeremonyLab identity={identity} photo={surface.includes('photo')} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface?.startsWith('parity')) content = <ParityLab key={surface} identity={identity} onClose={close} count={Number(surface.split('-')[1]) || 3} longCaption={surface.includes('long')} noChart={surface.includes('empty')} longWaypoint={surface.includes('waypoint')} />;
   else if (surface === 'polish') content = <VisionImageArrivalProvider><PolishLab identity={identity} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface === 'handoff') content = <VisionImageArrivalProvider><HandoffLab identity={identity as any} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
@@ -237,12 +300,21 @@ export function VisionVisualQADevHost() {
   else if (surface === 'photo') content = <V2VisionAddPhoto {...identity} uri={tiles[0].imageUrl!} source="library" onCancel={close} onChooseAgain={noop} onConfirm={async () => null} />;
   else if (surface?.startsWith('home') || surface?.startsWith('details')) {
     const home = surface.startsWith('home');
-    const count = Math.max(0, Math.min(6, Number(surface.split('-')[1] ?? '5')));
-    const previewTiles = sessionTiles.slice(0, count);
-    content = <ScrollView contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, flexGrow: 1, backgroundColor: home ? colors.ink.base : colors.canvas }}>
+    const count = Math.max(0, Math.min(10, Number(surface.split('-')[1] ?? '5')));
+    const portraitSources = [require('@/assets/vision/stand-ins/desk.jpg'), require('@/assets/vision/stand-ins/family.jpg'), require('@/assets/vision/stand-ins/movement.jpg')];
+    const squareSources = [require('@/assets/onboarding/screen5/see-career.jpg'), require('@/assets/onboarding/screen5/see-family.jpg')];
+    const previewTiles = Array.from({ length: count }, (_, index) => {
+      const tile = { ...sessionTiles[index % sessionTiles.length], id: `qa-preview-${index}` };
+      const source = surface.includes('portrait') ? portraitSources[index % 3]
+        : surface.includes('square') ? squareSources[index % 2]
+        : surface.includes('mixed') && index % 2 === 0 ? portraitSources[Math.floor(index / 2) % 3] : null;
+      return source ? { ...tile, imageUrl: Image.resolveAssetSource(source).uri } : tile;
+    });
+    content = <ScrollView key={surface} contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, flexGrow: 1, backgroundColor: home ? colors.ink.base : colors.canvas }}>
       <Text style={{ ...typography.headingMD, color: home ? colors.paper : colors.text.primary }}>QA fixture · {surface}</Text>
-      {home ? <V2HomeVisionSection vision={{ state: 'ready', visionId: 'qa', tiles: previewTiles, previewText: description, seenToday: false }} categoryColor="#CE6091" onOpenVision={noop} /> :
-        <View style={{ marginTop: 24 }}><VisionBoardPreview tiles={previewTiles} variant="details" accent="#CE6091" onPress={noop} /></View>}
+      {home ? <V2HomeVisionSection vision={{ state: 'ready', visionId: 'qa', tiles: previewTiles, notes: surface.includes('notes') ? fixtureNotes : undefined, previewText: description, seenToday: false }} categoryColor="#CE6091" onOpenVision={noop} /> :
+        <View style={{ marginTop: 24 }}><VisionEditorialPreview tiles={previewTiles} variant="details" accent="#CE6091" onPress={noop}
+          noteElements={surface.includes('notes') ? fixtureNoteElements : undefined} /></View>}
     </ScrollView>;
   }
   else content = <V2SavedVision {...identity} key={surface} tiles={tiles.slice(0, Number(surface) || 0)} description={description} onBack={close} onVisualize={noop} onChart={noop}

@@ -12,6 +12,9 @@ import {
   StartVisionGenerationSchema,
   StartVisionSceneGenerationSchema,
   CreateVisionAppearanceReferenceSchema,
+  CreateVisionNoteSchema,
+  UpdateVisionNoteSchema,
+  UpdateVisionSceneCaptionSchema,
 } from '../../../domain/v2/vision';
 import { visionGenerationService } from '../../../services/v2/VisionGenerationService';
 import { visionAppearanceReferenceService } from '../../../services/v2/VisionAppearanceReferenceService';
@@ -212,6 +215,48 @@ router.delete('/visions/:visionId', async (req: AuthRequest, res: Response, next
   }
 });
 
+// Note mutations return the updated Vision so clients can replace their read cache atomically.
+router.post('/anchors/:anchorId/vision/notes', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const input = validateBody(CreateVisionNoteSchema, req.body);
+    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+    const vision = await visionService.createNote(await getAuthenticatedUserId(req), req.params.anchorId, input, timeZone);
+    res.status(201).json({ success: true, data: vision });
+  } catch (error) { next(error); }
+});
+
+const VisionNoteParamsSchema = z.object({ visionId: z.string().uuid(), noteId: z.string().uuid() }).strict();
+router.patch('/visions/:visionId/notes/:noteId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const params = VisionNoteParamsSchema.safeParse(req.params);
+    if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
+    const input = validateBody(UpdateVisionNoteSchema, req.body);
+    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+    const vision = await visionService.updateNote(await getAuthenticatedUserId(req), params.data.visionId, params.data.noteId, input, timeZone);
+    res.json({ success: true, data: vision });
+  } catch (error) { next(error); }
+});
+
+router.delete('/visions/:visionId/notes/:noteId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const params = VisionNoteParamsSchema.safeParse(req.params);
+    if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
+    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+    const vision = await visionService.deleteNote(await getAuthenticatedUserId(req), params.data.visionId, params.data.noteId, timeZone);
+    res.json({ success: true, data: vision });
+  } catch (error) { next(error); }
+});
+
+router.post('/visions/:visionId/notes/:noteId/restore', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const params = VisionNoteParamsSchema.safeParse(req.params);
+    if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
+    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+    const vision = await visionService.restoreNote(await getAuthenticatedUserId(req), params.data.visionId, params.data.noteId, timeZone);
+    res.json({ success: true, data: vision });
+  } catch (error) { next(error); }
+});
+
 // ─────────────────────────────────────────────────────────────
 // Vision Scene endpoints
 // ─────────────────────────────────────────────────────────────
@@ -234,6 +279,17 @@ router.post(
     }
   }
 );
+
+router.patch('/visions/:visionId/scenes/:sceneId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const params = z.object({ visionId: z.string().uuid(), sceneId: z.string().uuid() }).strict().safeParse(req.params);
+    if (!params.success) throw new AppError('Vision image is invalid', 400, 'INVALID_VISION_SCENE');
+    const input = validateBody(UpdateVisionSceneCaptionSchema, req.body);
+    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+    const vision = await visionService.updateSceneCaption(await getAuthenticatedUserId(req), params.data.visionId, params.data.sceneId, input, timeZone);
+    res.json({ success: true, data: vision });
+  } catch (error) { next(error); }
+});
 
 router.put(
   '/visions/:visionId/scenes/reorder',

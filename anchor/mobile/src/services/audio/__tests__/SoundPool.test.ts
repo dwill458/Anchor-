@@ -278,6 +278,7 @@ it('releaseIdle disposes idle players for specified keys', () => {
     isLoaded: true,
     pause: jest.fn(),
     play: jest.fn(),
+    release: jest.fn(),
     remove: jest.fn(),
     seekTo: jest.fn(() => Promise.resolve()),
     setPlaybackRate: jest.fn(),
@@ -294,6 +295,47 @@ it('releaseIdle disposes idle players for specified keys', () => {
 
   SoundPool.releaseIdle(['test:release-target']);
   expect(player.remove).toHaveBeenCalled();
+  expect(player.release).toHaveBeenCalled();
+  expect(countLivePlayers()).toBe(0);
+
+  useSettingsStore.setState({ soundEffectsEnabled: original });
+  SoundPool.reset();
+});
+
+it('discards and releases an entry if playbackState transitions to idle after playback starts', async () => {
+  const original = useSettingsStore.getState().soundEffectsEnabled;
+  useSettingsStore.setState({ soundEffectsEnabled: true });
+  SoundPool.reset();
+
+  const statusListeners: Array<(status: { playbackState?: string; didJustFinish?: boolean }) => void> = [];
+  const player = {
+    addListener: jest.fn((_event: string, listener: (status: { playbackState?: string; didJustFinish?: boolean }) => void) => {
+      statusListeners.push(listener);
+      return { remove: jest.fn() };
+    }),
+    isLoaded: true,
+    pause: jest.fn(),
+    play: jest.fn(),
+    release: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(),
+    volume: 1,
+    shouldCorrectPitch: false,
+  };
+
+  jest.mocked(createAudioPlayer).mockReturnValue(player as never);
+  SoundPool.register('test:idle-error', 1);
+  SoundPool.play('test:idle-error');
+  await Promise.resolve();
+  await Promise.resolve();
+
+  expect(player.play).toHaveBeenCalledTimes(1);
+  statusListeners[0]({ playbackState: 'idle' });
+
+  const { countLivePlayers } = require('../SoundPool');
+  expect(player.remove).toHaveBeenCalledTimes(1);
+  expect(player.release).toHaveBeenCalledTimes(1);
   expect(countLivePlayers()).toBe(0);
 
   useSettingsStore.setState({ soundEffectsEnabled: original });
@@ -313,6 +355,7 @@ it('on load-timeout discards timed-out entry, releases non-current idle keys, an
     isLoaded: boolean;
     pause: jest.Mock;
     play: jest.Mock;
+    release: jest.Mock;
     remove: jest.Mock;
     seekTo: jest.Mock;
     setPlaybackRate: jest.Mock;
@@ -333,6 +376,7 @@ it('on load-timeout discards timed-out entry, releases non-current idle keys, an
       isLoaded: !isFirst,
       pause: jest.fn(),
       play: jest.fn(),
+      release: jest.fn(),
       remove: jest.fn(),
       seekTo: jest.fn(() => Promise.resolve()),
       setPlaybackRate: jest.fn(),
@@ -349,8 +393,9 @@ it('on load-timeout discards timed-out entry, releases non-current idle keys, an
   // Advance time past the 1500ms timeout
   await jest.advanceTimersByTimeAsync(1600);
 
-  // First player should have timed out and been discarded via remove()
+  // First player should have timed out and been discarded via remove() and release()
   expect(createdPlayers[0].remove).toHaveBeenCalled();
+  expect(createdPlayers[0].release).toHaveBeenCalled();
   // Second player should have been created on retry
   expect(createdPlayers.length).toBe(2);
   expect(createdPlayers[1].play).toHaveBeenCalledTimes(1);

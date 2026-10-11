@@ -148,12 +148,14 @@ export const ActivationScreen: React.FC = () => {
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
     screenId: 'activation',
+    visitKey: anchorId,
     candidateIds: ['activation_ground_note_v1'],
   });
 
   // Seal Whisper (Pattern 5): passed to CompletionModal on first charge, guide ON
   const sealWhisperTeaching = useTeachingGate({
     screenId: 'completion_modal',
+    visitKey: anchorId,
     candidateIds: ['completion_seal_whisper_v1'],
   });
 

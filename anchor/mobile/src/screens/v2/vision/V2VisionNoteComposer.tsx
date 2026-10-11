@@ -1,10 +1,13 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import type { VisionNoteStyleId } from '@/adapters/v2/vision';
 import { useV2ReduceMotion } from '@/hooks/v2';
+import { useV2Vision } from '@/hooks/v2/vision';
+import type { VisionNotePresentation } from '@/adapters/v2/vision';
+import { clampVisionNotePresentationForAspect, defaultVisionNoteOccupancy, nextVisionNotePresentation, visionBoardAspectForCount } from '@/components/v2/vision/notes/visionNotePlacement';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import { VisionNoteRenderer } from '@/components/v2/vision/notes/VisionNoteRenderer';
 import { VISION_SERIF } from '@/components/v2/vision/VisionPaperChrome';
@@ -12,23 +15,63 @@ import {
   VISION_NOTE_FAMILIES, VISION_NOTE_MAX_CHARS,
   VISION_NOTE_PRESETS, VISION_NOTE_STYLE_TRANSITION_MS, type VisionNoteFamily,
 } from '@/components/v2/vision/notes/visionNoteStyles';
+import { ApiClientError } from '@/services/ApiClient';
 
-type RouteParams = { anchorId: string; visionId?: string };
+type RouteParams = { anchorId: string; visionId?: string; noteId?: string };
 type Props = {
   route: { params: RouteParams };
-  navigation: { goBack: () => void };
+  navigation: { goBack: () => void;
+    navigate?: (name: 'V2Vision', params: { anchorId: string; savedNoteId: string }) => void;
+    popTo?: (name: 'V2Vision', params: { anchorId: string; savedNoteId: string }, options: { merge: boolean }) => void };
 };
 
 const FAMILY_LABELS: Record<VisionNoteFamily, string> = { sticky: 'Sticky Notes', paper: 'Paper', editorial: 'Editorial' };
 
-/** Preview-only note composer. Saving is intentionally unavailable until notes have a server contract. */
+function noteSaveErrorMessage(error: unknown): string {
+  if (error instanceof ApiClientError) {
+    switch (error.code) {
+      case 'VALIDATION_ERROR':
+      case 'VISION_NOTE_LIMIT':
+        return error.message;
+      case 'ANCHOR_NOT_FOUND':
+        return 'This Anchor is no longer available. Return to your Anchors and try again.';
+      case 'VISION_NOT_FOUND':
+        return 'This Vision is no longer available. Return to the board and try again.';
+      case 'IDEMPOTENCY_CONFLICT':
+        return 'This note was saved with an earlier version. Return to your Vision board and edit the saved note.';
+      case 'NOT_FOUND':
+        return 'The note service is unavailable. Check for an app update, then try again.';
+    }
+    if (error.status !== undefined && error.status >= 500) {
+      return 'The server could not save your note. Your draft is still here; try again shortly.';
+    }
+    if (error.message && error.message !== 'An unexpected error occurred') return error.message;
+  }
+  if (error instanceof Error) {
+    if (error.message === 'Network error. Please check your connection.') {
+      return 'No connection. Your draft is still here; reconnect and try again.';
+    }
+    if (error.message === 'Session expired. Please sign in again.') return error.message;
+    if (error.message === 'Access denied.') return 'You do not have access to save a note on this Anchor.';
+  }
+  return 'Your note could not be saved. Your draft is still here; please try again.';
+}
+
+/** Create or edit a persisted Vision note while keeping material choices presentation-only. */
 export function V2VisionNoteComposer({ route, navigation }: Props) {
+  const model = useV2Vision(route.params.anchorId);
+  const editingNote = route.params.noteId ? model.vision?.notes?.find(note => note.id === route.params.noteId) : undefined;
   const reduceMotion = useV2ReduceMotion();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(() => editingNote?.content.text ?? '');
   const [family, setFamily] = useState<VisionNoteFamily>('sticky');
-  const [styleId, setStyleId] = useState<VisionNoteStyleId>('sticky_blush_pink');
+  const [styleId, setStyleId] = useState<VisionNoteStyleId>(() => editingNote?.presentation.styleId ?? 'sticky_blush_pink');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const hydratedNoteId = useRef<string | null>(null);
+  const clientRequestId = useRef(createClientRequestId()).current;
+  const saveLock = useRef(false);
   const [previousStyleId, setPreviousStyleId] = useState<VisionNoteStyleId | null>(null);
   const progress = useSharedValue(1);
   const settle = useSharedValue(1);
@@ -37,6 +80,14 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
   const previewWidth = previewSize;
   const previewHeight = previewSize;
   const swatchWidth = (Math.min(screenWidth, 540) - spacing[5] * 2 - spacing[3] * 3) / 4;
+
+  React.useEffect(() => {
+    if (!route.params.noteId || !editingNote || hydratedNoteId.current === editingNote.id) return;
+    hydratedNoteId.current = editingNote.id;
+    setDraft(editingNote.content.text);
+    setStyleId(editingNote.presentation.styleId);
+    setFamily(VISION_NOTE_PRESETS.find(preset => preset.id === editingNote.presentation.styleId)?.family ?? 'sticky');
+  }, [editingNote, route.params.noteId]);
 
   const clearPrevious = useCallback(() => setPreviousStyleId(null), []);
   const selectStyle = useCallback((next: VisionNoteStyleId) => {
@@ -69,6 +120,41 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
     if (first) selectStyle(first.id);
   };
 
+  const saveNote = async () => {
+    if (saveLock.current || !draft.trim() || (route.params.noteId && (model.loading || !editingNote))) return;
+    saveLock.current = true;
+    setSaving(true);
+    setSaveError(null);
+    const boardAspectRatio = visionBoardAspectForCount(model.tiles.length);
+    const presentation: VisionNotePresentation = editingNote
+      ? { ...editingNote.presentation, styleId }
+      : clampVisionNotePresentationForAspect({
+        ...nextVisionNotePresentation(styleId, model.vision?.notes ?? [], defaultVisionNoteOccupancy(model.tiles.length), boardAspectRatio),
+      }, boardAspectRatio);
+    try {
+      const result = route.params.noteId
+        ? await model.updateNote(route.params.noteId, { content: { text: draft }, presentation })
+        : await model.createNote({ clientRequestId, content: { text: draft }, presentation });
+      if (result) {
+        const savedNote = route.params.noteId
+          ? result.notes?.find(note => note.id === route.params.noteId)
+          : result.notes?.find(note => !model.vision?.notes?.some(existing => existing.id === note.id));
+        const destination = { anchorId: route.params.anchorId, savedNoteId: savedNote?.id ?? route.params.noteId ?? clientRequestId };
+        if (navigation.popTo) navigation.popTo('V2Vision', destination, { merge: true });
+        // React Navigation 6 resolves navigate to the existing stack route.
+        // Carry the saved ID on this path too, so reveal/settle runs on devices.
+        else if (navigation.navigate) navigation.navigate('V2Vision', destination);
+        else navigation.goBack();
+      }
+      else setSaveError('Your note could not be saved. Please try again.');
+    } catch (error: unknown) {
+      setSaveError(noteSaveErrorMessage(error));
+    } finally {
+      saveLock.current = false;
+      setSaving(false);
+    }
+  };
+
   const changeDraft = (value: string) => setDraft(Array.from(value).slice(0, VISION_NOTE_MAX_CHARS).join(''));
   return (
     <SafeAreaView testID={`v2-vision-note-composer-${route.params.anchorId}`} style={styles.safe} edges={['top', 'left', 'right']}>
@@ -77,7 +163,7 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
           <Pressable onPress={navigation.goBack} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={10} style={styles.back}>
             <ArrowLeft size={21} color={colors.text.primary} />
           </Pressable>
-          <Text accessibilityRole="header" style={styles.title}>Add a Note</Text>
+          <Text accessibilityRole="header" style={styles.title}>{route.params.noteId ? 'Edit Note' : 'Add a Note'}</Text>
           <View style={styles.headerBalance} />
         </View>
         <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
@@ -136,10 +222,20 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing[3]) }]}>
-          <Text style={styles.notice}>Preview only. Saving notes will be available in a future update.</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Add to Vision" accessibilityState={{ disabled: true }} disabled
-            style={styles.addButton}>
-            <Text style={styles.addButtonText}>Add to Vision</Text>
+          {route.params.noteId && model.loading && !editingNote ? <Text style={styles.notice}>Loading note…</Text> : null}
+          {route.params.noteId && !model.loading && model.error ? <View style={styles.loadRecovery}>
+            <Text accessibilityRole="alert" style={styles.error}>Could not load this note.</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Retry loading note" onPress={() => { void model.refresh(); }}>
+              <Text style={styles.retryText}>Retry</Text>
+            </Pressable>
+          </View> : null}
+          {route.params.noteId && !model.loading && !model.error && !editingNote ? <Text accessibilityRole="alert" style={styles.error}>This note is no longer available. It has not been replaced.</Text> : null}
+          {saveError ? <Text accessibilityRole="alert" style={styles.error}>{saveError}</Text> : null}
+          <Pressable onPress={saveNote} accessibilityRole="button" accessibilityLabel={route.params.noteId ? 'Save note' : 'Add to Vision'}
+            accessibilityState={{ disabled: saving || !draft.trim() || Boolean(route.params.noteId && (!editingNote || model.loading)), busy: saving }}
+            disabled={saving || !draft.trim() || Boolean(route.params.noteId && (!editingNote || model.loading))}
+            style={[styles.addButton, (!draft.trim() || saving) && styles.addButtonDisabled]}>
+            <Text style={styles.addButtonText}>{saving ? 'Saving…' : route.params.noteId ? 'Save note' : 'Add to Vision'}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -178,6 +274,18 @@ const styles = StyleSheet.create({
   check: { position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.ink.base, justifyContent: 'center', alignItems: 'center' },
   footer: { paddingHorizontal: spacing[5], paddingTop: spacing[2], paddingBottom: spacing[3], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border.subtle, backgroundColor: colors.background },
   notice: { ...typography.caption, color: colors.text.secondary, textAlign: 'center', marginBottom: spacing[2] },
+  error: { ...typography.caption, color: '#A33B35', textAlign: 'center', marginBottom: spacing[2] },
+  loadRecovery: { alignItems: 'center' },
+  retryText: { ...typography.labelMD, color: colors.text.primary, textDecorationLine: 'underline' },
   addButton: { minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 26, backgroundColor: colors.ink.base },
-  addButtonText: { ...typography.labelLG, color: colors.paper, opacity: 0.55 },
+  addButtonDisabled: { opacity: 0.55 },
+  addButtonText: { ...typography.labelLG, color: colors.paper },
 });
+
+function createClientRequestId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, marker => {
+    const random = Math.floor(Math.random() * 16);
+    const value = marker === 'x' ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}

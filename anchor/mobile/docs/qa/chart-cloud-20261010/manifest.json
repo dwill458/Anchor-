@@ -1,0 +1,362 @@
+{
+  "id": "e3a7d72d-fa10-4306-8d39-e73a4c1e35d8",
+  "createdAt": "2026-10-11T04:47:07.004Z",
+  "runtimeVersion": "2.0",
+  "launchAsset": {
+    "key": "bundle",
+    "contentType": "application/javascript",
+    "url": "http://127.0.0.1:8093/cloud-qa-entry.bundle?platform=android&dev=false&minify=true&lazy=false&transform.engine=hermes"
+  },
+  "assets": [],
+  "metadata": {},
+  "extra": {
+    "eas": {
+      "projectId": "8fc5bf55-b18f-41c9-a8ce-767b307debb7"
+    },
+    "expoClient": {
+      "name": "Anchor: Visual Goal Setting",
+      "orientation": "portrait",
+      "slug": "anchor",
+      "scheme": "anchor",
+      "version": "2.0.0",
+      "newArchEnabled": true,
+      "platforms": [
+        "ios",
+        "android",
+        "web"
+      ],
+      "icon": "./assets/anchor-icon-v3.png",
+      "userInterfaceStyle": "dark",
+      "splash": {
+        "image": "./assets/splash-star.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#F4EDE0",
+        "imageUrl": "http://127.0.0.1:8093/assets/./assets/splash-star.png"
+      },
+      "assetBundlePatterns": [
+        "**/*"
+      ],
+      "runtimeVersion": "2.0",
+      "updates": {
+        "enabled": true,
+        "checkAutomatically": "ON_LOAD",
+        "fallbackToCacheTimeout": 0,
+        "url": "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7"
+      },
+      "ios": {
+        "supportsTablet": false,
+        "usesAppleSignIn": true,
+        "bundleIdentifier": "com.anchorintentions.app",
+        "buildNumber": "16",
+        "googleServicesFile": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPgo8ZGljdD4KCTxrZXk+Q0xJRU5UX0lEPC9rZXk+Cgk8c3RyaW5nPjkzMDExODcxNjAzNy1nODZjNWQxa2o5YTBraW83OTVvYWkzbW5tbmYxZWplay5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbTwvc3RyaW5nPgoJPGtleT5SRVZFUlNFRF9DTElFTlRfSUQ8L2tleT4KCTxzdHJpbmc+Y29tLmdvb2dsZXVzZXJjb250ZW50LmFwcHMuOTMwMTE4NzE2MDM3LWc4NmM1ZDFrajlhMGtpbzc5NW9haTNtbm1uZjFlamVrPC9zdHJpbmc+Cgk8a2V5PkFORFJPSURfQ0xJRU5UX0lEPC9rZXk+Cgk8c3RyaW5nPjkzMDExODcxNjAzNy03M3N1YnBwNW1uNjByM2M4YWpyY3E5Z2loMDQ2ZTFxcS5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbTwvc3RyaW5nPgoJPGtleT5BUElfS0VZPC9rZXk+Cgk8c3RyaW5nPkFJemFTeUF2THRFckdSUjhuZWxPODRDemZyWmpGLWRLQ2pCVDlvVTwvc3RyaW5nPgoJPGtleT5HQ01fU0VOREVSX0lEPC9rZXk+Cgk8c3RyaW5nPjkzMDExODcxNjAzNzwvc3RyaW5nPgoJPGtleT5QTElTVF9WRVJTSU9OPC9rZXk+Cgk8c3RyaW5nPjE8L3N0cmluZz4KCTxrZXk+QlVORExFX0lEPC9rZXk+Cgk8c3RyaW5nPmNvbS5hbmNob3JpbnRlbnRpb25zLmFwcDwvc3RyaW5nPgoJPGtleT5QUk9KRUNUX0lEPC9rZXk+Cgk8c3RyaW5nPmFuY2hvci1hYzZkNjwvc3RyaW5nPgoJPGtleT5TVE9SQUdFX0JVQ0tFVDwva2V5PgoJPHN0cmluZz5hbmNob3ItYWM2ZDYuZmlyZWJhc2VzdG9yYWdlLmFwcDwvc3RyaW5nPgoJPGtleT5JU19BRFNfRU5BQkxFRDwva2V5PgoJPGZhbHNlPjwvZmFsc2U+Cgk8a2V5PklTX0FOQUxZVElDU19FTkFCTEVEPC9rZXk+Cgk8ZmFsc2U+PC9mYWxzZT4KCTxrZXk+SVNfQVBQSU5WSVRFX0VOQUJMRUQ8L2tleT4KCTx0cnVlPjwvdHJ1ZT4KCTxrZXk+SVNfR0NNX0VOQUJMRUQ8L2tleT4KCTx0cnVlPjwvdHJ1ZT4KCTxrZXk+SVNfU0lHTklOX0VOQUJMRUQ8L2tleT4KCTx0cnVlPjwvdHJ1ZT4KCTxrZXk+R09PR0xFX0FQUF9JRDwva2V5PgoJPHN0cmluZz4xOjkzMDExODcxNjAzNzppb3M6NDIyNDJiNDhiOWJlYWY2ZWJhZjdlYzwvc3RyaW5nPgo8L2RpY3Q+CjwvcGxpc3Q+",
+        "infoPlist": {
+          "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo or add a photo to your Vision.",
+          "NSFaceIDUsageDescription": "Anchor uses Face ID to keep your anchors secure.",
+          "NSMicrophoneUsageDescription": "Anchor uses your microphone to record mantras and audio for your anchors.",
+          "NSPhotoLibraryUsageDescription": "Anchor accesses your photo library so you can choose a profile photo and save exported anchor artwork.",
+          "NSPhotoLibraryAddUsageDescription": "Anchor saves exported anchor wallpapers to your photo library.",
+          "ITSAppUsesNonExemptEncryption": false
+        },
+        "privacyManifests": {
+          "NSPrivacyAccessedAPITypes": [
+            {
+              "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+              "NSPrivacyAccessedAPITypeReasons": [
+                "CA92.1"
+              ]
+            },
+            {
+              "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+              "NSPrivacyAccessedAPITypeReasons": [
+                "C617.1"
+              ]
+            }
+          ],
+          "NSPrivacyCollectedDataTypes": [
+            {
+              "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeCrashData",
+              "NSPrivacyCollectedDataTypeLinked": true,
+              "NSPrivacyCollectedDataTypeTracking": false,
+              "NSPrivacyCollectedDataTypePurposes": [
+                "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+              ]
+            },
+            {
+              "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePerformanceData",
+              "NSPrivacyCollectedDataTypeLinked": true,
+              "NSPrivacyCollectedDataTypeTracking": false,
+              "NSPrivacyCollectedDataTypePurposes": [
+                "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+              ]
+            },
+            {
+              "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePurchaseHistory",
+              "NSPrivacyCollectedDataTypeLinked": true,
+              "NSPrivacyCollectedDataTypeTracking": false,
+              "NSPrivacyCollectedDataTypePurposes": [
+                "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+              ]
+            },
+            {
+              "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeUserID",
+              "NSPrivacyCollectedDataTypeLinked": true,
+              "NSPrivacyCollectedDataTypeTracking": false,
+              "NSPrivacyCollectedDataTypePurposes": [
+                "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+              ]
+            },
+            {
+              "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeEmailAddress",
+              "NSPrivacyCollectedDataTypeLinked": true,
+              "NSPrivacyCollectedDataTypeTracking": false,
+              "NSPrivacyCollectedDataTypePurposes": [
+                "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+              ]
+            },
+            {
+              "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeOtherUserContent",
+              "NSPrivacyCollectedDataTypeLinked": true,
+              "NSPrivacyCollectedDataTypeTracking": false,
+              "NSPrivacyCollectedDataTypePurposes": [
+                "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+              ]
+            }
+          ]
+        }
+      },
+      "android": {
+        "allowBackup": false,
+        "adaptiveIcon": {
+          "foregroundImage": "./assets/anchor-adaptive-foreground-v4.png",
+          "backgroundColor": "#F7F0E1",
+          "monochromeImage": "./assets/anchor-monochrome-v2.png",
+          "foregroundImageUrl": "http://127.0.0.1:8093/assets/./assets/anchor-adaptive-foreground-v4.png",
+          "monochromeImageUrl": "http://127.0.0.1:8093/assets/./assets/anchor-monochrome-v2.png"
+        },
+        "package": "com.anchorintentions.app",
+        "versionCode": 39,
+        "googleServicesFile": "{\n  \"project_info\": {\n    \"project_number\": \"930118716037\",\n    \"project_id\": \"anchor-ac6d6\",\n    \"storage_bucket\": \"anchor-ac6d6.firebasestorage.app\"\n  },\n  \"client\": [\n    {\n      \"client_info\": {\n        \"mobilesdk_app_id\": \"1:930118716037:android:2cd5a128da7140b2baf7ec\",\n        \"android_client_info\": {\n          \"package_name\": \"com.anchorintentions.app\"\n        }\n      },\n      \"oauth_client\": [\n        {\n          \"client_id\": \"930118716037-73subpp5mn60r3c8ajrcq9gih046e1qq.apps.googleusercontent.com\",\n          \"client_type\": 1,\n          \"android_info\": {\n            \"package_name\": \"com.anchorintentions.app\",\n            \"certificate_hash\": \"c7ee51760e169c08d66a7f528ab234eacdab11b9\"\n          }\n        },\n        {\n          \"client_id\": \"930118716037-a00fntj28egppi550vhc8d2sjgunk4ra.apps.googleusercontent.com\",\n          \"client_type\": 1,\n          \"android_info\": {\n            \"package_name\": \"com.anchorintentions.app\",\n            \"certificate_hash\": \"67f336660b00c5105c8472f7a440959ca313d65b\"\n          }\n        },\n        {\n          \"client_id\": \"930118716037-lvbff0r43v9rqo61drvpcr8ih499fu6l.apps.googleusercontent.com\",\n          \"client_type\": 3\n        }\n      ],\n      \"api_key\": [\n        {\n          \"current_key\": \"AIzaSyA8jVUQ8VSabmFicek7ZhkTtyS9m4iMeiA\"\n        }\n      ],\n      \"services\": {\n        \"appinvite_service\": {\n          \"other_platform_oauth_client\": [\n            {\n              \"client_id\": \"930118716037-lvbff0r43v9rqo61drvpcr8ih499fu6l.apps.googleusercontent.com\",\n              \"client_type\": 3\n            },\n            {\n              \"client_id\": \"930118716037-g86c5d1kj9a0kio795oai3mnmnf1ejek.apps.googleusercontent.com\",\n              \"client_type\": 2,\n              \"ios_info\": {\n                \"bundle_id\": \"com.anchorintentions.app\"\n              }\n            }\n          ]\n        }\n      }\n    }\n  ],\n  \"configuration_version\": \"1\"\n}",
+        "edgeToEdgeEnabled": true,
+        "blockedPermissions": [
+          "android.permission.RECORD_AUDIO",
+          "android.permission.READ_EXTERNAL_STORAGE",
+          "android.permission.READ_MEDIA_AUDIO",
+          "android.permission.READ_MEDIA_IMAGES",
+          "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+          "android.permission.READ_MEDIA_VIDEO",
+          "android.permission.WRITE_EXTERNAL_STORAGE"
+        ],
+        "permissions": [
+          "android.permission.MODIFY_AUDIO_SETTINGS",
+          "android.permission.CAMERA",
+          "android.permission.VIBRATE",
+          "android.permission.POST_NOTIFICATIONS",
+          "android.permission.RECORD_AUDIO",
+          "android.permission.READ_EXTERNAL_STORAGE",
+          "android.permission.WRITE_EXTERNAL_STORAGE",
+          "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+          "android.permission.READ_MEDIA_IMAGES",
+          "android.permission.READ_MEDIA_VIDEO",
+          "android.permission.READ_MEDIA_AUDIO",
+          "android.permission.ACCESS_COARSE_LOCATION",
+          "android.permission.ACCESS_FINE_LOCATION"
+        ]
+      },
+      "web": {
+        "favicon": "./assets/favicon.png"
+      },
+      "plugins": [
+        [
+          "expo-build-properties",
+          {
+            "android": {
+              "enableMinifyInReleaseBuilds": true,
+              "enableShrinkResourcesInReleaseBuilds": true
+            },
+            "ios": {
+              "useFrameworks": "static"
+            }
+          }
+        ],
+        "./plugins/withFirebaseFrameworkFix",
+        "./plugins/withAndroidSplashIconBackground",
+        "@react-native-firebase/app",
+        "expo-apple-authentication",
+        "@sentry/react-native/expo",
+        "expo-secure-store",
+        [
+          "expo-splash-screen",
+          {
+            "image": "./assets/splash-star.png",
+            "imageWidth": 150,
+            "resizeMode": "contain",
+            "backgroundColor": "#F4EDE0",
+            "dark": {
+              "image": "./assets/splash-star.png",
+              "backgroundColor": "#F4EDE0"
+            }
+          }
+        ],
+        "@react-native-community/datetimepicker",
+        "@sentry/react-native",
+        "expo-audio",
+        "expo-video",
+        "expo-asset",
+        [
+          "expo-notifications",
+          {
+            "icon": "./assets/anchor-monochrome-v2.png",
+            "color": "#D4AF37",
+            "sounds": [
+              "./src/assets/sounds/notification.wav"
+            ]
+          }
+        ],
+        [
+          "expo-image-picker",
+          {
+            "photosPermission": "Anchor accesses your photo library to set your profile photo or add images to your Vision.",
+            "cameraPermission": "Anchor uses your camera to set your profile photo or add a photo to your Vision."
+          }
+        ],
+        [
+          "expo-media-library",
+          {
+            "savePhotosPermission": "Allow Anchor to save your anchor artwork.",
+            "photosPermission": "Anchor accesses your photo library so you can choose a profile photo and save exported anchor artwork.",
+            "isAccessMediaLocationEnabled": false
+          }
+        ],
+        "expo-localization",
+        [
+          "expo-location",
+          {
+            "locationWhenInUsePermission": "Allow Anchor to suggest your local priming preset when you are near a saved place."
+          }
+        ],
+        [
+          "react-native-android-widget",
+          {
+            "fonts": [
+              "./assets/widget-fonts/Cinzel_500Medium.ttf",
+              "./assets/widget-fonts/Cinzel_600SemiBold.ttf",
+              "./assets/widget-fonts/CrimsonPro_600SemiBold.ttf"
+            ],
+            "widgets": [
+              {
+                "name": "AnchorSmallWidget",
+                "label": "Anchor",
+                "description": "Your anchor at a glance — glows gold once you prime.",
+                "minWidth": "110dp",
+                "minHeight": "110dp",
+                "targetCellWidth": 2,
+                "targetCellHeight": 2,
+                "resizeMode": "none",
+                "updatePeriodMillis": 1800000
+              },
+              {
+                "name": "AnchorMediumWidget",
+                "label": "Anchor — Prime",
+                "description": "Today's anchor with a one-tap way into your Focus session.",
+                "minWidth": "250dp",
+                "minHeight": "110dp",
+                "targetCellWidth": 4,
+                "targetCellHeight": 2,
+                "resizeMode": "horizontal",
+                "updatePeriodMillis": 1800000
+              },
+              {
+                "name": "AnchorLargeWidget",
+                "label": "Anchor — Session History",
+                "description": "Your day thread and 18 weeks of session history.",
+                "minWidth": "250dp",
+                "minHeight": "250dp",
+                "targetCellWidth": 4,
+                "targetCellHeight": 4,
+                "resizeMode": "horizontal|vertical",
+                "updatePeriodMillis": 1800000
+              }
+            ]
+          }
+        ]
+      ],
+      "extra": {
+        "eas": {
+          "projectId": "8fc5bf55-b18f-41c9-a8ce-767b307debb7"
+        }
+      },
+      "owner": "dwill458",
+      "_internal": {
+        "isDebug": false,
+        "projectRoot": "E:\\Projects\\Anchor\\anchor\\mobile",
+        "dynamicConfigPath": {},
+        "staticConfigPath": "E:\\Projects\\Anchor\\anchor\\mobile\\app.json",
+        "packageJsonPath": "E:\\Projects\\Anchor\\anchor\\mobile\\package.json",
+        "pluginHistory": {
+          "@react-native-firebase/app": {
+            "name": "@react-native-firebase/app",
+            "version": "24.0.0"
+          },
+          "expo-apple-authentication": {
+            "name": "expo-apple-authentication",
+            "version": "8.0.8"
+          },
+          "@sentry/react-native": {
+            "name": "@sentry/react-native",
+            "version": "7.2.0"
+          },
+          "expo-secure-store": {
+            "name": "expo-secure-store",
+            "version": "15.0.8"
+          },
+          "expo-splash-screen": {
+            "name": "expo-splash-screen",
+            "version": "31.0.13"
+          },
+          "expo-audio": {
+            "name": "expo-audio",
+            "version": "1.1.1"
+          },
+          "expo-asset": {
+            "name": "expo-asset",
+            "version": "12.0.13"
+          },
+          "expo-notifications": {
+            "name": "expo-notifications",
+            "version": "0.32.17"
+          },
+          "expo-image-picker": {
+            "name": "expo-image-picker",
+            "version": "17.0.11"
+          },
+          "expo-media-library": {
+            "name": "expo-media-library",
+            "version": "18.2.1"
+          },
+          "expo-location": {
+            "name": "expo-location",
+            "version": "19.0.8"
+          }
+        }
+      },
+      "sdkVersion": "54.0.0",
+      "androidStatusBar": {
+        "backgroundColor": "#F4EDE0"
+      },
+      "iconUrl": "http://127.0.0.1:8093/assets/./assets/anchor-icon-v3.png",
+      "hostUri": "127.0.0.1:8093"
+    },
+    "expoGo": {
+      "debuggerHost": "127.0.0.1:8093",
+      "developer": {
+        "tool": "expo-cli",
+        "projectRoot": "E:\\Projects\\Anchor\\anchor\\mobile"
+      },
+      "packagerOpts": {
+        "dev": true
+      },
+      "mainModuleName": "index"
+    },
+    "scopeKey": "@anonymous/anchor-2d12136a-e211-4459-84c6-517a0d3b81f0"
+  }
+}

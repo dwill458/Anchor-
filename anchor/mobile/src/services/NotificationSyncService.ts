@@ -109,17 +109,29 @@ export async function syncPushTokensToServer(
   }
 }
 
+/** Best-effort cleanup must never hold sign-out on a hung request (the API client allows 120s). */
+const PUSH_TOKEN_CLEAR_TIMEOUT_MS = 3000;
+
 export async function clearPushTokensFromServer(): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, PUSH_TOKEN_CLEAR_TIMEOUT_MS);
+  });
   try {
-    await syncPushTokensToServer(
-      {
-        expoPushToken: null,
-        fcmToken: null,
-        apnsToken: null,
-      },
-      true
-    );
+    await Promise.race([
+      syncPushTokensToServer(
+        {
+          expoPushToken: null,
+          fcmToken: null,
+          apnsToken: null,
+        },
+        true
+      ),
+      timeout,
+    ]);
   } catch {
     // Best-effort cleanup during sign out
+  } finally {
+    clearTimeout(timer);
   }
 }

@@ -7,6 +7,9 @@ export const noteAssets = {
   botanicalShadow: require('./botanical-shadow.png') as ImageSourcePropType,
   coastalIllustration: require('./coastal-illustration.png') as ImageSourcePropType,
   atmosphericLandscape: require('./atmospheric-landscape.png') as ImageSourcePropType,
+  vintageLetter: require('./vintage-letter.png') as ImageSourcePropType,
+  goldenHour: require('./golden-hour.png') as ImageSourcePropType,
+  mistyMountains: require('./misty-mountains.png') as ImageSourcePropType,
 } as const;
 
 export type NoteAssetKey = keyof typeof noteAssets;

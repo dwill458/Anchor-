@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Copy, Download, Image as ImageIcon, Upload } from 'lucide-react-native';
-import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
+import { detailsFonts, detailsPalette, withAlpha } from '@/components/v2/anchors/anchorDetailsTokens';
 
 export type AnchorOptionsMenuAction = 'share' | 'download' | 'wallpaper' | 'copy';
 
@@ -61,7 +61,7 @@ export function AnchorOptionsMenu({ visible, onClose, onSelect, top, busy }: Pro
 const styles = StyleSheet.create({
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(20,22,43,0.28)',
+    backgroundColor: withAlpha(detailsPalette.ink, 0.28),
   },
   menu: {
     position: 'absolute',
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  rowPressed: { backgroundColor: 'rgba(244,237,224,.07)' },
+  rowPressed: { backgroundColor: withAlpha(detailsPalette.cream, 0.07) },
   rowBusy: { opacity: 0.5 },
   label: {
     fontFamily: detailsFonts.uiStrong,

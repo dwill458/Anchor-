@@ -1,8 +1,14 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { VisionNoteRenderer } from '../VisionNoteRenderer';
+import { VISION_NOTE_PRESETS } from '../visionNoteStyles';
 
 describe('VisionNoteRenderer', () => {
+  it.each(VISION_NOTE_PRESETS)('renders preset $id with its label and accessible live content', preset => {
+    const view = render(<VisionNoteRenderer styleId={preset.id} text="A distinct note" width={220} height={150} compact />);
+    expect(view.getByTestId('vision-note-renderer').props.accessibilityLabel).toBe('A distinct note');
+    expect(view.UNSAFE_getByType(require('react-native').Text).props.children).toBe('A distinct note');
+  });
   it.each(['sticky_blush_pink', 'paper_blush_torn', 'editorial_botanical_shadow'] as const)(
     'renders the selected %s style as native, accessible text', styleId => {
       const view = render(<VisionNoteRenderer styleId={styleId} text={'A thought\nfor later'} width={240} height={160} />);

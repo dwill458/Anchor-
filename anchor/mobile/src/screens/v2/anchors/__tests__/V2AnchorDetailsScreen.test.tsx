@@ -508,6 +508,17 @@ describe('V2AnchorDetailsScreen', () => {
     renderDetails();
     expect(screen.getByText('Anchor not found')).toBeTruthy();
   });
+
+  it('returns to Home once through the back control, even when no return flight can measure', async () => {
+    mockParams = { anchorId: 'a' };
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails();
+    fireEvent.press(screen.getByLabelText('Back'));
+    // With nothing measurable in Jest the return falls back to a plain pop, after a short measure timeout.
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('V2DevelopmentHome'));
+    fireEvent.press(screen.getByLabelText('Back'));
+    expect(mockNavigate.mock.calls.filter(([name]) => name === 'V2DevelopmentHome')).toHaveLength(1);
+  });
 });
 
 describe('V2AnchorDetailsScreen options menu', () => {
@@ -689,7 +700,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
       const emptyVisionBtn = screen.getByLabelText('Vision');
       const visionStyle = StyleSheet.flatten(emptyVisionBtn.props.style);
       expect(visionStyle).toMatchObject({
-        height: 76,
+        minHeight: 76,
         borderStyle: 'dashed',
       });
       // Verify no cream background fill
@@ -698,7 +709,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
       const emptyChartBtn = screen.getByLabelText('Create Chart. Map the path from here.');
       const chartStyle = StyleSheet.flatten(emptyChartBtn.props.style);
       expect(chartStyle).toMatchObject({
-        height: 76,
+        minHeight: 76,
         borderStyle: 'dashed',
       });
       expect(chartStyle.backgroundColor).not.toBe('#F4EDE0');
@@ -712,7 +723,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
       const notEstablished = screen.getAllByText('NOT ESTABLISHED');
       expect(notEstablished.length).toBeGreaterThan(0);
       notEstablished.forEach((el) => {
-        expect(el.props.numberOfLines).toBe(1);
+        expect(el.props.numberOfLines).toBeUndefined();
       });
     });
   });

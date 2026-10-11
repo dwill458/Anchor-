@@ -17,7 +17,7 @@
  *   - bottom_hint:  suppressed for remainder of session after one fades
  */
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TEACHINGS, type TeachingContent } from '@/constants/teaching';
 import { useTeachingStore, type TeachingState } from '@/stores/teachingStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -29,6 +29,8 @@ const VEIL_CARD_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export interface TeachingGateContext {
   screenId: string;
+  /** Changes when a reused route starts showing a different anchor. */
+  visitKey?: string;
   /** Suppress glass_card overlays while keyboard is visible. */
   isKeyboardOpen?: boolean;
   /** Explicitly override returning user check (defaults to automatic check). */
@@ -87,12 +89,36 @@ export function checkIsReturningUser(store: TeachingState): boolean {
 export function useTeachingGate(context: TeachingGateContext): TeachingContent | null {
   const guideMode = useSettingsStore((s) => s.guideMode);
   const store = useTeachingStore();
+  const [teachingStoreHydrated, setTeachingStoreHydrated] = useState(() =>
+    useTeachingStore.persist.hasHydrated()
+  );
   const retainedTeachingRef = useRef<{
     screenId: string;
     candidateKey: string;
+    visitKey: string | null;
     teaching: TeachingContent;
   } | null>(null);
   const candidateKey = context.candidateIds.join('\u0000');
+  const visitKey = context.visitKey ?? null;
+
+  useEffect(() => {
+    if (useTeachingStore.persist.hasHydrated()) {
+      setTeachingStoreHydrated(true);
+      return;
+    }
+
+    const unsubscribe = useTeachingStore.persist.onFinishHydration(() => {
+      setTeachingStoreHydrated(true);
+    });
+    // Close the gap between the initial check and subscribing to hydration.
+    if (useTeachingStore.persist.hasHydrated()) setTeachingStoreHydrated(true);
+    return unsubscribe;
+  }, []);
+
+  if (!teachingStoreHydrated) {
+    retainedTeachingRef.current = null;
+    return null;
+  }
 
   const isReturning = context.isReturning ?? checkIsReturningUser(store);
 
@@ -100,7 +126,8 @@ export function useTeachingGate(context: TeachingGateContext): TeachingContent |
   if (
     retainedTeaching &&
     retainedTeaching.screenId === context.screenId &&
-    retainedTeaching.candidateKey === candidateKey
+    retainedTeaching.candidateKey === candidateKey &&
+    retainedTeaching.visitKey === visitKey
   ) {
     const content = retainedTeaching.teaching;
     const isSuppressedReturning = isReturning && (content.trigger === 'first_time' || content.trigger === 'hesitation');
@@ -168,6 +195,7 @@ export function useTeachingGate(context: TeachingGateContext): TeachingContent |
     retainedTeachingRef.current = {
       screenId: context.screenId,
       candidateKey,
+      visitKey,
       teaching: content,
     };
     return content;

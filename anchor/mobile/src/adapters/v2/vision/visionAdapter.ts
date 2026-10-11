@@ -31,7 +31,8 @@ export function toV2VisionPresentationState(
 
   const activeScenes = orderedActiveScenes(raw);
 
-  if (activeScenes.length === 0) {
+  const hasNotes = raw.notes?.some(note => !note.isArchived && note.content.text.trim());
+  if (activeScenes.length === 0 && !hasNotes) {
     return { state: 'none', anchorId };
   }
 
@@ -46,7 +47,7 @@ export function toV2VisionPresentationState(
     title: raw.title ?? null,
     description,
     tiles,
-    featuredTileId: tiles[0].id,
+    featuredTileId: tiles[0]?.id ?? '',
     seenToday: Boolean(raw.seenToday),
     raw,
   };
@@ -64,7 +65,7 @@ export function toV2VisionCompactState(
   }
 
   const activeScenes = orderedActiveScenes(raw);
-  if (activeScenes.length === 0) {
+  if (activeScenes.length === 0 && !raw.notes?.some(note => !note.isArchived && note.content.text.trim())) {
     return { state: 'none' };
   }
 

@@ -1,6 +1,7 @@
 const mockPlay = jest.fn();
 const mockPause = jest.fn();
 const mockRemove = jest.fn();
+const mockRelease = jest.fn();
 const mockSubscriptionRemove = jest.fn();
 let playbackListener: ((status: { didJustFinish: boolean }) => void) | null = null;
 
@@ -13,6 +14,7 @@ jest.mock('expo-audio', () => ({
     pause: mockPause,
     play: mockPlay,
     remove: mockRemove,
+    release: mockRelease,
   })),
   setAudioModeAsync: jest.fn().mockResolvedValue(undefined),
 }));
@@ -40,6 +42,7 @@ describe('VoicePreviewService', () => {
     await expect(startVoicePreview('female')).resolves.toBe(true);
     expect(mockPause).toHaveBeenCalledTimes(1);
     expect(mockRemove).toHaveBeenCalledTimes(1);
+    expect(mockRelease).toHaveBeenCalledTimes(1);
   });
 
   it('plays the loudness-matched male preview', async () => {
@@ -56,5 +59,6 @@ describe('VoicePreviewService', () => {
     expect(getActivePreviewVoice()).toBeNull();
     expect(mockSubscriptionRemove).toHaveBeenCalled();
     expect(mockRemove).toHaveBeenCalled();
+    expect(mockRelease).toHaveBeenCalled();
   });
 });

@@ -4,7 +4,7 @@ import { act, render } from '@testing-library/react-native';
 import { Asset } from 'expo-asset';
 import { useImage } from '@shopify/react-native-skia';
 import type { V2VisionTile } from '@/adapters/v2/vision';
-import { freezeCinematicTiles, useCinematicAssets } from '../cinematicAssets';
+import { freezeCinematicTiles, sanitizeCinematicAssetError, useCinematicAssets } from '../cinematicAssets';
 
 const mockUseImage = jest.fn();
 
@@ -71,6 +71,15 @@ describe('cinematic saved-asset readiness', () => {
     prefetchSpy.mockRestore();
     getSizeSpy.mockRestore();
     jest.useRealTimers();
+  });
+
+  it('does not expose arbitrary error messages, URLs, or filesystem paths in diagnostics', () => {
+    const error = Object.assign(new Error('Failed to decode https://private.example/photo?token=secret from /data/user/0/app/cache/private.jpg'), { code: 'E_NETWORK' });
+    const diagnostic = sanitizeCinematicAssetError(error);
+    expect(diagnostic).toEqual({ errorType: 'Error', code: 'E_NETWORK' });
+    expect(JSON.stringify(diagnostic)).not.toMatch(/private\.example|token=secret|\/data\/user|decode/);
+    expect(sanitizeCinematicAssetError('https://private.example/photo?token=secret')).toEqual({ errorType: 'NativeError' });
+    expect(sanitizeCinematicAssetError({ name: 'Native Error with URL', code: 'https://private.example' })).toEqual({ errorType: 'UnknownError' });
   });
 
   it('keeps readiness closed and offers the decoded image when another prefetch hangs', async () => {

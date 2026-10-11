@@ -94,8 +94,8 @@ export function V2FirstRunFlow() {
     return <IntentionInputScreen
       fromOnboarding
       onBack={() => setStep('motivation')}
-      // The one onboarding answer names the Anchor's category. "Something else" is the
-      // default (Desire), so the words decide and fall back to it.
+      // The one onboarding answer names the Anchor's category. "Something else" maps to
+      // Custom (user declined to pick), so the words decide and fall back to Desire if unmatched.
       chosenCategory={isSpecificFocus(draft.focusCategory) ? draft.focusCategory : undefined}
     />;
   }

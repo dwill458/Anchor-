@@ -11,11 +11,14 @@ import { V2Button } from '@/components/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
+import type { VisionNote, VisionNotePresentation } from '@/adapters/v2/vision';
 import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { VISION_GOLD, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { VisionHeaderRow, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
+import { detailBoardSizeForWidth } from './board/visionBoardLayouts';
 import { VisionBoard } from './board/VisionBoard';
+import { VisionPhotoCaptionEditor } from './board/VisionPhotoCaptionEditor';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
 import { VisionArrivalDestination, useVisionImageArrival } from './VisionImageArrival';
 import { VisionAddSheet, type VisionAddChoice } from './VisionAddSheet';
@@ -30,6 +33,7 @@ import { scrollToTarget, type TeachingRect } from '@/components/v2/teaching/scro
 
 type Props = {
   justAdded?: 'create' | 'add';
+  arrivingNoteId?: string;
   arrivingSceneId?: string | null;
   onAddImage?: () => void;
   anchorIntention: string;
@@ -41,9 +45,14 @@ type Props = {
   annotation?: string;
   onUpdateAnnotation?: (annotation: string) => Promise<boolean>;
   tiles: V2VisionTile[];
+  notes?: readonly VisionNote[];
+  onNotePresentationChange?: (id: string, presentation: VisionNotePresentation) => Promise<boolean>;
+  onNoteEdit?: (id: string) => void;
+  onNoteDelete?: (id: string) => void;
+  onUpdateSceneCaption?: (sceneId: string, caption: string | null) => Promise<boolean>;
   error?: string | null;
   onBack: () => void;
-  onVisualize: (frame?: { x: number; y: number; width: number; height: number }) => void;
+  onVisualize: (frame?: { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number }) => void;
   visualizeReady?: boolean;
   preparationIssue?: string | null;
   onRetryVisualize?: () => void;
@@ -80,12 +89,12 @@ const ARRIVAL_RECOMPOSE_DELAY_MS = 450;
 
 export function V2SavedVision({
   chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
-  anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, tiles, error, initialEdit = false,
+  anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, onUpdateSceneCaption, tiles, notes = [], onNotePresentationChange, onNoteEdit, onNoteDelete, error, initialEdit = false,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
-  onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
+  onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, arrivingNoteId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
 }: Props) {
   const canvasRef = useRef<View>(null);
-  const canvasCapture = useRef<(() => { x: number; y: number; width: number; height: number }) | null>(null);
+  const canvasCapture = useRef<(() => { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number }) | null>(null);
   const canvasBounds = useRef<{ x: number; y: number; width: number; height: number } | undefined>(undefined);
   const measureCanvas = () => canvasRef.current?.measureInWindow?.((x, y, width, height) => {
     if (width > 0 && height > 0) canvasBounds.current = { x, y, width, height };
@@ -99,6 +108,7 @@ export function V2SavedVision({
   const truncated = preview !== description;
   const [annotationDraft, setAnnotationDraft] = useState(annotation);
   const [manageImages, setManageImages] = useState(false);
+  const [captionSceneId, setCaptionSceneId] = useState<string | null>(null);
   const [mode, setMode] = useState<'view' | 'edit'>(initialEdit ? 'edit' : 'view');
   const [draft, setDraft] = useState(description);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -116,6 +126,24 @@ export function V2SavedVision({
   const teachingScrollRef = useRef<ScrollView>(null);
   const teachingScrollMetrics = useRef({ y: 0, content: 0, viewport: 0 });
   const teachingControlledScroll = useRef(false);
+  const revealedNote = useRef<string | null>(null);
+  useEffect(() => {
+    if (!arrivingNoteId || revealedNote.current === arrivingNoteId) return;
+    const note = notes.find(item => item.id === arrivingNoteId && !item.isArchived);
+    if (!note) return;
+    const timer = setTimeout(() => {
+      canvasRef.current?.measureInWindow?.((_x, y, _width, height) => {
+        if (height <= 0) return;
+        revealedNote.current = arrivingNoteId;
+        const metrics = teachingScrollMetrics.current;
+        const noteY = note.presentation.y * detailBoardSizeForWidth(boardWidth, tiles.length).height;
+        const target = metrics.y + y + noteY - metrics.viewport * 0.45;
+        teachingScrollRef.current?.scrollTo({ y: Math.max(0, Math.min(metrics.content - metrics.viewport, target)), animated: !reduceMotion });
+      });
+    }, reduceMotion ? 0 : 320);
+    return () => clearTimeout(timer);
+  }, [arrivingNoteId, boardWidth, notes, reduceMotion, tiles.length]);
+
   // Board edits show at once; the server catches up behind them.
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(() => new Set());
@@ -279,7 +307,13 @@ export function V2SavedVision({
               <View style={styles.boardWrap}>
                 <View ref={canvasRef} collapsable={false} onLayout={measureCanvas}><VisionBoard
                   tiles={boardTiles}
+                  notes={notes}
+                  onNotePresentationChange={onNotePresentationChange}
+                  onNoteEdit={onNoteEdit}
+                  onNoteDelete={onNoteDelete}
+                  onCaptionEdit={onUpdateSceneCaption ? setCaptionSceneId : undefined}
                   arrivingSceneId={arrivingSceneId}
+                  arrivingNoteId={arrivingNoteId}
                   intention={anchorIntention}
                   annotation={annotation}
                   category={anchorCategory}
@@ -377,6 +411,12 @@ export function V2SavedVision({
         </ScrollView>
       </KeyboardAvoidingView>
       <VisionStatusBarScrim tone="dark" />
+      {onUpdateSceneCaption ? <VisionPhotoCaptionEditor
+        visible={captionSceneId !== null}
+        caption={tiles.find(tile => tile.sceneId === captionSceneId)?.caption}
+        onSave={async caption => captionSceneId ? onUpdateSceneCaption(captionSceneId, caption) : false}
+        onClose={() => setCaptionSceneId(null)}
+      /> : null}
       <ScreenTeaching screen="vision" queue={teachingQueue} reducedMotion={reduceMotion} targets={{ 'vision.second': { getRect: getTeachingPhotoRect } }} />
       <VisionAddSheet visible={addSheetOpen} onClose={closeAddSheet} onChoose={chooseAdd} />
       {menuOpen && mode === 'view' && (

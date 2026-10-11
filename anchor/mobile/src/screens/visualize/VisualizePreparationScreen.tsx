@@ -124,6 +124,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   const startingRef = useRef(false);
   const sceneTeaching = useTeachingGate({
     screenId: "visualize_preparation",
+    visitKey: route.params.anchorId,
     candidateIds: ["visualize_scene_explainer"],
   });
 

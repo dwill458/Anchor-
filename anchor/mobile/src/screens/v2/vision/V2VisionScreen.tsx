@@ -14,15 +14,18 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
 import { colors } from '@/theme/v2';
-import type { V2VisualizeHandoff, V2VisionTile } from '@/adapters/v2/vision';
+import type { V2VisualizeHandoff, V2VisionTile, VisionNotePresentation } from '@/adapters/v2/vision';
 import { toChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
 import { newestVisionScene } from '@/hooks/v2/teaching/visionTeaching';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import revenueCatService from '@/services/RevenueCatService';
 
 const WARM_IMAGE_MAX_MS = 3000;
 
 export interface V2VisionRouteParams {
+  savedNoteId?: string;
   edit?: boolean;
   anchorId: string;
   initialMode?: 'view' | 'create' | 'ready';
@@ -65,6 +68,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const anchor = useAnchorStore(state => state.anchors.find(item => item.id === anchorId || item.localId === anchorId));
   useEffect(() => { if (anchorId) AnalyticsService.track('vision_opened', { anchor_id: anchorId }); }, [anchorId]);
   const model = useV2Vision(anchorId);
+  const { entitlementReady, hasActiveEntitlement } = useTrialStatus();
   const picker = useVisionPicker(anchorId);
   // Warm every board image (and the Anchor's enhanced art) while the Vision is on screen, so the Visualize setup and
   // session that follow find them decoded-cache-ready instead of fetching them as they appear.
@@ -151,6 +155,27 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     context: 'VISION_PREMIUM_ACTION',
     resumeIntent: { type: 'vision_premium_action', anchorId, action: 'generate' },
   });
+
+  const entitlementRefreshStarted = useRef(false);
+  const [entitlementRefreshAttempt, setEntitlementRefreshAttempt] = useState(0);
+  useEffect(() => {
+    if (entitlementReady || entitlementRefreshStarted.current) return;
+    entitlementRefreshStarted.current = true;
+    void revenueCatService.refreshTrialStatus().finally(() => {
+      entitlementRefreshStarted.current = false;
+    });
+  }, [entitlementReady, entitlementRefreshAttempt]);
+
+  const needsCreationPaywall = !model.loading && !model.error && !model.vision && entitlementReady && !hasActiveEntitlement;
+  const creationPaywallOpened = useRef(false);
+  useEffect(() => {
+    if (!needsCreationPaywall || creationPaywallOpened.current) return;
+    creationPaywallOpened.current = true;
+    navigation.replace('V2Paywall', {
+      context: 'VISION_PREMIUM_ACTION',
+      resumeIntent: { type: 'vision_premium_action', anchorId, action: 'create' },
+    });
+  }, [anchorId, navigation, needsCreationPaywall]);
 
   /** Permission refusals are explained; a permanent refusal points to Settings. */
   const reportPickProblem = (result: Exclude<VisionPhotoPick, { status: 'picked' } | { status: 'cancelled' }>) => {
@@ -240,11 +265,47 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     setMode('addScene');
   };
 
+  // The composer pops to this existing route after the confirmed mutation.
+  // Local Add mode must be cleared even though initialMode does not change.
+  useEffect(() => {
+    if (!route.params?.savedNoteId) return;
+    setMode('view');
+    setPendingPhoto(null);
+    setReplaceSceneId(null);
+    setActionError(null);
+  }, [route.params?.savedNoteId]);
+
   const openNoteComposer = () => {
+    setMode('view');
+    setReplaceSceneId(null);
+    setPendingPhoto(null);
     const params = { anchorId, ...(model.vision?.id ? { visionId: model.vision.id } : {}) };
     if (props.onAddNote) props.onAddNote(params);
     else navigation.navigate('V2VisionNoteComposer', params);
   };
+
+  const openEditNote = (noteId: string) => {
+    const params = { anchorId, visionId: model.vision?.id, noteId };
+    navigation.navigate('V2VisionNoteComposer', params);
+  };
+
+  const deleteNote = (noteId: string) => {
+    Alert.alert('Delete this note?', 'You can undo this from the next message.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        void model.deleteNote(noteId).then(updated => {
+          if (!updated) return;
+          Alert.alert('Note deleted', 'This note was removed from your Vision.', [
+            { text: 'Undo', onPress: () => { void model.restoreNote(noteId); } },
+            { text: 'Done', style: 'cancel' },
+          ]);
+        });
+      } },
+    ]);
+  };
+
+  const updateNotePresentation = async (noteId: string, presentation: VisionNotePresentation) =>
+    Boolean(await model.updateNote(noteId, { presentation }));
 
   /** Adds the generated image the person chose. */
   const addGeneratedScene = async (choice: { assetId: string; prompt: string; caption?: string }): Promise<boolean> => {
@@ -323,6 +384,27 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   };
 
   const renderContent = () => {
+  if (!model.vision && !entitlementReady) return (
+    <V2Screen testID="v2-vision-entitlement-loading">
+      <V2TopBar title="Vision" onBackPress={handleBack} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator accessibilityLabel="Checking subscription access" color={colors.text.primary} />
+        <V2Button size="compact" variant="secondary" onPress={() => setEntitlementRefreshAttempt((attempt) => attempt + 1)}>
+          Try again
+        </V2Button>
+      </View>
+    </V2Screen>
+  );
+
+  if (needsCreationPaywall) return (
+    <V2Screen testID="v2-vision-premium-gate">
+      <V2TopBar title="Vision" onBackPress={handleBack} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator accessibilityLabel="Opening Anchor Pro" color={colors.text.primary} />
+      </View>
+    </V2Screen>
+  );
+
   if (model.loading && !model.vision) return (
     <V2Screen testID="v2-vision-screen-loading">
       <V2TopBar title="Vision" onBackPress={handleBack} />
@@ -427,13 +509,22 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       description={model.description}
       annotation={model.vision?.title ?? ''}
       onUpdateAnnotation={async title => Boolean(await model.updateVision({ title }))}
+      onUpdateSceneCaption={async (sceneId, caption) => Boolean(await model.updateSceneCaption(sceneId, caption))}
       tiles={model.tiles}
+      arrivingNoteId={route.params?.savedNoteId}
+      notes={model.vision?.notes ?? []}
+      onNotePresentationChange={updateNotePresentation}
+      onNoteEdit={openEditNote}
+      onNoteDelete={deleteNote}
       error={actionError ?? model.error}
       onBack={handleBack}
-      onVisualize={() => {
+      onVisualize={sourceFrame => {
         // One Visualize: every entry reaches the same setup, where the duration is chosen.
         if (props.onVisualize) { props.onVisualize(model.visualizeHandoff); return; }
-        navigation.navigate('V2Practice', { anchorId, resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision' });
+        navigation.navigate('V2Practice', { anchorId, resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision',
+          visionEntry: { anchorId, visionId: model.vision!.id, tiles: model.tiles.map(tile => ({ ...tile })),
+            notes: (model.vision?.notes ?? []).map(note => ({ ...note, content: { ...note.content }, presentation: { ...note.presentation } })),
+            ...(sourceFrame ? { sourceFrame } : {}) } });
       }}
       chartSummary={chartSummary}
       onChart={() => {

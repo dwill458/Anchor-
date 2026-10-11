@@ -13,6 +13,7 @@ import { cinematicSessionFrame, CINEMATIC_MARK_BRIDGE_MS, type CinematicSessionG
 import type { CinematicTimeline } from './prototype/cinematicTimeline';
 import type { ReturnTypeCinematicFrame } from './cinematicSessionMotion';
 import { photoMotionFrame, photoMotionPlan, type PhotoFocus, type PhotoMotionPlan } from './cinematicPhotoMotion';
+import { preserveVisualizeAnchorLayout } from './visualizePhotoFrame';
 
 function smoothstep(value: number) {
   'worklet';
@@ -92,7 +93,8 @@ type Props = {
 /** Production scene: the board, saved photos and enhanced Anchor share one camera. */
 export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles, images, intention, category, svgText,
   enhancedImageUrl, focalPoints, backdrops, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, sequenceCount, activeIndex, watermark, onMarkLayout }: Props) {
-  const board = useVisionBoardScene(tiles, scene);
+  const board = useVisionBoardScene(tiles, scene, 1, true);
+  const sessionLayout = preserveVisualizeAnchorLayout(board.layout, tiles.length, scene);
   const state = useDerivedValue(() => cinematicSessionFrame(elapsed.value, timeline, geometry, reduced));
   const backgroundStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(state.value.ambientDarkness,
     [0, 1], [colors.canvas, colors.ink.deep]) }));
@@ -195,7 +197,7 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
     <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.canvas }, backgroundStyle]} />
     <Animated.View style={[{ position: 'absolute', left: (viewport.width - scene.width) / 2,
       top: (viewport.height - scene.height) / 2, width: scene.width, height: scene.height }, cameraStyle]}>
-      <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout}
+      <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={sessionLayout}
         shared={board.shared} initialRectFor={board.initialRectFor} intention={intention} category={category}
         art={{ svg: svgText, imageUrl: enhancedImageUrl }} reduceMotion cinematic={cinematic} />
     </Animated.View>

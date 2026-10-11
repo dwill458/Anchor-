@@ -27,6 +27,17 @@ const props: VisionBoardProps = {
 };
 
 describe('VisionBoard focused controls', () => {
+  it('captures the original render scene dimensions across camera focus changes', () => {
+    const captureFrame = { current: null } as NonNullable<VisionBoardProps['captureFrame']>;
+    const view = render(<VisionBoard {...props} captureFrame={captureFrame} />);
+    const initial = captureFrame.current?.();
+    expect(initial?.sceneWidth).toBeGreaterThan(initial?.width ?? 0);
+    expect(initial?.sceneHeight).toBeGreaterThan(initial?.height ?? 0);
+    fireEvent.press(view.getByLabelText('Focus photo'));
+    const focused = captureFrame.current?.();
+    expect(focused?.sceneWidth).toBe(initial?.sceneWidth);
+    expect(focused?.sceneHeight).toBe(initial?.sceneHeight);
+  });
   it('keeps the Add action available at the image limit and preserves its callback', () => {
     const onAddImage = jest.fn();
     const tiles = Array.from({ length: 8 }, (_, index) => ({ ...props.tiles[0], id: `p${index}`, sceneId: `p${index}`, sortOrder: index }));

@@ -9,6 +9,40 @@ export const EXPORT_ASSET_TIMEOUT_MS = 2500;
 
 type Target = { layout: ShareLayoutId; showMark: boolean; key: string };
 
+/** Wait for static assets, failing closed only for Vision board exports. */
+export function waitForExportAssets(
+  layout: ShareLayoutId,
+  isReady: () => boolean,
+  subscribe: (resolve: () => void) => () => void,
+  timeoutMs = EXPORT_ASSET_TIMEOUT_MS,
+) {
+  return new Promise<boolean>((resolve, reject) => {
+    if (isReady()) {
+      resolve(true);
+      return;
+    }
+    let settled = false;
+    let unsubscribe: () => void = () => {};
+    const settle = (ready: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(ready);
+    };
+    const timer = setTimeout(() => {
+      if (layout === 'vision') {
+        if (!settled) {
+          settled = true;
+          unsubscribe();
+          reject(new Error('Vision board assets did not finish loading.'));
+        }
+      } else settle(false);
+    }, timeoutMs);
+    unsubscribe = subscribe(() => settle(true));
+  });
+}
+
 const keyOf = (layout: ShareLayoutId, showMark: boolean) => `${layout}:${showMark ? 1 : 0}`;
 
 function nextFrames(count: number) {
@@ -38,7 +72,7 @@ export function useShareExportRenderer(data: ShareExportData | null) {
   const [target, setTarget] = useState<Target | null>(null);
   const targetRef = useRef<Target | null>(null);
   const readyKeys = useRef(new Set<string>());
-  const waiters = useRef(new Map<string, Array<() => void>>());
+  const waiters = useRef(new Map<string, Set<() => void>>());
   const busy = useRef(false);
 
   const mount = useCallback((layout: ShareLayoutId, showMark: boolean) => {
@@ -60,20 +94,19 @@ export function useShareExportRenderer(data: ShareExportData | null) {
 
   /** Resolves once the mounted composition for `key` has its images, or after the timeout. */
   const whenReady = useCallback(
-    (key: string) =>
-      new Promise<boolean>((resolve) => {
-        if (readyKeys.current.has(key)) {
-          resolve(true);
-          return;
-        }
-        const timer = setTimeout(() => resolve(false), EXPORT_ASSET_TIMEOUT_MS);
-        const list = waiters.current.get(key) ?? [];
-        list.push(() => {
-          clearTimeout(timer);
-          resolve(false);
-        });
+    (key: string, layout: ShareLayoutId) => waitForExportAssets(
+      layout,
+      () => readyKeys.current.has(key),
+      (resolve) => {
+        const list = waiters.current.get(key) ?? new Set<() => void>();
+        list.add(resolve);
         waiters.current.set(key, list);
-      }),
+        return () => {
+          list.delete(resolve);
+          if (list.size === 0) waiters.current.delete(key);
+        };
+      },
+    ),
     [],
   );
 
@@ -97,7 +130,7 @@ export function useShareExportRenderer(data: ShareExportData | null) {
       try {
         const key = mount(layout, showMark);
         const wasReady = readyKeys.current.has(key);
-        await whenReady(key);
+        await whenReady(key, layout);
         // A node that was prepared earlier is already laid out; a fresh one needs a frame to paint.
         await nextFrames(wasReady ? 0 : 1);
         return await captureShareExport(nodeRef);

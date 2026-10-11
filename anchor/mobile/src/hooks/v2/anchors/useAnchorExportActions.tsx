@@ -12,6 +12,7 @@ import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { v2Haptics } from '@/hooks/v2/haptics';
 import { logger } from '@/utils/logger';
 import type { Anchor } from '@/types';
+import type { VisionNote, V2VisionTile } from '@/adapters/v2/vision';
 
 type ExportAnchor = Pick<
   Anchor,
@@ -21,6 +22,9 @@ type ExportAnchor = Pick<
 export type ShareExtras = {
   /** The Anchor's actual Vision image, if it has one. Without it the Vision layout is not offered. */
   visionImageUrl?: string | null;
+  visionTiles?: readonly V2VisionTile[] | null;
+  visionNotes?: readonly VisionNote[] | null;
+  visionAnnotation?: string | null;
   /** The Anchor's current state word ("Building"), if it has an established thread. */
   stateLabel?: string | null;
 };
@@ -36,11 +40,11 @@ export type ShareExtras = {
  */
 export function useAnchorExportActions(anchor: ExportAnchor | null, extras: ShareExtras = {}) {
   const toast = useToast();
-  const { visionImageUrl, stateLabel } = extras;
+  const { visionImageUrl, visionTiles, visionNotes, visionAnnotation, stateLabel } = extras;
 
   const shareData = useMemo(
-    () => (anchor ? buildShareExportData(anchor, { visionImageUrl, stateLabel }) : null),
-    [anchor, visionImageUrl, stateLabel],
+    () => (anchor ? buildShareExportData(anchor, { visionImageUrl, visionTiles, visionNotes, visionAnnotation, stateLabel }) : null),
+    [anchor, visionImageUrl, visionTiles, visionNotes, visionAnnotation, stateLabel],
   );
 
   // ── Download PNG: Minimal, straight to Photos ──
