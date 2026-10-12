@@ -373,7 +373,7 @@ interface AuthState {
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
   setOfflineMode: (offline: boolean) => void;
   setIsGuest: (value: boolean) => void;
-  signOut: () => Promise<void>;
+  signOut: (shouldContinue?: () => boolean) => Promise<void>;
 
   // NEW: Profile actions
   fetchProfile: () => Promise<void>;
@@ -1002,7 +1002,8 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: async () => {
+      signOut: async (shouldContinue) => {
+        if (shouldContinue && !shouldContinue()) return;
         const userId = get().user?.id;
         if (userId) {
           const profileState = useProfileStore.getState();
@@ -1049,7 +1050,10 @@ export const useAuthStore = create<AuthState>()(
         // while the previous account's snapshots were being saved, the stale
         // sign-out must not clear the new account's stores or presenter.
         const currentUserId = get().user?.id;
-        if (currentUserId && currentUserId !== userId) {
+        if (
+          (currentUserId && currentUserId !== userId) ||
+          (shouldContinue && !shouldContinue())
+        ) {
           return;
         }
 
@@ -1109,11 +1113,6 @@ export const useAuthStore = create<AuthState>()(
           // device at the save step. They finished onboarding as a guest and must not replay it.
           if (!state.user?.id && !(state.isGuest && state.hasCompletedOnboarding)) {
             state.hasCompletedOnboarding = false;
-            try {
-              useFirstRunStore.getState().reset();
-            } catch {
-              // Ignore if store not yet initialized
-            }
           }
           // Recompute streak immediately after store hydrates from disk
           state.computeStreak();

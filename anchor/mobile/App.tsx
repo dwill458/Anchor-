@@ -54,6 +54,7 @@ import { V2DialogHost, V2DialogManager } from './src/components/v2';
 V2DialogManager.installAlertBridge();
 import { useAuthStore } from './src/stores/authStore';
 import { useAnchorStore } from './src/stores/anchorStore';
+import { useFirstRunStore } from './src/stores/v2/firstRunStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useLocationPrimingStore } from './src/stores/locationPrimingStore';
 import { useVisualizationSceneStore } from './src/stores/visualizationSceneStore';
@@ -67,16 +68,17 @@ import { PerformanceMonitoring, type PerformanceTrace } from './src/services/Per
 import { FrictionAnalytics } from './src/services/FrictionAnalytics';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
+import { subscribeToAppAuthState } from './src/services/AppAuthBootstrap';
+import { handleUnauthenticatedAuthRestore } from './src/services/appAuthState';
+import { StartupRestoreFailure } from './src/components/startup/StartupRestoreFailure';
+import { useRequiredLocalHydrationGuard } from './src/hooks/useRequiredLocalHydrationGuard';
 
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
 import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
-import { HomeStartupProfiler } from './src/utils/homeStartupProfiler';
-import { prefetchHomeStartupData } from './src/services/v2/homeStartupPrefetch';
 import revenueCatService from './src/services/RevenueCatService';
 import NotificationService from './src/services/NotificationService';
 import { AnalyticsEvents, AnalyticsService } from './src/services/AnalyticsService';
-import AuthHydrationService from './src/services/AuthHydrationService';
 import {
   clearPushTokensFromServer,
   syncPushTokensToServer,
@@ -92,19 +94,6 @@ import { CreationFlowQADevHost } from './src/screens/create/flow/dev/CreationFlo
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 import { perfLog, startJsStallDetector, startPerfRenderReporter } from './src/utils/perfDiagnostics';
-
-function isNetworkError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const msg = error.message.toLowerCase();
-  return (
-    msg.includes('network') ||
-    msg.includes('fetch') ||
-    msg.includes('econnrefused') ||
-    msg.includes('timeout') ||
-    msg.includes('failed to connect') ||
-    msg.includes('network request failed')
-  );
-}
 
 const isWeb = Platform.OS === 'web';
 // V2 remains opt-in. Staging preview APKs can exercise the release-mode V2 app,
@@ -259,10 +248,22 @@ export default function App() {
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [firstRunHydrated, setFirstRunHydrated] = React.useState(() =>
+    useFirstRunStore.persist.hasHydrated()
+  );
+  const [anchorsHydrated, setAnchorsHydrated] = React.useState(() =>
+    useAnchorStore.persist.hasHydrated()
+  );
   const [startupSafeFailure, setStartupSafeFailure] = React.useState(false);
+  const [startupFatalFailure, setStartupFatalFailure] = React.useState(false);
   const [analyticsPreferenceHydrated, setAnalyticsPreferenceHydrated] = React.useState(() =>
     useSettingsStore.persist.hasHydrated()
   );
+  const requiredLocalHydrationTimedOut = useRequiredLocalHydrationGuard({
+    anchorsHydrated,
+    firstRunHydrated,
+  });
+  const fatalStartupFailure = startupFatalFailure || requiredLocalHydrationTimedOut;
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
   const [initialNavigationState, setInitialNavigationState] = React.useState<
     InitialState | undefined
@@ -320,8 +321,11 @@ export default function App() {
     fontsReady: fontsLoaded || Boolean(fontLoadError),
     settingsHydrated,
     authRestorationSettled: initialAuthResolved,
+    firstRunHydrated,
+    anchorsHydrated,
     primeOnLaunchResolved: launchStateResolved,
     safeFailure: startupSafeFailure || Boolean(fontLoadError),
+    fatalFailure: fatalStartupFailure,
   });
   const appIsReady = startup.isReady;
   const effectiveAnalyticsEnabled =
@@ -418,6 +422,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (useFirstRunStore.persist.hasHydrated()) {
+      setFirstRunHydrated(true);
+      return undefined;
+    }
+    return useFirstRunStore.persist.onFinishHydration(() => setFirstRunHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    if (useAnchorStore.persist.hasHydrated()) {
+      setAnchorsHydrated(true);
+      return undefined;
+    }
+    return useAnchorStore.persist.onFinishHydration(() => setAnchorsHydrated(true));
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     resolvePrimeOnLaunchInitialState()
@@ -457,170 +477,42 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    HomeStartupProfiler.mark('auth_bootstrap_started');
-    AuthService.initialize();
-
-    let isActive = true;
-    let authStateVersion = 0;
-    useAuthStore.getState().setLoading(true);
-
-    const unsubscribe = AuthService.onAuthStateChanged(async (firebaseUser) => {
-      const currentVersion = ++authStateVersion;
-
-      if (!firebaseUser) {
-        if (!isActive || currentVersion !== authStateVersion) {
-          return;
-        }
-
-        const store = useAuthStore.getState();
-        if (__DEV__ && developerMasterAccountEnabledRef.current) {
-          store.enableDeveloperMasterAccount();
-        } else {
-          store.signOut();
-        }
-        store.setLoading(false);
-        return;
-      }
-
-      try {
-        const session = await AuthService.syncCurrentUser();
-
-        if (!isActive || currentVersion !== authStateVersion) {
-          return;
-        }
-
-        const store = useAuthStore.getState();
-        if (!session) {
-          store.signOut();
-          store.setLoading(false);
-          return;
-        }
-
-        store.setSession(session.user, session.token);
-        store.setOfflineMode(false);
-        store.setLoading(false);
-        HomeStartupProfiler.mark('auth_session_ready', { accountId: session.user.id });
-
-        const prewarmSelectedAnchor = () => {
-          if (
-            !isActive ||
-            currentVersion !== authStateVersion ||
-            useAuthStore.getState().user?.id !== session.user.id
-          ) return;
-          const anchorState = useAnchorStore.getState();
-          const activeAnchors = anchorState.anchors.filter((anchor) =>
-            (!anchor.userId || anchor.userId === session.user.id) &&
-            !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt
-          );
-          const selectedAnchor = activeAnchors.find((anchor) =>
-            anchor.id === anchorState.currentAnchorId || anchor.localId === anchorState.currentAnchorId
-          ) ?? activeAnchors[0];
-          if (selectedAnchor) prefetchHomeStartupData(selectedAnchor.id);
-        };
-        if (isAnchorV2Enabled(
-          process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED,
-          __DEV__,
-          process.env.EXPO_PUBLIC_APP_ENV,
-        )) {
-          if (useAnchorStore.getState().persistedHydrated) {
-            prewarmSelectedAnchor();
-          } else {
-            let unsubscribe: (() => void) | null = null;
-            unsubscribe = useAnchorStore.persist.onFinishHydration(() => {
-              unsubscribe?.();
-              prewarmSelectedAnchor();
-            });
-          }
-        }
-
-        // The authenticated shell can safely render as soon as the trusted
-        // session is established. This refresh reconciles account-owned data
-        // in the background and retains its owner checks inside the service.
-        const hydrationSpan = HomeStartupProfiler.start('authenticated_data_hydration', { accountId: session.user.id });
-        try {
-          await AuthHydrationService.hydrateAuthenticatedData({
-            skipAnchorRefresh: Boolean(useAuthStore.getState().pendingFirstAnchorDraft),
-          });
-          hydrationSpan({ ok: true });
-        } catch (hydrationError) {
-          hydrationSpan({ ok: false });
-          logger.warn('Authenticated session restored, but data hydration failed', hydrationError);
-          setStartupSafeFailure(true);
-        }
-      } catch (error) {
-        if (!isActive || currentVersion !== authStateVersion) {
-          return;
-        }
-
-        const store = useAuthStore.getState();
-        const isNetwork = isNetworkError(error);
-
-        if (isNetwork) {
-          const cached = await AuthService.getCachedUser().catch(() => null);
-          if (cached && firebaseUser) {
-            const token = await AuthService.getIdToken().catch(() => '') ?? '';
-            store.setSession(cached, token);
-            store.setOfflineMode(true);
-            store.setLoading(false);
-            logger.warn('Network unreachable — restored session from cache (offline mode)');
-            return;
-          }
-        }
-
-        logger.error('Failed to restore authenticated session', error);
-        store.signOut();
-        store.setLoading(false);
-        setStartupSafeFailure(true);
-      }
+    return subscribeToAppAuthState({
+      developerMasterAccountEnabled: () => developerMasterAccountEnabledRef.current,
+      onInitialAuthRestoreSettled: () => setInitialAuthResolved(true),
+      onStartupSafeFailure: () => setStartupSafeFailure(true),
+      onStartupUnsafeFailure: () => setStartupFatalFailure(true),
     });
-
-    return () => {
-      isActive = false;
-      unsubscribe();
-    };
   }, []);
 
   useEffect(() => {
-    // Declared after the auth-init effect so isLoading is already true here on
-    // mount. Latches once the initial restore settles, then unsubscribes so
-    // later isLoading toggles (sign-in/sign-up flows) cannot re-gate the app.
-    if (!useAuthStore.getState().isLoading) {
-      setInitialAuthResolved(true);
-      return undefined;
-    }
-
-    const unsubscribe = useAuthStore.subscribe((state) => {
-      if (!state.isLoading) {
-        setInitialAuthResolved(true);
-        unsubscribe();
-      }
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    if (AuthService.hasAuthenticatedSession()) {
-      return;
-    }
-
-    const store = useAuthStore.getState();
+    if (AuthService.hasAuthenticatedSession()) return;
+    if (!useAuthStore.persist.hasHydrated()) return;
     if (__DEV__ && developerMasterAccountEnabled) {
-      store.enableDeveloperMasterAccount();
+      useAuthStore.getState().enableDeveloperMasterAccount();
       return;
     }
+    if (!initialAuthResolved || !useAuthStore.persist.hasHydrated()) return;
 
-    // Wait for the first auth restore pass to settle before clearing any
-    // persisted state. Firebase session restoration is asynchronous on launch,
-    // so currentUser can be temporarily null even when the user is still signed
-    // in. Clearing here would wipe the encrypted vault/session stores before the
-    // authenticated callback has a chance to rehydrate them.
-    if (!initialAuthResolved) {
-      return;
-    }
-
-    store.signOut();
-    store.setLoading(false);
+    let active = true;
+    const shouldContinue = () =>
+      active &&
+      !AuthService.hasAuthenticatedSession() &&
+      !(__DEV__ && developerMasterAccountEnabledRef.current);
+    void handleUnauthenticatedAuthRestore(
+      shouldContinue,
+      Symbol('app-auth-reconcile'),
+      () => {
+        if (shouldContinue()) setStartupFatalFailure(true);
+      },
+    ).catch((error) => {
+      if (!shouldContinue()) return;
+      logger.error('[Startup] Local auth reconciliation failed', error);
+      setStartupFatalFailure(true);
+    });
+    return () => {
+      active = false;
+    };
   }, [developerMasterAccountEnabled, initialAuthResolved]);
 
   useEffect(() => {
@@ -996,12 +888,16 @@ export default function App() {
       <SafeAreaProvider>
         <View style={styles.fontLoadingFallback}>
           <StatusBar style="light" backgroundColor="transparent" translucent />
-          <SplashController
-            startupReady={false}
-            startupOutcome={startup.outcome}
-            startupStartedAt={startupStartedAtRef.current}
-            authState={user?.id ? 'signed_in' : 'signed_out'}
-          />
+          {fatalStartupFailure ? (
+            <StartupRestoreFailure />
+          ) : (
+            <SplashController
+              startupReady={false}
+              startupOutcome={startup.outcome}
+              startupStartedAt={startupStartedAtRef.current}
+              authState={user?.id ? 'signed_in' : 'signed_out'}
+            />
+          )}
         </View>
       </SafeAreaProvider>
     );
