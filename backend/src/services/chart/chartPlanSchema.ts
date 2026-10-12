@@ -57,6 +57,7 @@ const RawWaypointSchema = z.object({
   baselineValue: z.number().nullable(),
   completionCriteria: z.string().nullish(),
   requirements: z.array(z.string()).max(12).nullish(),
+  moves: z.array(z.object({ title: z.string(), rationale: z.string().nullable() })).max(4),
 });
 
 const RawMoveSchema = z.object({
@@ -82,7 +83,7 @@ export const RawGenerationSchema = z.object({
 export type RawGeneration = z.infer<typeof RawGenerationSchema>;
 
 export const RawMoveSuggestionsSchema = z.object({
-  moves: z.array(RawMoveSchema).max(6),
+  moves: z.array(RawMoveSchema).min(3).max(4),
 });
 
 /** JSON Schema mirror of RawGenerationSchema, for structured-output providers. */
@@ -108,7 +109,7 @@ export const GENERATION_JSON_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['title', 'rationale', 'type', 'metricType', 'targetMetric', 'targetValue', 'baselineValue', 'completionCriteria', 'requirements'],
+        required: ['title', 'rationale', 'type', 'metricType', 'targetMetric', 'targetValue', 'baselineValue', 'completionCriteria', 'requirements', 'moves'],
         properties: {
           title: { type: 'string' },
           rationale: { type: ['string', 'null'] },
@@ -119,6 +120,13 @@ export const GENERATION_JSON_SCHEMA = {
           baselineValue: { type: ['number', 'null'] },
           completionCriteria: { type: 'string' },
           requirements: { type: 'array', items: { type: 'string' } },
+          moves: {
+            type: 'array', minItems: 3, maxItems: 4,
+            items: {
+              type: 'object', additionalProperties: false, required: ['title', 'rationale'],
+              properties: { title: { type: 'string' }, rationale: { type: ['string', 'null'] } },
+            },
+          },
         },
       },
     },
@@ -152,6 +160,8 @@ export const MOVE_SUGGESTIONS_JSON_SCHEMA = {
   required: ['moves'],
   properties: {
     moves: {
+      minItems: 3,
+      maxItems: 4,
       type: 'array',
       items: {
         type: 'object',
@@ -176,6 +186,7 @@ export type PlannedWaypoint = {
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
+  moves: PlannedMove[];
 };
 
 export type PlannedMove = { title: string; rationale: string | null };
@@ -289,6 +300,15 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>): PlannedWaypo
     metricBaseline = null;
   }
   if (metricTarget !== null && metricBaseline === metricTarget) throw new ChartPlanValidationError('empty_metric_span');
+  const seenMoves = new Set<string>();
+  const moves: PlannedMove[] = [];
+  for (const candidate of raw.moves) {
+    const move = normalizeMove(candidate);
+    if (!move || seenMoves.has(move.title.toLowerCase())) continue;
+    seenMoves.add(move.title.toLowerCase());
+    moves.push(move);
+  }
+  if (moves.length < 3 || moves.length > 4) throw new ChartPlanValidationError('waypoint_moves');
   return {
     title,
     completionCriteria: cleanOptional(raw.completionCriteria, 400),
@@ -299,6 +319,7 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>): PlannedWaypo
     metricLabel,
     metricTarget,
     metricBaseline,
+    moves,
   };
 }
 
@@ -385,8 +406,8 @@ export function normalizeMoveSuggestions(input: unknown, existingTitles: string[
     if (!move || seen.has(move.title.toLowerCase())) continue;
     seen.add(move.title.toLowerCase());
     moves.push(move);
-    if (moves.length === 3) break;
+    if (moves.length === 4) break;
   }
-  if (moves.length === 0) throw new ChartPlanValidationError('no_moves');
+  if (moves.length < 3) throw new ChartPlanValidationError('too_few_moves');
   return moves;
 }

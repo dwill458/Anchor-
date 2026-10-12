@@ -41,6 +41,8 @@ export type RouteWaypointInput = {
   progressMode?: 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
   requirements?: Array<{ id: string; title: string; completed: boolean }>;
   completionCriteria?: string | null;
+  /** AI-proposed concrete actions, kept as suggestions until accepted by the person. */
+  suggestedMoves?: Array<{ title: string; rationale?: string | null }>;
 };
 
 export type ChartAnchorSummary = {
@@ -284,6 +286,27 @@ export class ChartService {
               ...waypointMetricCreateData(metricInput(waypoint)),
             },
           });
+          const firstMoveTitle = index === 0 ? cleanTitle(input.oneMove?.title ?? '', 120).toLowerCase() : '';
+          let movePosition = index === 0 && firstMoveTitle ? 200 : 100;
+          const seenTitles = new Set<string>(firstMoveTitle ? [firstMoveTitle] : []);
+          for (const move of waypoint.suggestedMoves ?? []) {
+            const title = cleanTitle(move.title, 120);
+            if (!title || seenTitles.has(title.toLowerCase())) continue;
+            seenTitles.add(title.toLowerCase());
+            await tx.move.create({
+              data: {
+                userId,
+                courseId,
+                waypointId: id,
+                title,
+                rationale: cleanOptional(move.rationale, 280),
+                source: 'AI',
+                status: 'SUGGESTED',
+                position: movePosition,
+              },
+            });
+            movePosition += 100;
+          }
         }
 
         let oneMoveId: string | null = null;
@@ -743,6 +766,35 @@ export class ChartService {
               ...waypointMetricData(metricInput(waypoint)),
             },
           });
+          const generatedMoves = waypoint.suggestedMoves ?? [];
+          if (generatedMoves.length > 0) {
+            await tx.move.updateMany({
+              where: { waypointId: waypoint.id, status: 'SUGGESTED' },
+              data: { status: 'DISMISSED', dismissedAt: now },
+            });
+            let movePosition = await nextMovePosition(tx, waypoint.id);
+            const seenTitles = new Set<string>(row.moves
+              .filter(move => move.waypointId === waypoint.id && (move.status === 'ACTIVE' || move.status === 'COMPLETED'))
+              .map(move => move.title.toLowerCase()));
+            for (const move of generatedMoves) {
+              const title = cleanTitle(move.title, 120);
+              if (!title || seenTitles.has(title.toLowerCase())) continue;
+              seenTitles.add(title.toLowerCase());
+              await tx.move.create({
+                data: {
+                  userId,
+                  courseId,
+                  waypointId: waypoint.id,
+                  title,
+                  rationale: cleanOptional(move.rationale, 280),
+                  source: 'AI',
+                  status: 'SUGGESTED',
+                  position: movePosition,
+                },
+              });
+              movePosition += 100;
+            }
+          }
           orderedIds.push(waypoint.id);
         } else {
           const id = randomUUID();
@@ -758,6 +810,26 @@ export class ChartService {
             },
           });
           orderedIds.push(id);
+          let movePosition = 100;
+          const seenTitles = new Set<string>();
+          for (const move of waypoint.suggestedMoves ?? []) {
+            const title = cleanTitle(move.title, 120);
+            if (!title || seenTitles.has(title.toLowerCase())) continue;
+            seenTitles.add(title.toLowerCase());
+            await tx.move.create({
+              data: {
+                userId,
+                courseId,
+                waypointId: id,
+                title,
+                rationale: cleanOptional(move.rationale, 280),
+                source: 'AI',
+                status: 'SUGGESTED',
+                position: movePosition,
+              },
+            });
+            movePosition += 100;
+          }
           await courseEventService.append(tx, {
             userId,
             courseId,

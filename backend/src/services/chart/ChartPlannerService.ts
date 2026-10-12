@@ -136,7 +136,11 @@ function parsePersistedWaypoints(value: Prisma.JsonValue): ChartProposalWaypoint
     for (const key of PersistedWaypointSchemaKeys) {
       if (!(key in record)) throw new AppError('Proposal is no longer available', 409, 'PROPOSAL_UNAVAILABLE');
     }
-    return record as unknown as ChartProposalWaypoint;
+    return {
+      ...record,
+      // Proposals created before waypoint Moves were introduced remain readable.
+      moves: Array.isArray(record.moves) ? record.moves : [],
+    } as unknown as ChartProposalWaypoint;
   });
 }
 

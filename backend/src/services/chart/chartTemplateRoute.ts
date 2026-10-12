@@ -75,6 +75,7 @@ export function buildTemplateRoute(input: {
       metricLabel: null,
       metricTarget: null,
       metricBaseline: null,
+      moves: [],
     },
     {
       title: 'Progress holds steady',
@@ -84,6 +85,7 @@ export function buildTemplateRoute(input: {
       metricLabel: null,
       metricTarget: null,
       metricBaseline: null,
+      moves: [],
     },
     {
       title: clip(destination, TITLE_MAX),
@@ -93,6 +95,7 @@ export function buildTemplateRoute(input: {
       metricLabel: null,
       metricTarget: null,
       metricBaseline: null,
+      moves: [],
     },
   ];
   return { destination, complexity: 'SIMPLE', waypoints, needsNaming: true };

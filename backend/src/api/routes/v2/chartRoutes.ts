@@ -43,6 +43,7 @@ const RouteWaypoint = z
     metricTarget: MetricNumber.nullish(),
     completionCriteria: z.string().trim().max(400).nullish(),
     requirements: z.array(z.object({ id: z.string().min(1).max(80), title: z.string().trim().min(1).max(140), completed: z.boolean() }).strict()).max(12).optional(),
+    suggestedMoves: z.array(z.object({ title: z.string().trim().min(1).max(120), rationale: z.string().max(280).nullish() }).strict()).max(4).optional(),
   })
   .strict();
 
