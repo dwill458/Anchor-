@@ -6,7 +6,7 @@ import { useVisionImageArrival } from '../VisionImageArrival';
 
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { AnchorExpression } from '@/constants/v2/creation';
-import type { SceneRect } from './visionBoardLayouts';
+import { VISION_BOARD_PAPER_MARK_SCALE, type SceneRect } from './visionBoardLayouts';
 import { boardRecomposeEasing, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 
 export type VisionBoardCardArt = { svg: string; imageUrl?: string | null; category?: string | null; expression?: AnchorExpression | null };
@@ -82,7 +82,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
 
   // Type is laid out for the target size; the card's own motion is small.
   const paper = markAppearance === 'paper';
-  const markSize = paper ? rect.width * 0.94 : rect.width * 0.86;
+  const markSize = paper ? rect.width * VISION_BOARD_PAPER_MARK_SCALE : rect.width * 0.86;
   const label = `Your Anchor, ${categoryLabel(category)}. ${intention}`;
   const content = <Animated.View style={[styles.fill, paperStyle]}>
     <View testID="vision-board-card-content" style={styles.content} pointerEvents="none"

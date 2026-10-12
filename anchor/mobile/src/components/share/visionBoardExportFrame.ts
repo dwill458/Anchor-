@@ -1,6 +1,6 @@
 import type { VisionNote } from '@/adapters/v2/vision';
 import type { V2VisionTile } from '@/adapters/v2/vision';
-import { toSceneRect, type BoardLayout, type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
+import { toSceneRect, VISION_BOARD_PAPER_MARK_SCALE, type BoardLayout, type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
 
 export type VisionBoardExportFrame = { scale: number; left: number; top: number; bounds: { left: number; top: number; right: number; bottom: number } };
 
@@ -33,7 +33,11 @@ export function visionBoardExportFrame(
     const photo = toSceneRect(slot, scene);
     includeRect(bounds, { ...photo, y: photo.y + photo.height + 5, height: 14 });
   });
-  includeRect(bounds, toSceneRect(layout.card, scene));
+  const card = toSceneRect(layout.card, scene);
+  // Include the enlarged signature around the same centre so export cannot clip it.
+  const diameter = card.width * VISION_BOARD_PAPER_MARK_SCALE;
+  includeRect(bounds, { ...card, x: card.x + (card.width - diameter) / 2,
+    y: card.y + (card.height - diameter) / 2, width: diameter, height: diameter });
   for (const note of notes) {
     if (note.isArchived || !note.content.text.trim()) continue;
     const { presentation } = note;

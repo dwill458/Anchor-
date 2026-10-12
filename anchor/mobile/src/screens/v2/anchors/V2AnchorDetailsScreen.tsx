@@ -1007,14 +1007,18 @@ export function V2AnchorDetailsScreen() {
   };
 
   const handleOpenAllPractices = useCallback(() => {
-    if (!serverId) return;
-    useAnchorStore.getState().setCurrentAnchor(serverId);
-    intents.onOpenPractice(serverId, undefined, {
+    const targetAnchorId = serverId || anchor?.localId;
+    if (!targetAnchorId) return;
+    if (focusTransition.active) {
+      focusTransition.reset();
+    }
+    useAnchorStore.getState().setCurrentAnchor(targetAnchorId);
+    intents.onOpenPractice(targetAnchorId, undefined, {
       anchorTransition: false,
       returnRoute: 'V2AnchorDetails',
       source: 'anchor_details',
     });
-  }, [intents, serverId]);
+  }, [anchor?.localId, focusTransition, intents, serverId]);
 
   const handleMenuSelect = (action: AnchorOptionsMenuAction) => {
     setMenuOpen(false);

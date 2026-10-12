@@ -1,0 +1,26 @@
+import { balanceIntentionLines, estimateIntentionLineCount, visionIntentionFontSize } from '../VisionIntentionHeading';
+
+describe('Vision intention wrapping', () => {
+  it('balances the reference intention into similarly weighted editorial lines', () => {
+    const intention = 'I am the owner of dope ass regal';
+    const glyphWidths = [12, 35, 53, 88, 27, 70, 34, 67];
+    expect(visionIntentionFontSize(intention)).toBe(36);
+    expect(balanceIntentionLines(intention, 302, glyphWidths, 9)).toBe('I am the owner of\ndope ass regal');
+    expect(estimateIntentionLineCount(intention, 302, 36)).toBe(2);
+  });
+
+  it('keeps short intentions together and lets an unbroken long word wrap natively', () => {
+    expect(balanceIntentionLines('A quiet life', 300, [12, 33, 23], 7)).toBe('A quiet life');
+    expect(balanceIntentionLines('x'.repeat(200), 300, [1500], 7)).toBe('x'.repeat(200));
+  });
+
+  it('adds lines as measured width narrows while preserving each word', () => {
+    const intention = 'Build a home filled with calm and laughter';
+    const widths = [38, 17, 52, 53, 36, 24, 58, 52];
+    const wide = balanceIntentionLines(intention, 250, widths, 7);
+    const narrow = balanceIntentionLines(intention, 150, widths, 7);
+    expect(wide.split('\n')).toHaveLength(2);
+    expect(narrow.split('\n').length).toBeGreaterThan(wide.split('\n').length);
+    expect(narrow.split(/\s+/).join(' ')).toBe(intention);
+  });
+});

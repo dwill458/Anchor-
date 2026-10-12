@@ -228,6 +228,30 @@ describe('V2PracticeScreen', () => {
       fireEvent.press(screen.getByTestId('v2-practice-row-focus'));
       expect(mockAcknowledge).not.toHaveBeenCalled();
     });
+
+    it('resets to the Practice Hub when re-entered without initialMode (All practice modes)', () => {
+      const anchor = makeAnchor({ id: 'a', threadStrength: 20 });
+      const { rerender } = render(
+        <V2PracticeScreen
+          anchor={anchor}
+          recommendation={context('Focus')}
+          capabilities={fullAccess}
+          initialMode="focus"
+        />,
+      );
+      expect(screen.getByTestId('v2-practice-prepare-focus')).toBeTruthy();
+
+      rerender(
+        <V2PracticeScreen
+          anchor={anchor}
+          recommendation={context('Focus')}
+          capabilities={fullAccess}
+          initialMode={undefined}
+        />,
+      );
+      expect(screen.getByTestId('v2-practice-screen')).toBeTruthy();
+      expect(screen.queryByTestId('v2-practice-prepare-focus')).toBeNull();
+    });
   });
 
   it('opens Focus setup, allows duration selection, and begins with selected duration', () => {

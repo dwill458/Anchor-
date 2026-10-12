@@ -1,0 +1,15 @@
+import React from 'react';
+import { Path } from 'react-native-svg';
+import { render } from '@testing-library/react-native';
+import { VisionImageEdge } from '../VisionImageEdge';
+
+describe('VisionImageEdge fibres', () => {
+  it('uses a continuous torn perimeter without stray fibre strokes in the photo', () => {
+    const view = render(<VisionImageEdge hero brush />);
+    const paths = view.UNSAFE_getAllByType(Path);
+    expect(paths.every(path => path.props.strokeDasharray == null && path.props.strokeWidth == null)).toBe(true);
+    expect(paths.some(path => path.props.d === 'M0 0H1000V1000H0Z')).toBe(false);
+    expect(paths.some(path => path.props.d.startsWith('M0 0L'))).toBe(true);
+    expect(paths.some(path => path.props.d.startsWith('M1000 0L'))).toBe(true);
+  });
+});

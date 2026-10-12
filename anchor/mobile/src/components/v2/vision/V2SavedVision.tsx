@@ -52,6 +52,7 @@ type Props = {
   onUpdateSceneCaption?: (sceneId: string, caption: string | null) => Promise<boolean>;
   error?: string | null;
   onBack: () => void;
+  onShare?: () => void;
   onVisualize: (frame?: { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number }) => void;
   visualizeReady?: boolean;
   preparationIssue?: string | null;
@@ -90,7 +91,7 @@ const ARRIVAL_RECOMPOSE_DELAY_MS = 450;
 export function V2SavedVision({
   chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, onUpdateSceneCaption, tiles, notes = [], onNotePresentationChange, onNoteEdit, onNoteDelete, error, initialEdit = false,
-  onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
+  onBack, onShare, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
   onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, arrivingNoteId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
 }: Props) {
   const canvasRef = useRef<View>(null);
@@ -423,6 +424,10 @@ export function V2SavedVision({
         <>
           <Pressable testID="vision-menu-dismiss" style={StyleSheet.absoluteFill} accessible={false} onPress={() => setMenuOpen(false)} />
           <View accessibilityViewIsModal style={[styles.menu, { top: insets.top + 50 }]}>
+            {onShare ? <Pressable accessibilityRole="button" accessibilityLabel="Share Vision"
+              onPress={() => { setMenuOpen(false); onShare(); }} style={styles.menuItem}>
+              <Text style={styles.chartLinkText}>Share Vision</Text>
+            </Pressable> : null}
             <Pressable accessibilityRole="button" accessibilityLabel="Edit Vision" onPress={() => { setMenuOpen(false); setMode('edit'); }} style={styles.menuItem}>
               <Text style={styles.chartLinkText}>Edit Vision</Text>
             </Pressable>

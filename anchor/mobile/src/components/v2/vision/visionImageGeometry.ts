@@ -1,8 +1,7 @@
 /**
  * Generated photographs are composed for the frame, so they always fill it.
  * A person's own photograph is never cropped past a small trim: beyond that the
- * whole original is kept (see `VisionPhotograph`, which sets it over a soft
- * blurred copy of itself so the frame still reads as full).
+ * whole original is kept within the existing aperture over neutral paper.
  */
 export const UPLOAD_MIN_RETAINED = 0.86;
 
@@ -24,6 +23,7 @@ export function fullscreenFit(source: { width: number; height: number }, viewpor
 }
 
 export function visionImageFit(sourceAspect: number, displayAspect: number, uploaded = false): 'cover' | 'contain' {
-  if (!uploaded || !Number.isFinite(sourceAspect) || sourceAspect <= 0) return 'cover';
+  if (!uploaded) return 'cover';
+  if (!Number.isFinite(sourceAspect) || sourceAspect <= 0) return 'contain';
   return visionImageRetained(sourceAspect, displayAspect) < UPLOAD_MIN_RETAINED ? 'contain' : 'cover';
 }

@@ -30,7 +30,7 @@ describe("VoiceAndSoundControls", () => {
     );
 
     fireEvent.press(
-      screen.getByLabelText("No Voice. Visual and haptic guidance only"),
+      screen.getByLabelText("No guidance. No spoken instruction"),
     );
     expect(onChange).toHaveBeenCalledWith({
       guidanceVoice: "none",
@@ -54,8 +54,8 @@ describe("VoiceAndSoundControls", () => {
         durationSeconds={30}
       />,
     );
-    expect(screen.getByText("No Voice · Silence")).toBeTruthy();
-    fireEvent.press(screen.getByLabelText("Female Voice. Warm, calm guidance"));
+    expect(screen.getByText("No guidance · Silence")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Serene. Gentle, warm, reflective"));
     expect(onChange).toHaveBeenCalledWith({
       guidanceVoice: "female",
       backgroundAudio: "off",
@@ -73,7 +73,7 @@ describe("VoiceAndSoundControls", () => {
       />,
     );
 
-    const male = screen.getByLabelText("Male Voice. Grounded, steady guidance");
+    const male = screen.getByLabelText("Grounded. Steady, measured, reassuring");
     expect(male.props.accessibilityState).toEqual({ selected: false, disabled: false });
     fireEvent.press(male);
     expect(onChange).toHaveBeenCalledWith({
@@ -93,7 +93,7 @@ describe("VoiceAndSoundControls", () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Play Female voice preview"));
+    fireEvent.press(screen.getByLabelText("Play Serene voice preview"));
     expect(mockStartVoicePreview).toHaveBeenCalledWith("female");
   });
 
@@ -108,7 +108,7 @@ describe("VoiceAndSoundControls", () => {
       />,
     );
 
-    fireEvent.press(screen.getByLabelText("Play Male voice preview"));
+    fireEvent.press(screen.getByLabelText("Play Grounded voice preview"));
     expect(mockStartVoicePreview).toHaveBeenCalledWith("male");
   });
 });

@@ -264,7 +264,7 @@ describe('ChargeSetupScreen', () => {
     render(<ChargeSetupScreen />);
 
     expect(await screen.findByText('PLACE PRESET')).toBeTruthy();
-    expect(screen.getByText('Gym · 5 min · No Voice • Silence')).toBeTruthy();
+    expect(screen.getByText('Gym · 5 min · No guidance • Silence')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Begin Priming'));
 

@@ -1,0 +1,40 @@
+import { act, renderHook } from '@testing-library/react-native';
+import { rememberVisionPhotoAspect, useVisionPhotoAspects } from '../visionPhotoDimensions';
+
+describe('decoded Vision photo dimensions', () => {
+  it('shares the decoded ratio across signed URLs without changing scene identity', () => {
+    const { result } = renderHook(() => useVisionPhotoAspects(['https://photos.test/a.jpg?X-Amz-Signature=new', null]));
+    expect(result.current).toEqual([0, 0]);
+    act(() => rememberVisionPhotoAspect('https://photos.test/a.jpg?X-Amz-Signature=old', 1800, 1200));
+    expect(result.current).toEqual([1.5, 0]);
+  });
+
+  it('keeps dimensions aligned with saved image ordering after a reorder', () => {
+    rememberVisionPhotoAspect('https://photos.test/portrait.jpg', 800, 1200);
+    rememberVisionPhotoAspect('https://photos.test/square.jpg', 1000, 1000);
+    const { result, rerender } = renderHook(({ uris }) => useVisionPhotoAspects(uris), {
+      initialProps: { uris: ['https://photos.test/portrait.jpg', 'https://photos.test/square.jpg'] },
+    });
+    expect(result.current).toEqual([2 / 3, 1]);
+    rerender({ uris: ['https://photos.test/square.jpg', 'https://photos.test/portrait.jpg'] });
+    expect(result.current).toEqual([1, 2 / 3]);
+  });
+
+  it('ignores invalid decode sizes and unrelated image updates', () => {
+    const { result } = renderHook(() => useVisionPhotoAspects(['https://photos.test/missing.jpg']));
+    const before = result.current;
+    act(() => {
+      rememberVisionPhotoAspect('https://photos.test/missing.jpg', 0, 100);
+      rememberVisionPhotoAspect('https://photos.test/other.jpg', 100, 100);
+    });
+    expect(result.current).toBe(before);
+    expect(result.current).toEqual([0]);
+  });
+
+  it('does not conflate proxy query IDs or transformed source images', () => {
+    rememberVisionPhotoAspect('https://proxy.test/image?id=a', 900, 1200);
+    rememberVisionPhotoAspect('https://proxy.test/image?id=b', 1600, 900);
+    const { result } = renderHook(() => useVisionPhotoAspects(['https://proxy.test/image?id=a', 'https://proxy.test/image?id=b']));
+    expect(result.current).toEqual([.75, 16 / 9]);
+  });
+});

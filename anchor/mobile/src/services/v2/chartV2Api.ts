@@ -34,6 +34,7 @@ export type ChartProposalWaypoint = {
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
+  moves?: Array<{ title: string; rationale: string | null }>;
 };
 
 export type ChartProposal = {
@@ -85,6 +86,7 @@ export type RouteWaypointInput = {
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;
+  suggestedMoves?: Array<{ title: string; rationale?: string | null }>;
 };
 
 export type MoveCompletionResult = {

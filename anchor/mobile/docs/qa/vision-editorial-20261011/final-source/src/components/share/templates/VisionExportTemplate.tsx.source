@@ -1,0 +1,211 @@
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Image, Text, View, type ImageSourcePropType } from 'react-native';
+import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
+import { detailBoardSizeForWidth } from '@/components/v2/vision/board/visionBoardLayouts';
+import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
+import { VISION_BOARD_MOTION } from '@/components/v2/vision/board/visionBoardMotion';
+import type { VisionBoardCardArt } from '@/components/v2/vision/board/VisionBoardIntentionCard';
+import { VisionIntentionHeading, estimateIntentionLineCount, visionIntentionFontSize } from '@/components/v2/vision/VisionIntentionHeading';
+import { useVisionPhotoAspects } from '@/components/v2/vision/visionPhotoDimensions';
+import { noteAssets } from '@/assets/vision/notes/noteAssets';
+import { getVisionNotePreset } from '@/components/v2/vision/notes/visionNoteStyles';
+import type { V2VisionTile } from '@/adapters/v2/vision';
+import type { ShareTemplateProps } from '../shareTypes';
+import { POSTER_CREAM, ShareCanvas, shareHeight } from './shared';
+import { visionBoardExportFrame } from '../visionBoardExportFrame';
+import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
+
+type AssetState = { signature: string; expected: Set<string>; ready: Set<string>; fired: boolean };
+const SHARE_ANCHOR_MARK_ASSET = require('@/assets/home/anchor-brand-mark.png') as ImageSourcePropType;
+const VISION_CANVAS_WIDTH = 360;
+const VISION_CANVAS_HEIGHT = 640;
+
+/** A static readiness barrier keyed by each rendered photo and note/Anchor asset. */
+function useBoardAssetReadiness(assetIds: string[], onReady?: () => void) {
+  const signature = assetIds.slice().sort().join('\u0000');
+  const callback = useRef(onReady);
+  callback.current = onReady;
+  const state = useRef<AssetState>({ signature, expected: new Set(assetIds), ready: new Set(), fired: false });
+  if (state.current.signature !== signature) {
+    state.current = { signature, expected: new Set(assetIds), ready: new Set(), fired: false };
+  }
+  const complete = useCallback((id: string) => {
+    const current = state.current;
+    if (current.signature !== signature || current.fired || !current.expected.has(id)) return;
+    current.ready.add(id);
+    if (current.ready.size < current.expected.size) return;
+    current.fired = true;
+    // Let the last image/error state commit before view-shot captures the static composition.
+    requestAnimationFrame(() => {
+      if (state.current === current) callback.current?.();
+    });
+  }, [signature]);
+  React.useEffect(() => {
+    if (assetIds.length !== 0) return;
+    const current = state.current;
+    if (current.fired) return;
+    current.fired = true;
+    requestAnimationFrame(() => {
+      if (state.current === current) callback.current?.();
+    });
+  }, [assetIds.length, signature]);
+  return complete;
+}
+
+export function wrappedLineCount(text: string, maxCharacters: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 1;
+  let lines = 1;
+  let used = 0;
+  for (const word of words) {
+    if (word.length <= maxCharacters) {
+      if (used > 0 && used + 1 + word.length > maxCharacters) {
+        lines += 1;
+        used = 0;
+      }
+      used += (used ? 1 : 0) + word.length;
+      continue;
+    }
+    if (used > 0) {
+      lines += 1;
+      used = 0;
+    }
+    lines += Math.floor((word.length - 1) / maxCharacters);
+    used = word.length % maxCharacters || maxCharacters;
+  }
+  return lines;
+}
+
+export function headingReserve(width: number, intention: string) {
+  const fontSize = visionIntentionFontSize(intention);
+  // One extra line of breathing room keeps native font metrics from touching the board.
+  const lines = estimateIntentionLineCount(intention, width * 0.84, fontSize) + 1;
+  return width * 0.07 + 20 + lines * (fontSize + 5) + width * 0.04;
+}
+
+function VisionShareBrandMark({ width }: { width: number }) {
+  const scale = width / 1080;
+  const glyphHeight = 56 * scale;
+  return <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: shareHeight(width) * 0.04, alignItems: 'center' }}>
+    <Image source={SHARE_ANCHOR_MARK_ASSET} style={{ width: glyphHeight * (134 / 174), height: glyphHeight, opacity: 0.85 }} resizeMode="contain" />
+    <Text style={{ marginTop: 13 * scale, fontFamily: detailsFonts.uiStrong, fontSize: 25 * scale, letterSpacing: 10 * scale,
+      color: detailsPalette.ink, opacity: 0.85, paddingLeft: 10 * scale }}>ANCHOR</Text>
+  </View>;
+}
+
+export function annotationGeometry(text: string, boardViewport: { width: number; height: number }, scene: { width: number; height: number }, count: number) {
+  const sceneScale = scene.width / boardViewport.width;
+  const fontSize = text.length > 40 ? 21 : 24;
+  const width = boardViewport.width * 0.22 * sceneScale;
+  const lineHeight = 25 * sceneScale;
+  const lines = wrappedLineCount(text, Math.max(5, Math.floor(width / (fontSize * sceneScale * 0.52))));
+  const captionTop = boardViewport.height * (count > 3 ? 0.95 : count === 1 ? 0.92 : count === 2 ? 0.9 : 0.83);
+  const top = scene.height / 2 + (captionTop - boardViewport.height / 2) * sceneScale;
+  return {
+    rect: { x: 16 * sceneScale, y: top, width, height: lines * lineHeight, rotation: -7 },
+    style: { left: 16 * sceneScale, top, width, fontSize: fontSize * sceneScale, lineHeight, includeFontPadding: false as const, color: '#303027', transform: [{ rotate: '-7deg' }] as const },
+  };
+}
+
+/** Share Studio uses the saved Vision's exact scene, framed for a cream 9:16 poster. */
+export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: ShareTemplateProps) {
+  const scale = width / VISION_CANVAS_WIDTH;
+  // Old payloads carry only the first real Vision URL. Adapt that URL to the
+  // one-photo detail composition so every Vision export uses the shared scene.
+  const tiles = useMemo<readonly V2VisionTile[]>(() => {
+    if (data.visionTiles?.length) return data.visionTiles.map(tile => tile.imageUrl?.trim() ? tile : { ...tile, imageUrl: null });
+    if (!data.visionImageUrl?.trim()) return data.visionTiles ?? [];
+    return [{ id: 'share-legacy-vision', sceneId: 'share-legacy-vision', imageUrl: data.visionImageUrl.trim(), prompt: null, caption: null, sortOrder: 0, isHero: true }];
+  }, [data.visionImageUrl, data.visionTiles]);
+  const notes = data.visionNotes ?? [];
+  const height = VISION_CANVAS_HEIGHT;
+  const [measuredHeadingHeight, setMeasuredHeadingHeight] = useState<number | null>(null);
+  const titleHeight = measuredHeadingHeight == null
+    ? headingReserve(VISION_CANVAS_WIDTH, data.intention)
+    : VISION_CANVAS_WIDTH * 0.07 + 20 + measuredHeadingHeight + VISION_CANVAS_WIDTH * 0.04;
+  const footerHeight = VISION_CANVAS_WIDTH * 0.15;
+  const boardWidth = VISION_CANVAS_WIDTH * 0.9;
+  const boardAreaHeight = Math.max(VISION_CANVAS_WIDTH * 0.45, height - titleHeight - footerHeight);
+  const sourceAspects = useVisionPhotoAspects(tiles.map(tile => tile.imageUrl));
+  const aspectKey = sourceAspects.join(',');
+  const boardViewport = useMemo(() => detailBoardSizeForWidth(boardWidth, tiles.length, sourceAspects), [boardWidth, tiles.length, aspectKey]);
+  const scene = useMemo(() => detailBoardSizeForWidth(boardWidth * VISION_BOARD_MOTION.renderScale, tiles.length, sourceAspects), [boardWidth, tiles.length, aspectKey]);
+  const board = useVisionBoardScene(tiles, scene, 1, true);
+  const layout = board.layout;
+  const frameViewport = useMemo(() => ({ width: boardWidth, height: boardAreaHeight }), [boardAreaHeight, boardWidth]);
+  const annotation = data.visionAnnotation?.trim() ?? '';
+  const annotationLayout = useMemo(() => annotation ? annotationGeometry(annotation, boardViewport, scene, tiles.length) : null,
+    [annotation, boardViewport, scene, tiles.length]);
+  const overlays = useMemo(() => annotationLayout ? [annotationLayout.rect] : [], [annotationLayout]);
+  const frame = useMemo(() => visionBoardExportFrame(scene, layout, notes, frameViewport, boardWidth * 0.055, tiles, overlays),
+    [boardWidth, frameViewport, layout, notes, overlays, scene, tiles]);
+  const artwork: VisionBoardCardArt = {
+    svg: data.svg,
+    imageUrl: data.imageUrl,
+    category: data.category,
+    expression: data.expression,
+  };
+  const auxiliaryAssets = useMemo(() => {
+    const assets = new Map<string, ImageSourcePropType>();
+    for (const note of notes) {
+      if (note.isArchived || !note.content.text.trim()) continue;
+      const assetKey = getVisionNotePreset(note.presentation.styleId).surfaceAsset;
+      if (assetKey) assets.set(`note:${assetKey}`, noteAssets[assetKey]);
+    }
+    if (showMark) assets.set('brand:mark', SHARE_ANCHOR_MARK_ASSET);
+    return [...assets].map(([id, source]) => ({ id, source }));
+  }, [notes, showMark]);
+  const expectedAssetIds = useMemo(() => [
+    ...tiles.slice(0, layout.photos.length).filter(tile => Boolean(tile.imageUrl?.trim())).map(tile => `photo:${tile.sceneId}`),
+    ...auxiliaryAssets.map(asset => asset.id),
+    'heading:measured',
+  ], [auxiliaryAssets, layout.photos.length, tiles]);
+  const markAssetReady = useBoardAssetReadiness(expectedAssetIds, onAssetsReady);
+  const sceneLeft = (VISION_CANVAS_WIDTH - boardWidth) / 2 + frame.left + (frame.scale - 1) * scene.width / 2;
+  const contentHeight = (frame.bounds.bottom - frame.bounds.top) * frame.scale;
+  const frameMargin = boardWidth * 0.055;
+  const verticalFreeSpace = Math.max(0, frameViewport.height - contentHeight - frameMargin * 2);
+  const verticalInset = frameMargin + verticalFreeSpace * (tiles.length > 3 ? 0.25 : 0);
+  const centeredInset = (frameViewport.height - contentHeight) / 2;
+  const alignedFrameTop = frame.top + verticalInset - centeredInset;
+  const sceneTop = titleHeight + alignedFrameTop + (frame.scale - 1) * scene.height / 2;
+
+  return (
+    <ShareCanvas width={width} background={POSTER_CREAM}>
+      <View testID="vision-export-canonical-composition" style={{ position: 'absolute', width: VISION_CANVAS_WIDTH, height: VISION_CANVAS_HEIGHT,
+        left: (scale - 1) * VISION_CANVAS_WIDTH / 2, top: (scale - 1) * VISION_CANVAS_HEIGHT / 2, transform: [{ scale }] }}>
+      <View pointerEvents="none" style={{ position: 'absolute', left: VISION_CANVAS_WIDTH * 0.08, right: VISION_CANVAS_WIDTH * 0.08, top: VISION_CANVAS_WIDTH * 0.07 }}>
+        <VisionIntentionHeading intention={data.intention} category={data.category} onMeasured={textHeight => {
+          setMeasuredHeadingHeight(textHeight);
+          markAssetReady('heading:measured');
+        }} />
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', width: scene.width, height: scene.height, left: sceneLeft, top: sceneTop, transform: [{ scale: frame.scale }] }}>
+        <VisionBoardScene
+          scene={scene}
+          roster={board.roster}
+          entering={new Set()}
+          layout={layout}
+          shared={board.shared}
+          initialRectFor={board.initialRectFor}
+          intention={data.intention}
+          category={data.category}
+          art={artwork}
+          showAnchorMark={showMark}
+          reduceMotion
+          notes={notes}
+          interactive={false}
+          dragEnabled={false}
+          markAppearance="paper"
+          detailEdges
+          onPhotoAssetReady={sceneId => markAssetReady(`photo:${sceneId}`)}
+        />
+        {annotationLayout ? <Text pointerEvents="none" style={[{ position: 'absolute', zIndex: 100, fontFamily: 'Allison-Regular' }, annotationLayout.style]}>{annotation}</Text> : null}
+      </View>
+      {auxiliaryAssets.map(asset => <Image key={asset.id} source={asset.source} onLoad={() => markAssetReady(asset.id)} onError={() => markAssetReady(asset.id)}
+        style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />)}
+      {showMark ? <VisionShareBrandMark width={VISION_CANVAS_WIDTH} /> : null}
+      </View>
+    </ShareCanvas>
+  );
+}

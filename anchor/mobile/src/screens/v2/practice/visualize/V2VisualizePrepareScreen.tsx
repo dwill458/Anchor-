@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Switch, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { ArrowRight, Eye, Smartphone, Volume2 } from 'lucide-react-native';
+import { ArrowRight, Eye } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
@@ -9,11 +9,13 @@ import { resolvePracticeSetupMetrics } from '@/components/v2/practice/practiceSe
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
 import { v2PracticeDurationLabel } from '@/constants/v2/practice';
-import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSessionAudioSetup, useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
+import { V2PracticeAudioSheet } from '@/components/v2/practice/V2PracticeAudioSheet';
+import { V2PracticeSettingsCard } from '@/components/v2/practice/V2PracticeSettingsCard';
+import { stopVoicePreview } from '@/services/VoicePreviewService';
 import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import { practiceColors } from '@/theme/v2/practiceColors';
-import { DEFAULT_SESSION_AUDIO_DEFAULTS, type BackgroundAudioMode, type GuidanceVoice } from '@/types/sessionAudio';
+import type { GuidanceVoice } from '@/types/sessionAudio';
 import type { Anchor } from '@/types';
 import type { V2VisionTile, VisionNote, VisionVisualizeEntry } from '@/adapters/v2/vision';
 import { V2_VISUALIZE_DURATIONS } from './visualizeVisionPlan';
@@ -86,15 +88,11 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
     setPrepared(session); setPreparationIssue(null);
   }, []);
   const reportIssue = useCallback((message: string) => setPreparationIssue(message), []);
-  const defaults = useSettingsStore(state => state.sessionAudioDefaults?.visualize);
-  const hapticIntensity = useSettingsStore(state => state.hapticIntensity);
-  const savedVoice: GuidanceVoice = defaults?.guidanceVoice ?? DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.guidanceVoice;
-  const savedAmbient: BackgroundAudioMode = defaults?.backgroundAudio ?? DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.backgroundAudio;
+  const soundSetup = useSessionAudioSetup('visualize');
+  const [audioSheetOpen, setAudioSheetOpen] = useState(false);
   const [duration, setDuration] = useState<number>(
     initialDuration && (V2_VISUALIZE_DURATIONS as readonly number[]).includes(initialDuration) ? initialDuration : 180,
   );
-  const [soundOn, setSoundOn] = useState(savedVoice !== 'none' || savedAmbient !== 'off');
-  const [hapticsOn, setHapticsOn] = useState((hapticIntensity ?? 70) > 0);
   const [beginning, setBeginning] = useState(false);
   const [entrySettled, setEntrySettled] = useState(() => !entry?.sourceFrame || entry.sourceFrame.width <= 0 || entry.sourceFrame.height <= 0);
   const [entryTargetMeasured, setEntryTargetMeasured] = useState(() => !entry?.sourceFrame || entry.sourceFrame.width <= 0 || entry.sourceFrame.height <= 0);
@@ -155,9 +153,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
   const board = useVisionBoardScene(boardTiles, scene, 1, true);
   const retry = () => { setPreparationIssue(null); setPrepared(null); setAttempt(value => value + 1); };
 
-  // Turning sound on when the saved defaults are fully silent uses the
-  // product defaults rather than starting a silent "sound on" session.
-  const sessionVoice: GuidanceVoice = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedVoice : DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.guidanceVoice) : 'none';
+  const sessionVoice: GuidanceVoice = soundSetup.voice;
   // The guided track is the session's clock (it plays muted when sound is off), so a long track
   // that is not bundled must be on disk before Begin. Shorter tracks are bundled and always ready.
   const guidedAsset = useMemo(
@@ -245,7 +241,10 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
     beganRef.current = true;
     setBeginning(true);
     const voice = sessionVoice;
-    const ambient = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedAmbient !== 'off' : true) : false;
+    const ambient = soundSetup.ambient;
+    const hapticsOn = soundSetup.hapticsOn;
+    // A preview started from Settings must not run into the session.
+    stopVoicePreview();
     const start = (canvasFrame?: { x: number; y: number; width: number; height: number }) => {
       darken.value = reduceMotion ? 1 : withTiming(1, { duration: VISUALIZE_BEGIN_TIMING.fadeMs, easing: Easing.inOut(Easing.cubic) });
       timer.current = setTimeout(() => {
@@ -379,21 +378,26 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
               );
             })}
           </View>
-          <View style={styles.toggles}>
-            <View style={styles.toggleRow}>
-              <Volume2 size={22} color={colors.text.primary} strokeWidth={1.6} />
-              <Text style={styles.toggleLabel}>Sound</Text>
-              <Switch accessibilityLabel="Sound" value={soundOn} onValueChange={setSoundOn}
-                trackColor={{ true: ACCENT, false: colors.border.default }} thumbColor={colors.paper} ios_backgroundColor={colors.border.default} />
-            </View>
-            <View style={styles.toggleDivider} />
-            <View style={styles.toggleRow}>
-              <Smartphone size={22} color={colors.text.primary} strokeWidth={1.6} />
-              <Text style={styles.toggleLabel}>Haptics</Text>
-              <Switch accessibilityLabel="Haptics" value={hapticsOn} onValueChange={setHapticsOn}
-                trackColor={{ true: ACCENT, false: colors.border.default }} thumbColor={colors.paper} ios_backgroundColor={colors.border.default} />
-            </View>
-          </View>
+          <V2PracticeSettingsCard
+            soundOn={soundSetup.soundOn}
+            summary={soundSetup.summary}
+            hapticsOn={soundSetup.hapticsOn}
+            onToggleSound={soundSetup.toggleSound}
+            onToggleHaptics={soundSetup.toggleHaptics}
+            onOpenSettings={() => setAudioSheetOpen(true)}
+            testIDPrefix="visualize"
+          />
+          <V2PracticeAudioSheet
+            visible={audioSheetOpen}
+            sessionType="visualize"
+            durationSeconds={duration}
+            value={soundSetup.config}
+            accent={ACCENT}
+            actionColor="#2B5F8F"
+            testIDPrefix="visualize"
+            onApply={soundSetup.apply}
+            onClose={() => setAudioSheetOpen(false)}
+          />
         </Animated.View>
       </View>
       <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.preparationSurface}>
@@ -431,10 +435,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface,
   },
   durationText: { fontFamily: 'Inter-Regular', fontSize: 16, color: colors.text.primary },
-  toggles: { borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface, paddingHorizontal: spacing[4] },
-  toggleRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  toggleLabel: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 16, color: colors.text.primary },
-  toggleDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border.default },
   preparationSurface: { ...StyleSheet.absoluteFillObject, opacity: 0 },
   statusSlot: { minHeight: 40, justifyContent: 'center', marginBottom: spacing[2] },
   hint: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, textAlign: 'center', color: colors.text.secondary },

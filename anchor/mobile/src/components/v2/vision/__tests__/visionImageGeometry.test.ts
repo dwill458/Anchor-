@@ -2,6 +2,12 @@ import { fullscreenFit, visionImageFit } from '../visionImageGeometry';
 import { boardSizeForWidth, selectBoardLayout, toSceneRect } from '../board/visionBoardLayouts';
 
 describe('Vision source preservation', () => {
+  it('keeps unknown uploaded dimensions whole until decode while retaining generated behavior', () => {
+    for (const aspect of [0, -1, NaN, Infinity]) {
+      expect(visionImageFit(aspect, 1.36, true)).toBe('contain');
+      expect(visionImageFit(aspect, 1.36, false)).toBe('cover');
+    }
+  });
   it('keeps generated safe-framed portraits in their authored crop', () => {
     expect(visionImageFit(9 / 16, 1.12)).toBe('cover');
   });

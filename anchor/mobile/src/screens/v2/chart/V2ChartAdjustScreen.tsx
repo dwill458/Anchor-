@@ -86,6 +86,7 @@ export function draftFromProposal(course: CourseDetail, proposal: ChartProposal)
         metricLabel: waypoint.metricLabel,
         metricTarget: waypoint.metricTarget,
         metricBaseline: waypoint.metricBaseline,
+        suggestedMoves: (waypoint.moves ?? []).map((move) => ({ title: move.title, rationale: move.rationale })),
       };
     });
   return [...history.map(fromWaypoint), ...proposed];
@@ -229,6 +230,7 @@ export function V2ChartAdjustScreen() {
           metricLabel: waypoint.metricLabel,
           metricTarget: waypoint.metricTarget,
           metricBaseline: waypoint.metricBaseline,
+          suggestedMoves: waypoint.suggestedMoves,
         })),
         proposalId: proposal?.proposalId ?? null,
         adjustmentReason: reason,

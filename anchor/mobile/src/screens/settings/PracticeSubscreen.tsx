@@ -82,9 +82,9 @@ const PD_VOICES: Array<{
   desc: string;
   preview: boolean;
 }> = [
-  { id: 'female', label: 'Female Voice', desc: 'Warm, calm guidance', preview: true },
-  { id: 'male', label: 'Male Voice', desc: 'Grounded, steady guidance', preview: true },
-  { id: 'none', label: 'No Voice', desc: 'Visual and haptic guidance only', preview: false },
+  { id: 'female', label: 'Serene', desc: 'Gentle, warm, reflective', preview: true },
+  { id: 'male', label: 'Grounded', desc: 'Steady, measured, reassuring', preview: true },
+  { id: 'none', label: 'No guidance', desc: 'No spoken instruction', preview: false },
 ];
 
 const PD_THREAD = {

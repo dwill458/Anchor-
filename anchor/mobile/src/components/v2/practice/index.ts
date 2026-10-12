@@ -16,3 +16,5 @@ export {
   VisualizeArtwork,
   ReleaseArtwork,
 } from './V2PracticeArtwork';
+export { V2PracticeSettingsCard } from './V2PracticeSettingsCard';
+export { V2PracticeAudioSheet } from './V2PracticeAudioSheet';

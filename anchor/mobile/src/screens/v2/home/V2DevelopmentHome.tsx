@@ -38,7 +38,11 @@ export function V2DevelopmentHome() {
       onOpenPractice: (anchorId, recommendedMode, options) => navigation.navigate('V2Practice', {
         anchorId,
         recommendedMode,
-        ...(options?.anchorTransition ? { anchorTransition: true } : {}),
+        resumeMode: undefined,
+        resumeDuration: undefined,
+        resumeSource: undefined,
+        visionEntry: undefined,
+        ...(options?.anchorTransition ? { anchorTransition: true } : { anchorTransition: undefined }),
         returnRoute: options?.returnRoute ?? (recommendedMode ? 'V2DevelopmentHome' : undefined),
         source: options?.source ?? (recommendedMode ? 'home' : 'practice_hub'),
       }),

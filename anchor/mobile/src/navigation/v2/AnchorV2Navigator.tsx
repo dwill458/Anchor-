@@ -158,6 +158,8 @@ function V2PracticeRouteScreen() {
     if (resolvedReturnRoute) {
       if (resolvedReturnRoute === 'V2DevelopmentHome') {
         navigation.navigate('V2DevelopmentHome');
+      } else if (resolvedReturnRoute === 'V2AnchorDetails' && navigation.canGoBack()) {
+        navigation.goBack();
       } else if (anchorId) {
         navigation.navigate(resolvedReturnRoute, { anchorId });
       } else {
@@ -247,6 +249,8 @@ function V2PracticeRouteScreen() {
       if (resolvedReturnRoute) {
         if (resolvedReturnRoute === 'V2DevelopmentHome') {
           navigation.navigate('V2DevelopmentHome');
+        } else if (resolvedReturnRoute === 'V2AnchorDetails' && navigation.canGoBack()) {
+          navigation.goBack();
         } else if (anchorId) {
           navigation.navigate(resolvedReturnRoute, { anchorId });
         } else {
@@ -266,7 +270,7 @@ function V2PracticeRouteScreen() {
       resumeSource={resumeSource}
       visionEntry={route.params?.visionEntry}
       onBack={handleBack}
-      leaveOnSetupBack={Boolean(resolvedReturnRoute)}
+      leaveOnSetupBack={Boolean(resolvedReturnRoute && (recommendedMode || resumeMode))}
       onSessionCompleted={handleSessionCompleted}
       onPremiumCapabilityRequired={(req) => {
         navigation.navigate('V2Paywall', {

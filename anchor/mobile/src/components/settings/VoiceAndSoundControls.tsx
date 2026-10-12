@@ -15,6 +15,7 @@ import {
 } from "@/services/VoicePreviewService";
 import {
   formatSessionAudioSummary,
+  GUIDANCE_VOICE_LABELS,
   type GuidanceVoice,
   type SessionAudioDefaults,
   type SessionAudioSessionType,
@@ -36,18 +37,18 @@ const VOICE_OPTIONS: Array<{
 }> = [
   {
     voice: "female",
-    label: "Female Voice",
-    description: "Warm, calm guidance",
+    label: "Serene",
+    description: "Gentle, warm, reflective",
   },
   {
     voice: "male",
-    label: "Male Voice",
-    description: "Grounded, steady guidance",
+    label: "Grounded",
+    description: "Steady, measured, reassuring",
   },
   {
     voice: "none",
-    label: "No Voice",
-    description: "Visual and haptic guidance only",
+    label: "No guidance",
+    description: "No spoken instruction",
   },
 ];
 
@@ -98,7 +99,7 @@ export const VoiceAndSoundControls: React.FC<Props> = ({
     const started = await startVoicePreview(voice);
     if (!started) {
       setPreviewError(
-        `${voice === "female" ? "Female" : "Male"} preview is unavailable.`,
+        `${GUIDANCE_VOICE_LABELS[voice]} preview is unavailable.`,
       );
     }
   };
@@ -124,7 +125,7 @@ export const VoiceAndSoundControls: React.FC<Props> = ({
             lookupVoicePreviewTrack(option.voice) != null;
           const unavailableReason =
             option.voice === "male"
-              ? "Male voice clips are coming soon for this session."
+              ? "Grounded guidance is coming soon for this session."
               : "Guidance is unavailable for this duration.";
 
           return (
@@ -179,7 +180,7 @@ export const VoiceAndSoundControls: React.FC<Props> = ({
               {showPreview && option.voice !== "none" ? (
                 <TouchableOpacity
                   accessibilityRole="button"
-                  accessibilityLabel={`${activePreviewVoice === option.voice ? "Stop" : "Play"} ${option.voice === "female" ? "Female" : "Male"} voice preview`}
+                  accessibilityLabel={`${activePreviewVoice === option.voice ? "Stop" : "Play"} ${GUIDANCE_VOICE_LABELS[option.voice]} voice preview`}
                   accessibilityState={{ disabled: !available || !hasPreview }}
                   activeOpacity={0.82}
                   disabled={!available || !hasPreview}

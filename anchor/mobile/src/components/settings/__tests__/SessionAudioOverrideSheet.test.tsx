@@ -31,7 +31,7 @@ describe('SessionAudioOverrideSheet', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('No Voice. Visual and haptic guidance only'));
+    fireEvent.press(screen.getByLabelText('No guidance. No spoken instruction'));
     fireEvent.press(screen.getByText('Cancel'));
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
@@ -50,7 +50,7 @@ describe('SessionAudioOverrideSheet', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('No Voice. Visual and haptic guidance only'));
+    fireEvent.press(screen.getByLabelText('No guidance. No spoken instruction'));
     fireEvent.press(screen.getByLabelText('Silence background'));
     fireEvent.press(screen.getByLabelText('Make this my new default'));
     fireEvent.press(screen.getByText('Apply'));

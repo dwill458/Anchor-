@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Sliders } from 'lucide-react-native';
 import { CircularAnchorRenderer, V2Button } from '@/components/v2';
 import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
 import { resolvePracticeSetupMetrics, SETUP_CONTROL_MIN_HEIGHT } from '@/components/v2/practice/practiceSetupLayout';
@@ -13,8 +12,10 @@ import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { safeHaptics } from '@/utils/haptics';
-import * as Haptics from 'expo-haptics';
-import { V2FocusSettingsSheet } from './V2FocusSettingsSheet';
+import { V2PracticeAudioSheet } from '@/components/v2/practice/V2PracticeAudioSheet';
+import { V2PracticeSettingsCard } from '@/components/v2/practice/V2PracticeSettingsCard';
+import { useSessionAudioSetup } from '@/hooks/v2/useSessionAudioSetup';
+import { stopVoicePreview } from '@/services/VoicePreviewService';
 import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
 export interface V2FocusPrepConfig {
@@ -59,10 +60,7 @@ export function V2FocusPrepScreen({
 }: V2FocusPrepScreenProps) {
   const viewport = useV2Responsive();
   const metrics = resolvePracticeSetupMetrics(viewport, 'focus');
-  const sessionDefaults = useSettingsStore((state) => state.sessionAudioDefaults?.focus);
   const preferredDuration = useSettingsStore((state) => state.focusSessionDuration);
-  const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
-  const setHapticIntensity = useSettingsStore((state) => state.setHapticIntensity);
 
   const [duration, setDuration] = useState<number>(() => {
     if (initialDuration && DURATION_OPTIONS.includes(initialDuration as 10 | 30 | 60)) {
@@ -74,61 +72,27 @@ export function V2FocusPrepScreen({
     return 30;
   });
 
-  const [voice, setVoice] = useState<GuidanceVoice>(
-    () => initialVoice ?? sessionDefaults?.guidanceVoice ?? 'female'
-  );
-  const [ambient, setAmbient] = useState<boolean>(
-    () => initialAmbient ?? (sessionDefaults?.backgroundAudio !== 'off')
-  );
+  const audio = useSessionAudioSetup('focus', { initialVoice, initialAmbient });
+  const { voice, ambient, hapticsOn } = audio;
   const [sheetOpen, setSheetOpen] = useState(false);
   const artworkRef = useRef<View>(null);
   const anchorCenterYRef = useRef<number | undefined>(undefined);
   // Where the Anchor lands from Details or the Practice hub, and leaves from for the session.
   const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: SETUP_PLACE_MEASURE_DELAY_MS });
 
-  const soundOn = ambient || voice !== 'none';
-  const hapticsOn = (hapticIntensity ?? 70) > 0;
-
   const categoryColor = getCategoryColor(anchor.category);
 
   const formatDurationOption = (seconds: number) =>
     seconds === 60 ? '1 min' : `${seconds} sec`;
-
-  const voiceLabel =
-    voice === 'female'
-      ? 'Female Voice'
-      : voice === 'male'
-      ? 'Male Voice'
-      : 'No Voice';
-  const ambientLabel = ambient ? 'Ambient' : 'Silence';
-  const audioSummary = `${voiceLabel} · ${ambientLabel}`;
 
   const handleSelectDuration = (val: number) => {
     void safeHaptics.selection();
     setDuration(val);
   };
 
-  const toggleSound = () => {
-    void safeHaptics.selection();
-    if (soundOn) {
-      setVoice('none');
-      setAmbient(false);
-    } else {
-      setVoice('female');
-      setAmbient(true);
-    }
-  };
-
-  const toggleHaptics = () => {
-    if (hapticsOn) {
-      setHapticIntensity(0);
-    } else {
-      setHapticIntensity(70);
-      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
-
   const handleBegin = () => {
+    // A preview started from Settings must not run into the session.
+    stopVoicePreview();
     if (hapticsOn) void safeHaptics.selection();
     const isPro = useSubscriptionStore.getState().getEffectiveTier() === 'pro';
     if (!isPro && onPremiumRequired) {
@@ -172,12 +136,15 @@ export function V2FocusPrepScreen({
         </V2Button>
       }
       overlay={
-        <V2FocusSettingsSheet
+        <V2PracticeAudioSheet
           visible={sheetOpen}
-          voice={voice}
-          ambient={ambient}
-          onVoiceChange={setVoice}
-          onAmbientChange={setAmbient}
+          sessionType="focus"
+          durationSeconds={duration}
+          value={audio.config}
+          accent={practiceColors.focus}
+          actionColor="#5C3A82"
+          testIDPrefix="focus"
+          onApply={audio.apply}
           onClose={() => setSheetOpen(false)}
         />
       }
@@ -259,55 +226,15 @@ export function V2FocusPrepScreen({
             </View>
           </View>
 
-          {/* Interactive Utility Controls (Sound & Haptics) */}
-          <View style={styles.utilityBlock}>
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityState={{ checked: soundOn }}
-              accessibilityLabel={`Sound: ${soundOn ? 'On' : 'Off'}. Tap to toggle.`}
-              testID="focus-sound-toggle"
-              onPress={toggleSound}
-              style={styles.utilityRow}
-            >
-              <View style={styles.utilityInfo}>
-                <Text style={styles.utilityLabel}>Sound</Text>
-                {soundOn ? (
-                  <Text style={styles.utilitySubtext}>{audioSummary}</Text>
-                ) : null}
-              </View>
-              <View style={styles.utilityRight}>
-                <Text style={[styles.utilityValue, soundOn && styles.utilityValueActive]}>
-                  {soundOn ? 'ON' : 'OFF'}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Customize audio guidance"
-                  testID="focus-audio-customize-button"
-                  onPress={() => setSheetOpen(true)}
-                  hitSlop={8}
-                  style={styles.settingsIconBtn}
-                >
-                  <Sliders size={15} color={colors.text.secondary} />
-                </Pressable>
-              </View>
-            </Pressable>
-
-            <View style={styles.utilityDivider} />
-
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityState={{ checked: hapticsOn }}
-              accessibilityLabel={`Haptics: ${hapticsOn ? 'On' : 'Off'}. Tap to toggle.`}
-              testID="focus-haptics-toggle"
-              onPress={toggleHaptics}
-              style={styles.utilityRow}
-            >
-              <Text style={styles.utilityLabel}>Haptics</Text>
-              <Text style={[styles.utilityValue, hapticsOn && styles.utilityValueActive]}>
-                {hapticsOn ? 'ON' : 'OFF'}
-              </Text>
-            </Pressable>
-          </View>
+          <V2PracticeSettingsCard
+            soundOn={audio.soundOn}
+            summary={audio.summary}
+            hapticsOn={hapticsOn}
+            onToggleSound={audio.toggleSound}
+            onToggleHaptics={audio.toggleHaptics}
+            onOpenSettings={() => setSheetOpen(true)}
+            testIDPrefix="focus"
+          />
         </View>
       </>
     </V2PracticeSetupLayout>
@@ -414,59 +341,6 @@ const styles = StyleSheet.create({
   durationButtonTextSelected: {
     color: practiceColors.focus,
     fontWeight: '700',
-  },
-  utilityBlock: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[1],
-  },
-  utilityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-    minHeight: 48,
-  },
-  utilityInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  utilityLabel: {
-    ...typography.bodyMD,
-    color: colors.text.primary,
-    fontSize: 14,
-  },
-  utilitySubtext: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  utilityRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-  },
-  utilityValue: {
-    ...typography.labelSM,
-    color: colors.text.secondary,
-    fontWeight: '600',
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  utilityValueActive: {
-    color: colors.text.primary,
-    fontWeight: '700',
-  },
-  settingsIconBtn: {
-    padding: 4,
-  },
-  utilityDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.border.subtle,
   },
   beginButton: {
     backgroundColor: colors.ink.base,

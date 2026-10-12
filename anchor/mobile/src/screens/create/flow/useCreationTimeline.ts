@@ -67,7 +67,8 @@ export function useCreationTimeline(input: CreationTimelineInput): CreationTimel
 
 /**
  * Timeline instants (seconds from Continue) at which each letter lands in Map — 42% through its
- * slot. One `letter-drop` and one light haptic fire at each, never more often than the haptic floor.
+ * slot. One generative node tone (via NodeToneService, pitch set by the grid cell) and one light
+ * haptic fire at each, never more often than the haptic floor.
  */
 export function mapLetterEventTimes(timeline: CreationTimeline, letterCount: number): number[] {
   if (letterCount <= 0 || timeline.map <= 0) return [];

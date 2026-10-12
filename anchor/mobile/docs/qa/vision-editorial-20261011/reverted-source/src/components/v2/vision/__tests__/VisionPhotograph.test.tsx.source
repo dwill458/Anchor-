@@ -1,0 +1,35 @@
+import React from 'react';
+import { Image, View } from 'react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
+import { VisionPhotograph } from '../VisionPhotograph';
+
+describe('VisionPhotograph readiness', () => {
+  it('downsamples one sharp photo and uses a paper extension for a severe aspect mismatch', () => {
+    const view = render(<VisionPhotograph source={{ uri: 'https://assets.test/wide.jpg' }} displayAspect={0.76} uploaded />);
+    const [foreground] = view.UNSAFE_getAllByType(Image);
+    expect(view.UNSAFE_getAllByType(Image)).toHaveLength(1);
+    expect(foreground.props.resizeMethod).toBe('resize');
+    expect(foreground.props.resizeMode).toBe('contain');
+    expect(view.UNSAFE_getByType(View).props.style).toEqual(expect.arrayContaining([
+      expect.objectContaining({ backgroundColor: '#F4F1E9' }),
+    ]));
+  });
+  it('reports readiness after the foreground settles', async () => {
+    const onAssetReady = jest.fn();
+    const view = render(<VisionPhotograph source={{ uri: 'https://assets.test/board.jpg' }} displayAspect={1.2} onAssetReady={onAssetReady} />);
+    const [foreground] = view.UNSAFE_getAllByType(Image);
+    act(() => foreground.props.onLoad?.({ nativeEvent: { source: { width: 1200, height: 1000 } } }));
+
+    await waitFor(() => expect(onAssetReady).toHaveBeenCalledTimes(1));
+  });
+
+  it('treats a failed layer as settled while preserving the foreground error callback', async () => {
+    const onAssetReady = jest.fn();
+    const onError = jest.fn();
+    const view = render(<VisionPhotograph source={{ uri: 'https://assets.test/board.jpg' }} displayAspect={1.2} onAssetReady={onAssetReady} onError={onError} />);
+    const [foreground] = view.UNSAFE_getAllByType(Image);
+    act(() => foreground.props.onError?.({ nativeEvent: { error: 'failed' } }));
+    expect(onError).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onAssetReady).toHaveBeenCalledTimes(1));
+  });
+});

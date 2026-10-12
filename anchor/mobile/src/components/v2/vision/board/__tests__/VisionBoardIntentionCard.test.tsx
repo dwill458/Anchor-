@@ -26,6 +26,14 @@ const storedAnchor = {
 describe('VisionBoardIntentionCard', () => {
   beforeEach(() => { mockMarkProps.length = 0; });
 
+  it('enlarges the paper-backed Anchor by 30% while keeping its actual enhanced artwork', () => {
+    const art = { ...anchorRenderProps(storedAnchor), imageUrl: 'https://example.com/my-anchor.png' };
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="My future" art={art} markAppearance="paper" reduceMotion />);
+    expect(view.getByTestId('vision-board-card-mark-slot').props.style.width).toBeCloseTo(rect.width * .94 * 1.3);
+    expect(mockMarkProps[0]).toEqual(expect.objectContaining({ svg: art.svg, imageUrl: art.imageUrl }));
+    expect(mockMarkProps[0].size).toBeCloseTo(rect.width * .94 * 1.3);
+  });
+
   it('lets the compositor own the actual seal without duplicate text or art', () => {
     const view = render(<VisionBoardIntentionCard rect={rect} intention="My saved intention" art={anchorRenderProps(storedAnchor)} hideMark reduceMotion />);
     expect(mockMarkProps).toHaveLength(0);

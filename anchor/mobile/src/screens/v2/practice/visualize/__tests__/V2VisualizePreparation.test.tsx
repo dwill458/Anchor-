@@ -143,7 +143,7 @@ describe('Visualize prepares behind its real setup board', () => {
     const view = setup();
     const scroll = view.getByTestId('v2-practice-prepare-visualize-scroll');
     expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.accessibilityLabel === 'Begin Visualize')).toHaveLength(0);
-    expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.accessibilityLabel === 'Sound').length).toBeGreaterThan(0);
+    expect(scroll.findAll((node: { props: Record<string, unknown> }) => String(node.props.accessibilityLabel ?? '').startsWith('Sound:')).length).toBeGreaterThan(0);
     expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.testID === 'v2-visualize-prepare-vision').length).toBeGreaterThan(0);
     act(() => mockPreparation.onPreparationIssue('Image could not load.'));
     expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.accessibilityLabel === 'Retry Vision')).toHaveLength(0);

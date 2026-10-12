@@ -198,6 +198,33 @@ describe('V2AnchorDetailsScreen', () => {
     });
   });
 
+  it('always opens the Practice hub from All practice modes even when Release is recommended', async () => {
+    const completed = chartReadModel({
+      chart: {
+        id: 'course-1',
+        status: 'COMPLETED',
+        destinationText: 'Reach 1,000 active users',
+        currentWaypointId: null,
+        waypoints: [{ id: 'waypoint-1', position: 0, title: 'Reach 1,000 active users', state: 'REACHED' }],
+        moves: [],
+      },
+    });
+    mockUseAnchorChart.mockReturnValue({ data: completed as never, loading: false, error: null, refresh: jest.fn() } as never);
+    const onOpenPractice = jest.fn();
+    const onReleaseAnchor = jest.fn();
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails({ onOpenPractice, onReleaseAnchor });
+
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-all-practices')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('v2-anchor-all-practices'));
+    expect(onOpenPractice).toHaveBeenCalledWith('a', undefined, {
+      anchorTransition: false,
+      returnRoute: 'V2AnchorDetails',
+      source: 'anchor_details',
+    });
+    expect(onReleaseAnchor).not.toHaveBeenCalled();
+  });
+
   it('carries the medallion into Practice setup when motion is allowed', async () => {
     useSettingsStore.setState({ reduceMotion: 'off' });
     // Every mocked native view shares one measureInWindow: answer with an on-screen rect.

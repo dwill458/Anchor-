@@ -22,7 +22,9 @@ type Entry = {
 export type SoundPoolOptions = { volume?: number; rate?: number; loop?: boolean; fadeInMs?: number };
 export type SoundPoolHandle = { stop: (fadeOutMs?: number) => void };
 
-export const MAX_LIVE_PLAYERS = 16;
+export const MAX_LIVE_PLAYERS = 24;
+// 24 covers the creation flow's worst case: 10 node tones + distillTick(4) + uiTap(2) prewarmed (16),
+// plus headroom for same-note overlaps during rapid mapping without forcing eviction.
 const LOAD_TIMEOUT_MS = 1500;
 const PREWARM_BATCH_SIZE = 3;
 const PREWARM_INTERVAL_MS = 50;
@@ -74,13 +76,13 @@ export function getMaxPoolSizeForKey(key: string): number {
     key === 'creation:uiTap' ||
     key === 'uiTap' ||
     key === 'creation:formTick' ||
-    key === 'formTick' ||
-    key.startsWith('node:')
+    key === 'formTick'
   ) {
     return 2;
   }
   if (key === 'creation:distillTick' || key === 'distillTick') return 4;
   if (key === 'creation:revealSettle') return 2;
+  // node:* tones stay at 1: a same-pitch retrigger reuses the oldest entry instead of adding a player.
   return 1;
 }
 

@@ -21,6 +21,8 @@ import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoar
 import { newestVisionScene } from '@/hooks/v2/teaching/visionTeaching';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import revenueCatService from '@/services/RevenueCatService';
+import { AnchorShareStudio } from '@/components/share/AnchorShareStudio';
+import { buildShareExportData } from '@/components/share/shareData';
 
 const WARM_IMAGE_MAX_MS = 3000;
 
@@ -81,6 +83,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const chartSummary = useMemo(() => toChartSummary(anchorChart.data?.chart), [anchorChart.data?.chart]);
   const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'addScene'>(props.initialMode ?? route.params?.initialMode ?? 'view');
   const [sealingBusy, setSealingBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const sealingBusyRef = useRef(false);
   const handleSealingChange = useCallback((active: boolean) => {
     sealingBusyRef.current = active;
@@ -518,6 +521,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       onNoteDelete={deleteNote}
       error={actionError ?? model.error}
       onBack={handleBack}
+      onShare={anchor ? () => setShareOpen(true) : undefined}
       onVisualize={sourceFrame => {
         // One Visualize: every entry reaches the same setup, where the duration is chosen.
         if (props.onVisualize) { props.onVisualize(model.visualizeHandoff); return; }
@@ -558,6 +562,9 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   // shows a frame of the other colour (one of the flashes seen on device, Oct 7).
   const onBoard = mode === 'view' && !pendingPhoto && model.state.state === 'ready';
   return <View style={{ flex: 1, backgroundColor: onBoard ? colors.canvas : '#14162B' }}>{renderContent()}
+    {shareOpen && anchor ? <AnchorShareStudio visible onClose={() => setShareOpen(false)} initialLayout="vision"
+      data={buildShareExportData(anchor, { visionTiles: model.tiles, visionNotes: model.vision?.notes ?? [],
+        visionAnnotation: model.vision?.title ?? '' })} /> : null}
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
   </View>;
 }

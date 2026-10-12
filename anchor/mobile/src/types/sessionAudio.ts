@@ -245,31 +245,43 @@ export const sessionAudioConfigurationToDefaults = (
   backgroundAudio: configuration.backgroundAudio,
 });
 
+/**
+ * Experience-based names for the guidance voices. The stored ids stay
+ * "male"/"female"/"none" (they key backend settings and audio assets); only
+ * what the person reads changes. Grounded is Dominic, Serene is Lina.
+ */
+export const GUIDANCE_VOICE_LABELS: Record<GuidanceVoice, string> = {
+  male: "Grounded",
+  female: "Serene",
+  none: "No guidance",
+};
+
+export const GUIDANCE_VOICE_DESCRIPTIONS: Record<GuidanceVoice, string> = {
+  male: "Steady, measured, reassuring.",
+  female: "Gentle, warm, reflective.",
+  none: "No spoken instruction.",
+};
+
+export const BACKGROUND_AUDIO_LABELS: Record<BackgroundAudioMode, string> = {
+  ambient: "Ambient",
+  off: "Silence",
+};
+
 export const formatSessionAudioSummary = (
   configuration: SessionAudioDefaults,
-): string => {
-  const voiceLabel =
-    configuration.guidanceVoice === "none"
-      ? "No Voice"
-      : configuration.guidanceVoice === "female"
-        ? "Female Voice"
-        : "Male Voice";
-  const backgroundLabel =
-    configuration.backgroundAudio === "ambient" ? "Ambient" : "Silence";
-  return `${voiceLabel} · ${backgroundLabel}`;
-};
+): string =>
+  `${GUIDANCE_VOICE_LABELS[configuration.guidanceVoice]} · ${BACKGROUND_AUDIO_LABELS[configuration.backgroundAudio]}`;
 
 export const formatCompactSessionAudioSummary = (
   configuration: SessionAudioDefaults,
-): string => {
-  const voiceLabel =
-    configuration.guidanceVoice === "none"
-      ? "No Voice"
-      : configuration.guidanceVoice === "female"
-        ? "Female Voice"
-        : "Male Voice";
-  return `${voiceLabel} • ${configuration.backgroundAudio === "ambient" ? "Ambient" : "Silence"}`;
-};
+): string =>
+  `${GUIDANCE_VOICE_LABELS[configuration.guidanceVoice]} • ${BACKGROUND_AUDIO_LABELS[configuration.backgroundAudio]}`;
+
+export const isSessionAudioSilent = (
+  configuration: SessionAudioDefaults,
+): boolean =>
+  configuration.guidanceVoice === "none" &&
+  configuration.backgroundAudio === "off";
 
 export const legacyAudioModeToSessionAudioDefaults = (
   mode: LegacySessionAudioMode,

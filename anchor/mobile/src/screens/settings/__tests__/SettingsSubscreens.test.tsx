@@ -210,20 +210,20 @@ describe('PracticeSubscreen', () => {
     render(<PracticeSubscreen onBack={jest.fn()} />);
     fireEvent.press(screen.getByText('Session defaults'));
 
-    // Male Voice selection
-    fireEvent.press(screen.getByLabelText('Male Voice. Grounded, steady guidance'));
+    // Grounded selection
+    fireEvent.press(screen.getByLabelText('Grounded. Steady, measured, reassuring'));
     expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith('focus', expect.objectContaining({
       guidanceVoice: 'male',
     }));
 
-    // No Voice selection
-    fireEvent.press(screen.getByLabelText('No Voice. Visual and haptic guidance only'));
+    // No guidance selection
+    fireEvent.press(screen.getByLabelText('No guidance. No spoken instruction'));
     expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith('focus', expect.objectContaining({
       guidanceVoice: 'none',
     }));
 
     // Preview button plays without changing voice selection
-    fireEvent.press(screen.getByLabelText('Preview Female Voice'));
+    fireEvent.press(screen.getByLabelText('Preview Serene'));
     expect(mockStartVoicePreview).toHaveBeenCalledWith('female');
   });
 

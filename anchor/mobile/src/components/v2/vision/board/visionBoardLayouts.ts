@@ -1,6 +1,8 @@
 /** Editorial canvas geometry shared by overview, gestures and the protected cinematic camera. */
 /** The most images a Vision holds; the board has a composition for each count up to this. */
 export const VISION_BOARD_MAX_IMAGES = 8;
+/** Paper-backed Vision signature: 30% larger than the original 0.94 × slot. */
+export const VISION_BOARD_PAPER_MARK_SCALE = 0.94 * 1.3;
 /** A finished board holds at least this many; fewer is a partial board (creation, uploads in flight). */
 export const VISION_BOARD_TARGET_MIN_IMAGES = 3;
 

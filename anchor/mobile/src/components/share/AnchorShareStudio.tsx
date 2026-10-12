@@ -27,6 +27,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   data: ShareExportData;
+  initialLayout?: ShareLayoutId;
 };
 
 const PILL_MS = 2200;
@@ -38,7 +39,7 @@ const CONTROLS_HEIGHT = 292;
  * size; the 1080 x 1920 PNG is rendered separately, and only when Save or Share
  * is pressed.
  */
-export function AnchorShareStudio({ visible, onClose, data }: Props) {
+export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Props) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const reduceMotion = useV2ReduceMotion();
@@ -46,7 +47,7 @@ export function AnchorShareStudio({ visible, onClose, data }: Props) {
   const { renderPng, prepare, release, exportNode } = useShareExportRenderer(data);
 
   const layouts = useMemo(() => availableShareLayouts(data), [data]);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => initialLayout ? Math.max(0, layouts.indexOf(initialLayout)) : 0);
   const [markPreference, setMarkPreference] = useState(true);
   const [busy, setBusy] = useState<'save' | 'share' | null>(null);
   const [pill, setPill] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export function AnchorShareStudio({ visible, onClose, data }: Props) {
       enter.value = reduceMotion ? 1 : 0;
       return;
     }
-    setIndex(0);
+    setIndex(initialLayout ? Math.max(0, layouts.indexOf(initialLayout)) : 0);
     setMarkPreference(true);
     setPill(null);
     AnalyticsService.track(AnalyticsEvents.SHARE_STUDIO_OPENED, {

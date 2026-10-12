@@ -1,0 +1,28 @@
+import type { VisionNote } from '@/adapters/v2/vision';
+import { detailBoardSizeForWidth, selectDetailBoardLayout } from '../visionBoardLayouts';
+import { placeVisionSeal } from '../visionSealPlacement';
+
+describe('Vision signature placement', () => {
+  const aspects = [1.5, .75, 1, 1.5, .75, 1, 1.5, .75];
+  const scene = detailBoardSizeForWidth(360, 8, aspects);
+  const layout = selectDetailBoardLayout(8, aspects);
+  const note: VisionNote = { id: 'saved-note', visionId: 'saved-board', content: { text: 'My original words' },
+    presentation: { x: layout.card.x, y: layout.card.y, width: .28, height: .25, rotation: -6,
+      styleId: 'paper_ivory_torn', scale: 1, layerOrder: 1 }, createdAt: '', updatedAt: '' };
+
+  it('moves the seal along its photo seam rather than moving or covering a saved note', () => {
+    const original = JSON.stringify(note);
+    const result = placeVisionSeal(layout, scene, [note]);
+    expect(result.card.x).not.toBe(layout.card.x);
+    expect(result.card.y).toBe(layout.card.y);
+    expect(result.photos).toBe(layout.photos);
+    expect(result.card.width).toBe(layout.card.width);
+    expect(JSON.stringify(note)).toBe(original);
+  });
+
+  it('leaves unaffected compositions stable and ignores archived notes', () => {
+    expect(placeVisionSeal(layout, scene, [])).toBe(layout);
+    expect(placeVisionSeal(layout, scene, [{ ...note, isArchived: true }])).toBe(layout);
+    expect(placeVisionSeal(layout, scene, [{ ...note, presentation: { ...note.presentation, x: .5, y: .95 } }])).toBe(layout);
+  });
+});

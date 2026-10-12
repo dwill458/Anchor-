@@ -12,6 +12,13 @@ import { toV2VisionCompactState } from '@/adapters/v2/vision';
 
 let mockPreparationProps: any;
 let mockPracticeProps: any;
+let mockShareProps: any;
+jest.mock('@/components/share/AnchorShareStudio', () => ({
+  AnchorShareStudio: (props: any) => {
+    mockShareProps = props;
+    return require('react').createElement(require('react-native').Pressable, { testID: 'vision-share-studio-close', onPress: props.onClose });
+  },
+}));
 jest.mock('@/screens/v2/practice/visualize/V2CinematicSessionScreen', () => ({
   V2CinematicSessionScreen: (props: any) => { mockPreparationProps = props; return null; },
 }));
@@ -128,6 +135,24 @@ describe('V2VisionScreen', () => {
     useAnchorStore.setState({
       anchors: [mockAnchor as any],
     });
+  });
+
+  it('opens Vision sharing from the options menu with saved content and enhanced Anchor art, then returns to the board', async () => {
+    useAnchorStore.setState({ anchors: [{ ...mockAnchor, intentionText: 'I build what matters.',
+      baseSigilSvg: '<svg viewBox="0 0 20 20"/>', enhancedImageUrl: 'https://example.com/my-enhanced-anchor.png' } as any] });
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    await view.findByTestId('vision-board');
+    fireEvent.press(view.getByLabelText('Vision options'));
+    fireEvent.press(view.getByLabelText('Share Vision'));
+    expect(view.queryByLabelText('Share Vision')).toBeNull();
+    expect(mockShareProps.initialLayout).toBe('vision');
+    expect(mockShareProps.data).toEqual(expect.objectContaining({ intention: 'I build what matters.',
+      imageUrl: 'https://example.com/my-enhanced-anchor.png', visionAnnotation: 'Future Studio', visionNotes: [] }));
+    expect(mockShareProps.data.visionTiles.map((tile: any) => tile.imageUrl)).toEqual(mockVisionData.scenes.map(scene => scene.resolvedImageUrl));
+    fireEvent.press(view.getByTestId('vision-share-studio-close'));
+    expect(view.queryByTestId('vision-share-studio-close')).toBeNull();
+    expect(view.getByTestId('vision-board')).toBeTruthy();
   });
 
   it('warms every board image while the Vision is on screen, so Visualize does not fetch them as they appear', async () => {

@@ -430,6 +430,26 @@ export function V2PracticeScreen({
   // effect, so when the recommendation is already known the route's first
   // painted frame is the prepare layer, not a frame of the hub it replaces.
   const initialModeConsumedRef = useRef(false);
+  const prevInitialModeRef = useRef(initialMode);
+  const prevResumeModeRef = useRef(resumeMode);
+  useLayoutEffect(() => {
+    const initialChanged = initialMode !== prevInitialModeRef.current;
+    const resumeChanged = resumeMode !== prevResumeModeRef.current;
+    if (!initialChanged && !resumeChanged) return;
+    prevInitialModeRef.current = initialMode;
+    prevResumeModeRef.current = resumeMode;
+    if (!initialMode && !resumeMode) {
+      initialModeConsumedRef.current = false;
+      setPrepareMode(null);
+      setActiveSession(null);
+      return;
+    }
+    if (initialChanged && initialMode && !resumeMode) {
+      initialModeConsumedRef.current = false;
+      setPrepareMode(null);
+      setActiveSession(null);
+    }
+  }, [initialMode, resumeMode]);
   useLayoutEffect(() => {
     if (initialModeConsumedRef.current) return;
     if (model.loadingRecommendation || !initialMode || !fixedAnchor || prepareMode || activeSession) return;

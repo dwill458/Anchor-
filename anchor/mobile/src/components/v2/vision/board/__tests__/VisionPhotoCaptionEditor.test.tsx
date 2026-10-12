@@ -53,7 +53,9 @@ it('lifts the sheet when keyboard appears and restores padding when dismissed', 
   const { Keyboard } = require('react-native');
   let showHandler: any;
   let hideHandler: any;
-  jest.spyOn(Keyboard, 'addListener').mockImplementation((event: string, handler: any) => {
+  jest.spyOn(Keyboard, 'addListener').mockImplementation((...args: unknown[]) => {
+    const [event, handler] = args;
+    if (typeof event !== 'string') return { remove: jest.fn() };
     if (event.includes('Show')) showHandler = handler;
     if (event.includes('Hide')) hideHandler = handler;
     return { remove: jest.fn() } as any;

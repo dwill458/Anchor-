@@ -3,7 +3,10 @@ import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import { CircularAnchorRenderer, V2Button, V2EmptyState } from '@/components/v2';
 import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
 import { resolvePracticeSetupMetrics } from '@/components/v2/practice/practiceSetupLayout';
-import { useV2Responsive } from '@/hooks/v2';
+import { useSessionAudioSetup, useV2Responsive } from '@/hooks/v2';
+import { V2PracticeAudioSheet } from '@/components/v2/practice/V2PracticeAudioSheet';
+import { V2PracticeSettingsCard } from '@/components/v2/practice/V2PracticeSettingsCard';
+import { stopVoicePreview } from '@/services/VoicePreviewService';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import {
   V2_PRACTICE_DURATIONS,
@@ -11,7 +14,6 @@ import {
   v2PracticeDurationLabel,
   type V2PracticeMode,
 } from '@/constants/v2/practice';
-import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { HomeVisionState } from '@/adapters/v2/home';
@@ -70,11 +72,8 @@ export function V2PracticePrepareScreen({
   const defaultDuration = initialDuration ?? (durations[1] ?? durations[0]);
   const [duration, setDuration] = useState<number>(defaultDuration);
 
-  const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
-  const sessionAudioDefaults = useSettingsStore((state) => state.sessionAudioDefaults);
-  const audioSettings = sessionAudioDefaults?.[mode === 'release' ? 'focus' : mode];
-  const soundOn = audioSettings ? audioSettings.backgroundAudio !== 'off' || audioSettings.guidanceVoice !== 'none' : true;
-  const hapticsOn = (hapticIntensity ?? 70) > 0;
+  const audio = useSessionAudioSetup(mode === 'release' ? 'focus' : mode);
+  const [audioSheetOpen, setAudioSheetOpen] = useState(false);
 
   const isVisionEmpty = mode === 'visualize' && vision.state === 'none';
 
@@ -86,13 +85,13 @@ export function V2PracticePrepareScreen({
       sessionType: 'deep_prime',
       durationSeconds: duration,
       configuration: {
-        guidanceVoice: audioSettings?.guidanceVoice ?? 'female',
-        backgroundAudio: audioSettings?.backgroundAudio === 'off' ? 'off' : 'ambient',
+        guidanceVoice: audio.voice,
+        backgroundAudio: audio.ambient ? 'ambient' : 'off',
         source: 'default',
       },
     });
     return [...plan.voiceCues.map((cue) => cue.track.asset), plan.ambientTrack?.asset];
-  }, [audioSettings?.backgroundAudio, audioSettings?.guidanceVoice, duration, mode]);
+  }, [audio.ambient, audio.voice, duration, mode]);
   useRemoteAudioReady(deepFocusAudio);
 
   const begin = () => {
@@ -102,6 +101,8 @@ export function V2PracticePrepareScreen({
     }
 
     if (isVisionEmpty || !duration) return;
+    // A preview started from Settings must not run into the session.
+    stopVoicePreview();
 
     if (!entitled && (mode === 'deep_prime' || mode === 'visualize')) {
       onPremiumRequired?.({
@@ -118,6 +119,9 @@ export function V2PracticePrepareScreen({
       mode,
       durationSeconds: duration,
       source,
+      voice: audio.voice,
+      ambient: audio.ambient,
+      haptics: audio.hapticsOn,
     });
   };
 
@@ -287,16 +291,26 @@ export function V2PracticePrepareScreen({
             </View>
 
             {/* Utility status indicators */}
-            <View style={styles.utilityBlock}>
-              <View style={styles.utilityRow}>
-                <Text style={styles.utilityLabel}>Sound</Text>
-                <Text style={styles.utilityValue}>{soundOn ? 'On' : 'Off'}</Text>
-              </View>
-              <View style={styles.utilityRow}>
-                <Text style={styles.utilityLabel}>Haptics</Text>
-                <Text style={styles.utilityValue}>{hapticsOn ? 'On' : 'Off'}</Text>
-              </View>
-            </View>
+            <V2PracticeSettingsCard
+              soundOn={audio.soundOn}
+              summary={audio.summary}
+              hapticsOn={audio.hapticsOn}
+              onToggleSound={audio.toggleSound}
+              onToggleHaptics={audio.toggleHaptics}
+              onOpenSettings={() => setAudioSheetOpen(true)}
+              testIDPrefix={mode === 'deep_prime' ? 'deep-focus' : mode}
+            />
+            <V2PracticeAudioSheet
+              visible={audioSheetOpen}
+              sessionType={mode}
+              durationSeconds={duration}
+              value={audio.config}
+              accent={definition.accent}
+              actionColor={mode === 'deep_prime' ? '#8A5B12' : undefined}
+              testIDPrefix={mode === 'deep_prime' ? 'deep-focus' : mode}
+              onApply={audio.apply}
+              onClose={() => setAudioSheetOpen(false)}
+            />
           </View>
         )}
 
@@ -415,29 +429,6 @@ const styles = StyleSheet.create({
   durationButtonText: {
     ...typography.labelMD,
     color: colors.text.primary,
-  },
-  utilityBlock: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    gap: spacing[2],
-  },
-  utilityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  utilityLabel: {
-    ...typography.bodySM,
-    color: colors.text.secondary,
-  },
-  utilityValue: {
-    ...typography.labelSM,
-    color: colors.text.primary,
-    fontWeight: '600',
   },
   visionCard: {
     backgroundColor: colors.surface,

@@ -37,13 +37,8 @@ describe('NodeToneService', () => {
     );
   });
 
-  it('asynchronously builds and plays tone without dropping if unprepared at call time', async () => {
-    // Cell 7 hasn't been prepared beforehand in an empty state
+  it('plays a bundled tone immediately without preparation', () => {
     NodeToneService.play(7);
-
-    // Allow promise tick to run
-    await Promise.resolve();
-    await Promise.resolve();
 
     expect(SoundPool.play).toHaveBeenCalledWith(
       expect.stringMatching(/^node:/),

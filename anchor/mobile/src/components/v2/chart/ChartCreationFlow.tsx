@@ -130,6 +130,7 @@ export function toDraft(proposal: ChartProposal): DraftWaypoint[] {
     metricLabel: waypoint.metricLabel,
     metricTarget: waypoint.metricTarget,
     metricBaseline: waypoint.metricBaseline,
+    suggestedMoves: waypoint.moves ?? [],
   }));
 }
 
@@ -487,6 +488,7 @@ export function ChartCreationFlow({
           metricLabel: waypoint.metricLabel,
           metricTarget: waypoint.metricTarget,
           metricBaseline: waypoint.metricBaseline,
+          suggestedMoves: waypoint.suggestedMoves,
         })),
         oneMove: oneMove.trim() ? { title: oneMove.trim(), rationale: proposal?.suggestedOneMove?.rationale ?? null } : null,
       });

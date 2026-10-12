@@ -126,6 +126,7 @@ jest.mock('@/screens/v2/practice', () => {
     V2PracticeScreen: (props: any) => (
       <RNView>
         <RNText>{`practice:${props.initialMode ?? 'default'}`}</RNText>
+        <RNText>{`leaveOnSetupBack:${Boolean(props.leaveOnSetupBack)}`}</RNText>
         <RNPressable accessibilityRole="button" onPress={props.onBack}>
           <RNText>practice-back</RNText>
         </RNPressable>
@@ -391,6 +392,19 @@ describe('AnchorV2Navigator Practice launch source and return on session complet
 
     fireEvent.press(screen.getByText('practice-complete-external'));
     expect(mockSetRoute).toHaveBeenCalledWith('V2Chart', { anchorId: 'anchor-1' });
+  });
+
+  it('opens the Practice Hub with leaveOnSetupBack=false when launched from Anchor Details All practice modes', () => {
+    mockRoute = {
+      name: 'V2Practice',
+      params: { anchorId: 'anchor-1', recommendedMode: undefined, returnRoute: 'V2AnchorDetails', source: 'anchor_details' },
+    };
+    render(<AnchorV2Navigator />);
+    expect(screen.getByText('practice:default')).toBeTruthy();
+    expect(screen.getByText('leaveOnSetupBack:false')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('practice-back'));
+    expect(mockSetRoute).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'anchor-1' });
   });
 });
 

@@ -86,12 +86,12 @@ describe("session audio preference domain", () => {
   });
 
   it.each([
-    ["female", "ambient", "Female Voice · Ambient"],
-    ["female", "off", "Female Voice · Silence"],
-    ["male", "ambient", "Male Voice · Ambient"],
-    ["male", "off", "Male Voice · Silence"],
-    ["none", "ambient", "No Voice · Ambient"],
-    ["none", "off", "No Voice · Silence"],
+    ["female", "ambient", "Serene · Ambient"],
+    ["female", "off", "Serene · Silence"],
+    ["male", "ambient", "Grounded · Ambient"],
+    ["male", "off", "Grounded · Silence"],
+    ["none", "ambient", "No guidance · Ambient"],
+    ["none", "off", "No guidance · Silence"],
   ] as const)(
     "formats voice=%s background=%s centrally",
     (guidanceVoice, backgroundAudio, copy) => {
