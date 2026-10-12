@@ -8,6 +8,8 @@ import { V2AnchorGalleryItem } from './V2AnchorGalleryItem';
 type Props = {
   entries: AnchorLibraryEntry[];
   onSelectAnchor: (anchorId: string) => void;
+  selectionMode?: boolean;
+  selectedAnchorIds?: ReadonlySet<string>;
   /** Stage the first viewport on arrival; later rows appear without a delayed entrance. */
   animateArrival?: boolean;
   header?: React.ReactElement;
@@ -33,7 +35,7 @@ const MAX_GRID_WIDTH = 440;
  * with dedicated negative space, preventing collisions or edge-clipping across
  * all device viewports.
  */
-export function V2AnchorGalleryGrid({ entries, onSelectAnchor, animateArrival = false, header, emptyState }: Props) {
+export function V2AnchorGalleryGrid({ entries, onSelectAnchor, selectionMode = false, selectedAnchorIds, animateArrival = false, header, emptyState }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const contentWidth = Math.min(windowWidth - SCREEN_HORIZONTAL_PADDING, MAX_GRID_WIDTH);
   const availableWidth = Math.max(0, contentWidth - COLUMN_GAP);
@@ -49,6 +51,8 @@ export function V2AnchorGalleryGrid({ entries, onSelectAnchor, animateArrival = 
         anchor={anchor}
         released={released}
         selected={isSelected}
+        selectionMode={selectionMode}
+        bulkSelected={selectedAnchorIds?.has(anchor.localId ?? anchor.id) ?? false}
         artworkSize={artworkSize}
         itemWidth={itemWidth}
         // Only the first viewport stages its entrance. Scrolled-in cells are
@@ -58,11 +62,12 @@ export function V2AnchorGalleryGrid({ entries, onSelectAnchor, animateArrival = 
         onSelectAnchor={onSelectAnchor}
       />
     ),
-    [animateArrival, artworkSize, itemWidth, onSelectAnchor],
+    [animateArrival, artworkSize, itemWidth, onSelectAnchor, selectedAnchorIds, selectionMode],
   );
 
   return (
     <FlatList
+      style={styles.list}
       accessibilityRole="list"
       data={entries}
       numColumns={2}
@@ -83,25 +88,36 @@ export function V2AnchorGalleryGrid({ entries, onSelectAnchor, animateArrival = 
 
 const anchorKey = ({ anchor }: AnchorLibraryEntry) => anchor.localId ?? anchor.id;
 
-const GalleryCell = memo(function GalleryCell({ anchor, released, selected, artworkSize, itemWidth, animate, index, onSelectAnchor }: {
+const GalleryCell = memo(function GalleryCell({ anchor, released, selected, selectionMode, bulkSelected, artworkSize, itemWidth, animate, index, onSelectAnchor }: {
   anchor: AnchorLibraryEntry['anchor'];
   released: boolean;
   selected: boolean;
   artworkSize: number;
   itemWidth: number;
   animate: boolean;
+  selectionMode?: boolean;
+  bulkSelected?: boolean;
   index: number;
   onSelectAnchor: Props['onSelectAnchor'];
 }) {
   const onPress = useCallback(() => onSelectAnchor(anchor.localId ?? anchor.id), [anchor.id, anchor.localId, onSelectAnchor]);
   return (
     <Reveal order={index + 2} enabled={animate} style={[styles.cell, { width: itemWidth }]}>
-      <V2AnchorGalleryItem anchor={anchor} released={released} selected={selected} artworkSize={artworkSize} onPress={onPress} />
+      <V2AnchorGalleryItem
+        anchor={anchor}
+        released={released}
+        selected={selected}
+        selectionMode={selectionMode}
+        bulkSelected={bulkSelected}
+        artworkSize={artworkSize}
+        onPress={onPress}
+      />
     </Reveal>
   );
 });
 
 const styles = StyleSheet.create({
+  list: { flex: 1 },
   row: {
     columnGap: COLUMN_GAP,
     marginBottom: spacing[7],

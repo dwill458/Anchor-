@@ -115,7 +115,7 @@ describe('AnchorCreationFlowScreen: Evolve hand-off', () => {
     render(<AnchorCreationFlowScreen />);
     act(() => mockSaved({ anchorId: 'new-1', input: { intentionText: 'Finish my novel this year', baseSigilSvg: '<svg />', category: 'custom' } }));
 
-    expect(useEvolveSessionStore.getState().successor).toEqual({ anchorId: 'new-1', intentionText: 'Finish my novel this year' });
+    expect(useEvolveSessionStore.getState().successor).toEqual({ anchorId: 'new-1', intentionText: 'Finish my novel this year', fromAnchorId: 'old-1' });
     expect(useEvolveSessionStore.getState().pending).toBeNull();
     expect(mockNavigate).toHaveBeenCalledWith({
       name: 'V2Release',

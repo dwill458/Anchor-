@@ -30,6 +30,7 @@ const mockTrack = jest.fn();
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: (...args: unknown[]) => mockTrack(...args) } }));
 jest.mock('@/hooks/v2', () => ({
   useV2ReduceMotion: () => mockReduceMotion(),
+  useCreationReduceMotion: () => mockReduceMotion(),
   v2Haptics: { selection: jest.fn(), completion: jest.fn(), confirmation: jest.fn(), warning: jest.fn(), destructiveCommit: jest.fn() },
 }));
 

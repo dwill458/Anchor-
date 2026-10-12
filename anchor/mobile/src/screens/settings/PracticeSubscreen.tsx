@@ -219,17 +219,16 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
     };
 
     const handleSelectVoice = (voice: GuidanceVoice) => {
-      setSessionAudioDefaults(activeModeTab, {
-        ...currentModeDefaults,
-        guidanceVoice: voice,
-      });
+      // One shared default for Focus, Deep Focus and Visualize.
+      (['focus', 'deep_prime', 'visualize'] as const).forEach((type) =>
+        setSessionAudioDefaults(type, { ...currentModeDefaults, guidanceVoice: voice })
+      );
     };
 
     const handleSelectAudioMode = (mode: BackgroundAudioMode) => {
-      setSessionAudioDefaults(activeModeTab, {
-        ...currentModeDefaults,
-        backgroundAudio: mode,
-      });
+      (['focus', 'deep_prime', 'visualize'] as const).forEach((type) =>
+        setSessionAudioDefaults(type, { ...currentModeDefaults, backgroundAudio: mode })
+      );
     };
 
     const handleSaveDefaults = () => {

@@ -251,6 +251,13 @@ export const SessionDefaultsScreen: React.FC = () => {
   const [visualizeAudioDefaults, setVisualizeAudioDefaults] = useState<SessionAudioDefaults>(
     storedSessionAudioDefaults.visualize
   );
+
+  // Voice & Sound is one default shared by Focus, Deep Focus and Visualize.
+  const setGlobalAudioDefaults = (next: SessionAudioDefaults) => {
+    setFocusAudioDefaults(next);
+    setPrimeAudioDefaults(next);
+    setVisualizeAudioDefaults(next);
+  };
   const [isAddingPlace, setIsAddingPlace] = useState(false);
   const [placeStatus, setPlaceStatus] = useState<string | null>(null);
   const pillTranslate = useRef(
@@ -467,7 +474,7 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.section}>
                 <VoiceAndSoundControls
                   value={focusAudioDefaults}
-                  onChange={setFocusAudioDefaults}
+                  onChange={setGlobalAudioDefaults}
                   sessionType="focus"
                   durationSeconds={focusDuration}
                 />
@@ -516,7 +523,7 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.section}>
                 <VoiceAndSoundControls
                   value={primeAudioDefaults}
-                  onChange={setPrimeAudioDefaults}
+                  onChange={setGlobalAudioDefaults}
                   sessionType="deep_prime"
                   durationSeconds={resolvedPrimeDurationSeconds}
                 />
@@ -542,7 +549,7 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.section}>
                 <VoiceAndSoundControls
                   value={visualizeAudioDefaults}
-                  onChange={setVisualizeAudioDefaults}
+                  onChange={setGlobalAudioDefaults}
                   sessionType="visualize"
                   durationSeconds={visualizeDuration}
                 />

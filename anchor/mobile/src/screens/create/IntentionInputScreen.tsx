@@ -114,6 +114,10 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     const anchorCount = useAnchorStore((state) => state.anchors.length);
     const updateFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.updateDraft);
     const launchedForwardRef = useRef(false);
+    // Synchronous re-entry guard: two quick Continue taps must start one creation, not two.
+    const startingRef = useRef(false);
+    // Set while a gate (paywall) is open so coming back keeps what was typed.
+    const returningFromGateRef = useRef(false);
 
     // Teaching: whisper state (Guide Mode)
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -153,11 +157,14 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     useFocusEffect(
         React.useCallback(() => {
             const returningFromChild = launchedForwardRef.current;
+            const returningFromGate = returningFromGateRef.current;
             launchedForwardRef.current = false;
+            returningFromGateRef.current = false;
+            startingRef.current = false;
             setLaunching(false);
 
             // Fresh entry or absence of an active in-flight draft always resets the intention text.
-            if (!returningFromChild || !useFirstAnchorFlowStore.getState().draft) {
+            if (!returningFromGate && (!returningFromChild || !useFirstAnchorFlowStore.getState().draft)) {
                 setIntention(initialIntention);
                 setSubmitError(null);
                 useFirstAnchorFlowStore.getState().clearDraft();
@@ -249,7 +256,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     const startCreation = (source: CreationSource) => {
         const canStart =
             intention.trim().length >= 1;
-        if (!canStart) return;
+        if (!canStart || startingRef.current) return;
 
         if (source === 'typed') {
             const problem = !hasEnoughConsonants
@@ -288,6 +295,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
                 return;
             }
 
+            returningFromGateRef.current = true;
             navigation.navigate('Paywall', {
                 source: reason,
                 preferredPlanId: 'annual',
@@ -295,6 +303,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
             return;
         }
 
+        startingRef.current = true;
         const distillation = distillIntention(intention);
         const category = chosenCategory ?? detectCategoryFromText(intention);
         updateFirstAnchorDraft({

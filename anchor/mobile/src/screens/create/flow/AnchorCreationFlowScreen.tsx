@@ -626,6 +626,7 @@ export default function AnchorCreationFlowScreen() {
   }, [padVersion]);
 
   const finishDrawing = useCallback(() => {
+    if (drawDoneRef.current) return;
     const strokes = padRef.current.strokes.filter((s) => s.length >= 2);
     if (strokes.length === 0 || totalStrokeLength(strokes) < MIN_DRAWN_LENGTH) return;
     drawDoneRef.current = true;
@@ -731,7 +732,12 @@ export default function AnchorCreationFlowScreen() {
       const form = forms[pageIndex];
       const generated = generationRef.current.result;
       const style = generationRef.current.style;
-      if (!flow || !form || !generated || !style) return;
+      if (!flow || !form || !generated || !style) {
+        // Nothing sealable on this page: hand the medallion back instead of leaving it held and dead.
+        savePromiseRef.current = null;
+        chooseRef.current?.reset();
+        return;
+      }
 
       sealedImageRef.current = form.uri || undefined;
       if (__DEV__ && form.uri && !form.uri.startsWith('data:')) {
@@ -801,7 +807,10 @@ export default function AnchorCreationFlowScreen() {
 
   const onSealAnimationDone = useCallback(() => {
     const pending = savePromiseRef.current;
-    if (!pending) return;
+    if (!pending) {
+      chooseRef.current?.reset();
+      return;
+    }
     // The medallion holds still; only a slow save earns a hairline.
     const waitTimer = setTimeout(() => {
       if (mountedRef.current) setSaveWaiting(true);

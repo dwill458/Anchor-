@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Check } from 'lucide-react-native';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { AnimatedPressable, usePressScale } from '@/components/v2/motion';
 import { colors, spacing, typography } from '@/theme/v2';
@@ -11,6 +12,8 @@ type Props = {
   anchor: Anchor;
   released: boolean;
   selected?: boolean;
+  selectionMode?: boolean;
+  bulkSelected?: boolean;
   artworkSize?: number;
   onPress?: () => void;
 };
@@ -24,6 +27,8 @@ export function V2AnchorGalleryItem({
   anchor,
   released,
   selected = false,
+  selectionMode = false,
+  bulkSelected = false,
   artworkSize = 128,
   onPress,
 }: Props) {
@@ -33,8 +38,9 @@ export function V2AnchorGalleryItem({
   const press = usePressScale();
   return (
     <AnimatedPressable
-      accessibilityRole="button"
-      accessibilityLabel={`${anchor.intentionText}. ${state}, ${status}.`}
+      accessibilityRole={selectionMode ? 'checkbox' : 'button'}
+      accessibilityState={selectionMode ? { checked: bulkSelected } : undefined}
+      accessibilityLabel={`${anchor.intentionText}. ${state}, ${status}.${selectionMode ? ` ${bulkSelected ? 'Selected' : 'Not selected'} for deletion.` : ''}`}
       onPress={onPress}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
@@ -48,6 +54,11 @@ export function V2AnchorGalleryItem({
           accessibilityLabel={`${state} Anchor`}
           performanceLabel={`anchor-gallery:${anchor.localId ?? anchor.id}`}
         />
+        {selectionMode ? (
+          <View style={[styles.selectionMark, bulkSelected && styles.selectionMarkSelected]}>
+            {bulkSelected ? <Check size={16} color={colors.text.inverse} strokeWidth={2.5} /> : null}
+          </View>
+        ) : null}
       </View>
       <View style={styles.intentionContainer}>
         <Text numberOfLines={2} ellipsizeMode="tail" style={styles.title}>
@@ -64,9 +75,27 @@ export function V2AnchorGalleryItem({
 const styles = StyleSheet.create({
   item: { width: '100%', alignItems: 'center' },
   artworkContainer: {
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing[3],
+  },
+  selectionMark: {
+    position: 'absolute',
+    top: spacing[2],
+    right: spacing[2],
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.border.strong,
+    backgroundColor: colors.canvas,
+  },
+  selectionMarkSelected: {
+    borderColor: colors.semantic.error,
+    backgroundColor: colors.semantic.error,
   },
   intentionContainer: {
     width: '100%',

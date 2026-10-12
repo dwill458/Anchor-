@@ -21,7 +21,13 @@ describe('evolveSessionStore', () => {
     useEvolveSessionStore.getState().begin(from);
     useEvolveSessionStore.getState().attach(successor);
     expect(useEvolveSessionStore.getState().pending).toBeNull();
-    expect(useEvolveSessionStore.getState().successor).toEqual(successor);
+    expect(useEvolveSessionStore.getState().successor).toEqual({ ...successor, fromAnchorId: 'old-1' });
+  });
+
+  it('attach remembers which Anchor the session began on, so another Release never adopts it', () => {
+    useEvolveSessionStore.getState().begin(from);
+    useEvolveSessionStore.getState().attach(successor);
+    expect(useEvolveSessionStore.getState().successor?.fromAnchorId).toBe(from.fromAnchorId);
   });
 
   it('a new session never inherits a previous successor', () => {

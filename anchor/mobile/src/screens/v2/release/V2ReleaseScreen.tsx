@@ -10,7 +10,7 @@ import { V2DissolutionCeremony, V2HoldToReleaseControl, V2ReleaseChamberStatus, 
 import { V2ReleaseArtwork } from '@/components/v2/release/V2ReleaseArtwork';
 import { releaseArtworkRect, segment } from '@/components/v2/release/releaseBurn';
 import { releaseTypography } from '@/components/v2/release/releaseTypography';
-import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { useCreationReduceMotion as useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { useReleaseHold, useV2Release } from '@/hooks/v2/release';
 import { useReleaseBurnFeel } from '@/hooks/v2/release/useReleaseBurnFeel';
 import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
@@ -97,10 +97,26 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   // successor arrives with the route (creation returns here with it) or through the evolve session.
   const choiceApplies = releaseChoiceApplies(reason);
   const sessionSuccessor = useEvolveSessionStore((s) => s.successor);
-  const attachedSuccessor = successor ?? sessionSuccessor ?? undefined;
+  // A session successor only counts for the Anchor whose Release started it.
+  const sessionSuccessorApplies = sessionSuccessor && (!sessionSuccessor.fromAnchorId || sessionSuccessor.fromAnchorId === anchorId);
+  const attachedSuccessor = successor ?? (sessionSuccessorApplies ? sessionSuccessor : null) ?? undefined;
   const [choice, setChoice] = useState<V2ReleaseChoiceId>(choiceApplies && normalizeReleaseReason(reason) === 'evolve' ? 'evolve' : 'release');
   const attachedSuccessorId = attachedSuccessor?.anchorId;
   useEffect(() => { if (choiceApplies && attachedSuccessorId) setChoice('evolve'); }, [choiceApplies, attachedSuccessorId]);
+  // Creation sealed the new Anchor and closed over this screen, which has been fully drawn underneath
+  // all along: replay its entrance so the person arrives back at Release instead of cutting to it.
+  const arrivedSuccessorRef = useRef<string | undefined>(attachedSuccessorId);
+  useEffect(() => {
+    if (!attachedSuccessorId || arrivedSuccessorRef.current === attachedSuccessorId) return;
+    arrivedSuccessorRef.current = attachedSuccessorId;
+    const config = { duration: reduceMotion ? 120 : 420, easing: reduceMotion ? Easing.linear : Easing.out(Easing.cubic) };
+    entranceHeader.value = 0;
+    entranceRows.value = 0;
+    entranceControls.value = 0;
+    entranceHeader.value = withDelay(reduceMotion ? 0 : 60, withTiming(1, config));
+    entranceRows.value = withDelay(reduceMotion ? 0 : 140, withTiming(1, config));
+    entranceControls.value = withDelay(reduceMotion ? 0 : 240, withTiming(1, config));
+  }, [attachedSuccessorId, reduceMotion, entranceHeader, entranceRows, entranceControls]);
   const evolveChosen = choiceApplies && choice === 'evolve';
   // 'Release it' is a manual release even when the route arrived as evolve; the successor then plays no part.
   const hookReason = !choiceApplies ? reason : evolveChosen ? 'evolve' : normalizeReleaseReason(reason) === 'evolve' ? undefined : reason;
@@ -177,8 +193,10 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   const handleCancel = useCallback(() => { handleHoldEnd(); onCancel(); }, [handleHoldEnd, onCancel]);
   // Creation ran on top of this screen. Back here with nothing attached means it was cancelled: no
   // pending evolve state survives, and the Anchor was never touched.
+  const evolveStartingRef = useRef(false);
   useEffect(() => {
     if (!focused) return;
+    evolveStartingRef.current = false;
     const session = useEvolveSessionStore.getState();
     if (session.pending && !session.successor) session.clear();
   }, [focused]);
@@ -208,6 +226,9 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
       return;
     }
     if (!onBeginEvolve) { (onCreateSuccessor ?? handleCancel)(); return; }
+    // Creation opens over this screen, which stays tappable until it covers it: one tap, one session.
+    if (evolveStartingRef.current) return;
+    evolveStartingRef.current = true;
     const origin = { anchorId, intentionText: release.snapshot?.intentionText ?? '' };
     useEvolveSessionStore.getState().begin({ fromAnchorId: origin.anchorId, fromIntention: origin.intentionText });
     onBeginEvolve(origin);
@@ -226,11 +247,13 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   const courseId = release.snapshot?.courseId ?? null;
   // The action that is taking the user back to Home: the ending fades its chrome while Home arrives.
   const [leavingAction, setLeavingAction] = useState<V2ReleaseActionId | null>(null);
+  const leavingRef = useRef(false);
   const handleAction = useCallback((action: V2ReleaseActionId) => {
     const ending = release.ending;
-    if (!ending || leavingAction) return;
+    // Synchronous latch: state lags a frame behind a double tap, and Return Home must run once.
+    if (!ending || leavingAction || leavingRef.current) return;
     sfxLog(`release complete action=${action}`);
-    const home = () => { setLeavingAction(action); onReleaseCompleted(anchorId, ending); };
+    const home = () => { leavingRef.current = true; setLeavingAction(action); onReleaseCompleted(anchorId, ending); };
     switch (action) {
       case 'progress':
         if (onViewProgress) onViewProgress(anchorId); else if (onViewHistory) onViewHistory(); else home();
@@ -245,6 +268,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
         if (onContinueWithSuccessor && release.snapshot?.successor) {
           // The ending fades its chrome while the new Anchor lands on Home; the released art lingers behind it.
           const { artworkSvg, imageUrl, category, expression } = release.snapshot;
+          leavingRef.current = true;
           setLeavingAction(action);
           onContinueWithSuccessor(release.snapshot.successor.anchorId, {
             svg: artworkSvg, imageUrl: imageUrl ?? undefined, category: category ?? undefined, expression,

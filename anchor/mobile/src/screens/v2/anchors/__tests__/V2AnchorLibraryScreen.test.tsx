@@ -2,6 +2,10 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { FlatList, ScrollView } from 'react-native';
 
+jest.mock('@/services/ApiClient', () => ({
+  del: jest.fn().mockResolvedValue(undefined),
+}));
+
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -11,12 +15,14 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 import { useAnchorStore } from '@/stores/anchorStore';
+import { del } from '@/services/ApiClient';
 import { V2AnchorLibraryScreen } from '../V2AnchorLibraryScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 
 beforeEach(() => {
   mockNavigate.mockClear();
   mockGoBack.mockClear();
+  jest.mocked(del).mockClear();
   useAnchorStore.setState({ anchors: [], currentAnchorId: undefined });
 });
 
@@ -52,6 +58,19 @@ describe('V2AnchorLibraryScreen', () => {
     render(<V2AnchorLibraryScreen />);
     fireEvent.press(screen.getByLabelText(/Focus deeply/));
     expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+  });
+
+  it('bulk deletes a selected Anchor when Delete is pressed', () => {
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', intentionText: 'Focus deeply' })] });
+    render(<V2AnchorLibraryScreen />);
+
+    fireEvent.press(screen.getByLabelText('Select multiple Anchors'));
+    fireEvent.press(screen.getByLabelText(/Focus deeply/));
+    expect(screen.getByText('1 selected')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-anchor-bulk-delete-button'));
+
+    expect(useAnchorStore.getState().anchors).toHaveLength(0);
+    expect(del).toHaveBeenCalledWith('/api/anchors/a');
   });
 
   it('only shows the Released filter when released Anchors actually exist', () => {

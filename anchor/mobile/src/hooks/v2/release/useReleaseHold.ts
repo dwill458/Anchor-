@@ -157,13 +157,14 @@ export function useReleaseHold(options: UseReleaseHoldOptions): UseReleaseHoldRe
     clearTimer();
     completedRef.current = false;
     cancelAnimation(visualProgress);
-    visualProgress.value = 0;
+    // Easing back (not snapping) keeps a rejected hold or a failed release from flashing the cream sheet.
+    visualProgress.value = reduceMotion ? 0 : withTiming(0, { duration: RELEASE_HOLD_CANCEL_MS, easing: Easing.out(Easing.cubic) });
     setProgress(0);
     setIsHolding(false);
     setIsComplete(false);
     lastHapticStepRef.current = 0;
     sustainNotifiedRef.current = false;
-  }, [clearTimer, visualProgress]);
+  }, [clearTimer, reduceMotion, visualProgress]);
 
   return { progress, visualProgress, isHolding, isComplete, beginHold, endHold, reset };
 }

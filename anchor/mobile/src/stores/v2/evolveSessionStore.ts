@@ -13,7 +13,7 @@ import { create } from 'zustand';
  * Anchor; nothing is deleted.
  */
 export type EvolveSessionOrigin = { fromAnchorId: string; fromIntention: string };
-export type EvolveSessionSuccessor = { anchorId: string; intentionText: string };
+export type EvolveSessionSuccessor = { anchorId: string; intentionText: string; fromAnchorId?: string };
 
 type EvolveSessionState = {
   pending: EvolveSessionOrigin | null;
@@ -30,6 +30,9 @@ export const useEvolveSessionStore = create<EvolveSessionState>()((set) => ({
   pending: null,
   successor: null,
   begin: (from) => set({ pending: { ...from }, successor: null }),
-  attach: (successor) => set({ pending: null, successor: { ...successor } }),
+  attach: (successor) => set((state) => ({
+    pending: null,
+    successor: { ...successor, fromAnchorId: successor.fromAnchorId ?? state.pending?.fromAnchorId },
+  })),
   clear: () => set({ pending: null, successor: null }),
 }));

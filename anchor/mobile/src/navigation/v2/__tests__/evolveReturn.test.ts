@@ -11,7 +11,7 @@ describe('returnToReleaseWithSuccessor', () => {
     useEvolveSessionStore.getState().begin({ fromAnchorId: 'old-1', fromIntention: 'Publish my novel' });
     returnToReleaseWithSuccessor({ navigate }, 'old-1', { anchorId: 'new-1', intentionText: 'Finish my novel' });
 
-    expect(useEvolveSessionStore.getState().successor).toEqual({ anchorId: 'new-1', intentionText: 'Finish my novel' });
+    expect(useEvolveSessionStore.getState().successor).toEqual({ anchorId: 'new-1', intentionText: 'Finish my novel', fromAnchorId: 'old-1' });
     expect(useEvolveSessionStore.getState().pending).toBeNull();
     // navigate (not push): back to the Release already in the stack; merge keeps its other params.
     expect(navigate).toHaveBeenCalledTimes(1);

@@ -33,6 +33,7 @@ jest.mock('@/hooks/useEntitlements', () => ({
 }));
 jest.mock('@/hooks/v2', () => ({
   useV2ReduceMotion: () => mockReduceMotion(),
+  useCreationReduceMotion: () => mockReduceMotion(),
   v2Haptics: {
     selection: jest.fn(),
     completion: jest.fn(),

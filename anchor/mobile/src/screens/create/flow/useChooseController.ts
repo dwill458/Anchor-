@@ -322,7 +322,9 @@ export function useChooseController({
     holdingRef.current = false;
     touchRef.current = null;
     hold.value = 0;
-    sealU.value = 0;
+    // A gate took over after the seal: the medallion settles back instead of snapping to a full card.
+    cancelAnimation(sealU);
+    sealU.value = sealU.value > 0 ? withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic), reduceMotion: NEVER_REDUCE }) : 0;
     flash.value = 10;
   }, [flash, hold, sealU, stopHaptics]);
 

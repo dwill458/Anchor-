@@ -74,6 +74,16 @@ describe('IntentionInputScreen: Evolve', () => {
         }));
     });
 
+    it('starts creation once when Continue is tapped twice in a row', () => {
+        mockRouteParams = { initialIntention: 'Publish my novel', evolve: { fromAnchorId: 'old-1' } };
+        render(<IntentionInputScreen />);
+        const button = screen.getByRole('button', { name: 'Continue' });
+        fireEvent.press(button);
+        fireEvent.press(button);
+        act(() => { jest.advanceTimersByTime(1000); });
+        expect(mockNavigate.mock.calls.filter(([name]) => name === 'AnchorCreationFlow')).toHaveLength(1);
+    });
+
     it('is unchanged without the marker: empty field, no evolve param', () => {
         render(<IntentionInputScreen />);
         expect(screen.getByLabelText('Your intention').props.value).toBe('');

@@ -179,8 +179,8 @@ export function V2PracticeAudioSheet({
             const selected = draft.backgroundAudio === mode;
             const enabled = available({ ...draft, backgroundAudio: mode });
             return (
+              <View key={mode} style={styles.optionRow}>
               <Pressable
-                key={mode}
                 testID={`${testIDPrefix}-ambient-${mode === 'ambient' ? 'on' : 'off'}`}
                 accessibilityRole="radio"
                 accessibilityState={{ selected, disabled: !enabled }}
@@ -194,6 +194,7 @@ export function V2PracticeAudioSheet({
                 </Text>
                 {selected ? <Check size={16} color={accent} strokeWidth={2.4} /> : null}
               </Pressable>
+              </View>
             );
           })}
         </View>
