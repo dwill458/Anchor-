@@ -1,7 +1,7 @@
 -- Deduplicate any existing duplicate non-null push tokens before creating partial unique indexes.
 -- Preserves the token on the most recently updated user row and clears older duplicates to NULL.
 WITH ranked_expo AS (
-  SELECT id, ROW_NUMBER() OVER (PARTITION BY expo_push_token ORDER BY updated_at DESC, id DESC) as rk
+  SELECT id, ROW_NUMBER() OVER (PARTITION BY expo_push_token ORDER BY "updatedAt" DESC, id DESC) as rk
   FROM users
   WHERE expo_push_token IS NOT NULL
 )
@@ -10,7 +10,7 @@ SET expo_push_token = NULL
 WHERE id IN (SELECT id FROM ranked_expo WHERE rk > 1);
 
 WITH ranked_fcm AS (
-  SELECT id, ROW_NUMBER() OVER (PARTITION BY fcm_token ORDER BY updated_at DESC, id DESC) as rk
+  SELECT id, ROW_NUMBER() OVER (PARTITION BY fcm_token ORDER BY "updatedAt" DESC, id DESC) as rk
   FROM users
   WHERE fcm_token IS NOT NULL
 )
@@ -19,7 +19,7 @@ SET fcm_token = NULL
 WHERE id IN (SELECT id FROM ranked_fcm WHERE rk > 1);
 
 WITH ranked_apns AS (
-  SELECT id, ROW_NUMBER() OVER (PARTITION BY apns_token ORDER BY updated_at DESC, id DESC) as rk
+  SELECT id, ROW_NUMBER() OVER (PARTITION BY apns_token ORDER BY "updatedAt" DESC, id DESC) as rk
   FROM users
   WHERE apns_token IS NOT NULL
 )
