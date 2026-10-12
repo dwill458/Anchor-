@@ -5,6 +5,7 @@
     "buildCommand": "npm install --legacy-peer-deps --include=dev && npm run build"
   },
   "deploy": {
+    "preDeployCommand": "npm run prisma:recover-known-failures && npx prisma migrate deploy",
     "startCommand": "npm run start"
   }
 }
