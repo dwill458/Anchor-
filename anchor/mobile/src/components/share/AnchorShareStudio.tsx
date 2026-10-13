@@ -20,8 +20,11 @@ import { saveShareExport, sharePngViaSystemSheet } from '@/services/anchorExport
 import { logger } from '@/utils/logger';
 import { AnchorSharePreview } from './AnchorSharePreview';
 import { ShareLayoutSelector } from './ShareLayoutSelector';
+import { VisionBackgroundPicker } from './VisionBackgroundPicker';
 import { useShareExportRenderer } from './useShareExportRenderer';
 import { SHARE_ASPECT, availableShareLayouts, type ShareExportData, type ShareLayoutId } from './shareTypes';
+import { useSharePrefsStore } from '@/stores/sharePrefsStore';
+import type { VisionShareBackgroundId } from './visionShareBackgrounds';
 
 type Props = {
   visible: boolean;
@@ -32,7 +35,8 @@ type Props = {
 
 const PILL_MS = 2200;
 const HEADER_HEIGHT = 76;
-const CONTROLS_HEIGHT = 292;
+const CONTROLS_BASE_HEIGHT = 292;
+const VISION_PICKER_HEIGHT = 92;
 
 /**
  * Full-screen "choose, then share". The preview is the real template at screen
@@ -45,6 +49,7 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
   const reduceMotion = useV2ReduceMotion();
   const { isPro } = useSubscription();
   const { renderPng, prepare, release, exportNode } = useShareExportRenderer(data);
+  const { visionBackgroundId, setVisionBackgroundId } = useSharePrefsStore();
 
   const layouts = useMemo(() => availableShareLayouts(data), [data]);
   const [index, setIndex] = useState(() => initialLayout ? Math.max(0, layouts.indexOf(initialLayout)) : 0);
@@ -63,9 +68,9 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
       release();
       return undefined;
     }
-    const timer = setTimeout(() => prepare(layout, showMark), 350);
+    const timer = setTimeout(() => prepare(layout, showMark, layout === 'vision' ? visionBackgroundId : undefined), 350);
     return () => clearTimeout(timer);
-  }, [visible, layout, showMark, prepare, release]);
+  }, [visible, layout, showMark, visionBackgroundId, prepare, release]);
 
   // Entrance: a quiet settle, not a slide.
   const enter = useSharedValue(reduceMotion ? 1 : 0);
@@ -82,8 +87,13 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
       has_vision: layouts.includes('vision'),
     });
     // Warm the images so switching layouts never shows an empty frame.
-    for (const uri of [data.imageUrl, data.visionImageUrl]) {
-      if (uri) void Image.prefetch(uri).catch(() => undefined);
+    const urisToWarm = [
+      data.imageUrl,
+      data.visionImageUrl,
+      ...(data.visionTiles?.map((t) => t.imageUrl) ?? []),
+    ].filter((uri): uri is string => Boolean(uri?.trim()));
+    for (const uri of urisToWarm) {
+      void Image.prefetch(uri).catch(() => undefined);
     }
     enter.value = reduceMotion ? 1 : withTiming(1, { duration: 320 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,10 +116,20 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
     pillTimer.current = setTimeout(() => setPill(null), PILL_MS);
   }, []);
 
+  const selectVisionBackground = useCallback(
+    (nextBg: VisionShareBackgroundId) => {
+      if (nextBg === visionBackgroundId) return;
+      setVisionBackgroundId(nextBg);
+      void v2Haptics.selection();
+    },
+    [setVisionBackgroundId, visionBackgroundId],
+  );
+
   const previewWidth = useMemo(() => {
-    const room = height - insets.top - insets.bottom - HEADER_HEIGHT - CONTROLS_HEIGHT;
+    const controlsHeight = layout === 'vision' ? CONTROLS_BASE_HEIGHT + VISION_PICKER_HEIGHT : CONTROLS_BASE_HEIGHT;
+    const room = height - insets.top - insets.bottom - HEADER_HEIGHT - controlsHeight;
     return Math.max(180, Math.min(width - 88, room / SHARE_ASPECT));
-  }, [height, insets.bottom, insets.top, width]);
+  }, [height, insets.bottom, insets.top, layout, width]);
 
   const selectIndex = useCallback(
     (next: number) => {
@@ -125,7 +145,10 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
     if (busy) return;
     setBusy(kind);
     try {
-      const uri = await renderPng(layout, showMark, { keepWarm: true });
+      const uri = await renderPng(layout, showMark, {
+        keepWarm: true,
+        visionBackgroundId: layout === 'vision' ? visionBackgroundId : undefined,
+      });
       if (kind === 'save') {
         const result = await saveShareExport(uri, layout);
         if (result === 'permission-denied') {
@@ -137,6 +160,15 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
         showPill('Saved to Photos');
         AnalyticsService.track(AnalyticsEvents.ANCHOR_EXPORT_SAVED, { layout, source: 'share_studio' });
       } else {
+        // Also save to device photo library so the user's export is preserved locally when sharing
+        try {
+          const saveResult = await saveShareExport(uri, layout);
+          if (saveResult === 'saved') {
+            AnalyticsService.track(AnalyticsEvents.ANCHOR_EXPORT_SAVED, { layout, source: 'share_studio_share_action' });
+          }
+        } catch {
+          // Non-blocking: continue to open share sheet even if local save permission was denied
+        }
         await sharePngViaSystemSheet(uri);
         AnalyticsService.track(AnalyticsEvents.ANCHOR_EXPORT_SHARED, { layout });
       }
@@ -178,6 +210,7 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
                 data={data}
                 width={previewWidth}
                 showMark={showMark}
+                visionBackgroundId={visionBackgroundId}
                 reduceMotion={reduceMotion}
                 onSwipe={(direction) => selectIndex(index + direction)}
               />
@@ -189,7 +222,7 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
             </View>
           </View>
 
-          <View style={styles.controls}>
+          <View style={[styles.controls, layout === 'vision' && styles.controlsVision]}>
             <ShareLayoutSelector
               layouts={layouts}
               selected={layout}
@@ -197,6 +230,14 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
               data={data}
               showMark={showMark}
             />
+
+            {layout === 'vision' ? (
+              <VisionBackgroundPicker
+                selected={visionBackgroundId}
+                onSelect={selectVisionBackground}
+                reduceMotion={reduceMotion}
+              />
+            ) : null}
 
             <View style={styles.markRow}>
               <View style={styles.markCopy}>
@@ -277,7 +318,8 @@ const styles = StyleSheet.create({
   dots: { position: 'absolute', bottom: 4, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: withAlpha(detailsPalette.cream, 0.25) },
   dotActive: { backgroundColor: detailsPalette.cream },
-  controls: { height: CONTROLS_HEIGHT, justifyContent: 'flex-end', gap: 14, paddingBottom: 4 },
+  controls: { height: CONTROLS_BASE_HEIGHT, justifyContent: 'flex-end', gap: 14, paddingBottom: 4 },
+  controlsVision: { height: CONTROLS_BASE_HEIGHT + VISION_PICKER_HEIGHT },
   markRow: {
     marginHorizontal: 20,
     paddingHorizontal: 16,

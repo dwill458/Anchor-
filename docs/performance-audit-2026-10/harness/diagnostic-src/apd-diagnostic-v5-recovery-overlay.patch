@@ -1,0 +1,34 @@
+diff --git a/App.tsx b/App.tsx
+--- a/App.tsx
++++ b/App.tsx
+@@ -903,7 +903,7 @@
+         <View style={styles.fontLoadingFallback}>
+           <StatusBar style="light" backgroundColor="transparent" translucent />
+           {fatalStartupFailure ? (
+-            <StartupRestoreFailure />
++            <StartupRestoreFailure startupStartedAt={startupStartedAtRef.current} />
+           ) : (
+             <SplashController
+               startupReady={false}
+
+diff --git a/src/components/startup/StartupRestoreFailure.tsx b/src/components/startup/StartupRestoreFailure.tsx
+--- a/src/components/startup/StartupRestoreFailure.tsx
++++ b/src/components/startup/StartupRestoreFailure.tsx
+@@ -1,10 +1,15 @@
+-import React, { useState } from 'react';
++import React, { useEffect, useState } from 'react';
+ import { Pressable, StyleSheet, Text, View } from 'react-native';
+ import { logger } from '@/utils/logger';
+ import { reloadCurrentApp } from '@/services/reloadCurrentApp';
++import { perfDiag } from '@/utils/perfDiagnostics';
+ 
+-export function StartupRestoreFailure() {
++export function StartupRestoreFailure({ startupStartedAt = Date.now() }: { startupStartedAt?: number } = {}) {
+   const [retryFailed, setRetryFailed] = useState(false);
++
++  useEffect(() => {
++    perfDiag('startup-recovery', { elapsedMs: Math.max(0, Date.now() - startupStartedAt) });
++  }, [startupStartedAt]);
+ 
+   const retry = async () => {
+     setRetryFailed(false);

@@ -113,7 +113,12 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const signedInUser = useAuthStore((state) => state.user);
   const pendingTempId = useAuthStore((state) => state.pendingFirstAnchorDraft?.tempAnchorId);
   const anchor = useAnchorStore((state) => state.anchors.find((item) => item.id === pendingTempId) ?? state.anchors[0]);
-  const hasActiveEntitlement = useSubscriptionStore((state) => state.hasActiveEntitlement);
+  const hasActiveEntitlement = useSubscriptionStore(
+    (state) =>
+      state.hasActiveEntitlement ||
+      state.remoteCompedAccess ||
+      state.legacyMigrationAccess,
+  );
 
   const [saved, setSaved] = useState<SaveKind | null>(initialSaved);
   const [authedUser, setAuthedUser] = useState<User | null>(null);
@@ -132,9 +137,15 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const sealedSoundPlayedRef = useRef(false);
 
   const activeUser = signedInUser ?? authedUser;
+  const hasUserEntitlement = Boolean(
+    hasActiveEntitlement ||
+      activeUser?.isComped === true ||
+      activeUser?.legacyMigrationAccess === true ||
+      (activeUser?.subscriptionStatus && activeUser.subscriptionStatus !== 'free'),
+  );
   const isLockedFreeUser = Boolean(
     activeUser &&
-    !hasActiveEntitlement &&
+    !hasUserEntitlement &&
     (activeUser.freeAnchorConsumed || (activeUser.totalAnchorsCreated ?? 0) >= 1)
   );
   const isSubscriptionRequired = requiresSubscription || isLockedFreeUser;

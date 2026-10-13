@@ -917,5 +917,61 @@ describe('authStore', () => {
 
       postMock.mockRestore();
     });
+
+    it('coalesces concurrent finalizePendingFirstAnchorDraft calls and transfers the pending Anchor exactly once without duplication', async () => {
+      const localAnchor = createMockAnchor({ id: 'temp-anchor-concurrent' });
+      const createdAnchor = createMockAnchor({
+        id: 'server-anchor-concurrent',
+        userId: 'user-123',
+      });
+
+      useAnchorStore.getState().setAnchors([localAnchor, createdAnchor]);
+      useAnchorStore.getState().setCurrentAnchor(localAnchor.id);
+
+      useAuthStore.setState({
+        user: createMockUser(),
+        isAuthenticated: true,
+        hasCompletedOnboarding: true,
+        pendingFirstAnchorDraft: {
+          tempAnchorId: localAnchor.id,
+          source: 'onboarding_first_anchor',
+          requiresAccountGate: true,
+          createdAt: new Date('2026-04-10T00:00:00.000Z'),
+        },
+        pendingFirstAnchorMutations: [],
+      });
+
+      let resolvePost!: (value: any) => void;
+      const postMock = jest.spyOn(apiClient, 'post').mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolvePost = resolve;
+          }) as any
+      );
+      (AuthService.getIdToken as jest.Mock).mockResolvedValue('firebase-id-token');
+
+      const firstCall = useAuthStore.getState().finalizePendingFirstAnchorDraft();
+      const secondCall = useAuthStore.getState().finalizePendingFirstAnchorDraft();
+
+      await new Promise((resolve) => setImmediate(resolve));
+      resolvePost({ data: { success: true, data: createdAnchor } });
+
+      const [firstResult, secondResult] = await Promise.all([firstCall, secondCall]);
+
+      expect(firstResult).toBe(true);
+      expect(secondResult).toBe(true);
+      expect(postMock).toHaveBeenCalledTimes(1);
+      expect(useAnchorStore.getState().anchors).toHaveLength(1);
+      expect(useAnchorStore.getState().anchors[0]).toEqual(
+        expect.objectContaining({
+          id: 'server-anchor-concurrent',
+          localId: 'temp-anchor-concurrent',
+          userId: 'user-123',
+        })
+      );
+      expect(useAuthStore.getState().pendingFirstAnchorDraft).toBeNull();
+
+      postMock.mockRestore();
+    });
   });
 });

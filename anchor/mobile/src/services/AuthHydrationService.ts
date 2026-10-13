@@ -9,7 +9,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useSubscriptionStore } from "@/stores/subscriptionStore";
 import type {
   Anchor,
   ApiResponse,
@@ -67,18 +66,91 @@ function normalizeDate(value?: Date | string | null): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
+const anchorsWithMissingUpdatedAt = new WeakSet<Anchor>();
+
+function isMarkedMissingUpdatedAt(value: unknown): boolean {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      (value as { __missingUpdatedAt?: boolean }).__missingUpdatedAt === true,
+  );
+}
+
+function createMissingUpdatedAtDate(fallback?: Date): Date {
+  const date = new Date(fallback ? fallback.getTime() : Date.now());
+  Object.defineProperty(date, "__missingUpdatedAt", {
+    value: true,
+    enumerable: false,
+    configurable: true,
+  });
+  Object.defineProperty(date, "toJSON", {
+    value: () => null,
+    enumerable: false,
+    configurable: true,
+  });
+  return date;
+}
+
+function markAnchorMissingUpdatedAt(anchor: Anchor, fallback?: Date): Anchor {
+  const updatedAt = isMarkedMissingUpdatedAt(anchor.updatedAt)
+    ? anchor.updatedAt
+    : createMissingUpdatedAtDate(normalizeDate(anchor.updatedAt) ?? fallback);
+  const marked: Anchor =
+    anchor.updatedAt === updatedAt ? anchor : { ...anchor, updatedAt };
+  if ("__missingUpdatedAt" in marked) {
+    delete (marked as { __missingUpdatedAt?: boolean }).__missingUpdatedAt;
+  }
+  anchorsWithMissingUpdatedAt.add(marked);
+  Object.defineProperty(marked, "__missingUpdatedAt", {
+    value: true,
+    enumerable: false,
+    configurable: true,
+  });
+  return marked;
+}
+
 export function normalizeAnchor(anchor: Anchor): Anchor {
-  return {
+  const rawUpdatedAt = isMarkedMissingUpdatedAt(anchor.updatedAt)
+    ? undefined
+    : normalizeDate(anchor.updatedAt);
+  const hadMissingUpdatedAt =
+    !rawUpdatedAt ||
+    anchorsWithMissingUpdatedAt.has(anchor) ||
+    isMarkedMissingUpdatedAt(anchor) ||
+    isMarkedMissingUpdatedAt(anchor.updatedAt);
+  const createdAt = normalizeDate(anchor.createdAt) ?? new Date();
+  const fallbackUpdatedAt = normalizeDate(anchor.updatedAt) ?? createdAt;
+  const releasedAt = normalizeDate(anchor.releasedAt);
+  const archivedAt =
+    normalizeDate(anchor.archivedAt) ??
+    ((anchor as { isArchived?: boolean }).isArchived === true
+      ? (releasedAt ?? rawUpdatedAt ?? createdAt)
+      : undefined);
+  const isReleased =
+    anchor.isReleased === true ||
+    Boolean(releasedAt || archivedAt) ||
+    anchor.isReleased;
+  const normalized: Anchor = {
     ...anchor,
-    createdAt: normalizeDate(anchor.createdAt) ?? new Date(),
-    updatedAt: normalizeDate(anchor.updatedAt) ?? new Date(),
+    createdAt,
+    updatedAt: hadMissingUpdatedAt
+      ? createMissingUpdatedAtDate(fallbackUpdatedAt)
+      : rawUpdatedAt,
     chargedAt: normalizeDate(anchor.chargedAt),
     firstChargedAt: normalizeDate(anchor.firstChargedAt),
     ignitedAt: normalizeDate(anchor.ignitedAt),
     lastActivatedAt: normalizeDate(anchor.lastActivatedAt),
-    releasedAt: normalizeDate(anchor.releasedAt),
-    archivedAt: normalizeDate(anchor.archivedAt),
+    ...(isReleased !== undefined ? { isReleased } : {}),
+    releasedAt,
+    archivedAt,
   };
+  if ("__missingUpdatedAt" in normalized) {
+    delete (normalized as { __missingUpdatedAt?: boolean }).__missingUpdatedAt;
+  }
+  if (hadMissingUpdatedAt) {
+    markAnchorMissingUpdatedAt(normalized, fallbackUpdatedAt);
+  }
+  return normalized;
 }
 
 function normalizeUser(user: User): User {
@@ -652,19 +724,322 @@ function mapBurnedAnchorToArchive(burnedAnchor: ExportBurnedAnchor): Anchor {
   };
 }
 
+const GUEST_USER_IDS = new Set([
+  "guest",
+  "guest-user",
+  "user-local",
+  "local-user",
+]);
+
+type PendingFirstAnchorDraftState = ReturnType<
+  typeof useAuthStore.getState
+>["pendingFirstAnchorDraft"];
+
+function isGuestOwnedAnchor(anchor: Anchor): boolean {
+  if (anchor.userId && GUEST_USER_IDS.has(anchor.userId)) {
+    return true;
+  }
+  return (
+    anchor.id.startsWith("pending-first-anchor-") ||
+    Boolean(anchor.localId?.startsWith("pending-first-anchor-"))
+  );
+}
+
+function isAuthorizedPendingFirstAnchorTransfer(
+  anchor: Anchor,
+  pendingFirstAnchorDraft: PendingFirstAnchorDraftState,
+): boolean {
+  if (!pendingFirstAnchorDraft) {
+    return false;
+  }
+  const matchesTempId =
+    Boolean(pendingFirstAnchorDraft.tempAnchorId) &&
+    (anchor.id === pendingFirstAnchorDraft.tempAnchorId ||
+      anchor.localId === pendingFirstAnchorDraft.tempAnchorId);
+  const matchesBackendId =
+    Boolean(pendingFirstAnchorDraft.backendAnchorId) &&
+    (anchor.id === pendingFirstAnchorDraft.backendAnchorId ||
+      anchor.localId === pendingFirstAnchorDraft.backendAnchorId);
+  return matchesTempId || matchesBackendId;
+}
+
+function canPreserveAnchorForUser(params: {
+  anchor: Anchor;
+  ownerUserId?: string | null;
+  pendingFirstAnchorDraft?: PendingFirstAnchorDraftState;
+}): boolean {
+  const { anchor, ownerUserId, pendingFirstAnchorDraft } = params;
+  if (isGuestOwnedAnchor(anchor)) {
+    return isAuthorizedPendingFirstAnchorTransfer(
+      anchor,
+      pendingFirstAnchorDraft ?? null,
+    );
+  }
+  if (
+    !ownerUserId ||
+    !anchor.userId ||
+    anchor.userId === ownerUserId ||
+    anchor.userId === "test-user-123"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function hasMissingUpdatedAt(anchor: Anchor): boolean {
+  if (anchorsWithMissingUpdatedAt.has(anchor)) {
+    return true;
+  }
+  if (
+    isMarkedMissingUpdatedAt(anchor) ||
+    isMarkedMissingUpdatedAt(anchor.updatedAt)
+  ) {
+    return true;
+  }
+  return !normalizeDate(anchor.updatedAt);
+}
+
+function getAnchorTimestampMs(anchor: Anchor): number {
+  if (hasMissingUpdatedAt(anchor)) {
+    return Number.NaN;
+  }
+  const parsed = normalizeDate(anchor.updatedAt)?.getTime() ?? Number.NaN;
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function mergeAnchorWithNewerLocalState(
+  remoteAnchor: Anchor,
+  localAnchors: Anchor[],
+  pendingFirstAnchorDraft?: PendingFirstAnchorDraftState,
+): Anchor {
+  const matchesPendingBackendDraft = Boolean(
+    pendingFirstAnchorDraft?.backendAnchorId &&
+      pendingFirstAnchorDraft.tempAnchorId &&
+      remoteAnchor.id === pendingFirstAnchorDraft.backendAnchorId,
+  );
+  const localMatch = localAnchors.find(
+    (local) =>
+      local.id === remoteAnchor.id ||
+      (remoteAnchor.localId != null && local.id === remoteAnchor.localId) ||
+      (local.localId != null && local.localId === remoteAnchor.id) ||
+      (matchesPendingBackendDraft &&
+        (local.id === pendingFirstAnchorDraft?.tempAnchorId ||
+          local.localId === pendingFirstAnchorDraft?.tempAnchorId)),
+  );
+  if (!localMatch) {
+    return remoteAnchor;
+  }
+
+  const remoteIsReleased = Boolean(
+    remoteAnchor.isReleased ||
+      remoteAnchor.releasedAt ||
+      remoteAnchor.archivedAt,
+  );
+  const localHasMissingUpdatedAt = hasMissingUpdatedAt(localMatch);
+  const localUpdatedAt = getAnchorTimestampMs(localMatch);
+  const remoteUpdatedAt = getAnchorTimestampMs(remoteAnchor);
+  const shouldKeepLocalState =
+    !Number.isFinite(localUpdatedAt) ||
+    !Number.isFinite(remoteUpdatedAt) ||
+    localUpdatedAt >= remoteUpdatedAt;
+
+  if (shouldKeepLocalState) {
+    const definedLocalEntries = Object.entries(localMatch).filter(
+      ([, value]) => value !== undefined,
+    );
+    const localLastActivatedMs =
+      normalizeDate(localMatch.lastActivatedAt)?.getTime() ?? Number.NaN;
+    const remoteLastActivatedMs =
+      normalizeDate(remoteAnchor.lastActivatedAt)?.getTime() ?? Number.NaN;
+    const resolvedLastActivatedAt =
+      Number.isFinite(localLastActivatedMs) &&
+      Number.isFinite(remoteLastActivatedMs)
+        ? localLastActivatedMs >= remoteLastActivatedMs
+          ? normalizeDate(localMatch.lastActivatedAt)
+          : normalizeDate(remoteAnchor.lastActivatedAt)
+        : (normalizeDate(localMatch.lastActivatedAt) ??
+          normalizeDate(remoteAnchor.lastActivatedAt));
+    const fallbackUpdatedAt =
+      normalizeDate(remoteAnchor.updatedAt) ??
+      normalizeDate(localMatch.createdAt) ??
+      remoteAnchor.createdAt;
+    const resolvedUpdatedAt = localHasMissingUpdatedAt
+      ? createMissingUpdatedAtDate(fallbackUpdatedAt)
+      : (normalizeDate(localMatch.updatedAt) ?? remoteAnchor.updatedAt);
+
+    const merged: Anchor = {
+      ...remoteAnchor,
+      ...Object.fromEntries(definedLocalEntries),
+      id: remoteAnchor.id,
+      userId: remoteAnchor.userId || localMatch.userId,
+      localId:
+        remoteAnchor.localId ??
+        localMatch.localId ??
+        (matchesPendingBackendDraft
+          ? pendingFirstAnchorDraft?.tempAnchorId
+          : undefined),
+      updatedAt: resolvedUpdatedAt,
+      isCharged: Boolean(remoteAnchor.isCharged || localMatch.isCharged),
+      chargedAt:
+        normalizeDate(localMatch.chargedAt) ??
+        normalizeDate(remoteAnchor.chargedAt),
+      firstChargedAt:
+        normalizeDate(remoteAnchor.firstChargedAt) ??
+        normalizeDate(localMatch.firstChargedAt),
+      ignitedAt:
+        normalizeDate(localMatch.ignitedAt) ??
+        normalizeDate(remoteAnchor.ignitedAt),
+      lastActivatedAt: resolvedLastActivatedAt,
+      activationCount: Math.max(
+        remoteAnchor.activationCount ?? 0,
+        localMatch.activationCount ?? 0,
+      ),
+      chargeCount: Math.max(
+        remoteAnchor.chargeCount ?? 0,
+        localMatch.chargeCount ?? 0,
+      ),
+      ...(remoteIsReleased
+        ? {
+            isReleased: true,
+            releasedAt:
+              normalizeDate(remoteAnchor.releasedAt) ??
+              normalizeDate(localMatch.releasedAt) ??
+              normalizeDate(remoteAnchor.archivedAt),
+            archivedAt:
+              normalizeDate(remoteAnchor.archivedAt) ??
+              normalizeDate(localMatch.archivedAt) ??
+              normalizeDate(remoteAnchor.releasedAt),
+          }
+        : {}),
+    };
+
+    if (localHasMissingUpdatedAt && !remoteIsReleased) {
+      return markAnchorMissingUpdatedAt(merged, fallbackUpdatedAt);
+    }
+
+    return merged;
+  }
+
+  return remoteAnchor;
+}
+
+function selectPreservedLocalAnchors(params: {
+  currentAnchors: Anchor[];
+  committedAnchors: Anchor[];
+  burnedOriginalAnchorIds?: Set<string>;
+  initialBackendAnchorIds: Set<string>;
+  ownerUserId?: string | null;
+  pendingFirstAnchorDraft?: PendingFirstAnchorDraftState;
+}): Anchor[] {
+  const {
+    currentAnchors,
+    committedAnchors,
+    burnedOriginalAnchorIds,
+    initialBackendAnchorIds,
+    ownerUserId,
+    pendingFirstAnchorDraft,
+  } = params;
+  const committedIds = new Set<string>();
+  for (const anchor of committedAnchors) {
+    committedIds.add(anchor.id);
+    if (anchor.localId) {
+      committedIds.add(anchor.localId);
+    }
+  }
+  if (
+    pendingFirstAnchorDraft?.backendAnchorId &&
+    pendingFirstAnchorDraft.tempAnchorId &&
+    committedIds.has(pendingFirstAnchorDraft.backendAnchorId)
+  ) {
+    committedIds.add(pendingFirstAnchorDraft.tempAnchorId);
+  }
+
+  return currentAnchors.filter((anchor) => {
+    if (committedIds.has(anchor.id)) {
+      return false;
+    }
+    if (anchor.localId && committedIds.has(anchor.localId)) {
+      return false;
+    }
+    if (burnedOriginalAnchorIds?.has(anchor.id)) {
+      return false;
+    }
+    if (anchor.localId && burnedOriginalAnchorIds?.has(anchor.localId)) {
+      return false;
+    }
+    if (
+      !canPreserveAnchorForUser({
+        anchor,
+        ownerUserId,
+        pendingFirstAnchorDraft,
+      })
+    ) {
+      return false;
+    }
+    if (!isBackendAnchorId(anchor.id)) {
+      return true;
+    }
+    // Preserve backend-ID anchors created locally while hydration was in flight.
+    if (!initialBackendAnchorIds.has(anchor.id)) {
+      return true;
+    }
+    return false;
+  });
+}
+
 interface HydrateOptions {
   skipAnchorRefresh?: boolean;
 }
 
 class AuthHydrationService {
+  private latestHydrationId = 0;
+
   async hydrateAuthenticatedData(options: HydrateOptions = {}): Promise<void> {
+    const hydrationId = ++this.latestHydrationId;
     const authStore = useAuthStore.getState();
     let expectedUserId = authStore.user?.id ?? null;
+    const initialToken = authStore.token ?? null;
+    if (expectedUserId) {
+      const currentAnchorStore = useAnchorStore.getState();
+      const sanitizedAnchors = currentAnchorStore.anchors.filter((anchor) =>
+        canPreserveAnchorForUser({
+          anchor,
+          ownerUserId: expectedUserId,
+          pendingFirstAnchorDraft: authStore.pendingFirstAnchorDraft,
+        }),
+      );
+      if (sanitizedAnchors.length !== currentAnchorStore.anchors.length) {
+        currentAnchorStore.setAnchors(sanitizedAnchors);
+        if (
+          currentAnchorStore.currentAnchorId &&
+          !sanitizedAnchors.some(
+            (anchor) =>
+              anchor.id === currentAnchorStore.currentAnchorId ||
+              anchor.localId === currentAnchorStore.currentAnchorId,
+          )
+        ) {
+          currentAnchorStore.setCurrentAnchor(sanitizedAnchors[0]?.id);
+        }
+      }
+    }
+    const initialBackendAnchorIds = new Set(
+      useAnchorStore
+        .getState()
+        .anchors.filter((anchor) => isBackendAnchorId(anchor.id))
+        .map((anchor) => anchor.id),
+    );
     if (!options.skipAnchorRefresh) {
       useAnchorStore.setState({ isLoading: true, remoteAnchorState: 'loading', error: null });
     }
     const isCurrentAccount = () => {
-      const currentUserId = useAuthStore.getState().user?.id ?? null;
+      if (this.latestHydrationId !== hydrationId) {
+        return false;
+      }
+      const currentAuth = useAuthStore.getState();
+      if (initialToken && currentAuth.token && currentAuth.token !== initialToken) {
+        return false;
+      }
+      const currentUserId = currentAuth.user?.id ?? null;
       return expectedUserId
         ? currentUserId === expectedUserId
         : currentUserId == null;
@@ -683,28 +1058,36 @@ class AuthHydrationService {
         throw new Error('Anchor response did not contain an authoritative list.');
       }
 
-      const fastAnchors = responseAnchors.map(normalizeAnchor);
+      const currentPendingFirstAnchorDraft =
+        useAuthStore.getState().pendingFirstAnchorDraft;
+      const fastAnchors = responseAnchors
+        .map(normalizeAnchor)
+        .filter((anchor) =>
+          canPreserveAnchorForUser({
+            anchor,
+            ownerUserId: expectedUserId,
+            pendingFirstAnchorDraft: currentPendingFirstAnchorDraft,
+          }),
+        );
       anchorSpan({ ok: true, anchorCount: fastAnchors.length });
       if (expectedUserId && isCurrentAccount() && !options.skipAnchorRefresh) {
         const anchorStore = useAnchorStore.getState();
         if (fastAnchors.length > 0) {
-          const user = useAuthStore.getState().user;
-          const hasActiveEntitlement = useSubscriptionStore.getState().hasActiveEntitlement;
-          const isLockedFreeUser = Boolean(
-            user &&
-            !hasActiveEntitlement &&
-            (user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1)
+          const mergedFastAnchors = fastAnchors.map((anchor) =>
+            mergeAnchorWithNewerLocalState(
+              anchor,
+              anchorStore.anchors,
+              currentPendingFirstAnchorDraft,
+            ),
           );
-          if (isLockedFreeUser) {
-            anchorStore.anchors
-              .filter((anchor) => !isBackendAnchorId(anchor.id))
-              .forEach((a) => anchorStore.removeAnchor(a.id));
-            useAuthStore.getState().clearPendingFirstAnchorState();
-          }
-          const preservedLocalAnchors = isLockedFreeUser
-            ? []
-            : anchorStore.anchors.filter((anchor) => !isBackendAnchorId(anchor.id));
-          const nextAnchors = [...fastAnchors, ...preservedLocalAnchors];
+          const preservedLocalAnchors = selectPreservedLocalAnchors({
+            currentAnchors: anchorStore.anchors,
+            committedAnchors: mergedFastAnchors,
+            initialBackendAnchorIds,
+            ownerUserId: expectedUserId,
+            pendingFirstAnchorDraft: currentPendingFirstAnchorDraft,
+          });
+          const nextAnchors = [...mergedFastAnchors, ...preservedLocalAnchors];
           anchorStore.setAnchors(nextAnchors);
           const activeAnchors = nextAnchors.filter((anchor) => !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt);
           const selectedAnchor = activeAnchors.find((anchor) =>
@@ -808,9 +1191,20 @@ class AuthHydrationService {
       );
     }
 
+    const activePendingFirstAnchorDraft =
+      useAuthStore.getState().pendingFirstAnchorDraft;
+
     if (anchorsResult.status === "fulfilled") {
       remoteAnchors = Array.isArray(anchorsResult.value.data?.data)
-        ? anchorsResult.value.data.data.map(normalizeAnchor)
+        ? anchorsResult.value.data.data
+            .map(normalizeAnchor)
+            .filter((anchor) =>
+              canPreserveAnchorForUser({
+                anchor,
+                ownerUserId: resolvedUserId,
+                pendingFirstAnchorDraft: activePendingFirstAnchorDraft,
+              }),
+            )
         : [];
       HomeStartupProfiler.mark("anchors_response_decoded", { anchorCount: remoteAnchors.length });
     } else {
@@ -824,31 +1218,70 @@ class AuthHydrationService {
       exportResult.status === "fulfilled"
         ? exportResult.value.data?.data
         : undefined;
-    const hasCompleteExport = hasCompleteProgressionExport(exportData);
-    const hasLegacyExport = hasLegacyPracticeExport(exportData);
+    const exportAccountOwnerId =
+      typeof (exportData?.account as { id?: unknown } | undefined)?.id ===
+      "string"
+        ? (exportData?.account as { id: string }).id
+        : undefined;
+    const isForeignExportAccount = Boolean(
+      exportAccountOwnerId &&
+        resolvedUserId &&
+        exportAccountOwnerId !== resolvedUserId,
+    );
+    const hasCompleteExport =
+      !isForeignExportAccount && hasCompleteProgressionExport(exportData);
+    const hasLegacyExport =
+      !isForeignExportAccount && hasLegacyPracticeExport(exportData);
     const hasInvalidV2Export = Boolean(
-      exportData &&
-      typeof exportData.exportVersion === "number" &&
-      exportData.exportVersion >= 2 &&
-      !hasCompleteExport,
+      !isForeignExportAccount &&
+        exportData &&
+        typeof exportData.exportVersion === "number" &&
+        exportData.exportVersion >= 2 &&
+        !hasCompleteExport,
     );
     if (hasCompleteExport || hasLegacyExport) {
       const exportAccount = exportData?.account;
-      exportAnchors = Array.isArray(exportAccount?.anchors)
+      const allExportAnchors = Array.isArray(exportAccount?.anchors)
         ? exportAccount.anchors
             .filter(
               (anchor): anchor is Anchor =>
                 anchor != null && typeof anchor.id === "string",
             )
             .map(normalizeAnchor)
+            .filter((anchor) =>
+              canPreserveAnchorForUser({
+                anchor,
+                ownerUserId: resolvedUserId,
+                pendingFirstAnchorDraft: activePendingFirstAnchorDraft,
+              }),
+            )
         : [];
+      const releasedExportAnchors = allExportAnchors.filter((anchor) =>
+        Boolean(anchor.isReleased || anchor.releasedAt || anchor.archivedAt),
+      );
+      exportAnchors = allExportAnchors.filter(
+        (anchor) =>
+          !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt,
+      );
       exportedBurnedAnchors = hasCompleteExport
         ? readExportBurnedAnchors(exportData.burnedAnchors).filter(
             (burnedAnchor) =>
               resolvedUserId == null || burnedAnchor.userId === resolvedUserId,
           )
         : [];
-      archivedAnchors = exportedBurnedAnchors.map(mapBurnedAnchorToArchive);
+      const mappedBurnedAnchors = exportedBurnedAnchors.map(
+        mapBurnedAnchorToArchive,
+      );
+      const archivedById = new Map<string, Anchor>();
+      for (const archived of mappedBurnedAnchors) {
+        archivedById.set(archived.id, archived);
+      }
+      for (const released of releasedExportAnchors) {
+        if (!archivedById.has(released.id)) {
+          archivedById.set(released.id, released);
+        }
+      }
+      archivedAnchors = Array.from(archivedById.values());
 
       const liveActivations = readExportActivations(exportAccount?.activations);
       const liveCharges = readExportCharges(exportAccount?.charges ?? []);
@@ -928,34 +1361,43 @@ class AuthHydrationService {
 
     if (!options.skipAnchorRefresh) {
       const anchorStore = useAnchorStore.getState();
-      const user = useAuthStore.getState().user;
-      const hasActiveEntitlement = useSubscriptionStore.getState().hasActiveEntitlement;
-      const isLockedFreeUser = Boolean(
-        user &&
-        !hasActiveEntitlement &&
-        (user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1)
-      );
-      if (isLockedFreeUser) {
-        anchorStore.anchors
-          .filter((anchor) => !isBackendAnchorId(anchor.id))
-          .forEach((a) => anchorStore.removeAnchor(a.id));
-        useAuthStore.getState().clearPendingFirstAnchorState();
-      }
-      const preservedLocalAnchors = isLockedFreeUser
-        ? []
-        : anchorStore.anchors.filter(
-            (anchor) => !isBackendAnchorId(anchor.id),
-          );
-      const burnedOriginalAnchorIds = new Set(
-        exportedBurnedAnchors.map(
+      const previousAnchorError = anchorStore.error;
+      const burnedOriginalAnchorIds = new Set<string>([
+        ...exportedBurnedAnchors.map(
           (burnedAnchor) => burnedAnchor.originalAnchorId,
         ),
+        ...archivedAnchors.map((anchor) => anchor.id),
+      ]);
+      remoteAnchors = remoteAnchors.filter(
+        (anchor) => !burnedOriginalAnchorIds.has(anchor.id),
       );
-      // A device snapshot may predate a server-confirmed burn. Never let that
-      // stale active record resurrect an archived anchor during hydration.
+      exportAnchors = exportAnchors.filter(
+        (anchor) => !burnedOriginalAnchorIds.has(anchor.id),
+      );
+      const authoritativeServerIds = new Set<string>([
+        ...remoteAnchors.map((anchor) => anchor.id),
+        ...exportAnchors.map((anchor) => anchor.id),
+      ]);
+      // A device snapshot may predate a server-confirmed burn or deletion.
+      // Never let a stale active record resurrect a retired/deleted anchor.
       const normalizedSnapshotAnchors = (anchorSnapshot?.anchors ?? [])
         .map(normalizeAnchor)
-        .filter((anchor) => !burnedOriginalAnchorIds.has(anchor.id));
+        .filter(
+          (anchor) =>
+            !burnedOriginalAnchorIds.has(anchor.id) &&
+            !(anchor.localId && burnedOriginalAnchorIds.has(anchor.localId)) &&
+            canPreserveAnchorForUser({
+              anchor,
+              ownerUserId: resolvedUserId,
+              pendingFirstAnchorDraft: activePendingFirstAnchorDraft,
+            }) &&
+            !(
+              anchorsResult.status === "fulfilled" &&
+              hasCompleteExport &&
+              isBackendAnchorId(anchor.id) &&
+              !authoritativeServerIds.has(anchor.id)
+            ),
+        );
       const shouldUseExportAnchors =
         (hasCompleteExport || hasLegacyExport) &&
         exportAnchors.length > 0 &&
@@ -968,12 +1410,46 @@ class AuthHydrationService {
           (remoteAnchors.length === 0 &&
             ((normalizedProfileData?.user.totalAnchorsCreated ?? 0) > 0 ||
               (authStore.user?.totalAnchorsCreated ?? 0) > 0)));
+      const shouldKeepExistingBackendAnchors =
+        anchorsResult.status === "rejected" &&
+        !shouldUseExportAnchors &&
+        !shouldUseAnchorSnapshot;
+      const fallbackExistingBackendAnchors = shouldKeepExistingBackendAnchors
+        ? anchorStore.anchors.filter(
+            (anchor) =>
+              isBackendAnchorId(anchor.id) &&
+              !burnedOriginalAnchorIds.has(anchor.id) &&
+              !(anchor.localId && burnedOriginalAnchorIds.has(anchor.localId)) &&
+              canPreserveAnchorForUser({
+                anchor,
+                ownerUserId: resolvedUserId,
+                pendingFirstAnchorDraft: activePendingFirstAnchorDraft,
+              }),
+          )
+        : [];
 
-      const restoredAnchors = shouldUseExportAnchors
+      const baseRestoredAnchors = shouldUseExportAnchors
         ? exportAnchors
         : shouldUseAnchorSnapshot
           ? normalizedSnapshotAnchors
-          : remoteAnchors;
+          : shouldKeepExistingBackendAnchors
+            ? fallbackExistingBackendAnchors
+            : remoteAnchors;
+      const restoredAnchors = baseRestoredAnchors.map((anchor) =>
+        mergeAnchorWithNewerLocalState(
+          anchor,
+          anchorStore.anchors,
+          activePendingFirstAnchorDraft,
+        ),
+      );
+      const preservedLocalAnchors = selectPreservedLocalAnchors({
+        currentAnchors: anchorStore.anchors,
+        committedAnchors: [...restoredAnchors, ...archivedAnchors],
+        burnedOriginalAnchorIds,
+        initialBackendAnchorIds,
+        ownerUserId: resolvedUserId,
+        pendingFirstAnchorDraft: activePendingFirstAnchorDraft,
+      });
       const nextAnchors = [
         ...restoredAnchors,
         ...archivedAnchors,
@@ -997,8 +1473,12 @@ class AuthHydrationService {
         anchorStore.setCurrentAnchor(anchorSnapshot.currentAnchorId);
       }
 
+      const previousCurrentAnchorId = useAnchorStore.getState().currentAnchorId;
       const currentAnchor = nextAnchors.find(
-        (anchor) => anchor.id === useAnchorStore.getState().currentAnchorId,
+        (anchor) =>
+          anchor.id === previousCurrentAnchorId ||
+          (previousCurrentAnchorId != null &&
+            anchor.localId === previousCurrentAnchorId),
       );
       if (
         !currentAnchor ||
@@ -1010,8 +1490,14 @@ class AuthHydrationService {
           restoredAnchors.find(
             (anchor) =>
               !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt,
-          )?.id,
+          )?.id ??
+            nextAnchors.find(
+              (anchor) =>
+                !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt,
+            )?.id,
         );
+      } else if (currentAnchor.id !== previousCurrentAnchorId) {
+        anchorStore.setCurrentAnchor(currentAnchor.id);
       }
 
       if (
@@ -1020,6 +1506,28 @@ class AuthHydrationService {
         anchorsResult.status === "fulfilled"
       ) {
         anchorStore.markSynced();
+      }
+
+      if (shouldKeepExistingBackendAnchors) {
+        useAnchorStore.setState({
+          isLoading: false,
+          remoteAnchorState: "error",
+          error:
+            previousAnchorError ??
+            (anchorsResult.reason instanceof Error
+              ? anchorsResult.reason.message
+              : "Unable to load your Anchors."),
+        });
+      } else if (
+        anchorsResult.status === "fulfilled" ||
+        shouldUseExportAnchors ||
+        shouldUseAnchorSnapshot
+      ) {
+        useAnchorStore.setState({
+          isLoading: false,
+          remoteAnchorState: "confirmed",
+          error: null,
+        });
       }
     } else if (archivedAnchors.length > 0) {
       // Pending first-anchor finalization may skip active-anchor refresh, but
@@ -1030,10 +1538,6 @@ class AuthHydrationService {
         ...anchorStore.anchors.filter((anchor) => !burnedIds.has(anchor.id)),
         ...archivedAnchors,
       ]);
-    }
-
-    if (!options.skipAnchorRefresh && anchorsResult.status === "fulfilled") {
-      useAnchorStore.setState({ isLoading: false, remoteAnchorState: 'confirmed', error: null });
     }
 
     const hydratedUser =

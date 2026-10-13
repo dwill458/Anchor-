@@ -5,9 +5,9 @@ import type { ShareExportData, ShareLayoutId } from './shareTypes';
 import { captureShareExport, resolveExportRenderSize } from '@/services/anchorExportService';
 
 /** A slow or failed image must not strand an export; render with what loaded. */
-export const EXPORT_ASSET_TIMEOUT_MS = 2500;
+export const EXPORT_ASSET_TIMEOUT_MS = 5000;
 
-type Target = { layout: ShareLayoutId; showMark: boolean; key: string };
+type Target = { layout: ShareLayoutId; showMark: boolean; visionBackgroundId?: string | null; key: string };
 
 /** Wait for static assets, failing closed only for Vision board exports. */
 export function waitForExportAssets(
@@ -43,7 +43,8 @@ export function waitForExportAssets(
   });
 }
 
-const keyOf = (layout: ShareLayoutId, showMark: boolean) => `${layout}:${showMark ? 1 : 0}`;
+const keyOf = (layout: ShareLayoutId, showMark: boolean, visionBackgroundId?: string | null) =>
+  `${layout}:${showMark ? 1 : 0}:${layout === 'vision' ? visionBackgroundId || 'canvas' : ''}`;
 
 function nextFrames(count: number) {
   return new Promise<void>((resolve) => {
@@ -75,11 +76,11 @@ export function useShareExportRenderer(data: ShareExportData | null) {
   const waiters = useRef(new Map<string, Set<() => void>>());
   const busy = useRef(false);
 
-  const mount = useCallback((layout: ShareLayoutId, showMark: boolean) => {
-    const key = keyOf(layout, showMark);
+  const mount = useCallback((layout: ShareLayoutId, showMark: boolean, visionBackgroundId?: string | null) => {
+    const key = keyOf(layout, showMark, visionBackgroundId);
     if (targetRef.current?.key === key) return key;
     readyKeys.current.clear();
-    const next = { layout, showMark, key };
+    const next = { layout, showMark, visionBackgroundId, key };
     targetRef.current = next;
     setTarget(next);
     return key;
@@ -111,8 +112,8 @@ export function useShareExportRenderer(data: ShareExportData | null) {
   );
 
   /** Warm up the export composition for a layout so Save/Share is near-instant. */
-  const prepare = useCallback((layout: ShareLayoutId, showMark: boolean) => {
-    if (!busy.current) mount(layout, showMark);
+  const prepare = useCallback((layout: ShareLayoutId, showMark: boolean, visionBackgroundId?: string | null) => {
+    if (!busy.current) mount(layout, showMark, visionBackgroundId);
   }, [mount]);
 
   /** Unmount the composition (e.g. when Studio closes). */
@@ -124,15 +125,19 @@ export function useShareExportRenderer(data: ShareExportData | null) {
   }, []);
 
   const renderPng = useCallback(
-    async (layout: ShareLayoutId, showMark: boolean, options: { keepWarm?: boolean } = {}) => {
+    async (
+      layout: ShareLayoutId,
+      showMark: boolean,
+      options: { keepWarm?: boolean; visionBackgroundId?: string | null } = {},
+    ) => {
       if (busy.current) throw new Error('An export is already in progress.');
       busy.current = true;
       try {
-        const key = mount(layout, showMark);
+        const key = mount(layout, showMark, options.visionBackgroundId);
         const wasReady = readyKeys.current.has(key);
         await whenReady(key, layout);
-        // A node that was prepared earlier is already laid out; a fresh one needs a frame to paint.
-        await nextFrames(wasReady ? 0 : 1);
+        // Ensure native drawing and image decoding commit before view-shot captures
+        await nextFrames(wasReady ? 1 : 2);
         return await captureShareExport(nodeRef);
       } finally {
         busy.current = false;
@@ -169,6 +174,7 @@ export function useShareExportRenderer(data: ShareExportData | null) {
           data={data}
           width={size.width}
           showMark={target.showMark}
+          visionBackgroundId={target.visionBackgroundId}
           onAssetsReady={() => markReady(target.key)}
         />
       </View>

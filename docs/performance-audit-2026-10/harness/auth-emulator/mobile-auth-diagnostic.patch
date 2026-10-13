@@ -1,0 +1,76 @@
+diff --git a/android/app/build.gradle b/android/app/build.gradle
+index fe8d14f..d65f78e 100644
+--- a/android/app/build.gradle
++++ b/android/app/build.gradle
+@@ -2,7 +2,15 @@ apply plugin: "com.android.application"
+ apply plugin: "org.jetbrains.kotlin.android"
+ apply plugin: "com.facebook.react"
+ 
++def isAnchorPerfDiagnostic = project.hasProperty("anchorPerfDiagnostics") && project.property("anchorPerfDiagnostics") == "true"
+ def googleServicesFile = file("google-services.json")
++if (isAnchorPerfDiagnostic) {
++    if (!googleServicesFile.exists()) throw new org.gradle.api.GradleException("Diagnostic Firebase config missing; refusing fallback.")
++    def diagnosticConfig = new groovy.json.JsonSlurper().parse(googleServicesFile)
++    def isDemoProject = diagnosticConfig.project_info?.project_id == "demo-anchor-perf"
++    def hasDiagnosticPackage = diagnosticConfig.client?.any { it.client_info?.android_client_info?.package_name == "com.anchorintentions.perflab20261012" }
++    if (!isDemoProject || !hasDiagnosticPackage) throw new org.gradle.api.GradleException("Diagnostic Firebase config project/package mismatch; refusing fallback.")
++}
+ def isReleaseBuild = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
+ 
+ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
+diff --git a/src/services/AuthService.native.ts b/src/services/AuthService.native.ts
+index c858c78..0e5b573 100644
+--- a/src/services/AuthService.native.ts
++++ b/src/services/AuthService.native.ts
+@@ -4,6 +4,7 @@
+ 
+ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+ import AsyncStorage from '@react-native-async-storage/async-storage';
++import * as Application from 'expo-application';
+ import {
+   encryptedPersistStorage,
+   readSecureValue,
+@@ -11,6 +12,7 @@ import {
+ } from '@/stores/encryptedPersistStorage';
+ import * as AppleAuthentication from 'expo-apple-authentication';
+ import { API_URL } from '@/config';
++import { perfDiag } from '@/utils/perfDiagnostics';
+ import { ENABLE_GOOGLE_SIGN_IN, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
+ import { clearNotificationSession } from '@/services/NotificationSessionService';
+ import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
+@@ -29,8 +31,27 @@ import { logger } from '@/utils/logger';
+ import type { ApiResponse, FirebaseUser, User } from '@/types';
+ 
+ const CACHED_USER_KEY = 'anchor:cached_user';
++const PERF_DIAGNOSTIC_APP_ID = 'com.anchorintentions.perflab20261012';
++const PERF_DIAGNOSTIC_PROJECT_ID = 'demo-anchor-perf';
++const PERF_DIAGNOSTIC_AUTH_EMULATOR_URL = 'http://127.0.0.1:9099';
+ let googleConfigured = false;
+ 
++function configureDiagnosticAuthEmulator(): void {
++  const isDiagnosticApp = Application.applicationId === PERF_DIAGNOSTIC_APP_ID;
++  const diagnosticsEnabled = process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS === '1';
++  if (diagnosticsEnabled && !isDiagnosticApp) throw new Error('Performance diagnostics require the isolated native application ID.');
++  if (!isDiagnosticApp) return;
++  if (!diagnosticsEnabled || API_URL !== 'http://127.0.0.1:39999') throw new Error('Diagnostic Auth requires the enabled flag and loopback fixture API.');
++  const diagnosticAuth = auth();
++  if (diagnosticAuth.app.options.projectId !== PERF_DIAGNOSTIC_PROJECT_ID) throw new Error('Diagnostic Auth requires the fixed demo Firebase project.');
++  const configuredRoute = diagnosticAuth.useEmulator(PERF_DIAGNOSTIC_AUTH_EMULATOR_URL) as unknown;
++  if (!Array.isArray(configuredRoute) || configuredRoute.length !== 2 || configuredRoute[0] !== '127.0.0.1' || configuredRoute[1] !== 9099) {
++    perfDiag('auth-emulator-route', { okCode: 0 });
++    throw new Error('Diagnostic Auth emulator route did not resolve to the fixed loopback endpoint.');
++  }
++  perfDiag('auth-emulator-route', { okCode: 1 });
++}
++
+ export interface AuthResult {
+   user: User;
+   token: string;
+@@ -267,6 +288,7 @@ async function buildAuthResult(
+ 
+ export class AuthService {
+   static initialize(): void {
++    configureDiagnosticAuthEmulator();
+     auth();
+   }
+ 

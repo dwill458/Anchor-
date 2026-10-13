@@ -18,6 +18,20 @@ import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 import { OnboardingAnalytics } from '@/services/v2/onboardingAnalytics';
 
+function hasEntitlementOrCompedAccess(
+  user: NonNullable<ReturnType<typeof useAuthStore.getState>['user']>,
+): boolean {
+  const subscriptionState = useSubscriptionStore.getState();
+  return Boolean(
+    subscriptionState.hasActiveEntitlement ||
+      subscriptionState.remoteCompedAccess ||
+      subscriptionState.legacyMigrationAccess ||
+      user.isComped === true ||
+      user.legacyMigrationAccess === true ||
+      (user.subscriptionStatus && user.subscriptionStatus !== 'free'),
+  );
+}
+
 export function V2FirstRunFlow() {
   const navigation = useNavigation<any>();
   const user = useAuthStore((state) => state.user);
@@ -28,12 +42,13 @@ export function V2FirstRunFlow() {
     if (!hydrated) return;
     if (draft.accountId && draft.accountId !== user?.id) { reset(); return; }
     if (user?.id && user.hasCompletedOnboarding) {
-      const isLockedFreeUser = !useSubscriptionStore.getState().hasActiveEntitlement &&
+      const isLockedFreeUser =
+        !hasEntitlementOrCompedAccess(user) &&
         Boolean(user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1);
       if (isLockedFreeUser) {
         const anchorStore = useAnchorStore.getState();
         anchorStore.anchors
-          .filter((a) => !isBackendAnchorId(a.id))
+          .filter((a) => !isBackendAnchorId(a.id) && a.userId !== user.id)
           .forEach((a) => anchorStore.removeAnchor(a.id));
         useAuthStore.getState().clearPendingFirstAnchorState();
       }
@@ -45,12 +60,13 @@ export function V2FirstRunFlow() {
       if (!user && !useAuthStore.getState().isGuest) reset();
       else {
         if (user) {
-          const isLockedFreeUser = !useSubscriptionStore.getState().hasActiveEntitlement &&
+          const isLockedFreeUser =
+            !hasEntitlementOrCompedAccess(user) &&
             Boolean(user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1);
           if (isLockedFreeUser) {
             const anchorStore = useAnchorStore.getState();
             anchorStore.anchors
-              .filter((a) => !isBackendAnchorId(a.id))
+              .filter((a) => !isBackendAnchorId(a.id) && a.userId !== user.id)
               .forEach((a) => anchorStore.removeAnchor(a.id));
             useAuthStore.getState().clearPendingFirstAnchorState();
           }

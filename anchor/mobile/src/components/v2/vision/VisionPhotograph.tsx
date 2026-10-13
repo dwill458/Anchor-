@@ -57,10 +57,10 @@ export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, 
   const contained = fit === 'contain';
   return <View style={[style, styles.fitted, uploaded && styles.uploadPaper]}>
     {!uploaded ? <>
-      <Image source={props.source} resizeMethod="resize" resizeMode="cover" blurRadius={22} onLoad={handleBackdropLoad} onError={handleBackdropError} style={[styles.backdrop, !contained && styles.hidden]} accessible={false} importantForAccessibility="no" />
+      <Image source={props.source} resizeMethod="resize" resizeMode="cover" blurRadius={22} fadeDuration={0} onLoad={handleBackdropLoad} onError={handleBackdropError} style={[styles.backdrop, !contained && styles.hidden]} accessible={false} importantForAccessibility="no" />
       <View style={[styles.veil, !contained && styles.hidden]} pointerEvents="none" />
     </> : null}
-    <Image {...props} style={styles.whole} resizeMethod="resize" resizeMode={contained ? 'contain' : 'cover'} onLoad={handleLoad} onError={handleError} onLayout={handleLayout} />
+    <Image {...props} style={styles.whole} resizeMethod="resize" resizeMode={contained ? 'contain' : 'cover'} fadeDuration={0} onLoad={handleLoad} onError={handleError} onLayout={handleLayout} />
   </View>;
 });
 

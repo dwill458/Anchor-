@@ -47,6 +47,8 @@ export interface ShareTemplateProps {
   /** Rendered width in dp. Every measurement inside a template derives from this, so one template serves thumbnails, the preview and the export. */
   width: number;
   showMark: boolean;
+  /** Selected Vision share background id (when layout is 'vision'). */
+  visionBackgroundId?: string | null;
   /** Fired once each image the template depends on has loaded or failed. */
   onAssetsReady?: () => void;
 }

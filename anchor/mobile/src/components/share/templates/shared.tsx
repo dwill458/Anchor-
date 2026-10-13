@@ -95,18 +95,18 @@ export function ShareAnchorDisc({
 }
 
 /** Small glyph + ANCHOR, near the bottom edge. Never a sentence, never large. */
-export function ShareBrandMark({ width, ground = 'dark', glow }: { width: number; ground?: 'dark' | 'light'; glow?: string }) {
+export function ShareBrandMark({ width, ground = 'dark', logoTone, glow }: { width: number; ground?: 'dark' | 'light'; logoTone?: 'light' | 'dark'; glow?: string }) {
   const s = width / 1080;
   const glyphHeight = 50 * s;
-  const onLight = ground === 'light';
-  const ink = onLight ? detailsPalette.ink : POSTER_CREAM;
+  const useDarkLogo = logoTone ? logoTone === 'dark' : ground === 'light';
+  const ink = useDarkLogo ? detailsPalette.ink : POSTER_CREAM;
   return (
     <View
       pointerEvents="none"
       style={{ position: 'absolute', left: 0, right: 0, bottom: shareHeight(width) * 0.04, alignItems: 'center' }}
     >
       <Image
-        source={onLight ? require('@/assets/home/anchor-brand-mark.png') : require('@/assets/home/anchor-brand-mark-light.png')}
+        source={useDarkLogo ? require('@/assets/home/anchor-brand-mark.png') : require('@/assets/home/anchor-brand-mark-light.png')}
         style={{ width: glyphHeight * (134 / 174), height: glyphHeight, opacity: 0.85 }}
         resizeMode="contain"
       />

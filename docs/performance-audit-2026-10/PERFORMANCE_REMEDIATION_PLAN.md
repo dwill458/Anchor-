@@ -1,6 +1,6 @@
 # Anchor 2.0 Performance Remediation Plan
 
-Date: 2026-10-12. Source of truth for every ID: `PERFORMANCE_AUDIT_REPORT.md`. **Nothing in this plan has been implemented; it needs approval before any production code is edited.** The plan does not remove, shorten or simplify any animation, blur, particle, fog, glass layer, imagery, haptic or audio cue, and it keeps Reduce Motion intact. Every fix below keeps the experience inventoried in `MOTION_AND_AUDIO_PRESERVATION_CHECKLIST.md`.
+Date: 2026-10-12. Source of truth for every ID: `PERFORMANCE_AUDIT_REPORT.md`. The original audit changed no production code. The subsequent handoff authorizes PERF-001 implementation, non-destructive release baseline work, and a storage proposal only; migration and later remediation require approval. The dated execution record below tracks that work without replacing the original findings. The plan does not remove, shorten or simplify any animation, blur, particle, fog, glass layer, imagery, haptic or audio cue, and it keeps Reduce Motion intact. Every fix below keeps the experience inventoried in `MOTION_AND_AUDIO_PRESERVATION_CHECKLIST.md`.
 
 **Effort figures are rough order-of-magnitude estimates for one engineer, not commitments, and are not performance promises.** No performance improvement is claimed anywhere in this plan; acceptance is by measurement against the Phase 0 baseline.
 
@@ -45,9 +45,9 @@ Fixing at the cluster level matters: PERF-002/004/029/088/036 are one persistenc
 ### Phase 0: Baseline, instrumentation and repro (new; no product code)
 
 1. **Exact problems addressed.** The absence of any release baseline; the unverified runtime claims. Re-measure the seven runtime-observed items on a release build to ratify or retire them: PERF-002, 003, 012, 016, 017, 025, 050. Reproduce on a device: PERF-001 (guest cold start), 010 (Focus audio under Paused), 041, 042, 011 (Auth NPE, 20 cold opens), 005 (blackholed API), 024 (Reduce Motion first render).
-2. **Required changes.** None to product code. Produce an EAS non-debug build (`developmentClient:false`, release signing or `buildType: apk`; local Gradle is unusable on this machine because of MAX_PATH). Add `scripts/perf/` (harness) and a docs baseline file.
+2. **Required changes.** None to product code. Produce an identified non-debug build (`developmentClient:false`, release variant, profiling APK). The original audit reported a local Gradle MAX_PATH obstacle; the current offline dry run was inconclusive and does not confirm that cause. See `DEVICE_VALIDATION_MATRIX.md` section 6 for current build capability and artifact evidence. Add `scripts/perf/` (harness) and record results in the existing baseline table.
 3. **Shared infrastructure.** The perf harness above.
-4. **Dependencies.** EAS build credentials/minutes; physical S24 Ultra (available); a mid-range Android and an iPhone with Instruments access (not available in this environment, see `DEVICE_VALIDATION_MATRIX.md`).
+4. **Dependencies.** EAS build credentials/minutes if using a cloud build, or a working local release build; an isolated physical Android profiling target. The audit used an S24 Ultra, but no Android device is currently connected. A mid-range Android and an iPhone with Mac/Instruments access remain unavailable; see `DEVICE_VALIDATION_MATRIX.md` section 6. The handoff authorizes non-destructive build/testing; publication is outside this pass.
 5. **Risk.** None to the product. Risk to the plan: a release build may show some Phase 2 items are not real; that is the intent.
 6. **Automated tests to add.** None required; commit the harness scripts and a README. Run the existing jest suite once to record the pre-fix pass/fail state (535 test files; `AuthHydrationService.test.ts` is already known to fail).
 7. **Manual device tests.** The scenario list in the matrix on S24 release at 120 Hz adaptive and forced 60 Hz; unplugged thermal soak (15 min Focus + Visualize); 20-cycle memory loops per flow from a fresh process.
@@ -286,3 +286,453 @@ Nothing here is a benchmark result. These are proposed pass/fail rules; the nume
 - **PERF-052:** Is the stepped Focus ring (restart each second) intended, especially on 10 s sessions?
 - **PERF-069:** Should Android notifications use the branded sound?
 - **PERF-051:** Appetite for 120 Hz on motion-heavy routes once the frame budget holds (battery trade-off).
+
+## 8. Storage proposal for approval (2026-10-12; PERF-002/004/029/088, PERF-003 dependency)
+
+Luna traced the current source and existing raw D/E evidence; the senior engineer required corrections to activation, legacy reading, key recovery, and rollback before accepting this proposal. **No storage implementation, dependency, schema, runtime, or migration has changed.**
+
+### Current mechanism and evidence
+
+`anchorStore.ts` persists the complete Anchor array, including SVG strings, intention text, metadata, and image URLs. The audit's 719,217 JSON characters across 72 Anchors (~10 KB each) are plausible from that shape; no owner data was read. `encryptedPersistStorage.ts` uses 1,800-character chunks, deletes old chunks before replacement, and clears mismatched chunks on reads. The generic adapter debounces 400 ms; auth's custom adapter and direct SecureStore helpers bypass that debounce. These JS adapters do not implement one shared application-level queue; the observed native contention is a separate fact.
+
+The 400 chunks, 32.8-second write, and small auth-cache wait are historical DEBUG S24 observations, not release benchmarks. Focus completion awaits `PracticeCompletionService`'s direct durable queue read/write; network flushing is detached afterward. This identifies an awaited storage dependency, but its connection to the observed PERF-003 hang remains unproven. Reproduce it on release before changing the completion gate.
+
+The vault is outside `SECURE_ONLY_PREFIXES`, so the generic adapter can fall back to plaintext AsyncStorage on encryption failures. The future migration must account for existing plaintext legacy copies while preventing new plaintext persistence of private content. The current development-only recovery dump in `App.tsx` also writes a vault copy to AsyncStorage; inventory that path explicitly. Neither path is modified in this proposal.
+
+### Recommended architecture
+
+Use encrypted SQLite via SQLCipher, with a cryptographically random database key held in SecureStore. Keep tokens and small secrets there; bulk private content remains encrypted. `expo-sqlite` and `expo-crypto` are not installed. Implementation must enable the SQLite config plugin's `useSQLCipher:true`, generate the native configuration, and apply the key immediately after opening each database connection, before any schema/data access. Merely storing a key does not encrypt SQLite. This needs new native builds, rather than an OTA-only change. Explicitly change the fixed `runtimeVersion` from `2.0` to a new compatible runtime when implementation is approved, with Android and iOS binaries before any corresponding OTA. [Expo SDK 54 SQLite](https://docs.expo.dev/versions/v54.0.0/sdk/sqlite/).
+
+Inventory every general adapter, custom auth adapter, and direct helper caller before selecting the migration cohort: Anchor vault, account/profile/session snapshots, auth state, first-run/creation drafts, courses, practice/scene outboxes, Chart/Vision read models, reflections, and preferences. Classify private durable content, small secrets, and rebuildable caches. Preserve the store/domain interfaces and existing hydration result.
+
+Store individual Anchors by stable account scope plus Anchor ID and revision; update changed rows rather than the whole vault. Use a stable local guest scope, an explicit transactional guest-to-account transfer, and an account filter on every query. Pending completions/outbox writes are durable records, not disposable caches. Cache eviction never removes private writing or unsynced content.
+
+Use a serialized database writer and exclusive async transactions; all transaction queries use the supplied transaction object. Bind user values as query parameters. Limit retries for database busy/locked errors, and surface failures. Never label a completion saved until its local transaction commits. An operation awaiting a failed database write is only pending in memory unless an independently verified durable mechanism exists; do not claim process-kill safety for it. [Expo transaction guidance](https://docs.expo.dev/versions/v54.0.0/sdk/sqlite/#executing-queries-within-an-async-transaction).
+
+### Migration, activation, and crash recovery
+
+1. Keep the legacy store authoritative initially. Add a read-only legacy reader: existing `readSecureValue` deletes corrupt chunks and legacy-migration helpers mutate/delete source data, so they are unsuitable here. Distinguish verified absence, valid data, and incomplete/corrupt/unreadable data. Missing metadata alone cannot establish absence for an existing account. Stop on ambiguity; preserve all source keys and any fallback copies.
+2. Obtain the encryption key, import into an inactive database generation, and checkpoint idempotent imports. Serialize migration with mutations or replay an ordered mutation journal before activation; changes made during import must not disappear. Keep UI recovery bounded and explicit while pending data is protected.
+3. Verify schemas, identities, counts, revisions, canonical checksums, and database integrity against the source. Commit verification status, schema version, and active generation in **one database transaction**. A SecureStore marker is only a hint. After a crash between the DB commit and marker write, the committed DB control row wins and the marker is repaired; a marker without a committed generation never authorizes activation.
+4. Retain the legacy encrypted source and reader for at least two compatible releases, as proposed in Phase 1. Expire that window only after forced-kill/migration/account-isolation checks pass on Android and iOS and a verified recovery/export path exists for guest-only data; failure delays deletion. On import/key/verification failure, do not activate or erase legacy data. Do not use plaintext fallback for new private writes. Once active, recovery uses the committed database; stale legacy snapshots must never silently overwrite newer DB data.
+
+### Key loss, backups, and rollback
+
+Never replace a missing key automatically when a database exists, reset that database, or interpret inability to decrypt as an empty account. Preserve the DB and legacy source and enter a recovery-required state. Import interruption before activation can resume against untouched legacy data. Permanent key loss or post-activation corruption is not proven recoverable: retained legacy data cannot restore newer DB-only writes, and an unreadable encrypted file is evidence preservation, not a recovery mechanism. Android currently has `allowBackup:false`; SecureStore's documented Android backup exclusions mean restoring an encrypted DB without its key cannot recover it. Validate the database/key pair on both platforms. A future guest-data transfer or recovery promise requires a separately approved, verified encrypted export or backup/key-restoration design before release; migration cannot create such a promise. [Expo SecureStore backup guidance](https://docs.expo.dev/versions/v54.0.0/sdk/securestore/#android-auto-backup).
+
+Before activation, abandoning an import returns to unchanged legacy data. **After DB-only writes, an old binary cannot see newer writes.** Lossless downgrade would require maintained legacy dual writes, reintroducing the costly failure-prone path. Recommended rollback is a compatible native/JS build that retains the encrypted DB reader and schema support. Preserve runtime separation and minimum readable schema checks; retained legacy snapshots are recovery evidence, not lossless old-binary rollback.
+
+### Validation and approval decision
+
+Use synthetic source-shaped fixtures near 719 KB, a larger vault, and mixed account/guest/outbox data. Measure release cold hydration, mutation p50/p95, SecureStore call counts/auth wait, frame pacing, and Focus end-to-completion independently. Compare the same device/build conditions. Inject failure and forced kills before/after import checkpoints, verification, DB activation, marker reconciliation, and transaction commits. Test corrupt legacy chunks, missing keys, database corruption, busy writes, account switches, guest transfer, and newer writes followed by rollback. Preserve zero lost Anchors across forced-kill tests and the original 20/20 Focus completion target; no improvement is claimed before measurement.
+
+Approve encrypted SQLCipher storage, the new native/runtime cohort, retention/recovery policy, and the limitation on old-binary downgrade before implementation. Encryption remains the recommended default; alternatives involving plaintext private data need an explicit privacy decision. At this proposal checkpoint, the next authorized step was release baseline testing when an isolated target became available. Section 10 records subsequent partial baseline results; storage migration remains pending approval.
+
+## 9. Approved implementation pass and handoff (2026-10-12)
+
+**Scope:** PERF-001 code correction and related PERF-082 persisted startup readiness; pass 2 non-destructive infrastructure/build checks; pass 3 proposal only. Baseline source revision: `096a26d7c412a030853bb9072fbb9641b280fa9f`, branch `feat/celebration-layer`. The first status inspection found unrelated staged/unstaged work; another session saved it before implementation. No existing work was reset, pruned, or overwritten. This pass is uncommitted, with no staging, deployment, OTA, purchase, or owner-account mutation.
+
+### Root cause and final behavior
+
+The original Firebase null callback and a separate App startup effect both called full `authStore.signOut()` for guests. That resets local Anchors, onboarding and first-run data. A second independent reset in auth-store rehydration also discarded resumable pre-account drafts. Checking a loading flag was insufficient: auth persistence can finish before Firebase's first callback, and asynchronous cleanup can overlap another account/session.
+
+App now registers the extracted production bootstrap listener. Guests and pre-account drafts finish null-session initialization without destructive sign-out; persisted accounts retain intentional cleanup. The first auth-ready signal is one-shot and follows the processed current Firebase callback, not store hydration or a persisted loading flag. Repeated null callbacks share a generation; authenticated callbacks supersede earlier work. Cleanup waits for all eight persisted stores it snapshots or mutates (Anchor, first-run, session, profile, teaching, visualization scene, settings, subscription) and checks ownership/generation around asynchronous snapshots. Auth rehydration leaves resumable first-run cleanup to its owning store. Developer-master behavior remains guarded and available.
+
+Readiness requires first-run and Anchor hydration, including after the splash fail-open timer. An unresolved auth/store hydration wait has a 10-second fail-closed recovery path; a separate 15-second guard covers a missing first Firebase callback only and is canceled on receipt. It does **not** introduce a network sync deadline or resolve PERF-005. Unsafe restoration withholds account screens and offers restart/reopen recovery without clearing unknown data. Retry uses development reload or Expo Updates reload, with no update check, download, or publication; release reload can select an already-downloaded compatible update.
+
+### Verification and review
+
+| Check | Result and limit |
+|---|---|
+| Behavioral RED | The implementer's extracted unconditional-cleanup baseline failed guest Anchor/draft preservation and repeated-callback cases. This reproduced the destructive behavior with real Zustand stores and mocked service boundaries; it was not a physical-device repro or a mounted-App test. |
+| Final focused Jest | **5 suites / 81 tests passed.** Covers returning guests, unfinished onboarding, authenticated restoration, late first Firebase callback, intentional sign-out, account/same-account transitions, repeated callbacks, auth/Anchor/teaching hydration ordering, cancellation/unmount, fatal waits/errors, readiness after timeout, and the actual retry button/reload routes. |
+| Broader Jest | **520 suites passed, 13 failed; 5,128 tests passed, 27 failed, 1 previously skipped; 12 snapshot failures.** This full run began before product edits and overlapped implementation; final touched paths were rerun in the focused gate. No tests/snapshots were weakened, skipped, or updated here. |
+| Failure baseline comparison | All 13 failed suites were rerun with the changed auth store substituted from exact pre-fix HEAD `096a26d7`; its relative storage import was redirected to the equivalent source alias for resolution. The remaining failing-suite source dependencies are unchanged. **The same 27 failed assertion names reproduced** (250 other assertions passed in that subset). This is a controlled source comparison, not a fresh full-checkout baseline run. |
+| TypeScript | Pre-edit and final `tsc --noEmit --pretty false` passed. |
+| Packaging | Final Android production JS/Hermes export **passed**: `index-9827ef6ba8371eb218f48e9acbe6d442.hbc` (17.3 MB) in `%TEMP%\anchor-perf-remediation-20261012\android-production-export-final`. It validates local packaging, not a native release binary or hardware performance. |
+| Diff hygiene | `git diff --check` passed. |
+| Independent code review | **9.6/10** after correction cycles: correctness/safety 9.6, coverage 9.5, architecture/simplicity 9.5, scope/preservation 9.8, evidence/honesty 9.6. Senior engineer independently reviewed and reran the focused gate. |
+| Independent baseline/proposal review | **9.6/10** after correcting stale device/build assumptions and key-loss/rollback overclaims. |
+| Device/performance acceptance | Not completed. No connected Android device, no iOS profiling environment, no new release frame/startup/audio measurements. Physical guest relaunch, account switching, and restart behavior remain pending. |
+
+Commands run from `anchor/mobile`: `node ./node_modules/jest/bin/jest.js --runInBand --silent --runTestsByPath src/services/__tests__/appAuthState.test.ts src/services/__tests__/reloadCurrentApp.test.ts src/components/startup/__tests__/StartupRestoreFailure.test.tsx src/hooks/__tests__/useAppStartup.test.ts src/stores/__tests__/authStore.test.ts`; `node ./node_modules/typescript/bin/tsc --noEmit --pretty false`; full Jest with `--runInBand --silent --json`; Android export with `EXPO_PUBLIC_ANCHOR_V2_ENABLED=true`, `EXPO_PUBLIC_APP_ENV=production`, `EXPO_PUBLIC_SFX_DEBUG=0`, and `CI=1`. Numeric JSON/logs and local exports are retained at `%TEMP%\anchor-perf-remediation-20261012`; no owner data was copied into test fixtures.
+
+### Existing broader failures retained
+
+| Suite (relative to `anchor/mobile/src`) | Failed assertions |
+|---|---:|
+| `components/v2/creation/__tests__/V2CreationFlow.test.tsx` | 1 |
+| `components/chart/__tests__/ChartPreview.test.tsx` | 12 (snapshots) |
+| `screens/v2/notifications/__tests__/NotificationSettingsScreen.test.tsx` | 1 |
+| `components/v2/chart/map/__tests__/chartMapSequences.test.ts` | 1 |
+| `stores/v2/__tests__/creationStore.test.ts` | 2 |
+| `adapters/v2/home/__tests__/isolation.test.ts` | 1 |
+| `adapters/v2/home/__tests__/adapters.test.ts` | 1 |
+| `services/__tests__/AuthHydrationService.test.ts` | 2 |
+| `screens/practice/__tests__/PracticeScreen.test.tsx` | 1 |
+| `screens/vault/__tests__/AnchorDetailScreen.test.tsx` | 1 |
+| `components/__tests__/ExportAnchorSheet.test.tsx` | 2 |
+| `components/v2/chart/panel/__tests__/ChartSummitAndRouteScenes.test.tsx` | 1 |
+| `services/audio/__tests__/SoundPool.test.ts` | 1 |
+
+### Every file changed in this pass
+
+Paths below are relative to `E:\Projects\Anchor`:
+
+- `anchor/mobile/App.tsx`
+- `anchor/mobile/src/hooks/useAppStartup.ts`
+- `anchor/mobile/src/hooks/__tests__/useAppStartup.test.ts`
+- `anchor/mobile/src/stores/authStore.ts`
+- `anchor/mobile/src/services/AppAuthBootstrap.ts` (new)
+- `anchor/mobile/src/services/appAuthState.ts` (new)
+- `anchor/mobile/src/services/__tests__/appAuthState.test.ts` (new)
+- `anchor/mobile/src/services/reloadCurrentApp.ts` (new)
+- `anchor/mobile/src/services/__tests__/reloadCurrentApp.test.ts` (new)
+- `anchor/mobile/src/components/startup/StartupRestoreFailure.tsx` (new)
+- `anchor/mobile/src/components/startup/__tests__/StartupRestoreFailure.test.tsx` (new)
+- `docs/performance-audit-2026-10/PERFORMANCE_AUDIT_REPORT.md`
+- `docs/performance-audit-2026-10/PERFORMANCE_REMEDIATION_PLAN.md`
+- `docs/performance-audit-2026-10/DEVICE_VALIDATION_MATRIX.md`
+- `docs/performance-audit-2026-10/EXECUTIVE_SUMMARY.md`
+
+### Safety limits and next step
+
+Tests use isolated mock storage/accounts; the owner's actual Anchors and private raw evidence were not touched. Normal motion, layouts, audio, haptics, premium contracts, and image quality have no changes in this diff. The new recovery surface appears only when startup cannot safely restore local state.
+
+The bootstrap tests do not mount App end-to-end. Guarding stale live cleanup does not cancel snapshot writes already issued, provide storage atomicity, or establish full guest-to-account hydration merge correctness. The two existing `AuthHydrationService` failures concern unsynced/local data retention and remain important follow-up work, alongside PERF-004/039 and the other original findings. No runtime improvement or device-level fix is asserted.
+
+At the previous handoff checkpoint, next: obtain an identified release binary on an isolated Android test target and perform guest/auth relaunch checks plus the existing performance baseline. Approve section 8's encrypted-storage/native-runtime/recovery/rollback decision before migration. Reprofile motion only after approved storage work; later rendering/audio/sustained-performance passes remain outside current implementation authority.
+
+## 10. Release baseline and data-safety validation execution (2026-10-12)
+
+This pass continues section 9; it does not reopen the 89-finding audit or implement section 8's migration. The initial live checkout matched the handoff: branch `feat/celebration-layer`, HEAD `096a26d7c412a030853bb9072fbb9641b280fa9f`, four modified product/test files and the documented new startup files; the index was empty. The documentation edits were retained separately. Three Luna agents were recruited for integrity/tests, isolated native build tooling, and synthetic profiling harness work, with senior review required before acceptance.
+
+### Task A: implementation secured
+
+Committed the reviewed auth/startup implementation as **`9a158b7d3efeab62e42b6d8f8f01d8b45edb3caa`**, `fix(auth): preserve guest data during startup restoration`. Explicit path staging included only 13 product/test files; no `git add .`, reset, stash, publication, or unrelated edits. The mobile working tree was clean after the commit; existing documentation edits remained uncommitted.
+
+The fresh review identified one handoff discrepancy: App's required Anchor/first-run hydration recovery used the **4,000 ms splash fail-open constant**, whereas the documented store recovery contract was 10 seconds. Recovery latched even if a valid restore finished between 4 and 10 seconds. The pass corrected only this guard using `useRequiredLocalHydrationGuard`: each required store has its own 10-second deadline, completing one cannot extend the other's wait, completion cancels its timer, unmount cancels timers, and a real timeout remains fail-closed until restart. The original splash timing and choreography constants are unchanged. Regression tests cover 9-second successful restoration, both unresolved stores, partial restoration without deadline extension, late completion after timeout, and unmount.
+
+| Current check | Result and boundary |
+|---|---|
+| Original five focused Jest suites | 5 passed / 81 tests passed before the guard correction. |
+| Guard correction gate, independently rerun by senior engineer | **6 passed / 86 tests passed**, including the new required-store guard suite; no snapshots updated. |
+| Final gate with mounted-App integration, independently rerun by senior engineer | **7 suites / 88 tests passed.** Actual-App integration verifies null Firebase callbacks, recovery hidden at 9 seconds, real recovery UI after 10 seconds, preserved Anchor/draft state, the retry button, and required-store hydration without recovery beyond 15 seconds. Firebase/native storage/reload boundaries remain mocked. |
+| TypeScript | Senior `node ./node_modules/typescript/bin/tsc --noEmit --pretty false` completed **exit 0**, no diagnostics. |
+| Current documented broader-failure subset | **13 suites: 1 passed, 12 failed; 277 tests: 251 passed, 26 failed.** `ChartSummitAndRouteScenes` now passes. This is a fresh subset run, not a new full-suite result; section 9's historical 520/13 and 5,128/27 remain preserved. |
+| Data-retention failures | Both `AuthHydrationService` assertions about unsynced temporary Anchors and retaining local progress after failed hydration still fail. No tests weakened or unrelated fixes attempted. |
+| Git hygiene / scope | Working and staged `diff --check` passed. The diff changes auth/startup recovery and its tests; no motion, audio, haptic, navigator, rendering-quality, or animation-duration source was changed. Source scope verification is not device parity acceptance. |
+
+Exact committed paths, relative to repository root:
+
+- `anchor/mobile/App.tsx`
+- `anchor/mobile/src/components/startup/StartupRestoreFailure.tsx`
+- `anchor/mobile/src/components/startup/__tests__/StartupRestoreFailure.test.tsx`
+- `anchor/mobile/src/hooks/useAppStartup.ts`
+- `anchor/mobile/src/hooks/__tests__/useAppStartup.test.ts`
+- `anchor/mobile/src/hooks/useRequiredLocalHydrationGuard.ts`
+- `anchor/mobile/src/hooks/__tests__/useRequiredLocalHydrationGuard.test.ts`
+- `anchor/mobile/src/services/AppAuthBootstrap.ts`
+- `anchor/mobile/src/services/appAuthState.ts`
+- `anchor/mobile/src/services/__tests__/appAuthState.test.ts`
+- `anchor/mobile/src/services/reloadCurrentApp.ts`
+- `anchor/mobile/src/services/__tests__/reloadCurrentApp.test.ts`
+- `anchor/mobile/src/stores/authStore.ts`
+
+Sanitized test evidence is under `%TEMP%\anchor-perf-release-20261012`: focused Jest logs, TypeScript logs, and `documented-broad-summary.txt`. A zero-byte TypeScript log alone is not used as success evidence; exit status was checked. Existing section 9 data-safety limitations still apply: stale snapshot writes already issued are not canceled, storage is not atomic, full guest/account merge correctness remains unproven, and mounted native startup/recovery acceptance is separate from these tests. **PERF-001 and PERF-082 remain native-device-validation pending.**
+
+The additional actual-App integration test is committed separately as **`6911321cdf7ee32c9e40346d307dbd44823a34e6`**, `test(auth): verify startup recovery through App`, with the sole path `anchor/mobile/src/__tests__/AppStartupHydration.integration.test.tsx`. Current branch HEAD is this test-only commit. The native build's runtime source remains identical to `9a158b7d`; no product source changed in the test commit. Luna's initial 9.4 review was returned for stronger App integration evidence; after corrections and mounted-App tests the independent **source/test integrity score is 9.5/10**, not a release/device acceptance score. The integration file also passed TypeScript, exit 0. Final handoff rerun evidence is `focused-jest-7s88-final-parent.log` plus `focused-jest-7s88-exit.json` (7/88, exit 0) and `tsc-handoff-exit.json` (exit 0, diagnostic bytes 0); earlier 6/86 and empty TypeScript logs remain historical.
+
+Final focused command from `anchor/mobile`: `node ./node_modules/jest/bin/jest.js --runInBand --silent --runTestsByPath src/__tests__/AppStartupHydration.integration.test.tsx src/services/__tests__/appAuthState.test.ts src/services/__tests__/reloadCurrentApp.test.ts src/components/startup/__tests__/StartupRestoreFailure.test.tsx src/hooks/__tests__/useAppStartup.test.ts src/hooks/__tests__/useRequiredLocalHydrationGuard.test.ts src/stores/__tests__/authStore.test.ts`.
+
+### Tasks B–E: execution boundary
+
+Wireless ADB now identifies the owner's Galaxy S24 Ultra `SM-S928U1`, Android 16 / API 36, arm64; device-side `/system/bin/perfetto` is present. Only device metadata was read during preparation. The existing package `com.anchorintentions.app` is protected. The first separate package `com.anchorintentions.perfbaseline` was installed fresh for user 0. After the user reported interacting with it (sign-in was unsuccessful), that installation was also designated protected: no update, clear, uninstall, or automated fixture operation. Further synthetic testing must use the fresh `com.anchorintentions.perflab20261012` package, label Anchor PERF LAB, scheme `anchor-perflab20261012`, user 0. Production accounts/backend writes remain outside the setup. Native release artifact/results and remaining coverage are recorded below as they become verified. No performance numbers are inferred from test success or fixture chunk arithmetic.
+
+### Native release build evidence and isolation
+
+**Native release binary built: yes.** Ordinary baseline artifact: `E:\apc\src\android\app\build\outputs\apk\release\app-release.apk`, 298,060,294 bytes, SHA-256 `AEA29C04A00ACCF2A25F7BCD089F531B7C62DAD2502D0C13056BF1CAEB2BAA28`. Android package `com.anchorintentions.perfbaseline`, version 2.0.0 (39), runtime 2.0; four ABIs (arm64-v8a, armeabi-v7a, x86, x86_64). Runtime source is commit `9a158b7d`, with `6911321c` adding tests only. Build inputs, exact deviations, manifests and hashes are retained under `E:\apc\record`.
+
+Verified release properties: no `android:debuggable` manifest attribute and installed flags omit DEBUGGABLE; shell profileable; Hermes bytecode version 96 (11,237,972-byte ordinary bundle); production JS and NODE_ENV, V2 navigator enabled, Fabric/new architecture, release minification/resource shrinking. SFX debug/overlays are disabled. Expo Updates is disabled, check NEVER, no update URL. API is loopback `http://127.0.0.1:39999`; telemetry and RevenueCat credentials are blank, Firebase collection/messaging auto-init disabled. These safety deviations must accompany every comparison; the build cannot establish production-network or purchase behavior. Local debug-key signing is intentional for diagnostics (APK v2 verified), not store distribution. No paid cloud resources, OTA, store submission or deployment.
+
+Toolchain retained: Node 24.15.0, Java 17.0.17, Gradle 8.14.3, compile SDK/build tools 36/36.0.0, target SDK 35, minimum 24, NDK 27.1.12297006. Expo 54, React Native 0.81.5 and Reanimated 4.1.1 were not upgraded. Build-only corrections: move cross-drive `C:\ap2` copy to same-drive short `E:\apc`; disable Kotlin incremental compilation after different-root cache failures; correct isolated Google Services client matching; use a 2,560 MB Gradle heap after R8 exhausted 2,048 MB. Sentry upload is skipped. Third-party R8 stack-map warnings remained, but the native build completed.
+
+Android raw audio resource-name collisions required ten MP3 file aliases and matching Android `NodeToneService` require paths **in the isolated copies only**. MP3 bytes were hash-verified identical; iOS WAV mappings, playback durations/rates/volumes and choreography were unchanged. The shared product source was untouched. This is a build packaging correction, with audible runtime parity still unverified; exact aliases/hashes are in `E:\apc\record\audio-resource-disambiguation.json`.
+
+Parent installed the ordinary baseline fresh (`adb install --user 0`, no replacement) on the wireless S24 Ultra SM-S928U1, Android 16/API 36. First explicit cold activity start: **TotalTime 1,047 ms, WaitTime 1,054 ms**, one launch. This is Android activity first draw, **not app-ready/Home interaction or ten-launch acceptance**. No storage, Focus or frame claims follow from it. The user subsequently interacted with the test app and could not sign in; its unregistered isolated OAuth identity does not validate auth. Both owner app and that installation are preserved. Evidence is `%TEMP%\anchor-perf-release-20261012\native-baseline`.
+
+Diagnostic v2 artifact is separately archived at `E:\apd\record\archive\perfbaseline-v2-url-control.apk`, 213,147,133 bytes, SHA-256 `41DEBFD3F4E0D47CC72F46AFE0FE7B3AABECF5F8E826B1A6C295DDC05516FB76`, arm64 release, Hermes v96 bundle 11,254,140 bytes. It was **not installed**. Its old package is now protected. The earlier v1 diagnostic hash `A236C306577199AA3542748AA9B86D6C9BC0CFEB876421D2D567BA0896A0CBFB` is historical provenance only: its binary was overwritten before archival, a disclosed preservation gap. Do not present that APK as available. The fresh v3 lab changes Android identity and uses a fixed demo-project local Auth emulator; no production schema or storage migration is introduced.
+
+The fixture/capture harness remains under `harness/`. Parent independently reran **13/13 stub-adapter tests** for protected-package refusal, exact URL allowlist, non-loopback refusal, pristine onboarding draft, no action on ordinary cold start, checksum-based safe seeding, separately timed adapter reads, and native-error/fallback rejection. The harness-only Jest config maps Expo's virtual environment module to the test process environment; this fixes test bootstrapping without changing product dependencies or guard assertions. These are source-safety checks, not native SecureStore measurements.
+### Local Auth fixture gate
+
+The isolated Auth-only Firebase emulator is bound to `127.0.0.1:9099` with fixed `demo-anchor-perf` project; the in-memory fixture API is bound to `127.0.0.1:39999`. Firebase CLI 15.33.0 runs from task-local temporary configuration/cache directories with inherited token/ADC environment variables removed; no login, cloud account/resource operation, production database or real service account. Generated CLI debug logs were moved out of the repository and are ignored. No emulator import/export persistence is used.
+
+Parent independently ran `node harness/auth-emulator/test-fixture.cjs`: **PASS**, exit 0. The test creates an ephemeral synthetic local account, verifies an emulator-issued token through Firebase Admin and audience/issuer/subject checks, exercises auth sync and one synthetic RAM-only practice-session record, rejects invalid tokens/provider/config/project, and confirms scene snapshots/next-actions are discarded. No email, password, token or request body is printed. This is local service integration, **not phone Firebase callback, production backend acceptance, or ten Focus completions**.
+
+The diagnostic native Auth patch remains outside shared product source. It requires exact lab native ID, enabled diagnostic flag, exact loopback API and actual Firebase app projectId `demo-anchor-perf` before calling Auth `useEmulator`. The diagnostic Gradle build checks the copied demo Google Services JSON project/package and refuses fallback. Namespace and native class names remain production-source values; only the isolated application ID differs. The lab adds an exact `127.0.0.1` cleartext exception to its existing Android network-security config; base cleartext denial remains. These deviations must stay attached to all runtime results.
+For native Focus validation, a one-time local setup creates UID `synthetic-account`, matching the synthetic Anchor fixture's owner, and a verified `anchorPerfOnboarded=true` claim. Credentials are held only in task TEMP, separate from profiling logs, and setup refuses an existing UID/file rather than resetting anything. The fixture maps onboarding only from the verified demo token claim; a client body flag cannot grant it. Parent reran the updated local test successfully. Premium stays free / isComped false. This allows the active-account durable-queue path to be tested without asserting a production guest merge or bypassing premium gating.
+
+The fresh v3 build's first Gradle attempt failed before compile because PowerShell split an unquoted dotted `-P` argument into an unknown task `.incremental=false`. Retrying with literal argument boundaries corrects tooling only. No framework or app source change was made for this failure. Capture preparation now includes scheduler/frequency/idle events alongside app-filtered gfx/view/Dalvik; restricted local raw traces may contain system process metadata, while shared SQL summaries must filter to the exact lab process. Numeric log collection verifies PID ownership before/after, retains fixed events/finite numeric fields and Android log epoch for clock alignment, and discards other app log lines. Capture preflight continues to issue zero ADB calls.
+### Initial native checks and profiler corrections
+
+V3 lab APK archived at `E:\apd\record\archive\anchor-perflab20261012-v3-auth-emulator-release-arm64.apk`, 213,147,913 bytes; SHA-256 `D758779B6FF9CA03C67554D61FE7877BF6D65230C918B23A31D2799A909732EB`. Parent independently verified hash, Android package/label/arm64, non-debuggable installed flags, disabled OTA/Firebase collection, fake demo Firebase resources and APK signature, then installed fresh on the S24 (no replacement). Source/product namespace remains original; all provider authorities use lab ID. V3 build succeeded 12m28s. Public production Google OAuth fallback identifiers remained in its JS config although Firebase is demo-only; no Google sign-in was attempted. A follow-up diagnostic build blanks those fallbacks and disables its unsupported Google sign-in, without touching production configuration.
+
+The S24 keyguard is showing. An exact lab fixture intent launched its process but did not seed an Anchor; no fixture-complete event exists. Native startup numeric events verify an empty Anchor hydration span of **110 ms** and App-component elapsed readiness **59 ms** (different time origins; not Home timing). Eight absent-value SecureStore read spans were **45–86 ms**, and four 297-character auth-state writes were **151–208 ms**, native-call failures 0 in those events. These are fresh **zero-Anchor, locked-device** observations, not one/72-Anchor baselines, UI performance or an improvement versus the historical debug vault. Android launch was UNKNOWN with WaitTime 3,033 ms; no valid cold Home timing is claimed. The exact fixture URL's execution remains unverified under keyguard.
+
+The numeric collector initially saved zero events because React Native quoted/comma-separated console arguments; the pattern was corrected and the same PID yielded **14 numeric-only events**. Raw lines were not retained. The initial empty evidence file remains historical, alongside corrected JSONL in `%TEMP%\anchor-perf-release-20261012\numeric`. Source review also found the event-loop histogram inside the existing dev-only effect, so V3 cannot supply release loop-gap evidence. The V4 overlay moves it to an independent effect, adds numeric no-action/unknown-URL reasons (no URL text), and recognizes only the exact canonical empty Zustand vault while retaining every pristine-state/owner-data guard. **21/21** fixture tests passed; the attempted copied-App integration smoke was unstable and is not claimed as passed. Runtime verification remains required.
+
+Physical Perfetto smoke: Android denied output under `/sdcard/Download` (errno 13). The harness now uses a unique scenario/run path under `/data/misc/perfetto-traces`, refuses pre-existing paths, pulls only that trace and removes only its own file. A bounded **5-second** native capture succeeded and was parsed with Trace Processor v58.2 using the app-filtered SQL. The S24 was locked, so gfxinfo and FrameTimeline contain **0 frames**: motion results are **unavailable**, not 0% jank acceptance. This validates profiling-tool operation only. Restricted trace, metadata, package meminfo/gfxinfo and numeric summaries are under `%TEMP%\anchor-perf-release-20261012\captures\...\capture-preflight-locked\native02`.
+
+### Fresh emulator functional validation
+
+Fallback AVD `Anchor_PERF_LAB_20261012`, serial `emulator-5564`, Android 16/API 36/x86_64, was created from the installed `android-36.1/google_apis_playstore/x86_64` system image with **fresh userdata** under `E:\anchor-perf-emu-20261012`. Child-only AVD/emulator home overrides, 4 GB RAM/4 cores, headless software graphics, no snapshots or Google login; no existing AVD config/userdata was copied or reset. `avdmanager` was absent, so task-specific metadata was generated directly. Emulator timings are separate from phone evidence and may be affected by concurrent host build load.
+
+Parent installed the verified four-ABI ordinary baseline fresh on this AVD. Its same package name as the phone's protected test app refers to a different, new emulator data sandbox; every operation uses exact `emulator-5564` and verifies the task AVD name. The phone's installation was not operated. First emulator cold activity draw: **11,140 ms**, WaitTime 11,153 ms (n=1 initial startup). The user-facing welcome and bridge scenes rendered. After Get started, stopping partway at the bridge, force-close and cold relaunch resumed the same bridge screen with no recovery surface: **incomplete-onboarding persistence PASS on this native emulator scenario**, once. Relaunch activity draw 6,400 ms / WaitTime 6,553 ms. These two activity timings are not a ten-launch distribution or a hardware performance comparison.
+
+UIAutomator could not obtain idle state during the preserved continuous welcome/bridge animation. Synthetic-only emulator screenshots and guarded coordinate input are used for functional checking; no animation is disabled or shortened to accommodate tooling. This was an earlier checkpoint, superseded by the V4 runtime subsections below. Remaining gaps include native recovery fault injection, canonical backend/guest transfer, legitimately entitled Focus x10, complete premium/audio/haptic coverage and physical/iOS acceptance.
+
+### Changed-file inventory at this handoff
+
+Inventory snapshot: branch `feat/celebration-layer`, HEAD `6911321cdf7ee32c9e40346d307dbd44823a34e6`; the index is empty and `anchor/mobile` is clean. The 14 committed product/test paths are split across the two commits below. The five modified audit documents and 26 untracked harness files are documentation/harness work and remain uncommitted. The ignored generated `harness/__pycache__/` directory is excluded; no captures or private runtime artifacts are part of this inventory.
+
+Commit `9a158b7d3efeab62e42b6d8f8f01d8b45edb3caa` (`fix(auth): preserve guest data during startup restoration`) contains 13 paths:
+
+- `anchor/mobile/App.tsx`
+- `anchor/mobile/src/components/startup/StartupRestoreFailure.tsx`
+- `anchor/mobile/src/components/startup/__tests__/StartupRestoreFailure.test.tsx`
+- `anchor/mobile/src/hooks/__tests__/useAppStartup.test.ts`
+- `anchor/mobile/src/hooks/__tests__/useRequiredLocalHydrationGuard.test.ts`
+- `anchor/mobile/src/hooks/useAppStartup.ts`
+- `anchor/mobile/src/hooks/useRequiredLocalHydrationGuard.ts`
+- `anchor/mobile/src/services/AppAuthBootstrap.ts`
+- `anchor/mobile/src/services/__tests__/appAuthState.test.ts`
+- `anchor/mobile/src/services/__tests__/reloadCurrentApp.test.ts`
+- `anchor/mobile/src/services/appAuthState.ts`
+- `anchor/mobile/src/services/reloadCurrentApp.ts`
+- `anchor/mobile/src/stores/authStore.ts`
+
+Commit `6911321cdf7ee32c9e40346d307dbd44823a34e6` (`test(auth): verify startup recovery through App`) contains one path:
+
+- `anchor/mobile/src/__tests__/AppStartupHydration.integration.test.tsx`
+
+Five modified, uncommitted audit documents:
+
+- `docs/performance-audit-2026-10/DEVICE_VALIDATION_MATRIX.md`
+- `docs/performance-audit-2026-10/EXECUTIVE_SUMMARY.md`
+- `docs/performance-audit-2026-10/MOTION_AND_AUDIO_PRESERVATION_CHECKLIST.md`
+- `docs/performance-audit-2026-10/PERFORMANCE_AUDIT_REPORT.md`
+- `docs/performance-audit-2026-10/PERFORMANCE_REMEDIATION_PLAN.md`
+
+Twenty-five untracked harness source/documentation files:
+
+- `docs/performance-audit-2026-10/harness/README.md`
+- `docs/performance-audit-2026-10/harness/analyze-framestats.py`
+- `docs/performance-audit-2026-10/harness/app-filtered-summary.sql`
+- `docs/performance-audit-2026-10/harness/capture-android.ps1`
+- `docs/performance-audit-2026-10/harness/collect-numeric-diagnostics.ps1`
+- `docs/performance-audit-2026-10/harness/generate-synthetic-fixtures.mjs`
+- `docs/performance-audit-2026-10/harness/test_analyze_framestats.py`
+- `docs/performance-audit-2026-10/harness/validate-harness.ps1`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/INTEGRATION.md`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/ReleaseStorageBenchmark.test.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/ReleaseStorageBenchmark.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic-v2-perfbaseline.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic-v4-overlay.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/jest.harness.config.cjs`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/perfFixtureLinking.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/test-shims/expo-virtual-env.cjs`
+- `docs/performance-audit-2026-10/harness/auth-emulator/README.md`
+- `docs/performance-audit-2026-10/harness/auth-emulator/diagnostic-config.cjs`
+- `docs/performance-audit-2026-10/harness/auth-emulator/firebase.json`
+- `docs/performance-audit-2026-10/harness/auth-emulator/fixture-api.cjs`
+- `docs/performance-audit-2026-10/harness/auth-emulator/google-services.perf-diagnostic.json`
+- `docs/performance-audit-2026-10/harness/auth-emulator/mobile-auth-diagnostic.patch`
+- `docs/performance-audit-2026-10/harness/auth-emulator/setup-synthetic-account.cjs`
+- `docs/performance-audit-2026-10/harness/auth-emulator/test-fixture.cjs`
+
+One additional untracked harness configuration file:
+
+- `docs/performance-audit-2026-10/harness/.gitignore`
+
+Staged and unstaged whitespace checks passed at inventory time. No product source or test files are currently modified outside the two listed commits.
+
+### V4 emulator runtime results (historical checkpoint, 2026-10-12)
+
+The available diagnostic APK is `E:\apd\record\archive\anchor-perflab20261012-v4-auth-emulator-dualabi.apk`, 245,152,933 bytes, SHA-256 `EFF1898E0D0B6E532960AD040D416EF2534DADDC2D435B2FBCDB2C2D8DEAA605`. Parent independently verified its hash, package/label and arm64-v8a/x86_64 ABIs before fresh emulator installation. Non-debuggable production Hermes v96/V2/Fabric release, profileable, local signing, demo Firebase Auth, exact loopback API, OTA off; production API and OAuth fallback identifiers are absent. Build provenance is `E:\apd\record\final-v4-build-provenance.json`. This isolated diagnostic artifact has safety/instrumentation deviations and does not validate production backend or distribution wiring.
+
+The fresh AVD is Android 16/API 36/x86_64, software graphics, 1080x2400 at observed 60 Hz; no high-refresh mode exists on this AVD. It runs with `-no-audio`. Physical S24 acceptance, 60/adaptive refresh comparisons, audible audio and haptics remain pending. The phone remained locked; neither the owner package nor the user-touched baseline package was operated during this continuation.
+
+Guest creation went through welcome, bridge, Career selection, the fixed synthetic intention, Form, Woven style, generated-form selection, the original hold-to-seal interaction, Save without an account, Progress Saved and Home. The local image fixture returns only a fixed PNG and “Synthetic fixture” classification, discards submitted content, and omits unsupported structure/preservation scores. Both A/B local fixture suites passed, including malformed/production token, ordinary-ID and private-intention rejection. This proves a reachable native guest save path, not AI image quality or canonical backend account saving.
+
+**Ten guest process-kill/cold-relaunch checks passed**, each restoring exactly one Anchor and its artwork without onboarding/recovery UI. The actual UI-created vault was 1,434 characters. Activity first draw ranged 2,547–4,536 ms (median 2,813.5 ms); Anchor hydration ranged 136–246 ms. These time origins differ and are not Home-ready timing. The ordinary release also preserved incomplete onboarding at the bridge after one process termination/relaunch. PERF-001/082 are still physical-device-validation pending. Native delayed/repeated auth callbacks, exact 10/15-second fault injection/recovery/reopen, account merge/switch and production returning-user acceptance remain unverified; focused automated tests cover their documented source boundaries. Normal 72-Anchor initialization completed a measured 7,657 ms hydration and reached Home without recovery.
+
+After preserving guest evidence, parent cleared **only the entirely synthetic V4 sandbox on exact fresh AVD `emulator-5564`**, verifying AVD name and package first. No phone sandbox, existing AVD, owner account or owner content was cleared. Diagnostic fixture seeding bypasses onboarding and is distinct from the preceding full-UI guest test.
+
+| Native storage scenario | Actual V4 emulator measurement | Evidence boundary |
+|---|---|---|
+| 1-Anchor / 10,000-char cold launch | Activity draw 2,339 ms; SecureStore read 279 ms / 7 calls; Anchor hydration 299 ms | Normal launch without a fixture action; no Home-ready distribution claimed. |
+| 72-Anchor / 719,217-char cold launch | Activity draw 2,177 ms; SecureStore read 5,724 ms / 401 calls; hydration 5,746 ms | 400 native chunks; activity draw precedes required-store readiness. Instrumented benchmark launch separately hydrated in 7,657 ms. |
+| Initial complete 72-Anchor vault replacement | Native write 10,516 ms / 409 calls (6 previous chunks, 400 new); setItem 11,298.629 ms; rehydrate 4,651 ms | Native write includes clearing prior chunks; adapter includes debounce/scheduling. Synthetic valid-SVG padding models storage size, not artwork/render fidelity. |
+| Isolated 1-Anchor adapter roundtrip | setItem 624.998 ms; read+parse 70.618 ms; separate direct SecureStore verification 85.070 ms | One repeat, not cold app hydration. |
+| 72-Anchor adapter trial 1 | native write 12,296 ms; setItem 12,711.137 ms; read+parse 4,188.529 ms; direct verification 3,646.522 ms | Fresh diagnostic key, 400 chunks / 403 native write calls. |
+| Trial 2 | native write 11,399 ms; setItem 11,816.067 ms; read+parse 4,253.533 ms; verification 4,452.322 ms | Same fixture/adapter, independent trial key. |
+| Trial 3 | native write 11,733 ms; setItem 12,147.155 ms; read+parse 3,597.299 ms; verification 4,063.273 ms | Same fixture/adapter, independent trial key. |
+| Auth adapter control / overlap | Controls 224, 52, 58 ms; concurrent bulk trials 12,222, 11,335, 11,660 ms | Controlled interference supports head-of-line delay, but spans include adapter work and do not isolate pure queue wait or exact auth-start offsets. |
+
+The completed adapter exercise reported **3,698 native calls, 0 native failures, 0 fallbacks**, 16 read events and 14 write events. All roundtrips matched the entire synthetic JSON and expected Anchor count. Numeric evidence is `%TEMP%\anchor-perf-release-20261012\numeric\v4-adapter-final.jsonl`; earlier per-launch files preserve seed/cold/guest outcomes. Bulk adapter latency and auth interference reproduce in a native release emulator; the historical 32.8-second DEBUG observation is preserved and is not directly comparable to these different hardware/build/fixture measurements.
+
+**30/30 Home → Details → Home functional cycles passed** using the UI-created guest Anchor and original transitions. The primary partial Perfetto window covers cycles 4–6, approximately 34.888 seconds, with UIAutomator verification and 2-second transition settling. Its retained gfxinfo ring has 120 frames (p50/p95/p99/max 58.338/136.277/187.178/194.266 ms); separate platform counters are 198 frames / 112 janky (56.57%), 35 missed vsync, 12 slow bitmap uploads; PSS 286,106 KB. This software-emulator/automation result is not phone frame acceptance or a full 30-cycle frame distribution. The first capture included setup errors/idle and is explicitly incomplete.
+
+The 34.887-second adapter Perfetto window covers startup, the small roundtrip and the first large trial only. FrameTimeline has 384 actual frames (mean 35.093 ms, max 847.923 ms); main/RenderThread scheduled CPU sums are 3,827.149 / 5,068.695 ms, PSS 268,091 KB. Inclusive trace slices overlap; fixed JS/native-module thread codes were not identified, so their CPU is unavailable. The release JS histogram remained active during bulk work: two overlapping 10-second bins had p95 35 ms, max gaps 150/66 ms, with 3/1 samples over 50 ms. These coarse bins show loop activity, not exact JS execution stalls or storage causation. Frame outliers, storage spans and CPU aggregates do **not** establish why Home–Details stutters, whether persistence blocks navigation, or the historical Focus hang's cause.
+
+Focus Begin is Pro-gated on the production navigator for every duration. Both synthetic accounts remain free; no entitlement, continuation route or developer override was used to bypass it. Focus x10, full Deep Prime, guided Visualize, Vision-image and Chart-world interactions, account-backed session completion and audio/background continuity remain unverified. The local fixture does not implement canonical Anchor/Chart/Vision persistence/recommendation endpoints, so error/empty surfaces do not validate those premium scenes.
+
+**Next decision:** the measured native bulk cost and controlled auth interference justify prioritizing storage architecture validation. This pass does not make a production migration ready for approval/implementation. Resolve the two retained AuthHydrationService failures and native account transfer/return/switch checks; obtain safe physical and legitimately entitled isolated coverage; validate SQLCipher/native runtime/key policy, transactional import with source retained until verification, interruption/crash recovery, corruption/key loss, guest backup/export, account isolation and compatible-reader rollback. Section 8 remains the proposal; no migration, production schema/dependency change, framework upgrade, OTA or release publication occurred.
+
+### Emulator local-auth and carousel checkpoint (historical)
+
+Carousel swipes passed **20/20**, with the selected index advancing from 2 to 22 in the 72-Anchor synthetic collection. The earlier coordinate-tap attempt did not advance selection and is retained as incomplete setup; it was not counted as a swipe pass. The primary `carousel/native-v4-02` Perfetto window is 34.917 seconds, a partial capture of the swipe run: platform 1,049 frames / 628 janky (59.87%), 221 missed vsync, 64 slow bitmap uploads; retained ring p95 92.856 ms, p99 196.583 ms, max 218.685 ms. Fixture SVG padding and UIAutomator overhead limit rendering representativeness.
+
+Two full-vault writes completed inside that trace window: 719,217 characters / 400 chunks, 14,076 and 15,963 ms, no failures. A later settled same-PID snapshot records **21** full-vault write completions after the adapter-run cutoff, **12,191–59,471 ms**; no per-swipe markers exist, so these are not asserted as one-to-one gesture writes. Home selection calls the shared `setCurrentAnchor`; the persisted partializer combines `currentAnchorId` with the entire Anchor array. This is a concrete write-amplification mechanism and matches the observed bulk writes during switching. Storage-to-specific-frame causality remains unproved. No carousel, SVG, haptic, sound or transition code was changed.
+
+Native email sign-in to demo account A succeeded through Settings and the actual sign-in screen; the profile remained Free and Home retained all 72 locally seeded Anchors. After writes had settled (last recorded bulk completion more than 180 seconds earlier), a cold relaunch restored the signed-in user and **72 Anchors**, preserved selected index 22, and emitted signed-in fixture refusal reason 1; activity draw 2,932 ms, hydration 5,854 ms. This is local Firebase/native startup retention, not canonical server hydration or guest ownership transfer: the seeded Anchor user IDs already match A and the fixture lacks production Anchor export/merge endpoints.
+
+The actual 10-second Focus Prep/Begin path opened the **normal Pro paywall**. No purchase, fake entitlement, developer override or resume-route bypass occurred; no session, completion timing or Focus x10 result exists. Intentional sign-out was confirmed through the normal UI and left an empty local Home. Subsequent native email sign-in to demo account B matched its generated fixture profile, remained Free, and showed no A Anchor content. These are partial local sign-out/account-switch checks; A/B server persistence, ownership transfer and production recovery remain unverified. A 3-second background/foreground Home check returned the B Home (HOT activity draw 160 ms); there was no active audio session, so audio continuity is unverified.
+
+Delayed/repeated null callbacks and the exact native 10/15-second failure guards/restart/reopen were not fault-injected. The existing automated boundary tests remain the evidence for them. Physical Android, iOS, high refresh, legitimately entitled isolated Focus/Deep Prime/Visualize and production-like isolated backend coverage are required to close the remaining acceptance matrix.
+
+### Physical V4 continuation (2026-10-12; supersedes phone-locked gaps above)
+
+The owner unlocked the wireless S24 Ultra for the separate `com.anchorintentions.perflab20261012` installation. Parent updated only this agent-created synthetic sandbox to the same-signer V4 APK; neither `com.anchorintentions.app` nor the user-touched `com.anchorintentions.perfbaseline` was operated, cleared, replaced or uninstalled. The phone is SM-S928U1, Android 16/API 36/arm64, 1440x3120, adaptive display with a preferred 120 Hz mode. Observed intended-vsync median 8.321 ms supports approximately 120 Hz during the measured windows; it is not delivered FPS. Storage runs were unplugged, battery 55%, reported battery temperature 28.2 C.
+
+| Physical release storage scenario | Measured V4 result | Limit |
+|---|---|---|
+| Small canonical 1-Anchor cold hydration | Approximately 120 ms; activity draw 959 ms | One synthetic 10,000-character fixture launch, not a distribution or Home-ready time. |
+| 72-Anchor / 719,217-character normal cold launch | SecureStore read 2,430 ms / 401 calls; hydration 2,438 ms; activity draw 832 ms | No fixture action on this launch; 400 chunks. |
+| Initial replacement of 1 Anchor by 72 | Native write 4,839 ms / 409 calls; adapter 5,244.497 ms; read 2,331 ms; rehydrate 2,395 ms | Includes clearing the previous six chunks. |
+| Three independent large adapter writes | Native 8,235 / 7,170 / 6,403 ms; adapter 8,646.417 / 7,579.661 / 6,805.457 ms | Full exact-JSON readback and expected counts verified. |
+| Auth controls versus overlapping bulk writes | Controls 37–131 ms; overlap 8,172 / 7,134 / 6,369 ms | Controlled interference; spans do not isolate pure queue wait or Firebase callback latency. |
+| Large adapter read+parse | 2,493.067 / 2,469.225 / 2,194.058 ms | Separate direct verification 2,510.985 / 2,428.633 / 2,414.174 ms. |
+
+The completed physical adapter run recorded 3,683 native calls, zero failures and zero fallbacks, 16 reads and 11 writes. Evidence is `%TEMP%\anchor-perf-release-20261012\numeric\phone-v4-adapter-check02.jsonl` and seed/cold files beside it. Multi-second bulk persistence and concurrent auth-adapter delay reproduce on physical release hardware. The old 32.8-second DEBUG write remains historical; these synthetic fixtures/hardware/builds are not a controlled before/after optimization comparison.
+
+The physical seed and adapter Perfetto windows cover 33.618 and 30.635 seconds respectively; the adapter trace covers the first large trial and part of the second, not all three trials. Platform gfxinfo counters were 4/139 janky (2.88%) and 6/411 (1.46%); retained rings differ from those aggregate populations. Samsung traces omitted full package names. Numeric PID fallback summaries are conditional on parent-controlled process lifetime and exact-package `/proc` checks bracketing each diagnostic read, not the entire old capture. Device time was approximately 166 seconds ahead of host time; trace/event alignment uses device clocks. New captures include package/PID/start-tick identity sidecars at both capture boundaries. Neither storage-window frame counters nor coarse 10-second JS histogram bins establish a storage-to-specific-frame causal chain.
+
+After preserving the completed benchmark evidence and verifying the whole dataset synthetic, parent cleared only the phone PERF LAB sandbox for full-UI guest testing. The original welcome/bridge flow survived one mid-onboarding process termination. A new fixed synthetic Career Anchor was created through the real Form, Woven selection, original hold-to-seal, Save without an account, Progress Saved and Home flow. Ten fresh process-kill/relaunch checks passed: one local Anchor and its artwork, no repeated onboarding or recovery UI. Activity first draw 527–616 ms, median 559 ms; required Anchor hydration 57–72 ms. Evidence is `phone-guest-validation-summary.jsonl` and `numeric\phone-v4-guest-validated01..10.jsonl`. An earlier visibility assertion failed while the normal Home teaching tip/scroll hid artwork; storage still restored one Anchor. It is retained as an incomplete setup attempt, excluded from the fresh ten-pass series. Physical guest persistence is verified; complete PERF-001/082 acceptance still requires the remaining auth/recovery/account and iOS matrix.
+
+The seven focused suites were rerun by parent and passed all 88 tests (`focused-jest-7s88-final-parent.log`, exit proof `focused-jest-7s88-exit.json`). Parent TypeScript exited zero with no diagnostic output (`tsc-handoff-final.log`, `tsc-handoff-exit.json`). Harness tests passed 21/21. The two retained AuthHydrationService data-retention assertions and other broader failures remain unresolved; no tests were weakened.
+
+A new independent local demo account C has a verified emulator custom comped claim; the loopback fixture grants comped status only to that UID and claim. A/B remain Free. This enables testing through the unchanged Pro gate without production billing, account, backend, client override or purchase. Earlier Free paywall results are preserved; C session runtime is not yet a result at this checkpoint. Local comped coverage cannot validate production entitlement or canonical guest-account ownership transfer. Diagnostic motion/startup-fault preparation is isolated from shared mobile source and will be independently reviewed before native use.
+
+### Physical motion and repeated-launch checkpoint
+
+The full-UI, single-Anchor phone guest passed 30/30 Home→Details→Home cycles. Its adaptive capture `phone-home-details-adaptive/native-v4-01` had matching package/cmdline/PID 18082/start ticks 67817255 at both boundaries. Perfetto covers 29.962 seconds of the longer run (445 actual frames, expected cadence 8.333 ms): actual-frame p50/p95/p99/max 7.452/12.725/43.498/63.031 ms. Separate gfxinfo spans 127.816 seconds: 31/611 janky (5.07%), six missed vsync, 15 slow bitmap uploads. PSS 546,028 KB. These are automated partial-window baselines, not navigation latency or delivered FPS.
+
+The 72-Anchor carousel passed 20/20 swipes, selected index 1→21. `phone-carousel-adaptive/native-v4-01` has exact package/PID 5714/start ticks 68046493 at both boundaries; 34.940-second trace, 304 actual frames, 8.333 ms expected cadence, p50/p95/p99/max 9.012/16.285/16.409/138.283 ms. Separate gfxinfo spans 222.741 seconds: 94/3,015 janky (3.12%), PSS 675,643 KB. The settled numeric stream contains twenty 719,217-character/400-chunk writes, 803 calls each, zero native failures: native durations 5,620–9,299 ms, median 8,059 ms. No per-swipe marker exists. Selection's whole-vault persistence is confirmed write amplification, while causation of a specific frame or the historical Focus hang remains unproved.
+
+The first requested-60-Hz capture stayed at 120 Hz and is explicitly not 60 Hz evidence. A second approach temporarily set previously absent system min/peak refresh keys to 60 and used a nonpersistent display preference; active mode 3 and trace expected cadence 16.667 ms confirmed 60 Hz. Three Home→Details→Home cycles passed with the 72-Anchor SVG fixture selected at 21. `phone-home-details-60-actual/native-v4-01`: 34.937-second partial trace, 522 actual frames, p50/p95/p99/max 15.788/22.768/45.192/184.586 ms. Separate gfxinfo spans 52.135 seconds: 21/327 janky (6.42%), two missed vsync, 13 slow bitmap uploads; PSS 786,815 KB. The two temporary system keys were deleted back to their original null values; saved preferred/active mode 1 at 120 Hz was verified. This fixture differs from the earlier single-Anchor PNG run; frame distributions are not an optimization comparison. Matching 72-Anchor adaptive subset preparation is separate.
+
+An additional ten 72-Anchor process-kill/cold-relaunch checks passed with selected index 21 preserved, no onboarding or recovery screen: activity draw 505–611 ms (median 595.5), Anchor hydration 1,969–2,476 ms (median 2,430.5). `phone-72-cold-summary.jsonl` is the ten-pass series; a preceding reserved-PowerShell-variable script failure is retained as setup evidence and excluded. A three-second background/foreground check returned that same Home/selection, HOT activity draw 58 ms/Wait 61; there was no active audio, so it is not audio continuity evidence.
+
+V4 phone test-account sign-in was blocked by RNFirebase 24's Android emulator-host remap: exact `127.0.0.1` was rewritten to `10.0.2.2`, explaining why A/B emulator tests succeeded while phone sign-in hung. The immutable V4 native Firebase BuildConfig contains an empty JSON object. V5 must compile the diagnostic-only `android_bypass_emulator_url_remap=true` flag and verify the exact returned loopback host/port before sign-in. This is a local harness/toolchain correction, not a production auth or credential failure. No physical C sign-in, Focus completion or V5 startup-fault result is claimed yet.
+
+### Final complete harness inventory (parent-verified)
+
+Untracked harness source/documentation files: **42**. This replaces earlier interim inventories; raw captures, generated Python caches and TEMP logs/binaries are excluded. Superseded patches are retained with DO NOT APPLY instructions in the integration guide.
+- `docs/performance-audit-2026-10/harness/.gitignore`
+- `docs/performance-audit-2026-10/harness/analyze-framestats.py`
+- `docs/performance-audit-2026-10/harness/app-filtered-summary.sql`
+- `docs/performance-audit-2026-10/harness/auth-emulator/diagnostic-config.cjs`
+- `docs/performance-audit-2026-10/harness/auth-emulator/firebase.json`
+- `docs/performance-audit-2026-10/harness/auth-emulator/fixture-api.cjs`
+- `docs/performance-audit-2026-10/harness/auth-emulator/google-services.perf-diagnostic.json`
+- `docs/performance-audit-2026-10/harness/auth-emulator/mobile-auth-diagnostic-v4.patch`
+- `docs/performance-audit-2026-10/harness/auth-emulator/mobile-auth-diagnostic.patch`
+- `docs/performance-audit-2026-10/harness/auth-emulator/README.md`
+- `docs/performance-audit-2026-10/harness/auth-emulator/setup-synthetic-account.cjs`
+- `docs/performance-audit-2026-10/harness/auth-emulator/test-fixture.cjs`
+- `docs/performance-audit-2026-10/harness/capture-android.ps1`
+- `docs/performance-audit-2026-10/harness/capture-identity.ps1`
+- `docs/performance-audit-2026-10/harness/collect-numeric-diagnostics.ps1`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic-v2-perfbaseline.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic-v4-overlay.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic-v5-overlay.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic-v5-recovery-overlay.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/apd-diagnostic.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/diagnosticEventSchema.test.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/diagnosticEventSchema.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/INTEGRATION.md`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/jest.harness.config.cjs`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/motion-read-fixtures.json`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/perfFixtureLinking.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/ReleaseMotionFixture.test.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/ReleaseMotionFixture.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/ReleaseStorageBenchmark.test.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/ReleaseStorageBenchmark.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/startup-fault-v5-consumers.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/startup-fault-v5-hooks.patch`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/startupFaultDiagnostic.test.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/startupFaultDiagnostic.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/SyntheticAnchorFixture.test.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/SyntheticAnchorFixture.ts`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/test-shims/expo-virtual-env.cjs`
+- `docs/performance-audit-2026-10/harness/diagnostic-src/tsconfig.harness.json`
+- `docs/performance-audit-2026-10/harness/generate-synthetic-fixtures.mjs`
+- `docs/performance-audit-2026-10/harness/README.md`
+- `docs/performance-audit-2026-10/harness/test_analyze_framestats.py`
+- `docs/performance-audit-2026-10/harness/validate-harness.ps1`
+
+### Final V5 native and handoff boundary (2026-10-12)
+
+The owner requested wrap-up with approximately 7% usage remaining. Runtime work stopped; this final record supersedes the V5-pending checkpoints above without replacing the historical V4 measurements. **PERF-001 source protection is secured and physical guest persistence passed; complete PERF-001/082, premium motion/audio and recovery acceptance remain pending.**
+
+V5 native release built successfully and was independently verified before parent updated only the agent-created phone PERF LAB package, preserving its synthetic data. Artifact: `E:\apd\record\archive\anchor-perflab20261012-v5-startup-motion-dualabi.apk`, **245,172,537 bytes**, SHA-256 **`1702C59554888A30CFAB4AB808467315096484E04928CB1B275C5BCD8DD0A2F7`**. Package `com.anchorintentions.perflab20261012`, arm64-v8a/x86_64, version 2.0.0 (39), runtime 2.0; local debug-key signing of a non-debuggable/profileable release, production Hermes v96, V2/Fabric, minification/resource shrinking, OTA disabled. No debug overlays or unrelated feature changes. Diagnostic-only demo Firebase, loopback API and instrumentation remain explicit deviations from production wiring. Neither owner nor user-touched baseline installation was updated.
+
+Build duration was 14m34s; 1,277 tasks, 65 executed/1,212 up-to-date. R8 emitted advisory dependency warnings but compilation succeeded. Verification is `E:\apd\record\verify\v5-verification-summary.json`; corrected provenance `E:\apd\record\v5-build-provenance.json` has SHA-256 `462A66A081D4427A14A1E730345FB03546CB874165FF2E8EF467BD4798758937`. All 23 recorded SHA fields are 64 characters and 19 mapped input/artifact hashes match. V5 bundle SHA-256 is `5B69AD8DB124E5DFE3ED036BAED849C14E9B48E9A0C88260C3F15F569632AF39`; 2,004-file input manifest SHA-256 is `DF8D0E6CFCD9B7AB8C18202EAB41ECA4B640679DD386AC7CB26C33E7A58AEFE4`.
+
+The native Firebase configuration now compiles `android_bypass_emulator_url_remap=true`. Physical numeric `auth-emulator-route` result `okCode=1` verifies the intended loopback route. Parent then signed into independent synthetic demo C through the normal UI and verified its local comped **PRO** profile through the unchanged entitlement gate. A/B remain Free; this is not production billing or backend acceptance. The 72-Anchor/index-21 guest vault was retained **before C sign-in**. After sign-in, Home displayed “Unable to load your Anchors”: the loopback fixture lacks GET `/api/anchors` and `/api/auth/me/export`, returning 404. Canonical C hydration/ownership and guest-to-account transfer are therefore unverified; neither data loss nor post-transition retention is inferred. The local API recorded zero sessions. Evidence: `%TEMP%\anchor-perf-release-20261012\numeric\phone-v5-first-launch-route-verified.jsonl`, `phone-v5-c-auth-home.jsonl`, and `phone-v5-c-final-before-stop.jsonl`.
+
+V5 startup/motion harness source passed TypeScript and **60/60** focused harness tests. Parent's separate actual auth/storage consumer tests passed **5/5**, with normalized source-parity proof against the APK inputs. An initial consumer-test configuration failure ran zero tests; the portable configuration was corrected without changing assertions/frameworks. Evidence: `consumer-v5-portable-parent.log`, `consumer-v5-portable-parent-exit.json`, `consumer-v5-parent-source-parity.json`. The numeric collector now recognizes the new fixed event/field allowlists; mock parsing rejects unknown events, string values and unapproved numeric fields. No credentials, tokens, intentions or image payloads are collected.
+
+The isolated fault consumers and existing-cache motion fixtures are prepared, but native 12-second required-store delay, 16-second missing callback, 14-second normal slow callback, restart/reopen, repeated-null callbacks, ten Focus completions, full Deep Prime, guided Visualize, Vision/Chart interactions and active audio/background continuity were **not run to acceptance**. The source 10/15-second tests do not substitute for these native checks. Complete physical account return/switch/merge and iOS also remain open. No SQLCipher migration, production schema change, animation/audio redesign, framework upgrade, production backend write, paid cloud build, OTA or publication occurred.
+
+Cleanup: force-stopped only the known synthetic lab package, removed only its 9099/39999 ADB reverses on phone/fresh emulator, stopped the verified temporary demo Auth CLI and fixture API, and verified no listeners on those ports. Deleted only the three generated synthetic credential files after exact directory/project/application/UID checks. Original 8081/8000 phone reverses remain; system peak/min refresh settings returned to their original null values and saved preferred/active 120 Hz mode was verified. Installed lab data, AVD data, build artifacts and evidence were preserved. Numeric cleanup proof is `%TEMP%\anchor-perf-release-20261012\cleanup-final.json`.
+
+Final Git: `feat/celebration-layer`, HEAD `6911321cdf7ee32c9e40346d307dbd44823a34e6`; product fix `9a158b7d3efeab62e42b6d8f8f01d8b45edb3caa`. Mobile tree clean/index empty. Exact 14 committed paths are listed above; five existing audit documents and the 42-file harness inventory remain uncommitted for review. Broader subset remains 12 failing suites/26 assertions, including two local-retention failures. **Next phase:** complete the missing canonical synthetic API routes and native acceptance matrix, resolve those data-safety failures, then validate/approve section 8's account isolation, SQLCipher/key/backup/runtime, transactional verification/crash recovery and rollback decisions before implementation. The measured bulk-storage and auth interference warrant that work; they do not establish the Focus or navigation cause.
+
+### Targeted AuthHydrationService data-integrity remediation (2026-10-12 continuation)
+
+- **Root cause of the two `AuthHydrationService.test.ts` failures (Class A confirmed production defects, RC-2 / PERF-039):**
+  1. `preserves unsynced local temp anchors during authenticated hydration` and `keeps local progress when anchor hydration fails after login` both failed because `AuthHydrationService.hydrateAuthenticatedData` (`src/services/AuthHydrationService.ts`, introduced in `7b3a9315`) computed `isLockedFreeUser = Boolean(user && !hasActiveEntitlement && (user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1))` during both the early `/api/anchors` commit and the final hydration commit, calling `anchorStore.removeAnchor(a.id)` on every local non-UUID Anchor (`!isBackendAnchorId(anchor.id)`), calling `clearPendingFirstAnchorState()`, and setting `preservedLocalAnchors = []`. Because `useSubscriptionStore.getState().hasActiveEntitlement` is unpersisted across cold starts, false while offline, and false for comped/legacy-migration accounts (`user.isComped` / `user.legacyMigrationAccess`), this condition evaluated true for returning users with `totalAnchorsCreated >= 1` and silently destroyed unsynced local Anchors and pending first-anchor drafts/mutations.
+  2. When `/api/anchors` rejected and neither `shouldUseExportAnchors` nor `shouldUseAnchorSnapshot` applied, `restoredAnchors` fell back to `remoteAnchors` (`[]`), which also wiped any persisted backend-UUID Anchors in `anchorStore` and cleared `anchorStore.error` via `setAnchors`.
+  3. In-flight local mutations or Anchor creations occurring while `hydrateAuthenticatedData` awaited network/snapshot responses could be overwritten by older server snapshots (PERF-039).
+- **Remediation (`src/services/AuthHydrationService.ts`):**
+  - Removed the destructive `isLockedFreeUser` purge and `clearPendingFirstAnchorState()` calls from `AuthHydrationService.hydrateAuthenticatedData` (explicit user-driven discard remains in `V2SealedSaveScreen`, `SaveProgressScreen`, and `V2FirstRunFlow`).
+  - Added `mergeAnchorWithNewerLocalState` so any local Anchor with a strictly newer `updatedAt` timestamp than an incoming server snapshot retains its newer local fields and `Math.max` activation count.
+  - Added `selectPreservedLocalAnchors` with `initialBackendAnchorIds` tracking at hydration start so both non-UUID local Anchors and backend-UUID Anchors created locally while hydration is in flight (belonging to the active user or `'guest'`) are preserved.
+  - Preserved existing current-account backend-UUID Anchors and retained `remoteAnchorState: 'error'` + error message when `/api/anchors` fails without export or snapshot recovery.
+- **Verification:**
+  - `src/services/__tests__/AuthHydrationService.test.ts`: **17/17 passed** (all 13 existing tests including both previously failing data-safety tests + 4 new targeted regression tests covering newer local mutations/in-flight creations, guest pending first-anchor draft/mutation preservation on locked free accounts, `/api/anchors` network failure preserving synced and unsynced Anchors, and repeated hydration idempotency).
+  - Related suites: `appAuthState.test.ts`, `authStore.test.ts`, `useAppStartup.test.ts`, `useRequiredLocalHydrationGuard.test.ts`, `StartupRestoreFailure.test.tsx`, `reloadCurrentApp.test.ts`, `AppStartupHydration.integration.test.tsx`, `PostAuthFlowService.test.ts`, `V2SealedSaveScreen.test.tsx`, `V2FirstRunFlow.test.tsx`, and `SaveProgressScreen.test.tsx` — **12/12 suites passed (174/174 tests)**.
+  - TypeScript (`node ./node_modules/typescript/bin/tsc --noEmit --pretty false`): **exit 0**.
+  - Unverified / remaining gates: physical/native device verification of the updated hydration merge against live/synthetic endpoints, PERF-008/035/036 offline queue drain, and Section 8 SQLCipher migration validation/approval.
+
+### Authenticated Hydration, Account Isolation & Data Safety Validation Pass (2026-10-12)
+
+- **Task 1 — Hardened data-integrity edge cases (`anchor/mobile`):**
+  1. **Cross-account & guest-Anchor isolation (`src/services/AuthHydrationService.ts`, `src/stores/authStore.ts`):** Added `isGuestOwnedAnchor`, `isAuthorizedPendingFirstAnchorTransfer`, and `canPreserveAnchorForUser` so guest-owned (`userId === 'guest'` or `pending-first-anchor-*`) and foreign-account Anchors cannot leak into an authenticated account during hydration unless explicitly authorized by an active `pendingFirstAnchorDraft` (`source !== 'authenticated'`). Updated `authStore.setUser` and `authStore.setSession` to clear `pendingFirstAnchorDraft` when switching between two distinct authenticated accounts (`state.user.id !== user.id`).
+  2. **Equal or missing `updatedAt` preservation (`src/services/AuthHydrationService.ts`, `src/stores/anchorStore.ts`):** Attached a non-enumerable `__missingUpdatedAt: true` marker in `anchorStore.normalizeAnchor` when `updatedAt` is absent/invalid, and updated `mergeAnchorWithNewerLocalState` so local Anchors with equal (`localUpdatedAtMs >= remoteUpdatedAtMs`) or missing `updatedAt` timestamps are preserved over server copies.
+  3. **Authoritative server deletion / V2 Release (`src/services/AuthHydrationService.ts`):** Enforced server-confirmed deletion and V2 Release (`isReleased`, `releasedAt`, `archivedAt`, `isArchived: true` in export, and `burnedAnchors` in `/api/auth/me/export`) as authoritative via `collectServerDeletedAnchorIds` and `filterReleasedAnchors`, preventing stale local snapshots or newer local timestamps from resurrecting released/deleted Anchors.
+  4. **Overlapping hydration isolation (`src/services/AuthHydrationService.ts`):** Added monotonic `latestHydrationId` plus initial token/user identity checks in `isCurrentAccount()` and export `account.id` verification so overlapping hydration operations cannot apply stale or cross-account data.
+  5. **Free/premium/comped restriction enforcement without destructive deletion (`src/stores/authStore.ts`, `src/services/PostAuthFlowService.ts`, `src/screens/v2/onboarding/V2FirstRunFlow.tsx`, `src/screens/v2/onboarding/V2SealedSaveScreen.tsx`):** Honored `remoteCompedAccess`, `legacyMigrationAccess`, `user.isComped`, `user.legacyMigrationAccess`, and `user.subscriptionStatus !== 'free'` alongside RevenueCat `hasActiveEntitlement`. Updated `V2FirstRunFlow` returning-user bypass to purge only unconfirmed non-user-owned drafts (`!isBackendAnchorId(a.id) && a.userId !== user.id`), preserving user-owned unsynced Anchors during temporary entitlement-loading states while keeping the 2nd-Anchor `CREATE_ANCHOR_FREE_LOCKED` gate intact.
+- **Task 2 — Canonical synthetic backend fixture routes (`docs/performance-audit-2026-10/harness/auth-emulator/fixture-api.cjs`, `test-fixture.cjs`):**
+  - Implemented RAM-only canonical routes matching production backend contracts (`anchor/backend/src/routes/auth.ts`, `anchor/backend/src/routes/anchors.ts`): `GET /api/auth/me`, `GET /api/anchors`, `GET /api/auth/me/export`, `POST /api/anchors` (enforcing `403 CREATE_ANCHOR_FREE_LOCKED` on a second Anchor for non-comped free accounts and allowing unlimited Anchors for comped account C), `PUT /api/anchors/:id`, `POST /api/anchors/:id/charge`, `POST /api/anchors/:id/activate`, `PUT /api/auth/onboarding-context`, and `PUT /api/auth/notification-state`.
+  - Validated against the isolated local Firebase Auth Emulator (`demo-anchor-perf`, `127.0.0.1:9099`, `firebase-tools@15.33.0`): `node .\test-fixture.cjs`, `node .\test-fixture.cjs --secondary`, and `node .\test-fixture.cjs --comped` all **PASS (exit 0)**, after which the emulator process was stopped and temporary credential files were removed.
+- **Task 3 — Physical Android verification status (Blocker documented):**
+  - Checked connected Android targets via `adb devices -l`: the physical Galaxy S24 Ultra (`SM-S928U1`) was disconnected/unavailable during this pass (only `emulator-5564` was attached). Physical on-device execution of the updated hydration and post-auth fixture routes remains a hardware-availability blocker until the S24 Ultra is reconnected.
+- **Task 4 & 5 — Regression & TypeScript verification:**
+  - **16/16 targeted Jest suites (228/228 tests) PASS**: `AuthHydrationService.test.ts` (22 tests), `PostAuthFlowService.test.ts` (4 tests), `V2FirstRunFlow.test.tsx`, `V2SealedSaveScreen.test.tsx`, `appAuthState.test.ts`, `authStore.test.ts`, `subscriptionStore.test.ts`, `AnchorSyncService.test.ts`, `useTrialStatus.test.ts`, `entitlements.test.ts`, `useAppStartup.test.ts`, `SaveProgressScreen.test.tsx`, `AppStartupHydration.integration.test.tsx`, `useRequiredLocalHydrationGuard.test.ts`, `StartupRestoreFailure.test.tsx`, and `reloadCurrentApp.test.ts`.
+  - TypeScript (`npx tsc --noEmit --pretty false`): **exit 0 (0 diagnostics)**.
+

@@ -180,4 +180,40 @@ describe('PostAuthFlowService', () => {
     // But local anchor is preserved in memory for paywall finalization
     expect(useAnchorStore.getState().anchors).toEqual([localDraft]);
   });
+
+  it('allows comped and legacy-migration accounts to finalize a pending draft even when RevenueCat reports no active entitlement', async () => {
+    const compedUser = createMockUser({
+      id: 'comped-user',
+      isComped: true,
+      totalAnchorsCreated: 2,
+      freeAnchorConsumed: true,
+    });
+    const localDraft = createMockAnchor({ id: 'temp-comped-1', userId: 'guest' });
+
+    useAnchorStore.getState().setAnchors([localDraft]);
+    useAuthStore.setState({
+      pendingFirstAnchorDraft: {
+        tempAnchorId: 'temp-comped-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: false,
+        createdAt: new Date('2026-05-18T08:00:00.000Z'),
+      },
+    } as any);
+
+    mockLogIn.mockResolvedValue({ hasActiveEntitlement: false });
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: false });
+    mockMigrateAnchors.mockImplementation(async (anchors: unknown[]) => anchors);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+    mockFinalizePendingFirstAnchorDraft.mockResolvedValue(true);
+
+    const result = await PostAuthFlowService.run({
+      user: compedUser,
+      token: 'token-comped',
+      preserveCompletedOnboarding: true,
+      launchTrialPurchase: false,
+    });
+
+    expect(result.hasActiveEntitlement).toBe(true);
+    expect(mockFinalizePendingFirstAnchorDraft).toHaveBeenCalledTimes(1);
+  });
 });

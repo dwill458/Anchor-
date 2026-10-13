@@ -529,4 +529,58 @@ describe('anchorStore', () => {
       expect(result.current.anchors.some((a) => 'evolvedFrom' in a)).toBe(false);
     });
   });
+
+  describe('missing updatedAt marker (__missingUpdatedAt)', () => {
+    it('survives JSON serialization, persisted rehydration, object spreading, and app restart, and clears on explicit updateAnchor', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      const rawMissingTsAnchor = {
+        ...createMockAnchor({ id: 'missing-ts-1', intentionText: 'Initial missing ts' }),
+        updatedAt: undefined as unknown as Date,
+      };
+
+      // 1. addAnchor normalizes and attaches non-enumerable __missingUpdatedAt
+      act(() => {
+        result.current.addAnchor(rawMissingTsAnchor);
+      });
+      const added = result.current.getAnchorById('missing-ts-1') as any;
+      expect(added.__missingUpdatedAt).toBe(true);
+      expect(added.updatedAt).toBeInstanceOf(Date);
+      expect(added.updatedAt.__missingUpdatedAt).toBe(true);
+
+      // 2. Object spreading preserves the marker via updatedAt reference and reconstructs on setAnchors
+      const spreadCopy = { ...added, intentionText: 'Spread copy' };
+      expect((spreadCopy.updatedAt as any).__missingUpdatedAt).toBe(true);
+      act(() => {
+        result.current.setAnchors([spreadCopy]);
+      });
+      const afterSpread = result.current.getAnchorById('missing-ts-1') as any;
+      expect(afterSpread.__missingUpdatedAt).toBe(true);
+
+      // 3. JSON serialization + persisted store rehydration (simulating app termination & restart)
+      const serialized = JSON.stringify({ state: { anchors: [afterSpread] } });
+      const parsed = JSON.parse(serialized);
+      expect(parsed.state.anchors[0].updatedAt).toBeNull();
+
+      const persistOptions = (useAnchorStore as any).persist.getOptions();
+      act(() => {
+        useAnchorStore.setState({ anchors: parsed.state.anchors });
+        const onRehydrate = persistOptions.onRehydrateStorage();
+        onRehydrate(useAnchorStore.getState(), undefined);
+      });
+      const rehydrated = result.current.getAnchorById('missing-ts-1') as any;
+      expect(rehydrated.__missingUpdatedAt).toBe(true);
+      expect(rehydrated.updatedAt).toBeInstanceOf(Date);
+      expect(rehydrated.updatedAt.__missingUpdatedAt).toBe(true);
+
+      // 4. Genuine updateAnchor mutation stamps a real timestamp and clears __missingUpdatedAt
+      act(() => {
+        result.current.updateAnchor('missing-ts-1', { intentionText: 'Mutated with real timestamp' });
+      });
+      const updated = result.current.getAnchorById('missing-ts-1') as any;
+      expect(updated.intentionText).toBe('Mutated with real timestamp');
+      expect(updated.__missingUpdatedAt).toBeUndefined();
+      expect(updated.updatedAt.__missingUpdatedAt).toBeUndefined();
+      expect(JSON.parse(JSON.stringify(updated)).updatedAt).toEqual(expect.any(String));
+    });
+  });
 });

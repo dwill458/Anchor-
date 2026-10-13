@@ -16,6 +16,7 @@ type Props = {
   /** Preview width in dp. The export itself is always rendered separately at 1080 x 1920. */
   width: number;
   showMark: boolean;
+  visionBackgroundId?: string | null;
   reduceMotion?: boolean;
   /** Horizontal swipe on the preview: +1 for the next layout, -1 for the previous. */
   onSwipe?: (direction: 1 | -1) => void;
@@ -25,7 +26,7 @@ const FADE_MS = 280;
 const MORPH_MS = 460;
 
 /** The large 9:16 preview: real templates at screen size, never a screenshot of anything. */
-export function AnchorSharePreview({ layout, data, width, showMark, reduceMotion, onSwipe }: Props) {
+export function AnchorSharePreview({ layout, data, width, showMark, visionBackgroundId, reduceMotion, onSwipe }: Props) {
   const family = familyOf(layout);
   const [shown, setShown] = useState<Family>(family);
   const [leaving, setLeaving] = useState<Family | null>(null);
@@ -79,7 +80,7 @@ export function AnchorSharePreview({ layout, data, width, showMark, reduceMotion
     f === 'environment' ? (
       <StyleEditorialMorphPreview data={data} width={width} showMark={showMark} progress={morph} />
     ) : (
-      <ShareTemplate layout={f} data={data} width={width} showMark={showMark} />
+      <ShareTemplate layout={f} data={data} width={width} showMark={showMark} visionBackgroundId={visionBackgroundId} />
     );
 
   return (

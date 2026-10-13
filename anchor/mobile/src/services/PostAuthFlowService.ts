@@ -5,6 +5,7 @@ import AuthHydrationService from '@/services/AuthHydrationService';
 import RevenueCatService, { TrialStatusSnapshot } from '@/services/RevenueCatService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 
 interface RunPostAuthFlowOptions {
@@ -38,8 +39,18 @@ class PostAuthFlowService {
 
     await RevenueCatService.logIn(patchedUser.id);
     const trialStatus = await RevenueCatService.refreshTrialStatus();
+    const subscriptionState = useSubscriptionStore.getState();
+    const hasEntitlementAccess = Boolean(
+      trialStatus.hasActiveEntitlement ||
+        subscriptionState.hasActiveEntitlement ||
+        subscriptionState.remoteCompedAccess ||
+        subscriptionState.legacyMigrationAccess ||
+        patchedUser.isComped === true ||
+        patchedUser.legacyMigrationAccess === true ||
+        (patchedUser.subscriptionStatus && patchedUser.subscriptionStatus !== 'free'),
+    );
 
-    const isLockedFreeUser = !trialStatus.hasActiveEntitlement &&
+    const isLockedFreeUser = !hasEntitlementAccess &&
       Boolean(patchedUser.freeAnchorConsumed || (patchedUser.totalAnchorsCreated ?? 0) >= 1);
 
     const anchorStore = useAnchorStore.getState();
@@ -95,7 +106,7 @@ class PostAuthFlowService {
     }
 
     return {
-      hasActiveEntitlement: trialStatus.hasActiveEntitlement,
+      hasActiveEntitlement: hasEntitlementAccess,
       trialStatus,
     };
   }

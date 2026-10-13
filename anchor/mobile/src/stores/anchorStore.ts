@@ -24,20 +24,78 @@ import {
 
 const normalizeDate = (value?: Date | string): Date | undefined => {
   if (!value) return undefined;
-  return value instanceof Date ? value : new Date(value);
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };
 
-const normalizeAnchor = (anchor: Anchor): Anchor => ({
-  ...anchor,
-  createdAt: anchor.createdAt instanceof Date ? anchor.createdAt : normalizeDate(anchor.createdAt) ?? new Date(),
-  updatedAt: anchor.updatedAt instanceof Date ? anchor.updatedAt : normalizeDate(anchor.updatedAt) ?? new Date(),
-  chargedAt: anchor.chargedAt instanceof Date ? anchor.chargedAt : normalizeDate(anchor.chargedAt),
-  firstChargedAt: anchor.firstChargedAt instanceof Date ? anchor.firstChargedAt : normalizeDate(anchor.firstChargedAt),
-  ignitedAt: anchor.ignitedAt instanceof Date ? anchor.ignitedAt : normalizeDate(anchor.ignitedAt),
-  lastActivatedAt: anchor.lastActivatedAt instanceof Date ? anchor.lastActivatedAt : normalizeDate(anchor.lastActivatedAt),
-  releasedAt: anchor.releasedAt instanceof Date ? anchor.releasedAt : normalizeDate(anchor.releasedAt),
-  archivedAt: anchor.archivedAt instanceof Date ? anchor.archivedAt : normalizeDate(anchor.archivedAt),
-});
+const isMarkedMissingUpdatedAt = (value: unknown): boolean =>
+  Boolean(
+    value &&
+      typeof value === 'object' &&
+      (value as { __missingUpdatedAt?: boolean }).__missingUpdatedAt === true
+  );
+
+const createMissingUpdatedAtDate = (fallback?: Date): Date => {
+  const date = new Date(fallback ? fallback.getTime() : Date.now());
+  Object.defineProperty(date, '__missingUpdatedAt', {
+    value: true,
+    enumerable: false,
+    configurable: true,
+  });
+  Object.defineProperty(date, 'toJSON', {
+    value: () => null,
+    enumerable: false,
+    configurable: true,
+  });
+  return date;
+};
+
+const defineMissingUpdatedAtMarker = (anchor: Anchor): Anchor => {
+  if ('__missingUpdatedAt' in anchor) {
+    delete (anchor as { __missingUpdatedAt?: boolean }).__missingUpdatedAt;
+  }
+  Object.defineProperty(anchor, '__missingUpdatedAt', {
+    value: true,
+    enumerable: false,
+    configurable: true,
+  });
+  return anchor;
+};
+
+const normalizeAnchor = (anchor: Anchor): Anchor => {
+  const rawUpdatedAt = isMarkedMissingUpdatedAt(anchor.updatedAt)
+    ? undefined
+    : normalizeDate(anchor.updatedAt);
+  const hadMissingUpdatedAt =
+    !rawUpdatedAt ||
+    isMarkedMissingUpdatedAt(anchor) ||
+    isMarkedMissingUpdatedAt(anchor.updatedAt);
+  const createdAt =
+    anchor.createdAt instanceof Date && !Number.isNaN(anchor.createdAt.getTime())
+      ? anchor.createdAt
+      : normalizeDate(anchor.createdAt) ?? new Date();
+  const fallbackUpdatedAt = normalizeDate(anchor.updatedAt) ?? createdAt;
+  const normalized: Anchor = {
+    ...anchor,
+    createdAt,
+    updatedAt: hadMissingUpdatedAt
+      ? createMissingUpdatedAtDate(fallbackUpdatedAt)
+      : rawUpdatedAt,
+    chargedAt: anchor.chargedAt instanceof Date ? anchor.chargedAt : normalizeDate(anchor.chargedAt),
+    firstChargedAt: anchor.firstChargedAt instanceof Date ? anchor.firstChargedAt : normalizeDate(anchor.firstChargedAt),
+    ignitedAt: anchor.ignitedAt instanceof Date ? anchor.ignitedAt : normalizeDate(anchor.ignitedAt),
+    lastActivatedAt: anchor.lastActivatedAt instanceof Date ? anchor.lastActivatedAt : normalizeDate(anchor.lastActivatedAt),
+    releasedAt: anchor.releasedAt instanceof Date ? anchor.releasedAt : normalizeDate(anchor.releasedAt),
+    archivedAt: anchor.archivedAt instanceof Date ? anchor.archivedAt : normalizeDate(anchor.archivedAt),
+  };
+  if ('__missingUpdatedAt' in normalized) {
+    delete (normalized as { __missingUpdatedAt?: boolean }).__missingUpdatedAt;
+  }
+  if (hadMissingUpdatedAt) {
+    defineMissingUpdatedAtMarker(normalized);
+  }
+  return normalized;
+};
 
 const matchesAnchorReference = (anchor: Anchor, referenceId: string): boolean =>
   anchor.id === referenceId || anchor.localId === referenceId;
@@ -58,7 +116,12 @@ const carryForwardEvolvedFrom = (incomingAnchors: Anchor[], localAnchors: Anchor
         matchesAnchorReference(candidate, anchor.id) ||
         (anchor.localId ? matchesAnchorReference(candidate, anchor.localId) : false)
     );
-    return local ? { ...anchor, evolvedFrom: local.evolvedFrom } : anchor;
+    if (!local) return anchor;
+    const nextAnchor: Anchor = { ...anchor, evolvedFrom: local.evolvedFrom };
+    if (isMarkedMissingUpdatedAt(anchor) || isMarkedMissingUpdatedAt(anchor.updatedAt)) {
+      defineMissingUpdatedAtMarker(nextAnchor);
+    }
+    return nextAnchor;
   });
 };
 
@@ -163,6 +226,7 @@ export const useAnchorStore = create<AnchorState>()(
         }),
 
       addAnchor: (anchor) => {
+        const normalizedAnchor = normalizeAnchor(anchor);
         const teaching = useTeachingStore.getState();
         // Set first-anchor flag once; queue M1 milestone
         if (!teaching.userFlags.hasCreatedFirstAnchor) {
@@ -172,21 +236,21 @@ export const useAnchorStore = create<AnchorState>()(
           );
         }
         set((state) => ({
-          anchors: [anchor, ...state.anchors], // Add to beginning (most recent first)
-          totalPrimes: state.totalPrimes + (anchor.activationCount ?? 0),
+          anchors: [normalizedAnchor, ...state.anchors], // Add to beginning (most recent first)
+          totalPrimes: state.totalPrimes + (normalizedAnchor.activationCount ?? 0),
           error: null,
         }));
 
         const authStore = useAuthStore.getState();
         if (AnchorSyncService.isConfigured() && authStore.isAuthenticated && authStore.user?.id) {
-          void AnchorSyncService.upsertAnchor(anchor, authStore.user.id)
+          void AnchorSyncService.upsertAnchor(normalizedAnchor, authStore.user.id)
             .then((syncedAnchor) => {
-              get().applySyncedAnchor(anchor.localId ?? anchor.id, syncedAnchor);
+              get().applySyncedAnchor(normalizedAnchor.localId ?? normalizedAnchor.id, syncedAnchor);
               get().markSynced();
             })
             .catch(async (error) => {
               logger.warn('[anchorStore] Failed to sync new anchor, queueing retry', error);
-              await AnchorSyncService.enqueueRetry(anchor, authStore.user!.id);
+              await AnchorSyncService.enqueueRetry(normalizedAnchor, authStore.user!.id);
             });
         }
       },
@@ -195,16 +259,35 @@ export const useAnchorStore = create<AnchorState>()(
         set((state) => {
           const shouldPromoteCurrent =
             updates.lastActivatedAt != null || updates.chargedAt != null;
+          const hasExplicitMissingUpdatedAt =
+            'updatedAt' in updates &&
+            (isMarkedMissingUpdatedAt(updates.updatedAt) || !normalizeDate(updates.updatedAt));
 
-          const nextAnchors = state.anchors.map((anchor) =>
-            matchesAnchorReference(anchor, id)
-              ? {
+          const nextAnchors = state.anchors.map((anchor) => {
+            if (!matchesAnchorReference(anchor, id)) {
+              return anchor;
+            }
+            if (hasExplicitMissingUpdatedAt) {
+              return normalizeAnchor({
                 ...anchor,
                 ...updates,
-                updatedAt: new Date(),
-              }
-              : anchor
-          );
+                updatedAt: undefined as unknown as Date,
+              });
+            }
+            const nextUpdatedAt =
+              'updatedAt' in updates && normalizeDate(updates.updatedAt)
+                ? normalizeDate(updates.updatedAt)!
+                : new Date();
+            const updated: Anchor = {
+              ...anchor,
+              ...updates,
+              updatedAt: nextUpdatedAt,
+            };
+            if ('__missingUpdatedAt' in updated) {
+              delete (updated as { __missingUpdatedAt?: boolean }).__missingUpdatedAt;
+            }
+            return updated;
+          });
 
           const updatedAnchor = nextAnchors.find((anchor) => matchesAnchorReference(anchor, id));
 
@@ -469,11 +552,17 @@ export const useAnchorStore = create<AnchorState>()(
           if (matchesAnchorReference(successor, from.anchorId)) return state;
 
           return {
-            anchors: state.anchors.map((anchor) =>
-              anchor === successor
-                ? { ...anchor, evolvedFrom: { anchorId: from.anchorId, intention: from.intention } }
-                : anchor
-            ),
+            anchors: state.anchors.map((anchor) => {
+              if (anchor !== successor) return anchor;
+              const nextAnchor: Anchor = {
+                ...anchor,
+                evolvedFrom: { anchorId: from.anchorId, intention: from.intention },
+              };
+              if (isMarkedMissingUpdatedAt(anchor) || isMarkedMissingUpdatedAt(anchor.updatedAt)) {
+                defineMissingUpdatedAtMarker(nextAnchor);
+              }
+              return nextAnchor;
+            }),
           };
         }),
     }),

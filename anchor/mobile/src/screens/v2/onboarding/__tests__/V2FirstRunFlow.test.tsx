@@ -165,6 +165,24 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     expect(mockRemoveAnchor).not.toHaveBeenCalledWith('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d');
   });
 
+  it('preserves user-owned unsynced anchors and comped/legacy content when entitlement is still loading', () => {
+    mockRemoveAnchor.mockClear();
+    const userOwnedUnsynced = { id: 'anchor-user-owned-unsynced', userId: 'returning-user-1' };
+    const confirmedAnchor = { id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d', userId: 'returning-user-1' };
+    mockAnchorsStoreState.anchors = [userOwnedUnsynced, confirmedAnchor];
+
+    mockUser = {
+      id: 'returning-user-1',
+      hasCompletedOnboarding: true,
+      totalAnchorsCreated: 1,
+      freeAnchorConsumed: true,
+    } as any;
+    render(<V2FirstRunFlow />);
+
+    expect(mockRemoveAnchor).not.toHaveBeenCalledWith('anchor-user-owned-unsynced');
+    expect(mockRemoveAnchor).not.toHaveBeenCalledWith('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d');
+  });
+
   it('keeps earlier welcome analytics without duplicating them after sign in and bypass', () => {
     const view = render(<V2FirstRunFlow />);
     expect((AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event)

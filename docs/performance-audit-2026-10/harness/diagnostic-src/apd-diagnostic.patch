@@ -1,0 +1,806 @@
+diff --git a/App.tsx b/App.tsx
+index 126fd123..9511ab87 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -93,7 +93,8 @@ import { VisionVisualQADevHost } from './src/screens/v2/system/VisionVisualQADev
+ import { CreationFlowQADevHost } from './src/screens/create/flow/dev/CreationFlowQADevHost';
+ import { SplashController } from './src/components/splash/SplashController';
+ import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
+-import { perfLog, startJsStallDetector, startPerfRenderReporter } from './src/utils/perfDiagnostics';
++import { perfDiag, perfLog, startDiagnosticEventLoopHistogram, startJsStallDetector, startPerfRenderReporter } from './src/utils/perfDiagnostics';
++import { advanceReleaseFixtureSequence } from './src/utils/ReleaseStorageBenchmark';
+ 
+ const isWeb = Platform.OS === 'web';
+ // V2 remains opt-in. Staging preview APKs can exercise the release-mode V2 app,
+@@ -269,6 +270,7 @@ export default function App() {
+     InitialState | undefined
+   >(undefined);
+   const startupStartedAtRef = useRef(Date.now());
++  const releaseFixtureSequenceStartedRef = useRef(false);
+   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+   const developerMasterAccountEnabled = useSettingsStore(
+     (state) => state.developerMasterAccountEnabled
+@@ -349,16 +351,28 @@ export default function App() {
+     ].filter((dispose): dispose is () => void => Boolean(dispose));
+     const stopStalls = startJsStallDetector(() => routeNameRef.current);
+     const stopRenders = startPerfRenderReporter();
++    const stopDiagnosticLoop = startDiagnosticEventLoopHistogram();
+     perfLog('app-ready-state', { ready: appIsReady, msSinceAppStart: Date.now() - startupStartedAtRef.current });
+     return () => {
+       disposers.forEach((dispose) => dispose());
+       stopStalls();
+       stopRenders();
++      stopDiagnosticLoop();
+     };
+   }, []);
+ 
+   useEffect(() => {
+-    if (appIsReady) perfLog('app-ready', { msSinceAppStart: Date.now() - startupStartedAtRef.current });
++    if (!appIsReady) return;
++    const msSinceAppStart = Date.now() - startupStartedAtRef.current;
++    perfLog('app-ready', { msSinceAppStart });
++    perfDiag('app-ready', { appComponentMountElapsedMs: msSinceAppStart });
++    if (
++      process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS === '1' &&
++      !releaseFixtureSequenceStartedRef.current
++    ) {
++      releaseFixtureSequenceStartedRef.current = true;
++      void advanceReleaseFixtureSequence().catch(() => perfDiag('benchmark-error', { phaseCode: 1 }));
++    }
+   }, [appIsReady]);
+ 
+   useEffect(() => {
+diff --git a/src/stores/authStore.ts b/src/stores/authStore.ts
+index 21c522eb..7104dc33 100644
+--- a/src/stores/authStore.ts
++++ b/src/stores/authStore.ts
+@@ -2,12 +2,14 @@ import { create } from 'zustand';
+ import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
+ import AsyncStorage from '@react-native-async-storage/async-storage';
+ import * as SecureStore from 'expo-secure-store';
++import * as Application from 'expo-application';
++import { API_URL } from '@/config';
+ import {
+   encryptedPersistStorage,
+   readSecureValue,
+   writeSecureValue,
+ } from './encryptedPersistStorage';
+-import { perfLog } from '@/utils/perfDiagnostics';
++import { perfDiag, perfLog } from '@/utils/perfDiagnostics';
+ import type {
+   Anchor,
+   ApiResponse,
+@@ -236,6 +238,47 @@ const encryptedAuthStorage: StateStorage = {
+   },
+ };
+ 
++/** Isolated diagnostic helper; this fixed synthetic key never contains auth data. */
++export async function writeSyntheticPerfAuthValue(value: string): Promise<number> {
++  // SecureStore permits only a restricted key alphabet; keep this fixed and synthetic.
++  const name = 'anchor-perf-synthetic-auth-v1';
++  if (Application.applicationId !== 'com.anchorintentions.perflab20261012') {
++    throw new Error('Synthetic auth adapter write is restricted to the isolated diagnostic package.');
++  }
++  if (API_URL !== 'http://127.0.0.1:39999') {
++    throw new Error('Synthetic auth adapter write requires the diagnostic loopback API configuration.');
++  }
++  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1' || useAuthStore.getState().user != null) {
++    throw new Error('Synthetic auth adapter write is disabled outside signed-out diagnostics.');
++  }
++  const startedAt = Date.now();
++  let writeDurationMs = 0;
++  let phaseCode = 2;
++  try {
++    const writeStartedAt = Date.now();
++    try {
++      await encryptedAuthStorage.setItem(name, value);
++    } finally {
++      writeDurationMs = Date.now() - writeStartedAt;
++    }
++    const verified = await readSecureValue(name);
++    if (verified !== value) throw new Error('Synthetic auth adapter SecureStore verification failed.');
++    phaseCode = 1;
++    return writeDurationMs;
++  } finally {
++    try {
++      await encryptedAuthStorage.removeItem(name);
++    } finally {
++      perfDiag('auth-adapter-write', {
++        durationMs: Date.now() - startedAt,
++        writeDurationMs,
++        payloadChars: value.length,
++        phaseCode,
++      });
++    }
++  }
++}
++
+ /**
+  * Onboarding segment type
+  */
+diff --git a/src/stores/anchorStore.ts b/src/stores/anchorStore.ts
+index 6bcf30e4..046e5da8 100644
+--- a/src/stores/anchorStore.ts
++++ b/src/stores/anchorStore.ts
+@@ -15,7 +15,7 @@ import { useAuthStore } from '@/stores/authStore';
+ import { getAdjustedDateString } from '@/utils/dateUtils';
+ import { logger } from '@/utils/logger';
+ import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
+-import { perfLog } from '@/utils/perfDiagnostics';
++import { perfDiag, perfLog } from '@/utils/perfDiagnostics';
+ import { useVisualizationSceneStore } from './visualizationSceneStore';
+ import {
+   JOURNEY_MILESTONE_IDS,
+@@ -490,9 +490,15 @@ export const useAnchorStore = create<AnchorState>()(
+         currentAnchorId: state.currentAnchorId,
+       }),
+       onRehydrateStorage: () => {
++        const hydrationStartedAt = Date.now();
+         const span = HomeStartupProfiler.start('anchor_store_persisted_hydration');
+         return (state, error) => {
+           perfLog('store-hydration-finished', { store: 'anchor', ok: !error, anchorCount: state?.anchors?.length ?? 0, hasState: Boolean(state) });
++          perfDiag('anchor-hydration', {
++            anchorCount: state?.anchors?.length ?? 0,
++            durationMs: Date.now() - hydrationStartedAt,
++            phaseCode: error ? 1 : 0,
++          });
+           if (!state) {
+             useAnchorStore.getState().setPersistedHydrated(true);
+             span({ ok: false, error: Boolean(error) });
+diff --git a/src/stores/encryptedPersistStorage.ts b/src/stores/encryptedPersistStorage.ts
+index 1bbc7420..17d64967 100644
+--- a/src/stores/encryptedPersistStorage.ts
++++ b/src/stores/encryptedPersistStorage.ts
+@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
+ import type { StateStorage } from 'zustand/middleware';
+ 
+ import { logger } from '@/utils/logger';
+-import { perfLog } from '@/utils/perfDiagnostics';
++import { perfDiag, perfLog } from '@/utils/perfDiagnostics';
+ 
+ type AsyncStateStorage = StateStorage & {
+   setItem: (name: string, value: string) => Promise<void>;
+@@ -44,6 +44,18 @@ interface SecureChunkMeta {
+   chunks: number;
+ }
+ 
++interface NativeSecureCounts { calls: number; failures: number }
++
++async function trackedSecureCall<T>(counts: NativeSecureCounts, operation: () => Promise<T>): Promise<T> {
++  counts.calls += 1;
++  try {
++    return await operation();
++  } catch (error) {
++    counts.failures += 1;
++    throw error;
++  }
++}
++
+ function secureMetaKey(name: string): string {
+   return `${name}${SECURE_META_SUFFIX}`;
+ }
+@@ -62,8 +74,10 @@ function splitIntoChunks(value: string): string[] {
+   return chunks;
+ }
+ 
+-async function readSecureMeta(name: string): Promise<SecureChunkMeta | null> {
+-  const rawMeta = await SecureStore.getItemAsync(secureStoreKey(secureMetaKey(name)));
++async function readSecureMeta(name: string, counts?: NativeSecureCounts): Promise<SecureChunkMeta | null> {
++  const rawMeta = counts
++    ? await trackedSecureCall(counts, () => SecureStore.getItemAsync(secureStoreKey(secureMetaKey(name))))
++    : await SecureStore.getItemAsync(secureStoreKey(secureMetaKey(name)));
+   if (!rawMeta) return null;
+ 
+   try {
+@@ -77,58 +91,92 @@ async function readSecureMeta(name: string): Promise<SecureChunkMeta | null> {
+   }
+ }
+ 
+-async function clearSecureChunks(name: string): Promise<number> {
+-  const existingMeta = await readSecureMeta(name);
++async function clearSecureChunks(name: string, counts?: NativeSecureCounts): Promise<number> {
++  const existingMeta = await readSecureMeta(name, counts);
+   if (existingMeta) {
+     await Promise.all(
+       Array.from({ length: existingMeta.chunks }, (_, i) =>
+-        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
++        counts
++          ? trackedSecureCall(counts, () => SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i))))
++          : SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
+       )
+     );
+   }
+-  await SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
++  if (counts) await trackedSecureCall(counts, () => SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name))));
++  else await SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
+   return existingMeta?.chunks ?? 0;
+ }
+ 
+ export async function readSecureValue(name: string): Promise<string | null> {
+   const startedAt = Date.now();
+-  const meta = await readSecureMeta(name);
+-  if (!meta) {
+-    perfLog('secure-read', { key: name, ms: Date.now() - startedAt, payloadChars: 0, chunks: 0, secureCalls: 1 });
+-    return null;
+-  }
+-
+-  const chunks = await Promise.all(
+-    Array.from({ length: meta.chunks }, (_, index) =>
+-      SecureStore.getItemAsync(secureStoreKey(secureChunkKey(name, index)))
+-    )
+-  );
+-
+-  if (chunks.some((chunk) => chunk == null)) {
+-    logger.warn(`Secure storage chunk mismatch for key ${name}; clearing corrupted data.`);
+-    await clearSecureChunks(name);
+-    return null;
++  const counts: NativeSecureCounts = { calls: 0, failures: 0 };
++  let payloadChars = 0;
++  let chunkCount = 0;
++  try {
++    const meta = await readSecureMeta(name, counts);
++    if (!meta) {
++      perfLog('secure-read', { key: name, ms: Date.now() - startedAt, payloadChars: 0, chunks: 0, secureCalls: 1 });
++      return null;
++    }
++    chunkCount = meta.chunks;
++    const chunks = await Promise.all(
++      Array.from({ length: meta.chunks }, (_, index) =>
++        trackedSecureCall(counts, () => SecureStore.getItemAsync(secureStoreKey(secureChunkKey(name, index))))
++      )
++    );
++    if (chunks.some((chunk) => chunk == null)) {
++      logger.warn(`Secure storage chunk mismatch for key ${name}; clearing corrupted data.`);
++      await clearSecureChunks(name, counts);
++      return null;
++    }
++    const value = chunks.join('');
++    payloadChars = value.length;
++    perfLog('secure-read', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: meta.chunks, secureCalls: meta.chunks + 1 });
++    return value;
++  } catch (error) {
++    counts.failures = Math.max(1, counts.failures);
++    throw error;
++  } finally {
++    perfDiag('secure-read', {
++      durationMs: Date.now() - startedAt,
++      payloadChars,
++      chunkCount,
++      nativeCallCount: counts.calls,
++      nativeFailureCount: counts.failures,
++    });
+   }
+-
+-  const value = chunks.join('');
+-  perfLog('secure-read', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: meta.chunks, secureCalls: meta.chunks + 1 });
+-  return value;
+ }
+ 
+ export async function writeSecureValue(name: string, value: string): Promise<void> {
+   const startedAt = Date.now();
+-  const previousChunks = await clearSecureChunks(name);
+-
+-  const chunks = splitIntoChunks(value);
+-  await Promise.all(
+-    chunks.map((chunk, index) =>
+-      SecureStore.setItemAsync(secureStoreKey(secureChunkKey(name, index)), chunk)
+-    )
+-  );
+-
+-  const meta: SecureChunkMeta = { chunks: chunks.length };
+-  await SecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
+-  perfLog('secure-write', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: chunks.length, previousChunks, secureCalls: previousChunks + chunks.length + 3 });
++  const counts: NativeSecureCounts = { calls: 0, failures: 0 };
++  let previousChunks = 0;
++  let chunkCount = 0;
++  try {
++    previousChunks = await clearSecureChunks(name, counts);
++    const chunks = splitIntoChunks(value);
++    chunkCount = chunks.length;
++    await Promise.all(
++      chunks.map((chunk, index) =>
++        trackedSecureCall(counts, () => SecureStore.setItemAsync(secureStoreKey(secureChunkKey(name, index)), chunk))
++      )
++    );
++    const meta: SecureChunkMeta = { chunks: chunks.length };
++    await trackedSecureCall(counts, () => SecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta)));
++    perfLog('secure-write', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: chunks.length, previousChunks, secureCalls: previousChunks + chunks.length + 3 });
++  } catch (error) {
++    counts.failures = Math.max(1, counts.failures);
++    throw error;
++  } finally {
++    perfDiag('secure-write', {
++      durationMs: Date.now() - startedAt,
++      payloadChars: value.length,
++      chunkCount,
++      previousChunkCount: previousChunks,
++      nativeCallCount: counts.calls,
++      nativeFailureCount: counts.failures,
++    });
++  }
+ }
+ 
+ async function migrateLegacyAsyncStorageValue(name: string): Promise<string | null> {
+@@ -155,6 +203,7 @@ async function performWrite(name: string, value: string): Promise<void> {
+       logger.error(`Failed to write secure-only store key ${name}`, error);
+       throw error;
+     }
++    perfDiag('storage-fallback', { payloadChars: value.length, fallbackCode: 1 });
+     logger.error(`Failed to write encrypted store key ${name}, falling back to AsyncStorage`, error);
+     // Fall back so the state is not silently lost on restart.
+     await AsyncStorage.setItem(name, value);
+@@ -244,6 +293,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
+       logger.error(`Failed to read encrypted store key ${name}`, error);
+       if (requiresSecureOnly(name)) return null;
+       const fallback = await AsyncStorage.getItem(name);
++      perfDiag('storage-fallback', { payloadChars: fallback?.length ?? 0, fallbackCode: 2 });
+       perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: fallback?.length ?? 0, source: 'async-storage-fallback' });
+       return fallback;
+     }
+diff --git a/src/screens/v2/practice/V2PracticeSessionScreen.tsx b/src/screens/v2/practice/V2PracticeSessionScreen.tsx
+index 2ee599f1..9db27dde 100644
+--- a/src/screens/v2/practice/V2PracticeSessionScreen.tsx
++++ b/src/screens/v2/practice/V2PracticeSessionScreen.tsx
+@@ -19,6 +19,7 @@ import { isDeepFocusDuration } from './deepFocus/deepFocusTimeline';
+ import { V2CinematicSessionScreen, type PreparedCinematicSession, type CinematicCompletion } from './visualize/V2CinematicSessionScreen';
+ import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
+ import type { V2PracticeCompletionResult } from './practiceRoutes';
++import { perfDiag } from '@/utils/perfDiagnostics';
+ 
+ type Props = {
+   anchorId: string;
+@@ -173,6 +174,8 @@ export function V2PracticeSessionScreen({
+       setFocusSessionId(sessionId);
+ 
+       const promise = (async () => {
++        const persistenceStartedAt = Date.now();
++        perfDiag('focus-await', { phaseCode: 0 });
+         try {
+           await PracticeCompletionService.completePracticeSession(
+             {
+@@ -193,12 +196,14 @@ export function V2PracticeSessionScreen({
+             },
+             { flushImmediately: false }
+           );
++          perfDiag('focus-await', { phaseCode: 1, durationMs: Date.now() - persistenceStartedAt });
+ 
+           // The canonical record is already durable locally. Network sync must
+           // not hold the completion surface hostage when the account API is slow
+           // or unavailable; `flush` retains the queued record on failure.
+           void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
+         } catch {
++          perfDiag('focus-await', { phaseCode: 2, durationMs: Date.now() - persistenceStartedAt });
+           // A rejection can mean the local durable write failed. Do not report
+           // reinforcement unless PracticeCompletionService accepted the record.
+           setFocusPersistenceFailed(true);
+diff --git a/src/utils/perfDiagnostics.ts b/src/utils/perfDiagnostics.ts
+index fd056431..dde1c848 100644
+--- a/src/utils/perfDiagnostics.ts
++++ b/src/utils/perfDiagnostics.ts
+@@ -1,6 +1,88 @@
+ /** Temporary, dev-only probes for the Anchor mobile performance diagnosis. */
+ const startedAt = Date.now();
+ const renderCounts = new Map<string, number>();
++const adapterCounters = { secureReadEventCount: 0, secureWriteEventCount: 0, nativeCallCount: 0, nativeFailureCount: 0, fallbackCount: 0 };
++
++const diagnosticEvents = new Set([
++  'secure-read', 'secure-write', 'storage-fallback', 'fixture-seed',
++  'fixture-roundtrip', 'auth-adapter-control', 'benchmark-skip',
++  'benchmark-complete', 'benchmark-error', 'app-ready', 'anchor-hydration', 'focus-await',
++  'auth-adapter-write', 'js-loop-histogram',
++]);
++const diagnosticFields = new Set([
++  'durationMs', 'payloadChars', 'chunkCount', 'previousChunkCount',
++  'nativeCallCount', 'nativeFailureCount', 'fallbackCode', 'phaseCode',
++  'anchorCount', 'hydratedCount', 'readParseDurationMs', 'verifyDurationMs',
++  'writeDurationMs', 'combinedDurationMs', 'secureVerifyDurationMs',
++  'authAdapterWriteDurationMs', 'authHelperSettlementDurationMs',
++  'authControlMaxDurationMs', 'authControlMinDurationMs', 'authWriteControlDeltaMs',
++  'authControlSettlementMaxDurationMs', 'trial', 'trials', 'maxDurationMs', 'minDurationMs',
++  'reasonCode', 'okCode', 'fixtureCount', 'payloadCharCount', 'p50Ms',
++  'p95Ms', 'maxMs', 'sampleCount', 'over50Count', 'appComponentMountElapsedMs',
++  'secureReadEventCount', 'secureWriteEventCount', 'fallbackCount',
++]);
++
++/** Fixed-name numeric-only release diagnostics for the isolated perf build. */
++export function perfDiag(event: string, data: Record<string, number> = {}): void {
++  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1' || !diagnosticEvents.has(event)) return;
++  const numeric: Record<string, number> = {};
++  for (const [key, value] of Object.entries(data)) {
++    if (diagnosticFields.has(key) && Number.isFinite(value)) numeric[key] = value;
++  }
++  if (event === 'secure-read') {
++    adapterCounters.secureReadEventCount += 1;
++    adapterCounters.nativeCallCount += numeric.nativeCallCount ?? 0;
++    adapterCounters.nativeFailureCount += numeric.nativeFailureCount ?? 0;
++  } else if (event === 'secure-write') {
++    adapterCounters.secureWriteEventCount += 1;
++    adapterCounters.nativeCallCount += numeric.nativeCallCount ?? 0;
++    adapterCounters.nativeFailureCount += numeric.nativeFailureCount ?? 0;
++  } else if (event === 'storage-fallback') {
++    adapterCounters.fallbackCount += 1;
++  }
++  // eslint-disable-next-line no-console
++  console.warn('[PERF-DIAG]', JSON.stringify({ event, ...numeric }));
++}
++
++/** In-memory numeric adapter counters scoped to one explicitly started fixture run. */
++export function resetAdapterDiagnosticCounters(): void {
++  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1') return;
++  adapterCounters.secureReadEventCount = 0;
++  adapterCounters.secureWriteEventCount = 0;
++  adapterCounters.nativeCallCount = 0;
++  adapterCounters.nativeFailureCount = 0;
++  adapterCounters.fallbackCount = 0;
++}
++
++export function getAdapterDiagnosticCounters() {
++  return { ...adapterCounters };
++}
++/** Bounded 16 ms loop-gap sampling, aggregated once per 10 seconds. */
++export function startDiagnosticEventLoopHistogram(): () => void {
++  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1') return () => undefined;
++  const samples: number[] = [];
++  let previous = Date.now();
++  const sampleTimer = setInterval(() => {
++    const current = Date.now();
++    samples.push(Math.max(0, current - previous));
++    previous = current;
++    if (samples.length > 640) samples.shift();
++  }, 16);
++  const reportTimer = setInterval(() => {
++    if (samples.length === 0) return;
++    const sorted = [...samples].sort((a, b) => a - b);
++    const at = (percentile: number) => sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * percentile))];
++    perfDiag('js-loop-histogram', {
++      sampleCount: sorted.length,
++      p50Ms: at(0.5),
++      p95Ms: at(0.95),
++      maxMs: sorted[sorted.length - 1],
++      over50Count: sorted.filter((value) => value > 50).length,
++    });
++    samples.length = 0;
++  }, 10_000);
++  return () => { clearInterval(sampleTimer); clearInterval(reportTimer); };
++}
+ 
+ function emit(event: string, data: Record<string, unknown> = {}): void {
+   if (!__DEV__) return;
+diff --git a/src/utils/ReleaseStorageBenchmark.ts b/src/utils/ReleaseStorageBenchmark.ts
+new file mode 100644
+--- /dev/null
++++ b/src/utils/ReleaseStorageBenchmark.ts
+@@ -0,0 +1,321 @@
++/**
++ * Diagnostic-build-only entry for synthetic SecureStore measurements. Keep
++ * this module outside the product tree unless the diagnostic patch is
++ * approved for the isolated build.
++ */
++import AsyncStorage from '@react-native-async-storage/async-storage';
++import { API_URL } from '@/config';
++import * as Application from 'expo-application';
++import { useAuthStore, writeSyntheticPerfAuthValue } from '@/stores/authStore';
++import { encryptedPersistStorage, readSecureValue } from '@/stores/encryptedPersistStorage';
++import { useAnchorStore } from '@/stores/anchorStore';
++import { useFirstRunStore } from '@/stores/v2/firstRunStore';
++import { getAdapterDiagnosticCounters, perfDiag, resetAdapterDiagnosticCounters } from '@/utils/perfDiagnostics';
++import { getInitialPerfFixtureUrl } from '@/utils/perfFixtureLinking';
++
++const SYNTHETIC_MARKER_KEY = 'anchor:perf:fixture-marker-v1';
++const SYNTHETIC_STORAGE_KEY = 'anchor:perf:synthetic-anchor-v1';
++const TARGET_LARGE_CHARS = 719_217;
++const FIXTURE_ACTION_URLS = new Map<string, 'seed-small' | 'seed-large' | 'measure-adapter'>([
++  ['anchor-perflab20261012://perf/seed-small', 'seed-small'],
++  ['anchor-perflab20261012://perf/seed-large', 'seed-large'],
++  ['anchor-perflab20261012://perf/measure-adapter', 'measure-adapter'],
++]);
++
++function isFixtureAction(value: string | undefined): value is 'seed-small' | 'seed-large' | 'measure-adapter' {
++  return value === 'seed-small' || value === 'seed-large' || value === 'measure-adapter';
++}
++
++function isPristineFirstRunDraft(): boolean {
++  const { draft } = useFirstRunStore.getState();
++  if (draft.currentStep !== 'welcome' || !Array.isArray(draft.lifeChanges) || draft.lifeChanges.length !== 0) {
++    return false;
++  }
++  return Object.keys(draft).every((key) => key === 'currentStep' || key === 'lifeChanges');
++}
++
++async function waitForPristineFirstRunDraft(): Promise<boolean> {
++  for (let attempt = 0; attempt < 60; attempt++) {
++    const state = useFirstRunStore.getState();
++    if (state.hydrated) return isPristineFirstRunDraft();
++    await new Promise((resolve) => setTimeout(resolve, 50));
++  }
++  return false;
++}
++
++function now(): number {
++  return typeof performance !== 'undefined' && typeof performance.now === 'function'
++    ? performance.now()
++    : Date.now();
++}
++
++function makeAnchor(index: number) {
++  const serial = String(index + 1).padStart(3, '0');
++  return {
++    id: `synthetic-anchor-${serial}`,
++    localId: `synthetic-local-${serial}`,
++    userId: 'synthetic-account',
++    intentionText: `Synthetic intention fixture ${serial}; no real user writing.`,
++    category: ['desire', 'health', 'career', 'creativity'][index % 4],
++    distilledLetters: ['A', 'N', 'C'],
++    baseSigilSvg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M${index % 40},10 L50,90 L${(index % 40) + 10},10 Z"/></svg>`,
++    structureVariant: 'balanced',
++    isCharged: index % 2 === 0,
++    activationCount: index % 7,
++    createdAt: '2026-01-01T00:00:00.000Z',
++    updatedAt: '2026-01-02T00:00:00.000Z',
++  };
++}
++
++function makePersistedFixture(count: 1 | 72): { value: string; payloadChars: number } {
++  const anchors = Array.from({ length: count }, (_, index) => makeAnchor(index));
++  const persisted = {
++    state: {
++      anchors,
++      totalPrimes: anchors.reduce((sum, anchor) => sum + anchor.activationCount, 0),
++      primeStreak: 0,
++      lastPrimedDate: null,
++      lastSyncedAt: null,
++      currentAnchorId: anchors[0]?.id,
++    },
++    version: 0,
++  };
++  let value = JSON.stringify(persisted);
++  const targetChars = count === 1 ? 10_000 : TARGET_LARGE_CHARS;
++  const delta = targetChars - value.length;
++  if (delta < 0) throw new Error(`synthetic fixture exceeded calibrated size: ${value.length}`);
++  const base = Math.floor(delta / count);
++  let remainder = delta % count;
++  for (const anchor of anchors) {
++    const amount = base + (remainder-- > 0 ? 1 : 0);
++    const closePath = anchor.baseSigilSvg.lastIndexOf('"/>');
++    const syntheticGeometry = ' M50 50 L51 51'.repeat(Math.floor(amount / 14));
++    const geometryRemainder = ' '.repeat(amount % 14);
++    anchor.baseSigilSvg = `${anchor.baseSigilSvg.slice(0, closePath)}${syntheticGeometry}${geometryRemainder}${anchor.baseSigilSvg.slice(closePath)}`;
++  }
++  value = JSON.stringify(persisted);
++  if (value.length !== targetChars) throw new Error('synthetic fixture size calibration failed');
++  return { value, payloadChars: value.length };
++}
++
++async function seedCanonicalGuestStore(count: 1 | 72): Promise<void> {
++  const fixture = makePersistedFixture(count);
++  const writeStarted = now();
++  await encryptedPersistStorage.setItem('anchor-vault-storage', fixture.value);
++  const writeDurationMs = now() - writeStarted;
++
++  // Reuse Zustand's real persisted-store hydration path. This is synthetic
++  // guest store data in the isolated package; it does not call onboarding UI.
++  await useAnchorStore.persist.rehydrate();
++  const hydratedCount = useAnchorStore.getState().anchors.length;
++  if (hydratedCount !== count) throw new Error('canonical synthetic store hydration count mismatch');
++  useAuthStore.getState().setIsGuest(true);
++  useAuthStore.getState().setHasCompletedOnboarding(true);
++  await waitForPersistedSyntheticGuest();
++  await encryptedPersistStorage.setItem(SYNTHETIC_MARKER_KEY, count === 1 ? 'seeded-small' : 'seeded-large');
++  perfDiag('fixture-seed', {
++    anchorCount: count,
++    payloadChars: fixture.payloadChars,
++    writeDurationMs,
++    hydratedCount,
++  });
++}
++
++async function waitForPersistedSyntheticGuest(): Promise<void> {
++  for (let attempt = 0; attempt < 40; attempt++) {
++    const raw = await encryptedPersistStorage.getItem('anchor-auth-storage');
++    const state = raw == null ? null : JSON.parse(raw)?.state;
++    if (state?.user == null && state?.isGuest === true && state?.hasCompletedOnboarding === true) return;
++    await new Promise((resolve) => setTimeout(resolve, 100));
++  }
++  throw new Error('synthetic Guest auth state did not settle durably');
++}
++
++async function runSyntheticAdapterContention(): Promise<void> {
++  resetAdapterDiagnosticCounters();
++  const fixtures = [makePersistedFixture(1), makePersistedFixture(72)];
++  const secureChunkChars = 1_800;
++  const authControlDurationsMs: number[] = [];
++  const authControlSettlementDurationsMs: number[] = [];
++  const controlValue = JSON.stringify({ state: { synthetic: true }, version: 0 });
++  // Independent auth-adapter control: at least three repeats without a bulk
++  // Anchor write, so the contention result has a same-device comparison.
++  for (let trial = 0; trial < 3; trial++) {
++    const controlStarted = now();
++    authControlDurationsMs.push(await writeSyntheticPerfAuthValue(controlValue));
++    authControlSettlementDurationsMs.push(now() - controlStarted);
++  }
++  perfDiag('auth-adapter-control', {
++    trials: authControlDurationsMs.length,
++    maxDurationMs: Math.ceil(Math.max(...authControlDurationsMs)),
++    minDurationMs: Math.floor(Math.min(...authControlDurationsMs)),
++  });
++
++  for (let index = 0; index < fixtures.length; index++) {
++    const fixture = fixtures[index];
++    const count = index === 0 ? 1 : 72;
++    const trialCount = count === 72 ? 3 : 1;
++    for (let trial = 0; trial < trialCount; trial++) {
++      const storageKey = count === 1 ? SYNTHETIC_STORAGE_KEY : `${SYNTHETIC_STORAGE_KEY}-${trial + 1}`;
++      const writeStarted = now();
++      const writePromise = (async () => {
++        await encryptedPersistStorage.setItem(storageKey, fixture.value);
++      })();
++      let writeDurationMs = 0;
++      const writeOutcome = writePromise.then(() => {
++        writeDurationMs = now() - writeStarted;
++        return null;
++      }, (error: unknown) => error);
++      let authAdapterWriteDurationMs = 0;
++      let authHelperSettlementDurationMs = 0;
++      if (count === 72) {
++        // setItem is debounced 400 ms. Issue a synthetic auth-adapter write
++        // just after that timer starts the large write. Settlement is timed
++        // independently, then both operations are awaited.
++        await new Promise((resolve) => setTimeout(resolve, 425));
++        const authStarted = now();
++        const authSettled = writeSyntheticPerfAuthValue(controlValue).then((writeDurationMs) => {
++          authAdapterWriteDurationMs = writeDurationMs;
++          authHelperSettlementDurationMs = now() - authStarted;
++        });
++        const [writeError] = await Promise.all([writeOutcome, authSettled]);
++        if (writeError != null) throw writeError;
++      } else {
++        const writeError = await writeOutcome;
++        if (writeError != null) throw writeError;
++      }
++      const combinedDurationMs = now() - writeStarted;
++
++      const readStarted = now();
++      const raw = await encryptedPersistStorage.getItem(storageKey);
++      const persisted = raw == null ? null : JSON.parse(raw);
++      const readParseDurationMs = now() - readStarted;
++      // Bypass encryptedPersistStorage's AsyncStorage recovery path when
++      // validating native SecureStore usage.
++      const verifyStarted = now();
++      const secureRaw = await readSecureValue(storageKey);
++      const secureVerifyDurationMs = now() - verifyStarted;
++      const hydratedCount = Array.isArray(persisted?.state?.anchors)
++        ? persisted.state.anchors.length
++        : 0;
++      if (raw !== fixture.value || secureRaw !== fixture.value || hydratedCount !== count) {
++        throw new Error('synthetic SecureStore adapter round-trip validation failed');
++      }
++      perfDiag('fixture-roundtrip', {
++        anchorCount: count,
++        trial: trial + 1,
++        payloadChars: fixture.payloadChars,
++        secureChunkCount: Math.ceil(fixture.payloadChars / secureChunkChars),
++        writeDurationMs,
++        combinedDurationMs,
++        readParseDurationMs,
++        secureVerifyDurationMs,
++        authAdapterWriteDurationMs,
++        authHelperSettlementDurationMs,
++        authControlMaxDurationMs: Math.ceil(Math.max(...authControlDurationsMs)),
++        authControlSettlementMaxDurationMs: Math.ceil(Math.max(...authControlSettlementDurationsMs)),
++        authWriteControlDeltaMs: Math.ceil(authAdapterWriteDurationMs - Math.max(...authControlDurationsMs)),
++        hydratedCount,
++      });
++      await encryptedPersistStorage.removeItem(storageKey);
++    }
++  }
++  const adapterCounters = getAdapterDiagnosticCounters();
++  if (adapterCounters.secureWriteEventCount < 4 || adapterCounters.secureReadEventCount < 8 ||
++      adapterCounters.nativeCallCount <= 0 || adapterCounters.nativeFailureCount !== 0 || adapterCounters.fallbackCount !== 0) {
++    throw new Error('Synthetic benchmark did not complete with native SecureStore only.');
++  }
++  perfDiag('benchmark-complete', adapterCounters);
++}
++
++/** Called once after app-ready by the separately built diagnostic package. */
++export async function advanceReleaseFixtureSequence(): Promise<void> {
++  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1') return;
++  if (Application.applicationId !== 'com.anchorintentions.perflab20261012') {
++    perfDiag('benchmark-skip', { reasonCode: 6 });
++    return;
++  }
++  if (API_URL !== 'http://127.0.0.1:39999') {
++    perfDiag('benchmark-skip', { reasonCode: 7 });
++    return;
++  }
++  if (useAuthStore.getState().user != null) {
++    perfDiag('benchmark-skip', { reasonCode: 1 }); // signed-in; synthetic seeding is forbidden.
++    return;
++  }
++  if (process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED !== 'true') {
++    perfDiag('benchmark-skip', { reasonCode: 4 }); // V2 Home is required for the release route.
++    return;
++  }
++  let initialUrl: string | null;
++  try {
++    initialUrl = await getInitialPerfFixtureUrl();
++  } catch {
++    perfDiag('benchmark-skip', { reasonCode: 8 });
++    return;
++  }
++  const action = initialUrl === null
++    ? (isFixtureAction(process.env.EXPO_PUBLIC_ANCHOR_PERF_FIXTURE_ACTION)
++      ? process.env.EXPO_PUBLIC_ANCHOR_PERF_FIXTURE_ACTION
++      : undefined)
++    : FIXTURE_ACTION_URLS.get(initialUrl);
++  // A non-null URL that is not one of the three exact fixture controls is a
++  // deliberate no-op; do not fall back to a build-time action or log the URL.
++  if (!action) return;
++
++  // Seed only a genuinely pristine onboarding draft. Wait for its ordinary
++  // hydration to settle, then inspect in-memory state before any marker read.
++  if (!await waitForPristineFirstRunDraft()) {
++    perfDiag('benchmark-skip', { reasonCode: 9 });
++    return;
++  }
++
++  const marker = await encryptedPersistStorage.getItem(SYNTHETIC_MARKER_KEY);
++  const anchorState = useAnchorStore.getState();
++  const currentCount = anchorState.anchors.length;
++  if (!anchorState.persistedHydrated) {
++    perfDiag('benchmark-skip', { reasonCode: 5 }); // never seed before local hydration settles.
++    return;
++  }
++  if (action === 'seed-small') {
++    const existingSecureFixture = await readSecureValue('anchor-vault-storage');
++    const existingPlainFixture = await AsyncStorage.getItem('anchor-vault-storage');
++    if (marker != null || currentCount !== 0 || existingSecureFixture != null ||
++        existingPlainFixture != null ||
++        useAuthStore.getState().isGuest || useAuthStore.getState().hasCompletedOnboarding) {
++      perfDiag('benchmark-skip', { reasonCode: 2 }); // existing state; never overwrite.
++      return;
++    }
++    await seedCanonicalGuestStore(1);
++    return;
++  }
++  if (action === 'seed-large') {
++    const currentSynthetic = await readSecureValue('anchor-vault-storage');
++    const currentPlain = await AsyncStorage.getItem('anchor-vault-storage');
++    if (marker !== 'seeded-small' || currentCount !== 1 ||
++        currentSynthetic !== makePersistedFixture(1).value ||
++        currentPlain != null ||
++        useAuthStore.getState().isGuest !== true ||
++        useAuthStore.getState().hasCompletedOnboarding !== true) {
++      perfDiag('benchmark-skip', { reasonCode: 3 }); // wrong stage/count; never overwrite.
++      return;
++    }
++    await seedCanonicalGuestStore(72);
++    return;
++  }
++  if (action === 'measure-adapter') {
++    const currentSynthetic = await readSecureValue('anchor-vault-storage');
++    const currentPlain = await AsyncStorage.getItem('anchor-vault-storage');
++    if (marker !== 'seeded-large' || currentCount !== 72 ||
++        currentSynthetic !== makePersistedFixture(72).value ||
++        currentPlain != null ||
++        useAuthStore.getState().isGuest !== true ||
++        useAuthStore.getState().hasCompletedOnboarding !== true) {
++      perfDiag('benchmark-skip', { reasonCode: 3 });
++      return;
++    }
++    await runSyntheticAdapterContention();
++    await encryptedPersistStorage.setItem(SYNTHETIC_MARKER_KEY, 'complete');
++    // Adapter completion is emitted only after native/fallback counters pass.
++  }
++}
+diff --git a/src/utils/perfFixtureLinking.ts b/src/utils/perfFixtureLinking.ts
+new file mode 100644
+index 00000000..87e47ed8
+--- /dev/null
++++ b/src/utils/perfFixtureLinking.ts
+@@ -0,0 +1,6 @@
++import { Linking } from 'react-native';
++
++/** Reads the cold-start URL for the diagnostic fixture allowlist only. */
++export function getInitialPerfFixtureUrl(): Promise<string | null> {
++  return Linking.getInitialURL();
++}

@@ -26,7 +26,7 @@ export function MinimalExportTemplate({ data, width, showMark, onAssetsReady }: 
         top={discTop + diameter + h * 0.055}
         fontSize={intentionFontSize(data.intention, width, [[26, 78], [50, 64], [90, 52], [Infinity, 44]])}
       />
-      {showMark ? <ShareBrandMark width={width} /> : null}
+      {showMark ? <ShareBrandMark width={width} logoTone="light" /> : null}
     </ShareCanvas>
   );
 }

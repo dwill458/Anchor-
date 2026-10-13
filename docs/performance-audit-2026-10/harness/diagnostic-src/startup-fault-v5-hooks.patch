@@ -1,0 +1,167 @@
+diff --git a/src/services/AuthService.native.ts b/src/services/AuthService.native.ts
+index 0e5b573..7a73574 100644
+--- a/src/services/AuthService.native.ts
++++ b/src/services/AuthService.native.ts
+@@ -13,6 +13,7 @@ import {
+ import * as AppleAuthentication from 'expo-apple-authentication';
+ import { API_URL } from '@/config';
+ import { perfDiag } from '@/utils/perfDiagnostics';
++import { consumeStartupFaultMarker, isStartupFaultMarker, STARTUP_FAULT_MARKER_KEY } from '@/utils/startupFaultDiagnostic';
+ import { ENABLE_GOOGLE_SIGN_IN, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
+ import { clearNotificationSession } from '@/services/NotificationSessionService';
+ import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
+@@ -36,6 +37,47 @@ const PERF_DIAGNOSTIC_PROJECT_ID = 'demo-anchor-perf';
+ const PERF_DIAGNOSTIC_AUTH_EMULATOR_URL = 'http://127.0.0.1:9099';
+ let googleConfigured = false;
+ 
++const STARTUP_FAULT_AUTH_MARKERS = new Set(['auth-16s', 'auth-14s']);
++
++async function isEligibleStartupFaultAuth(user: FirebaseAuthTypes.User): Promise<boolean> {
++  try {
++    if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1' ||
++        Application.applicationId !== PERF_DIAGNOSTIC_APP_ID || API_URL !== 'http://127.0.0.1:39999') return false;
++    const firebase = auth();
++    if (firebase.app.options.projectId !== PERF_DIAGNOSTIC_PROJECT_ID || firebase.currentUser?.uid !== 'synthetic-account-c' || user.uid !== 'synthetic-account-c') return false;
++    const claims = (await user.getIdTokenResult()).claims;
++    return claims.anchorPerfOnboarded === true && claims.anchorPerfComped === true;
++  } catch {
++    return false;
++  }
++}
++
++async function consumeAuthStartupFault(user: FirebaseAuthTypes.User): Promise<void> {
++  if (!await isEligibleStartupFaultAuth(user) || await AsyncStorage.getItem(STARTUP_FAULT_MARKER_KEY) !== null) return;
++  let marker: string | null;
++  try { marker = await readSecureValue(STARTUP_FAULT_MARKER_KEY); } catch { return; }
++  if (!isStartupFaultMarker(marker) || !STARTUP_FAULT_AUTH_MARKERS.has(marker)) return;
++  try {
++    await consumeStartupFaultMarker(marker, {
++      eligible: () => isEligibleStartupFaultAuth(user),
++      readMarker: async () => await AsyncStorage.getItem(STARTUP_FAULT_MARKER_KEY) === null
++        ? readSecureValue(STARTUP_FAULT_MARKER_KEY)
++        : null,
++      markConsumed: async () => {
++        try {
++          await writeSecureValue(STARTUP_FAULT_MARKER_KEY, 'consumed');
++          return await readSecureValue(STARTUP_FAULT_MARKER_KEY) === 'consumed' &&
++            await AsyncStorage.getItem(STARTUP_FAULT_MARKER_KEY) === null;
++        } catch { return false; }
++      },
++      wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
++      onEvent: (phaseCode, elapsedMs, resultCode) => perfDiag('startup-fault', { phaseCode, elapsedMs, resultCode }),
++    });
++  } catch {
++    perfDiag('startup-fault', { phaseCode: marker === 'auth-16s' ? 2 : 3, elapsedMs: 0, resultCode: 3 });
++  }
++}
++
+ function configureDiagnosticAuthEmulator(): void {
+   const isDiagnosticApp = Application.applicationId === PERF_DIAGNOSTIC_APP_ID;
+   const diagnosticsEnabled = process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS === '1';
+@@ -584,8 +626,22 @@ export class AuthService {
+   static onAuthStateChanged(
+     callback: (user: FirebaseUser | null) => void
+   ): () => void {
++    let initialForwarded = false;
++    let initialPending = false;
++    let latestInitialUser: FirebaseAuthTypes.User | null = null;
+     return auth().onAuthStateChanged((user) => {
+-      callback(user ? toFirebaseUser(user) : null);
++      if (initialForwarded) {
++        callback(user ? toFirebaseUser(user) : null);
++        return;
++      }
++      latestInitialUser = user;
++      if (initialPending) return;
++      initialPending = true;
++      void (async () => {
++        try { if (latestInitialUser) await consumeAuthStartupFault(latestInitialUser); } catch { /* Diagnostics fail open. */ }
++        initialForwarded = true;
++        callback(latestInitialUser ? toFirebaseUser(latestInitialUser) : null);
++      })();
+     });
+   }
+ }
+diff --git a/src/stores/encryptedPersistStorage.ts b/src/stores/encryptedPersistStorage.ts
+index d0e2465..c8cbdc0 100644
+--- a/src/stores/encryptedPersistStorage.ts
++++ b/src/stores/encryptedPersistStorage.ts
+@@ -1,15 +1,69 @@
+ import AsyncStorage from '@react-native-async-storage/async-storage';
++import auth from '@react-native-firebase/auth';
++import * as Application from 'expo-application';
+ import * as SecureStore from 'expo-secure-store';
+ import type { StateStorage } from 'zustand/middleware';
+ 
++import { API_URL } from '@/config';
+ import { logger } from '@/utils/logger';
+ import { perfDiag, perfLog } from '@/utils/perfDiagnostics';
++import { consumeStartupFaultMarker, STARTUP_FAULT_MARKER_KEY } from '@/utils/startupFaultDiagnostic';
+ 
+ type AsyncStateStorage = StateStorage & {
+   setItem: (name: string, value: string) => Promise<void>;
+   removeItem: (name: string) => Promise<void>;
+ };
+ 
++const STARTUP_FAULT_APP_ID = 'com.anchorintentions.perflab20261012';
++const STARTUP_FAULT_PROJECT_ID = 'demo-anchor-perf';
++const STARTUP_FAULT_AUTH_UID = 'synthetic-account-c';
++
++async function isEligibleAnchorStartupFault(): Promise<boolean> {
++  try {
++    if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1' ||
++        Application.applicationId !== STARTUP_FAULT_APP_ID || API_URL !== 'http://127.0.0.1:39999') return false;
++    const firebase = auth();
++    const user = firebase.currentUser;
++    if (firebase.app.options.projectId !== STARTUP_FAULT_PROJECT_ID || user?.uid !== STARTUP_FAULT_AUTH_UID) return false;
++    const claims = (await user.getIdTokenResult()).claims;
++    return claims.anchorPerfOnboarded === true && claims.anchorPerfComped === true;
++  } catch {
++    return false;
++  }
++}
++
++let anchorStartupFaultConsumption: Promise<void> | null = null;
++
++function consumeAnchorStartupFault(): Promise<void> {
++  if (anchorStartupFaultConsumption) return anchorStartupFaultConsumption;
++  anchorStartupFaultConsumption = runAnchorStartupFaultConsumption().finally(() => {
++    anchorStartupFaultConsumption = null;
++  });
++  return anchorStartupFaultConsumption;
++}
++
++async function runAnchorStartupFaultConsumption(): Promise<void> {
++  try {
++    await consumeStartupFaultMarker('anchor-12s', {
++      eligible: isEligibleAnchorStartupFault,
++      readMarker: async () => await AsyncStorage.getItem(STARTUP_FAULT_MARKER_KEY) === null
++        ? readSecureValue(STARTUP_FAULT_MARKER_KEY)
++        : null,
++      markConsumed: async () => {
++        try {
++          await writeSecureValue(STARTUP_FAULT_MARKER_KEY, 'consumed');
++          return await readSecureValue(STARTUP_FAULT_MARKER_KEY) === 'consumed' &&
++            await AsyncStorage.getItem(STARTUP_FAULT_MARKER_KEY) === null;
++        } catch { return false; }
++      },
++      wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
++      onEvent: (phaseCode, elapsedMs, resultCode) => perfDiag('startup-fault', { phaseCode, elapsedMs, resultCode }),
++    });
++  } catch {
++    perfDiag('startup-fault', { phaseCode: 1, elapsedMs: 0, resultCode: 3 });
++  }
++}
++
+ const SECURE_META_SUFFIX = '__secure_meta';
+ const SECURE_CHUNK_PREFIX = '__secure_chunk_';
+ const SECURE_CHUNK_SIZE = 1800;
+@@ -230,6 +284,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
+   getItem: async (name: string): Promise<string | null> => {
+     const startedAt = Date.now();
+     try {
++      if (name === 'anchor-vault-storage') await consumeAnchorStartupFault();
+       const secureValue = await readSecureValue(name);
+       if (secureValue != null) {
+         lastWrittenValue.set(name, secureValue);
+

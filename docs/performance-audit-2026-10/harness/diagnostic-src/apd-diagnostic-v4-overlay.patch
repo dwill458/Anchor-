@@ -1,0 +1,82 @@
+diff --git a/App.tsx b/App.tsx
+index 9511ab8..dcbfb7d 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -351,16 +351,16 @@ export default function App() {
+     ].filter((dispose): dispose is () => void => Boolean(dispose));
+     const stopStalls = startJsStallDetector(() => routeNameRef.current);
+     const stopRenders = startPerfRenderReporter();
+-    const stopDiagnosticLoop = startDiagnosticEventLoopHistogram();
+     perfLog('app-ready-state', { ready: appIsReady, msSinceAppStart: Date.now() - startupStartedAtRef.current });
+     return () => {
+       disposers.forEach((dispose) => dispose());
+       stopStalls();
+       stopRenders();
+-      stopDiagnosticLoop();
+     };
+   }, []);
+ 
++  useEffect(() => startDiagnosticEventLoopHistogram(), []);
++
+   useEffect(() => {
+     if (!appIsReady) return;
+     const msSinceAppStart = Date.now() - startupStartedAtRef.current;
+diff --git a/src/utils/ReleaseStorageBenchmark.ts b/src/utils/ReleaseStorageBenchmark.ts
+index 57a2b67..4247af1 100644
+--- a/src/utils/ReleaseStorageBenchmark.ts
++++ b/src/utils/ReleaseStorageBenchmark.ts
+@@ -15,6 +15,7 @@ import { getInitialPerfFixtureUrl } from '@/utils/perfFixtureLinking';
+ 
+ const SYNTHETIC_MARKER_KEY = 'anchor:perf:fixture-marker-v1';
+ const SYNTHETIC_STORAGE_KEY = 'anchor:perf:synthetic-anchor-v1';
++const CANONICAL_EMPTY_ANCHOR_STORAGE = '{"state":{"anchors":[],"totalPrimes":0,"primeStreak":0,"lastPrimedDate":null,"lastSyncedAt":null},"version":0}';
+ const TARGET_LARGE_CHARS = 719_217;
+ const FIXTURE_ACTION_URLS = new Map<string, 'seed-small' | 'seed-large' | 'measure-adapter'>([
+   ['anchor-perflab20261012://perf/seed-small', 'seed-small'],
+@@ -254,14 +255,23 @@ export async function advanceReleaseFixtureSequence(): Promise<void> {
+     perfDiag('benchmark-skip', { reasonCode: 8 });
+     return;
+   }
+-  const action = initialUrl === null
+-    ? (isFixtureAction(process.env.EXPO_PUBLIC_ANCHOR_PERF_FIXTURE_ACTION)
++  let action: 'seed-small' | 'seed-large' | 'measure-adapter' | undefined;
++  if (initialUrl === null) {
++    action = isFixtureAction(process.env.EXPO_PUBLIC_ANCHOR_PERF_FIXTURE_ACTION)
+       ? process.env.EXPO_PUBLIC_ANCHOR_PERF_FIXTURE_ACTION
+-      : undefined)
+-    : FIXTURE_ACTION_URLS.get(initialUrl);
+-  // A non-null URL that is not one of the three exact fixture controls is a
+-  // deliberate no-op; do not fall back to a build-time action or log the URL.
+-  if (!action) return;
++      : undefined;
++    if (!action) {
++      perfDiag('benchmark-skip', { reasonCode: 10 }); // no fixture action requested.
++      return;
++    }
++  } else {
++    action = FIXTURE_ACTION_URLS.get(initialUrl);
++    // A non-null unknown URL is a no-op; never use the environment fallback or log the URL.
++    if (!action) {
++      perfDiag('benchmark-skip', { reasonCode: 11 }); // unknown URL; no storage access.
++      return;
++    }
++  }
+ 
+   // Seed only a genuinely pristine onboarding draft. Wait for its ordinary
+   // hydration to settle, then inspect in-memory state before any marker read.
+@@ -280,9 +290,12 @@ export async function advanceReleaseFixtureSequence(): Promise<void> {
+   if (action === 'seed-small') {
+     const existingSecureFixture = await readSecureValue('anchor-vault-storage');
+     const existingPlainFixture = await AsyncStorage.getItem('anchor-vault-storage');
+-    if (marker != null || currentCount !== 0 || existingSecureFixture != null ||
+-        existingPlainFixture != null ||
+-        useAuthStore.getState().isGuest || useAuthStore.getState().hasCompletedOnboarding) {
++    const authState = useAuthStore.getState();
++    const secureFixtureIsPristine = existingSecureFixture === null ||
++      existingSecureFixture === CANONICAL_EMPTY_ANCHOR_STORAGE;
++    if (marker !== null || currentCount !== 0 || !secureFixtureIsPristine ||
++        existingPlainFixture !== null || authState.user != null ||
++        authState.isGuest !== false || authState.hasCompletedOnboarding !== false) {
+       perfDiag('benchmark-skip', { reasonCode: 2 }); // existing state; never overwrite.
+       return;
+     }

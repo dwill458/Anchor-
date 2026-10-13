@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Image, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { detailBoardSizeForWidth } from '@/components/v2/vision/board/visionBoardLayouts';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
@@ -12,6 +12,7 @@ import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { ShareTemplateProps } from '../shareTypes';
 import { POSTER_CREAM, ShareBrandMark, ShareCanvas } from './shared';
 import { visionBoardExportFrame } from '../visionBoardExportFrame';
+import { getVisionShareBackground } from '../visionShareBackgrounds';
 
 type AssetState = { signature: string; expected: Set<string>; ready: Set<string>; fired: boolean };
 const SHARE_ANCHOR_MARK_ASSET = require('@/assets/home/anchor-brand-mark.png') as ImageSourcePropType;
@@ -96,9 +97,10 @@ export function annotationGeometry(text: string, boardViewport: { width: number;
   };
 }
 
-/** Share Studio uses the saved Vision's exact scene, framed for a cream 9:16 poster. */
-export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: ShareTemplateProps) {
+/** Share Studio uses the saved Vision's exact scene, framed for a curated 9:16 poster. */
+export function VisionExportTemplate({ data, width, showMark, visionBackgroundId, onAssetsReady }: ShareTemplateProps) {
   const scale = width / VISION_CANVAS_WIDTH;
+  const bg = getVisionShareBackground(visionBackgroundId);
   // Old payloads carry only the first real Vision URL. Adapt that URL to the
   // one-photo detail composition so every Vision export uses the shared scene.
   const tiles = useMemo<readonly V2VisionTile[]>(() => {
@@ -110,7 +112,8 @@ export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: S
   const height = VISION_CANVAS_HEIGHT;
   const titleHeight = headingReserve(VISION_CANVAS_WIDTH, data.intention);
   const footerHeight = VISION_CANVAS_WIDTH * 0.15;
-  const boardWidth = VISION_CANVAS_WIDTH * 0.9;
+  // Enlarged boardWidth and tighter padding makes the photographs ~15% more prominent while remaining safely inside bounds
+  const boardWidth = VISION_CANVAS_WIDTH * 0.94;
   const boardAreaHeight = Math.max(VISION_CANVAS_WIDTH * 0.45, height - titleHeight - footerHeight);
   const boardViewport = useMemo(() => detailBoardSizeForWidth(boardWidth, tiles.length), [boardWidth, tiles.length]);
   const scene = useMemo(() => detailBoardSizeForWidth(boardWidth * VISION_BOARD_MOTION.renderScale, tiles.length), [boardWidth, tiles.length]);
@@ -121,7 +124,7 @@ export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: S
   const annotationLayout = useMemo(() => annotation ? annotationGeometry(annotation, boardViewport, scene, tiles.length) : null,
     [annotation, boardViewport, scene, tiles.length]);
   const overlays = useMemo(() => annotationLayout ? [annotationLayout.rect] : [], [annotationLayout]);
-  const frame = useMemo(() => visionBoardExportFrame(scene, layout, notes, frameViewport, boardWidth * 0.055, tiles, overlays),
+  const frame = useMemo(() => visionBoardExportFrame(scene, layout, notes, frameViewport, boardWidth * 0.02, tiles, overlays),
     [boardWidth, frameViewport, layout, notes, overlays, scene, tiles]);
   const artwork: VisionBoardCardArt = {
     svg: data.svg,
@@ -131,6 +134,7 @@ export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: S
   };
   const auxiliaryAssets = useMemo(() => {
     const assets = new Map<string, ImageSourcePropType>();
+    assets.set(`bg:${bg.id}`, bg.source);
     for (const note of notes) {
       if (note.isArchived || !note.content.text.trim()) continue;
       const assetKey = getVisionNotePreset(note.presentation.styleId).surfaceAsset;
@@ -139,7 +143,7 @@ export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: S
     if (showMark && data.imageUrl) assets.set('anchor:image', { uri: data.imageUrl });
     if (showMark) assets.set('brand:mark', SHARE_ANCHOR_MARK_ASSET);
     return [...assets].map(([id, source]) => ({ id, source }));
-  }, [data.imageUrl, notes, showMark]);
+  }, [bg.id, bg.source, data.imageUrl, notes, showMark]);
   const expectedAssetIds = useMemo(() => [
     ...tiles.slice(0, layout.photos.length).filter(tile => Boolean(tile.imageUrl?.trim())).map(tile => `photo:${tile.sceneId}`),
     ...auxiliaryAssets.map(asset => asset.id),
@@ -149,11 +153,20 @@ export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: S
   const sceneTop = titleHeight + frame.top + (frame.scale - 1) * scene.height / 2;
 
   return (
-    <ShareCanvas width={width} background={POSTER_CREAM}>
+    <ShareCanvas width={width} background={bg.tone === 'dark' ? '#0B0C16' : POSTER_CREAM}>
+      <Image
+        source={bg.source}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+        resizeMethod="scale"
+        fadeDuration={0}
+        onLoad={() => markAssetReady(`bg:${bg.id}`)}
+        onError={() => markAssetReady(`bg:${bg.id}`)}
+      />
       <View testID="vision-export-canonical-composition" style={{ position: 'absolute', width: VISION_CANVAS_WIDTH, height: VISION_CANVAS_HEIGHT,
         left: (scale - 1) * VISION_CANVAS_WIDTH / 2, top: (scale - 1) * VISION_CANVAS_HEIGHT / 2, transform: [{ scale }] }}>
       <View pointerEvents="none" style={{ position: 'absolute', left: VISION_CANVAS_WIDTH * 0.08, right: VISION_CANVAS_WIDTH * 0.08, top: VISION_CANVAS_WIDTH * 0.07 }}>
-        <VisionIntentionHeading intention={data.intention} category={data.category} />
+        <VisionIntentionHeading intention={data.intention} category={data.category} tone={bg.tone} />
       </View>
       <View pointerEvents="none" style={{ position: 'absolute', width: scene.width, height: scene.height, left: sceneLeft, top: sceneTop, transform: [{ scale: frame.scale }] }}>
         <VisionBoardScene
@@ -177,9 +190,9 @@ export function VisionExportTemplate({ data, width, showMark, onAssetsReady }: S
         />
         {annotationLayout ? <Text pointerEvents="none" style={[{ position: 'absolute', zIndex: 100, fontFamily: 'Allison-Regular' }, annotationLayout.style]}>{annotation}</Text> : null}
       </View>
-      {auxiliaryAssets.map(asset => <Image key={asset.id} source={asset.source} onLoad={() => markAssetReady(asset.id)} onError={() => markAssetReady(asset.id)}
+      {auxiliaryAssets.filter(asset => !asset.id.startsWith('bg:')).map(asset => <Image key={asset.id} source={asset.source} fadeDuration={0} onLoad={() => markAssetReady(asset.id)} onError={() => markAssetReady(asset.id)}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />)}
-      {showMark ? <ShareBrandMark width={VISION_CANVAS_WIDTH} ground="light" /> : null}
+      {showMark ? <ShareBrandMark width={VISION_CANVAS_WIDTH} ground={bg.tone === 'dark' ? 'dark' : 'light'} /> : null}
       </View>
     </ShareCanvas>
   );
