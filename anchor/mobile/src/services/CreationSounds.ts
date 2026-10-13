@@ -53,7 +53,7 @@ export const VOLUME: Record<CreationSoundKey | SoundKey, number> = {
   'chart-waypoint_3': 0.6,
   'chart-move-done': 0.6,
   'chart-ink-hold': 0.6,
-  'chart-summit-thud': 0.99,
+  'chart-summit-thud': 0.9,
   'chart-summit-chord': 0.9,
 };
 
