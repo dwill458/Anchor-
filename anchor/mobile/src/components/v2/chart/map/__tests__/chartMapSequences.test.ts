@@ -237,7 +237,7 @@ describe('moveHoldSequence (One Move done, M1)', () => {
     expect(forTarget(spec.steps, anim.coverArc)[0]).toMatchObject({ at: 500, duration: 1200 });
     const seen: ChartBeat[] = [];
     const withBeats = moveHoldSequence({ anim: makeAnim(), placement, legIndex: 2, reducedMotion: false, fromArc: leg.start, onBeat: (b) => seen.push(b) });
-    expect(calls(withBeats.steps).filter((s) => (s as any).transient).map((s) => s.at).sort((a, b) => a - b)).toEqual([0, 500]);
+    expect(calls(withBeats.steps).filter((s) => (s as any).transient).map((s) => s.at).sort((a, b) => a - b)).toEqual([0, CHART_MAP_TIMING.moveHold.routeAt, CHART_MAP_TIMING.moveHold.routeAt + CHART_MAP_TIMING.moveHold.route]);
   });
 
   it('never goes past the 90% hold, never fills the waypoint, and never retreats', () => {
