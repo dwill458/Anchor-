@@ -16,7 +16,7 @@ export function useVisionEditorialNotes(notes?: readonly VisionNote[]) {
         const readableBudget = Math.max(12, Math.min(90,
           Math.floor(Math.max(20, width - 28) / 10) * Math.floor(Math.max(26, height - 24) / 26)));
         const excerpt = characters.length > readableBudget ? `${characters.slice(0, readableBudget - 1).join('').trimEnd()}…` : text;
-        return <VisionNoteRenderer styleId={note.presentation.styleId} text={excerpt}
+        return <VisionNoteRenderer styleId={note.presentation.styleId} fontId={note.presentation.fontId} text={excerpt}
           width={width} height={height} compact scrollText={false} testID={`vision-preview-note-${note.id}`} />;
       },
     })), [notes]);

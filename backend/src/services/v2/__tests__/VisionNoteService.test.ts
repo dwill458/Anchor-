@@ -63,6 +63,12 @@ describe('Vision note service', () => {
     }));
   });
 
+  it.each(['handwritten', 'classic', 'modern'] as const)('persists the %s note font', async fontId => {
+    mockPrisma.vision.findFirst.mockResolvedValueOnce({ id: 'vision-1' }).mockResolvedValueOnce(visionModel());
+    await visionService.createNote('user-1', 'anchor-1', { ...input, presentation: { ...input.presentation, fontId } } as never);
+    expect(tx.visionNote.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fontId }) }));
+  });
+
   it('replays the same request id without creating a duplicate and rejects a different payload', async () => {
     tx.visionNote.findUnique.mockResolvedValue(note);
     mockPrisma.vision.findFirst.mockResolvedValueOnce({ id: 'vision-1' }).mockResolvedValueOnce(visionModel());

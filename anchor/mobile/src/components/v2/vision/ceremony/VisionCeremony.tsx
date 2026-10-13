@@ -90,7 +90,10 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const reduced = useCelebrationReduceMotion();
   const usable = height - insets.top - insets.bottom;
   const [beat, setBeat] = useState<VisionCeremonyBeat>(props.startAt ?? 'ask');
-  const [description, setDescription] = useState(props.initialDescription ?? '');
+  const [description, setDescriptionState] = useState(props.initialDescription ?? '');
+  const descriptionRef = useRef(description);
+  const setDescription = (text: string) => { descriptionRef.current = text; setDescriptionState(text); };
+  const setDescriptionFromInput = (text: string) => { descriptionRef.current = text; };
   const [inputPath, setInputPath] = useState<VisionInputPath>('words');
   const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(null);
   const [photos, setPhotos] = useState<CeremonyPhoto[]>(props.photo ? [{ ...props.photo, key: props.photo.uri }] : []);
@@ -245,9 +248,9 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const resumed = useRef(false);
   useEffect(() => {
     if (!props.resumeGeneration) { resumed.current = false; return; }
-    if (!props.resumeGeneration || resumed.current || !description.trim()) return;
+    if (!props.resumeGeneration || resumed.current || !descriptionRef.current.trim()) return;
     resumed.current = true; props.onResumeGenerationConsumed?.();
-    void generate(description);
+    void generate(descriptionRef.current);
   }, [props.resumeGeneration, description]);
 
   const generate = async (text: string, referenceId?: string | null, photo?: VisionStartPhoto | null) => {
@@ -335,11 +338,12 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         const error = await latest.current.onPhotoConfirm(activePhotoCaption.trim());
         if (error) throw new Error(error);
         result = true;
-      } else if (ownPhoto) result = await actions.saveUploads(photos, description, activePhotoCaption.trim(), selection, photoCaptions, activePhotoId ?? undefined);
+      } else if (ownPhoto) result = await actions.saveUploads(photos, descriptionRef.current, activePhotoCaption.trim(), selection, photoCaptions, activePhotoId ?? undefined);
       else {
         if (!candidate?.assetId) throw new Error(copy.saveError);
-        const asset = { assetId: candidate.assetId, prompt: candidate.prompt || description.trim(), caption: caption.trim() };
-        result = props.onAdd ? await props.onAdd(asset) : await props.onAssemble({ description: startPhoto ? photoVisionDescription(description.trim(), anchorIntention) : description.trim(),
+        const currentDescription = descriptionRef.current;
+        const asset = { assetId: candidate.assetId, prompt: candidate.prompt || currentDescription.trim(), caption: caption.trim() };
+        result = props.onAdd ? await props.onAdd(asset) : await props.onAssemble({ description: startPhoto ? photoVisionDescription(currentDescription.trim(), anchorIntention) : currentDescription.trim(),
           selectedAssets: [{ ...asset, imageUrl: candidate.imageUrl ?? undefined, sourceType: 'AI_GENERATED' }], selection });
       }
       if (result === false) throw new Error(ownPhoto ? copy.photoError : copy.saveError);
@@ -516,7 +520,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   };
   const leaveExample = () => {
     // An untouched example is not the person's words; once they step back it should not linger as a prefill.
-    if (startedFromExample.current && description === startedFromExample.current.moment) setDescription(props.initialDescription ?? '');
+    if (startedFromExample.current && descriptionRef.current === startedFromExample.current.moment) setDescription(props.initialDescription ?? '');
     startedFromExample.current = null; setFromExample(null);
   };
   const back = () => {
@@ -621,7 +625,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         {beat === 'choose' ? <View style={[styles.footer, { bottom: insets.bottom + 30 }]}>
           {/* TODO(limit): SCENE jobs do not expose remaining generations; never invent a count. */}
           {limitReached ? <Text testID="vision-ceremony-limit" accessibilityLiveRegion="polite" style={styles.note}>{actions.generation.error}</Text>
-            : link(copy.neither, () => { void generate(description, inputPath === 'words' ? undefined : null, inputPath === 'photo' ? startPhoto : undefined); })}
+            : link(copy.neither, () => { void generate(descriptionRef.current, inputPath === 'words' ? undefined : null, inputPath === 'photo' ? startPhoto : undefined); })}
         </View> : null}
       </> : null}
       {beat === 'keep' ? <>
@@ -645,8 +649,8 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
     {beat === 'describe' ? <Animated.View entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
       <VisionMomentInput mode={mode} anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory}
-        anchorArt={anchorArt} anchorImageUrl={props.anchorImageUrl} description={description} onChangeDescription={setDescription}
-        initialDescription={description} onBack={back} onSubmit={generate} startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto}
+        anchorArt={anchorArt} anchorImageUrl={props.anchorImageUrl} onChangeDescription={setDescriptionFromInput}
+        initialDescription={descriptionRef.current} onBack={back} onSubmit={generate} startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto}
         inputPath={inputPath} onChangeInputPath={setInputPath} loading={actions.starting} error={actions.notice ?? actions.generation.error}
         ceremony fromExample={fromExample ?? undefined} testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
     </Animated.View> : null}

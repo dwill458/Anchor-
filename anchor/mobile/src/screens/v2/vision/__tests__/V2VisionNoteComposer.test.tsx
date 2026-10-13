@@ -55,11 +55,14 @@ describe('V2VisionNoteComposer', () => {
     const view = renderScreen();
     fireEvent.changeText(view.getByTestId('vision-note-input'), 'A little note for my future self.');
     expect(view.getByTestId('vision-note-preview').props.accessibilityLabel).toContain('A little note');
+    fireEvent.press(view.getByTestId('vision-note-font-modern'));
+    expect(view.getByTestId('vision-note-input').props.value).toBe('A little note for my future self.');
+    expect(view.getByTestId('vision-note-current-renderer').findByType(require('react-native').Text).props.style.fontFamily).toBe('Inter-Regular');
     fireEvent.press(view.getByLabelText('Add to Vision'));
     await waitFor(() => expect(createNote).toHaveBeenCalledTimes(1));
     expect(createNote.mock.calls[0][0]).toEqual(expect.objectContaining({
       clientRequestId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i), content: { text: 'A little note for my future self.' },
-      presentation: expect.objectContaining({ styleId: 'sticky_blush_pink', x: expect.any(Number), y: expect.any(Number), rotation: -2 }),
+      presentation: expect.objectContaining({ styleId: 'sticky_blush_pink', fontId: 'modern', x: expect.any(Number), y: expect.any(Number), rotation: -2 }),
     }));
     await waitFor(() => expect(goBack).toHaveBeenCalledTimes(1));
   });

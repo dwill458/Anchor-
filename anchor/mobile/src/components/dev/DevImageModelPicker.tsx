@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DEV_IMAGE_MODELS, useDevImageModelStore, type DevImagePurpose } from '@/stores/devImageModelStore';
 import { colors } from '@/theme/colors';
 
 /** A compact development control; selecting a model affects the next request only. */
-export function DevImageModelPicker({ purpose, disabled = false }: { purpose: DevImagePurpose; disabled?: boolean }) {
+export function DevImageModelPicker({ purpose, disabled = false, tone = 'default' }: { purpose: DevImagePurpose; disabled?: boolean; tone?: 'default' | 'paper' }) {
   const [open, setOpen] = useState(false);
   const model = useDevImageModelStore(state => state[purpose]);
   const select = useDevImageModelStore(state => state.select);
@@ -13,8 +13,8 @@ export function DevImageModelPicker({ purpose, disabled = false }: { purpose: De
   const options = [{ id: null, label: 'Auto — normal routing' }, ...DEV_IMAGE_MODELS];
   return <>
     <Pressable testID={`dev-image-model-${purpose}`} accessibilityRole="button" accessibilityLabel={`Dev model: ${label}`}
-      accessibilityState={{ disabled }} disabled={disabled} onPress={() => setOpen(true)} style={styles.trigger}>
-      <Text style={styles.triggerText}>Dev model: {label} ▾</Text>
+      accessibilityState={{ disabled }} disabled={disabled} onPress={() => { Keyboard.dismiss(); setOpen(true); }} style={[styles.trigger, tone === 'paper' && styles.triggerPaper]}>
+      <Text style={[styles.triggerText, tone === 'paper' && styles.triggerTextPaper]}>Dev model: {label} ▾</Text>
     </Pressable>
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
       <View style={styles.overlay}>
@@ -37,6 +37,8 @@ export function DevImageModelPicker({ purpose, disabled = false }: { purpose: De
 const styles = StyleSheet.create({
   trigger: { minHeight: 44, paddingHorizontal: 12, alignSelf: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.creation.ink },
   triggerText: { fontFamily: 'Figtree-Regular', fontSize: 12, color: colors.creation.cream },
+  triggerPaper: { paddingHorizontal: 8, borderRadius: 0, backgroundColor: 'transparent' },
+  triggerTextPaper: { fontSize: 13, color: colors.creation.ink },
   overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: { borderRadius: 18, padding: 20, backgroundColor: colors.creation.cream },
   title: { fontFamily: 'Figtree-SemiBold', fontSize: 18, color: colors.creation.ink },

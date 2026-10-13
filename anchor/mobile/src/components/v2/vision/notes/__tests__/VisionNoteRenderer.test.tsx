@@ -19,6 +19,13 @@ describe('VisionNoteRenderer', () => {
     },
   );
 
+  it.each([
+    ['handwritten', 'Allison-Regular'], ['classic', 'EBGaramond-Regular'], ['modern', 'Inter-Regular'],
+  ] as const)('renders the %s typography choice using its bundled font', (fontId, fontFamily) => {
+    const view = render(<VisionNoteRenderer styleId="sticky_blush_pink" fontId={fontId} text="A note" width={240} height={160} />);
+    expect(view.UNSAFE_getByType(require('react-native').Text).props.style.fontFamily).toBe(fontFamily);
+  });
+
   it('uses the presentation geometry and explicit color overrides', () => {
     const view = render(<VisionNoteRenderer styleId="paper_aged_parchment" text="hello" width={210} height={130}
       presentation={{ x: 0.3, y: 0.4, width: 0.5, height: 0.2, rotation: -4, scale: 1.1, layerOrder: 4 }}

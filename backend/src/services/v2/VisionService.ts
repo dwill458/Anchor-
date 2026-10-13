@@ -56,6 +56,7 @@ function isPrismaUniqueViolation(error: unknown): boolean {
 function toVisionNoteColumns(presentation: VisionNotePresentation) {
   return {
     styleId: presentation.styleId,
+    ...(presentation.fontId ? { fontId: presentation.fontId } : {}),
     x: presentation.x,
     y: presentation.y,
     width: presentation.width,
@@ -66,9 +67,9 @@ function toVisionNoteColumns(presentation: VisionNotePresentation) {
   };
 }
 
-function sameVisionNotePayload(note: { text: string; styleId: string; x: number; y: number; width: number; height: number; rotation: number; scale: number; layerOrder: number }, input: z.infer<typeof CreateVisionNoteSchema>): boolean {
+function sameVisionNotePayload(note: { text: string; styleId: string; fontId?: string | null; x: number; y: number; width: number; height: number; rotation: number; scale: number; layerOrder: number }, input: z.infer<typeof CreateVisionNoteSchema>): boolean {
   const p = input.presentation;
-  return note.text === input.content.text && note.styleId === p.styleId && note.x === p.x && note.y === p.y && note.width === p.width && note.height === p.height && note.rotation === p.rotation && note.scale === p.scale && note.layerOrder === p.layerOrder;
+  return note.text === input.content.text && note.styleId === p.styleId && (note.fontId ?? undefined) === p.fontId && note.x === p.x && note.y === p.y && note.width === p.width && note.height === p.height && note.rotation === p.rotation && note.scale === p.scale && note.layerOrder === p.layerOrder;
 }
 
 export class VisionService {
@@ -144,6 +145,7 @@ export class VisionService {
       content: { text: note.text },
       presentation: {
         styleId: note.styleId as VisionNotePresentation['styleId'],
+        ...(note.fontId ? { fontId: note.fontId as NonNullable<VisionNotePresentation['fontId']> } : {}),
         x: note.x,
         y: note.y,
         width: note.width,

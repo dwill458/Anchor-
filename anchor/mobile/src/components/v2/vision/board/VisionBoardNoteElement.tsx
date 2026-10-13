@@ -122,7 +122,7 @@ export function VisionBoardNoteElement({ note, sceneWidth, sceneHeight, selected
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.note, selected && styles.lifted, { width, height, left: sceneWidth * p.x - width / 2, top: sceneHeight * p.y - height / 2, zIndex: visionNoteZIndex(p.layerOrder) }, animatedStyle]}>
         <Pressable accessibilityRole="button" accessibilityLabel={`Vision note: ${note.content.text || p.styleId.replaceAll('_', ' ')}`} accessibilityState={{ selected }} onPress={() => onSelect(note.id)} style={styles.fill}>
-          <VisionNoteRenderer styleId={p.styleId} text={note.content.text} width={width} height={height} rotationOverride={0} scaleOverride={1} scrollText />
+          <VisionNoteRenderer styleId={p.styleId} fontId={p.fontId} text={note.content.text} width={width} height={height} rotationOverride={0} scaleOverride={1} scrollText />
           {selected ? <View pointerEvents="none" style={styles.selected} /> : null}
         </Pressable>
       </Animated.View>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Keyboard, StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { DevImageModelPicker } from '../DevImageModelPicker';
 import { DEV_IMAGE_MODELS, selectedDevImageModel, useDevImageModelStore } from '@/stores/devImageModelStore';
@@ -15,6 +16,16 @@ describe('developer image model picker', () => {
     expect(selectedDevImageModel('anchor')).toBe(option.id);
     expect(selectedDevImageModel('vision')).toBeUndefined();
     expect(screen.getByLabelText(`Dev model: ${option.label}`)).toBeTruthy();
+  });
+
+  it('dismisses the keyboard before opening the selector', () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    const screen = render(<DevImageModelPicker purpose="vision" tone="paper" />);
+    fireEvent.press(screen.getByTestId('dev-image-model-vision'));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Compare image models')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('dev-image-model-vision').props.style).backgroundColor).toBe('transparent');
+    dismiss.mockRestore();
   });
 
   it('returns to Auto and never exposes or sends a saved selection in production', () => {

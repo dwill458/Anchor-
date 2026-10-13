@@ -85,7 +85,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
   const renderedNotes = [...notes].filter(note => !note.isArchived).sort((a, b) => a.presentation.layerOrder - b.presentation.layerOrder).map(note =>
     onNoteSelect && onNotePresentationChange ? <VisionBoardNoteElement key={note.id} note={note} arriving={arrivingNoteId === note.id} sceneWidth={scene.width} sceneHeight={scene.height}
       cameraScale={shared.cameraScale} onDragActive={onNoteDragActive} reduceMotion={reduceMotion} selected={selectedNoteId === note.id} onSelect={onNoteSelect} onPresentationChange={onNotePresentationChange} /> :
-      <VisionNoteRenderer key={note.id} styleId={note.presentation.styleId} text={note.content.text} width={scene.width} height={scene.height}
+      <VisionNoteRenderer key={note.id} styleId={note.presentation.styleId} fontId={note.presentation.fontId} text={note.content.text} width={scene.width} height={scene.height}
       presentation={{ ...note.presentation, layerOrder: visionNoteZIndex(note.presentation.layerOrder) }} scrollText />);
   return (
     <View style={{ width: scene.width, height: scene.height }}>

@@ -3,6 +3,7 @@ import {
   VISION_NOTE_STYLE_IDS,
   CreateVisionNoteSchema,
   UpdateVisionNoteSchema,
+  VISION_NOTE_FONT_IDS,
 } from '../vision';
 
 const presentation = {
@@ -17,6 +18,14 @@ describe('Vision note contract', () => {
     expect(VISION_NOTE_STYLE_IDS).toContain('editorial_classic_cream');
     expect(VISION_NOTE_STYLE_IDS).toContain('editorial_midnight_editorial');
     expect(VISION_NOTE_MAX_ACTIVE).toBe(24);
+  });
+
+  it('accepts the three typography choices and keeps font optional for older notes', () => {
+    expect(VISION_NOTE_FONT_IDS).toEqual(['handwritten', 'classic', 'modern']);
+    for (const fontId of VISION_NOTE_FONT_IDS) {
+      expect(CreateVisionNoteSchema.parse({ clientRequestId: '5df38ac6-8fd2-4fa7-b0c4-7ac440d2bf73', content: { text: 'A note' }, presentation: { ...presentation, fontId } }).presentation.fontId).toBe(fontId);
+    }
+    expect(CreateVisionNoteSchema.parse({ clientRequestId: '5df38ac6-8fd2-4fa7-b0c4-7ac440d2bf73', content: { text: 'A note' }, presentation }).presentation.fontId).toBeUndefined();
   });
 
   it('accepts 200 Unicode code points without splitting astral characters', () => {

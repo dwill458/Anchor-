@@ -947,6 +947,7 @@ model VisionNote {
   clientRequestId String   @map("client_request_id") @db.Uuid
   text            String   @db.VarChar(200)
   styleId         String   @map("style_id") @db.VarChar(64)
+  fontId          String?  @map("font_id") @db.VarChar(24)
   x               Float
   y               Float
   width           Float

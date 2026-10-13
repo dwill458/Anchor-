@@ -11,6 +11,7 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { safeHaptics } from '@/utils/haptics';
 import { ImpactFeedbackStyle } from 'expo-haptics';
+import { useDevImageModelStore } from '@/stores/devImageModelStore';
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
 let mockExamples: Array<{ image: { uri: string }; caption: string; moment: string }> = [];
 jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples'), visionExamplesFor: () => mockExamples }));
@@ -19,9 +20,10 @@ let mockJob: any = null;
 let mockReduced = false;
 let mockError: string | null = null, mockErrorCode: string | null = null;
 const mockStart = jest.fn(async () => true), mockRetry = jest.fn(async () => true), mockRefresh = jest.fn(async () => undefined);
+let mockCeremonyRenders = 0;
 const mockPicker = jest.fn(), mockSinglePick = jest.fn(), mockSourceUpload = jest.fn();
 jest.mock('@/hooks/v2/vision', () => ({
-  useV2VisionSceneGeneration: () => ({ job: mockJob, error: mockError, errorCode: mockErrorCode, lastErrorCode: () => mockErrorCode, start: mockStart, retry: mockRetry, refresh: mockRefresh }),
+  useV2VisionSceneGeneration: () => { mockCeremonyRenders += 1; return { job: mockJob, error: mockError, errorCode: mockErrorCode, lastErrorCode: () => mockErrorCode, start: mockStart, retry: mockRetry, refresh: mockRefresh }; },
   pickVisionPhoto: (...args: unknown[]) => mockSinglePick(...args),
   uploadVisionPhoto: (...args: unknown[]) => mockSourceUpload(...args),
   useVisionAppearanceReference: () => ({ profilePhoto: null, enabledByPreference: false, reference: null, loading: false, saving: false, upload: jest.fn(), remove: jest.fn(), setProfilePreference: jest.fn() }),
@@ -65,7 +67,8 @@ async function seal(view: ReturnType<typeof setup>) {
 
 describe('Vision ceremony', () => {
   beforeEach(() => {
-    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = null; mockReduced = false; mockError = null; mockErrorCode = null; mockExamples = [];
+    jest.useFakeTimers(); jest.clearAllMocks(); mockCeremonyRenders = 0; mockJob = null; mockReduced = false; mockError = null; mockErrorCode = null; mockExamples = [];
+    useDevImageModelStore.setState({ anchor: null, vision: null });
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
     (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');
   });
@@ -82,6 +85,27 @@ describe('Vision ceremony', () => {
     fireEvent.changeText(view.getByTestId('vision-prompt-input'), 'My new description');
     fireEvent.press(view.getByLabelText('Go back')); fireEvent.press(view.getByLabelText(copy.words));
     expect(view.getByTestId('vision-prompt-input').props.value).toBe('My new description');
+  });
+  it('keeps rapid long typing intact for generation without rerendering ceremony state per keystroke', async () => {
+    const view = setup(); fireEvent.press(view.getByLabelText(copy.words));
+    const ceremonyRenderCount = mockCeremonyRenders;
+    const longDraft = 'A sunny studio with open windows, plants, a large worktable and the calm feeling of finishing a meaningful project. '.repeat(8);
+    for (let end = 40; end <= longDraft.length; end += 40) {
+      fireEvent.changeText(view.getByTestId('vision-prompt-input'), longDraft.slice(0, end));
+    }
+    fireEvent.changeText(view.getByTestId('vision-prompt-input'), longDraft);
+    expect(mockCeremonyRenders).toBe(ceremonyRenderCount);
+    expect(view.getByTestId('vision-prompt-input').props.value).toBe(longDraft);
+    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+    expect(mockStart).toHaveBeenCalledWith(longDraft.trim(), null);
+  });
+  it('opens and applies the developer model selector from the active describe screen', () => {
+    const view = setup(); fireEvent.press(view.getByLabelText(copy.words));
+    fireEvent(view.getByTestId('vision-prompt-input'), 'focus');
+    fireEvent.press(view.getByTestId('dev-image-model-vision'));
+    fireEvent.press(view.getByLabelText('OpenAI Flare'));
+    expect(useDevImageModelStore.getState().vision).toBe('gpt-image-2.5-flare');
+    expect(view.getByTestId('dev-image-model-vision').props.accessibilityLabel).toBe('Dev model: OpenAI Flare');
   });
   it('a PARTIAL job develops only its real image and never reveals a missing slot', async () => {
     mockJob = job('PARTIAL', candidates.slice(0, 1));

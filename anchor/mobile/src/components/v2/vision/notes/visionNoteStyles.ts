@@ -1,8 +1,18 @@
-import type { VisionNoteStyleId } from '@/adapters/v2/vision';
+import type { VisionNoteFontId, VisionNoteStyleId } from '@/adapters/v2/vision';
 import type { NoteAssetKey } from '@/assets/vision/notes/noteAssets';
 
 export type VisionNoteFamily = 'sticky' | 'paper' | 'editorial';
 export type VisionNoteAssetKey = NoteAssetKey;
+
+export const VISION_NOTE_FONTS: ReadonlyArray<{ id: VisionNoteFontId; label: string; fontFamily: string; sizeCap: number }> = [
+  { id: 'handwritten', label: 'Handwritten', fontFamily: 'Allison-Regular', sizeCap: Number.POSITIVE_INFINITY },
+  { id: 'classic', label: 'Classic', fontFamily: 'EBGaramond-Regular', sizeCap: 22 },
+  { id: 'modern', label: 'Modern', fontFamily: 'Inter-Regular', sizeCap: 17 },
+];
+
+export function getVisionNoteFont(fontId: VisionNoteFontId) {
+  return VISION_NOTE_FONTS.find(font => font.id === fontId)!;
+}
 
 export interface VisionNotePreset {
   id: VisionNoteStyleId;

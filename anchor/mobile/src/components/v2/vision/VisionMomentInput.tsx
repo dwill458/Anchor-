@@ -118,13 +118,13 @@ export function VisionMomentInput({
   textInputTestID,
 }: VisionMomentInputProps) {
   const insets = useSafeAreaInsets();
-  const styles = ceremony ? inkStyles : paperStyles;
+  const styles = paperStyles;
   const [internalDescription, setInternalDescription] = useState(initialDescription);
   const description = propDescription !== undefined ? propDescription : internalDescription;
   const [localNotice, setLocalNotice] = useState<string | null>(null);
   const setDescription = (text: string) => {
-    if (propOnChangeDescription) propOnChangeDescription(text);
-    else setInternalDescription(text);
+    if (propDescription === undefined) setInternalDescription(text);
+    propOnChangeDescription?.(text);
     if (localNotice) setLocalNotice(null);
   };
 
@@ -159,15 +159,15 @@ export function VisionMomentInput({
   }, [inputPath, pathProgress, reduceMotion]);
   const optionWidth = Math.max(0, (toggleWidth - 6 - StyleSheet.hairlineWidth * 2) / 2);
   const pathPillStyle = useAnimatedStyle(() => ({ width: optionWidth, transform: [{ translateX: pathProgress.value * optionWidth }] }));
-  const photoLabelStyle = useAnimatedStyle(() => ({ color: interpolateColor(pathProgress.value, [0, 1], ceremony ? ['#F4EDE0', '#ADAABC'] : [PATH_LABEL_ON, PATH_LABEL_OFF]) }));
-  const wordsLabelStyle = useAnimatedStyle(() => ({ color: interpolateColor(pathProgress.value, [0, 1], ceremony ? ['#ADAABC', '#F4EDE0'] : [PATH_LABEL_OFF, PATH_LABEL_ON]) }));
+  const photoLabelStyle = useAnimatedStyle(() => ({ color: interpolateColor(pathProgress.value, [0, 1], [PATH_LABEL_ON, PATH_LABEL_OFF]) }));
+  const wordsLabelStyle = useAnimatedStyle(() => ({ color: interpolateColor(pathProgress.value, [0, 1], [PATH_LABEL_OFF, PATH_LABEL_ON]) }));
 
   // The description frame warms from ink to gold as it takes focus.
   const focus = useSharedValue(0);
   useEffect(() => {
     focus.value = withTiming(inputFocused ? 1 : 0, { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.standard });
   }, [focus, inputFocused]);
-  const inputFrameStyle = useAnimatedStyle(() => ({ borderColor: interpolateColor(focus.value, [0, 1], ceremony ? ['#F4EDE048', '#F4EDE0'] : [FIELD_REST, VISION_GOLD]) }));
+  const inputFrameStyle = useAnimatedStyle(() => ({ borderColor: interpolateColor(focus.value, [0, 1], [FIELD_REST, VISION_GOLD]) }));
 
   const minChars = isCreate ? 12 : 6;
   const maxChars = isCreate ? 2000 : 400;
@@ -287,7 +287,7 @@ export function VisionMomentInput({
         <Pressable key={key} onPress={() => handleChipPress(key)} accessibilityRole="button" accessibilityLabel={label}
           accessibilityState={{ selected: activeCue === key }}
           style={({ pressed }) => [styles.chip, inputFocused && styles.chipAccessory, activeCue === key && styles.chipActive, pressed && styles.chipPressed]}>
-          <Icon size={14} color={ceremony ? '#F4EDE0' : VISION_GOLD} strokeWidth={1.7} />
+          <Icon size={14} color={VISION_GOLD} strokeWidth={1.7} />
           <Text style={styles.chipText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>{label}</Text>
         </Pressable>
       ))}
@@ -300,13 +300,7 @@ export function VisionMomentInput({
     if (photoPath && !startPhoto) photoAttention.pulse(); else inputAttention.pulse();
   };
 
-  const submit = (focusedState: boolean) => ceremony ? (
-    <Pressable testID={isCreate ? (focusedState ? 'vision-generate-focused' : 'vision-generate') : (focusedState ? 'vision-scene-generate-focused' : 'vision-scene-generate')}
-      accessibilityRole="button" accessibilityLabel={ctaA11y} accessibilityState={{ disabled: !isValid || loading }}
-      disabled={!isValid || loading} onPress={handleSubmit} style={[{ backgroundColor: '#F4EDE0', borderRadius: 28, height: 56, alignItems: 'center', justifyContent: 'center' }, (!isValid || loading) && styles.disabled]}>
-      <Text style={{ fontFamily: 'Inter-SemiBold', fontSize: 16, color: '#14162B' }}>{loading ? 'Starting…' : ctaLabel}</Text>
-    </Pressable>
-  ) : (
+  const submit = (focusedState: boolean) => (
     <VisionInkPill
       testID={isCreate ? (focusedState ? 'vision-generate-focused' : 'vision-generate') : (focusedState ? 'vision-scene-generate-focused' : 'vision-scene-generate')}
       label={loading ? 'Starting…' : ctaLabel}
@@ -336,22 +330,22 @@ export function VisionMomentInput({
 
   return (
     <View testID={testID} style={styles.stage}>
-      <StatusBar barStyle={ceremony ? "light-content" : "dark-content"} backgroundColor={ceremony ? "#14162B" : colors.canvas} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
       <ChartKeyboardFrame
         contentContainerStyle={[styles.content, { paddingTop: insets.top + (ceremony ? 56 : spacing[2]) }]}
         footer={footer}
         footerStyle={styles.footerFrame}
         restingBottom={spacing[3]}
       >
-        <VisionBackButton onPress={onBack} style={[styles.back, ceremony && { top: insets.top + 10, left: 18, borderColor: '#F4EDE029' }]} color={ceremony ? '#F4EDE0' : VISION_GOLD} />
+        <VisionBackButton onPress={onBack} style={[styles.back, ceremony && { position: 'absolute', top: insets.top + 10, left: 18 }, { backgroundColor: 'transparent', borderColor: 'transparent' }]} color={colors.text.primary} />
         <View style={styles.header}>
           {exampleStart ? <View testID="vision-example-thumb" style={styles.exampleThumb}><Image testID="vision-example-thumb-image" source={fromExample!.image} resizeMode="cover" style={styles.exampleThumbImage} accessible={false} /></View> : null}
-          {ceremony ? exampleStart ? null : <Text style={styles.footnote}>{kicker}</Text> : <VisionKicker>{kicker}</VisionKicker>}
+          {exampleStart ? null : <VisionKicker>{kicker}</VisionKicker>}
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           <Animated.Text key={subtitle} entering={content.entering} exiting={content.exiting} style={styles.subtitle}>{subtitle}</Animated.Text>
         </View>
 
-        {__DEV__ ? <DevImageModelPicker purpose="vision" disabled={loading} /> : null}
+        {__DEV__ ? <DevImageModelPicker purpose="vision" disabled={loading} tone="paper" /> : null}
         {startPhotoEnabled ? (
           <View style={styles.pathToggle} accessibilityRole="tablist" onLayout={event => setToggleWidth(event.nativeEvent.layout.width)}>
             <Animated.View pointerEvents="none" style={[styles.pathPill, pathPillStyle]} />
@@ -381,7 +375,7 @@ export function VisionMomentInput({
         <Animated.View key={photoPath ? 'photo-body' : 'words-body'} entering={content.entering} exiting={content.exiting} style={styles.region}>
           {photoPath ? (
             <View testID="vision-start-photo" style={[styles.photoZone, startPhoto ? styles.photoZoneSet : styles.photoZoneEmpty]}>
-              <AttentionWash level={photoAttention.level} color={ceremony ? '#F4EDE0' : VISION_GOLD} />
+              <AttentionWash level={photoAttention.level} color={VISION_GOLD} />
               {startPhoto ? (
                 <>
                   <Animated.Image entering={reduceMotion ? content.entering : VISION_PHOTO_ARRIVE} source={{ uri: startPhoto.uri }} style={styles.photoImage} resizeMode="cover" resizeMethod="resize" accessibilityLabel="Your photo of the world as it is now" />
@@ -400,7 +394,7 @@ export function VisionMomentInput({
                 <Animated.View key="photo-empty" exiting={content.exiting} style={styles.photoEmptyWrap}>
                   <Pressable testID="vision-start-photo-pick" accessibilityRole="button" accessibilityLabel="Take or choose a photo of the world as it is now" onPress={handlePhotoOptions}
                     style={({ pressed }) => [styles.photoEmpty, pressed && styles.cardPressed]}>
-                    <Camera size={30} color={ceremony ? '#F4EDE0' : VISION_GOLD} strokeWidth={1.4} />
+                    <Camera size={30} color={VISION_GOLD} strokeWidth={1.4} />
                     <Text style={styles.photoEmptyTitle}>Take or choose a photo</Text>
                     <Text style={styles.photoEmptySub}>Show the world as it is now</Text>
                   </Pressable>
@@ -410,7 +404,7 @@ export function VisionMomentInput({
           ) : null}
 
           <Animated.View style={[styles.inputFrame, inputFrameStyle]}>
-            <AttentionWash level={inputAttention.level} color={ceremony ? '#F4EDE0' : VISION_GOLD} radius={radii.lg} />
+            <AttentionWash level={inputAttention.level} color={VISION_GOLD} radius={radii.lg} />
             <TextInput
               ref={inputRef}
               testID={textInputTestID ?? (isCreate ? 'vision-prompt-input' : 'vision-scene-input')}
@@ -421,7 +415,7 @@ export function VisionMomentInput({
               value={description}
               onChangeText={setDescription}
               placeholder={placeholderText}
-              placeholderTextColor={ceremony ? '#F4EDE080' : 'rgba(23,23,23,0.42)'}
+              placeholderTextColor="rgba(23,23,23,0.42)"
               onFocus={() => setInputFocused(true)}
               onBlur={() => setInputFocused(false)}
               style={styles.textInput}
@@ -478,26 +472,26 @@ export function VisionMomentInput({
                 accessibilityLabel="Make it look like you reference photo"
                 style={({ pressed }) => [styles.referenceCard, pressed && styles.cardPressed]}
               >
-                <UserIcon size={26} color={ceremony ? '#F4EDE0' : colors.text.primary} strokeWidth={1.5} />
+                <UserIcon size={26} color={colors.text.primary} strokeWidth={1.5} />
                 <View style={styles.referenceCopy}>
                   <Text style={styles.referenceTitle} numberOfLines={ceremony ? 1 : undefined}>Make it look like you</Text>
                   <Text style={styles.referenceSubtitle}>Optional · Add photos of yourself for more personal images.</Text>
                 </View>
                 {pickingReference || appearance.saving ? (
-                  <ActivityIndicator size="small" color={ceremony ? '#F4EDE0' : VISION_GOLD} style={{ marginHorizontal: 12 }} />
+                  <ActivityIndicator size="small" color={VISION_GOLD} style={{ marginHorizontal: 12 }} />
                 ) : activeReferenceUrl ? (
                   <Image source={{ uri: activeReferenceUrl }} style={styles.referenceThumb} accessibilityLabel="Your reference photo" />
                 ) : (
                   <View style={styles.silhouettes} accessible={false}>
                     {[0, 1, 2].map(index => (
                       <View key={index} style={[styles.silhouette, { marginLeft: index === 0 ? 0 : -14 }]}>
-                        <UserIcon size={18} color={ceremony ? '#ADAABC' : colors.text.disabled} strokeWidth={1.5} />
+                        <UserIcon size={18} color={colors.text.disabled} strokeWidth={1.5} />
                       </View>
                     ))}
-                    <View style={styles.plusBadge}><Plus size={14} color={ceremony ? '#F4EDE0' : colors.text.primary} /></View>
+                    <View style={styles.plusBadge}><Plus size={14} color={colors.text.primary} /></View>
                   </View>
                 )}
-                <ChevronRight size={18} color={ceremony ? '#ADAABC' : colors.text.secondary} />
+                <ChevronRight size={18} color={colors.text.secondary} />
               </Pressable>
             </Animated.View>
           ) : null}
@@ -509,7 +503,7 @@ export function VisionMomentInput({
       </ChartKeyboardFrame>
 
       <VisionChoiceSheet
-        neutral={ceremony}
+        neutral={false}
         visible={sheet === 'photo'}
         onClose={() => setSheet(null)}
         title="Your photo"
@@ -519,7 +513,7 @@ export function VisionMomentInput({
         testID="vision-photo-source-sheet"
       />
       <VisionChoiceSheet
-        neutral={ceremony}
+        neutral={false}
         visible={sheet === 'reference'}
         onClose={() => setSheet(null)}
         title="Reference photo"
@@ -613,20 +607,9 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   disabled: { opacity: 0.45 },
 });
 
-const paperStyles = { ...makeStyles(paperColors), exampleThumb: {}, exampleThumbImage: {}, exampleNote: {} };
-const inkColors = { ...paperColors, canvas: '#14162B', surface: '#1C1F38', grouped: '#262A48', paper: '#F4EDE0',
-  semantic: { ...paperColors.semantic, error: '#F4EDE0' },
-  text: { ...paperColors.text, primary: '#F4EDE0', secondary: '#ADAABC', tertiary: '#ADAABC' },
-  ink: { ...paperColors.ink, deep: '#14162B' }, border: { ...paperColors.border, default: '#F4EDE029', strong: '#F4EDE048' } };
-const inkStyles = { ...makeStyles(inkColors),
+const paperStyles = { ...makeStyles(paperColors),
   exampleThumb: { width: 120, height: 150, padding: 6, paddingBottom: 22, borderRadius: 3, backgroundColor: '#F7F1E6', transform: [{ rotate: '-2deg' }],
-    shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 10 }, elevation: 6 },
-  exampleThumbImage: { width: '100%' as const, height: '100%' as const, backgroundColor: '#121427' },
-  exampleNote: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16, color: '#ADAABC' },
-  photoZoneEmpty: { borderWidth: 1.5, borderStyle: 'dashed' as const, borderColor: '#F4EDE048' },
-  back: { position: 'absolute' as const, top: 10, left: 0 },
-  chipActive: { borderColor: '#F4EDE0', backgroundColor: '#262A48' },
-  cue: { paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: '#F4EDE0', gap: 2 },
-  divider: { height: 1, backgroundColor: '#F4EDE029' },
-  referenceTitle: { fontFamily: 'Inter-SemiBold', fontSize: 15, lineHeight: 20, color: '#F4EDE0' },
+    shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  exampleThumbImage: { width: '100%' as const, height: '100%' as const, backgroundColor: colors.grouped },
+  exampleNote: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16, color: colors.text.secondary },
 };

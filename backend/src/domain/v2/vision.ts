@@ -42,6 +42,8 @@ export const VISION_NOTE_STYLE_IDS = [
   'editorial_vintage_letter', 'editorial_golden_hour', 'editorial_misty_mountains', 'editorial_rose_editorial', 'editorial_architectural', 'editorial_midnight_editorial',
 ] as const;
 export type VisionNoteStyleId = (typeof VISION_NOTE_STYLE_IDS)[number];
+export const VISION_NOTE_FONT_IDS = ['handwritten', 'classic', 'modern'] as const;
+export type VisionNoteFontId = (typeof VISION_NOTE_FONT_IDS)[number];
 export const VISION_NOTE_MAX_CHARS = 200;
 export const VISION_NOTE_MAX_ACTIVE = 24;
 const VISION_NOTE_MIN_BOARD_ASPECT = 0.45;
@@ -49,6 +51,8 @@ const VISION_NOTE_MAX_BOARD_ASPECT = 2.65;
 
 export interface VisionNotePresentation {
   styleId: VisionNoteStyleId;
+  /** Optional so existing notes keep the font defined by their material preset. */
+  fontId?: VisionNoteFontId;
   /** Normalized center coordinates and dimensions relative to the board. */
   x: number;
   y: number;
@@ -78,6 +82,7 @@ const VisionNoteTextSchema = z.string().min(1).superRefine((text, ctx) => {
 
 export const VisionNotePresentationSchema = z.object({
   styleId: z.enum(VISION_NOTE_STYLE_IDS),
+  fontId: z.enum(VISION_NOTE_FONT_IDS).optional(),
   x: z.number().finite().min(0).max(1),
   y: z.number().finite().min(0).max(1),
   width: z.number().finite().min(0.12).max(0.65),

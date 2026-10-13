@@ -1,14 +1,15 @@
 import React, { memo } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Svg, { Line, Rect } from 'react-native-svg';
-import type { VisionNotePresentation, VisionNoteStyleId } from '@/adapters/v2/vision';
+import type { VisionNoteFontId, VisionNotePresentation, VisionNoteStyleId } from '@/adapters/v2/vision';
 import { radii, spacing } from '@/theme/v2';
 import { noteAssets } from '@/assets/vision/notes/noteAssets';
-import { getVisionNotePreset, resolveVisionNoteTextStyle, type VisionNoteAssetKey } from './visionNoteStyles';
+import { getVisionNoteFont, getVisionNotePreset, resolveVisionNoteTextStyle, type VisionNoteAssetKey } from './visionNoteStyles';
 import { resolveNoteAssetFrame } from './noteAssetGeometry';
 
 export type VisionNoteRendererProps = {
   styleId: VisionNoteStyleId;
+  fontId?: VisionNoteFontId;
   text: string;
   width: number;
   height: number;
@@ -28,13 +29,14 @@ export type VisionNoteRendererProps = {
 
 /** Native note surface and live text, suitable for preview or board composition. */
 export const VisionNoteRenderer = memo(function VisionNoteRenderer({
-  styleId, text, width, height, presentation, colorOverride, surfaceColorOverride, surfaceAssetOverride,
+  styleId, text, width, height, presentation, fontId = presentation?.fontId, colorOverride, surfaceColorOverride, surfaceAssetOverride,
   rotationOverride, scaleOverride, shadowOverride, typographyOverride, testID = 'vision-note-renderer', scrollText = true, compact = false,
 }: VisionNoteRendererProps) {
   const preset = getVisionNotePreset(styleId);
   const noteWidth = presentation ? presentation.width * width : width;
   const noteHeight = presentation ? presentation.height * height : height;
-  const resolvedPreset = { ...preset, ...typographyOverride };
+  const selectedFont = fontId && preset.family !== 'editorial' ? getVisionNoteFont(fontId) : null;
+  const resolvedPreset = { ...preset, ...(selectedFont ? { fontFamily: selectedFont.fontFamily, fontSize: Math.min(preset.fontSize, selectedFont.sizeCap) } : {}), ...typographyOverride };
   const bottomInset = compact ? Math.min(0.12, preset.textInsetBottom ?? 0) : (preset.textInsetBottom ?? 0);
   const textHeight = noteHeight * (1 - bottomInset);
   const textStyle = resolveVisionNoteTextStyle(text, resolvedPreset, { width: noteWidth, height: textHeight });
@@ -73,7 +75,7 @@ export const VisionNoteRenderer = memo(function VisionNoteRenderer({
       <ScrollView style={[styles.textViewport, bottomInset ? { marginBottom: noteHeight * bottomInset } : null]} contentContainerStyle={styles.textContent} nestedScrollEnabled
         scrollEnabled={scrollText} showsVerticalScrollIndicator={false} accessibilityElementsHidden>
         <Text allowFontScaling maxFontSizeMultiplier={2} textBreakStrategy="simple" selectable={false}
-          style={{ fontFamily: typographyOverride?.fontFamily ?? preset.fontFamily, fontSize: typographyOverride?.fontSize ?? textStyle.fontSize, lineHeight: typographyOverride?.lineHeight ?? textStyle.lineHeight,
+          style={{ fontFamily: typographyOverride?.fontFamily ?? resolvedPreset.fontFamily, fontSize: typographyOverride?.fontSize ?? textStyle.fontSize, lineHeight: typographyOverride?.lineHeight ?? textStyle.lineHeight,
             color: colorOverride ?? preset.inkColor, textAlign: preset.family === 'editorial' ? (preset.textAlign ?? 'left') : 'center' }}>
           {text}
         </Text>

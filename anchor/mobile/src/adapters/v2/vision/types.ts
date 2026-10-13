@@ -10,12 +10,16 @@ export type VisionNoteStyleId =
   | 'editorial_classic_cream' | 'editorial_powder_blue' | 'editorial_minimal_quote' | 'editorial_botanical_shadow' | 'editorial_coastal_illustration' | 'editorial_atmospheric_landscape'
   | 'editorial_vintage_letter' | 'editorial_golden_hour' | 'editorial_misty_mountains' | 'editorial_rose_editorial' | 'editorial_architectural' | 'editorial_midnight_editorial';
 
+export type VisionNoteFontId = 'handwritten' | 'classic' | 'modern';
+
 export const VISION_NOTE_MAX_CHARS = 200;
 export const VISION_NOTE_MAX_ACTIVE = 24;
 
 /** Board-relative geometry uses normalized center coordinates and dimensions. */
 export interface VisionNotePresentation {
   styleId: VisionNoteStyleId;
+  /** Optional for compatibility; older notes use the font defined by their material. */
+  fontId?: VisionNoteFontId;
   x: number;
   y: number;
   width: number;

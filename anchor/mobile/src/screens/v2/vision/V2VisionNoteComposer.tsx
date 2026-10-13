@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { ArrowLeft, Check } from 'lucide-react-native';
-import type { VisionNoteStyleId } from '@/adapters/v2/vision';
+import type { VisionNoteFontId, VisionNoteStyleId } from '@/adapters/v2/vision';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useV2Vision } from '@/hooks/v2/vision';
 import type { VisionNotePresentation } from '@/adapters/v2/vision';
@@ -13,7 +13,7 @@ import { VisionNoteRenderer } from '@/components/v2/vision/notes/VisionNoteRende
 import { VISION_SERIF } from '@/components/v2/vision/VisionPaperChrome';
 import {
   VISION_NOTE_FAMILIES, VISION_NOTE_MAX_CHARS,
-  VISION_NOTE_PRESETS, VISION_NOTE_STYLE_TRANSITION_MS, type VisionNoteFamily,
+  VISION_NOTE_PRESETS, VISION_NOTE_STYLE_TRANSITION_MS, VISION_NOTE_FONTS, type VisionNoteFamily,
 } from '@/components/v2/vision/notes/visionNoteStyles';
 import { ApiClientError } from '@/services/ApiClient';
 
@@ -67,6 +67,7 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
   const [draft, setDraft] = useState(() => editingNote?.content.text ?? '');
   const [family, setFamily] = useState<VisionNoteFamily>('sticky');
   const [styleId, setStyleId] = useState<VisionNoteStyleId>(() => editingNote?.presentation.styleId ?? 'sticky_blush_pink');
+  const [fontId, setFontId] = useState<VisionNoteFontId>(() => editingNote?.presentation.fontId ?? 'handwritten');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const hydratedNoteId = useRef<string | null>(null);
@@ -86,6 +87,7 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
     hydratedNoteId.current = editingNote.id;
     setDraft(editingNote.content.text);
     setStyleId(editingNote.presentation.styleId);
+    setFontId(editingNote.presentation.fontId ?? 'handwritten');
     setFamily(VISION_NOTE_PRESETS.find(preset => preset.id === editingNote.presentation.styleId)?.family ?? 'sticky');
   }, [editingNote, route.params.noteId]);
 
@@ -126,11 +128,12 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
     setSaving(true);
     setSaveError(null);
     const boardAspectRatio = visionBoardAspectForCount(model.tiles.length);
-    const presentation: VisionNotePresentation = editingNote
+    const materialPresentation: VisionNotePresentation = editingNote
       ? { ...editingNote.presentation, styleId }
       : clampVisionNotePresentationForAspect({
         ...nextVisionNotePresentation(styleId, model.vision?.notes ?? [], defaultVisionNoteOccupancy(model.tiles.length), boardAspectRatio),
       }, boardAspectRatio);
+    const presentation: VisionNotePresentation = family === 'editorial' ? materialPresentation : { ...materialPresentation, fontId };
     try {
       const result = route.params.noteId
         ? await model.updateNote(route.params.noteId, { content: { text: draft }, presentation })
@@ -173,10 +176,10 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
                 testID="vision-note-preview" accessibilityLabel={`Note preview. ${text}`} style={[styles.previewStage, { width: previewWidth, height: previewHeight }]}>
               {previousStyleId ? <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
                 style={[styles.materialLayer, previousMaterial]}>
-                <VisionNoteRenderer styleId={previousStyleId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-previous-material" />
+                <VisionNoteRenderer styleId={previousStyleId} fontId={family === 'editorial' ? undefined : fontId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-previous-material" />
               </Animated.View> : null}
               <Animated.View style={[styles.materialLayer, currentMaterial]}>
-                <VisionNoteRenderer styleId={styleId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-current-renderer" />
+                <VisionNoteRenderer styleId={styleId} fontId={family === 'editorial' ? undefined : fontId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-current-renderer" />
               </Animated.View>
             </Animated.View>
             <Text style={styles.previewCaption}>{draft ? 'Live preview' : 'Preview'}</Text>
@@ -205,6 +208,19 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
               </Pressable>;
             })}
           </View>
+          {family !== 'editorial' ? <View style={styles.fontSection}>
+            <Text style={styles.fontLabel}>Choose a font</Text>
+            <View accessibilityRole="tablist" style={styles.fontOptions}>
+              {VISION_NOTE_FONTS.map(font => {
+                const selected = fontId === font.id;
+                return <Pressable key={font.id} testID={`vision-note-font-${font.id}`} accessibilityRole="tab"
+                  accessibilityLabel={`${font.label} font`} accessibilityState={{ selected }} onPress={() => setFontId(font.id)}
+                  style={[styles.fontOption, selected && styles.fontOptionSelected]}>
+                  <Text style={[styles.fontOptionText, selected && styles.fontOptionTextSelected]}>{font.label}</Text>
+                </Pressable>;
+              })}
+            </View>
+          </View> : null}
           <View testID="vision-note-style-grid" accessibilityLabel={`${family} styles`} style={styles.grid}>
             {VISION_NOTE_PRESETS.filter(preset => preset.family === family).map(preset => {
               const selected = styleId === preset.id;
@@ -212,7 +228,7 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
                 <Pressable testID={`vision-note-style-${preset.id}`} accessibilityRole="button"
                   accessibilityLabel={`${preset.label} note style`} accessibilityState={{ selected }} onPress={() => selectStyle(preset.id)}
                   style={[styles.swatch, { width: swatchWidth, height: swatchWidth }, selected && styles.swatchSelected]}>
-                  <VisionNoteRenderer styleId={preset.id} text="" width={swatchWidth - 12} height={swatchWidth - 12} testID={`vision-note-swatch-${preset.id}`} scrollText={false} shadowOverride="none" />
+                  <VisionNoteRenderer styleId={preset.id} fontId={family === 'editorial' ? undefined : fontId} text="" width={swatchWidth - 12} height={swatchWidth - 12} testID={`vision-note-swatch-${preset.id}`} scrollText={false} shadowOverride="none" />
                   {selected ? <View style={styles.check}><Check size={13} color={colors.paper} /></View> : null}
                 </Pressable>
                 <Text numberOfLines={2} style={[styles.swatchText, { width: swatchWidth }]}>{preset.label}</Text>
@@ -262,6 +278,13 @@ const styles = StyleSheet.create({
   sectionTitle: { ...typography.headingSM, color: colors.text.primary },
   styleHint: { ...typography.caption, color: colors.text.secondary, marginTop: spacing[1] },
   tabs: { flexDirection: 'row', padding: 3, gap: spacing[1], borderRadius: radii.md, backgroundColor: colors.grouped },
+  fontSection: { marginTop: spacing[3] },
+  fontLabel: { ...typography.caption, color: colors.text.secondary, marginBottom: spacing[1] },
+  fontOptions: { flexDirection: 'row', padding: 3, gap: spacing[1], borderRadius: radii.md, backgroundColor: colors.grouped },
+  fontOption: { minHeight: 36, flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radii.sm },
+  fontOptionSelected: { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
+  fontOptionText: { ...typography.caption, color: colors.text.secondary },
+  fontOptionTextSelected: { color: colors.text.primary },
   tab: { minHeight: 42, flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radii.sm },
   tabSelected: { backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
   tabText: { ...typography.labelMD, color: colors.text.secondary },
