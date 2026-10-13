@@ -33,7 +33,7 @@ function stageNumber(stage: V2ProgressModel['highestEvolutionStage']): number {
 
 /**
  * The dark half of Progress: what this Anchor is, how steady it is, and the
- * permanent structure it has reached. Header controls live in the screen.
+ * current Thread stage it has reached. Header controls live in the screen.
  */
 export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, now, testID = 'v2-progress-hero' }) => {
   const { intention, category, threadStrength, unmeasured, highestEvolutionStage } = model;
@@ -98,7 +98,7 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
 
       <Animated.View style={[styles.stages, stagesReveal]}>
         <View style={styles.stageRow}>
-          <Text style={styles.eyebrow}>PERMANENT STRUCTURE</Text>
+          <Text style={styles.eyebrow}>THREAD STAGE</Text>
           <Text style={styles.stageName}>{highestEvolutionStage}</Text>
         </View>
         <View style={styles.pips}>

@@ -256,7 +256,7 @@ export function deriveThreadEvents(
       id: `evt-stage-${anchor.id}-${stage}`,
       type: 'EVOLUTION_STAGE_REACHED',
       title: `${stage} reached`,
-      copy: `Your Anchor reached its permanent structural stage: ${stage}.`,
+      copy: `Your Anchor reached the ${stage} stage. Stages follow your current Thread Strength.`,
       why: 'Meaningful reinforcement held across time.',
       significance: 'HIGH',
       occurredAt: stageAt ?? '',

@@ -9,7 +9,7 @@ const stageItem = (overrides: Partial<V2ThreadEventItem>): V2ThreadEventItem => 
   id: 'evt-stage-anchor-1-Established',
   type: 'EVOLUTION_STAGE_REACHED',
   title: 'Established reached',
-  copy: 'Your Anchor reached its permanent structural stage: Established.',
+  copy: 'Your Anchor reached the Established stage. Stages follow your current Thread Strength.',
   why: 'Meaningful reinforcement held across time.',
   significance: 'HIGH',
   occurredAt: '',

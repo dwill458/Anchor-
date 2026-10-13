@@ -87,10 +87,10 @@ describe('V2ProgressHero Header Redesign', () => {
     expect(getByText('Soft, but still here.')).toBeTruthy();
   });
 
-  it('renders permanent structure progression with correct current stage', () => {
+  it('renders Thread stage progression with correct current stage', () => {
     const model = toV2ProgressModel(styledAnchor, [], [], { now })!;
     const { getByText, getAllByText, getByTestId } = render(<V2ProgressHero model={model} anchor={styledAnchor} now={now} />);
-    expect(getByText('PERMANENT STRUCTURE')).toBeTruthy();
+    expect(getByText('THREAD STAGE')).toBeTruthy();
     expect(getAllByText('Building').length).toBe(2); // In stage title and pip label
     // Pip 1 (Forming) reached, Pip 2 (Building) current
     expect(getByTestId('v2-progress-hero-pip-1')).toBeTruthy();

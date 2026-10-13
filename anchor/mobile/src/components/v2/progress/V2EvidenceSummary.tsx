@@ -74,7 +74,7 @@ export const V2EvidenceSummary: React.FC<V2EvidenceSummaryProps> = ({
           <View style={styles.card}> Practice: {practiceSummary.totalSessions} + formatDuration(totalDurationSeconds) total dedicated </View>
           <View style={styles.card}> Waypoints: {waypointsReachedCount} "Milestones reached on route" </View>
           <View style={styles.card}> Modes: Focus / Deep Focus / Visualize / Release counts </View>
-          <View style={styles.card}> Evolution: {highestEvolutionStage} "Permanent structural state" </View>
+          <View style={styles.card}> Evolution: {highestEvolutionStage} "Current stage" </View>
         </View>
       */}
     </View>
