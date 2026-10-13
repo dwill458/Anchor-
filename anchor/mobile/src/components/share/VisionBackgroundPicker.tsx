@@ -1,6 +1,5 @@
 import React from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
 import {
   VISION_SHARE_BACKGROUNDS,
@@ -15,26 +14,17 @@ const THUMB_HEIGHT = Math.round(THUMB_WIDTH * SHARE_ASPECT);
 type Props = {
   selected: VisionShareBackgroundId;
   onSelect: (id: VisionShareBackgroundId) => void;
-  reduceMotion?: boolean;
 };
 
 function BackgroundThumbItem({
   option,
   active,
   onPress,
-  reduceMotion,
 }: {
   option: VisionShareBackgroundOption;
   active: boolean;
   onPress: () => void;
-  reduceMotion?: boolean;
 }) {
-  const borderStyle = useAnimatedStyle(() => ({
-    borderColor: active
-      ? detailsPalette.gold
-      : 'transparent',
-  }));
-
   return (
     <Pressable
       testID={`vision-background-option-${option.id}`}
@@ -44,17 +34,17 @@ function BackgroundThumbItem({
       onPress={onPress}
       style={styles.item}
     >
-      <Animated.View style={[styles.thumb, borderStyle]}>
+      <View style={[styles.thumb, active && styles.thumbSelected]}>
         <View style={styles.thumbInner}>
           <Image source={option.thumbSource} style={styles.thumbImage} resizeMode="cover" />
         </View>
-      </Animated.View>
+      </View>
       <Text style={[styles.label, active && styles.labelActive]}>{option.name}</Text>
     </Pressable>
   );
 }
 
-export function VisionBackgroundPicker({ selected, onSelect, reduceMotion }: Props) {
+export function VisionBackgroundPicker({ selected, onSelect }: Props) {
   return (
     <View style={styles.container} testID="vision-background-picker">
       <Text style={styles.sectionTitle}>Choose background</Text>
@@ -70,7 +60,6 @@ export function VisionBackgroundPicker({ selected, onSelect, reduceMotion }: Pro
             option={option}
             active={option.id === selected}
             onPress={() => onSelect(option.id)}
-            reduceMotion={reduceMotion}
           />
         ))}
       </ScrollView>
@@ -103,9 +92,11 @@ const styles = StyleSheet.create({
     height: THUMB_HEIGHT + 6,
     borderRadius: 8,
     borderWidth: 1.5,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  thumbSelected: { borderColor: detailsPalette.gold },
   thumbInner: {
     width: THUMB_WIDTH,
     height: THUMB_HEIGHT,

@@ -163,6 +163,24 @@ describe('Vision Share Background Customization', () => {
     expect(darkView.getByText('A life of clarity and purpose')).toBeTruthy();
   });
 
+  it('uses the selected 1080p background image in the Vision card', () => {
+    const view = render(
+      <VisionExportTemplate data={sampleData} width={360} showMark visionBackgroundId="canvas" />
+    );
+
+    expect(view.getByTestId('vision-share-background').props.source).toEqual(
+      getVisionShareBackground('canvas').source
+    );
+
+    view.rerender(
+      <VisionExportTemplate data={sampleData} width={360} showMark visionBackgroundId="editorial" />
+    );
+
+    expect(view.getByTestId('vision-share-background').props.source).toEqual(
+      getVisionShareBackground('editorial').source
+    );
+  });
+
   it('6. Anchor mark toggle still works and does not affect background selection', () => {
     const view = render(
       <AnchorShareStudio visible onClose={jest.fn()} data={sampleData} initialLayout="vision" />

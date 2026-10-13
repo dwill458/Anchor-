@@ -535,7 +535,9 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     if (!vision?.id) return null;
     try {
       const path = `/api/v2/visions/${encodeURIComponent(vision.id)}/notes/${encodeURIComponent(noteId)}`;
-      const response = restore ? await apiClient.post<VisionReadModel>(`${path}/restore`, {}) : await apiClient.delete<VisionReadModel>(path);
+      const response = restore
+        ? await apiClient.post<VisionReadModel>(`${path}/restore`, {})
+        : await apiClient.delete<VisionReadModel>(path, { timeout: 15_000 });
       const updated = visionApiData<VisionReadModel>(response);
       const writeKey = visionCacheKey(anchorId, accountId);
       visionMutationVersions.set(writeKey, (visionMutationVersions.get(writeKey) ?? 0) + 1);

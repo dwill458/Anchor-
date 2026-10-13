@@ -235,7 +235,6 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
               <VisionBackgroundPicker
                 selected={visionBackgroundId}
                 onSelect={selectVisionBackground}
-                reduceMotion={reduceMotion}
               />
             ) : null}
 

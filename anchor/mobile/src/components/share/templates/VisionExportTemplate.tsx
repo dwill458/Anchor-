@@ -155,6 +155,8 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
   return (
     <ShareCanvas width={width} background={bg.tone === 'dark' ? '#0B0C16' : POSTER_CREAM}>
       <Image
+        key={bg.id}
+        testID="vision-share-background"
         source={bg.source}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"

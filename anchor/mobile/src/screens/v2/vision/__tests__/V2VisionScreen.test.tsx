@@ -140,16 +140,23 @@ describe('V2VisionScreen', () => {
   it('opens Vision sharing from the options menu with saved content and enhanced Anchor art, then returns to the board', async () => {
     useAnchorStore.setState({ anchors: [{ ...mockAnchor, intentionText: 'I build what matters.',
       baseSigilSvg: '<svg viewBox="0 0 20 20"/>', enhancedImageUrl: 'https://example.com/my-enhanced-anchor.png' } as any] });
-    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
+    const refreshedVisionData = { ...mockVisionData, scenes: mockVisionData.scenes.map(scene => ({
+      ...scene, resolvedImageUrl: `${scene.resolvedImageUrl}?fresh=1`,
+    })) };
+    (apiClient.get as jest.Mock).mockImplementation(() => Promise.resolve({
+      data: (apiClient.get as jest.Mock).mock.calls.length >= 3 ? refreshedVisionData : mockVisionData,
+    }));
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     await view.findByTestId('vision-board');
     fireEvent.press(view.getByLabelText('Vision options'));
     fireEvent.press(view.getByLabelText('Share Vision'));
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(mockShareProps.data.visionTiles[0].imageUrl).toContain('?fresh=1'));
     expect(view.queryByLabelText('Share Vision')).toBeNull();
     expect(mockShareProps.initialLayout).toBe('vision');
     expect(mockShareProps.data).toEqual(expect.objectContaining({ intention: 'I build what matters.',
       imageUrl: 'https://example.com/my-enhanced-anchor.png', visionAnnotation: 'Future Studio', visionNotes: [] }));
-    expect(mockShareProps.data.visionTiles.map((tile: any) => tile.imageUrl)).toEqual(mockVisionData.scenes.map(scene => scene.resolvedImageUrl));
+    expect(mockShareProps.data.visionTiles.map((tile: any) => tile.imageUrl)).toEqual(refreshedVisionData.scenes.map(scene => scene.resolvedImageUrl));
     fireEvent.press(view.getByTestId('vision-share-studio-close'));
     expect(view.queryByTestId('vision-share-studio-close')).toBeNull();
     expect(view.getByTestId('vision-board')).toBeTruthy();

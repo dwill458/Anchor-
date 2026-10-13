@@ -126,7 +126,7 @@ describe('useV2Vision', () => {
     await act(async () => { await result.current.updateNote('note-1', { content: { text: 'My future' } }); });
     expect(mockPatch).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/notes/note-1', { content: { text: 'My future' } });
     await act(async () => { await result.current.deleteNote('note-1'); });
-    expect(mockDelete).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/notes/note-1');
+    expect(mockDelete).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/notes/note-1', { timeout: 15_000 });
     await act(async () => { await result.current.restoreNote('note-1'); });
     expect(mockPost).toHaveBeenLastCalledWith('/api/v2/visions/vision-anchor-a/notes/note-1/restore', {});
     expect(created).toMatchObject({ id: initial.id });

@@ -521,7 +521,13 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       onNoteDelete={deleteNote}
       error={actionError ?? model.error}
       onBack={handleBack}
-      onShare={anchor ? () => setShareOpen(true) : undefined}
+      onShare={anchor ? async () => {
+        // Vision reads contain short-lived signed image URLs. A freshly mounted
+        // Share Studio starts new native Image requests, so give it the latest
+        // URLs before composing the export instead of reusing an old board cache.
+        await model.refresh();
+        if (alive.current) setShareOpen(true);
+      } : undefined}
       onVisualize={sourceFrame => {
         // One Visualize: every entry reaches the same setup, where the duration is chosen.
         if (props.onVisualize) { props.onVisualize(model.visualizeHandoff); return; }

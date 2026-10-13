@@ -71,8 +71,8 @@ const focusAmbient = require('../assets/sounds/focus-session-ambient.mp3');
 
 // Finished Focus / Deep Focus mixes: narration and bed are baked into one
 // full-length file per voice and duration. Dominic = male, Lina = female.
-const focusMix10Lina = require('../assets/sounds/focus-mix/Focus_10s_Lina_V5.mp3');
-const focusMix10Dominic = require('../assets/sounds/focus-mix/Focus_10s_Dominic_V5.mp3');
+const focusMix10Lina = require('../assets/sounds/focus-mix/Focus_10s_Lina_V6.mp3');
+const focusMix10Dominic = require('../assets/sounds/focus-mix/Focus_10s_Dominic_V6.mp3');
 const focusMix30Lina = require('../assets/sounds/focus-mix/Focus_30s_Lina_V4.mp3');
 const focusMix30Dominic = require('../assets/sounds/focus-mix/Focus_30s_Dominic_V4.mp3');
 const focusMix60Lina = require('../assets/sounds/focus-mix/Focus_60s_Lina_V4.mp3');

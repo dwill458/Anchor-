@@ -409,8 +409,10 @@ export function V2PracticeScreen({
     model.refetchRecommendation();
   };
 
-  // Resume after paywall purchase / trial activation
-  useEffect(() => {
+  // Resume after paywall purchase / trial activation. On a pushed route, select
+  // the requested setup before the first paint so the Practice hub does not
+  // appear briefly before Visualize.
+  useLayoutEffect(() => {
     if (!resumeMode || !fixedAnchor) return;
     const source = resumeSource ?? 'practice_hub';
     if (resumeDuration && resumeMode !== 'release' && resumeMode !== 'visualize') {

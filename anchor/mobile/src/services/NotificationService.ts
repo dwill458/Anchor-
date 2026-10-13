@@ -263,7 +263,10 @@ class NotificationService {
       if (this.hasGrantedPermissions(status)) {
         return 'granted';
       }
-      return status.status === 'denied' ? 'denied' : 'undetermined';
+      // A denied status can still be requestable (notably on Android before
+      // the user has exhausted the OS prompt). Only route to Settings when the
+      // platform says another permission request is no longer possible.
+      return status.status === 'denied' && !status.canAskAgain ? 'denied' : 'undetermined';
     } catch (error) {
       this.recordError(
         new ServiceError(
