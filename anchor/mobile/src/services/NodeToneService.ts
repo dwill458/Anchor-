@@ -10,16 +10,16 @@ const NODE_TONE_VOLUME = 0.32;
 // Generated with scripts/build-node-tones.cjs from the original tone recipe. Static Metro assets
 // use the same loading path as the working distill cues, with no runtime cache writes required.
 const WAV_TONE_SOURCES: Record<number, number> = {
-  0: require('../assets/sounds/node-tones/0.wav'),
-  2: require('../assets/sounds/node-tones/2.wav'),
-  4: require('../assets/sounds/node-tones/4.wav'),
-  7: require('../assets/sounds/node-tones/7.wav'),
-  9: require('../assets/sounds/node-tones/9.wav'),
-  12: require('../assets/sounds/node-tones/12.wav'),
-  14: require('../assets/sounds/node-tones/14.wav'),
-  16: require('../assets/sounds/node-tones/16.wav'),
-  19: require('../assets/sounds/node-tones/19.wav'),
-  21: require('../assets/sounds/node-tones/21.wav'),
+  0: require('../assets/sounds/node-tones/0_wav.wav'),
+  2: require('../assets/sounds/node-tones/2_wav.wav'),
+  4: require('../assets/sounds/node-tones/4_wav.wav'),
+  7: require('../assets/sounds/node-tones/7_wav.wav'),
+  9: require('../assets/sounds/node-tones/9_wav.wav'),
+  12: require('../assets/sounds/node-tones/12_wav.wav'),
+  14: require('../assets/sounds/node-tones/14_wav.wav'),
+  16: require('../assets/sounds/node-tones/16_wav.wav'),
+  19: require('../assets/sounds/node-tones/19_wav.wav'),
+  21: require('../assets/sounds/node-tones/21_wav.wav'),
 };
 // Samsung/Android can lose the attacks of these short PCM WAVs while reporting successful
 // playback. The compressed decoder path was verified on the creation route with all nine cues.

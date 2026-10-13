@@ -8,7 +8,7 @@ jest.mock('@/stores/settingsStore', () => ({
 jest.mock('../audio/SoundPool', () => ({
   SoundPool: { register: jest.fn(), prewarm: jest.fn(), releaseIdle: jest.fn(), play: jest.fn() },
 }));
-jest.mock('../../assets/sounds/node-tones/0.wav', () => 22050);
+jest.mock('../../assets/sounds/node-tones/0_wav.wav', () => 22050);
 jest.mock('../../assets/sounds/node-tones/0.mp3', () => 48000, { virtual: true });
 
 it('uses the compressed Android tone while preserving pitch keys and volume', async () => {
