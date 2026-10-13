@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reani
 
 import { CircularAnchorRenderer } from '@/components/v2';
 import type { Anchor } from '@/types';
-import type { ArrivalGhost } from '@/stores/v2/homeArrivalStore';
+import { useHomeArrivalStore, type ArrivalGhost } from '@/stores/v2/homeArrivalStore';
 import { colors } from '@/theme/v2';
 import {
   EVOLVED_GHOST_SCALE,
@@ -110,13 +110,14 @@ function UnderlineDraw({ width, height, motion, progress, children }: {
 
 /**
  * One line under the intention: "Evolved from “<the released Anchor's intention>”". It exists only for
- * an Anchor that carries `evolvedFrom`; without one it renders nothing at all. During the evolved
- * arrival it fades in (2200 to 2800ms, ease-out); at any other time it is simply there.
+ * the selected Anchor during its evolved arrival, including the Reduce Motion crossfade.
+ * It fades in (2200 to 2800ms, ease-out) and is removed when the scene finishes or is skipped.
  */
 export function HomeEvolvedFromLine({ anchor, active }: { anchor: Pick<Anchor, 'evolvedFrom'>; active: boolean }) {
   const arrival = useHomeArrivalContext();
+  const kind = useHomeArrivalStore((state) => state.arrival?.kind);
   const intention = anchor.evolvedFrom?.intention?.trim();
-  if (!intention) return null;
+  if (!intention || !active || !arrival?.active || kind !== 'evolved') return null;
   const motion = active ? arrival?.evolved ?? null : null;
   if (!arrival || !motion) return <Text testID="v2-home-evolved-from" style={styles.line} numberOfLines={1}>{evolvedFromLine(intention)}</Text>;
   return <FadingLine text={evolvedFromLine(intention)} motion={motion} progress={arrival.progress} />;

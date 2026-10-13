@@ -271,6 +271,8 @@ describe('Evolved anchor lands on Home: what it adds to the hero', () => {
   it('shows the lineage line with the exact approved wording and typographic quotes', () => {
     const view = render(<Home />);
     expect(evolvedFromLine('Publish my novel')).toBe('Evolved from “Publish my novel”');
+    expect(view.queryByTestId('v2-home-evolved-from')).toBeNull();
+    act(() => { stageEvolved(); });
     expect(view.getByTestId('v2-home-evolved-from').props.children).toBe('Evolved from “Publish my novel”');
   });
 
@@ -289,7 +291,7 @@ describe('Evolved anchor lands on Home: what it adds to the hero', () => {
     expect(view.queryByTestId('v2-home-evolved-from')).toBeNull();
   });
 
-  it('fades the line in with the arrival and leaves it shown once the arrival has ended or been skipped', () => {
+  it('fades the line in with the arrival and removes it after skip', () => {
     const view = render(<Home />);
     let id = 0;
     act(() => { id = stageEvolved(); });
@@ -297,9 +299,15 @@ describe('Evolved anchor lands on Home: what it adds to the hero', () => {
     // While it plays the line is the arrival's own (an animated text); the worklets above carry its timing.
     expect(view.getByTestId('v2-home-evolved-from')).toBeTruthy();
     act(() => { useCelebrationStore.getState().skip(); });
-    // No arrival any more: the line is simply there.
+    expect(view.queryByTestId('v2-home-evolved-from')).toBeNull();
+  });
+
+  it('removes the line when the arrival finishes', () => {
+    const view = render(<Home />);
+    act(() => { const id = stageEvolved(); useHomeArrivalStore.getState().release(id); });
     expect(view.getByTestId('v2-home-evolved-from')).toBeTruthy();
-    expect(opacityOf(view.getByTestId('v2-home-evolved-from')) ?? 1).toBe(1);
+    act(() => { jest.advanceTimersByTime(ARRIVAL_TIMING.evolved + 100); });
+    expect(view.queryByTestId('v2-home-evolved-from')).toBeNull();
   });
 
   it('under Reduce Motion the line is shown, with no ghost and no draw', () => {
