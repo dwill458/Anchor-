@@ -38,6 +38,7 @@ export type VisionBoardSceneProps = {
   onCaptionEdit?: (sceneId: string) => void;
   /** Share/export readiness signal when an image asset has finished decoding. */
   onPhotoAssetReady?: (sceneId: string) => void;
+  onPhotoAssetError?: (sceneId: string) => void;
   onCardPress?: () => void;
   onBackgroundPress?: () => void;
   onDragActive?: (active: boolean) => void;
@@ -75,7 +76,7 @@ export type VisionBoardSceneProps = {
  */
 export const VisionBoardScene = memo(function VisionBoardScene({
   scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion, arrivingSceneId, arrivingNoteId, notes = [], selectedNoteId = null, onNoteSelect, onNotePresentationChange,
-  interactive = false, dragEnabled = false, onPhotoPress, onCaptionEdit, onPhotoAssetReady, onCardPress, onBackgroundPress, onDragActive, onNoteDragActive, onSwap,
+  interactive = false, dragEnabled = false, onPhotoPress, onCaptionEdit, onPhotoAssetReady, onPhotoAssetError, onCardPress, onBackgroundPress, onDragActive, onNoteDragActive, onSwap,
   onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, showAnchorMark = true, showIntentionCard = true, notesOpacity, intentionCardOpacity, markAppearance, detailEdges, edgeDarken, cinematic, onTeachingMotionChange,
 }: VisionBoardSceneProps) {
   const activeCount = roster.filter(entry => !entry.exiting).length;
@@ -118,6 +119,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             onPress={onPhotoPress}
             onCaptionEdit={onCaptionEdit}
             onPhotoAssetReady={onPhotoAssetReady}
+            onPhotoAssetError={onPhotoAssetError}
             onDragActive={onDragActive}
             onSwap={onSwap}
             onOrderCommit={onOrderCommit}

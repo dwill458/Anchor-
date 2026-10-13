@@ -1,5 +1,7 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { Image } from 'react-native';
+import { getVisionShareBackground } from '../visionShareBackgrounds';
 import type { ShareExportData } from '../shareTypes';
 import { VisionExportTemplate, annotationGeometry, headingReserve, wrappedLineCount } from '../templates/VisionExportTemplate';
 import { detailBoardSizeForWidth, selectDetailBoardLayout } from '@/components/v2/vision/board/visionBoardLayouts';
@@ -60,6 +62,37 @@ const data: ShareExportData = {
 
 describe('VisionExportTemplate board composition', () => {
   beforeEach(() => mockSceneProps.mockClear());
+
+  it('never includes the thumbnail fallback in an export', () => {
+    const view = render(<VisionExportTemplate data={data} width={288} showMark onAssetsReady={jest.fn()} />);
+    expect(view.UNSAFE_getAllByType(Image).some(image => image.props.source === getVisionShareBackground('canvas').thumbSource)).toBe(false);
+  });
+
+  it('rejects a failed full-resolution background instead of declaring its thumbnail ready', () => {
+    const onAssetsReady = jest.fn();
+    const onAssetsError = jest.fn();
+    const view = render(<VisionExportTemplate data={{ ...data, visionNotes: [] }} width={288} showMark={false}
+      onAssetsReady={onAssetsReady} onAssetsError={onAssetsError} />);
+    fireEvent(view.getByTestId('vision-share-background'), 'error');
+    act(() => mockSceneProps.mock.calls.at(-1)?.[0].onPhotoAssetReady('scene-1'));
+    expect(onAssetsError).toHaveBeenCalledWith(expect.any(Error));
+    expect(onAssetsReady).not.toHaveBeenCalled();
+  });
+
+  it('rejects a failed photograph instead of exporting the unavailable placeholder', () => {
+    const onAssetsReady = jest.fn();
+    const onAssetsError = jest.fn();
+    const view = render(<VisionExportTemplate data={{ ...data, visionNotes: [] }} width={288} showMark={false}
+      onAssetsReady={onAssetsReady} onAssetsError={onAssetsError} />);
+    fireEvent(view.getByTestId('vision-share-background'), 'load');
+    act(() => {
+      const scene = mockSceneProps.mock.calls.at(-1)?.[0];
+      scene.onPhotoAssetError('scene-1');
+      scene.onPhotoAssetReady('scene-1');
+    });
+    expect(onAssetsError).toHaveBeenCalledWith(expect.any(Error));
+    expect(onAssetsReady).not.toHaveBeenCalled();
+  });
 
   it('reserves heading space for very long unbroken words without truncating them', () => {
     const intention = 'x'.repeat(200);

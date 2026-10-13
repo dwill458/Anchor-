@@ -7,8 +7,6 @@ import { V2OnboardingJourney } from './V2OnboardingJourney';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
-import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { saveOnboardingContext } from '@/services/v2/onboardingContext';
 import { logger } from '@/utils/logger';
 import { colors } from '@/theme/v2';
@@ -17,20 +15,6 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 import { OnboardingAnalytics } from '@/services/v2/onboardingAnalytics';
-
-function hasEntitlementOrCompedAccess(
-  user: NonNullable<ReturnType<typeof useAuthStore.getState>['user']>,
-): boolean {
-  const subscriptionState = useSubscriptionStore.getState();
-  return Boolean(
-    subscriptionState.hasActiveEntitlement ||
-      subscriptionState.remoteCompedAccess ||
-      subscriptionState.legacyMigrationAccess ||
-      user.isComped === true ||
-      user.legacyMigrationAccess === true ||
-      (user.subscriptionStatus && user.subscriptionStatus !== 'free'),
-  );
-}
 
 export function V2FirstRunFlow() {
   const navigation = useNavigation<any>();
@@ -42,16 +26,7 @@ export function V2FirstRunFlow() {
     if (!hydrated) return;
     if (draft.accountId && draft.accountId !== user?.id) { reset(); return; }
     if (user?.id && user.hasCompletedOnboarding) {
-      const isLockedFreeUser =
-        !hasEntitlementOrCompedAccess(user) &&
-        Boolean(user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1);
-      if (isLockedFreeUser) {
-        const anchorStore = useAnchorStore.getState();
-        anchorStore.anchors
-          .filter((a) => !isBackendAnchorId(a.id) && a.userId !== user.id)
-          .forEach((a) => anchorStore.removeAnchor(a.id));
-        useAuthStore.getState().clearPendingFirstAnchorState();
-      }
+      // Entitlement gates creation/finalization; bypassing onboarding never deletes saved drafts.
       OnboardingAnalytics.bypassed('returning_user');
       navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
       return;
@@ -59,18 +34,6 @@ export function V2FirstRunFlow() {
     if (draft.currentStep === 'complete') {
       if (!user && !useAuthStore.getState().isGuest) reset();
       else {
-        if (user) {
-          const isLockedFreeUser =
-            !hasEntitlementOrCompedAccess(user) &&
-            Boolean(user.freeAnchorConsumed || (user.totalAnchorsCreated ?? 0) >= 1);
-          if (isLockedFreeUser) {
-            const anchorStore = useAnchorStore.getState();
-            anchorStore.anchors
-              .filter((a) => !isBackendAnchorId(a.id) && a.userId !== user.id)
-              .forEach((a) => anchorStore.removeAnchor(a.id));
-            useAuthStore.getState().clearPendingFirstAnchorState();
-          }
-        }
         OnboardingAnalytics.bypassed('already_complete');
         navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
       }

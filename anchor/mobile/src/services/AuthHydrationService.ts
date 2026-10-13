@@ -1,4 +1,5 @@
 import { apiClient, fetchCompleteProfile } from "@/services/ApiClient";
+import { localContentFingerprint, localRecoveryCopy } from './anchorReconciliation';
 import {
   loadAnchorSnapshot,
   loadProfileSnapshot,
@@ -775,12 +776,7 @@ function canPreserveAnchorForUser(params: {
       pendingFirstAnchorDraft ?? null,
     );
   }
-  if (
-    !ownerUserId ||
-    !anchor.userId ||
-    anchor.userId === ownerUserId ||
-    anchor.userId === "test-user-123"
-  ) {
+  if (ownerUserId && anchor.userId === ownerUserId) {
     return true;
   }
   return false;
@@ -811,6 +807,7 @@ function mergeAnchorWithNewerLocalState(
   remoteAnchor: Anchor,
   localAnchors: Anchor[],
   pendingFirstAnchorDraft?: PendingFirstAnchorDraftState,
+  priorEvidence = new Map<string, Anchor['localReconciliation']>(),
 ): Anchor {
   const matchesPendingBackendDraft = Boolean(
     pendingFirstAnchorDraft?.backendAnchorId &&
@@ -838,7 +835,28 @@ function mergeAnchorWithNewerLocalState(
   const localHasMissingUpdatedAt = hasMissingUpdatedAt(localMatch);
   const localUpdatedAt = getAnchorTimestampMs(localMatch);
   const remoteUpdatedAt = getAnchorTimestampMs(remoteAnchor);
+  const evidence = localMatch.localReconciliation;
+  // Evidence is captured before this hydration. Fast-list/export reads within one
+  // request cannot turn an unresolved local copy into an acknowledged sync.
+  const previous = priorEvidence.get(localMatch.id);
+  const changedSinceObservation = Boolean(localHasMissingUpdatedAt && previous?.observedLocalFingerprint &&
+    previous.observedLocalFingerprint !== localContentFingerprint(localMatch));
+  const observedAt = previous?.observedServerUpdatedAt
+    ? new Date(previous.observedServerUpdatedAt).getTime() : Number.NaN;
+  const canAdvanceUnknownRevision = localHasMissingUpdatedAt && !remoteIsReleased &&
+    !matchesPendingBackendDraft && !evidence?.pendingLocalMutation && !changedSinceObservation &&
+    Number.isFinite(remoteUpdatedAt) && Number.isFinite(observedAt) && remoteUpdatedAt > observedAt &&
+    previous?.observedLocalFingerprint === localContentFingerprint(localMatch);
+  if (canAdvanceUnknownRevision) {
+    return {
+      ...remoteAnchor,
+      localId: remoteAnchor.localId ?? localMatch.localId,
+      ...(localMatch.evolvedFrom ? { evolvedFrom: localMatch.evolvedFrom } : {}),
+      localReconciliation: { recoveryCopy: evidence?.recoveryCopy ?? localRecoveryCopy(localMatch) },
+    };
+  }
   const shouldKeepLocalState =
+    (!remoteIsReleased && Boolean(evidence?.pendingLocalMutation || changedSinceObservation)) ||
     !Number.isFinite(localUpdatedAt) ||
     !Number.isFinite(remoteUpdatedAt) ||
     localUpdatedAt >= remoteUpdatedAt;
@@ -914,13 +932,22 @@ function mergeAnchorWithNewerLocalState(
     };
 
     if (localHasMissingUpdatedAt && !remoteIsReleased) {
+      merged.localReconciliation = {
+        ...evidence,
+        ...(changedSinceObservation ? { pendingLocalMutation: true } : {}),
+        recoveryCopy: evidence?.recoveryCopy ?? localRecoveryCopy(localMatch),
+        ...(Number.isFinite(remoteUpdatedAt) ? {
+          observedServerUpdatedAt: new Date(Math.max(remoteUpdatedAt, Number.isFinite(observedAt) ? observedAt : remoteUpdatedAt)).toISOString(),
+          observedLocalFingerprint: localContentFingerprint(merged),
+        } : {}),
+      };
       return markAnchorMissingUpdatedAt(merged, fallbackUpdatedAt);
     }
 
     return merged;
   }
 
-  return remoteAnchor;
+  return { ...remoteAnchor, ...(evidence ? { localReconciliation: evidence } : {}) };
 }
 
 function selectPreservedLocalAnchors(params: {
@@ -999,8 +1026,10 @@ class AuthHydrationService {
     const authStore = useAuthStore.getState();
     let expectedUserId = authStore.user?.id ?? null;
     const initialToken = authStore.token ?? null;
+    let initialAccountRevision = authStore.accountRevision;
     if (expectedUserId) {
       const currentAnchorStore = useAnchorStore.getState();
+      currentAnchorStore.bindAccount(expectedUserId, authStore.pendingFirstAnchorDraft?.tempAnchorId);
       const sanitizedAnchors = currentAnchorStore.anchors.filter((anchor) =>
         canPreserveAnchorForUser({
           anchor,
@@ -1028,6 +1057,9 @@ class AuthHydrationService {
         .anchors.filter((anchor) => isBackendAnchorId(anchor.id))
         .map((anchor) => anchor.id),
     );
+    const priorReconciliationEvidence = new Map(useAnchorStore.getState().anchors.map(
+      (anchor) => [anchor.id, anchor.localReconciliation] as const,
+    ));
     if (!options.skipAnchorRefresh) {
       useAnchorStore.setState({ isLoading: true, remoteAnchorState: 'loading', error: null });
     }
@@ -1036,6 +1068,7 @@ class AuthHydrationService {
         return false;
       }
       const currentAuth = useAuthStore.getState();
+      if (currentAuth.accountRevision !== initialAccountRevision) return false;
       if (initialToken && currentAuth.token && currentAuth.token !== initialToken) {
         return false;
       }
@@ -1078,6 +1111,7 @@ class AuthHydrationService {
               anchor,
               anchorStore.anchors,
               currentPendingFirstAnchorDraft,
+              priorReconciliationEvidence,
             ),
           );
           const preservedLocalAnchors = selectPreservedLocalAnchors({
@@ -1163,6 +1197,8 @@ class AuthHydrationService {
       expectedUserId = normalizedProfileData.user.id;
       resolvedUserId = normalizedProfileData.user.id;
       authStore.setUser(normalizedProfileData.user);
+      // This invocation may establish the owner from its profile response.
+      initialAccountRevision = useAuthStore.getState().accountRevision;
       useAuthStore.setState({
         profileData: normalizedProfileData,
         profileLastFetched: Date.now(),
@@ -1440,6 +1476,7 @@ class AuthHydrationService {
           anchor,
           anchorStore.anchors,
           activePendingFirstAnchorDraft,
+          priorReconciliationEvidence,
         ),
       );
       const preservedLocalAnchors = selectPreservedLocalAnchors({

@@ -13,13 +13,15 @@ type Props = {
   onSelect: (layout: ShareLayoutId) => void;
   data: ShareExportData;
   showMark: boolean;
+  visionBackgroundId?: string | null;
 };
 
 /** Each option is a real miniature of its export, drawn by the same template. */
-export function ShareLayoutSelector({ layouts, selected, onSelect, data, showMark }: Props) {
+export const ShareLayoutSelector = React.memo(function ShareLayoutSelector({ layouts, selected, onSelect, data, showMark, visionBackgroundId }: Props) {
   return (
     <ScrollView
       horizontal
+      style={styles.scroller}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.row}
       accessibilityRole="radiogroup"
@@ -39,7 +41,7 @@ export function ShareLayoutSelector({ layouts, selected, onSelect, data, showMar
           >
             <View style={[styles.thumb, active && styles.thumbActive]}>
               <View pointerEvents="none" style={styles.thumbInner}>
-                <ShareTemplate layout={layout} data={data} width={THUMB_WIDTH} showMark={showMark} />
+                <ShareTemplate layout={layout} data={data} width={THUMB_WIDTH} showMark={showMark} visionBackgroundId={layout === 'vision' ? visionBackgroundId : undefined} />
               </View>
             </View>
             <Text style={[styles.label, active && styles.labelActive]}>{SHARE_LAYOUT_LABELS[layout]}</Text>
@@ -48,10 +50,11 @@ export function ShareLayoutSelector({ layouts, selected, onSelect, data, showMar
       })}
     </ScrollView>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  row: { paddingHorizontal: 20, gap: 12 },
+  scroller: { flexGrow: 0, flexShrink: 0 },
+  row: { paddingHorizontal: 20, paddingVertical: 4, gap: 12 },
   item: { alignItems: 'center', gap: 6 },
   thumb: {
     width: THUMB_WIDTH + 6,

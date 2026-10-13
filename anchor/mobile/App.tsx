@@ -263,7 +263,8 @@ export default function App() {
     anchorsHydrated,
     firstRunHydrated,
   });
-  const fatalStartupFailure = startupFatalFailure || requiredLocalHydrationTimedOut;
+  const anchorPersistenceRecoveryRequired = useAnchorStore((state) => state.persistenceRecoveryRequired);
+  const fatalStartupFailure = startupFatalFailure || requiredLocalHydrationTimedOut || anchorPersistenceRecoveryRequired;
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
   const [initialNavigationState, setInitialNavigationState] = React.useState<
     InitialState | undefined

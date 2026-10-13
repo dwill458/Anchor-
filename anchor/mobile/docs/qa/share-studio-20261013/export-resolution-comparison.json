@@ -1,0 +1,14 @@
+{
+  "export-before-reload.png": {
+    "width": 1080,
+    "height": 1920,
+    "fullResolutionEdgeRMSE": 10.259804996808217,
+    "thumbnailEdgeRMSE": 2.27142385288269
+  },
+  "export-native-verified.png": {
+    "width": 1080,
+    "height": 1920,
+    "fullResolutionEdgeRMSE": 0,
+    "thumbnailEdgeRMSE": 9.629239486398692
+  }
+}

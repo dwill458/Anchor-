@@ -37,7 +37,7 @@ describe('useRequiredLocalHydrationGuard', () => {
     expect(result.current).toBe(true);
 
     rerender({ anchorsHydrated: true, firstRunHydrated: true });
-    expect(result.current).toBe(true);
+    expect(result.current).toBe(false);
     unmount();
   });
 

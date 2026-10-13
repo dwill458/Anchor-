@@ -770,6 +770,149 @@ describe('authStore', () => {
   });
 
   describe('finalizePendingFirstAnchorDraft', () => {
+    const prepareTransfer = (id = 'temp-safety-a', userId = 'user-123') => {
+      const anchor = createMockAnchor({ id, userId });
+      useAnchorStore.getState().setAnchors([anchor]);
+      useAuthStore.setState({
+        user: createMockUser({ id: userId }), isAuthenticated: true,
+        pendingFirstAnchorDraft: {
+          tempAnchorId: id, source: 'onboarding_first_anchor', requiresAccountGate: true,
+          createdAt: new Date('2026-04-10T00:00:00Z'),
+        },
+        pendingFirstAnchorMutations: [{
+          type: 'charge_anchor', tempAnchorId: id, chargeType: 'initial_quick',
+          durationSeconds: 30, queuedAt: '2026-04-10T00:00:01Z',
+        }],
+      });
+      (AuthService.getIdToken as jest.Mock).mockResolvedValue('firebase-id-token');
+      return anchor;
+    };
+
+    it('uses stable account-scoped keys after a server commit whose response was lost', async () => {
+      const anchor = prepareTransfer();
+      const post = jest.spyOn(apiClient, 'post');
+      const created = { ...anchor, id: 'server-safety-a' };
+      post.mockRejectedValueOnce(new Error('RESPONSE_LOST'))
+        .mockResolvedValueOnce({ data: { success: true, data: created } } as any)
+        .mockResolvedValueOnce({ data: { success: true, data: created } } as any);
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(false);
+      expect(useAnchorStore.getState().getAnchorById(anchor.id)).toBeDefined();
+      expect(useAuthStore.getState().pendingFirstAnchorDraft).not.toBeNull();
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(true);
+      const firstKey = (post.mock.calls[0][1] as any).idempotencyKey;
+      expect(firstKey).toEqual(expect.any(String));
+      expect(firstKey).toContain('user-123');
+      expect((post.mock.calls[1][1] as any).idempotencyKey).toBe(firstKey);
+      expect((post.mock.calls[2][1] as any).idempotencyKey).toEqual(expect.any(String));
+      post.mockRestore();
+    });
+
+    it('retries an attempted create when server hydration has already consumed the free slot', async () => {
+      const anchor = prepareTransfer();
+      const post = jest.spyOn(apiClient, 'post')
+        .mockRejectedValueOnce(new Error('RESPONSE_LOST'))
+        .mockResolvedValue({ data: { success: true, data: { ...anchor, id: 'server-safety-a' } } } as any);
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(false);
+      useAuthStore.getState().setUser(createMockUser({ totalAnchorsCreated: 1, freeAnchorConsumed: true }));
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(true);
+      expect(post.mock.calls.filter(([url]) => url === '/api/anchors')).toHaveLength(2);
+      expect((post.mock.calls[1][1] as any).idempotencyKey).toBe((post.mock.calls[0][1] as any).idempotencyKey);
+      post.mockRestore();
+    });
+
+    it('retains server-confirmed charge progress when the following activation request fails', async () => {
+      const anchor = prepareTransfer();
+      useAuthStore.getState().enqueuePendingFirstAnchorMutation({
+        type: 'activate_anchor', tempAnchorId: anchor.id, activationType: 'visual',
+        durationSeconds: 30, queuedAt: '2026-04-10T00:00:02Z',
+      });
+      const created = { ...anchor, id: 'server-progress-a' };
+      const charged = { ...created, isCharged: true, chargeCount: 1 };
+      const post = jest.spyOn(apiClient, 'post')
+        .mockResolvedValueOnce({ data: { success: true, data: created } } as any)
+        .mockResolvedValueOnce({ data: { success: true, data: charged } } as any)
+        .mockRejectedValueOnce(new Error('ACTIVATION_INTERRUPTED'))
+        .mockResolvedValueOnce({ data: { success: true, data: { id: created.id, activationCount: 1 } } } as any);
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(false);
+      expect(useAnchorStore.getState().getAnchorById(anchor.id)?.isCharged).toBe(true);
+      expect(useAuthStore.getState().pendingFirstAnchorDraft?.nextPendingMutationIndex).toBe(1);
+      expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(true);
+      expect(useAnchorStore.getState().getAnchorById(created.id)?.isCharged).toBe(true);
+      expect(post.mock.calls.filter(([url]) => url.endsWith('/charge'))).toHaveLength(1);
+      post.mockRestore();
+    });
+
+    it('keeps the pending draft and cursor when the created Anchor cannot be confirmed durable', async () => {
+      const anchor = prepareTransfer();
+      const post = jest.spyOn(apiClient, 'post').mockResolvedValue({ data: { success: true, data:
+        createMockAnchor({ id: '12345678-1234-4123-8123-123456789abc', userId: anchor.userId }) } } as any);
+      const receipt = jest.spyOn(useAnchorStore.getState(), 'flushPersistence')
+        .mockRejectedValueOnce(new Error('SYNTHETIC_DURABILITY_FAILURE'));
+      try {
+        expect(await useAuthStore.getState().finalizePendingFirstAnchorDraft()).toBe(false);
+        expect(useAuthStore.getState().pendingFirstAnchorDraft).toMatchObject({ tempAnchorId: anchor.id, createAttempted: true });
+        expect(useAuthStore.getState().pendingFirstAnchorDraft?.nextPendingMutationIndex ?? 0).toBe(0);
+        expect(useAuthStore.getState().pendingFirstAnchorError).toBe('SYNTHETIC_DURABILITY_FAILURE');
+        expect(post).toHaveBeenCalledTimes(1);
+      } finally { receipt.mockRestore(); post.mockRestore(); }
+    });
+
+    it('does not send a create after the account changes during token retrieval', async () => {
+      prepareTransfer();
+      let resolveToken!: (token: string) => void;
+      (AuthService.getIdToken as jest.Mock).mockImplementation(() => new Promise((resolve) => { resolveToken = resolve; }));
+      const post = jest.spyOn(apiClient, 'post').mockResolvedValue({ data: { success: true, data: createMockAnchor() } } as any);
+      const pending = useAuthStore.getState().finalizePendingFirstAnchorDraft();
+      await new Promise((resolve) => setImmediate(resolve));
+      useAuthStore.getState().setSession(createMockUser({ id: 'user-b' }), 'token-b');
+      resolveToken('token-a');
+      expect(await pending).toBe(false);
+      expect(post).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().pendingFirstAnchorError).toBeNull();
+      post.mockRestore();
+    });
+
+    it('does not replay mutations or overwrite B status after A create finishes late', async () => {
+      const anchor = prepareTransfer();
+      let resolveCreate!: (value: any) => void;
+      const post = jest.spyOn(apiClient, 'post').mockImplementation(() => new Promise((resolve) => { resolveCreate = resolve; }) as any);
+      const pending = useAuthStore.getState().finalizePendingFirstAnchorDraft();
+      await new Promise((resolve) => setImmediate(resolve));
+      useAuthStore.getState().setSession(createMockUser({ id: 'user-b' }), 'token-b');
+      resolveCreate({ data: { success: true, data: { ...anchor, id: 'server-safety-a' } } });
+      // An obsolete operation must stop at its first response boundary.
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(await pending).toBe(false);
+      expect(useAuthStore.getState().user?.id).toBe('user-b');
+      expect(useAuthStore.getState().pendingFirstAnchorError).toBeNull();
+      post.mockRestore();
+    });
+
+    it('a stale failure cannot clear the promise for a newer account operation', async () => {
+      prepareTransfer();
+      let rejectA!: (error: Error) => void;
+      let resolveB!: (value: any) => void;
+      const post = jest.spyOn(apiClient, 'post')
+        .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectA = reject; }) as any)
+        .mockImplementationOnce(() => new Promise((resolve) => { resolveB = resolve; }) as any);
+      const pendingA = useAuthStore.getState().finalizePendingFirstAnchorDraft();
+      await new Promise((resolve) => setImmediate(resolve));
+      useAuthStore.getState().setSession(createMockUser({ id: 'user-b' }), 'token-b');
+      const anchorB = prepareTransfer('temp-safety-b', 'user-b');
+      useAuthStore.setState({ pendingFirstAnchorMutations: [] });
+      const pendingB = useAuthStore.getState().finalizePendingFirstAnchorDraft();
+      await new Promise((resolve) => setImmediate(resolve));
+      rejectA(new Error('LATE_A_FAILURE'));
+      expect(await pendingA).toBe(false);
+      expect(useAuthStore.getState().isFinalizingPendingFirstAnchor).toBe(true);
+      const joinedB = useAuthStore.getState().finalizePendingFirstAnchorDraft();
+      resolveB({ data: { success: true, data: { ...anchorB, id: 'server-safety-b' } } });
+      expect(await Promise.all([pendingB, joinedB])).toEqual([true, true]);
+      expect(post).toHaveBeenCalledTimes(2);
+      post.mockRestore();
+    });
+
     it('should resume from the created backend anchor on retry', async () => {
       const localAnchor = createMockAnchor();
       const createdAnchor = createMockAnchor({
@@ -903,7 +1046,8 @@ describe('authStore', () => {
       expect(postMock).toHaveBeenCalledWith('/api/anchors/server-anchor-1/charge', {
         chargeType: 'initial_quick',
         durationSeconds: 30,
-      });
+        idempotencyKey: 'user-123:first-anchor:temp-anchor-1:1',
+      }, { anchorAuthGuard: expect.any(Function), anchorAuthToken: 'firebase-id-token' });
       expect(useAnchorStore.getState().anchors).toHaveLength(1);
       expect(useAnchorStore.getState().anchors[0]).toEqual(
         expect.objectContaining({

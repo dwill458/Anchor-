@@ -1,5 +1,6 @@
 import type { AnchorExpression } from '@/constants/v2/creation';
 import type { VisionNote, V2VisionTile } from '@/adapters/v2/vision';
+import type { ImageSourcePropType } from 'react-native';
 
 export type ShareLayoutId = 'minimal' | 'style' | 'editorial' | 'vision';
 
@@ -49,8 +50,12 @@ export interface ShareTemplateProps {
   showMark: boolean;
   /** Selected Vision share background id (when layout is 'vision'). */
   visionBackgroundId?: string | null;
-  /** Fired once each image the template depends on has loaded or failed. */
+  /** Export-only local copy of the full-resolution background. */
+  visionBackgroundSource?: ImageSourcePropType;
+  /** Fired once required assets settle; Vision requires successful loading. */
   onAssetsReady?: () => void;
+  /** Vision exports fail rather than capturing a missing-image fallback. */
+  onAssetsError?: (error: Error) => void;
 }
 
 export function availableShareLayouts(data: Pick<ShareExportData, 'visionImageUrl' | 'visionTiles' | 'visionNotes'>): ShareLayoutId[] {

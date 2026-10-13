@@ -83,6 +83,15 @@ export interface Anchor {
    */
   evolvedFrom?: { anchorId: string; intention: string };
 
+  /** Local encrypted recovery evidence; never a server sync acknowledgement. */
+  localReconciliation?: {
+    observedServerUpdatedAt?: string;
+    observedLocalFingerprint?: string;
+    pendingLocalMutation?: boolean;
+    pendingFields?: (keyof Anchor)[];
+    recoveryCopy?: Omit<Anchor, 'localReconciliation'>;
+  };
+
   // ───────────────────────────────────────────────────
   // TIMESTAMPS
   // ───────────────────────────────────────────────────
@@ -238,11 +247,15 @@ export interface AuthScreenParams {
 }
 
 export interface PendingFirstAnchorDraft {
+  /** Stable owner bound on the explicitly authorized guest handoff. */
+  ownerUserId?: string;
   tempAnchorId: string;
   source: 'onboarding_first_anchor';
   requiresAccountGate: boolean;
   createdAt: Date;
   backendAnchorId?: string;
+  /** A retry may replay this draft's stable server key even after its free slot was consumed. */
+  createAttempted?: boolean;
   nextPendingMutationIndex?: number;
 }
 

@@ -16,7 +16,7 @@ const SECURE_CHUNK_SIZE = 1800;
 const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
 // Reflection drafts and Course Log pages can contain private writing. Unlike
 // general UI caches, they must never degrade to plaintext persistence.
-const SECURE_ONLY_PREFIXES = ['anchor:chart:reflection-drafts:', 'anchor:chart:log:', 'anchor:v2:first-run'];
+const SECURE_ONLY_PREFIXES = ['anchor:chart:reflection-drafts:', 'anchor:chart:log:', 'anchor:v2:first-run', 'anchor-vault-storage', 'anchor:anchor-snapshot:'];
 
 function requiresSecureOnly(name: string): boolean {
   return SECURE_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -42,6 +42,10 @@ function secureStoreKey(key: string): string {
 
 interface SecureChunkMeta {
   chunks: number;
+  generation?: string;
+  length?: number;
+  previousGeneration?: string;
+  previousChunks?: number;
 }
 
 function secureMetaKey(name: string): string {
@@ -56,8 +60,13 @@ function splitIntoChunks(value: string): string[] {
   if (value.length === 0) return [''];
 
   const chunks: string[] = [];
-  for (let i = 0; i < value.length; i += SECURE_CHUNK_SIZE) {
-    chunks.push(value.slice(i, i + SECURE_CHUNK_SIZE));
+  for (let i = 0; i < value.length;) {
+    let end = Math.min(value.length, i + SECURE_CHUNK_SIZE);
+    const boundary = value.charCodeAt(end - 1);
+    // Native UTF-8 encoding cannot round-trip half of a surrogate pair.
+    if (end < value.length && boundary >= 0xd800 && boundary <= 0xdbff) end -= 1;
+    chunks.push(value.slice(i, end));
+    i = end;
   }
   return chunks;
 }
@@ -68,29 +77,61 @@ async function readSecureMeta(name: string): Promise<SecureChunkMeta | null> {
 
   try {
     const parsed = JSON.parse(rawMeta) as SecureChunkMeta;
-    if (!Number.isInteger(parsed.chunks) || parsed.chunks <= 0) {
-      return null;
+    if (!Number.isInteger(parsed.chunks) || parsed.chunks <= 0 ||
+      (parsed.generation !== undefined && !/^[a-z0-9-]+$/.test(parsed.generation))) {
+      throw new Error('Invalid secure storage manifest');
     }
     return parsed;
   } catch {
-    return null;
+    throw new Error('Secure storage manifest requires recovery');
   }
 }
 
 async function clearSecureChunks(name: string): Promise<number> {
   const existingMeta = await readSecureMeta(name);
+  const deleteGeneration = async (generation: string, chunks: number) => {
+    await Promise.all(Array.from({ length: chunks }, (_, index) =>
+      SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(
+        `${name}__generation_${generation}`, index
+      )))
+    ));
+  };
   if (existingMeta) {
-    await Promise.all(
-      Array.from({ length: existingMeta.chunks }, (_, i) =>
+    if (existingMeta.generation) {
+      await deleteGeneration(existingMeta.generation, existingMeta.chunks);
+      if (existingMeta.previousGeneration && existingMeta.previousChunks) {
+        await deleteGeneration(existingMeta.previousGeneration, existingMeta.previousChunks);
+      }
+      // Also clear unversioned chunks left by the legacy storage format.
+      await Promise.all(Array.from({ length: Math.max(existingMeta.chunks, existingMeta.previousChunks ?? 0) }, (_, i) =>
         SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
-      )
-    );
+      ));
+    } else {
+      await Promise.all(Array.from({ length: existingMeta.chunks }, (_, i) =>
+        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
+      ));
+    }
+  }
+  const legacyManifestKey = secureStoreKey(`${name}__legacy_manifest`);
+  const legacyManifest = await SecureStore.getItemAsync(legacyManifestKey);
+  if (legacyManifest) {
+    try {
+      const legacyMeta = JSON.parse(legacyManifest) as SecureChunkMeta;
+      if (Number.isInteger(legacyMeta.chunks) && legacyMeta.chunks > 0) {
+        await Promise.all(Array.from({ length: legacyMeta.chunks }, (_, i) =>
+          SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
+        ));
+      }
+    } catch {
+      throw new Error('Legacy secure storage manifest requires recovery');
+    }
   }
   await SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
+  await SecureStore.deleteItemAsync(legacyManifestKey);
   return existingMeta?.chunks ?? 0;
 }
 
-export async function readSecureValue(name: string): Promise<string | null> {
+export async function readSecureValue(name: string, retries = 2): Promise<string | null> {
   const startedAt = Date.now();
   const meta = await readSecureMeta(name);
   if (!meta) {
@@ -100,35 +141,81 @@ export async function readSecureValue(name: string): Promise<string | null> {
 
   const chunks = await Promise.all(
     Array.from({ length: meta.chunks }, (_, index) =>
-      SecureStore.getItemAsync(secureStoreKey(secureChunkKey(name, index)))
+      SecureStore.getItemAsync(secureStoreKey(secureChunkKey(
+        meta.generation ? `${name}__generation_${meta.generation}` : name, index
+      )))
     )
   );
 
   if (chunks.some((chunk) => chunk == null)) {
-    logger.warn(`Secure storage chunk mismatch for key ${name}; clearing corrupted data.`);
-    await clearSecureChunks(name);
-    return null;
+    const currentMeta = await readSecureMeta(name);
+    if (retries > 0 && currentMeta?.generation !== meta.generation) return readSecureValue(name, retries - 1);
+    throw new Error('Incomplete secure storage generation requires recovery');
   }
 
   const value = chunks.join('');
+  if (meta.length !== undefined && value.length !== meta.length) {
+    throw new Error('Secure storage length mismatch requires recovery');
+  }
   perfLog('secure-read', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: meta.chunks, secureCalls: meta.chunks + 1 });
   return value;
 }
 
+const requestedGeneration = new Map<string, number>();
+const committedGeneration = new Map<string, number>();
+const manifestWrites = new Map<string, Promise<void>>();
+const processGeneration = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
 export async function writeSecureValue(name: string, value: string): Promise<void> {
   const startedAt = Date.now();
-  const previousChunks = await clearSecureChunks(name);
-
+  const revision = (requestedGeneration.get(name) ?? 0) + 1;
+  requestedGeneration.set(name, revision);
+  const generation = `${processGeneration}-${revision.toString(36)}`;
+  const generationName = `${name}__generation_${generation}`;
   const chunks = splitIntoChunks(value);
   await Promise.all(
     chunks.map((chunk, index) =>
-      SecureStore.setItemAsync(secureStoreKey(secureChunkKey(name, index)), chunk)
+      SecureStore.setItemAsync(secureStoreKey(secureChunkKey(generationName, index)), chunk)
     )
   );
 
-  const meta: SecureChunkMeta = { chunks: chunks.length };
-  await SecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
-  perfLog('secure-write', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: chunks.length, previousChunks, secureCalls: previousChunks + chunks.length + 3 });
+  // Verify all bytes before changing the single commit pointer. Native chunk writes
+  // may finish out of order; only manifest publication is serialized per key.
+  const verified = await Promise.all(chunks.map((_, index) =>
+    SecureStore.getItemAsync(secureStoreKey(secureChunkKey(generationName, index)))
+  ));
+  if (verified.some((chunk) => chunk == null) || verified.join('') !== value) {
+    throw new Error('Secure storage readback failed');
+  }
+  const commit = (manifestWrites.get(name) ?? Promise.resolve()).catch(() => {}).then(async () => {
+    if (revision < (committedGeneration.get(name) ?? 0)) {
+      await Promise.all(chunks.map((_, index) =>
+        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(generationName, index)))
+      ));
+      return;
+    }
+    const previous = await readSecureMeta(name);
+    if (name === 'anchor-vault-storage' && previous && !previous.generation) {
+      const legacyKey = secureStoreKey(`${name}__legacy_manifest`);
+      if (!await SecureStore.getItemAsync(legacyKey)) await SecureStore.setItemAsync(legacyKey, JSON.stringify(previous));
+    }
+    const meta: SecureChunkMeta = { chunks: chunks.length, generation, length: value.length,
+      previousGeneration: previous?.generation, previousChunks: previous?.chunks };
+    await SecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
+    committedGeneration.set(name, revision);
+    // Only obsolete generations from this new writer are reclaimed. Keep the
+    // previous commit and every legacy chunk; a racing reader retries the pointer.
+    if (previous?.previousGeneration && previous.previousChunks) {
+      await Promise.all(Array.from({ length: previous.previousChunks }, (_, index) =>
+        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(
+          `${name}__generation_${previous.previousGeneration}`, index
+        )))
+      )).catch((error) => logger.warn('Failed to reclaim obsolete secure generation', error));
+    }
+  });
+  manifestWrites.set(name, commit);
+  await commit;
+  perfLog('secure-write', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: chunks.length, secureCalls: chunks.length * 2 + 1 });
 }
 
 async function migrateLegacyAsyncStorageValue(name: string): Promise<string | null> {
@@ -137,7 +224,8 @@ async function migrateLegacyAsyncStorageValue(name: string): Promise<string | nu
 
   try {
     await writeSecureValue(name, legacyValue);
-    await AsyncStorage.removeItem(name);
+    // Private legacy vaults remain an immutable recovery source during conversion.
+    if (name !== 'anchor-vault-storage') await AsyncStorage.removeItem(name);
     return legacyValue;
   } catch (error) {
     logger.error(`Failed to migrate legacy AsyncStorage key ${name} to SecureStore`, error);
@@ -149,7 +237,7 @@ async function performWrite(name: string, value: string): Promise<void> {
   try {
     await writeSecureValue(name, value);
     // Ensure no plaintext legacy value remains once encrypted write succeeds.
-    await AsyncStorage.removeItem(name);
+    if (name !== 'anchor-vault-storage') await AsyncStorage.removeItem(name);
   } catch (error) {
     if (requiresSecureOnly(name)) {
       logger.error(`Failed to write secure-only store key ${name}`, error);
@@ -181,15 +269,17 @@ const pendingWrites = new Map<
 >();
 const lastWrittenValue = new Map<string, string>();
 const writeCounts = new Map<string, number>();
+const inFlightWrites = new Map<string, number>();
 
 function scheduleWrite(name: string, value: string): Promise<void> {
-  if (lastWrittenValue.get(name) === value) {
+  if (!pendingWrites.has(name) && !inFlightWrites.get(name) && lastWrittenValue.get(name) === value) {
     return Promise.resolve();
   }
 
   return new Promise((resolve, reject) => {
     const existing = pendingWrites.get(name);
     if (existing) {
+      if (existing.value === value) { existing.resolvers.push({ resolve, reject }); return; }
       clearTimeout(existing.timer);
       existing.value = value;
       existing.resolvers.push({ resolve, reject });
@@ -209,13 +299,19 @@ async function flushWrite(name: string): Promise<void> {
   const entry = pendingWrites.get(name);
   if (!entry) return;
   pendingWrites.delete(name);
+  inFlightWrites.set(name, (inFlightWrites.get(name) ?? 0) + 1);
 
   try {
     await performWrite(name, entry.value);
-    lastWrittenValue.set(name, entry.value);
+    // Older native writes can settle after a newer commit. Never let their
+    // completion poison de-duplication with an obsolete value.
+    const committedValue = await readSecureValue(name);
+    if (committedValue !== null) lastWrittenValue.set(name, committedValue);
     entry.resolvers.forEach(({ resolve }) => resolve());
   } catch (error) {
     entry.resolvers.forEach(({ reject }) => reject(error));
+  } finally {
+    inFlightWrites.set(name, Math.max(0, (inFlightWrites.get(name) ?? 1) - 1));
   }
 }
 
@@ -242,7 +338,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
       return legacyValue;
     } catch (error) {
       logger.error(`Failed to read encrypted store key ${name}`, error);
-      if (requiresSecureOnly(name)) return null;
+      if (requiresSecureOnly(name)) throw error;
       const fallback = await AsyncStorage.getItem(name);
       perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: fallback?.length ?? 0, source: 'async-storage-fallback' });
       return fallback;
@@ -267,6 +363,10 @@ export const encryptedPersistStorage: AsyncStateStorage = {
       pending.resolvers.forEach(({ resolve }) => resolve());
     }
     lastWrittenValue.delete(name);
+    const removalRevision = (requestedGeneration.get(name) ?? 0) + 1;
+    requestedGeneration.set(name, removalRevision);
+    committedGeneration.set(name, removalRevision);
+    await (manifestWrites.get(name) ?? Promise.resolve()).catch(() => {});
     await clearSecureChunks(name);
     await AsyncStorage.removeItem(name);
     perfLog('persist-removeItem', { key: name, ms: Date.now() - startedAt });

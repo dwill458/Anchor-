@@ -33,12 +33,21 @@ class PostAuthFlowService {
 
     // setSession syncs the account-bound trial clock + server expiry centrally.
     authStore.setSession(patchedUser, token);
+    const accountRevision = useAuthStore.getState().accountRevision;
+    const assertCurrentAccount = () => {
+      const current = useAuthStore.getState();
+      if (current.user?.id !== patchedUser.id || current.token !== token || current.accountRevision !== accountRevision) {
+        throw new Error('Authentication context changed.');
+      }
+    };
     if (preserveCompletedOnboarding) {
       authStore.setHasCompletedOnboarding(true);
     }
 
     await RevenueCatService.logIn(patchedUser.id);
+    assertCurrentAccount();
     const trialStatus = await RevenueCatService.refreshTrialStatus();
+    assertCurrentAccount();
     const subscriptionState = useSubscriptionStore.getState();
     const hasEntitlementAccess = Boolean(
       trialStatus.hasActiveEntitlement ||
@@ -67,11 +76,22 @@ class PostAuthFlowService {
         anchorsToMigrate,
         patchedUser.id
       );
-      const unconfirmedAnchors = isLockedFreeUser
-        ? anchorStore.anchors.filter((a) => !isBackendAnchorId(a.id))
-        : [];
-      anchorStore.setAnchors([...migratedAnchors, ...unconfirmedAnchors]);
+      assertCurrentAccount();
+      const sameAnchor = (left: typeof anchorsToMigrate[number], right: typeof anchorsToMigrate[number]) =>
+        left.id === right.id || left.localId === right.id || right.localId === left.id ||
+        Boolean(left.localId && left.localId === right.localId);
+      // Reconcile against live state: migration cannot undo edits, additions, or deletions.
+      const latestStore = useAnchorStore.getState();
+      latestStore.setAnchors(latestStore.anchors.map((local) => {
+        const original = anchorsToMigrate.find((candidate) => sameAnchor(local, candidate));
+        const migrated = migratedAnchors.find((candidate) => sameAnchor(local, candidate));
+        if (!original || !migrated) return local;
+        if (original === local) return migrated;
+        return { ...migrated, ...local, id: migrated.id,
+          localId: migrated.localId ?? local.localId ?? local.id, userId: migrated.userId };
+      }));
       await anchorStore.flushPendingSync();
+      assertCurrentAccount();
     }
 
     const hydrateAuthenticatedData = async (skipAnchorRefresh: boolean) => {
@@ -88,14 +108,16 @@ class PostAuthFlowService {
     const hasPendingFirstAnchorDraft = Boolean(pendingFirstAnchorDraft);
 
     await hydrateAuthenticatedData(hasPendingFirstAnchorDraft);
+    assertCurrentAccount();
 
     if (hasPendingFirstAnchorDraft) {
-      if (isLockedFreeUser) {
+      if (isLockedFreeUser && !pendingFirstAnchorDraft?.createAttempted && !pendingFirstAnchorDraft?.backendAnchorId) {
         throw new Error('CREATE_ANCHOR_FREE_LOCKED');
       }
 
       const didFinalizePendingFirstAnchor =
         await useAuthStore.getState().finalizePendingFirstAnchorDraft();
+      assertCurrentAccount();
 
       if (didFinalizePendingFirstAnchor) {
         await hydrateAuthenticatedData(false);

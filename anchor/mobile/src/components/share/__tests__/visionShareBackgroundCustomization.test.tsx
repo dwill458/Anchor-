@@ -1,6 +1,6 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Image } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Image, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AnchorShareStudio } from '../AnchorShareStudio';
 import { VisionExportTemplate } from '../templates/VisionExportTemplate';
@@ -179,6 +179,39 @@ describe('Vision Share Background Customization', () => {
     expect(view.getByTestId('vision-share-background').props.source).toEqual(
       getVisionShareBackground('editorial').source
     );
+  });
+
+  it('fits the entire background to the preview rather than its intrinsic asset size', () => {
+    const view = render(<VisionExportTemplate data={sampleData} width={180} showMark visionBackgroundId="scrapbook" />);
+    const background = view.getByTestId('vision-share-background');
+    expect(StyleSheet.flatten(background.props.style)).toMatchObject({ width: 180, height: 320 });
+    expect(background.props.resizeMethod).toBe('resize');
+  });
+
+  it('keeps the Vision layout thumbnail consistent with the selected background', () => {
+    const view = render(<AnchorShareStudio visible onClose={jest.fn()} data={sampleData} initialLayout="vision" />);
+    fireEvent.press(view.getByTestId('vision-background-option-midnight'));
+    expect(view.getByTestId('share-layout-vision').findByProps({ testID: 'vision-share-background' }).props.source)
+      .toEqual(getVisionShareBackground('midnight').source);
+  });
+
+  it('does not mount a full-size export while browsing backgrounds', () => {
+    jest.useFakeTimers();
+    const view = render(<AnchorShareStudio visible onClose={jest.fn()} data={sampleData} initialLayout="vision" />);
+    fireEvent.press(view.getByTestId('vision-background-option-scrapbook'));
+    act(() => { jest.advanceTimersByTime(500); });
+    expect(mockPrepare).not.toHaveBeenCalled();
+    view.unmount();
+    jest.useRealTimers();
+  });
+
+  it('fits the preview inside the measured space left by the controls', () => {
+    const view = render(<AnchorShareStudio visible onClose={jest.fn()} data={sampleData} initialLayout="vision" />);
+    fireEvent(view.getByTestId('share-preview-room'), 'layout', { nativeEvent: { layout: { height: 240 } } });
+    const preview = mockPreview.mock.calls.at(-1)?.[0];
+    expect(preview.width * 16 / 9).toBeCloseTo(224);
+    fireEvent(view.getByTestId('share-preview-room'), 'layout', { nativeEvent: { layout: { height: 200 } } });
+    expect(mockPreview.mock.calls.at(-1)?.[0].width * 16 / 9).toBeCloseTo(184);
   });
 
   it('6. Anchor mark toggle still works and does not affect background selection', () => {

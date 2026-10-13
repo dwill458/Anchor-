@@ -1,0 +1,26 @@
+[
+  {
+    "name": "scrapbook",
+    "cropLeftPx": 32,
+    "width": 1080,
+    "height": 1920,
+    "thumbWidth": 112,
+    "thumbHeight": 199
+  },
+  {
+    "name": "soft_focus",
+    "cropLeftPx": 44,
+    "width": 1080,
+    "height": 1920,
+    "thumbWidth": 112,
+    "thumbHeight": 199
+  },
+  {
+    "name": "editorial",
+    "cropLeftPx": 16,
+    "width": 1080,
+    "height": 1920,
+    "thumbWidth": 112,
+    "thumbHeight": 199
+  }
+]

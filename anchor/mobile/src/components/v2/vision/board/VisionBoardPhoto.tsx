@@ -47,6 +47,7 @@ export type VisionBoardPhotoProps = {
   onOrderCommit?: (order: string[]) => void;
   onExited?: (sceneId: string) => void;
   onPhotoAssetReady?: (sceneId: string) => void;
+  onPhotoAssetError?: (sceneId: string) => void;
   onMove?: (sceneId: string, direction: -1 | 1) => void;
   onTeachingMotionChange?: (sceneId: string, moving: boolean) => void;
   canMoveEarlier?: boolean;
@@ -66,7 +67,7 @@ function kindWeight(kind: number, target: number) {
 /** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, arriving = false, caption, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
-  interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onMove, onTeachingMotionChange,
+  interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onPhotoAssetError, onMove, onTeachingMotionChange,
   canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
 }: VisionBoardPhotoProps) {
   const arrival = useVisionImageArrival();
@@ -368,7 +369,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         {displayUrl && failedUrl !== displayUrl ? (
           <VisionPhotograph source={{ uri: displayUrl }} displayAspect={displayAspect} uploaded={uploaded} onLoad={handleDecoded}
             onAssetReady={() => onPhotoAssetReady?.(sceneId)}
-            onError={() => { if (displayUrl !== imageUrl) setShownUrl(imageUrl ?? null); else setFailedUrl(displayUrl); }}
+            onError={() => { if (displayUrl !== imageUrl) setShownUrl(imageUrl ?? null); else { onPhotoAssetError?.(sceneId); setFailedUrl(displayUrl); } }}
             accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
         ) : (
           <View style={styles.unavailable}><Text style={styles.unavailableText}>{interactive && imageFailed ? 'Image unavailable. Tap to retry.' : 'Image unavailable'}</Text></View>

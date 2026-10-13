@@ -298,6 +298,7 @@ function createFixtureServer({ verifyIdToken, projectId = EXPECTED_PROJECT_ID })
   const anchorsByUser = new Map();
   const activationsByUser = new Map();
   const chargesByUser = new Map();
+  const anchorCreateByIdempotencyKey = new Map();
   const idempotencyResults = new Map();
   const sessions = new Map();
 
@@ -656,6 +657,22 @@ function createFixtureServer({ verifyIdToken, projectId = EXPECTED_PROJECT_ID })
 
         const userRecord = getOrCreateUserRecord(decoded);
         const uid = userRecord.id;
+        const idempotencyKey = typeof body.idempotencyKey === 'string' && body.idempotencyKey.length > 0
+          ? body.idempotencyKey
+          : null;
+        if (body.idempotencyKey !== undefined && (!idempotencyKey || idempotencyKey.length > 200)) {
+          return send(res, 422, { success: false, error: 'Invalid idempotency key' });
+        }
+        if (idempotencyKey && anchorCreateByIdempotencyKey.has(idempotencyKey)) {
+          const existing = anchorCreateByIdempotencyKey.get(idempotencyKey);
+          if (existing.userId !== uid) {
+            return send(res, 409, {
+              success: false,
+              error: { code: 'IDEMPOTENCY_KEY_CONFLICT', message: 'Idempotency key already used by another user' },
+            });
+          }
+          return send(res, 200, { success: true, data: serializeAnchorForList(existing) });
+        }
         if (!userRecord.isComped && userRecord.subscriptionStatus === 'free' && userRecord.totalAnchorsCreated >= 1) {
           return send(res, 403, {
             success: false,
@@ -703,6 +720,7 @@ function createFixtureServer({ verifyIdToken, projectId = EXPECTED_PROJECT_ID })
         };
 
         anchorsByUser.get(uid).set(anchorId, anchorRecord);
+        if (idempotencyKey) anchorCreateByIdempotencyKey.set(idempotencyKey, anchorRecord);
         userRecord.totalAnchorsCreated = sequence;
         userRecord.hasCompletedOnboarding = true;
         userRecord.updatedAt = nowIso;

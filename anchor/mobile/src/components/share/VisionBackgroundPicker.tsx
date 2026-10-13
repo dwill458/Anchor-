@@ -50,6 +50,7 @@ export function VisionBackgroundPicker({ selected, onSelect }: Props) {
       <Text style={styles.sectionTitle}>Choose background</Text>
       <ScrollView
         horizontal
+        style={styles.scroller}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
         accessibilityRole="radiogroup"
@@ -68,6 +69,7 @@ export function VisionBackgroundPicker({ selected, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
+  scroller: { flexGrow: 0, flexShrink: 0 },
   container: {
     gap: 8,
   },
@@ -81,6 +83,7 @@ const styles = StyleSheet.create({
   },
   row: {
     paddingHorizontal: 20,
+    paddingVertical: 4,
     gap: 12,
   },
   item: {

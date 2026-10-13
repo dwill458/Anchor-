@@ -8,6 +8,7 @@ if (!config.resolver.assetExts.includes('html')) {
 
 config.resolver.blockList = [
   /node_modules\/.*\/android\/\.cxx\/.*/,
+  /node_modules\/.*\/build\/.*/,
   /android\/\.cxx\/.*/,
   /android\/build\/.*/,
   /android\/app\/build\/.*/,

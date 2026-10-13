@@ -81,10 +81,12 @@ describe('AuthHydrationService', () => {
   it('preserves unsynced local temp anchors during authenticated hydration', async () => {
     const localTempAnchor = createMockAnchor({
       id: 'anchor-1779092632674',
+      userId: 'synthetic-hydration-owner',
       updatedAt: new Date('2026-05-18T08:00:00.000Z'),
     });
     const remoteAnchor = createMockAnchor({
       id: 'server-anchor-1',
+      userId: 'synthetic-hydration-owner',
       updatedAt: new Date('2026-05-18T08:10:00.000Z'),
     });
     const activatedAt = new Date().toISOString();
@@ -124,6 +126,7 @@ describe('AuthHydrationService', () => {
     });
     mockFetchCompleteProfile.mockResolvedValue({
       user: createMockUser({
+        id: 'synthetic-hydration-owner',
         settings: {
           userId: 'user-1',
           notificationsEnabled: true,
@@ -256,6 +259,7 @@ describe('AuthHydrationService', () => {
   it('restores anchors and thread stats from account export when anchor list is empty', async () => {
     const exportAnchor = createMockAnchor({
       id: 'server-anchor-export-fallback',
+      userId: 'user-export-fallback',
       updatedAt: new Date('2026-05-18T08:10:00.000Z'),
       lastActivatedAt: new Date('2026-06-08T10:00:00.000Z'),
     });
@@ -547,6 +551,7 @@ describe('AuthHydrationService', () => {
   it('keeps local progress when anchor hydration fails after login', async () => {
     const localTempAnchor = createMockAnchor({
       id: 'anchor-local-only',
+      userId: 'user-keep-local',
       updatedAt: new Date('2026-05-18T08:00:00.000Z'),
     });
     const user = createMockUser({
@@ -615,6 +620,7 @@ describe('AuthHydrationService', () => {
   it('falls back to same-user snapshots when remote hydration fails completely', async () => {
     const localTempAnchor = createMockAnchor({
       id: 'anchor-local-fallback',
+      userId: 'user-snapshot-fallback',
       updatedAt: new Date('2026-05-18T08:00:00.000Z'),
     });
     const user = createMockUser({
@@ -731,6 +737,7 @@ describe('AuthHydrationService', () => {
   it('restores anchor snapshot when remote anchor list is empty but the user has saved progress', async () => {
     const snapshotAnchor = createMockAnchor({
       id: 'anchor-snapshot-only',
+      userId: 'user-empty-anchors',
       updatedAt: new Date('2026-05-18T08:00:00.000Z'),
     });
     const user = createMockUser({

@@ -3,6 +3,7 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -35,8 +36,6 @@ type Props = {
 
 const PILL_MS = 2200;
 const HEADER_HEIGHT = 76;
-const CONTROLS_BASE_HEIGHT = 292;
-const VISION_PICKER_HEIGHT = 92;
 
 /**
  * Full-screen "choose, then share". The preview is the real template at screen
@@ -45,10 +44,10 @@ const VISION_PICKER_HEIGHT = 92;
  */
 export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Props) {
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const reduceMotion = useV2ReduceMotion();
   const { isPro } = useSubscription();
-  const { renderPng, prepare, release, exportNode } = useShareExportRenderer(data);
+  const { renderPng, release, exportNode } = useShareExportRenderer(data);
   const { visionBackgroundId, setVisionBackgroundId } = useSharePrefsStore();
 
   const layouts = useMemo(() => availableShareLayouts(data), [data]);
@@ -56,21 +55,18 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
   const [markPreference, setMarkPreference] = useState(true);
   const [busy, setBusy] = useState<'save' | 'share' | null>(null);
   const [pill, setPill] = useState<string | null>(null);
+  const [previewRoom, setPreviewRoom] = useState(240);
   const pillTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const layout: ShareLayoutId = layouts[Math.min(index, layouts.length - 1)];
   // Free keeps the mark on and locked; Pro defaults to on and may turn it off.
   const showMark = isPro ? markPreference : true;
 
-  // Pre-render the selected layout at full size while the person looks at it, so Save/Share only has to capture.
+  // Browsing only renders the preview. Mount the full-size export on Save/Share;
+  // background changes must not decode and rebuild a second Vision board.
   useEffect(() => {
-    if (!visible) {
-      release();
-      return undefined;
-    }
-    const timer = setTimeout(() => prepare(layout, showMark, layout === 'vision' ? visionBackgroundId : undefined), 350);
-    return () => clearTimeout(timer);
-  }, [visible, layout, showMark, visionBackgroundId, prepare, release]);
+    if (!visible) release();
+  }, [visible, release]);
 
   // Entrance: a quiet settle, not a slide.
   const enter = useSharedValue(reduceMotion ? 1 : 0);
@@ -125,11 +121,7 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
     [setVisionBackgroundId, visionBackgroundId],
   );
 
-  const previewWidth = useMemo(() => {
-    const controlsHeight = layout === 'vision' ? CONTROLS_BASE_HEIGHT + VISION_PICKER_HEIGHT : CONTROLS_BASE_HEIGHT;
-    const room = height - insets.top - insets.bottom - HEADER_HEIGHT - controlsHeight;
-    return Math.max(180, Math.min(width - 88, room / SHARE_ASPECT));
-  }, [height, insets.bottom, insets.top, layout, width]);
+  const previewWidth = Math.max(1, Math.min(width - 88, (previewRoom - 16) / SHARE_ASPECT));
 
   const selectIndex = useCallback(
     (next: number) => {
@@ -140,13 +132,13 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
     },
     [index, layouts],
   );
+  const selectLayout = useCallback((next: ShareLayoutId) => selectIndex(layouts.indexOf(next)), [layouts, selectIndex]);
 
   const run = async (kind: 'save' | 'share') => {
     if (busy) return;
     setBusy(kind);
     try {
       const uri = await renderPng(layout, showMark, {
-        keepWarm: true,
         visionBackgroundId: layout === 'vision' ? visionBackgroundId : undefined,
       });
       if (kind === 'save') {
@@ -203,7 +195,8 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
             <Text style={styles.sub}>Choose a style to share or save.</Text>
           </View>
 
-          <View style={styles.pagerWrap}>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
+          <View testID="share-preview-room" style={styles.pagerWrap} onLayout={({ nativeEvent }) => setPreviewRoom(nativeEvent.layout.height)}>
             <View style={styles.page}>
               <AnchorSharePreview
                 layout={layout}
@@ -222,13 +215,14 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
             </View>
           </View>
 
-          <View style={[styles.controls, layout === 'vision' && styles.controlsVision]}>
+          <View style={styles.controls}>
             <ShareLayoutSelector
               layouts={layouts}
               selected={layout}
-              onSelect={(next) => selectIndex(layouts.indexOf(next))}
+              onSelect={selectLayout}
               data={data}
               showMark={showMark}
+              visionBackgroundId={visionBackgroundId}
             />
 
             {layout === 'vision' ? (
@@ -289,6 +283,7 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
               </Animated.View>
             </View>
           </View>
+          </ScrollView>
         </Animated.View>
 
         {pill ? (
@@ -312,17 +307,19 @@ const styles = StyleSheet.create({
   close: { position: 'absolute', left: 20, top: 14, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: detailsFonts.display, fontSize: 17, color: detailsPalette.cream },
   sub: { marginTop: 4, fontFamily: detailsFonts.ui, fontSize: 13, color: detailsPalette.creamMuted, textAlign: 'center' },
-  pagerWrap: { flex: 1 },
+  body: { flex: 1 },
+  bodyContent: { flexGrow: 1 },
+  pagerWrap: { flex: 1, minHeight: 240 },
   page: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dots: { position: 'absolute', bottom: 4, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: withAlpha(detailsPalette.cream, 0.25) },
   dotActive: { backgroundColor: detailsPalette.cream },
-  controls: { height: CONTROLS_BASE_HEIGHT, justifyContent: 'flex-end', gap: 14, paddingBottom: 4 },
-  controlsVision: { height: CONTROLS_BASE_HEIGHT + VISION_PICKER_HEIGHT },
+  controls: { flexShrink: 0, gap: 14, paddingTop: 8, paddingBottom: 4 },
   markRow: {
     marginHorizontal: 20,
     paddingHorizontal: 16,
-    height: 60,
+    minHeight: 60,
+    paddingVertical: 10,
     borderRadius: 16,
     backgroundColor: detailsPalette.creamFaint,
     flexDirection: 'row',

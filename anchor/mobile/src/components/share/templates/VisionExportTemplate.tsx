@@ -14,13 +14,13 @@ import { POSTER_CREAM, ShareBrandMark, ShareCanvas } from './shared';
 import { visionBoardExportFrame } from '../visionBoardExportFrame';
 import { getVisionShareBackground } from '../visionShareBackgrounds';
 
-type AssetState = { signature: string; expected: Set<string>; ready: Set<string>; fired: boolean };
+type AssetState = { signature: string; expected: Set<string>; ready: Set<string>; fired: boolean; failed?: boolean };
 const SHARE_ANCHOR_MARK_ASSET = require('@/assets/home/anchor-brand-mark.png') as ImageSourcePropType;
 const VISION_CANVAS_WIDTH = 360;
 const VISION_CANVAS_HEIGHT = 640;
 
 /** A static readiness barrier keyed by each rendered photo and note/Anchor asset. */
-function useBoardAssetReadiness(assetIds: string[], onReady?: () => void) {
+function useBoardAssetReadiness(assetIds: string[], onReady?: () => void, onError?: (error: Error) => void) {
   const signature = assetIds.slice().sort().join('\u0000');
   const callback = useRef(onReady);
   callback.current = onReady;
@@ -30,13 +30,13 @@ function useBoardAssetReadiness(assetIds: string[], onReady?: () => void) {
   }
   const complete = useCallback((id: string) => {
     const current = state.current;
-    if (current.signature !== signature || current.fired || !current.expected.has(id)) return;
+    if (current.signature !== signature || current.fired || current.failed || !current.expected.has(id)) return;
     current.ready.add(id);
     if (current.ready.size < current.expected.size) return;
     current.fired = true;
     // Let the last image/error state commit before view-shot captures the static composition.
     requestAnimationFrame(() => {
-      if (state.current === current) callback.current?.();
+      if (state.current === current && !current.failed) callback.current?.();
     });
   }, [signature]);
   React.useEffect(() => {
@@ -48,7 +48,13 @@ function useBoardAssetReadiness(assetIds: string[], onReady?: () => void) {
       if (state.current === current) callback.current?.();
     });
   }, [assetIds.length, signature]);
-  return complete;
+  const fail = useCallback((id: string) => {
+    const current = state.current;
+    if (current.signature !== signature || current.failed || !current.expected.has(id)) return;
+    current.failed = true;
+    onError?.(new Error('A Vision export image could not be loaded. Please try again.'));
+  }, [onError, signature]);
+  return { complete, fail };
 }
 
 export function wrappedLineCount(text: string, maxCharacters: number) {
@@ -98,7 +104,7 @@ export function annotationGeometry(text: string, boardViewport: { width: number;
 }
 
 /** Share Studio uses the saved Vision's exact scene, framed for a curated 9:16 poster. */
-export function VisionExportTemplate({ data, width, showMark, visionBackgroundId, onAssetsReady }: ShareTemplateProps) {
+export function VisionExportTemplate({ data, width, showMark, visionBackgroundId, visionBackgroundSource, onAssetsReady, onAssetsError }: ShareTemplateProps) {
   const scale = width / VISION_CANVAS_WIDTH;
   const bg = getVisionShareBackground(visionBackgroundId);
   // Old payloads carry only the first real Vision URL. Adapt that URL to the
@@ -148,22 +154,25 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
     ...tiles.slice(0, layout.photos.length).filter(tile => Boolean(tile.imageUrl?.trim())).map(tile => `photo:${tile.sceneId}`),
     ...auxiliaryAssets.map(asset => asset.id),
   ], [auxiliaryAssets, layout.photos.length, tiles]);
-  const markAssetReady = useBoardAssetReadiness(expectedAssetIds, onAssetsReady);
+  const { complete: markAssetReady, fail: markAssetFailed } = useBoardAssetReadiness(expectedAssetIds, onAssetsReady, onAssetsError);
   const sceneLeft = (VISION_CANVAS_WIDTH - boardWidth) / 2 + frame.left + (frame.scale - 1) * scene.width / 2;
   const sceneTop = titleHeight + frame.top + (frame.scale - 1) * scene.height / 2;
 
   return (
     <ShareCanvas width={width} background={bg.tone === 'dark' ? '#0B0C16' : POSTER_CREAM}>
+      {/* Keep the selected artwork visible while its full-resolution asset decodes. */}
+      {!onAssetsReady ? <Image source={bg.thumbSource} fadeDuration={0} resizeMode="cover"
+        style={[StyleSheet.absoluteFill, { width, height: width * VISION_CANVAS_HEIGHT / VISION_CANVAS_WIDTH }]} /> : null}
       <Image
         key={bg.id}
         testID="vision-share-background"
-        source={bg.source}
-        style={StyleSheet.absoluteFill}
+        source={visionBackgroundSource ?? bg.source}
+        style={[StyleSheet.absoluteFill, { width, height: width * VISION_CANVAS_HEIGHT / VISION_CANVAS_WIDTH }]}
         resizeMode="cover"
-        resizeMethod="scale"
+        resizeMethod={onAssetsReady ? 'scale' : 'resize'}
         fadeDuration={0}
         onLoad={() => markAssetReady(`bg:${bg.id}`)}
-        onError={() => markAssetReady(`bg:${bg.id}`)}
+        onError={() => markAssetFailed(`bg:${bg.id}`)}
       />
       <View testID="vision-export-canonical-composition" style={{ position: 'absolute', width: VISION_CANVAS_WIDTH, height: VISION_CANVAS_HEIGHT,
         left: (scale - 1) * VISION_CANVAS_WIDTH / 2, top: (scale - 1) * VISION_CANVAS_HEIGHT / 2, transform: [{ scale }] }}>
@@ -189,10 +198,11 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
           markAppearance="paper"
           detailEdges
           onPhotoAssetReady={sceneId => markAssetReady(`photo:${sceneId}`)}
+          onPhotoAssetError={sceneId => markAssetFailed(`photo:${sceneId}`)}
         />
         {annotationLayout ? <Text pointerEvents="none" style={[{ position: 'absolute', zIndex: 100, fontFamily: 'Allison-Regular' }, annotationLayout.style]}>{annotation}</Text> : null}
       </View>
-      {auxiliaryAssets.filter(asset => !asset.id.startsWith('bg:')).map(asset => <Image key={asset.id} source={asset.source} fadeDuration={0} onLoad={() => markAssetReady(asset.id)} onError={() => markAssetReady(asset.id)}
+      {auxiliaryAssets.filter(asset => !asset.id.startsWith('bg:')).map(asset => <Image key={asset.id} source={asset.source} fadeDuration={0} onLoad={() => markAssetReady(asset.id)} onError={() => markAssetFailed(asset.id)}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />)}
       {showMark ? <ShareBrandMark width={VISION_CANVAS_WIDTH} ground={bg.tone === 'dark' ? 'dark' : 'light'} /> : null}
       </View>

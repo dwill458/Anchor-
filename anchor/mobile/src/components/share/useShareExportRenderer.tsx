@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { View, type ImageSourcePropType } from 'react-native';
 import { ShareTemplate } from './ShareTemplate';
 import type { ShareExportData, ShareLayoutId } from './shareTypes';
 import { captureShareExport, resolveExportRenderSize } from '@/services/anchorExportService';
+import { prepareVisionShareAssets, type PreparedVisionShareAssets } from './prepareVisionShareAssets';
 
 /** A slow or failed image must not strand an export; render with what loaded. */
 export const EXPORT_ASSET_TIMEOUT_MS = 5000;
 
-type Target = { layout: ShareLayoutId; showMark: boolean; visionBackgroundId?: string | null; key: string };
+type Target = { layout: ShareLayoutId; showMark: boolean; visionBackgroundId?: string | null; key: string;
+  data?: ShareExportData; backgroundSource?: ImageSourcePropType };
 
 /** Wait for static assets, failing closed only for Vision board exports. */
 export function waitForExportAssets(
@@ -60,11 +62,9 @@ function nextFrames(count: number) {
  * Renders one dedicated 1080 x 1920 export composition and returns the PNG's
  * file URI. Never a screenshot of the on-screen preview.
  *
- * Speed: `prepare` mounts the export composition ahead of time (Share Studio
- * calls it for the selected layout, debounced), so by the time Save or Share is
- * pressed its images are loaded and laid out and `renderPng` only has to
- * capture. Without a prepared node `renderPng` mounts one and waits for its
- * images. Nothing is mounted until one of them is called.
+ * `prepare` remains available to other hosts. Share Studio renders on demand;
+ * Vision first stages original image bytes locally, then waits for successful
+ * decoding of the full composition. Failed assets reject the capture.
  *
  * `exportNode` must be rendered once by the host (it sits off-screen).
  */
@@ -73,31 +73,42 @@ export function useShareExportRenderer(data: ShareExportData | null) {
   const [target, setTarget] = useState<Target | null>(null);
   const targetRef = useRef<Target | null>(null);
   const readyKeys = useRef(new Set<string>());
+  const failedKeys = useRef(new Map<string, Error>());
+  const generation = useRef(0);
   const waiters = useRef(new Map<string, Set<() => void>>());
   const busy = useRef(false);
 
-  const mount = useCallback((layout: ShareLayoutId, showMark: boolean, visionBackgroundId?: string | null) => {
-    const key = keyOf(layout, showMark, visionBackgroundId);
+  const mount = useCallback((layout: ShareLayoutId, showMark: boolean, visionBackgroundId?: string | null, prepared?: PreparedVisionShareAssets) => {
+    const key = `${keyOf(layout, showMark, visionBackgroundId)}${prepared ? `:${++generation.current}` : ''}`;
     if (targetRef.current?.key === key) return key;
     readyKeys.current.clear();
-    const next = { layout, showMark, visionBackgroundId, key };
+    failedKeys.current.clear();
+    const next = { layout, showMark, visionBackgroundId, key, data: prepared?.data, backgroundSource: prepared?.backgroundSource };
     targetRef.current = next;
     setTarget(next);
     return key;
   }, []);
 
   const markReady = useCallback((key: string) => {
+    if (targetRef.current?.key !== key || failedKeys.current.has(key)) return;
     readyKeys.current.add(key);
     const pending = waiters.current.get(key);
     waiters.current.delete(key);
     pending?.forEach((resolve) => resolve());
+  }, []);
+  const markFailed = useCallback((key: string, error: Error) => {
+    if (targetRef.current?.key !== key) return;
+    failedKeys.current.set(key, error);
+    const pending = waiters.current.get(key);
+    waiters.current.delete(key);
+    pending?.forEach(resolve => resolve());
   }, []);
 
   /** Resolves once the mounted composition for `key` has its images, or after the timeout. */
   const whenReady = useCallback(
     (key: string, layout: ShareLayoutId) => waitForExportAssets(
       layout,
-      () => readyKeys.current.has(key),
+      () => readyKeys.current.has(key) || failedKeys.current.has(key),
       (resolve) => {
         const list = waiters.current.get(key) ?? new Set<() => void>();
         list.add(resolve);
@@ -107,7 +118,11 @@ export function useShareExportRenderer(data: ShareExportData | null) {
           if (list.size === 0) waiters.current.delete(key);
         };
       },
-    ),
+    ).then(ready => {
+      const error = failedKeys.current.get(key);
+      if (error) throw error;
+      return ready;
+    }),
     [],
   );
 
@@ -120,6 +135,7 @@ export function useShareExportRenderer(data: ShareExportData | null) {
   const release = useCallback(() => {
     if (busy.current) return;
     readyKeys.current.clear();
+    failedKeys.current.clear();
     targetRef.current = null;
     setTarget(null);
   }, []);
@@ -132,23 +148,32 @@ export function useShareExportRenderer(data: ShareExportData | null) {
     ) => {
       if (busy.current) throw new Error('An export is already in progress.');
       busy.current = true;
+      let prepared: PreparedVisionShareAssets | undefined;
       try {
-        const key = mount(layout, showMark, options.visionBackgroundId);
+        if (layout === 'vision') {
+          if (!data) throw new Error('Vision export data is unavailable.');
+          prepared = await prepareVisionShareAssets(data, options.visionBackgroundId);
+        }
+        const key = mount(layout, showMark, options.visionBackgroundId, prepared);
         const wasReady = readyKeys.current.has(key);
         await whenReady(key, layout);
         // Ensure native drawing and image decoding commit before view-shot captures
         await nextFrames(wasReady ? 1 : 2);
+        const failure = failedKeys.current.get(key);
+        if (failure) throw failure;
         return await captureShareExport(nodeRef);
       } finally {
         busy.current = false;
-        if (!options.keepWarm) {
+        if (!options.keepWarm || prepared) {
           readyKeys.current.clear();
+          failedKeys.current.clear();
           targetRef.current = null;
           setTarget(null);
         }
+        await prepared?.release().catch(() => undefined);
       }
     },
-    [mount, whenReady],
+    [data, mount, whenReady],
   );
 
   // Drop pending timers' targets if the host unmounts.
@@ -171,11 +196,13 @@ export function useShareExportRenderer(data: ShareExportData | null) {
       >
         <ShareTemplate
           layout={target.layout}
-          data={data}
+          data={target.data ?? data}
           width={size.width}
           showMark={target.showMark}
           visionBackgroundId={target.visionBackgroundId}
+          visionBackgroundSource={target.backgroundSource}
           onAssetsReady={() => markReady(target.key)}
+          onAssetsError={error => markFailed(target.key, error)}
         />
       </View>
     ) : null;

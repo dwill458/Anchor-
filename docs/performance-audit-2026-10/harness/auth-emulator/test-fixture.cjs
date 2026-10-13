@@ -457,16 +457,18 @@ async function run() {
     assert.equal(exportInitial.body.data.account.practiceSessions.length, 1);
 
     currentPhase = 'guest-to-account transition (POST /api/anchors, charge, activate, update, onboarding-context)';
+    const createAnchorBody = {
+      intentionText: SYNTHETIC_FIXTURE_INTENTION,
+      category: 'desire',
+      distilledLetters: ['B', 'L', 'D', 'T', 'S'],
+      baseSigilSvg: syntheticEnhanceRequest.sigilSvg,
+      structureVariant: 'balanced',
+      idempotencyKey: `create-key-${expectedAccountUid}`,
+    };
     const createdAnchorRes = await jsonFetch(`${apiBase}/api/anchors`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        intentionText: SYNTHETIC_FIXTURE_INTENTION,
-        category: 'desire',
-        distilledLetters: ['B', 'L', 'D', 'T', 'S'],
-        baseSigilSvg: syntheticEnhanceRequest.sigilSvg,
-        structureVariant: 'balanced',
-      }),
+      body: JSON.stringify(createAnchorBody),
     });
     assert.equal(createdAnchorRes.response.status, 201);
     assert.equal(createdAnchorRes.body.success, true);
@@ -474,6 +476,23 @@ async function run() {
     assert.match(createdAnchorId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/);
     assert.equal(createdAnchorRes.body.data.userId, expectedAccountUid);
     assert.equal(createdAnchorRes.body.data.intentionText, SYNTHETIC_FIXTURE_INTENTION);
+
+    const createReplayRes = await jsonFetch(`${apiBase}/api/anchors`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify(createAnchorBody),
+    });
+    assert.equal(createReplayRes.response.status, 200);
+    assert.equal(createReplayRes.body.data.id, createdAnchorId);
+
+    const crossOwnerReplayRes = await jsonFetch(`${apiBase}/api/anchors`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${unclaimedSignUp.body.idToken}` },
+      body: JSON.stringify(createAnchorBody),
+    });
+    assert.equal(crossOwnerReplayRes.response.status, 409);
+    assert.equal(crossOwnerReplayRes.body.error.code, 'IDEMPOTENCY_KEY_CONFLICT');
+    assert.equal(crossOwnerReplayRes.body.data, undefined);
 
     const chargeRes = await jsonFetch(`${apiBase}/api/anchors/${createdAnchorId}/charge`, {
       method: 'POST',

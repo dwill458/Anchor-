@@ -58,7 +58,7 @@ describe('App startup hydration recovery', () => {
       pendingFirstAnchorDraft: null,
       pendingFirstAnchorMutations: [],
     } as never);
-    useAnchorStore.setState({ anchors: [anchor], currentAnchorId: anchor.id } as never);
+    useAnchorStore.setState({ anchors: [anchor], currentAnchorId: anchor.id, persistenceRecoveryRequired: false } as never);
     useFirstRunStore.getState().setStep('creation');
     useFirstRunStore.getState().setIntention('I am still restoring');
 
@@ -146,5 +146,35 @@ describe('App startup hydration recovery', () => {
       currentStep: 'intention',
       intention: 'I am still restoring',
     });
+  });
+
+  it('dismisses the recovery surface when a slow restore succeeds after the deadline', async () => {
+    render(<App />);
+    await act(async () => { await mockAuthCallbacks[0](null); });
+    act(() => jest.advanceTimersByTime(10001));
+    expect(screen.getByText('Unable to restore saved data')).toBeTruthy();
+    act(() => {
+      useAnchorStore.persist.hasHydrated = () => true;
+      useFirstRunStore.persist.hasHydrated = () => true;
+      anchorHydrationListeners.forEach((listener) => listener());
+      firstRunHydrationListeners.forEach((listener) => listener());
+    });
+    expect(screen.queryByText('Unable to restore saved data')).toBeNull();
+    expect(useAnchorStore.getState().anchors).toEqual([anchor]);
+    expect(reloadCurrentApp).not.toHaveBeenCalled();
+  });
+
+  it('keeps a storage or ownership recovery failure closed even after hydration callbacks finish', async () => {
+    render(<App />);
+    await act(async () => { await mockAuthCallbacks[0](null); });
+    act(() => {
+      useAnchorStore.persist.hasHydrated = () => true;
+      useFirstRunStore.persist.hasHydrated = () => true;
+      anchorHydrationListeners.forEach((listener) => listener());
+      firstRunHydrationListeners.forEach((listener) => listener());
+      useAnchorStore.setState({ persistenceRecoveryRequired: true });
+    });
+    expect(screen.getByText('Unable to restore saved data')).toBeTruthy();
+    expect(useAnchorStore.getState().anchors).toEqual([anchor]);
   });
 });

@@ -153,7 +153,7 @@ describe('V2FirstRunFlow returning-user sign in', () => {
       .not.toEqual(expect.arrayContaining(['onboarding_started', 'onboarding_step_viewed']));
   });
 
-  it('purges unconfirmed local drafts when a returning locked free user bypasses onboarding', () => {
+  it('never deletes local drafts when a returning free user bypasses onboarding', () => {
     const unconfirmedAnchor = { id: 'local-temp-draft' };
     const confirmedAnchor = { id: 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d' };
     mockAnchorsStoreState.anchors = [unconfirmedAnchor, confirmedAnchor];
@@ -161,7 +161,7 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     mockUser = { id: 'returning-locked', hasCompletedOnboarding: true, totalAnchorsCreated: 1, freeAnchorConsumed: true } as any;
     render(<V2FirstRunFlow />);
 
-    expect(mockRemoveAnchor).toHaveBeenCalledWith('local-temp-draft');
+    expect(mockRemoveAnchor).not.toHaveBeenCalledWith('local-temp-draft');
     expect(mockRemoveAnchor).not.toHaveBeenCalledWith('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d');
   });
 

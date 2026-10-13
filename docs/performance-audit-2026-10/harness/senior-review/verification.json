@@ -1,0 +1,50 @@
+{
+  "checkpointUtc": "2026-10-13T13:56:26.117113+00:00",
+  "targetedJest": {
+    "suitesPassed": 10,
+    "testsPassed": 252,
+    "exitCode": 0
+  },
+  "typeScript": {
+    "command": "npx tsc --noEmit --pretty false",
+    "exitCode": 0
+  },
+  "isolatedStorageSafetyGates": {
+    "suitesFailed": 2,
+    "testsFailed": 5,
+    "exitCode": 1
+  },
+  "hydrationSafetyGates": {
+    "testsPassed": 1,
+    "testsFailed": 2,
+    "exitCode": 1
+  },
+  "dataSafetyGate": "OPEN",
+  "productionDatabaseAccess": false,
+  "storageArchitectureChanged": false,
+  "deployment": false,
+  "nativeRuntime": {
+    "currentApkProduced": false,
+    "currentApkInstalled": false,
+    "physicalDevice": "SM-S928U1 connected",
+    "androidEmulator": "emulator-5564 connected",
+    "runtimeTestsRun": false,
+    "buildExitCode": 1,
+    "buildDuration": "11m54s",
+    "failure": "R8 Java heap OutOfMemoryError",
+    "jsBundlePassed": true,
+    "resourceMergePassed": true,
+    "kotlinCompilationPassed": true,
+    "cleanupComplete": true
+  },
+  "syntheticFixtureTests": {
+    "accounts": [
+      "A",
+      "B",
+      "C-comped"
+    ],
+    "passed": true,
+    "createReplayAndOwnerConflictVerified": true,
+    "productionDatabase": false
+  }
+}

@@ -5,6 +5,9 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import * as UserLocalStateService from '@/services/UserLocalStateService';
 import { AuthService } from '@/services/AuthService';
 import { subscribeToAppAuthState } from '../AppAuthBootstrap';
+import * as SecureStore from 'expo-secure-store';
+
+const syntheticSecureDisk = new Map<string, string>();
 
 const mockAuthCallbacks: Array<(user: unknown) => Promise<void>> = [];
 
@@ -38,9 +41,9 @@ jest.mock('@/services/UserLocalStateService', () => ({
   loadSessionSnapshot: jest.fn().mockResolvedValue(null),
 }));
 
-const makeAnchor = (id: string) => ({
+const makeAnchor = (id: string, userId = 'guest-user') => ({
   id,
-  userId: 'guest-user',
+  userId,
   intentionText: 'I move with focus',
   category: 'career',
   distilledLetters: ['M', 'V', 'F'],
@@ -69,6 +72,12 @@ const makeUser = (id: string) => ({
 });
 
 const resetStores = () => {
+  jest.resetAllMocks();
+  // Keep one synthetic native disk across pending operations. Resetting its
+  // bytes while async writes are being verified models corruption, not startup.
+  (SecureStore.getItemAsync as jest.Mock).mockImplementation(async (key) => syntheticSecureDisk.get(key) ?? null);
+  (SecureStore.setItemAsync as jest.Mock).mockImplementation(async (key, value) => { syntheticSecureDisk.set(key, value); });
+  (SecureStore.deleteItemAsync as jest.Mock).mockImplementation(async (key) => { syntheticSecureDisk.delete(key); });
   useAuthStore.setState({
     user: null,
     token: null,
@@ -79,9 +88,9 @@ const resetStores = () => {
     pendingFirstAnchorDraft: null,
     pendingFirstAnchorMutations: [],
   } as never);
-  useAnchorStore.setState({ anchors: [], currentAnchorId: undefined } as never);
+  useAnchorStore.setState({ anchors: [], partitions: {}, guestTransfers: {}, activeScope: 'guest',
+    persistedHydrated: true, persistenceRecoveryRequired: false, currentAnchorId: undefined } as never);
   useFirstRunStore.getState().reset();
-  jest.resetAllMocks();
   mockAuthCallbacks.length = 0;
   (AuthService.onAuthStateChanged as jest.Mock).mockImplementation((callback) => {
     mockAuthCallbacks.push(callback);
@@ -138,7 +147,7 @@ describe('App auth restore and local account data', () => {
 
   it('waits for the first Firebase callback and preserves a returning account Anchor', async () => {
     const account = makeUser('returning-account');
-    const anchor = makeAnchor('returning-account-anchor');
+    const anchor = makeAnchor('returning-account-anchor', account.id);
     useAuthStore.getState().setSession(account as never, 'cached-token');
     useAnchorStore.setState({ anchors: [anchor] } as never);
     expect(useAuthStore.persist.hasHydrated()).toBe(true);
@@ -159,7 +168,7 @@ describe('App auth restore and local account data', () => {
   it('does not apply the missing-callback timeout while an authenticated restore is processing', async () => {
     jest.useFakeTimers();
     const account = makeUser('returning-account');
-    const anchor = makeAnchor('returning-account-anchor');
+    const anchor = makeAnchor('returning-account-anchor', account.id);
     useAuthStore.getState().setSession(account as never, 'cached-token');
     useAnchorStore.setState({ anchors: [anchor] } as never);
     let finishSync!: (session: { user: typeof account; token: string }) => void;
@@ -203,7 +212,7 @@ describe('App auth restore and local account data', () => {
 
   it('clears an authenticated account whose Firebase session did not restore', async () => {
     useAuthStore.getState().setSession(makeUser('account-a') as never, 'cached-token');
-    useAnchorStore.setState({ anchors: [makeAnchor('account-a-anchor')] } as never);
+    useAnchorStore.setState({ anchors: [makeAnchor('account-a-anchor', 'account-a')] } as never);
 
     await emitAuthState(null);
 
@@ -229,7 +238,7 @@ describe('App auth restore and local account data', () => {
   });
 
   it('does not clear state if the auth initialization callback has already been superseded', async () => {
-    const anchor = makeAnchor('account-a-anchor');
+    const anchor = makeAnchor('account-a-anchor', 'account-a');
     useAuthStore.getState().setSession(makeUser('account-a') as never, 'cached-token');
     useAnchorStore.setState({ anchors: [anchor] } as never);
 
@@ -243,7 +252,7 @@ describe('App auth restore and local account data', () => {
 
   it('waits for the persisted Anchor store before snapshotting and clearing a signed-out account', async () => {
     const account = makeUser('account-a');
-    const anchor = makeAnchor('persisted-account-a-anchor');
+    const anchor = makeAnchor('persisted-account-a-anchor', account.id);
     useAuthStore.getState().setSession(account as never, 'token-a');
     useAnchorStore.setState({ anchors: [anchor] } as never);
     let finishAnchorHydration!: (state: any) => void;
@@ -445,12 +454,12 @@ describe('App auth restore and local account data', () => {
       () => new Promise<void>((resolve) => { finishSnapshot = resolve; }),
     );
     useAuthStore.getState().setSession(makeUser('account-a') as never, 'token-a');
-    useAnchorStore.setState({ anchors: [makeAnchor('account-a-anchor')] } as never);
+    useAnchorStore.setState({ anchors: [makeAnchor('account-a-anchor', 'account-a')] } as never);
 
     const restoring = emitAuthState(null);
     await flushMicrotasks();
     useAuthStore.getState().setSession(makeUser('account-b') as never, 'token-b');
-    const accountBAnchor = makeAnchor('account-b-anchor');
+    const accountBAnchor = makeAnchor('account-b-anchor', 'account-b');
     useAnchorStore.setState({ anchors: [accountBAnchor] } as never);
     finishSnapshot();
     await restoring;
@@ -506,7 +515,7 @@ describe('App auth restore and local account data', () => {
     await staleNullRestore;
   });
 
-  it('keeps guest data available when the next auth callback establishes an account', async () => {
+  it('keeps guest data durable and isolated when the next auth callback establishes an account', async () => {
     const anchor = makeAnchor('guest-anchor');
     useAnchorStore.setState({ anchors: [anchor] } as never);
     useAuthStore.setState({ isGuest: true, hasCompletedOnboarding: true });
@@ -515,12 +524,13 @@ describe('App auth restore and local account data', () => {
     useAuthStore.getState().setSession(makeUser('new-account') as never, 'new-token');
 
     expect(useAuthStore.getState().user?.id).toBe('new-account');
-    expect(useAnchorStore.getState().anchors).toEqual([anchor]);
+    expect(useAnchorStore.getState().anchors).toEqual([]);
+    expect(useAnchorStore.getState().partitions.guest.anchors).toEqual([anchor]);
   });
 
   it('still honors an intentional sign out of an authenticated account', async () => {
     useAuthStore.getState().setSession(makeUser('account-a') as never, 'token-a');
-    useAnchorStore.setState({ anchors: [makeAnchor('account-a-anchor')] } as never);
+    useAnchorStore.setState({ anchors: [makeAnchor('account-a-anchor', 'account-a')] } as never);
 
     await useAuthStore.getState().signOut();
     await emitAuthState(null);

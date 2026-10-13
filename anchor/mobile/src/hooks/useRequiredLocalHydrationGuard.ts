@@ -28,5 +28,8 @@ export function useRequiredLocalHydrationGuard({
     return () => clearTimeout(timeout);
   }, [firstRunHydrated]);
 
-  return timedOut;
+  // A slow successful native read can finish after the recovery surface opens.
+  // Keep unresolved storage closed, but do not permanently latch that timeout
+  // after both stores have actually restored their data.
+  return timedOut && !(anchorsHydrated && firstRunHydrated);
 }

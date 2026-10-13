@@ -37,7 +37,6 @@ import PostAuthFlowService from '@/services/PostAuthFlowService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
-import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { V2PaywallScreen, type V2PaywallEntitlementResult } from '@/screens/v2/paywall';
 import { logger } from '@/utils/logger';
 import { colors, typography } from '@/theme/v2';
@@ -112,6 +111,9 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const reduceMotion = useReducedMotion();
   const signedInUser = useAuthStore((state) => state.user);
   const pendingTempId = useAuthStore((state) => state.pendingFirstAnchorDraft?.tempAnchorId);
+  const canRetryPendingSave = useAuthStore((state) => Boolean(
+    state.pendingFirstAnchorDraft?.createAttempted || state.pendingFirstAnchorDraft?.backendAnchorId,
+  ));
   const anchor = useAnchorStore((state) => state.anchors.find((item) => item.id === pendingTempId) ?? state.anchors[0]);
   const hasActiveEntitlement = useSubscriptionStore(
     (state) =>
@@ -148,7 +150,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
     !hasUserEntitlement &&
     (activeUser.freeAnchorConsumed || (activeUser.totalAnchorsCreated ?? 0) >= 1)
   );
-  const isSubscriptionRequired = requiresSubscription || isLockedFreeUser;
+  const isSubscriptionRequired = requiresSubscription || (isLockedFreeUser && !canRetryPendingSave);
 
   useEffect(() => {
     if (!anchor || sealedSoundPlayedRef.current) return;
@@ -296,10 +298,6 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
     if (pendingTempId) {
       anchorStore.removeAnchor(pendingTempId);
     }
-    anchorStore.anchors
-      .filter((a) => !isBackendAnchorId(a.id))
-      .forEach((a) => anchorStore.removeAnchor(a.id));
-
     useAuthStore.getState().clearPendingFirstAnchorState();
     onContinue('account');
   };
@@ -327,11 +325,21 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
     setShowPaywall(false);
   };
 
-  const keepOnDevice = () => {
+  const keepOnDevice = async () => {
     OnboardingAnalytics.auth.guestChosen();
     Keyboard.dismiss();
-    onContinueWithout();
-    setSaved('guest');
+    setLoading(true);
+    setError(null);
+    try {
+      await useAnchorStore.getState().flushPersistence();
+      onContinueWithout();
+      setSaved('guest');
+    } catch (saveError) {
+      logger.warn('[V2SealedSaveScreen] Local Anchor save failed', saveError);
+      setError('Your Anchor could not be saved on this device. Try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleEmail = (open: boolean, nextMode?: Mode) => {

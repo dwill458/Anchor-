@@ -10,14 +10,17 @@ jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }))
 
 let mockSignedInUser: { id: string; totalAnchorsCreated?: number; freeAnchorConsumed?: boolean } | null = null;
 const mockAnchor = { id: 'pending-first-anchor-1', intentionText: 'I am financially free', baseSigilSvg: '<svg/>', category: 'abundance' };
+const mockUnrelatedAnchor = { ...mockAnchor, id: 'unrelated-unsynced-anchor' };
 const mockClearPendingFirstAnchorState = jest.fn();
 const mockRemoveAnchor = jest.fn();
+const mockFlushPersistence = jest.fn().mockResolvedValue(undefined);
 let mockHasActiveEntitlement = false;
+let mockCreateAttempted = false;
 
 jest.mock('@/stores/authStore', () => {
   const getMockState = () => ({
     user: mockSignedInUser,
-    pendingFirstAnchorDraft: { tempAnchorId: 'pending-first-anchor-1' },
+    pendingFirstAnchorDraft: { tempAnchorId: 'pending-first-anchor-1', createAttempted: mockCreateAttempted },
     signOut: jest.fn().mockResolvedValue(undefined),
     clearPendingFirstAnchorState: mockClearPendingFirstAnchorState,
   });
@@ -28,8 +31,9 @@ jest.mock('@/stores/authStore', () => {
 
 jest.mock('@/stores/anchorStore', () => {
   const getMockState = () => ({
-    anchors: [mockAnchor],
+    anchors: [mockAnchor, mockUnrelatedAnchor],
     removeAnchor: mockRemoveAnchor,
+    flushPersistence: mockFlushPersistence,
   });
   const useAnchorStore = (selector: (state: any) => unknown) => selector(getMockState());
   useAnchorStore.getState = getMockState;
@@ -101,7 +105,7 @@ const setup = (overrides: Partial<React.ComponentProps<typeof V2SealedSaveScreen
 };
 
 describe('V2SealedSaveScreen', () => {
-  beforeEach(() => { jest.clearAllMocks(); mockSignedInUser = null; });
+  beforeEach(() => { jest.clearAllMocks(); mockSignedInUser = null; mockCreateAttempted = false; });
 
   it('plays the first sealed Anchor cue once per mount', () => {
     setup();
@@ -148,16 +152,25 @@ describe('V2SealedSaveScreen', () => {
     expect(opened()).toHaveLength(2);
   });
 
-  it('continue without an account keeps the Anchor on the device and confirms, then goes home', () => {
+  it('continue without an account keeps the Anchor on the device and confirms, then goes home', async () => {
     const props = setup();
     fireEvent.press(screen.getByTestId('v2-sealed-save-skip'));
     expect(AnalyticsService.track).toHaveBeenCalledWith('auth_guest_chosen', { context: 'onboarding_save' });
-    expect(props.onContinueWithout).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(props.onContinueWithout).toHaveBeenCalledTimes(1));
     expect(screen.getByText('PROGRESS SAVED')).toBeTruthy();
     expect(screen.getByText(/saved on this device/)).toBeTruthy();
     expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId('v2-sealed-save-home'));
     expect(props.onContinue).toHaveBeenCalledWith('guest');
+  });
+
+  it('does not confirm a guest save when native persistence fails', async () => {
+    mockFlushPersistence.mockRejectedValueOnce(new Error('synthetic write failure'));
+    const props = setup();
+    fireEvent.press(screen.getByTestId('v2-sealed-save-skip'));
+    await waitFor(() => expect(screen.getByText('Your Anchor could not be saved on this device. Try again.')).toBeTruthy());
+    expect(props.onContinueWithout).not.toHaveBeenCalled();
+    expect(screen.queryByText('PROGRESS SAVED')).toBeNull();
   });
 
   it('creating an account saves the Anchor, then confirms with cloud copy', async () => {
@@ -272,6 +285,15 @@ describe('V2SealedSaveScreen', () => {
   });
 
   describe('locked free user account handling', () => {
+    it('lets a response-lost first save retry its existing key before asking for Pro', () => {
+      mockSignedInUser = { id: 'locked-user', totalAnchorsCreated: 1, freeAnchorConsumed: true };
+      mockCreateAttempted = true;
+      setup();
+      expect(screen.getByTestId('v2-sealed-save-retry')).toBeTruthy();
+      expect(screen.queryByTestId('v2-sealed-save-unlock-pro')).toBeNull();
+      mockCreateAttempted = false;
+    });
+
     it('shows paywall when signing into a locked free account that already consumed its free anchor', async () => {
       (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({
         user: { id: 'locked-free-user', totalAnchorsCreated: 1, freeAnchorConsumed: true },
@@ -320,6 +342,7 @@ describe('V2SealedSaveScreen', () => {
       // Tap Discard Anchor & Continue -> anchor is lost forever
       fireEvent.press(screen.getByTestId('v2-sealed-save-discard'));
       expect(mockRemoveAnchor).toHaveBeenCalledWith('pending-first-anchor-1');
+      expect(mockRemoveAnchor).not.toHaveBeenCalledWith('unrelated-unsynced-anchor');
       expect(mockClearPendingFirstAnchorState).toHaveBeenCalled();
       expect(props.onContinue).toHaveBeenCalledWith('account');
     });

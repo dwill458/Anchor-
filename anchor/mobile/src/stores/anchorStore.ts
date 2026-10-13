@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { encryptedPersistStorage } from './encryptedPersistStorage';
 import type { Anchor } from '@/types';
+import { acknowledgesLocalEdits, pendingLocalFields } from '@/services/anchorReconciliation';
 import { useTeachingStore } from './teachingStore';
 import AnchorSyncService from '@/services/AnchorSyncService';
 import { useAuthStore } from '@/stores/authStore';
@@ -16,6 +17,7 @@ import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { perfLog } from '@/utils/perfDiagnostics';
+import { accountScope, anchorOwnerScope, GUEST_SCOPE, RECOVERY_SCOPE, partitionAnchors, type AnchorPartition } from './anchorOwnership';
 import { useVisualizationSceneStore } from './visualizationSceneStore';
 import {
   JOURNEY_MILESTONE_IDS,
@@ -101,23 +103,28 @@ const matchesAnchorReference = (anchor: Anchor, referenceId: string): boolean =>
   anchor.id === referenceId || anchor.localId === referenceId;
 
 /**
- * `evolvedFrom` is local only: a server copy of an Anchor never carries it. Every path that brings
+ * Evolution links and reconciliation evidence are local only. Every path that brings
  * server anchors in (a full refresh, one synced anchor, a flushed retry) merges it forward from the
  * local record, matched by id or localId in either direction, so a sync can never erase the link.
  */
-const carryForwardEvolvedFrom = (incomingAnchors: Anchor[], localAnchors: Anchor[]): Anchor[] => {
-  const linked = localAnchors.filter((anchor) => anchor.evolvedFrom);
+const carryForwardLocalEvidence = (incomingAnchors: Anchor[], localAnchors: Anchor[]): Anchor[] => {
+  const linked = localAnchors.filter((anchor) => anchor.evolvedFrom || anchor.localReconciliation);
   if (linked.length === 0) return incomingAnchors;
 
   return incomingAnchors.map((anchor) => {
-    if (anchor.evolvedFrom) return anchor;
     const local = linked.find(
       (candidate) =>
         matchesAnchorReference(candidate, anchor.id) ||
         (anchor.localId ? matchesAnchorReference(candidate, anchor.localId) : false)
     );
     if (!local) return anchor;
-    const nextAnchor: Anchor = { ...anchor, evolvedFrom: local.evolvedFrom };
+    const nextAnchor: Anchor = {
+      ...anchor,
+      ...(anchor.evolvedFrom ?? local.evolvedFrom
+        ? { evolvedFrom: anchor.evolvedFrom ?? local.evolvedFrom } : {}),
+      ...(anchor.localReconciliation ?? local.localReconciliation
+        ? { localReconciliation: anchor.localReconciliation ?? local.localReconciliation } : {}),
+    };
     if (isMarkedMissingUpdatedAt(anchor) || isMarkedMissingUpdatedAt(anchor.updatedAt)) {
       defineMissingUpdatedAtMarker(nextAnchor);
     }
@@ -138,7 +145,12 @@ const mergeAnchors = (existingAnchors: Anchor[], incomingAnchors: Anchor[]): Anc
     merged.set(normalizedAnchor.localId ?? normalizedAnchor.id, normalizedAnchor);
   });
 
-  return Array.from(merged.values()).sort(
+  const byBackendId = new Map<string, Anchor>();
+  for (const anchor of merged.values()) {
+    const previous = byBackendId.get(anchor.id);
+    if (!previous || anchor.updatedAt.getTime() > previous.updatedAt.getTime()) byBackendId.set(anchor.id, anchor);
+  }
+  return Array.from(byBackendId.values()).sort(
     (left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()
   );
 };
@@ -146,12 +158,22 @@ const mergeAnchors = (existingAnchors: Anchor[], incomingAnchors: Anchor[]): Anc
 const calculateTotalPrimes = (anchors: Anchor[]): number =>
   anchors.reduce((sum, anchor) => sum + (anchor.activationCount ?? 0), 0);
 
+let latestPersistenceWrite: Promise<void> = Promise.resolve();
+
 /**
  * Anchor state interface
  */
 interface AnchorState {
   // State
   anchors: Anchor[];
+  /** Durable owner partitions; inactive and ambiguous records never enter the UI. */
+  partitions: Record<string, AnchorPartition>;
+  activeScope: string;
+  persistenceRecoveryRequired: boolean;
+  guestTransfers: Record<string, string>;
+  bindAccount: (userId: string | null, authorizedGuestAnchorId?: string) => void;
+  hideActiveAnchors: () => void;
+  flushPersistence: () => Promise<void>;
   /** Local encrypted store has finished rehydrating this process. */
   persistedHydrated: boolean;
   /** A successful server confirmation is required before showing the empty state. */
@@ -172,6 +194,7 @@ interface AnchorState {
   incrementTotalPrimes: () => void;
   recordPrimeSession: () => void;
   getAnchorById: (id: string) => Anchor | undefined;
+  getLocalRecoveryAnchor: (id: string) => Anchor | undefined;
   getActiveAnchors: () => Anchor[];
   setLoading: (loading: boolean) => void;
   setRemoteAnchorState: (state: AnchorState['remoteAnchorState']) => void;
@@ -196,9 +219,80 @@ interface AnchorState {
  */
 export const useAnchorStore = create<AnchorState>()(
   persist(
-    (set, get) => ({
+    (persistSet, get, api) => {
+      const set: typeof persistSet = (update, replace) => {
+        const state = get();
+        const patch = typeof update === 'function' ? update(state) : update;
+        if (patch && 'anchors' in patch && patch.anchors) {
+          const userId = useAuthStore.getState()?.user?.id;
+          if (userId) {
+            const draft = useAuthStore.getState().pendingFirstAnchorDraft;
+            const accepted = patch.anchors.filter((anchor) => anchor.userId === userId ||
+              (anchorOwnerScope(anchor) === GUEST_SCOPE && draft && matchesAnchorReference(anchor, draft.tempAnchorId) &&
+                (!draft.ownerUserId || draft.ownerUserId === userId) &&
+                (!state.guestTransfers[anchor.id] || state.guestTransfers[anchor.id] === userId)));
+            // A foreign late response cannot replace the current owner's array.
+            if (patch.anchors.length > 0 && accepted.length === 0) return;
+            patch.anchors = accepted;
+          }
+        }
+        if (patch && ('anchors' in patch || 'currentAnchorId' in patch || 'primeStreak' in patch || 'lastPrimedDate' in patch || 'lastSyncedAt' in patch)) {
+          const next = { ...state, ...patch };
+          // Capture ownership at mutation time, before any native await. A state
+          // change that hides an owner is not a deletion of that owner's partition.
+          const grouped = partitionAnchors(next.anchors);
+          const partitions = { ...next.partitions };
+          for (const [scope, partition] of Object.entries(grouped)) {
+            if (scope === state.activeScope) continue;
+            // Foreign records can be retained (e.g. a legacy import), never
+            // removed because the active UI omits them.
+            partitions[scope] = { ...partition, ...partitions[scope],
+              anchors: mergeAnchors(partitions[scope]?.anchors ?? [], partition.anchors) };
+          }
+          const ownAnchors = next.anchors.filter((anchor) => anchorOwnerScope(anchor) === state.activeScope);
+          partitions[state.activeScope] = {
+            anchors: ownAnchors, currentAnchorId: next.currentAnchorId,
+            primeStreak: next.primeStreak, lastPrimedDate: next.lastPrimedDate, lastSyncedAt: next.lastSyncedAt,
+          };
+          persistSet({ ...patch, partitions }, replace);
+        } else persistSet(patch, replace);
+      };
+      api.setState = set;
+      return {
       // Initial state
       anchors: [],
+      partitions: {},
+      activeScope: GUEST_SCOPE,
+      persistenceRecoveryRequired: false,
+      guestTransfers: {},
+      flushPersistence: async () => {
+        await latestPersistenceWrite;
+        if (!get().persistedHydrated) throw new Error('Local Anchor storage is not ready to confirm a save.');
+      },
+      hideActiveAnchors: () => persistSet({ anchors: [], currentAnchorId: undefined, totalPrimes: 0,
+        primeStreak: 0, lastPrimedDate: null, lastSyncedAt: null, remoteAnchorState: 'unknown' }),
+      bindAccount: (userId, authorizedGuestAnchorId) => {
+        const state = get();
+        const scope = accountScope(userId);
+        if (scope === state.activeScope && !authorizedGuestAnchorId) return;
+        const partition = state.partitions[scope];
+        const anchors = mergeAnchors([], partition?.anchors ?? []).filter((anchor) =>
+          scope !== GUEST_SCOPE || !state.guestTransfers[anchor.id]);
+        // Only the explicitly staged first Anchor may cross the guest boundary.
+        const guest = authorizedGuestAnchorId && state.partitions[GUEST_SCOPE]?.anchors.find((anchor) =>
+          matchesAnchorReference(anchor, authorizedGuestAnchorId));
+        const transferOwner = guest && state.guestTransfers[guest.id];
+        const guestTransfers = { ...state.guestTransfers };
+        if (guest && userId && (!transferOwner || transferOwner === userId)) {
+          guestTransfers[guest.id] = userId;
+          if (!anchors.some((anchor) => matchesAnchorReference(anchor, guest.id))) anchors.push(guest);
+        }
+        // bypass the durable mutation wrapper: activation is presentation only.
+        persistSet({ activeScope: scope, anchors, guestTransfers, currentAnchorId: partition?.currentAnchorId ?? anchors[0]?.id,
+          totalPrimes: calculateTotalPrimes(anchors), primeStreak: partition?.primeStreak ?? 0,
+          lastPrimedDate: partition?.lastPrimedDate ?? null, lastSyncedAt: partition?.lastSyncedAt ?? null,
+          remoteAnchorState: 'unknown', error: null });
+      },
       persistedHydrated: false,
       remoteAnchorState: 'unknown',
       totalPrimes: 0,
@@ -219,7 +313,7 @@ export const useAnchorStore = create<AnchorState>()(
             }
           }
           return {
-            anchors: mergeAnchors([], carryForwardEvolvedFrom(anchors, state.anchors)),
+            anchors: mergeAnchors([], carryForwardLocalEvidence(anchors, state.anchors)),
             totalPrimes: calculateTotalPrimes(anchors),
             error: null,
           };
@@ -271,6 +365,8 @@ export const useAnchorStore = create<AnchorState>()(
               return normalizeAnchor({
                 ...anchor,
                 ...updates,
+                localReconciliation: { ...anchor.localReconciliation, pendingLocalMutation: true,
+                  pendingFields: pendingLocalFields(anchor, updates) },
                 updatedAt: undefined as unknown as Date,
               });
             }
@@ -281,6 +377,10 @@ export const useAnchorStore = create<AnchorState>()(
             const updated: Anchor = {
               ...anchor,
               ...updates,
+              ...(anchor.localReconciliation ? {
+                localReconciliation: { ...anchor.localReconciliation, pendingLocalMutation: true,
+                  pendingFields: pendingLocalFields(anchor, updates) },
+              } : {}),
               updatedAt: nextUpdatedAt,
             };
             if ('__missingUpdatedAt' in updated) {
@@ -373,6 +473,13 @@ export const useAnchorStore = create<AnchorState>()(
         return state.anchors.find((anchor) => matchesAnchorReference(anchor, id));
       },
 
+      getLocalRecoveryAnchor: (id) => {
+        const state = get();
+        const copy = state.anchors.find((anchor) => matchesAnchorReference(anchor, id))
+          ?.localReconciliation?.recoveryCopy;
+        return copy && anchorOwnerScope(copy) === state.activeScope ? normalizeAnchor(copy) : undefined;
+      },
+
       getActiveAnchors: () => {
         const state = get();
         return state.anchors.filter(
@@ -427,9 +534,16 @@ export const useAnchorStore = create<AnchorState>()(
           if (!existingAnchor) {
             return { error: null };
           }
+          if (existingAnchor.localReconciliation?.pendingLocalMutation &&
+              !acknowledgesLocalEdits(existingAnchor, anchor)) {
+            return { error: null };
+          }
 
           const syncedAnchor = {
             ...anchor,
+            ...(existingAnchor.localReconciliation ? {
+              localReconciliation: { recoveryCopy: existingAnchor.localReconciliation.recoveryCopy },
+            } : {}),
             localId: anchor.localId ?? referenceId,
             // A sync started before a burn must not return the anchor to the
             // active vault: preserve local released/archived state.
@@ -488,6 +602,10 @@ export const useAnchorStore = create<AnchorState>()(
               if (!localAnchor) {
                 return false;
               }
+              if (localAnchor.localReconciliation?.pendingLocalMutation &&
+                  !acknowledgesLocalEdits(localAnchor, syncedAnchor)) {
+                return false;
+              }
 
               const localIsRetired = Boolean(localAnchor.isReleased || localAnchor.archivedAt);
               const syncedIsRetired = Boolean(syncedAnchor.isReleased || syncedAnchor.archivedAt);
@@ -498,7 +616,15 @@ export const useAnchorStore = create<AnchorState>()(
               return { error: null };
             }
 
-            const nextAnchors = mergeAnchors(state.anchors, carryForwardEvolvedFrom(applicableAnchors, state.anchors));
+            const acknowledgedAnchors = applicableAnchors.map((anchor) => {
+              const local = state.anchors.find((candidate) =>
+                matchesAnchorReference(candidate, anchor.localId ?? anchor.id) ||
+                matchesAnchorReference(candidate, anchor.id));
+              return { ...anchor, ...(local?.localReconciliation ? {
+                localReconciliation: { recoveryCopy: local.localReconciliation.recoveryCopy },
+              } : {}) };
+            });
+            const nextAnchors = mergeAnchors(state.anchors, carryForwardLocalEvidence(acknowledgedAnchors, state.anchors));
 
             return {
               anchors: nextAnchors,
@@ -565,25 +691,70 @@ export const useAnchorStore = create<AnchorState>()(
             }),
           };
         }),
-    }),
+    };
+    },
     {
       name: 'anchor-vault-storage',
-      storage: createJSONStorage(() => encryptedPersistStorage),
+      storage: createJSONStorage(() => ({
+        ...encryptedPersistStorage,
+        setItem: (name, value) => {
+          // A failed/incomplete restore must never publish an empty replacement.
+          if (!useAnchorStore.getState().persistedHydrated) return Promise.resolve();
+          latestPersistenceWrite = Promise.resolve(encryptedPersistStorage.setItem(name, value)).then(() => undefined);
+          return latestPersistenceWrite.catch(() => {
+            useAnchorStore.setState({ persistedHydrated: false, persistenceRecoveryRequired: true,
+              error: 'Your Anchor could not be saved. Restart to recover the last saved version.' });
+          });
+        },
+      })),
       // Persist anchors, last sync time, and currentAnchorId
       partialize: (state) => ({
-        anchors: state.anchors,
-        totalPrimes: state.totalPrimes,
-        primeStreak: state.primeStreak,
-        lastPrimedDate: state.lastPrimedDate,
-        lastSyncedAt: state.lastSyncedAt,
-        currentAnchorId: state.currentAnchorId,
+        ownershipVersion: 1,
+        guestTransfers: state.guestTransfers,
+        anchors: Object.values(state.partitions).flatMap((partition) => partition.anchors),
+        scopeMetadata: Object.fromEntries(Object.entries(state.partitions).map(([scope, { anchors: _anchors, ...metadata }]) => [scope, metadata])),
       }),
+      merge: (persisted, current) => {
+        const saved = persisted as { anchors?: Anchor[]; ownershipVersion?: number; guestTransfers?: Record<string, string>; scopeMetadata?: Record<string, Omit<AnchorPartition, 'anchors'>>; currentAnchorId?: string; primeStreak?: number; lastPrimedDate?: string | null; lastSyncedAt?: Date | null } | undefined;
+        if (saved && !Array.isArray(saved.anchors)) throw new Error('Anchor vault requires recovery');
+        const partitions = partitionAnchors((saved?.anchors ?? []).map(normalizeAnchor));
+        // Keep creations/edits made while the native read was in flight.
+        for (const [scope, live] of Object.entries(current.partitions)) {
+          partitions[scope] = { ...partitions[scope], ...live,
+            anchors: mergeAnchors(partitions[scope]?.anchors ?? [], live.anchors) };
+        }
+        for (const [scope, metadata] of Object.entries(saved?.scopeMetadata ?? {})) {
+          partitions[scope] = { ...(partitions[scope] ?? { anchors: [] }), ...metadata };
+        }
+        // A legacy selected ID only belongs to its proven owner's partition.
+        if (!saved?.ownershipVersion && saved?.currentAnchorId) {
+          for (const partition of Object.values(partitions)) {
+            if (partition.anchors.some((anchor) => matchesAnchorReference(anchor, saved.currentAnchorId!))) {
+              partition.currentAnchorId = saved.currentAnchorId;
+              partition.primeStreak = saved.primeStreak ?? 0;
+              partition.lastPrimedDate = saved.lastPrimedDate ?? null;
+              partition.lastSyncedAt = normalizeDate(saved.lastSyncedAt ?? undefined) ?? null;
+            }
+          }
+        }
+        let userId: string | null = null;
+        try { userId = useAuthStore.getState()?.user?.id ?? null; } catch { /* auth module may still be initializing */ }
+        const scope = accountScope(userId);
+        const partition = partitions[scope];
+        const guestTransfers = { ...saved?.guestTransfers, ...current.guestTransfers };
+        const anchors = (partition?.anchors ?? []).filter((anchor) => scope !== GUEST_SCOPE || !guestTransfers[anchor.id]);
+        return { ...current, partitions, guestTransfers, activeScope: scope, anchors,
+          currentAnchorId: partition?.currentAnchorId, totalPrimes: calculateTotalPrimes(anchors),
+          primeStreak: partition?.primeStreak ?? 0, lastPrimedDate: partition?.lastPrimedDate ?? null,
+          lastSyncedAt: normalizeDate(partition?.lastSyncedAt ?? undefined) ?? null,
+          persistenceRecoveryRequired: Boolean(partitions[RECOVERY_SCOPE]?.anchors.length) };
+      },
       onRehydrateStorage: () => {
         const span = HomeStartupProfiler.start('anchor_store_persisted_hydration');
         return (state, error) => {
           perfLog('store-hydration-finished', { store: 'anchor', ok: !error, anchorCount: state?.anchors?.length ?? 0, hasState: Boolean(state) });
           if (!state) {
-            useAnchorStore.getState().setPersistedHydrated(true);
+            useAnchorStore.setState({ persistenceRecoveryRequired: true, persistedHydrated: false });
             span({ ok: false, error: Boolean(error) });
             return;
           }
@@ -595,6 +766,10 @@ export const useAnchorStore = create<AnchorState>()(
             if (!teaching.userFlags.hasCreatedFirstAnchor) {
               teaching.setUserFlag('hasCreatedFirstAnchor', true);
             }
+          }
+          if (state.persistenceRecoveryRequired) {
+            state.setError('Local Anchor ownership requires recovery. Your saved source is preserved.');
+            return;
           }
           state.setPersistedHydrated(true);
           span({ ok: !error, anchorCount: state.anchors.length, hasSelectedAnchor: Boolean(state.currentAnchorId) });

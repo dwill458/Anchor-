@@ -13,7 +13,7 @@ const TEMPLATES: Record<ShareLayoutId, React.ComponentType<ShareTemplateProps>> 
 };
 
 /** One entry point for previews, thumbnails and the export render. */
-export function ShareTemplate({ layout, ...props }: ShareTemplateProps & { layout: ShareLayoutId }) {
+export const ShareTemplate = React.memo(function ShareTemplate({ layout, ...props }: ShareTemplateProps & { layout: ShareLayoutId }) {
   const Template = TEMPLATES[layout];
   return <Template {...props} />;
-}
+});
