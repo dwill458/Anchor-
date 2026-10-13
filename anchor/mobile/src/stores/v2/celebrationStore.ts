@@ -20,7 +20,7 @@ export type CelebrationLevel = 1 | 2 | 3 | 4;
 
 export const CELEBRATION_SKIPPABLE_AFTER_MS = 2500;
 
-export type CelebrationRequestResult = 'play' | 'deferred' | 'dropped';
+export type CelebrationRequestResult = 'play' | 'deferred' | 'dropped' | 'duplicate';
 
 export type CelebrationOptions = {
   /** How long the scene runs. Without it, or at or under the threshold, the scene is not skippable. */
@@ -98,7 +98,7 @@ export const useCelebrationStore = create<CelebrationState>()((set, get) => {
 
     request: (level, id, opts = {}) => {
       const { current, queue } = get();
-      if (current?.id === id) return 'play';
+      if (current?.id === id) return 'duplicate';
       if (queue.some((queued) => queued.id === id)) return 'deferred';
 
       const scene: Scene = { ...opts, id, level };

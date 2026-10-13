@@ -96,13 +96,20 @@ describe('celebration coordinator', () => {
   it('treats a duplicate active id as idempotent', () => {
     const onStart = jest.fn();
     expect(store().request(3, 'same', { durationMs: 4000, onStart })).toBe('play');
-    expect(store().request(3, 'same', { durationMs: 4000, onStart })).toBe('play');
+    expect(store().request(3, 'same', { durationMs: 4000, onStart })).toBe('duplicate');
     expect(store().queueLength).toBe(0);
     expect(store().active?.id).toBe('same');
 
     store().finish('same');
     expect(store().active).toBeNull();
     expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('allows the same id again after finish', () => {
+    expect(store().request(3, 'same')).toBe('play');
+    store().finish('same');
+    expect(store().request(3, 'same')).toBe('play');
+    expect(store().active?.id).toBe('same');
   });
 
   it('treats a duplicate queued id as idempotent', () => {

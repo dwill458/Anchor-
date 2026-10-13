@@ -408,6 +408,8 @@ export function useHomeArrival({
       }
       playedPracticeArrivals.add(arrival.id);
     }
+    // A second mounted caller must not restart the active arrival or finish its owner's slot.
+    if (useCelebrationStore.getState().active?.id === homeArrivalCelebrationId(arrival.id)) return undefined;
     // The once-ever first-Anchor flag is written here, when a first arrival actually plays, so an
     // arrival that is staged and never plays does not use it up.
     if (kind === 'first') useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', true);

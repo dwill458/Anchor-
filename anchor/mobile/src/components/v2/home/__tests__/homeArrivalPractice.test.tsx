@@ -183,7 +183,7 @@ describe('Complete to Home: the arrival', () => {
     const id = 7;
     const celebrationId = homeArrivalCelebrationId(id);
     expect(useCelebrationStore.getState().request(2, celebrationId, { durationMs: 2400 })).toBe('play');
-    expect(useCelebrationStore.getState().request(2, celebrationId, { durationMs: 2400 })).toBe('play');
+    expect(useCelebrationStore.getState().request(2, celebrationId, { durationMs: 2400 })).toBe('duplicate');
     expect(useCelebrationStore.getState().queueLength).toBe(0);
     expect(useCelebrationStore.getState().active?.id).toBe(celebrationId);
   });

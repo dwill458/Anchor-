@@ -681,7 +681,7 @@ export function ChartActiveView({
         onStart: start,
         onSkip: () => runner.skip(),
       });
-      if (outcome !== 'deferred') start();
+      if (outcome === 'play') start();
       return;
     }
     void runner.run(
@@ -968,7 +968,7 @@ export function ChartActiveView({
         onStart: start,
         onSkip: () => runner.skip(),
       });
-      if (outcome !== 'deferred') start();
+      if (outcome === 'play') start();
       return;
     }
     // Waypoint reached (W1, L3, skippable). The reached state is already real (server data); a scene that has to
@@ -981,7 +981,7 @@ export function ChartActiveView({
       // Lands settled: ink drawn, marker filled, label and next step shown, the note and Light haptic played once.
       onSkip: () => runner.skip(),
     });
-    if (outcome !== 'deferred') start();
+    if (outcome === 'play') start();
   }, [reachEvent, view, anim, placement, table, reducedMotion, sceneReduced, runner, onWaypointReached, beatHandler]);
 
   // Three quiet weeks is evidence the course may need adjusting: offer the one Adjust Route flow once per open.
@@ -1037,6 +1037,7 @@ export function ChartActiveView({
       // Lands settled: the pencil route, the new waypoint shown, the one Light haptic played if it had not been.
       onSkip: () => runner.skip(),
     });
+    if (outcome === 'duplicate') return;
     if (outcome === 'dropped') {
       routeSceneRef.current = null;
       settleNow();
