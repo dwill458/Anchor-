@@ -31,6 +31,8 @@ react {
     //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
     // codegenDir = file("../../node_modules/@react-native/codegen")
 
+    bundleInDebug = (findProperty('android.bundleInDebug') ?: System.getenv('BUNDLE_IN_DEBUG') ?: 'false').toBoolean()
+
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
     //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.

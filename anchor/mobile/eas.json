@@ -98,18 +98,42 @@
         "autoIncrement": true,
         "prebuildCommand": "npx expo prebuild --platform ios --no-install"
       }
+    },
+    "preview-debug": {
+      "distribution": "internal",
+      "channel": "preview",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "true",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "EXPO_PUBLIC_SFX_DEBUG": "1",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "BUNDLE_IN_DEBUG": "true"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      }
     }
   },
   "submit": {
-      "production": {
-        "ios": {
-          "appleId": "deontrezwilliams@gmail.com",
-          "ascAppId": "6767420385",
-          "appleTeamId": "GZAHS664L8"
-        },
-        "android": {
-          "serviceAccountKeyPath": "./google-service-account.json",
-          "track": "internal"
+    "production": {
+      "ios": {
+        "appleId": "deontrezwilliams@gmail.com",
+        "ascAppId": "6767420385",
+        "appleTeamId": "GZAHS664L8"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
       }
     }
   }
