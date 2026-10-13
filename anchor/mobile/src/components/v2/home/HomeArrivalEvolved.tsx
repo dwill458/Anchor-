@@ -1,11 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
 import { CircularAnchorRenderer } from '@/components/v2';
 import type { Anchor } from '@/types';
 import { useHomeArrivalStore, type ArrivalGhost } from '@/stores/v2/homeArrivalStore';
 import { colors } from '@/theme/v2';
+import { EVOLVED_LINE_HEIGHT, evolvedLineRowHeight } from './homeHeroLayout';
 import {
   EVOLVED_GHOST_SCALE,
   evolvedGhostOpacity,
@@ -115,12 +116,13 @@ function UnderlineDraw({ width, height, motion, progress, children }: {
  */
 export function HomeEvolvedFromLine({ anchor, active }: { anchor: Pick<Anchor, 'evolvedFrom'>; active: boolean }) {
   const arrival = useHomeArrivalContext();
+  const { fontScale } = useWindowDimensions();
   const kind = useHomeArrivalStore((state) => state.arrival?.kind);
   const intention = anchor.evolvedFrom?.intention?.trim();
   if (!intention || !active || !arrival?.active || kind !== 'evolved') return null;
   const motion = active ? arrival?.evolved ?? null : null;
-  if (!arrival || !motion) return <Text testID="v2-home-evolved-from" style={styles.line} numberOfLines={1}>{evolvedFromLine(intention)}</Text>;
-  return <FadingLine text={evolvedFromLine(intention)} motion={motion} progress={arrival.progress} />;
+  const line = !motion ? <Text testID="v2-home-evolved-from" style={styles.line} numberOfLines={1}>{evolvedFromLine(intention)}</Text> : <FadingLine text={evolvedFromLine(intention)} motion={motion} progress={arrival.progress} />;
+  return <View testID="v2-home-evolved-row" style={{ height: evolvedLineRowHeight(fontScale), paddingVertical: 4 }}>{line}</View>;
 }
 
 function FadingLine({ text, motion, progress }: {
@@ -135,13 +137,12 @@ function FadingLine({ text, motion, progress }: {
 
 const styles = StyleSheet.create({
   ghost: { position: 'absolute', left: '50%', overflow: 'hidden' },
-  // Claims the few points of slack the hero's fixed track keeps under the Thread Strength row, so the
-  // track (and the divider below it) never moves.
+  // The carousel reserves a scaled row during this scene; no negative-margin slack.
   line: {
-    marginTop: -4,
+
     fontFamily: 'EBGaramond-Italic',
     fontSize: 13,
-    lineHeight: 15,
+    lineHeight: EVOLVED_LINE_HEIGHT,
     textAlign: 'center',
     color: colors.text.secondary,
     paddingHorizontal: 24,

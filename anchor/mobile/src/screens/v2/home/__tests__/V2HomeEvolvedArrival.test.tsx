@@ -138,6 +138,8 @@ describe('Home: Evolved anchor lands on Home (EV1)', () => {
 
   it('shows the approved line under the intention, with typographic quotes', () => {
     renderHome();
+    expect(screen.queryByTestId('v2-home-evolved-from')).toBeNull();
+    act(() => { stageEvolved(); });
     expect(screen.getByTestId('v2-home-evolved-from').props.children).toBe('Evolved from “Publish my novel”');
   });
 
@@ -171,7 +173,7 @@ describe('Home: Evolved anchor lands on Home (EV1)', () => {
     expect(screen.getByText('1 OF 2')).toBeTruthy();
   });
 
-  it('offers the transparent Skip layer while it plays; a tap lands on the settled state with the line shown', () => {
+  it('offers the transparent Skip layer while it plays; a tap removes the scene row on the settled Home', () => {
     renderHome();
     let id = 0;
     act(() => { id = stageEvolved(); });
@@ -185,7 +187,8 @@ describe('Home: Evolved anchor lands on Home (EV1)', () => {
     expect(useCelebrationStore.getState().active).toBeNull();
     expect(screen.queryByTestId('v2-home-arrival-skip')).toBeNull();
     expect(screen.queryByTestId('v2-home-evolved-ghost', { includeHiddenElements: true })).toBeNull();
-    expect(screen.getByTestId('v2-home-evolved-from').props.children).toBe('Evolved from “Publish my novel”');
+    expect(screen.queryByTestId('v2-home-evolved-from')).toBeNull();
+    expect(screen.queryByTestId('v2-home-evolved-row')).toBeNull();
     expect(screen.queryByTestId('v2-home-underline-draw')).toBeNull();
   });
 

@@ -67,3 +67,16 @@ describe('hero intention label size', () => {
     expect(heroIntentionFontSize('')).toBe(23);
   });
 });
+
+
+describe('EV1 line owns its space', () => {
+  it('reserves a full scaled row at 1.3x without taking the existing Thread row slack', () => {
+    const input = { platform: 'android', width: 384, height: 832, topInset: 24, bottomInset: 24 };
+    const resting = resolveHomeHeroLayout(input);
+    const scene = resolveHomeHeroLayout({ ...input, evolvedScene: true, fontScale: 1.3 });
+    expect(scene.trackHeight - resting.trackHeight).toBe(34);
+    expect(scene.artworkBoxHeight).toBe(resting.artworkBoxHeight);
+    expect(scene.trackHeight - resting.trackHeight - 8).toBeGreaterThanOrEqual(20 * 1.3);
+    expect(resolveHomeHeroLayout({ ...input, evolvedScene: false, fontScale: 1.3 }).trackHeight).toBe(resting.trackHeight);
+  });
+});

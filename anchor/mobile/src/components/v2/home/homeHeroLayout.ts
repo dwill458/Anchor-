@@ -2,6 +2,8 @@ import { resolveV2Viewport, clamp } from '@/theme/v2/responsive';
 
 type HeroLayoutInput = {
   platform: string;
+  evolvedScene?: boolean;
+  fontScale?: number;
   width: number;
   height: number;
   topInset: number;
@@ -19,6 +21,10 @@ type HeroLayoutInput = {
  * Longer text shrinks to fit (down to HERO_INTENTION_MIN_FONT_SCALE) and then truncates; the full
  * text is on the Anchor's details.
  */
+export const EVOLVED_LINE_HEIGHT = 20;
+/** A dedicated row: scaled text plus 4dp clear air above and below. */
+export const evolvedLineRowHeight = (fontScale = 1) => Math.ceil(EVOLVED_LINE_HEIGHT * fontScale) + 8;
+
 export const HERO_INTENTION_LINES = 2;
 export const HERO_INTENTION_MIN_FONT_SCALE = 0.72;
 export const HERO_INTENTION_LINE_HEIGHT = 33;
@@ -68,7 +74,7 @@ const TRACK_CHROME = 87;
  * them — a usable-height give-back and a width cap — so nothing that already
  * fits is disturbed.
  */
-export function resolveHomeHeroLayout({ platform, width, height, topInset, bottomInset }: HeroLayoutInput) {
+export function resolveHomeHeroLayout({ platform, width, height, topInset, bottomInset, evolvedScene = false, fontScale = 1 }: HeroLayoutInput) {
   const viewport = resolveV2Viewport({ width, height, topInset, bottomInset });
   const compact = viewport.usableHeight < 790;
   // The S24 Ultra can report only 384 dp of width at its default display
@@ -93,7 +99,7 @@ export function resolveHomeHeroLayout({ platform, width, height, topInset, botto
     anchorSize,
     artworkBoxHeight: tunedBox - anchorDelta,
     constructionSize: tunedConstruction - anchorDelta,
-    trackHeight: Math.round(tunedTrack - anchorDelta - shortfall * MAX_SHORT_TRACK_REDUCTION),
+    trackHeight: Math.round(tunedTrack - anchorDelta - shortfall * MAX_SHORT_TRACK_REDUCTION) + (evolvedScene ? evolvedLineRowHeight(fontScale) : 0),
     gutter: viewport.gutter,
   };
 }

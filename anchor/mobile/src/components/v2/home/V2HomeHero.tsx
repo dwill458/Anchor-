@@ -17,6 +17,7 @@ import { HomeArrivalUnderline, HomeEvolvedFromLine, HomeEvolvedGhost } from './H
 import { useAnchorTransitionPlace, useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { HeroHalo, HeroStatusRing } from './V2HomeHeroLight';
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
+import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
 import { HandDrawnPercentage } from './HandDrawnPercentage';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
@@ -400,7 +401,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
           <ThreadReading thread={thread} accent={accent} active={slot === 0} teachingRef={teachingThreadRef} />
         </Pressable>
       ) : null}
-      {/* Only an Anchor that carries evolvedFrom has this line; without one nothing is rendered. */}
+      {/* The lineage line owns a row only during the evolved arrival. */}
       <HomeEvolvedFromLine anchor={anchor} active={slot === 0} />
       </Animated.View>
     </View>
@@ -409,11 +410,14 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
 
 /** The entire visible hero is one of five mounted items on a shared track. */
 function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, onMotionChange, testID, teachingThreadRef }: Props) {
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
+  const arrival = useHomeArrivalContext();
+  const arrivalKind = useHomeArrivalStore((state) => state.arrival?.kind);
+  const evolvedScene = Boolean(arrival?.active && arrivalKind === 'evolved' && anchors[selectedIndex]?.anchor.evolvedFrom?.intention?.trim());
   const insets = useSafeAreaInsets();
   const layout = resolveHomeHeroLayout({
     platform: Platform.OS,
-    width, height, topInset: insets.top, bottomInset: insets.bottom,
+    width, height, fontScale, evolvedScene, topInset: insets.top, bottomInset: insets.bottom,
   });
   const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => (
     <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing} gutter={layout.gutter}
