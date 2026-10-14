@@ -268,9 +268,14 @@ export function VisionVisualQADevHost() {
   } else if (surface?.startsWith('share-')) {
     const count = Math.max(0, Math.min(8, Number(surface.split('-')[1] ?? '3')));
     const shareTiles = sessionTiles.slice(0, count);
+    const shareNotes: VisionNote[] = surface.includes('mixed') ? [
+      { ...fixtureNotes[0], presentation: { ...fixtureNotes[0].presentation, styleId: 'sticky_butter_yellow', x: .75, y: .52, width: .24, height: .2 } },
+      { ...fixtureNotes[0], id: 'qa-share-note-2', presentation: { ...fixtureNotes[0].presentation, styleId: 'editorial_golden_hour', x: .24, y: .78, width: .24, height: .18 } },
+    ] : fixtureNotes;
     const data = buildShareExportData({ intentionText: identity.anchorIntention, category: identity.anchorCategory,
-      baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null, enhancedImageUrl: null } as any,
-      { visionTiles: shareTiles, visionNotes: surface.includes('notes') ? fixtureNotes : [], visionAnnotation: 'Room to create' });
+      baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null,
+      enhancedImageUrl: surface.includes('art') ? Image.resolveAssetSource(require('@/assets/onboarding/screen5/anchor-verdigris-relic.png')).uri : null } as any,
+      { visionTiles: shareTiles, visionNotes: surface.includes('notes') ? shareNotes : [], visionAnnotation: 'Room to create' });
     content = <AnchorShareStudio visible data={data} onClose={close} />;
   } else if (surface === 'note-composer') content = <V2VisionNoteComposer route={{ params: { anchorId: anchor?.id ?? 'qa-fixture' } }} navigation={{ goBack: close }} />;
   else if (surface?.startsWith('materials')) {

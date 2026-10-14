@@ -281,6 +281,20 @@ describe('Vision Share Background Customization', () => {
     );
   });
 
+  it('re-enables both buttons after a loading failure so Save and Share can be retried', async () => {
+    mockRenderPng.mockRejectedValueOnce(new Error('Vision image loading timed out. Please try again.'));
+    const view = render(<AnchorShareStudio visible onClose={jest.fn()} data={sampleData} initialLayout="vision" />);
+    fireEvent.press(view.getByTestId('share-studio-save'));
+    await waitFor(() => {
+      expect(view.getByTestId('share-studio-save').props.accessibilityState?.disabled).toBe(false);
+      expect(view.getByTestId('share-studio-share').props.accessibilityState?.disabled).toBe(false);
+    });
+    fireEvent.press(view.getByTestId('share-studio-save'));
+    await waitFor(() => expect(saveShareExport).toHaveBeenCalledWith('file://fake-export.png', 'vision'));
+    fireEvent.press(view.getByTestId('share-studio-share'));
+    await waitFor(() => expect(sharePngViaSystemSheet).toHaveBeenCalledWith('file://fake-export.png'));
+  });
+
   it('10. existing vision collage data (tiles, notes, mark, annotation) remains unchanged', () => {
     const view = render(
       <VisionExportTemplate data={sampleData} width={360} showMark visionBackgroundId="canvas" />

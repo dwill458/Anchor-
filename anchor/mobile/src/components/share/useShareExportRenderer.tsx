@@ -152,7 +152,7 @@ export function useShareExportRenderer(data: ShareExportData | null) {
       try {
         if (layout === 'vision') {
           if (!data) throw new Error('Vision export data is unavailable.');
-          prepared = await prepareVisionShareAssets(data, options.visionBackgroundId);
+          prepared = await prepareVisionShareAssets(data, options.visionBackgroundId, showMark);
         }
         const key = mount(layout, showMark, options.visionBackgroundId, prepared);
         const wasReady = readyKeys.current.has(key);

@@ -20,6 +20,8 @@ export const SHARE_LAYOUT_LABELS: Record<ShareLayoutId, string> = {
  * there is no slot for invented copy.
  */
 export interface ShareExportData {
+  /** Enables refreshing expired Vision photo URLs for this saved Anchor. */
+  anchorId?: string;
   /** Stable structure SVG (reinforced if present, else base). */
   svg: string;
   /** The finished, styled Anchor artwork. It only ever fills the circular Anchor; it is never used as a background. */

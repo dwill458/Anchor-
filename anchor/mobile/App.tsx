@@ -480,7 +480,10 @@ export default function App() {
   useEffect(() => {
     return subscribeToAppAuthState({
       developerMasterAccountEnabled: () => developerMasterAccountEnabledRef.current,
-      onInitialAuthRestoreSettled: () => setInitialAuthResolved(true),
+      onInitialAuthRestoreSettled: () => {
+        setStartupFatalFailure(false);
+        setInitialAuthResolved(true);
+      },
       onStartupSafeFailure: () => setStartupSafeFailure(true),
       onStartupUnsafeFailure: () => setStartupFatalFailure(true),
     });

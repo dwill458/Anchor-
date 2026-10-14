@@ -164,6 +164,41 @@ describe('App startup hydration recovery', () => {
     expect(reloadCurrentApp).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])('handles late auth hydration while preserving storage recovery guard=%s', async (recoveryRequired) => {
+    let hydrated = false;
+    const originalOnFinishHydration = useAuthStore.persist.onFinishHydration;
+    const listeners = new Set<() => void>();
+    useAuthStore.persist.hasHydrated = () => hydrated;
+    useAuthStore.persist.onFinishHydration = (callback) => {
+      const listener = () => callback(useAuthStore.getState());
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    };
+    restorePersistenceMocks.push(() => {
+      useAuthStore.persist.onFinishHydration = originalOnFinishHydration;
+    });
+    useAnchorStore.persist.hasHydrated = () => true;
+    useFirstRunStore.persist.hasHydrated = () => true;
+    useAnchorStore.setState({ persistenceRecoveryRequired: recoveryRequired });
+    const rendered = render(<App />);
+    try {
+      const restoring = mockAuthCallbacks[0](null);
+      await act(async () => { await jest.advanceTimersByTimeAsync(10001); await restoring; });
+      expect(screen.getByText('Unable to restore saved data')).toBeTruthy();
+      await act(async () => {
+        hydrated = true;
+        [...listeners].forEach((listener) => listener());
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      if (recoveryRequired) expect(screen.getByText('Unable to restore saved data')).toBeTruthy();
+      else expect(screen.queryByText('Unable to restore saved data')).toBeNull();
+      expect(useAnchorStore.getState().anchors).toEqual([anchor]);
+      expect(reloadCurrentApp).not.toHaveBeenCalled();
+    } finally {
+      rendered.unmount();
+    }
+  });
+
   it('keeps a storage or ownership recovery failure closed even after hydration callbacks finish', async () => {
     render(<App />);
     await act(async () => { await mockAuthCallbacks[0](null); });

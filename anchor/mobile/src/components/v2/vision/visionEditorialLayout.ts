@@ -166,6 +166,16 @@ function fitRotatedSlots(
   }));
 }
 
+/** Four Home photos sit as a centered two-by-two stack, like four real prints. */
+function homeFourPhotoSlots(): VisionEditorialPhotoSlot[] {
+  return [
+    { x: 0.34, y: 0.02, width: 0.19, height: 0.53, rotation: -2.5, zIndex: 1 },
+    { x: 0.48, y: 0.00, width: 0.19, height: 0.53, rotation: 2, zIndex: 2 },
+    { x: 0.34, y: 0.40, width: 0.19, height: 0.53, rotation: -1.5, zIndex: 3 },
+    { x: 0.48, y: 0.38, width: 0.19, height: 0.53, rotation: 2.5, zIndex: 4 },
+  ];
+}
+
 /**
  * Deterministic, count-adaptive scrapbook packing for compact previews.
  * Fits connected rows of measured-aspect prints, evaluates count-adaptive
@@ -195,6 +205,9 @@ export function getEditorialPhotoSlots(
   const overlap = Math.min(0.48, Math.max(0.08, canvas.desiredOverlap ?? 0.44));
   const aspects = Array.from({ length: photoCount }, (_, i) =>
     Number.isFinite(sourceAspects[i]) && sourceAspects[i] > 0 ? sourceAspects[i] : 1.5);
+  if (variant === 'home' && photoCount === 4) {
+    return fitRotatedSlots(homeFourPhotoSlots(), margin, canvasAspect);
+  }
   // Portrait collections need a tall central print with supporting photographs
   // tucked around it, rather than row justification shrinking every portrait.
   // Work in physical canvas coordinates and fit the complete rotated bounds.

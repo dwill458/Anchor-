@@ -32,3 +32,25 @@ Before mounting a Vision export, remote background, Anchor and photo bytes are d
 - Samsung native Save exercised with the development-only four-photo fixture and a saved note. The initially loaded old bundle reproduced the blurry/placeholder export (`export-before-reload.png`). After a development-client reload, the corrected flow produced `export-native-verified.png`: 1080 x 1920, four loaded photographs, saved note, annotation and sharp Scrapbook background.
 - Comparison of unobstructed edge pixels against the full-resolution asset has RMSE **0** for the corrected native PNG. The earlier export had full-resolution RMSE 10.26 and thumbnail RMSE 2.27. Values are recorded in `export-resolution-comparison.json`. No staging directory remained after capture.
 - This verifies the Android fixture export. Native iOS and the user's specific four-photo Vision have not been exported in this follow-up. No OTA or deployment was sent. Concurrent unrelated checkout edits were preserved.
+
+## Save/Share recovery follow-up
+
+After the user reported both actions failing, added a single recovery attempt for missing/expired Vision photo URLs (HTTP 401/403/404). The export carries its Anchor ID, reads fresh URLs through the authenticated Vision API, validates that the returned Vision belongs to that Anchor, and replaces only the existing scenes' URLs. Saved order, notes, annotation and artwork remain selected from the existing payload. A second failed attempt exits normally rather than looping.
+
+Native bundled background sources retain their original source metadata. Hidden Anchor artwork is not downloaded. Downloads now cancel after 15 seconds, wait for cancellation before cleaning their temporary directory, and release the busy state so Save/Share can be retried.
+
+Eight share suites / **66 tests passed**, including expired URLs, cross-Anchor rejection, a bounded retry, cancelled stalled downloads and actual Save/Share button presses after a failed attempt. TypeScript and scoped whitespace checks passed. The regression tests failed before the changes (`save-recovery-red.log`).
+
+**Runtime acceptance is pending:** `adb devices` and mDNS discovery found no connected device in this follow-up. The user's saved Vision and native touch area could not be re-tested. Earlier Android fixture acceptance does not establish that this reported failure is resolved. No OTA or deployment was published.
+
+## Requested emulator verification
+
+Started the existing Vision_QA Android 36.1 AVD without clearing its data. Startup hit System UI/ADB authorization issues; recovered the emulator and installed the existing development APK. The emulated app loaded current workspace JavaScript from a dedicated Metro server on port 8082.
+
+Expanded only the development QA host with `share-4-art-mixed-notes`: four local fixture photos, full enhanced artwork, a Butter Yellow sticky note and Golden Hour editorial note. This matches the asset types in the reported card without accessing or modifying owner data.
+
+- Pressed the native Save hit area on **all five backgrounds**. Android MediaStore confirms saved 1080 x 1920 images for Canvas, Scrapbook, Soft Focus, Midnight and Editorial. Six rows exist because the Share action also performs its existing local save.
+- Pressed native Share: Android's `com.android.intentresolver` opened with the PNG preview and Quick Share, Print, Drive, Maps and Messages targets. Dismissed without choosing a recipient. Evidence: `emulator-share-sheet-final.png` / `.xml`.
+- Inspected `emulator-export-art-mixed-notes.png`: all photos, enhanced Anchor, two notes and annotation are rendered. The other four backgrounds are saved as `emulator-export-<background>.png`; their unobstructed edge pixels match the full-resolution source exactly (RMSE 0). Metrics: `emulator-export-validation.json`.
+- Save hit area `[53,2185][457,2327]`, Share `[489,2185][1028,2327]`; both native taps reached their intended action, and both re-enabled after the share sheet was dismissed. No Share Studio export failures appeared in the emulator's log. No staging directories remained.
+- TypeScript passed after the development fixture addition. This is development-build emulator verification of the current local code. The user's specific authenticated saved Vision was not available in this emulator; the reported error was not reproduced with these fixtures. Phone build identity is being clarified. No OTA/build update was published.

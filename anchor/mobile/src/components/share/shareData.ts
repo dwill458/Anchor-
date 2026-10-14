@@ -7,7 +7,7 @@ import type { ShareExportData } from './shareTypes';
 type ShareAnchor = Pick<
   Anchor,
   'intentionText' | 'category' | 'baseSigilSvg' | 'reinforcedSigilSvg' | 'enhancedImageUrl' | 'classifierMeta' | 'enhancementMetadata'
->;
+> & Partial<Pick<Anchor, 'id'>>;
 
 /**
  * Everything a share template may print, taken from the Anchor's own data.
@@ -24,6 +24,7 @@ export function buildShareExportData(
   } = {},
 ): ShareExportData {
   return {
+    anchorId: anchor.id,
     svg: anchorArtworkSvg(anchor),
     imageUrl: anchor.enhancedImageUrl,
     category: anchor.category,

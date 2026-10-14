@@ -270,6 +270,9 @@ const pendingWrites = new Map<
 const lastWrittenValue = new Map<string, string>();
 const writeCounts = new Map<string, number>();
 const inFlightWrites = new Map<string, number>();
+// Share only an identical, sole active generation. A newer pending request must
+// retain its own receipt; matching an older payload must not skip its ordering.
+const activeWriteEntries = new Map<string, Set<{ value: string; resolvers: Array<{ resolve: () => void; reject: (error: unknown) => void }> }>>();
 
 function scheduleWrite(name: string, value: string): Promise<void> {
   if (!pendingWrites.has(name) && !inFlightWrites.get(name) && lastWrittenValue.get(name) === value) {
@@ -277,6 +280,14 @@ function scheduleWrite(name: string, value: string): Promise<void> {
   }
 
   return new Promise((resolve, reject) => {
+    const active = activeWriteEntries.get(name);
+    if (!pendingWrites.has(name) && active?.size === 1) {
+      const entry = active.values().next().value;
+      if (entry?.value === value) {
+        entry.resolvers.push({ resolve, reject });
+        return;
+      }
+    }
     const existing = pendingWrites.get(name);
     if (existing) {
       if (existing.value === value) { existing.resolvers.push({ resolve, reject }); return; }
@@ -300,6 +311,9 @@ async function flushWrite(name: string): Promise<void> {
   if (!entry) return;
   pendingWrites.delete(name);
   inFlightWrites.set(name, (inFlightWrites.get(name) ?? 0) + 1);
+  const active = activeWriteEntries.get(name) ?? new Set();
+  active.add(entry);
+  activeWriteEntries.set(name, active);
 
   try {
     await performWrite(name, entry.value);
@@ -311,6 +325,8 @@ async function flushWrite(name: string): Promise<void> {
   } catch (error) {
     entry.resolvers.forEach(({ reject }) => reject(error));
   } finally {
+    active.delete(entry);
+    if (active.size === 0) activeWriteEntries.delete(name);
     inFlightWrites.set(name, Math.max(0, (inFlightWrites.get(name) ?? 1) - 1));
   }
 }

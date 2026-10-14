@@ -448,6 +448,201 @@ describe('App auth restore and local account data', () => {
     }
   });
 
+  it('resumes authenticated restore when auth persistence completes after its timeout', async () => {
+    jest.useFakeTimers();
+    const account = makeUser('late-persisted-account-a');
+    const anchor = makeAnchor('late-persisted-account-a-anchor', account.id);
+    useAuthStore.getState().setSession(account as never, 'cached-token');
+    useAnchorStore.setState({ anchors: [anchor] } as never);
+    const hasHydrated = useAuthStore.persist.hasHydrated;
+    const onFinishHydration = useAuthStore.persist.onFinishHydration;
+    const listeners = new Set<(state: any) => void>();
+    let hydrated = false;
+    useAuthStore.persist.hasHydrated = () => hydrated;
+    useAuthStore.persist.onFinishHydration = (callback) => {
+      listeners.add(callback);
+      return () => { listeners.delete(callback); };
+    };
+    (AuthService.syncCurrentUser as jest.Mock).mockResolvedValue({ user: account, token: 'restored-token' });
+
+    try {
+      const restoring = emitAuthState({ uid: account.id });
+      await flushMicrotasks();
+      await jest.advanceTimersByTimeAsync(10001);
+      expect(startupUnsafeFailure).toHaveBeenCalledTimes(1);
+      expect(initialAuthRestoreSettled).not.toHaveBeenCalled();
+      expect(AuthService.syncCurrentUser).not.toHaveBeenCalled();
+      expect(useAnchorStore.getState().anchors).toEqual([anchor]);
+
+      hydrated = true;
+      [...listeners].forEach((callback) => callback(useAuthStore.getState()));
+      await jest.advanceTimersByTimeAsync(0);
+      await restoring;
+
+      expect(initialAuthRestoreSettled).toHaveBeenCalledTimes(1);
+      expect(useAuthStore.getState()).toMatchObject({ user: account, isLoading: false, token: 'restored-token' });
+      expect(useAnchorStore.getState().anchors).toEqual([anchor]);
+      expect(UserLocalStateService.saveAnchorSnapshot).not.toHaveBeenCalled();
+    } finally {
+      stopAuthBootstrap?.();
+      jest.useRealTimers();
+      useAuthStore.persist.hasHydrated = hasHydrated;
+      useAuthStore.persist.onFinishHydration = onFinishHydration;
+    }
+  });
+
+  it('resumes safe null-session cleanup when snapshot persistence completes after its timeout', async () => {
+    jest.useFakeTimers();
+    const account = makeUser('late-cleanup-account-a');
+    const anchor = makeAnchor('late-cleanup-account-a-anchor', account.id);
+    useAuthStore.getState().setSession(account as never, 'cached-token');
+    useAnchorStore.setState({ anchors: [anchor] } as never);
+    const hasHydrated = useAnchorStore.persist.hasHydrated;
+    const onFinishHydration = useAnchorStore.persist.onFinishHydration;
+    const listeners = new Set<(state: any) => void>();
+    let hydrated = false;
+    useAnchorStore.persist.hasHydrated = () => hydrated;
+    useAnchorStore.persist.onFinishHydration = (callback) => {
+      listeners.add(callback);
+      return () => { listeners.delete(callback); };
+    };
+
+    try {
+      const restoring = emitAuthState(null);
+      await flushMicrotasks();
+      await jest.advanceTimersByTimeAsync(10001);
+      expect(startupUnsafeFailure).toHaveBeenCalledTimes(1);
+      expect(initialAuthRestoreSettled).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().user?.id).toBe(account.id);
+      expect(UserLocalStateService.saveAnchorSnapshot).not.toHaveBeenCalled();
+
+      hydrated = true;
+      [...listeners].forEach((callback) => callback(useAnchorStore.getState()));
+      await jest.advanceTimersByTimeAsync(0);
+      await restoring;
+
+      expect(initialAuthRestoreSettled).toHaveBeenCalledTimes(1);
+      expect(UserLocalStateService.saveAnchorSnapshot).toHaveBeenCalledWith(account.id, expect.objectContaining({ anchors: [anchor] }));
+      expect(useAuthStore.getState()).toMatchObject({ user: null, isAuthenticated: false, isLoading: false });
+      expect(useAnchorStore.getState().anchors).toEqual([]);
+    } finally {
+      stopAuthBootstrap?.();
+      jest.useRealTimers();
+      useAnchorStore.persist.hasHydrated = hasHydrated;
+      useAnchorStore.persist.onFinishHydration = onFinishHydration;
+    }
+  });
+
+  it.each(['auth', 'snapshot'] as const)('cancels late %s hydration recovery on bootstrap unmount', async (kind) => {
+    jest.useFakeTimers();
+    const account = makeUser('unmounted-account-a');
+    useAuthStore.getState().setSession(account as never, 'cached-token');
+    const persist = kind === 'auth' ? useAuthStore.persist : useAnchorStore.persist;
+    const hasHydrated = persist.hasHydrated;
+    const onFinishHydration = persist.onFinishHydration;
+    const listeners = new Set<(state: any) => void>();
+    let hydrated = false;
+    persist.hasHydrated = () => hydrated;
+    persist.onFinishHydration = (callback: (state: any) => void) => {
+      listeners.add(callback);
+      return () => { listeners.delete(callback); };
+    };
+
+    try {
+      const restoring = emitAuthState(null);
+      await flushMicrotasks();
+      await jest.advanceTimersByTimeAsync(10001);
+      await restoring;
+      expect(startupUnsafeFailure).toHaveBeenCalledTimes(1);
+      expect(listeners.size).toBe(1);
+      stopAuthBootstrap?.();
+      expect(listeners.size).toBe(0);
+      hydrated = true;
+      [...listeners].forEach((callback) => callback(undefined));
+      await jest.advanceTimersByTimeAsync(0);
+      expect(initialAuthRestoreSettled).not.toHaveBeenCalled();
+      expect(useAuthStore.getState().user?.id).toBe(account.id);
+      expect(UserLocalStateService.saveAnchorSnapshot).not.toHaveBeenCalled();
+    } finally {
+      stopAuthBootstrap?.();
+      jest.useRealTimers();
+      persist.hasHydrated = hasHydrated;
+      persist.onFinishHydration = onFinishHydration;
+    }
+  });
+
+  it('supersedes a timed-out auth restore when a newer account callback arrives', async () => {
+    jest.useFakeTimers();
+    const accountA = makeUser('late-account-a');
+    const accountB = makeUser('late-account-b');
+    const hasHydrated = useAuthStore.persist.hasHydrated;
+    const onFinishHydration = useAuthStore.persist.onFinishHydration;
+    const listeners = new Set<(state: any) => void>();
+    let hydrated = false;
+    useAuthStore.persist.hasHydrated = () => hydrated;
+    useAuthStore.persist.onFinishHydration = (callback) => {
+      listeners.add(callback);
+      return () => { listeners.delete(callback); };
+    };
+    (AuthService.syncCurrentUser as jest.Mock).mockResolvedValue({ user: accountB, token: 'token-b' });
+
+    try {
+      const oldRestore = emitAuthState({ uid: accountA.id });
+      await flushMicrotasks();
+      await jest.advanceTimersByTimeAsync(10001);
+      await oldRestore;
+      const currentRestore = emitAuthState({ uid: accountB.id });
+      await flushMicrotasks();
+      expect(listeners.size).toBe(1);
+      hydrated = true;
+      [...listeners].forEach((callback) => callback(useAuthStore.getState()));
+      await jest.advanceTimersByTimeAsync(0);
+      await currentRestore;
+      expect(AuthService.syncCurrentUser).toHaveBeenCalledTimes(1);
+      expect(initialAuthRestoreSettled).toHaveBeenCalledTimes(1);
+      expect(useAuthStore.getState().user?.id).toBe(accountB.id);
+      expect(UserLocalStateService.saveAnchorSnapshot).not.toHaveBeenCalled();
+    } finally {
+      stopAuthBootstrap?.();
+      jest.useRealTimers();
+      useAuthStore.persist.hasHydrated = hasHydrated;
+      useAuthStore.persist.onFinishHydration = onFinishHydration;
+    }
+  });
+
+  it('does not apply timed-out cleanup to a changed account identity', async () => {
+    jest.useFakeTimers();
+    useAuthStore.getState().setSession(makeUser('cleanup-account-a') as never, 'token-a');
+    const hasHydrated = useAnchorStore.persist.hasHydrated;
+    const onFinishHydration = useAnchorStore.persist.onFinishHydration;
+    const listeners = new Set<(state: any) => void>();
+    let hydrated = false;
+    useAnchorStore.persist.hasHydrated = () => hydrated;
+    useAnchorStore.persist.onFinishHydration = (callback) => {
+      listeners.add(callback);
+      return () => { listeners.delete(callback); };
+    };
+
+    try {
+      const restoring = emitAuthState(null);
+      await flushMicrotasks();
+      await jest.advanceTimersByTimeAsync(10001);
+      await restoring;
+      useAuthStore.getState().setSession(makeUser('cleanup-account-b') as never, 'token-b');
+      hydrated = true;
+      [...listeners].forEach((callback) => callback(useAnchorStore.getState()));
+      await jest.advanceTimersByTimeAsync(0);
+      expect(useAuthStore.getState().user?.id).toBe('cleanup-account-b');
+      expect(UserLocalStateService.saveAnchorSnapshot).not.toHaveBeenCalled();
+      expect(initialAuthRestoreSettled).not.toHaveBeenCalled();
+    } finally {
+      stopAuthBootstrap?.();
+      jest.useRealTimers();
+      useAnchorStore.persist.hasHydrated = hasHydrated;
+      useAnchorStore.persist.onFinishHydration = onFinishHydration;
+    }
+  });
+
   it('does not let an in-flight stale account cleanup clear a newly authenticated account', async () => {
     let finishSnapshot!: () => void;
     (UserLocalStateService.saveAnchorSnapshot as jest.Mock).mockImplementation(

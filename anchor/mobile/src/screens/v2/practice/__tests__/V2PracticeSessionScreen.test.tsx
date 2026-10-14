@@ -114,6 +114,36 @@ function emitAppState(nextState: 'active' | 'background') {
     expect(screen.getByText('Release and ground')).toBeTruthy();
   });
 
+  it.each(Array.from({ length: 10 }, (_, i) => i + 1))('10-second synthetic Focus completes (%i)', async () => {
+    (PracticeCompletionService.completePracticeSession as jest.Mock).mockResolvedValue(undefined);
+    const view = render(<V2PracticeSessionScreen anchorId="a1" mode="focus" durationSeconds={10}
+      source="practice_hub" onBack={jest.fn()} onCompleted={jest.fn()} onFocusAgain={jest.fn()} />);
+    emitAppState('active');
+    await act(async () => { jest.advanceTimersByTime(800); });
+    await act(async () => { jest.advanceTimersByTime(10000); });
+    await act(async () => { jest.advanceTimersByTime(2300); });
+    expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(1);
+    view.unmount();
+  });
+
+  it('causally holds Focus completion behind a delayed durable receipt and recovers on settlement', async () => {
+    let release!: () => void;
+    (PracticeCompletionService.completePracticeSession as jest.Mock).mockImplementationOnce(
+      () => new Promise<void>(resolve => { release = resolve; }));
+    render(<V2PracticeSessionScreen anchorId="a1" mode="focus" durationSeconds={10}
+      source="practice_hub" onBack={jest.fn()} onCompleted={jest.fn()} onFocusAgain={jest.fn()} />);
+    emitAppState('active');
+    await act(async () => { jest.advanceTimersByTime(800); });
+    await act(async () => { jest.advanceTimersByTime(10000); });
+    await act(async () => { jest.advanceTimersByTime(150000); });
+    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('v2-focus-complete-screen')).toBeNull();
+    expect(PracticeCompletionService.flush).not.toHaveBeenCalled();
+    await act(async () => { release(); });
+    expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+  });
+
   it('completes focus session, writes to PracticeCompletionService, and displays complete screen', async () => {
     const onCompleted = jest.fn();
     const onBack = jest.fn();

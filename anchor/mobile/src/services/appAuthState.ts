@@ -27,6 +27,31 @@ const storesSignOutSnapshotsOrClears: PersistApi[] = [
   useSubscriptionStore.persist,
 ];
 
+/** Watches a timed-out cleanup without clearing data before every store is ready. */
+export function subscribeToSignOutStoresHydration(
+  isCurrent: () => boolean,
+  onReady: () => void,
+): () => void {
+  let active = true;
+  const subscriptions: Array<() => void> = [];
+  const cancel = () => {
+    active = false;
+    subscriptions.forEach((unsubscribe) => unsubscribe());
+  };
+  const check = () => {
+    if (!active) return;
+    if (!isCurrent()) { cancel(); return; }
+    if (!storesSignOutSnapshotsOrClears.every((store) => store.hasHydrated())) return;
+    cancel();
+    onReady();
+  };
+  storesSignOutSnapshotsOrClears.forEach((store) => {
+    subscriptions.push(store.onFinishHydration(check));
+  });
+  check();
+  return cancel;
+}
+
 function waitForHydration(store: PersistApi, isCurrent: () => boolean): Promise<boolean> {
   if (store.hasHydrated()) return Promise.resolve(isCurrent());
 

@@ -6,7 +6,8 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { logger } from '@/utils/logger';
 import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
-import { handleUnauthenticatedAuthRestore } from './appAuthState';
+import { handleUnauthenticatedAuthRestore, subscribeToSignOutStoresHydration } from './appAuthState';
+import type { FirebaseUser } from '@/types';
 
 function isNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -46,6 +47,7 @@ export function subscribeToAppAuthState({
   let initialAuthCallbackReceived = false;
   let initialRestoreTimeout: ReturnType<typeof setTimeout> | undefined;
   const pendingHydrationWaits = new Map<number, { promise: Promise<boolean>; cancel: () => void }>();
+  const lateHydrationWaits = new Map<number, () => void>();
   if (useAuthStore.persist.hasHydrated()) useAuthStore.getState().setLoading(true);
 
   const isCurrent = (version: number) => isActive && version === authStateVersion;
@@ -59,8 +61,53 @@ export function subscribeToAppAuthState({
     for (const [pendingVersion, wait] of pendingHydrationWaits) {
       if (pendingVersion !== version) wait.cancel();
     }
+    for (const [pendingVersion, cancel] of lateHydrationWaits) {
+      if (pendingVersion !== version) {
+        cancel();
+        lateHydrationWaits.delete(pendingVersion);
+      }
+    }
   };
-  const waitForAuthStoreHydration = (version: number): Promise<boolean> => {
+  const watchLateHydration = (version: number, firebaseUser: FirebaseUser | null, authOnly: boolean) => {
+    lateHydrationWaits.get(version)?.();
+    const expected = useAuthStore.getState();
+    const stillCurrent = () => isCurrent(version) && (authOnly || (
+      useAuthStore.getState().user?.id === expected.user?.id &&
+      useAuthStore.getState().isAuthenticated === expected.isAuthenticated
+    ));
+    let recoveryReady = false;
+    // Queue the retry after the timed-out restore unwinds its coalesced cleanup.
+    const retry = () => {
+      recoveryReady = true;
+      lateHydrationWaits.delete(version);
+      void Promise.resolve().then(() => {
+        if (stillCurrent()) return restoreAuthState(firebaseUser, version);
+      }).catch((error) => {
+        if (!stillCurrent()) return;
+        logger.error('Failed to resume auth restore after late hydration', error);
+        onStartupUnsafeFailure();
+      });
+    };
+    let cancel: () => void;
+    if (authOnly) {
+      let active = true;
+      let unsubscribe = () => {};
+      const check = () => {
+        if (!active || !stillCurrent() || !useAuthStore.persist.hasHydrated()) return;
+        active = false;
+        unsubscribe();
+        retry();
+      };
+      unsubscribe = useAuthStore.persist.onFinishHydration(check);
+      cancel = () => { active = false; unsubscribe(); };
+      lateHydrationWaits.set(version, cancel);
+      check();
+    } else {
+      cancel = subscribeToSignOutStoresHydration(stillCurrent, retry);
+      if (!recoveryReady) lateHydrationWaits.set(version, cancel);
+    }
+  };
+  const waitForAuthStoreHydration = (version: number, firebaseUser: FirebaseUser | null): Promise<boolean> => {
     if (useAuthStore.persist.hasHydrated()) return Promise.resolve(isCurrent(version));
     const existingWait = pendingHydrationWaits.get(version);
     if (existingWait) return existingWait.promise;
@@ -95,7 +142,10 @@ export function subscribeToAppAuthState({
       timeout = setTimeout(() => {
         const current = isCurrent(version);
         finish(false);
-        if (current) onStartupUnsafeFailure();
+        if (current) {
+          onStartupUnsafeFailure();
+          watchLateHydration(version, firebaseUser, true);
+        }
       }, 10000);
     });
     pendingHydrationWaits.set(version, { promise, cancel });
@@ -104,21 +154,24 @@ export function subscribeToAppAuthState({
     return promise;
   };
 
-  const unsubscribe = AuthService.onAuthStateChanged(async (firebaseUser) => {
-    initialAuthCallbackReceived = true;
-    if (initialRestoreTimeout) {
-      clearTimeout(initialRestoreTimeout);
-      initialRestoreTimeout = undefined;
+  const restoreLocalAccount = async (firebaseUser: FirebaseUser | null, version: number) => {
+    const expected = useAuthStore.getState();
+    let hydrationTimedOut = false;
+    const restored = await handleUnauthenticatedAuthRestore(
+      () => isCurrent(version),
+      restoreCoalesceKey,
+      () => { hydrationTimedOut = true; onStartupUnsafeFailure(); },
+    );
+    if (!restored && hydrationTimedOut && isCurrent(version) &&
+      useAuthStore.getState().user?.id === expected.user?.id &&
+      useAuthStore.getState().isAuthenticated === expected.isAuthenticated) {
+      watchLateHydration(version, firebaseUser, false);
     }
-    const unauthenticated = !firebaseUser;
-    if (!unauthenticated || lastCallbackWasUnauthenticated !== true) {
-      authStateVersion += 1;
-      restoreCoalesceKey = Symbol('auth-restore-generation');
-    }
-    lastCallbackWasUnauthenticated = unauthenticated;
-    const currentVersion = authStateVersion;
-    cancelSupersededHydrationWaits(currentVersion);
-    if (!await waitForAuthStoreHydration(currentVersion)) return;
+    return restored;
+  };
+
+  const restoreAuthState = async (firebaseUser: FirebaseUser | null, currentVersion: number) => {
+    if (!await waitForAuthStoreHydration(currentVersion, firebaseUser)) return;
 
     if (!firebaseUser) {
       const store = useAuthStore.getState();
@@ -127,11 +180,7 @@ export function subscribeToAppAuthState({
         settleInitialRestore(currentVersion);
       } else {
         try {
-          const restored = await handleUnauthenticatedAuthRestore(
-            () => isCurrent(currentVersion),
-            restoreCoalesceKey,
-            onStartupUnsafeFailure,
-          );
+          const restored = await restoreLocalAccount(firebaseUser, currentVersion);
           if (restored) settleInitialRestore(currentVersion);
         } catch (error) {
           if (isCurrent(currentVersion)) {
@@ -150,11 +199,7 @@ export function subscribeToAppAuthState({
       const store = useAuthStore.getState();
       if (!session) {
         try {
-          const restored = await handleUnauthenticatedAuthRestore(
-            () => isCurrent(currentVersion),
-            restoreCoalesceKey,
-            onStartupUnsafeFailure,
-          );
+          const restored = await restoreLocalAccount(firebaseUser, currentVersion);
           if (restored) settleInitialRestore(currentVersion);
         } catch (restoreError) {
           if (isCurrent(currentVersion)) {
@@ -237,11 +282,7 @@ export function subscribeToAppAuthState({
       logger.error('Failed to restore authenticated session', error);
       let restored = false;
       try {
-        restored = await handleUnauthenticatedAuthRestore(
-          () => isCurrent(currentVersion),
-          restoreCoalesceKey,
-          onStartupUnsafeFailure,
-        );
+        restored = await restoreLocalAccount(firebaseUser, currentVersion);
       } catch (restoreError) {
         if (isCurrent(currentVersion)) {
           logger.error('Failed to safely restore local state after auth failure', restoreError);
@@ -253,6 +294,23 @@ export function subscribeToAppAuthState({
         if (restored) settleInitialRestore(currentVersion);
       }
     }
+  };
+
+  const unsubscribe = AuthService.onAuthStateChanged(async (firebaseUser) => {
+    initialAuthCallbackReceived = true;
+    if (initialRestoreTimeout) {
+      clearTimeout(initialRestoreTimeout);
+      initialRestoreTimeout = undefined;
+    }
+    const unauthenticated = !firebaseUser;
+    if (!unauthenticated || lastCallbackWasUnauthenticated !== true) {
+      authStateVersion += 1;
+      restoreCoalesceKey = Symbol('auth-restore-generation');
+    }
+    lastCallbackWasUnauthenticated = unauthenticated;
+    const currentVersion = authStateVersion;
+    cancelSupersededHydrationWaits(currentVersion);
+    await restoreAuthState(firebaseUser, currentVersion);
   });
 
   if (!initialAuthCallbackReceived && !initialRestoreSettled) {
@@ -266,6 +324,8 @@ export function subscribeToAppAuthState({
     authStateVersion += 1;
     if (initialRestoreTimeout) clearTimeout(initialRestoreTimeout);
     Array.from(pendingHydrationWaits.values()).forEach(({ cancel }) => cancel());
+    Array.from(lateHydrationWaits.values()).forEach((cancel) => cancel());
+    lateHydrationWaits.clear();
     unsubscribe();
   };
 }
