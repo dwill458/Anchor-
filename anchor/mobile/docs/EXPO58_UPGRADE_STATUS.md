@@ -47,3 +47,10 @@ The requested migration path is SDK 54 → 55 → 56 → 57 → 58. The official
 - `expo config --json --full` succeeds. `expo-doctor` reports 19/22 checks passing. Remaining reports: local Expo module ignore warning for `anchor-widget-bridge`; the SDK 56 Hermes V1 memory regression (known, resolved by SDK 57.0.9+/RN 0.86.2+); and the manually managed native-project/config synchronization warning. No warning was suppressed. No SDK 56 native build or performance assessment is planned while the known Hermes regression is present.
 - SDK 56 config migration: removed the deprecated top-level `splash` field; the existing `expo-splash-screen` plugin already preserves its image, width, resize mode, background, and dark-mode values. Custom config plugins now import through the supported `expo/config-plugins` export.
 - The first SDK 56 postinstall attempt exhausted C: while Skia copied its iOS simulator framework; dependencies were reinstalled successfully after restoring disk space. The existing C: worktree remains the only active upgrade worktree. No source baseline or other worktree was changed.
+
+## Expo SDK 57 checkpoint
+
+- Upgrade path: SDK 56 → SDK 57; `expo install --fix` completed. Installed versions: Expo `57.0.30`, React Native `0.86.3`, React `19.2.3`, expo-sqlite `57.0.4`, Reanimated `4.5.1`, Worklets `0.10.1`, Skia `2.6.2`, Gesture Handler `2.32.0`, jest-expo `57.0.6`, and TypeScript `6.0.3`.
+- `expo-doctor` reports 19/21 checks passing. Only the existing local Expo module ignore warning and manually managed native-project/config synchronization warning remain. The SDK 56 Hermes regression is no longer reported at SDK 57.0.30.
+- SDK 57 dependency resolution initially rejected stale RN `0.85.3` with jest-expo `56.0.5`. RN `0.86.3`, jest-expo `57.0.6`, and `@react-native/jest-preset` `0.86.3` were aligned together from Expo’s SDK 57 expected versions; `expo install --fix` then reported all dependencies up to date. No force or legacy-peer-dependency install was used.
+- No SDK 57 native build or product acceptance claim has been made yet.
