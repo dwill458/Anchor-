@@ -32,3 +32,11 @@
 ## SDK checkpoints
 
 The requested migration path is SDK 54 → 55 → 56 → 57 → 58. The official Expo upgrade skill currently advises skipping SDK 56 for projects at SDK 55 or earlier because of a Hermes V1 + Worklets/Reanimated memory regression; the requested SDK 56 step will be kept as a short-lived compatibility checkpoint, not a performance candidate. Use SDK 57.0.9 or later for the subsequent motion-stack checkpoint.
+
+### SDK 55 checkpoint
+
+- Expo `55.0.31`; React Native `0.83.10`; React `19.2.0`; `expo-sqlite` `55.0.20`; Reanimated `4.2.1`; Worklets `0.7.4`; Skia `2.4.18`; Gesture Handler `2.30.1`; Screens `4.23.0`.
+- `npx expo install --fix`: completed; dependencies are aligned for SDK 55.
+- `npx expo-doctor`: **18/20 checks passed**. The remaining checks are the manually managed native-project/config-sync warning and the local Expo module ignore warning. The latter identifies a nonexistent Android directory for the iOS-only `anchor-widget-bridge` module; its iOS sources are tracked. Neither issue is suppressed.
+- Breaking config updates: removed `android.edgeToEdgeEnabled` and `newArchEnabled` app.json keys (edge-to-edge is mandatory on Android 16+, and the New Architecture is the default); added SDK-matched direct `expo-font` plus its config plugin to avoid duplicate native versions. The native Android `newArchEnabled=true` and edge-to-edge setting remain in the tracked native project.
+- Rebased Android postinstall handling away from SDK 54 version-pinned patches. SDK 55 already scopes Expo Dev Launcher scanner dependencies to debug builds; the app postinstall script retains the portrait-lock removal and its required React Native Android status/navigation bar behavior without stale RN/Dev Launcher patch-package files. `npm run postinstall` passes on SDK 55.

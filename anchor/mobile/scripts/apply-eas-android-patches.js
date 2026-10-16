@@ -86,45 +86,14 @@ function patchReactNative(root) {
 `,
     'react-native status bar constants'
   );
-  statusBar = replaceExact(
-    statusBar,
-    `  @Suppress("DEPRECATION")
-  override fun setColor(colorDouble: Double, animated: Boolean) {
-    val color = colorDouble.toInt()
-    val activity = reactApplicationContext.getCurrentActivity()
-    if (activity == null) {
-      FLog.w(
-          ReactConstants.TAG,
-          "StatusBarModule: Ignored status bar change, current activity is null.")
-      return
-    }
-    if (isEdgeToEdgeFeatureFlagOn) {
-      FLog.w(
-          ReactConstants.TAG,
-          "StatusBarModule: Ignored status bar change, current activity is edge-to-edge.")
-      return
-    }
-    UiThreadUtil.runOnUiThread(
-        object : GuardedRunnable(reactApplicationContext) {
-          override fun runGuarded() {
-            val window = activity.window ?: return
-            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-            if (animated) {
-              val curColor = window.statusBarColor
-              val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), curColor, color)
-              colorAnimation.addUpdateListener { animator ->
-                activity.window?.statusBarColor = (animator.animatedValue as Int)
-              }
-              colorAnimation.setDuration(300).startDelay = 0
-              colorAnimation.start()
-            } else {
-              window.statusBarColor = color
-            }
-          }
-        })
-  }
-`,
-    `  override fun setColor(colorDouble: Double, animated: Boolean) {
+  const statusBarColorWarning =
+    'StatusBarModule: Ignored status bar color change because Android edge-to-edge should not set system bar colors directly.';
+  if (!statusBar.includes(statusBarColorWarning)) {
+    const colorSetter = /  (?:@Suppress\("DEPRECATION"\)\n  )?override fun setColor\(colorDouble: Double, animated: Boolean\) \{[\s\S]*?\n  \}(?=\n\n  override fun setTranslucent)/;
+    if (colorSetter.test(statusBar)) {
+      statusBar = statusBar.replace(
+        colorSetter,
+        `  override fun setColor(colorDouble: Double, animated: Boolean) {
     val activity = reactApplicationContext.getCurrentActivity()
     if (activity == null) {
       FLog.w(
@@ -140,11 +109,11 @@ function patchReactNative(root) {
     }
     FLog.w(
         ReactConstants.TAG,
-        "StatusBarModule: Ignored status bar color change because Android edge-to-edge should not set system bar colors directly.")
+        "${statusBarColorWarning}")
+  }`
+      );
+    }
   }
-`,
-    'react-native status bar color setter'
-  );
   writeIfChanged(statusBarPath, statusBar);
 
   const windowUtilPath = path.join(
@@ -231,20 +200,13 @@ internal fun Window.setNavigationBarColorCompat(color: Int) {
 function patchExpoDevLauncher(root) {
   const buildGradlePath = path.join(root, 'node_modules', 'expo-dev-launcher', 'android', 'build.gradle');
   let buildGradle = read(buildGradlePath);
-  buildGradle = replaceExact(
-    buildGradle,
-    `  implementation "androidx.navigation:navigation-compose:2.9.0"
-  implementation "com.google.android.gms:play-services-code-scanner:16.1.0"
-  implementation "com.google.mlkit:barcode-scanning:17.3.0"
-`,
-    `  implementation "androidx.navigation:navigation-compose:2.9.0"
-  debugImplementation "com.google.android.gms:play-services-code-scanner:16.1.0"
-  debugImplementation "com.google.mlkit:barcode-scanning:17.3.0"
-  debugOptimizedImplementation "com.google.android.gms:play-services-code-scanner:16.1.0"
-  debugOptimizedImplementation "com.google.mlkit:barcode-scanning:17.3.0"
-`,
-    'expo-dev-launcher debug-only scanner deps'
-  );
+  const scannerDependencies = /^(\s*)(implementation|debugImplementation) (['"]com\.google\.(?:android\.gms:play-services-code-scanner|mlkit:barcode-scanning):[^'"]+['"])$/gm;
+  buildGradle = buildGradle.replace(scannerDependencies, (_line, indentation, configuration, notation) => {
+    if (configuration === 'debugImplementation' || /debugOnly\s*=/.test(buildGradle)) {
+      return _line;
+    }
+    return `${indentation}debugImplementation ${notation}\n${indentation}debugOptimizedImplementation ${notation}`;
+  });
   writeIfChanged(buildGradlePath, buildGradle);
 
   const mainManifestPath = path.join(
@@ -257,20 +219,12 @@ function patchExpoDevLauncher(root) {
     'AndroidManifest.xml'
   );
   let mainManifest = read(mainManifestPath);
-  mainManifest = replaceExact(
-    mainManifest,
-    `<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <application>
-    <meta-data
-      android:name="com.google.mlkit.vision.DEPENDENCIES"
-      android:value="barcode_ui"/>
-  </application>
-</manifest>
-`,
-    `<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
-`,
-    'expo-dev-launcher main manifest'
+  mainManifest = mainManifest.replace(
+    /\s*<meta-data\s+android:name="com\.google\.mlkit\.vision\.DEPENDENCIES"\s+android:value="barcode_ui"\s*\/>\s*/,
+    '\n'
   );
+  mainManifest = mainManifest.replace(/\s*<application>\s*<\/application>\s*/, '\n');
+  mainManifest = mainManifest.replace(/<manifest([^>]*)>\s*<\/manifest>/, '<manifest$1 />');
   writeIfChanged(mainManifestPath, mainManifest);
 
   const debugManifestPath = path.join(
@@ -283,21 +237,14 @@ function patchExpoDevLauncher(root) {
     'AndroidManifest.xml'
   );
   let debugManifest = read(debugManifestPath);
-  debugManifest = replaceExact(
-    debugManifest,
-    `<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-  <application>
-`,
-    `<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-  <application>
-    <meta-data
-      android:name="com.google.mlkit.vision.DEPENDENCIES"
-      android:value="barcode_ui" />
-`,
-    'expo-dev-launcher debug metadata'
-  );
+  if (!debugManifest.includes('android:name="com.google.mlkit.vision.DEPENDENCIES"')) {
+    debugManifest = replaceExact(
+      debugManifest,
+      '<application>',
+      `<application>\n    <meta-data\n      android:name="com.google.mlkit.vision.DEPENDENCIES"\n      android:value="barcode_ui" />`,
+      'expo-dev-launcher debug metadata'
+    );
+  }
   debugManifest = removeExact(
     debugManifest,
     `      android:screenOrientation="portrait"

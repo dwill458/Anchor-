@@ -1,6 +1,7 @@
 // SQLCipher is a native/runtime change. This cohort cannot receive runtime-2.0 OTAs.
-const base = require('./app.json').expo;
-module.exports = () => {
+const staticConfig = require('./app.json').expo;
+module.exports = ({ config = staticConfig } = {}) => {
+  const base = config;
   // Standalone real-account development app. It uses a separate Android package
   // and runtime from the public app, but keeps production Firebase/API wiring.
   if (process.env.ANCHOR_SQLCIPHER_PRODUCTION_QA === '1') {
