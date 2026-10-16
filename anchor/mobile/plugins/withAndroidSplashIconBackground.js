@@ -1,4 +1,4 @@
-const { withAndroidStyles, AndroidConfig } = require('@expo/config-plugins');
+const { withAndroidStyles, AndroidConfig } = require('expo/config-plugins');
 
 // expo-splash-screen sets windowSplashScreenBackground and
 // windowSplashScreenAnimatedIcon, but not windowSplashScreenIconBackgroundColor.

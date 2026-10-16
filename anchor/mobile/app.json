@@ -12,11 +12,6 @@
     ],
     "icon": "./assets/anchor-icon-v3.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/splash-star.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F4EDE0"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
