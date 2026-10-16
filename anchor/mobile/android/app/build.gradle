@@ -2,8 +2,10 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-def googleServicesFile = file("google-services.json")
+def googleServicesPath = System.getenv('GOOGLE_SERVICES_JSON')
+def googleServicesFile = googleServicesPath ? file(googleServicesPath) : file("google-services.json")
 def isReleaseBuild = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
+def isSqlCipherProductionQa = System.getenv('ANCHOR_SQLCIPHER_PRODUCTION_QA') == '1'
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -100,11 +102,18 @@ android {
 
     namespace 'com.anchorintentions.app'
     defaultConfig {
-        applicationId 'com.anchorintentions.app'
+        applicationId isSqlCipherProductionQa ? 'com.anchorintentions.sqlcipherpreview20261015' : 'com.anchorintentions.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion 35
-        versionCode 39
+        versionCode isSqlCipherProductionQa ? 42 : 39
         versionName "2.0.0"
+        resValue "string", "app_name", isSqlCipherProductionQa ? "Anchor 2.0 SQLCipher QA" : "Anchor: Visual Goal Setting"
+        resValue "string", "expo_runtime_version", isSqlCipherProductionQa ? "2.0-sqlcipher-v2-realdata-qa" : "2.0"
+        resValue "bool", "expo_updates_enabled", isSqlCipherProductionQa ? "false" : "true"
+        manifestPlaceholders = [
+            appScheme: isSqlCipherProductionQa ? "anchor-sqlcipher-qa" : "anchor",
+            expoUpdateUrl: isSqlCipherProductionQa ? "" : "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7",
+        ]
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }

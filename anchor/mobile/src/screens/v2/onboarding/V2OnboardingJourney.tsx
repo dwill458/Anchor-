@@ -65,6 +65,7 @@ const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
 type Props = {
   onSignIn: () => void;
   onCreate: () => void;
+  onRestore?: () => void;
   onDevSkip?: () => void;
   onDevSeed?: () => void;
 };
@@ -73,6 +74,7 @@ function Welcome({
   onStart,
   onSignIn,
   onCreate,
+  onRestore,
   onDevSkip,
   onDevSeed,
   reduceMotion,
@@ -80,6 +82,7 @@ function Welcome({
   onStart: () => void;
   onSignIn: () => void;
   onCreate?: () => void;
+  onRestore?: () => void;
   onDevSkip?: () => void;
   onDevSeed?: () => void;
   reduceMotion: boolean;
@@ -302,6 +305,17 @@ function Welcome({
             </Text>
           </Pressable>
 
+          {onRestore ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Restore from backup"
+              onPress={onRestore}
+              style={styles.signIn}
+            >
+              <Text style={styles.signInText}><Text style={styles.signInUnderline}>Restore from backup</Text></Text>
+            </Pressable>
+          ) : null}
+
           {__DEV__ ? (
             <View style={{ flexDirection: "row", gap: 10, justifyContent: "center", marginTop: 14 }}>
               {onCreate ? (
@@ -347,7 +361,7 @@ function Welcome({
   );
 }
 
-export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }: Props) {
+export function V2OnboardingJourney({ onSignIn, onCreate, onRestore, onDevSkip, onDevSeed }: Props) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useCreationReduceMotion();
   const { draft, setStep, setFocusCategory } = useFirstRunStore();
@@ -474,6 +488,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
           onStart={() => { OnboardingAnalytics.cta("welcome", "start"); setStep("bridge"); }}
           onSignIn={onSignIn}
           onCreate={onCreate}
+          onRestore={onRestore}
           onDevSkip={onDevSkip}
           onDevSeed={onDevSeed}
           reduceMotion={reduceMotion}

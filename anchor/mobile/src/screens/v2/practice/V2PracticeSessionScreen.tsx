@@ -191,7 +191,7 @@ export function V2PracticeSessionScreen({
               backgroundAudio: resolvedAmbient ? 'ambient' : 'off',
               metadata: { v2_entry_source: source },
             },
-            { flushImmediately: false }
+            { mirrorLegacySession: true, flushImmediately: false }
           );
 
           // The canonical record is already durable locally. Network sync must
@@ -439,7 +439,7 @@ export function V2PracticeSessionScreen({
           backgroundAudio: 'off',
           metadata: { v2_entry_source: source },
         },
-        { flushImmediately: false }
+        { mirrorLegacySession: true, flushImmediately: false }
       );
       // Leave the session immediately after the local record is queued. Sync
       // continues in the background and the queue is retried later if needed.

@@ -46,10 +46,16 @@ jest.mock('@/services/PostAuthFlowService', () => ({
   default: { run: jest.fn().mockResolvedValue(undefined) },
 }));
 
+let mockIsolatedPreview = false;
+jest.mock('@/config/isolatedPreview', () => ({
+  isIsolatedSqlCipherPreview: () => mockIsolatedPreview,
+  ISOLATED_PREVIEW_AUTH_MESSAGE: 'ISOLATED_PREVIEW_MESSAGE',
+}));
+
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
 
 describe('V2AuthScreen', () => {
-  beforeEach(() => { jest.clearAllMocks(); mockSignedInUser = null; });
+  beforeEach(() => { jest.clearAllMocks(); mockSignedInUser = null; mockIsolatedPreview = false; });
 
   it('retries a failed onboarding save with the signed-in account without registering again', async () => {
     mockSignedInUser = { id: 'new-account' };
@@ -171,6 +177,20 @@ describe('V2AuthScreen', () => {
     expect(AnalyticsService.track).toHaveBeenCalledWith('auth_started', expect.objectContaining({ context: 'v2_auth', method: 'email', mode: 'signin' }));
     expect(AnalyticsService.track).toHaveBeenCalledWith('auth_succeeded', expect.objectContaining({ context: 'v2_auth', method: 'email', mode: 'signin', has_completed_onboarding: true }));
     expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
+  });
+
+  it('refuses every account request in the isolated SQLCipher preview and says why', async () => {
+    mockIsolatedPreview = true;
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    await waitFor(() => expect(screen.getByText('ISOLATED_PREVIEW_MESSAGE')).toBeTruthy());
+    expect(AuthService.signInWithEmail).not.toHaveBeenCalled();
+    expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
+    expect(AuthService.signInWithGoogle).not.toHaveBeenCalled();
+    expect(AuthService.signInWithApple).not.toHaveBeenCalled();
+    expect(PostAuthFlowService.run).not.toHaveBeenCalled();
   });
 
   it('uses the existing reset operation and does not expose raw messages', async () => {

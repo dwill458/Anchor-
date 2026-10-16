@@ -1,3 +1,4 @@
+import { privateJsonStorage } from '@/storage/sqlcipher/persistence';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
@@ -146,11 +147,15 @@ export const useFirstRunStore = create<FirstRunState>()(persist((set, get) => ({
   complete: () => set((state) => ({ draft: { ...state.draft, currentStep: 'complete' } })), reset: () => set({ draft: initialDraft() }),
 }), {
   name: 'anchor:v2:first-run',
-  storage: createJSONStorage(() => encryptedPersistStorage),
+  storage: privateJsonStorage(encryptedPersistStorage),
   partialize: (state) => ({ draft: state.draft.accountId || resumesBeforeAccount(state.draft) ? state.draft : initialDraft() }),
   onRehydrateStorage: () => (state) => {
     if (state && !state.draft?.accountId && !resumesBeforeAccount(state.draft)) {
-      state.reset();
+      // A fresh install already has the correct in-memory welcome draft. Calling
+      // the persisted reset action here publishes an empty namespace during
+      // startup, before a recovery choice can be made. Normalize invalid saved
+      // pre-account state in place so restore can run before first-run writes.
+      state.draft = initialDraft();
     }
     useFirstRunStore.setState({ hydrated: true });
   },

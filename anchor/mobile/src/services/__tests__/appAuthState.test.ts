@@ -4,6 +4,8 @@ import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import * as UserLocalStateService from '@/services/UserLocalStateService';
 import { AuthService } from '@/services/AuthService';
+import AuthHydrationService from '@/services/AuthHydrationService';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { subscribeToAppAuthState } from '../AppAuthBootstrap';
 import * as SecureStore from 'expo-secure-store';
 
@@ -29,6 +31,8 @@ jest.mock('@/services/AuthHydrationService', () => ({
   __esModule: true,
   default: { hydrateAuthenticatedData: jest.fn().mockResolvedValue(undefined) },
 }));
+
+jest.mock('@/services/PracticeCompletionService', () => ({ PracticeCompletionService: { flush: jest.fn().mockResolvedValue(undefined) } }));
 
 jest.mock('@/services/v2/homeStartupPrefetch', () => ({ prefetchHomeStartupData: jest.fn() }));
 
@@ -108,13 +112,15 @@ const resetStores = () => {
 let stopAuthBootstrap: (() => void) | undefined;
 let startupUnsafeFailure: jest.Mock;
 let initialAuthRestoreSettled: jest.Mock;
+let startupSafeFailure: jest.Mock;
 const startAuthBootstrap = () => {
+  startupSafeFailure = jest.fn();
   startupUnsafeFailure = jest.fn();
   initialAuthRestoreSettled = jest.fn();
   stopAuthBootstrap = subscribeToAppAuthState({
     developerMasterAccountEnabled: () => false,
     onInitialAuthRestoreSettled: initialAuthRestoreSettled,
-    onStartupSafeFailure: jest.fn(),
+    onStartupSafeFailure: startupSafeFailure,
     onStartupUnsafeFailure: startupUnsafeFailure,
   });
 };
@@ -745,5 +751,83 @@ describe('App auth restore and local account data', () => {
       currentStep: 'intention',
       intention: 'I finish what matters',
     });
+  });
+});
+
+describe('Offline launch with a cached authorized session', () => {
+  beforeEach(() => {
+    resetStores();
+    startAuthBootstrap();
+  });
+  afterEach(() => stopAuthBootstrap?.());
+
+  const goOffline = (account: ReturnType<typeof makeUser>) => {
+    (AuthService.syncCurrentUser as jest.Mock).mockRejectedValue(new Error('Network request failed'));
+    (AuthService.getCachedUser as jest.Mock).mockResolvedValue(account);
+    (AuthService.getIdToken as jest.Mock).mockResolvedValue('cached-token');
+  };
+
+  it('restores the locally committed snapshots of the cached account instead of leaving progress empty', async () => {
+    const account = makeUser('offline-account');
+    goOffline(account);
+    (AuthHydrationService.hydrateAuthenticatedData as jest.Mock).mockResolvedValue(undefined);
+
+    await emitAuthState({ uid: account.id });
+    await flushMicrotasks();
+
+    expect(useAuthStore.getState()).toMatchObject({ isOfflineMode: true, isAuthenticated: true });
+    expect(useAuthStore.getState().user?.id).toBe(account.id);
+    expect(initialAuthRestoreSettled).toHaveBeenCalledTimes(1);
+    // The scoped snapshot restore (practice history, progress, profile) lives in hydration, which
+    // already falls back to the device snapshots when its network calls fail.
+    expect(AuthHydrationService.hydrateAuthenticatedData).toHaveBeenCalledTimes(1);
+    expect(startupSafeFailure).not.toHaveBeenCalled();
+  });
+
+  it('keeps the offline session and reports a safe failure when the local restore cannot complete', async () => {
+    const account = makeUser('offline-account');
+    goOffline(account);
+    (AuthHydrationService.hydrateAuthenticatedData as jest.Mock).mockRejectedValue(new Error('Authenticated hydration failed.'));
+
+    await emitAuthState({ uid: account.id });
+    await flushMicrotasks();
+
+    expect(useAuthStore.getState()).toMatchObject({ isOfflineMode: true, isAuthenticated: true });
+    expect(useAuthStore.getState().user?.id).toBe(account.id);
+    expect(startupSafeFailure).toHaveBeenCalledTimes(1);
+    expect(startupUnsafeFailure).not.toHaveBeenCalled();
+  });
+
+  it('retries deferred practice uploads after an online restore', async () => {
+    const account = makeUser('online-account');
+    (AuthService.syncCurrentUser as jest.Mock).mockResolvedValue({ user: account, token: 'fresh-token' });
+    (AuthHydrationService.hydrateAuthenticatedData as jest.Mock).mockResolvedValue(undefined);
+
+    await emitAuthState({ uid: account.id });
+    await flushMicrotasks();
+
+    expect(PracticeCompletionService.flush).toHaveBeenCalledTimes(1);
+    expect(PracticeCompletionService.flush).toHaveBeenCalledWith(account.id);
+  });
+
+  it('does not attempt practice uploads while the restored session is offline', async () => {
+    const account = makeUser('offline-account');
+    goOffline(account);
+    (AuthHydrationService.hydrateAuthenticatedData as jest.Mock).mockResolvedValue(undefined);
+
+    await emitAuthState({ uid: account.id });
+    await flushMicrotasks();
+
+    expect(PracticeCompletionService.flush).not.toHaveBeenCalled();
+  });
+
+  it('does not restore any account when the offline cache is empty', async () => {
+    (AuthService.syncCurrentUser as jest.Mock).mockRejectedValue(new Error('Network request failed'));
+    (AuthService.getCachedUser as jest.Mock).mockResolvedValue(null);
+
+    await emitAuthState({ uid: 'someone' });
+    await flushMicrotasks();
+
+    expect(AuthHydrationService.hydrateAuthenticatedData).not.toHaveBeenCalled();
   });
 });

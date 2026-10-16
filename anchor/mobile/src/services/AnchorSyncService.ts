@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
+const database = () => (require('@/storage/sqlcipher/runtime') as typeof import('@/storage/sqlcipher/runtime')).recordDatabase();
 import {
   ENABLE_LEGACY_SUPABASE_SYNC,
   SUPABASE_ANON_KEY,
@@ -300,8 +302,15 @@ class AnchorSyncService {
       return;
     }
 
-    const queue = await readQueue();
     const localReferenceId = getLocalReferenceId(anchor);
+    if (sqlCipherEnabled()) {
+      await database().mutate(RETRY_QUEUE_KEY, (current) => [
+        ...((current ?? []) as AnchorRetryQueueItem[]).filter((item) => !(item.userId === userId && getLocalReferenceId(item.anchor) === localReferenceId)),
+        { userId, anchor: normalizeAnchor(anchor) },
+      ]);
+      return;
+    }
+    const queue = await readQueue();
     const deduped = queue.filter(
       (item) => !(item.userId === userId && getLocalReferenceId(item.anchor) === localReferenceId)
     );
@@ -348,7 +357,16 @@ class AnchorSyncService {
       }
     }
 
-    await writeQueue(remaining);
+    if (sqlCipherEnabled()) {
+      const attempted = new Set(queue.filter((item) => item.userId === userId).map((item) => JSON.stringify(item)));
+      const failed = new Set(remaining.map((item) => JSON.stringify(item)));
+      await database().mutate(RETRY_QUEUE_KEY, (current) => ((current ?? []) as AnchorRetryQueueItem[]).filter((item) => {
+        if (item.userId !== userId) return true;
+        if (anchorMatchesAnyReference(item.anchor, tombstones)) return false;
+        const encoded = JSON.stringify(item);
+        return !attempted.has(encoded) || failed.has(encoded);
+      }));
+    } else await writeQueue(remaining);
     return flushedAnchors;
   }
 
@@ -366,6 +384,10 @@ class AnchorSyncService {
     }
 
     const refs = new Set(referenceIds);
+    if (sqlCipherEnabled()) {
+      await database().mutate(RETRY_QUEUE_KEY, (current) => ((current ?? []) as AnchorRetryQueueItem[]).filter((item) => !anchorMatchesAnyReference(item.anchor, refs)));
+      return;
+    }
     const queue = await readQueue();
     const remaining = queue.filter((item) => !anchorMatchesAnyReference(item.anchor, refs));
 

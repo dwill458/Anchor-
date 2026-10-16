@@ -9,6 +9,7 @@ import { useAnchorStore } from "@/stores/anchorStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { useSessionStore } from "@/stores/sessionStore";
+import { sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
 import { useSettingsStore } from "@/stores/settingsStore";
 import type {
   Anchor,
@@ -1635,6 +1636,12 @@ class AuthHydrationService {
         useSessionStore.setState(
           sessionSnapshot as Partial<typeof sessionState>,
         );
+      }
+      if (sqlCipherEnabled()) {
+        const current = useSessionStore.getState().practiceHistory;
+        const merged = new Map((sessionSnapshot.practiceHistory ?? []).map((event) => [event.id, event]));
+        for (const event of current) if (event.accountId === resolvedUserId) merged.set(event.id, event);
+        useSessionStore.setState({ practiceHistory: [...merged.values()].filter((event) => event.accountId === resolvedUserId) });
       }
     }
 

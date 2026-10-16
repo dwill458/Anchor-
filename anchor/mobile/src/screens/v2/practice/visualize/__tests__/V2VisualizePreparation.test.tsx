@@ -1,5 +1,5 @@
 
-import { ScrollView, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { V2VisualizePrepareScreen } from '../V2VisualizePrepareScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
@@ -30,10 +30,10 @@ const anchor = makeAnchor({ id: 'a1', userId: 'u1', intentionText: 'My real inte
 const tiles = [{ id: 'p1', sceneId: 'p1', imageUrl: 'https://example.com/photo.jpg', prompt: null, sortOrder: 0, isHero: true }];
 const prepared: any = { anchor, statement: 'My saved Vision', visionId: 'v1', assets: { tiles, images: [{}] }, markLocal: {} };
 
-function setup(notes?: any[], entry?: any) {
+function setup(notes?: any[], entry?: any, entitled?: boolean) {
   const onBegin = jest.fn();
   const view = render(<V2VisualizePrepareScreen anchor={anchor} statement="My saved Vision" visionId="v1"
-    tiles={tiles} notes={notes} entry={entry} onBack={jest.fn()} onBegin={onBegin} />);
+    tiles={tiles} notes={notes} entry={entry} entitled={entitled} onBack={jest.fn()} onBegin={onBegin} />);
   fireEvent(view.getByTestId('v2-practice-prepare-visualize-scroll'), 'layout', { nativeEvent: { layout: { height: 640, width: 345, x: 0, y: 52 } } });
   fireEvent(view.getByTestId('v2-visualize-prepare-heading'), 'layout', { nativeEvent: { layout: { height: 138, width: 345, x: 0, y: 0 } } });
   return { ...view, onBegin };
@@ -221,6 +221,26 @@ describe('Visualize prepares behind its real setup board', () => {
       fireEvent.press(view.getByLabelText('10 min'));
       act(() => { jest.advanceTimersByTime(1500); });
       expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 180 }));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('hands a non-entitled Begin to the paywall without fading or locking the setup chrome', () => {
+    jest.useFakeTimers();
+    try {
+      const view = setup(undefined, undefined, false);
+      act(() => mockPreparation.onPrepared(prepared));
+      fireEvent.press(view.getByLabelText('Begin Visualize'));
+      // The paywall path is immediate: no 360ms begin fade has to run first.
+      expect(view.onBegin).toHaveBeenCalledTimes(1);
+      const opacityOf = (id: string) => (StyleSheet.flatten(view.getByTestId(id).props.style) as any)?.opacity;
+      act(() => { jest.advanceTimersByTime(1500); });
+      // Returning from the paywall must find the intro exactly as it was left.
+      expect(opacityOf('v2-visualize-prepare-heading')).not.toBe(0);
+      expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
+      fireEvent.press(view.getByLabelText('Begin Visualize'));
+      expect(view.onBegin).toHaveBeenCalledTimes(2);
     } finally {
       jest.useRealTimers();
     }

@@ -49,6 +49,8 @@ type Props = {
   /** The shared Anchor transition carries Begin into the session; setup skips its own hand-off. */
   anchorHandoff?: boolean;
   entry?: VisionVisualizeEntry;
+  /** False hands Begin straight to the paywall path; the begin fade and settings lock only belong to a session that starts. */
+  entitled?: boolean;
 };
 
 const ACCENT = practiceColors.visualize;
@@ -68,7 +70,7 @@ const PHOTO_WARM_MAX_MS = 800;
  * order), their real Anchor sits on it, and Begin darkens the page into the
  * session without a cut. Sound and haptics apply to this session only.
  */
-export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, notes, initialDuration, onBack, onOpenVision, onBegin, entry }: Props) {
+export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, notes, initialDuration, onBack, onOpenVision, onBegin, entry, entitled = true }: Props) {
   const accountId = useAuthStore(state => state.user?.id ?? null);
   const viewport = useV2Responsive();
   const metrics = resolvePracticeSetupMetrics(viewport, 'hero');
@@ -238,6 +240,13 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
 
   const begin = () => {
     if (beganRef.current || !canBegin || !prepared) return;
+    if (!entitled) {
+      // The parent opens the paywall instead of a session. Fading the chrome or locking Begin first would leave this
+      // (still mounted) setup dark and unresponsive when the paywall is dismissed.
+      stopVoicePreview();
+      onBegin({ durationSeconds: duration, voice: sessionVoice, ambient: soundSetup.ambient, haptics: soundSetup.hapticsOn, prepared });
+      return;
+    }
     beganRef.current = true;
     setBeginning(true);
     const voice = sessionVoice;

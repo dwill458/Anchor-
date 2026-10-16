@@ -187,7 +187,7 @@ function emitAppState(nextState: 'active' | 'background') {
           source: 'practice_screen',
           metadata: { v2_entry_source: 'practice_hub' },
         }),
-        { flushImmediately: false }
+        { mirrorLegacySession: true, flushImmediately: false }
     );
     expect(PracticeCompletionService.flush).toHaveBeenCalledWith(accountId);
 
@@ -431,7 +431,7 @@ function emitAppState(nextState: 'active' | 'background') {
     expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledWith(expect.objectContaining({
       accountId, mode: 'deep_prime', plannedDurationSeconds: durationSeconds, actualDurationSeconds: durationSeconds,
       guidanceVoice: 'female', backgroundAudio: 'ambient',
-    }), { flushImmediately: false });
+    }), { mirrorLegacySession: true, flushImmediately: false });
     expect(screen.getByText('Deep Focus complete')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Deep Focus again'));
     expect(onAgain).toHaveBeenCalledTimes(1);

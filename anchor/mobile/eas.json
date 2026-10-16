@@ -122,9 +122,173 @@
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug"
       }
+    },
+    "sqlcipher-realdata-qa": {
+      "distribution": "internal",
+      "developmentClient": false,
+      "environment": "development",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "ANCHOR_SQLCIPHER_PREVIEW": "1",
+        "EXPO_PUBLIC_API_URL": "https://sqlcipher-preview-isolated.invalid",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true"
+      }
+    },
+    "sqlcipher-production-qa": {
+      "distribution": "internal",
+      "channel": "sqlcipher-production-qa",
+      "environment": "production",
+      "developmentClient": false,
+      "android": {
+        "gradleCommand": ":app:assembleRelease --project-prop expo.sqlite.useSQLCipher=true"
+      },
+      "env": {
+        "ANCHOR_SQLCIPHER_PRODUCTION_QA": "1",
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true"
+      }
+    },
+    "sqlcipher-development": {
+      "extends": "sqlcipher-production-qa",
+      "channel": "development",
+      "developmentClient": true,
+      "android": {
+        "gradleCommand": ":app:assembleDebug --project-prop expo.sqlite.useSQLCipher=true"
+      },
+      "env": {
+        "ANCHOR_SQLCIPHER_PRODUCTION_QA": "1",
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "true",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true"
+      }
+    },
+    "sqlcipher-restore-qa": {
+      "extends": "sqlcipher-realdata-qa",
+      "env": {
+        "ANCHOR_SQLCIPHER_PREVIEW": "1",
+        "ANCHOR_SQLCIPHER_PREVIEW_ACTIVATE": "1",
+        "EXPO_PUBLIC_API_URL": "https://sqlcipher-preview-isolated.invalid",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true"
+      }
+    },
+    "sqlcipher-backup-source-qa": {
+      "extends": "sqlcipher-realdata-qa",
+      "env": {
+        "ANCHOR_SQLCIPHER_PREVIEW": "1",
+        "ANCHOR_SQLCIPHER_BACKUP_QA": "1",
+        "EXPO_PUBLIC_API_URL": "https://sqlcipher-preview-isolated.invalid",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true"
+      }
+    },
+    "sqlcipher-backup-restore-qa": {
+      "extends": "sqlcipher-backup-source-qa",
+      "env": {
+        "ANCHOR_SQLCIPHER_PREVIEW": "1",
+        "ANCHOR_SQLCIPHER_BACKUP_QA": "1",
+        "ANCHOR_SQLCIPHER_PREVIEW_ACTIVATE": "1",
+        "EXPO_PUBLIC_API_URL": "https://sqlcipher-preview-isolated.invalid",
+        "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true"
+      }
+    },
+    "sqlcipher-owner-pilot": {
+      "distribution": "store",
+      "channel": "sqlcipher-owner-pilot",
+      "environment": "production",
+      "android": {
+        "buildType": "app-bundle",
+        "autoIncrement": true
+      },
+      "env": {
+        "ANCHOR_SQLCIPHER_OWNER_PILOT": "1",
+        "ANCHOR_SQLCIPHER_OWNER_PILOT_ACTIVATE": "0",
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "false"
+      }
     }
   },
   "submit": {
+    "sqlcipher-owner-pilot": {
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    },
     "production": {
       "ios": {
         "appleId": "deontrezwilliams@gmail.com",

@@ -1,4 +1,5 @@
 import type { Anchor, ApiResponse } from "@/types";
+import { sqlCipherEnabled, flushPrivateWrite } from '@/storage/sqlcipher/persistence';
 import type { VisualizationScene } from "@/types/practice";
 import { apiClient, ApiClientError } from "./ApiClient";
 import { isBackendAnchorId } from "./BackendAnchorService";
@@ -532,7 +533,9 @@ class VisualizationSceneService {
     if (validationError) throw new Error(validationError);
     const pending = { ...scene, syncState: "pending" as const };
     const store = useVisualizationSceneStore.getState();
+    if (sqlCipherEnabled() && (store.ownerAccountId !== scene.accountId || store.ownerRestoring || store.storageRecoveryRequired || store.tombstonedAnchorIds.includes(anchor.id))) throw new Error('Scene storage is not ready to confirm a save');
     store.setScene(pending);
+    if (sqlCipherEnabled()) await flushPrivateWrite('anchor-visualization-scenes-v1');
     if (
       !isBackendAnchorId(anchor.id) ||
       store.tombstonedAnchorIds.includes(anchor.id)
@@ -557,6 +560,7 @@ class VisualizationSceneService {
           pending.anchorLocalId,
         );
         store.setScene(synced);
+        if (sqlCipherEnabled()) await flushPrivateWrite('anchor-visualization-scenes-v1');
         return synced;
       }
     } catch (error) {

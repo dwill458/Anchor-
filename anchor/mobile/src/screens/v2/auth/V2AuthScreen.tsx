@@ -31,6 +31,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ArrowRight, ChevronLeft, Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react-native';
 import { V2Screen } from '@/components/v2';
 import { AuthService } from '@/services/AuthService';
+import { ISOLATED_PREVIEW_AUTH_MESSAGE, isIsolatedSqlCipherPreview } from '@/config/isolatedPreview';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 import { useAuthStore } from '@/stores/authStore';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
@@ -122,6 +123,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   };
 
   const complete = async (run: () => ReturnType<typeof AuthService.signInWithEmail>, method: AuthMethod) => {
+    if (isIsolatedSqlCipherPreview()) { setError(ISOLATED_PREVIEW_AUTH_MESSAGE); return; }
     setError(null);
     setLoading(true);
     const context: AuthContext = saveProgress ? 'save_progress' : 'v2_auth';
@@ -177,6 +179,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   };
 
   const sendReset = async () => {
+    if (isIsolatedSqlCipherPreview()) { setError(ISOLATED_PREVIEW_AUTH_MESSAGE); return; }
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setError('Enter your email first to reset your password.');

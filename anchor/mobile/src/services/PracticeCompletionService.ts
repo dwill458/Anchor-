@@ -1,7 +1,9 @@
 import Constants from 'expo-constants';
+import { sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
+const database = () => (require('@/storage/sqlcipher/runtime') as typeof import('@/storage/sqlcipher/runtime')).recordDatabase();
 
 import { AnalyticsService } from '@/services/AnalyticsService';
-import { apiClient } from '@/services/ApiClient';
+import { apiClient, type AccountBoundRequestConfig } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { NotificationCoordinator } from '@/services/notifications/NotificationCoordinator';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -10,7 +12,7 @@ import {
   readSecureValue,
   writeSecureValue,
 } from '@/stores/encryptedPersistStorage';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useSessionStore, createInitialSessionState, projectCanonicalCompletion } from '@/stores/sessionStore';
 import type { Anchor } from '@/types';
 import type {
   PracticeCompletionSource,
@@ -26,8 +28,12 @@ import {
 
 const queueKey = (accountId: string) =>
   `anchor:practice-write-queue:${accountId}`;
+let canonicalCompletionTail: Promise<void> = Promise.resolve();
+const completionReceipts = new Map<string, Promise<void>>();
 const nextActionQueueKey = (accountId: string) =>
   `anchor:practice-next-action-queue:${accountId}`;
+const boundRequestArgs = (isCurrent: () => boolean, token: string | null): [] | [AccountBoundRequestConfig] =>
+  sqlCipherEnabled() ? [{ anchorAuthGuard: isCurrent, anchorAuthToken: token ?? undefined }] : [];
 
 interface NextActionWrite {
   sessionId: string;
@@ -141,14 +147,27 @@ export const PracticeCompletionService = {
     if (!currentAccountId || currentAccountId !== input.accountId) {
       throw new Error('Practice completion account does not match the active account.');
     }
+    const revision = useAuthStore.getState().accountRevision;
+    const token = useAuthStore.getState().token;
+    const isCurrent = () => useAuthStore.getState().user?.id === input.accountId &&
+      useAuthStore.getState().accountRevision === revision && useAuthStore.getState().token === token;
 
     if (Math.round(input.actualDurationSeconds) < Math.round(input.plannedDurationSeconds)) {
       throw new Error('Practice session ended early and cannot be marked as completed.');
     }
+    const receiptKey = `${input.accountId}:${input.sessionId}`;
+    const pendingReceipt = completionReceipts.get(receiptKey);
+    if (sqlCipherEnabled() && pendingReceipt) {
+      await pendingReceipt;
+      if (!isCurrent()) throw new Error('Practice account changed during completion');
+      const saved = useSessionStore.getState().practiceHistory.find((event) => event.id === input.sessionId && event.accountId === input.accountId);
+      if (!saved) throw new Error('Committed practice event requires owner restoration');
+      return { record: saved, duplicate: true };
+    }
 
     const existing = useSessionStore
       .getState()
-      .practiceHistory.find((event) => event.id === input.sessionId);
+      .practiceHistory.find((event) => event.id === input.sessionId && event.accountId === input.accountId);
     if (existing) {
       AnalyticsService.track('practice_duplicate_prevented', {
         mode: existing.practiceMode,
@@ -159,11 +178,18 @@ export const PracticeCompletionService = {
     }
 
     const record = buildRecord(input);
-    await this.queueCanonicalCompletion(
+    const receipt = this.queueCanonicalCompletion(
       record,
       options.mirrorLegacySession === true,
       options.flushImmediately !== false,
     );
+    if (sqlCipherEnabled()) completionReceipts.set(receiptKey, receipt);
+    try {
+      await receipt;
+      if (sqlCipherEnabled() && !isCurrent()) throw new Error('Practice account changed during completion');
+    } finally {
+      if (completionReceipts.get(receiptKey) === receipt) completionReceipts.delete(receiptKey);
+    }
     void NotificationCoordinator.recordPracticeCompleted(record);
     AnalyticsService.track('practice_session_completed', {
       mode: record.practiceMode,
@@ -211,7 +237,7 @@ export const PracticeCompletionService = {
         params.practiceMode === 'deep_prime' ? 'reinforce' : 'activate',
       guidanceVoice: params.guidanceVoice,
       backgroundAudio: params.backgroundAudio,
-    });
+    }, { mirrorLegacySession: sqlCipherEnabled() });
   },
 
   async queueCanonicalCompletion(
@@ -224,9 +250,45 @@ export const PracticeCompletionService = {
       throw new Error('Cannot queue practice history for an inactive account.');
     }
 
-    const queue = await readQueue(record.accountId);
-    if (!queue.some((item) => item.id === record.id)) {
-      await writeQueue(record.accountId, [...queue, record]);
+    if (sqlCipherEnabled()) {
+      const commit = canonicalCompletionTail.then(async () => {
+      if (!useSessionStore.persist.hasHydrated()) await useSessionStore.persist.rehydrate();
+      if (!useSessionStore.persist.hasHydrated()) throw new Error('Practice storage must be restored before confirming completion');
+      if (useAuthStore.getState().user?.id !== record.accountId) throw new Error('Practice account changed during storage restoration');
+      const append = (current: unknown) => {
+        const history = (current ?? []) as PracticeSessionRecord[];
+        return history.some((event) => event.id === record.id) ? history : [...history, record];
+      };
+      const live = useSessionStore.getState();
+      // Only explicitly owned history can seed an owner snapshot. Unowned
+      // legacy summaries remain in their original document for recovery.
+      const recordedHere = live.sessionLog.some((event) => event.id === record.id);
+      const ownedLive = (live.practiceHistory.length > 0 || recordedHere) && live.practiceHistory.every((event) => event.accountId === record.accountId);
+      let projection = createInitialSessionState();
+      // Canonical completion is authoritative. The session summary is a
+      // projection published only after its event and outbox commit together.
+      await database().mutateMany([
+        { namespace: queueKey(record.accountId), change: append },
+        { namespace: `anchor:practice-history:${record.accountId}`, change: append },
+        { namespace: `anchor:session-snapshot:${record.accountId}`, change: (current) => {
+          const base = { ...createInitialSessionState(), ...(current ?? (ownedLive ? live : {})) };
+          projection = projectCanonicalCompletion(base, record, mirrorLegacySession);
+          return projection;
+        } },
+      ]);
+      if (useAuthStore.getState().user?.id === record.accountId) {
+        if (mirrorLegacySession) useSessionStore.getState().recordPracticeSession(record);
+        else useSessionStore.getState().appendCanonicalPracticeSession(record);
+        useSessionStore.setState(projection);
+      }
+      });
+      canonicalCompletionTail = commit.catch(() => undefined);
+      await commit;
+      if (flushImmediately) void this.flush(record.accountId);
+      return;
+    } else {
+      const queue = await readQueue(record.accountId);
+      if (!queue.some((item) => item.id === record.id)) await writeQueue(record.accountId, [...queue, record]);
     }
     if (mirrorLegacySession) {
       useSessionStore.getState().recordPracticeSession(record);
@@ -311,9 +373,14 @@ export const PracticeCompletionService = {
 
   async flush(accountId: string): Promise<void> {
     if (useAuthStore.getState().user?.id !== accountId) return;
+    const revision = useAuthStore.getState().accountRevision;
+    const token = useAuthStore.getState().token;
+    const isCurrent = () => useAuthStore.getState().user?.id === accountId &&
+      useAuthStore.getState().accountRevision === revision && useAuthStore.getState().token === token;
     const queue = await readQueue(accountId);
     const remaining: PracticeSessionRecord[] = [];
     for (const session of queue) {
+      if (!isCurrent()) return;
       try {
         const response = await apiClient.post<{
           success: boolean;
@@ -325,7 +392,8 @@ export const PracticeCompletionService = {
             };
             threadStrength?: number;
           };
-        }>('/api/practice/sessions', serverPayload(session));
+        }>('/api/practice/sessions', serverPayload(session), ...boundRequestArgs(isCurrent, token));
+        if (!isCurrent()) return;
 
         const movement = response.data?.data?.threadStrengthMovement;
         const threadStrength =
@@ -340,6 +408,14 @@ export const PracticeCompletionService = {
           updates.threadStrengthDelta = movement.delta;
         }
 
+        if (sqlCipherEnabled()) {
+          await database().mutateMany([
+            { namespace: `anchor:practice-history:${accountId}`, change: (current) => ((current ?? []) as PracticeSessionRecord[]).map((event) => event.id === session.id ? { ...event, ...updates, syncState: 'synced' } : event) },
+            { namespace: `anchor:session-snapshot:${accountId}`, change: (current) => current ? { ...current, practiceHistory: (current as { practiceHistory: PracticeSessionRecord[] }).practiceHistory.map((event) => event.id === session.id ? { ...event, ...updates, syncState: 'synced' } : event) } : current },
+          ]);
+          if (!isCurrent()) return;
+        }
+
         useSessionStore.getState().markPracticeSessionSynced(session.id, updates);
 
         const targetAnchorId = session.anchorId || session.anchorLocalId;
@@ -349,6 +425,7 @@ export const PracticeCompletionService = {
           });
         }
       } catch {
+        if (!isCurrent()) return;
         remaining.push({ ...session, syncState: 'failed' });
         AnalyticsService.track('practice_sync_failed', {
           mode: session.practiceMode,
@@ -357,21 +434,37 @@ export const PracticeCompletionService = {
         logger.warn('[PracticeCompletionService] Practice sync deferred');
       }
     }
-    await writeQueue(accountId, remaining);
+    if (!isCurrent()) return;
+    if (sqlCipherEnabled()) {
+      const failed = new Map(remaining.map((event) => [event.id, event]));
+      const attempted = new Map(queue.map((event) => [event.id, JSON.stringify(event)]));
+      await database().mutate(queueKey(accountId), (current) => ((current ?? []) as PracticeSessionRecord[]).flatMap((event) => {
+        // A changed or newly appended event must survive an older acknowledgement.
+        if (attempted.get(event.id) !== JSON.stringify(event)) return [event];
+        return failed.has(event.id) ? [failed.get(event.id)!] : [];
+      }));
+    } else await writeQueue(accountId, remaining);
 
     const nextActionQueue = await readNextActionQueue(accountId);
     const remainingNextActions: NextActionWrite[] = [];
     for (const write of nextActionQueue) {
+      if (!isCurrent()) return;
       try {
         await apiClient.patch(
           `/api/practice/sessions/${encodeURIComponent(write.sessionId)}/next-action`,
           { nextAction: write.nextAction },
+          ...boundRequestArgs(isCurrent, token),
         );
       } catch {
         remainingNextActions.push(write);
       }
     }
-    await writeNextActionQueue(accountId, remainingNextActions);
+    if (!isCurrent()) return;
+    if (sqlCipherEnabled()) {
+      const failed = new Set(remainingNextActions.map((entry) => entry.sessionId));
+      const attempted = new Map(nextActionQueue.map((entry) => [entry.sessionId, JSON.stringify(entry)]));
+      await database().mutate(nextActionQueueKey(accountId), (current) => ((current ?? []) as NextActionWrite[]).filter((entry) => attempted.get(entry.sessionId) !== JSON.stringify(entry) || failed.has(entry.sessionId)));
+    } else await writeNextActionQueue(accountId, remainingNextActions);
   },
 
   async saveNextAction(params: {
@@ -386,6 +479,26 @@ export const PracticeCompletionService = {
     if (nextAction && nextAction.length > 240) {
       throw new Error('Next action must be 240 characters or fewer.');
     }
+    if (sqlCipherEnabled()) {
+      const revision = useAuthStore.getState().accountRevision;
+      const token = useAuthStore.getState().token;
+      const isCurrent = () => useAuthStore.getState().user?.id === params.accountId && useAuthStore.getState().accountRevision === revision && useAuthStore.getState().token === token;
+      const write = { sessionId: params.sessionId, nextAction };
+      const update = (current: unknown) => ((current ?? []) as PracticeSessionRecord[]).map((event) => event.id === params.sessionId ? { ...event, nextAction } : event);
+      // The edit and retry intent commit before any network call or saved UI state.
+      await database().mutateMany([
+        { namespace: nextActionQueueKey(params.accountId), change: (current) => [...((current ?? []) as NextActionWrite[]).filter((event) => event.sessionId !== params.sessionId), write] },
+        { namespace: `anchor:practice-history:${params.accountId}`, change: update },
+        { namespace: `anchor:session-snapshot:${params.accountId}`, change: (current) => current ? { ...current, practiceHistory: update((current as { practiceHistory: PracticeSessionRecord[] }).practiceHistory) } : current },
+      ]);
+      if (!isCurrent()) return;
+      useSessionStore.getState().updatePracticeSessionNextAction(params.sessionId, nextAction);
+      try {
+        await apiClient.patch(`/api/practice/sessions/${encodeURIComponent(params.sessionId)}/next-action`, { nextAction }, ...boundRequestArgs(isCurrent, token));
+      } catch { return; }
+      await database().mutate(nextActionQueueKey(params.accountId), (current) => ((current ?? []) as NextActionWrite[]).filter((event) => JSON.stringify(event) !== JSON.stringify(write)));
+      return;
+    }
     useSessionStore.getState().updatePracticeSessionNextAction(
       params.sessionId,
       nextAction,
@@ -396,6 +509,13 @@ export const PracticeCompletionService = {
         { nextAction },
       );
     } catch {
+      if (sqlCipherEnabled()) {
+        await database().mutate(nextActionQueueKey(params.accountId), (current) => [
+          ...((current ?? []) as NextActionWrite[]).filter((entry) => entry.sessionId !== params.sessionId),
+          { sessionId: params.sessionId, nextAction },
+        ]);
+        return;
+      }
       const queue = await readNextActionQueue(params.accountId);
       await writeNextActionQueue(params.accountId, [
         ...queue.filter((item) => item.sessionId !== params.sessionId),

@@ -1,3 +1,4 @@
+import { privateJsonStorage } from '@/storage/sqlcipher/persistence';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -472,7 +473,7 @@ export const useCreationStore = create<CreationStore>()(
     {
       name: STORAGE_KEY,
       version: STORAGE_VERSION,
-      storage: createJSONStorage(() => encryptedPersistStorage),
+      storage: privateJsonStorage(encryptedPersistStorage),
       partialize: (state) => ({ draft: state.draft }),
       // A draft from the earlier step machine has no path through this flow.
       migrate: () => ({ draft: null }),
