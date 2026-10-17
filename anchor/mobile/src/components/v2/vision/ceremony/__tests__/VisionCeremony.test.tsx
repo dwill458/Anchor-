@@ -12,7 +12,18 @@ import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { safeHaptics } from '@/utils/haptics';
 import { ImpactFeedbackStyle } from 'expo-haptics';
 import { useDevImageModelStore } from '@/stores/devImageModelStore';
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
+let mockPhotoSize: { width: number; height: number } | null = null;
+const mockCrop = jest.fn(), mockExpand = jest.fn(), mockDiscard = jest.fn();
+jest.mock('@/hooks/v2/vision/visionPhotoFitProcessing', () => ({
+  ...jest.requireActual('@/hooks/v2/vision/visionPhotoFitProcessing'),
+  // RN's Image.getSize does not work under the Jest native mock; each test chooses the size (null = unreadable, so no fit step).
+  readPhotoSize: jest.fn(async () => mockPhotoSize),
+  cropPhoto: (...args: unknown[]) => mockCrop(...args),
+  requestPhotoExpansion: (...args: unknown[]) => mockExpand(...args),
+  discardTemporaryPhoto: (...args: unknown[]) => mockDiscard(...args),
+}));
 let mockExamples: Array<{ image: { uri: string }; caption: string; moment: string }> = [];
 jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples'), visionExamplesFor: () => mockExamples }));
 
@@ -79,9 +90,9 @@ describe('Vision ceremony', () => {
     expect(view.getByLabelText(copy.words)).toBeTruthy(); expect(view.getByLabelText(copy.ownPhoto)).toBeTruthy(); expect(view.getByLabelText(copy.camera)).toBeTruthy();
     expect(mockPicker).not.toHaveBeenCalled(); expect(view.onAssemble).not.toHaveBeenCalled();
   });
-  it('words enters the existing Describe screen with words selected and preserves edited input', () => {
+  it('words enters the unified composer (no mode toggle, optional reference photo) and preserves edited input', () => {
     const view = setup(); fireEvent.press(view.getByLabelText(copy.words));
-    expect(view.getByTestId('vision-path-words').props.accessibilityState.selected).toBe(true);
+    expect(view.queryByTestId('vision-path-words')).toBeNull(); expect(view.getByTestId('vision-reference-photo-add')).toBeTruthy();
     fireEvent.changeText(view.getByTestId('vision-prompt-input'), 'My new description');
     fireEvent.press(view.getByLabelText('Go back')); fireEvent.press(view.getByLabelText(copy.words));
     expect(view.getByTestId('vision-prompt-input').props.value).toBe('My new description');
@@ -238,7 +249,7 @@ describe('Vision ceremony', () => {
   it('regenerate enters Describe, then follows Develop, Choose, Keep and Seal', async () => {
     mockJob = job(); const onAdd = jest.fn(async () => true);
     const view = setup({ mode: 'add', startAt: 'describe', regenerating: true, onAdd });
-    expect(view.getAllByText('Describe another moment from this future.').length).toBeGreaterThan(0);
+    expect(view.getAllByText('What else do you see in this future?').length).toBeGreaterThan(0);
     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); }); await develop(view, 2);
     fireEvent.press(view.getByTestId('scene-candidate-c0')); await seal(view);
     expect(onAdd).toHaveBeenCalledWith({ assetId: 'asset-0', prompt: 'Moment 0', caption: base.anchorIntention });
@@ -282,8 +293,8 @@ describe('Vision ceremony', () => {
     const sheet = jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions').mockImplementation((_options, callback) => callback(2));
     const draft = jest.fn(async () => true);
     const view = setup({ initialDescription: '', onSaveDescription: draft });
-    fireEvent.press(view.getByLabelText(copy.words)); fireEvent.press(view.getByTestId('vision-path-photo')); fireEvent.press(view.getByTestId('vision-start-photo-pick'));
-    const library = view.queryByTestId('vision-photo-source-sheet-library'); if (library) fireEvent.press(library);
+    fireEvent.press(view.getByLabelText(copy.words)); fireEvent.press(view.getByTestId('vision-reference-photo-add'));
+    const library = view.queryByTestId('vision-reference-source-sheet-library'); if (library) fireEvent.press(library);
     await advance(500);
     await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
     expect(mockStart).toHaveBeenCalledWith(expect.any(String), null, 'start-photo'); expect(draft).toHaveBeenCalledWith(base.anchorIntention);
@@ -370,7 +381,7 @@ describe('Vision ceremony', () => {
     // A bundled picture keeps its own pixel size unless the frame pins it, so it must not overflow the 120pt print.
     expect(StyleSheet.flatten(view.getByTestId('vision-example-thumb-image').props.style)).toMatchObject({ width: '100%', height: '100%' });
     expect(StyleSheet.flatten(view.getByTestId('vision-example-thumb').props.style)).toMatchObject({ width: 120 });
-    expect(view.getByTestId('vision-path-words').props.accessibilityState.selected).toBe(true);
+    expect(view.queryByTestId('vision-path-words')).toBeNull();
     expect(view.getByTestId('vision-prompt-input').props.value).toBe(example(2).moment);
     fireEvent.changeText(view.getByTestId('vision-prompt-input'), `${example(2).moment} My own details.`);
     await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
@@ -441,6 +452,198 @@ describe('Vision ceremony', () => {
       expect(view.getByTestId('vision-ceremony-print-0-sharp')).toBeTruthy();
       expect(require('@/services/CreationSounds').playCreationSound).not.toHaveBeenCalledWith('formTick');
     } finally { Object.defineProperty(AppState, 'currentState', descriptor); }
+  });
+});
+
+describe('Smart Photo Fit', () => {
+  beforeEach(() => {
+    jest.useFakeTimers(); jest.clearAllMocks(); mockPhotoSize = null; mockJob = null;
+    mockCrop.mockResolvedValue({ uri: 'file:///cache/ImageManipulator/crop.jpg', mimeType: 'image/jpeg' });
+    mockExpand.mockResolvedValue({ ok: true, photo: { uri: 'file:///cache/vision-expanded-1.jpg', mimeType: 'image/jpeg' } });
+  });
+  afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
+  const pickOne = async (view: ReturnType<typeof setup>) => {
+    mockPicker.mockResolvedValueOnce({ canceled: false, assets: [{ uri: 'file:///wide.jpg', mimeType: 'image/jpeg' }] });
+    await act(async () => { fireEvent.press(view.getByLabelText(copy.ownPhoto)); });
+    await advance(0);
+  };
+
+  it('offers Make Your Photo Fit for a landscape photo before anything develops or uploads', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    const view = setup(); await pickOne(view);
+    expect(view.getByText('Make Your Photo Fit')).toBeTruthy();
+    expect(view.getByText(/wider than your Vision frame/)).toBeTruthy();
+    expect(view.getByLabelText('Keep original')).toBeTruthy(); expect(view.getByLabelText('Crop to fit')).toBeTruthy(); expect(view.getByLabelText('Expand with AI')).toBeTruthy();
+    expect(view.queryByTestId('vision-ceremony-print-0-sharp')).toBeNull();
+    expect(view.onUploadAsset).not.toHaveBeenCalled();
+  });
+
+  it('skips the fit step for a photo that already fits', async () => {
+    mockPhotoSize = { width: 1080, height: 1920 };
+    const view = setup(); await pickOne(view);
+    expect(view.queryByText('Make Your Photo Fit')).toBeNull();
+    expect(view.getByTestId('vision-ceremony-print-0-sharp')).toBeTruthy();
+  });
+
+  it('keeping the original continues with the untouched photo', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    const view = setup(); await pickOne(view);
+    fireEvent.press(view.getByLabelText('Keep original')); fireEvent.press(view.getByTestId('vision-photo-fit-continue')); await advance(0);
+    expect(view.queryByText('Make Your Photo Fit')).toBeNull();
+    expect(view.getByTestId('vision-ceremony-print-0-sharp').props.source).toEqual(expect.objectContaining({ uri: 'file:///wide.jpg' }));
+    expect(mockCrop).not.toHaveBeenCalled(); expect(mockExpand).not.toHaveBeenCalled();
+  });
+
+  it('cropping applies the chosen framing locally and uses the cropped file', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    const view = setup(); await pickOne(view);
+    fireEvent.press(view.getByLabelText('Crop to fit')); fireEvent.press(view.getByTestId('vision-photo-fit-continue'));
+    expect(view.getByText('Crop to Fit')).toBeTruthy(); expect(view.getByTestId('vision-photo-fit-crop-window')).toBeTruthy();
+    await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-apply-crop')); }); await advance(0);
+    expect(mockCrop).toHaveBeenCalledWith('file:///wide.jpg', { originX: 1156, originY: 0, width: 1688, height: 3000 });
+    expect(view.getByTestId('vision-ceremony-print-0-sharp').props.source).toEqual(expect.objectContaining({ uri: 'file:///cache/ImageManipulator/crop.jpg' }));
+  });
+
+  it('expanding with AI previews the original beside the AI result and only uses it when confirmed', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    const view = setup(); await pickOne(view);
+    expect(view.getByText('Recommended')).toBeTruthy();
+    await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); }); await advance(0);
+    expect(mockExpand).toHaveBeenCalledWith(expect.objectContaining({ uri: 'file:///wide.jpg', mimeType: 'image/jpeg' }), { width: 4000, height: 3000 });
+    expect(view.getByText('Preview Result')).toBeTruthy(); expect(view.getByText('Original')).toBeTruthy(); expect(view.getByText('AI expanded')).toBeTruthy();
+    expect(view.queryByTestId('vision-ceremony-print-0-sharp')).toBeNull();
+    fireEvent.press(view.getByTestId('vision-photo-fit-use-expanded')); await advance(0);
+    expect(view.getByTestId('vision-ceremony-print-0-sharp').props.source).toEqual(expect.objectContaining({ uri: 'file:///cache/vision-expanded-1.jpg' }));
+    expect(mockDiscard).not.toHaveBeenCalledWith('file:///cache/vision-expanded-1.jpg');
+  });
+
+  it('rejecting the AI result removes it and returns to the choices with the original intact', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    const view = setup(); await pickOne(view);
+    await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); }); await advance(0);
+    fireEvent.press(view.getByTestId('vision-photo-fit-different'));
+    expect(mockDiscard).toHaveBeenCalledWith('file:///cache/vision-expanded-1.jpg');
+    expect(view.getByText('Make Your Photo Fit')).toBeTruthy(); expect(view.onUploadAsset).not.toHaveBeenCalled();
+  });
+
+  it('cancelling an expansion in flight returns to the choices and discards a late result', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    let finish!: (value: unknown) => void;
+    mockExpand.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const view = setup(); await pickOne(view);
+    await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); });
+    expect(view.getByTestId('vision-photo-fit-expanding')).toBeTruthy();
+    fireEvent.press(view.getByTestId('vision-photo-fit-cancel-expand'));
+    expect(view.getByText('Make Your Photo Fit')).toBeTruthy();
+    await act(async () => { finish({ ok: true, photo: { uri: 'file:///cache/vision-expanded-9.jpg', mimeType: 'image/jpeg' } }); });
+    expect(mockDiscard).toHaveBeenCalledWith('file:///cache/vision-expanded-9.jpg');
+    expect(view.queryByText('Preview Result')).toBeNull();
+  });
+
+  it('a failed expansion explains itself and still lets the person keep or crop the original', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    mockExpand.mockResolvedValue({ ok: false, message: 'Expanding with AI is unavailable right now. You can keep or crop your original.' });
+    const view = setup(); await pickOne(view);
+    await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); }); await advance(0);
+    expect(view.getByText(/unavailable right now/)).toBeTruthy(); expect(view.getByLabelText('Keep original')).toBeTruthy();
+    expect(view.queryByTestId('vision-ceremony-print-0-sharp')).toBeNull();
+  });
+
+  it('does not offer expansion when more than 60% of the frame would be invented', async () => {
+    mockPhotoSize = { width: 4000, height: 1000 };
+    const view = setup(); await pickOne(view);
+    expect(view.queryByLabelText('Expand with AI')).toBeNull(); expect(view.getByLabelText('Crop to fit')).toBeTruthy();
+  });
+
+  it('leaving Photo Fit creates nothing and returns to Ask', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    const view = setup(); await pickOne(view);
+    fireEvent.press(view.getByLabelText('Go back')); await advance(0);
+    expect(view.queryByText('Make Your Photo Fit')).toBeNull();
+    expect(view.getByLabelText(copy.ownPhoto)).toBeTruthy(); expect(view.onUploadAsset).not.toHaveBeenCalled();
+  });
+});
+
+describe('Unified composer and prepared requests', () => {
+  beforeEach(() => {
+    jest.useFakeTimers(); jest.clearAllMocks(); mockPhotoSize = null; mockJob = null; mockStart.mockResolvedValue(true);
+    (ExpoSpeechRecognitionModule.isRecognitionAvailable as jest.Mock).mockReturnValue(true);
+  });
+  afterEach(() => {
+    (ExpoSpeechRecognitionModule.isRecognitionAvailable as jest.Mock).mockReturnValue(false); mockStart.mockReset(); mockStart.mockResolvedValue(true);
+    jest.clearAllTimers(); jest.useRealTimers();
+  });
+
+  it('is one composer: reference photo, description and microphone together, with no mode toggle', () => {
+    const view = setup(); fireEvent.press(view.getByLabelText(copy.words));
+    expect(view.getByText('Create Your First Scene')).toBeTruthy();
+    expect(view.getByTestId('vision-reference-photo-add')).toBeTruthy();
+    expect(view.getByTestId('vision-prompt-input').props.placeholder).toBe('Describe the moment you want to see...');
+    expect(view.getByLabelText('Describe it with your voice')).toBeTruthy();
+    expect(view.queryByTestId('vision-path-photo')).toBeNull(); expect(view.queryByTestId('vision-path-words')).toBeNull();
+  });
+
+  it('never shows a microphone on the generation screens', async () => {
+    mockJob = job(); const view = setup(); fireEvent.press(view.getByLabelText(copy.words));
+    expect(view.queryByTestId('vision-dictate')).not.toBeNull();
+    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+    expect(view.queryByTestId('vision-dictate')).toBeNull();
+    await develop(view, 2);
+    expect(view.getByTestId('scene-candidate-c0')).toBeTruthy(); expect(view.queryByTestId('vision-dictate')).toBeNull();
+    fireEvent.press(view.getByTestId('scene-candidate-c0'));
+    expect(view.queryByTestId('vision-dictate')).toBeNull();
+  });
+
+  it('generates from the reference photo and the description together, never from the photo alone when text exists', async () => {
+    mockJob = job();
+    mockSinglePick.mockResolvedValue({ status: 'picked', photo: { uri: 'file:///house.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
+    mockSourceUpload.mockResolvedValue({ ok: true, assetId: 'reference-asset' });
+    const view = setup({ initialDescription: '' }); fireEvent.press(view.getByLabelText(copy.words));
+    fireEvent.press(view.getByTestId('vision-reference-photo-add'));
+    await act(async () => { fireEvent.press(view.getByTestId('vision-reference-source-sheet-library')); });
+    await advance(500);
+    fireEvent.changeText(view.getByTestId('vision-prompt-input'), 'Morning light across the pool at sunrise.');
+    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+    expect(mockStart).toHaveBeenCalledTimes(1);
+    expect(mockStart).toHaveBeenCalledWith(expect.stringContaining('Morning light across the pool at sunrise.'), null, 'reference-asset');
+  });
+
+  it('a second tap on Create My Images while it is starting is ignored', async () => {
+    mockJob = job(); let release!: (value: boolean) => void;
+    mockStart.mockImplementation(() => new Promise<boolean>(resolve => { release = resolve; }));
+    const view = setup(); fireEvent.press(view.getByLabelText(copy.words));
+    const button = view.getByTestId('vision-generate');
+    await act(async () => { fireEvent.press(button); fireEvent.press(button); });
+    expect(mockStart).toHaveBeenCalledTimes(1);
+    await act(async () => { release(true); });
+  });
+
+  it('a prepared request from the Add Image sheet starts generating once, straight into Develop', async () => {
+    mockJob = job();
+    const view = setup({ mode: 'add', startAt: 'develop', autoStart: true, initialDescription: 'The kitchen with a big island.' });
+    await advance(0);
+    expect(mockStart).toHaveBeenCalledTimes(1);
+    expect(mockStart).toHaveBeenCalledWith('The kitchen with a big island.', undefined);
+    expect(view.queryByTestId('vision-prompt-input')).toBeNull();
+    view.rerender(<VisionCeremony {...view.props} />); await advance(0);
+    expect(mockStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('a prepared request with a reference photo uploads it and generates from both', async () => {
+    mockJob = job(); mockSourceUpload.mockResolvedValue({ ok: true, assetId: 'sheet-photo' });
+    setup({ mode: 'add', startAt: 'develop', autoStart: true, initialDescription: 'Inside the home.', initialStartPhoto: { uri: 'file:///house.jpg', mimeType: 'image/jpeg' } });
+    await advance(0);
+    expect(mockSourceUpload).toHaveBeenCalledTimes(1);
+    expect(mockStart).toHaveBeenCalledWith(expect.stringContaining('Inside the home.'), null, 'sheet-photo');
+  });
+
+  it('a failed prepared request returns to the composer with the description and photo kept', async () => {
+    mockStart.mockResolvedValue(false);
+    const view = setup({ mode: 'add', startAt: 'develop', autoStart: true, initialDescription: 'The kitchen with a big island.', initialStartPhoto: { uri: 'file:///house.jpg', mimeType: 'image/jpeg' } });
+    mockSourceUpload.mockResolvedValue({ ok: true, assetId: 'sheet-photo' });
+    await advance(0); await advance(200);
+    expect(view.getByTestId('vision-scene-input').props.value).toBe('The kitchen with a big island.');
+    expect(view.getByLabelText('Your reference photo')).toBeTruthy();
   });
 });
 

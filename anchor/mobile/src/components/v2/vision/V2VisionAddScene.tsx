@@ -4,7 +4,7 @@ import { uploadVisionPhoto, useV2VisionSceneGeneration, type UploadAssetResult, 
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { VisionAnchorArt } from './VisionChrome';
 import { useVisionImageArrival } from './VisionImageArrival';
-import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from './VisionMomentInput';
+import { VisionMomentInput, type VisionStartPhoto } from './VisionMomentInput';
 import { visionPhotoSceneDescription } from './visionGuidance';
 import { VisionTwoUpStage, type VisionTwoUpSelection } from './VisionTwoUpStage';
 
@@ -52,7 +52,6 @@ function DeferredVisionAddScene({
   const generation = useV2VisionSceneGeneration(anchorId, onPremiumRequired);
   const [step, setStep] = useState<Step>('describe');
   const [description, setDescription] = useState('');
-  const [inputPath, setInputPath] = useState<VisionInputPath>('photo');
   const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(null);
   const [starting, setStarting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -134,8 +133,6 @@ function DeferredVisionAddScene({
       startPhotoEnabled={Boolean(onUploadAsset)}
       startPhoto={startPhoto}
       onChangeStartPhoto={setStartPhoto}
-      inputPath={inputPath}
-      onChangeInputPath={setInputPath}
       loading={starting}
       error={notice ?? generation.error}
       testID={testID}

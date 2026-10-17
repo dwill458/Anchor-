@@ -58,7 +58,7 @@ describe('OpenAIImageProviderAdapter request shape', () => {
     const form = fetchMock.mock.calls[0][1].body as FormData;
     expect(form.getAll('image[]')).toHaveLength(2);
     expect((form.getAll('image[]')[0] as File).name).toBe('reference-1.jpeg');
-    expect(String(form.get('prompt'))).toMatch(/Image 1 is a photograph ALREADY in this person's Vision/);
+    expect(String(form.get('prompt'))).toMatch(/Image 1 is a photograph the person added to their Vision themselves/);
     expect(String(form.get('prompt'))).toMatch(/Image 2 is the person's approved appearance reference/);
     expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty('Content-Type');
   });

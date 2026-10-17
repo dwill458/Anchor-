@@ -1,8 +1,9 @@
 /**
  * Which of a Vision's existing photographs are shown to the image model when another
- * moment is added to it. The Vision is one world: what the person has already
- * established (their own photographs above all) is visual truth for the next image,
- * so it is attached as images, not merely described.
+ * moment is added to it. Only the person's OWN photographs are attached: they carry real
+ * subjects (a car, a house, the person) that must stay true. Generated board images are never
+ * attached, because the model copies their environment into the new scene (a gym image turned a
+ * requested classroom into a gym). The new scene owns its own setting.
  */
 export const VISION_WORLD_REFERENCE_MAX = 3;
 
@@ -22,7 +23,7 @@ const isPersonal = (scene: WorldReferenceScene) => scene.sourceType === 'USER_UP
  * Enough context to keep the world consistent without overwhelming the provider.
  */
 export function selectWorldReferenceScenes<T extends WorldReferenceScene>(scenes: readonly T[], max = VISION_WORLD_REFERENCE_MAX): T[] {
-  const usable = scenes.filter(scene => scene.asset?.storageKey);
+  const usable = scenes.filter(scene => scene.asset?.storageKey && isPersonal(scene));
   if (!usable.length || max <= 0) return [];
   const heroOrder = Math.min(...usable.map(scene => scene.sortOrder));
   const rank = (scene: T) => (isPersonal(scene) ? 2 : 0) + (scene.sortOrder === heroOrder ? 1 : 0);

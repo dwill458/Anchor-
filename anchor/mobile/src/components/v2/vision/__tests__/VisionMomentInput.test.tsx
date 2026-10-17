@@ -39,7 +39,8 @@ describe('VisionMomentInput', () => {
 
   it('renders the authorship title and exactly three guidance prompts in create mode', () => {
     const { getByText, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} />);
-    expect(getByText("Describe the moment it's already true.")).toBeTruthy();
+    expect(getByText('Create Your First Scene')).toBeTruthy();
+    expect(getByText('Add a reference photo for a more personal result.')).toBeTruthy();
     expect(getByText('CREATE YOUR VISION')).toBeTruthy();
     expect(getByLabelText('Where are you?')).toBeTruthy();
     expect(getByLabelText('What are you doing?')).toBeTruthy();
@@ -62,7 +63,7 @@ describe('VisionMomentInput', () => {
 
   it('renders hero title for add mode', () => {
     const { getAllByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
-    expect(getAllByText('Describe another moment from this future.')[0]).toBeTruthy();
+    expect(getAllByText('What else do you see in this future?')[0]).toBeTruthy();
   });
 
   it('asks a question when a chip is tapped and never writes into the description', () => {
@@ -99,8 +100,10 @@ describe('VisionMomentInput', () => {
 
   it('shows guidance about the actual Anchor, not unrelated stock copy', () => {
     const { getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} anchorIntention="I am the owner of dope ass regal" anchorCategory="desire" />);
-    expect(getByTestId('vision-prompt-input').props.placeholder).toMatch(/owner of dope ass regal/i);
-    expect(getByTestId('vision-prompt-input').props.placeholder).not.toMatch(/Tuesday|kitchen with coffee/);
+    expect(getByTestId('vision-prompt-input').props.placeholder).toBe('Describe the moment you want to see...');
+    fireEvent.press(getByLabelText('Use suggested description'));
+    expect(getByTestId('vision-prompt-input').props.value).toMatch(/owner of dope ass regal/i);
+    expect(getByTestId('vision-prompt-input').props.value).not.toMatch(/Tuesday|kitchen with coffee/);
     fireEvent.press(getByLabelText('Where are you?'));
     expect(getByTestId('vision-cue').props.children).toBeTruthy();
   });

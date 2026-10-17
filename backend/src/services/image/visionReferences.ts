@@ -40,19 +40,18 @@ export function visionReferenceInstructions(ordered: ImageReference[]): string {
   }
   if (world > 0) {
     lines.push(
-      `${range(start + 1, scene)} ${world === 1 ? 'is a photograph' : 'are photographs'} ALREADY in this person's Vision: the established world of their future. ` +
-        'This new photograph is another moment from the SAME life, taken in the same world. Keep what those photographs establish whenever it is relevant to this moment: ' +
-        'the exact vehicle, objects and their colours, trim and details; the place, architecture and surroundings; wardrobe; time of day, light and colour grade; the mood. ' +
-        'Do not swap an established object for a different one (a specific car stays that car). ' +
-        'Do not copy a reference composition, viewpoint or crop: show a clearly different moment, as a new photograph from the same place and life. ' +
-        'Where this moment asks for something the references do not show, invent it so that it fits their world.',
+      `${range(start + 1, scene)} ${world === 1 ? 'is a photograph' : 'are photographs'} the person added to their Vision themselves. ` +
+        'Use them ONLY as continuity for specific subjects this scene actually mentions or needs: a particular vehicle, home, object, pet or person, with their exact colours, trim and details (a specific car stays that car). ' +
+        'They are NOT the setting for this scene. The scene description alone decides the location, room, environment, action, composition, light and camera; ' +
+        'if it names a different place, show that place and leave everything else from these photographs out. ' +
+        'Never copy a reference composition, viewpoint, crop or background.',
     );
   }
   if (appearance > 0) {
     lines.push(
       `${range(scene + 1, scene + appearance)} ${appearance === 1 ? 'is' : 'are'} the person's approved appearance reference. Use ${appearance === 1 ? 'it' : 'them'} only when the person is visibly represented; ` +
         'preserve broad likeness without naming or inferring demographic attributes. Do not force a face into the composition. ' +
-        'An appearance reference does not describe the world: take the world only from the Vision and start photographs.',
+        'An appearance reference does not describe the world: take the setting only from the scene description and the start photograph.',
     );
   } else {
     lines.push(

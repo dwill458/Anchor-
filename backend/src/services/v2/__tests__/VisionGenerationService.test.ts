@@ -357,7 +357,9 @@ describe('VisionGenerationService', () => {
       const prompt = mockGenerateVisionScene.mock.calls[0][0] as string;
       expect(prompt).toContain(JSON.stringify(sceneText));
       expect(prompt).toContain('A calm, sunlit life by the water.');
-      expect(prompt).toContain('A quiet dock at dawn');
+      // Earlier scenes' prompts never leak into the new scene.
+      expect(prompt).not.toContain('A quiet dock at dawn');
+      expect(prompt).toContain('Do not borrow rooms, places, props, light or compositions from any other moment');
       expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(2);
       expect(mockPrisma.visionGeneration.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: 'COMPLETE' }),
@@ -406,14 +408,14 @@ describe('VisionGenerationService', () => {
         }));
       });
 
-      it('attaches the person\'s own photograph first, as an image, ahead of generated ones', async () => {
+      it('attaches only the person\'s own photograph, never a generated board image', async () => {
         await arrange([scene('g1', 'AI_GENERATED', 0, 'private/gen.jpg'), scene('own', 'USER_UPLOAD', 1, 'private/mine.jpg')]);
         expect(mockImageGenerate).toHaveBeenCalled();
         const request = mockImageGenerate.mock.calls[0][0];
         expect(request.type).toBe('vision');
-        expect(request.referenceImages.map((item: { role: string }) => item.role)).toEqual(['world', 'world']);
-        expect((readPrivateImageAsset as jest.Mock).mock.calls[0][0]).toBe('private/mine.jpg');
-        expect(request.prompt).toMatch(/established world/);
+        expect(request.referenceImages.map((item: { role: string }) => item.role)).toEqual(['world']);
+        expect((readPrivateImageAsset as jest.Mock).mock.calls.map(call => call[0])).toEqual(['private/mine.jpg']);
+        expect(request.prompt).toMatch(/do not set the location of this scene/);
         expect(request.prompt).toContain('I own a black 1987 Buick Regal.');
       });
 
@@ -466,7 +468,7 @@ describe('VisionGenerationService', () => {
         const request = mockImageGenerate.mock.calls[0][0];
         expect(request.referenceImages.map((item: { role: string }) => item.role)).toEqual(['start']);
         expect(request.prompt).toMatch(/start photo/);
-        expect(request.prompt).not.toMatch(/established world/);
+        expect(request.prompt).not.toMatch(/own references/);
       });
 
       it('still creates the moment when a Vision photograph cannot be read', async () => {

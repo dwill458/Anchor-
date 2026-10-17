@@ -27,6 +27,11 @@ jest.mock('expo-file-system/legacy', () => ({ getInfoAsync: jest.fn(async () => 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn(() => ({ stop: jest.fn() })) }));
 jest.mock('@/utils/premiumAccess', () => ({ ...jest.requireActual('@/utils/premiumAccess'), isProFeatureLocked: () => false }));
 jest.mock('@/hooks/useTrialStatus', () => ({ useTrialStatus: () => ({ entitlementReady: true, hasActiveEntitlement: true }) }));
+jest.mock('@/hooks/v2/vision/visionPhotoFitProcessing', () => ({
+  ...jest.requireActual('@/hooks/v2/vision/visionPhotoFitProcessing'),
+  // RN's Image.getSize does not work under the Jest native mock; tests choose the size (null = unreadable, no fit step).
+  readPhotoSize: jest.fn(async () => null),
+}));
 const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
 const stamp = '2026-10-07T00:00:00Z';
 const scene = (i: number, extra = {}) => ({ id: `sc-${i}`, visionId: 'vision-101', sourceType: 'AI_GENERATED', assetId: `ast-${i}`,
@@ -37,9 +42,12 @@ let currentVision = visionWith(3);
 async function advance(ms: number) { await act(async () => { jest.advanceTimersByTime(ms); }); }
 // The entrance's controls go live once the open has finished; the persistent Anchor takes over a moment after that.
 const ASK_READY = ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs + 50;
-async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); fireEvent.press(view.getByLabelText('Add to Vision')); await advance(ASK_READY); }
+// Add Image opens the compact composer sheet over the board; its actions hand off once the sheet has left.
+const SHEET_HANDOFF = 450;
+async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); fireEvent.press(view.getByLabelText('Add to Vision')); await advance(SHEET_HANDOFF); }
 async function ownPhoto(view: ReturnType<typeof render>, source: 'camera' | 'library') {
   await act(async () => { fireEvent.press(view.getByLabelText(source === 'camera' ? 'Take a photo' : 'Use my own photo')); });
+  await advance(SHEET_HANDOFF);
   view.getAllByTestId(/^vision-ceremony-print-\d+-sharp$/).forEach(image => fireEvent(image, 'load'));
   await advance(0); await advance(1000); await advance(4400);
 }
@@ -70,26 +78,27 @@ describe('V2VisionScreen ceremony additions', () => {
     });
   });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
-  it('Add image opens Ask directly with all three paths and launches nothing', async () => {
+  it('Add image opens the compact composer over the live board and launches nothing', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
-    expect(view.getByText('What else do you see?')).toBeTruthy(); expect(view.queryByTestId('vision-add-sheet-generate')).toBeNull();
+    expect(view.getByText('What else do you see in this future?')).toBeTruthy(); expect(view.getByTestId('vision-board')).toBeTruthy();
+    expect(view.getByTestId('vision-scene-input')).toBeTruthy(); expect(view.getByTestId('vision-scene-generate')).toBeTruthy();
+    expect(view.queryByTestId('vision-add-sheet-generate')).toBeNull();
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(picker.launchCameraAsync).not.toHaveBeenCalled();
   });
-  it('opens the note composer from the Ask entrance with the current Vision context', async () => {
+  it('opens the note composer from the Add Image sheet with the current Vision context', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
-    fireEvent.press(view.getByLabelText('Add a note'));
+    fireEvent.press(view.getByLabelText('Add a note')); await advance(SHEET_HANDOFF);
     expect(mockNavigate).toHaveBeenCalledWith('V2VisionNoteComposer', { anchorId: 'anchor-1', visionId: 'vision-101' });
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(picker.launchCameraAsync).not.toHaveBeenCalled();
     expect(view.getByTestId('vision-board')).toBeTruthy();
-    expect(view.queryByText('What else do you see?')).toBeNull();
   });
   it('keeps note entry available at the image limit and blocks image additions there', async () => {
     currentVision = visionWith(8);
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
     expect(view.getByLabelText('Add a note')).toBeTruthy();
-    expect(view.getByLabelText(/^Imagine it from words/).props.accessibilityState.disabled).toBe(true);
-    expect(view.getByLabelText(/^Use my own photo/).props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(view.getByLabelText('Add a note'));
+    expect(view.getByTestId('vision-add-scene-full')).toBeTruthy();
+    expect(view.queryByTestId('vision-scene-generate')).toBeNull(); expect(view.queryByLabelText('Use my own photo')).toBeNull();
+    fireEvent.press(view.getByLabelText('Add a note')); await advance(SHEET_HANDOFF);
     expect(mockNavigate).toHaveBeenCalledWith('V2VisionNoteComposer', { anchorId: 'anchor-1', visionId: 'vision-101' });
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(apiClient.post).not.toHaveBeenCalled();
   });
@@ -163,9 +172,9 @@ describe('V2VisionScreen ceremony additions', () => {
     picker.requestCameraPermissionsAsync.mockResolvedValue({ status: 'denied', canAskAgain: false } as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
-    await act(async () => { fireEvent.press(view.getByLabelText('Take a photo')); });
+    await act(async () => { fireEvent.press(view.getByLabelText('Take a photo')); }); await advance(SHEET_HANDOFF);
     expect(alert).toHaveBeenCalledWith('Permission needed', expect.any(String), expect.arrayContaining([expect.objectContaining({ text: 'Open Settings' })]));
-    expect(picker.launchCameraAsync).not.toHaveBeenCalled(); expect(view.getByText('What else do you see?')).toBeTruthy();
+    expect(picker.launchCameraAsync).not.toHaveBeenCalled(); expect(view.getByTestId('vision-board')).toBeTruthy();
   });
   it('keeps Add available at the eight-image limit for note entry', async () => {
     currentVision = visionWith(8); const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByTestId('vision-board');

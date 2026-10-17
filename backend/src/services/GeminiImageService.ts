@@ -246,6 +246,42 @@ export class GeminiImageService {
     }
   }
 
+  /**
+   * Fills the blank areas of a prepared 9:16 canvas around a real photograph. The caller composites the
+   * original pixels back over the result, so the model only ever supplies the surroundings.
+   */
+  async extendVisionPhoto(prompt: string, canvas: { buffer: Buffer; mimeType: string }): Promise<Buffer> {
+    if (!this.isAvailable())
+      throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 90000);
+    try {
+      const response = await this.client.models.generateContent({
+        model: VISION_IMAGE_MODEL,
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType: canvas.mimeType, data: canvas.buffer.toString('base64') } },
+          ],
+        }],
+        config: {
+          responseModalities: ['IMAGE'],
+          imageConfig: { aspectRatio: VISION_IMAGE_ASPECT_RATIO },
+          abortSignal: controller.signal,
+        },
+      });
+      const data = response.candidates
+        ?.flatMap(candidate => candidate.content?.parts ?? [])
+        .find(part => typeof part.inlineData?.data === 'string')?.inlineData?.data;
+      if (!data)
+        throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Image provider returned no image', true);
+      return Buffer.from(data, 'base64');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async enhanceSigil(params: {
     baseSigilSvg: string;
     intentionText: string;
