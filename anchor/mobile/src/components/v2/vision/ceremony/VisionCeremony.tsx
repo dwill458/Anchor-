@@ -19,7 +19,10 @@ import type { AnchorCategory } from '@/types';
 import { ImpactFeedbackStyle } from 'expo-haptics';
 import type { PickedVisionPhoto, VisionGenerationCandidate } from '@/hooks/v2/vision';
 import type { V2VisionCreationFlowProps } from '../V2VisionCreationFlow';
-import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from '../VisionMomentInput';
+import { VisionMomentInput, type VisionStartPhoto } from '../VisionMomentInput';
+import { VisionPhotoFit } from '../VisionPhotoFitScreen';
+import { assessPhotoFit } from '../visionPhotoFit';
+import { readPhotoSize } from '@/hooks/v2/vision/visionPhotoFitProcessing';
 import { VISION_SERIF, VISION_SERIF_ITALIC } from '../VisionPaperChrome';
 import { VisionTornEdge } from '../VisionTornEdge';
 import { useVisionImageArrival, type VisionImageRect } from '../VisionImageArrival';
@@ -48,6 +51,10 @@ export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'in
   mode: 'create' | 'add';
   visionId?: string;
   startAt?: 'ask' | 'describe' | 'develop';
+  /** The reference photo the composer already holds; kept so Back and retry never lose it. */
+  initialStartPhoto?: VisionStartPhoto | null;
+  /** Start generating on mount from initialDescription and initialStartPhoto (the Add Image sheet has already prepared the request). */
+  autoStart?: boolean;
   photo?: PickedVisionPhoto;
   regenerating?: boolean;
   /** Create only: false once the Vision already holds images, which makes this a later-image celebration (L2). */
@@ -95,8 +102,9 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const descriptionRef = useRef(description);
   const setDescription = (text: string) => { descriptionRef.current = text; setDescriptionState(text); };
   const setDescriptionFromInput = (text: string) => { descriptionRef.current = text; };
-  const [inputPath, setInputPath] = useState<VisionInputPath>('words');
-  const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(null);
+  const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(props.initialStartPhoto ?? null);
+  // A reference photo and a description are one request; the photo only changes what the scene is made from.
+  const inputPath = startPhoto ? 'photo' : 'words';
   const [photos, setPhotos] = useState<CeremonyPhoto[]>(props.photo ? [{ ...props.photo, key: props.photo.uri }] : []);
   const [activePhotoId, setActivePhotoId] = useState<string | null>(props.photo?.uri ?? null);
   const [failedImages, setFailedImages] = useState<ReadonlySet<string>>(() => new Set());
@@ -273,15 +281,34 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     if (!started && fromChoose && actions.generation.lastErrorCode?.() === 'VISION_GENERATION_LIMIT') { setDeveloped(priorDeveloped); setBeat('choose'); }
     else if (!started) setBeat('describe');
   };
+  const [fitRequest, setFitRequest] = useState<{ photo: CeremonyPhoto; size: { width: number; height: number } } | null>(null);
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!props.autoStart || autoStarted.current) return;
+    autoStarted.current = true;
+    const photo = props.initialStartPhoto ?? null;
+    void generate(descriptionRef.current, photo ? null : undefined, photo);
+  }, []);
   const pick = async (source: 'library' | 'camera') => {
     if (committedRef.current) return;
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: source });
     await picker.run(() => actions.pickImages(mode === 'create', source), picked => {
       if (!picked || !alive.current) return;
-      setPhotos(picked); setActivePhotoId(picked[0]?.key ?? null);
-      setPhotoCaptions(Object.fromEntries(picked.map(photo => [photo.key, prefillVisionCaption(anchorIntention)])));
-      setFailedImages(new Set()); setChosen(0); setDeveloped(new Set()); setRevealStarted(false); setReframe({ x: 0, y: 0 }); setBeat('develop');
+      void (async () => {
+        // One personal photo that is not the Vision's portrait frame is offered a fit; several are shown whole as before.
+        if (picked.length === 1) {
+          const size = await readPhotoSize(picked[0].uri);
+          if (!alive.current) return;
+          if (size && assessPhotoFit(size).relation !== 'fits') { setFitRequest({ photo: picked[0], size }); return; }
+        }
+        applyPicked(picked);
+      })();
     });
+  };
+  const applyPicked = (picked: CeremonyPhoto[]) => {
+    setPhotos(picked); setActivePhotoId(picked[0]?.key ?? null);
+    setPhotoCaptions(Object.fromEntries(picked.map(photo => [photo.key, prefillVisionCaption(anchorIntention)])));
+    setFailedImages(new Set()); setChosen(0); setDeveloped(new Set()); setRevealStarted(false); setReframe({ x: 0, y: 0 }); setBeat('develop');
   };
   const replaceCurrentPhoto = async () => {
     if (props.onChooseAgain) { props.onChooseAgain(); return; }
@@ -513,7 +540,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   // };
   const startDescribe = () => {
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
-    setInputPath('words'); setBeat('describe');
+    setBeat('describe');
   };
   const pickExample = (example: VisionExample, index: number) => {
     startedFromExample.current = { category: resolveAnchorCategory(anchorCategory), index, moment: example.moment, reported: false };
@@ -626,7 +653,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         {beat === 'choose' ? <View style={[styles.footer, { bottom: insets.bottom + 30 }]}>
           {/* TODO(limit): SCENE jobs do not expose remaining generations; never invent a count. */}
           {limitReached ? <Text testID="vision-ceremony-limit" accessibilityLiveRegion="polite" style={styles.note}>{actions.generation.error}</Text>
-            : link(copy.neither, () => { void generate(descriptionRef.current, inputPath === 'words' ? undefined : null, inputPath === 'photo' ? startPhoto : undefined); })}
+            : link(copy.neither, () => { void generate(descriptionRef.current, startPhoto ? null : undefined, startPhoto ?? undefined); })}
         </View> : null}
       </> : null}
       {beat === 'keep' ? <>
@@ -647,12 +674,15 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       </> : null}
     </Animated.View> : null}
     {ownPhoto && (actions.uploadingCount > 0 || props.photoUploading) && !committed ? <View pointerEvents="none" style={{ position: 'absolute', left: (width - 150) / 2, top: activePrintPlacement.y + 12, zIndex: 42 }}><VisionHairline pending label="Uploading your photos" /></View> : null}
+    {fitRequest ? <View style={[styles.fill, { zIndex: 60 }]}><VisionPhotoFit photo={fitRequest.photo} size={fitRequest.size} onPremiumRequired={props.onPremiumRequired}
+      onCancel={() => setFitRequest(null)}
+      onConfirm={({ photo: fitted }) => { const original = fitRequest.photo; setFitRequest(null); applyPicked([{ ...original, uri: fitted.uri, mimeType: fitted.mimeType }]); }} /></View> : null}
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
     {beat === 'describe' ? <Animated.View entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
       <VisionMomentInput mode={mode} anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory}
         anchorArt={anchorArt} anchorImageUrl={props.anchorImageUrl} onChangeDescription={setDescriptionFromInput}
         initialDescription={descriptionRef.current} onBack={back} onSubmit={generate} startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto}
-        inputPath={inputPath} onChangeInputPath={setInputPath} loading={actions.starting} error={actions.notice ?? actions.generation.error}
+        loading={actions.starting} error={actions.notice ?? actions.generation.error}
         ceremony fromExample={fromExample ?? undefined} testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
     </Animated.View> : null}
     {/* Only while a skippable scene is the active one: a tap lands the ceremony on its settled board. */}

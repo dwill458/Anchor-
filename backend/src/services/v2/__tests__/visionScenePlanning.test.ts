@@ -193,16 +193,15 @@ describe('a described scene', () => {
     expect(first.framing).not.toBe(second.framing);
   });
 
-  it('joins the board without repeating it, and leaves generated sets untouched', () => {
+  it('keeps the Vision as low-priority background for an added scene, and leaves generated sets untouched', () => {
     const scene = buildVisionSceneVariantPlan('A beach house with my family')[0];
     const base = { intention: 'I build freely', category: 'career', description: 'A calm life by the water', scene };
-    const joined = buildVisionImagePrompt({ ...base, boardScenes: ['A quiet dock at dawn'] });
-    expect(joined).toContain('A quiet dock at dawn');
+    const joined = buildVisionImagePrompt({ ...base, isAddedScene: true });
     expect(joined).toContain('A calm life by the water');
-    expect(joined).toContain('do not repeat any of these compositions');
+    expect(joined).toContain('Vision-level background (lowest priority');
     const plain = buildVisionImagePrompt(base);
     expect(plain).not.toContain('A calm life by the water');
-    expect(plain).not.toContain('do not repeat any of these compositions');
+    expect(plain).not.toContain('Vision-level background');
   });
 });
 

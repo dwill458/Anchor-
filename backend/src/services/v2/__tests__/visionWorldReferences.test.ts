@@ -7,26 +7,27 @@ const scene = (id: string, sourceType: string, sortOrder: number, day: number, w
 });
 
 describe('selecting the Vision photographs that carry the world forward', () => {
-  it('puts the person\'s own photograph first: it is the established world', () => {
+  it('attaches only the person\'s own photographs, never generated board images', () => {
     const picked = selectWorldReferenceScenes([
       scene('gen-hero', 'AI_GENERATED', 0, 1), scene('mine', 'USER_UPLOAD', 1, 2), scene('gen-new', 'AI_GENERATED', 2, 9),
     ]);
-    expect(picked[0].id).toBe('mine');
+    expect(picked.map(item => item.id)).toEqual(['mine']);
+    expect(selectWorldReferenceScenes([scene('gym', 'AI_GENERATED', 0, 1), scene('gym2', 'AI_GENERATED', 1, 2)])).toEqual([]);
   });
 
   it('treats a camera photo as the person\'s own', () => {
-    expect(selectWorldReferenceScenes([scene('gen', 'AI_GENERATED', 0, 1), scene('cam', 'USER_CAMERA', 1, 2)])[0].id).toBe('cam');
+    expect(selectWorldReferenceScenes([scene('gen', 'AI_GENERATED', 0, 1), scene('cam', 'USER_CAMERA', 1, 2)]).map(item => item.id)).toEqual(['cam']);
   });
 
-  it('prefers the hero within a source, then the most recently approved', () => {
+  it('prefers the hero among personal photos, then the most recently added', () => {
     const picked = selectWorldReferenceScenes([
-      scene('old', 'AI_GENERATED', 3, 1), scene('hero', 'AI_GENERATED', 0, 2), scene('new', 'AI_GENERATED', 4, 8),
+      scene('old', 'USER_UPLOAD', 3, 1), scene('hero', 'USER_UPLOAD', 0, 2), scene('new', 'USER_CAMERA', 4, 8),
     ]);
     expect(picked.map(item => item.id)).toEqual(['hero', 'new', 'old']);
   });
 
   it('caps the references and skips scenes whose image is gone', () => {
-    const many = Array.from({ length: 8 }, (_, i) => scene(`s${i}`, 'AI_GENERATED', i, i + 1));
+    const many = Array.from({ length: 8 }, (_, i) => scene(`s${i}`, 'USER_UPLOAD', i, i + 1));
     expect(selectWorldReferenceScenes(many)).toHaveLength(VISION_WORLD_REFERENCE_MAX);
     expect(selectWorldReferenceScenes([scene('gone', 'USER_UPLOAD', 0, 1, false)])).toEqual([]);
   });
@@ -46,24 +47,47 @@ describe('telling the provider what each attached image is', () => {
 
   it('keeps world and identity separate and numbers them', () => {
     const text = visionReferenceInstructions(orderVisionReferences([who, world, world]));
-    expect(text).toMatch(/Images 1-2 are photographs ALREADY in this person's Vision/);
+    expect(text).toMatch(/Images 1-2 are photographs the person added to their Vision themselves/);
+    expect(text).toMatch(/NOT the setting for this scene/);
     expect(text).toMatch(/Image 3 is the person's approved appearance reference/);
     expect(text).toMatch(/does not describe the world/);
     expect(text).toMatch(/a specific car stays that car/);
+    expect(text).toMatch(/if it names a different place, show that place/);
   });
 
   it('says nothing about a world when there is none, and still guards identity', () => {
     const text = visionReferenceInstructions(orderVisionReferences([who]));
-    expect(text).not.toMatch(/ALREADY in this person's Vision/);
+    expect(text).not.toMatch(/added to their Vision themselves/);
     expect(text).toMatch(/Image 1 is the person's approved appearance reference/);
     expect(visionReferenceInstructions([])).toMatch(/No appearance reference was supplied/);
   });
 
-  it('puts the established world above the category in the scene prompt, only when one is attached', () => {
+  it('scopes personal references to the subjects they show, never the location, only when attached', () => {
     const plan = buildVisionSceneVariantPlan('Driving it down the highway at golden hour');
     const base = { intention: 'I own a Regal', category: 'desire', description: 'My Regal', scene: plan[0], plannedScenes: plan };
-    expect(buildVisionImagePrompt({ ...base, worldReferenceCount: 1 })).toMatch(/established world.*a different moment from the same life/s);
-    expect(buildVisionImagePrompt(base)).not.toMatch(/established world/);
+    expect(buildVisionImagePrompt({ ...base, worldReferenceCount: 1 })).toMatch(/do not set the location of this scene/);
+    expect(buildVisionImagePrompt(base)).not.toMatch(/own references/);
+  });
+
+  it('lets each added scene control its own environment (gym, then classroom)', () => {
+    const gym = buildVisionSceneVariantPlan('Training alone in a gym before sunrise, discipline in every rep');
+    const classroom = buildVisionSceneVariantPlan('Teaching a classroom of attentive students, discipline in every lesson');
+    const vision = { intention: 'Live with discipline', category: 'career', description: 'A disciplined life: early gym sessions and steady work.' };
+    const prompt = buildVisionImagePrompt({ ...vision, scene: classroom[0], isAddedScene: true });
+    expect(prompt).toContain('Teaching a classroom of attentive students');
+    expect(prompt).toContain('Do not borrow rooms, places, props, light or compositions from any other moment');
+    expect(prompt).toMatch(/lowest priority.*never overrides the scene's own location or environment/s);
+    // Nothing of the previous scene survives into the next one.
+    expect(prompt).not.toContain('Training alone in a gym');
+    expect(prompt).not.toMatch(/same world, season, light quality and grade/);
+    expect(buildVisionImagePrompt({ ...vision, scene: gym[0], isAddedScene: true })).not.toContain('classroom');
+  });
+
+  it('omits the Vision background and isolation rule for a first image', () => {
+    const plan = buildVisionSceneVariantPlan('A bright kitchen at dawn');
+    const prompt = buildVisionImagePrompt({ intention: 'x', category: 'desire', description: 'Vision words', scene: plan[0] });
+    expect(prompt).not.toContain('Vision-level background');
+    expect(prompt).not.toContain('Do not borrow rooms');
   });
 
   it('numbers the start photo first and tells the model to transform that place, not invent another', () => {
@@ -73,9 +97,9 @@ describe('telling the provider what each attached image is', () => {
     const text = visionReferenceInstructions(ordered);
     expect(text).toMatch(/Image 1 is the person's own photograph of their real world AS IT IS TODAY/);
     expect(text).toMatch(/same real place/);
-    expect(text).toMatch(/Image 2 is a photograph ALREADY in this person's Vision/);
+    expect(text).toMatch(/Image 2 is a photograph the person added to their Vision themselves/);
     expect(text).toMatch(/Image 3 is the person's approved appearance reference/);
-    expect(visionReferenceInstructions(orderVisionReferences([start]))).not.toMatch(/ALREADY in this person's Vision/);
+    expect(visionReferenceInstructions(orderVisionReferences([start]))).not.toMatch(/added to their Vision themselves/);
   });
 
   it('adds the start-photo transformation line to the scene prompt only when one is attached', () => {

@@ -4,7 +4,7 @@ import { runOnJS, useFrameCallback, useSharedValue } from 'react-native-reanimat
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
-import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from '@/components/v2/vision/VisionMomentInput';
+import { VisionMomentInput, type VisionStartPhoto } from '@/components/v2/vision/VisionMomentInput';
 import { V2VisualizePrepareScreen, type V2VisualizeBeginConfig } from '@/screens/v2/practice/visualize/V2VisualizePrepareScreen';
 import { V2CinematicSessionScreen } from '@/screens/v2/practice/visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from '@/screens/v2/practice/visualize/visualizeVisionPlan';
@@ -137,10 +137,9 @@ function SavedImageGeometry({ anchorId }: { anchorId: string }) {
 /** The photo-first describe screen with state held locally, so QA can see empty, photo set, and photo plus description. */
 function PhotoPathLab({ mode, photo, text, onBack, ...identity }: { mode: 'create' | 'add'; photo: string | null; text: string; onBack: () => void; anchorIntention: string; anchorCategory: string; anchorArt: any }) {
   const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(photo ? { uri: photo, mimeType: 'image/jpeg' } : null);
-  const [path, setPath] = useState<VisionInputPath>('photo');
   const [description, setDescription] = useState(text);
   return <VisionMomentInput {...identity} mode={mode} anchorId="qa-fixture" description={description} onChangeDescription={setDescription}
-    startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto} inputPath={path} onChangeInputPath={setPath} onBack={onBack} onSubmit={() => undefined} />;
+    startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto} onBack={onBack} onSubmit={() => undefined} />;
 }
 
 function HandoffLab({ identity, candidates, onClose }: { identity: { anchorIntention: string; anchorCategory: string; anchorArt: any }; candidates: VisionGenerationCandidate[]; onClose: () => void }) {

@@ -31,7 +31,7 @@ describe('V2VisionCreationFlow ceremony entry and existing actions', () => {
   });
   it('Imagine enters the existing words path and preserves description across Back', () => {
     const view = render(<V2VisionCreationFlow {...base} />); enterDescription(view);
-    expect(view.getByTestId('vision-path-words').props.accessibilityState.selected).toBe(true);
+    expect(view.queryByTestId('vision-path-words')).toBeNull(); expect(view.getByTestId('vision-reference-photo-add')).toBeTruthy();
     fireEvent.changeText(view.getByTestId('vision-prompt-input'), 'My meaningful new scene.');
     fireEvent.press(view.getByLabelText('Go back')); enterDescription(view);
     expect(view.getByTestId('vision-prompt-input').props.value).toBe('My meaningful new scene.');

@@ -16,7 +16,7 @@ import { VisionStageTransition } from './VisionMotion';
 import { VisionBackButton, VisionInkPill, VISION_SERIF } from './VisionPaperChrome';
 import { VisionIntroStage } from './VisionIntroStage';
 import { VisionMethodStage } from './VisionMethodStage';
-import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from './VisionMomentInput';
+import { VisionMomentInput, type VisionStartPhoto } from './VisionMomentInput';
 import { VisionTwoUpStage, type VisionTwoUpSelection } from './VisionTwoUpStage';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 
@@ -72,7 +72,6 @@ function DeferredVisionCreationFlow({
   const [step, setStep] = useState<Step>(initialStep === 'ready' || initialStep === 'empty' ? 'empty' : initialStep);
   const [fromMethod, setFromMethod] = useState(false);
   const [description, setDescription] = useState(initialDescription);
-  const [inputPath, setInputPath] = useState<VisionInputPath>('photo');
   const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -84,7 +83,7 @@ function DeferredVisionCreationFlow({
   const trimmed = description.trim();
   const validDescription = trimmed.length >= VISION_DESCRIPTION_MIN_CHARS && trimmed.length <= VISION_DESCRIPTION_MAX_CHARS;
   /** True while the Vision is being made from a photo of the person's real world rather than from words alone. */
-  const photoStart = inputPath === 'photo' && Boolean(startPhoto);
+  const photoStart = Boolean(startPhoto);
 
   useEffect(() => {
     if (step === 'prompt' && !createStarted.current) { createStarted.current = true; AnalyticsService.track('vision_create_started', { anchor_id: anchorId }); }
@@ -308,8 +307,6 @@ function DeferredVisionCreationFlow({
       startPhotoEnabled
       startPhoto={startPhoto}
       onChangeStartPhoto={setStartPhoto}
-      inputPath={inputPath}
-      onChangeInputPath={setInputPath}
       loading={starting}
       error={notice || generation.error}
       testID={`${testID}-prompt`}

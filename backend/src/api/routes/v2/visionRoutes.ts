@@ -20,6 +20,9 @@ import { visionGenerationService } from '../../../services/v2/VisionGenerationSe
 import { visionAppearanceReferenceService } from '../../../services/v2/VisionAppearanceReferenceService';
 import { uploadImageAssetFromBuffer } from '../../../services/StorageService';
 import sharp from 'sharp';
+import { getMonetizationAccess } from '../../../services/MonetizationAccessService';
+import { GeminiImageService } from '../../../services/GeminiImageService';
+import { expandPhotoToVision, PhotoExpandError } from '../../../services/v2/visionPhotoExpand';
 import { z } from 'zod';
 import {
   globalAiCeilingLimiter,
@@ -444,5 +447,37 @@ router.post('/assets/upload', async (req: AuthRequest, res: Response, next: Next
     next(error);
   }
 });
+
+// Expand with AI: a preview only. The photograph is read, extended to the Vision's 9:16 frame and
+// returned; nothing is stored until the person confirms and uploads the chosen version themselves.
+// Same access rule and rate budget as image generation.
+router.post(
+  '/vision/photo-expand',
+  globalAiCeilingLimiter,
+  visionGenerationLimiter,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = await getAuthenticatedUserId(req);
+      const input = validateBody(UploadAssetSchema.omit({ metadata: true }), req.body);
+      const access = await getMonetizationAccess(userId);
+      if (!access.hasProAccess) throw new AppError('Vision generation requires access', 403, 'VISION_PREMIUM_REQUIRED');
+      const buffer = decodeBase64Image(input.base64Image, input.mimeType || 'image/png');
+      try {
+        const result = await expandPhotoToVision(buffer, new GeminiImageService());
+        res.json({
+          success: true,
+          data: { imageBase64: `data:image/jpeg;base64,${result.image.toString('base64')}`, mimeType: 'image/jpeg', width: result.width, height: result.height, aiExpanded: true },
+        });
+      } catch (error) {
+        if (error instanceof PhotoExpandError) {
+          throw new AppError(error.message, 422, error.code === 'UNREADABLE' ? 'VALIDATION_ERROR' : `VISION_PHOTO_EXPAND_${error.code}`);
+        }
+        throw error;
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default router;

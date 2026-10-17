@@ -7,6 +7,7 @@ import { colors, getCategoryColor, getCategoryFieldColor, radii } from '@/theme/
 import { AnchorMark } from './AnchorMark';
 import { trace } from '@/utils/dev/creationTrace';
 import { classifyPerfUri, perfLog } from '@/utils/perfDiagnostics';
+import { ThreadAura, type ThreadAuraProps } from './ThreadAura';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -64,10 +65,12 @@ type Props = {
   performanceLabel?: string;
   /** Home's first-load entrance. Absent everywhere else, where the coin simply is. */
   entrance?: CircularAnchorEntrance;
+  /** Present only on Home and Details; all other renderers keep their current behavior. */
+  aura?: Pick<ThreadAuraProps, 'anchorId' | 'threadStrength' | 'variant' | 'active' | 'reducedMotion'>;
 };
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
-export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style, traceLabel, onImageLoad, performanceLabel, entrance }: Props) {
+export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style, traceLabel, onImageLoad, performanceLabel, entrance, aura }: Props) {
   const dimension = typeof size === 'number' ? size : (sizes[size] ?? 104);
   const color = getCategoryColor(category);
   const isBare = appearance === 'bare';
@@ -126,8 +129,9 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
   // on Animated.View but not on the union of Animated.View and View.
   const Artwork = Animated.View;
   const artworkEntrance = entering && !drawLine ? developStyle : undefined;
-  return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: entering ? 'transparent' : fieldColor, borderColor: entering ? 'transparent' : borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
+  return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: entering ? 'transparent' : fieldColor, borderColor: entering ? 'transparent' : borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, aura && styles.auraField, style]}>
     {entering ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth }, groundStyle]} /> : null}
+    {aura && hasArtwork && !entrance?.drawing ? <ThreadAura key={aura.anchorId ?? svg} {...aura} svg={svg} categoryColor={color} size={dimension} artworkSize={artworkSize} /> : null}
     {showImage ? (
       <Artwork style={[styles.imageContainer, { width: imageSize, height: imageSize, borderRadius: imageSize / 2 }, isPaper && styles.paperImage, artworkEntrance]}>
         <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onLoad={traceLabel || onImageLoad || performanceLabel ? handleImageLoad : undefined} onError={() => {
@@ -152,6 +156,7 @@ export function circularAnchorArtworkShare(appearance: CircularAnchorAppearance,
 }
 const styles = StyleSheet.create({
   field: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  auraField: { overflow: 'visible' },
   imageContainer: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   paperImage: { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.frameEdge },
   artwork: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: radii.round },

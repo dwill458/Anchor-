@@ -596,9 +596,7 @@ export class VisionGenerationService {
           intention,
           category,
           description: boardContext ? (boardContext.description ?? '') : job.description,
-          boardScenes: boardContext
-            ? boardContext.scenes.map(item => item.prompt ?? '').filter(Boolean)
-            : undefined,
+          isAddedScene: Boolean(boardContext),
           scene,
           plannedScenes: plan,
           hasAppearanceReference: Boolean(reference),

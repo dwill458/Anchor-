@@ -59,6 +59,19 @@ jest.mock('expo-blur', () => ({
   BlurView: 'BlurView',
 }));
 
+// Voice input is native-only: tests see a device without speech recognition unless they mock it themselves.
+jest.mock('expo-speech-recognition', () => ({
+  ExpoSpeechRecognitionModule: {
+    isRecognitionAvailable: jest.fn(() => false),
+    supportsOnDeviceRecognition: jest.fn(() => false),
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+    start: jest.fn(),
+    stop: jest.fn(),
+    abort: jest.fn(),
+  },
+  useSpeechRecognitionEvent: jest.fn(),
+}));
+
 jest.mock('expo-speech', () => ({
   speak: jest.fn(),
   stop: jest.fn(),
@@ -345,6 +358,9 @@ jest.mock('react-native-svg', () => ({
   Text: 'SvgText',
   TSpan: 'TSpan',
   Defs: 'Defs',
+  Filter: 'Filter',
+  FeGaussianBlur: 'FeGaussianBlur',
+  FeColorMatrix: 'FeColorMatrix',
   Stop: 'Stop',
   LinearGradient: 'LinearGradient',
   RadialGradient: 'RadialGradient',

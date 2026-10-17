@@ -131,6 +131,7 @@ export function V2HomeScreen() {
   const teachingScrollActive = useSharedValue(false);
   const [carouselMoving, setCarouselMoving] = useState(false);
   const [homeMotionActive, setHomeMotionActive] = useState(true);
+  const [heroOnscreen, setHeroOnscreen] = useState(true);
   const navigation = useNavigation<Nav>();
   // Home never fades during an Anchor flight: it stays fully drawn until Details covers it,
   // and is already drawn when Details is removed. Only the travelling copy moves.
@@ -481,6 +482,10 @@ export function V2HomeScreen() {
     () => contentVeil.value < 0.999 || elasticDragging.value || Math.abs(elasticOverscroll.value) > 0.5 || (!teachingScrollActive.value && elasticMomentum.value),
     (moving, previous) => { if (moving !== previous) runOnJS(setHomeMotionActive)(moving); },
   );
+  useAnimatedReaction(
+    () => elastic.scrollY.value < 450,
+    (visible, previous) => { if (visible !== previous) runOnJS(setHeroOnscreen)(visible); },
+  );
   // Canonical Home idle gate: the teaching queue also waits for an idle slot after this clears.
   const homeIsIdle = teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival && !visionReturn.active &&
     !veilSwapPending.current && !carouselMoving && !homeMotionActive && !focusTransition.active && !threadEvents.active &&
@@ -691,6 +696,7 @@ export function V2HomeScreen() {
               thread={model.thread}
               reduceMotion={reduceMotion}
               frozen={focusTransition.active}
+              auraActive={heroOnscreen && teachingFocus.isFocused && !carouselMoving && !homeMotionActive}
               onMotionChange={handleCarouselMotion}
               onSelect={handleSelectAnchor}
               onOpenActive={handleOpenActive}

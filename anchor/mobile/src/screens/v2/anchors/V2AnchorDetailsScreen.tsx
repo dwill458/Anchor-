@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BackHandler, Image, Platform, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Play, Sparkle } from 'lucide-react-native';
-import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -83,22 +83,6 @@ function isDateToday(dateVal: string | Date): boolean {
   if (Number.isNaN(d.getTime())) return false;
   const now = new Date();
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
-/** Soft radial glow behind the Anchor, in the Anchor's category colour with peak alpha ~0.15. */
-function Halo({ color }: { color: string }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 100 100" pointerEvents="none">
-      <Defs>
-        <RadialGradient id="anchor-halo" cx="50" cy="50" rx="50" ry="50" fx="50" fy="50" gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor={color} stopOpacity={0.15} />
-          <Stop offset="0.68" stopColor={color} stopOpacity={0} />
-          <Stop offset="1" stopColor={color} stopOpacity={0} />
-        </RadialGradient>
-      </Defs>
-      <Rect x={0} y={0} width={100} height={100} fill="url(#anchor-halo)" />
-    </Svg>
-  );
 }
 
 function TargetIcon({ size = 22, color = detailsPalette.focus }: { size?: number; color?: string }) {
@@ -881,10 +865,6 @@ export function V2AnchorDetailsScreen() {
     };
   });
 
-  const haloOpacityStyle = useAnimatedStyle(() => ({
-    opacity: currentLayout.value.haloOpacity,
-  }));
-
   const centeredStyle = useAnimatedStyle(() => ({
     top: currentLayout.value.centeredTop,
     opacity: currentLayout.value.centeredOpacity,
@@ -1047,11 +1027,6 @@ export function V2AnchorDetailsScreen() {
       <View style={styles.stage} testID="v2-anchor-details-stage" onLayout={__DEV__ ? () => VisualProfiler.record('detailsLayoutReady', { anchorId: params.anchorId }) : undefined}>
         <StatusBar barStyle="dark-content" />
 
-        {/* Halo behind the anchor: soft radial gradient bound to category color token */}
-        <Animated.View pointerEvents="none" style={[styles.halo, { left: restLeft - restSize * 0.075, top: restTop - restSize * 0.075, width: restSize * 1.15, height: restSize * 1.15 }, anchorMotionStyle, haloOpacityStyle]}>
-          <Halo color={accent} />
-        </Animated.View>
-
         <Animated.View
           ref={place.ref as never}
           collapsable={false}
@@ -1062,6 +1037,7 @@ export function V2AnchorDetailsScreen() {
           <CircularAnchorRenderer
             {...artwork}
             size={restSize}
+            aura={{ anchorId: anchor.id, threadStrength: threadValue, variant: 'details', active: teachingFocus.isFocused && !focusTransition.active && !place.hidden, reducedMotion: reduceMotion }}
             appearance="paper"
             accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
           />
@@ -1288,10 +1264,6 @@ const styles = StyleSheet.create({
   stage: {
     flex: 1,
     backgroundColor: detailsPalette.cream,
-  },
-  halo: {
-    position: 'absolute',
-    zIndex: 1,
   },
   anchor: {
     position: 'absolute',

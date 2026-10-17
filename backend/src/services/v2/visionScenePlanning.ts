@@ -236,10 +236,12 @@ export function buildVisionImagePrompt(input: {
   worldReferenceCount?: number;
   /** The person's own photograph of their real world today, attached as an image: the future is this place changed. */
   startPhotoAttached?: boolean;
-  /** Moments already on the person's board: the new photograph belongs beside them without repeating them. */
-  boardScenes?: string[];
+  /**
+   * True when this photograph joins an existing board. The Vision description is then background only,
+   * and nothing from earlier scenes (their prompts, places or images) is carried into this one.
+   */
+  isAddedScene?: boolean;
 }): string {
-  const board = (input.boardScenes ?? []).filter(Boolean).slice(0, 8);
   const { scene } = input;
   return [
     'Create one photograph for a personal Vision - a believable glimpse of this person\'s real future.',
@@ -251,13 +253,12 @@ export function buildVisionImagePrompt(input: {
     ...(scene.composition ? [`Composition: ${JSON.stringify(scene.composition)}`] : []),
     ...(scene.light ? [`Light: ${JSON.stringify(scene.light)}`] : []),
     ...(scene.feeling ? [`Emotional texture: ${JSON.stringify(scene.feeling)}`] : []),
-    ...(input.boardScenes && input.description.trim() ? [`The person's Vision, for continuity of world, mood and detail (data): ${JSON.stringify(input.description.trim().slice(0, 600))}`] : []),
-    ...(board.length ? [
-      'This photograph joins a board that already shows the moments below. Keep the same world, season, light quality and grade so it clearly belongs to the same Vision, but do not repeat any of these compositions:',
-      ...board.map(item => `- ${item}`),
+    ...(input.isAddedScene ? [
+      'This photograph is one separate moment. The scene above alone defines its location, environment, action, composition, light and camera. Do not borrow rooms, places, props, light or compositions from any other moment in this Vision.',
+      ...(input.description.trim() ? [`Vision-level background (lowest priority; broad mood and subject only, it never overrides the scene's own location or environment) (data): ${JSON.stringify(input.description.trim().slice(0, 600))}`] : []),
     ] : []),
     ...(input.worldReferenceCount
-      ? ['The photograph(s) attached as Vision references are the established world. They outrank the category and any generic setting: keep their specific car, place, wardrobe, light and grade, and show a different moment from the same life.']
+      ? ["The photograph(s) attached as the person's own references fix how specific subjects they mention look (a car, a home, a pet). They do not set the location of this scene: the scene description does."]
       : []),
     ...(input.startPhotoAttached
       ? ['The photograph attached as the start photo is the real place of this person today. Show this same place transformed as the scene describes: keep its recognisable structure and viewpoint, change only what the person asked to change.']

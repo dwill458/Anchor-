@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
 import { useNavigation, useRoute, UNSTABLE_usePreventRemove as usePreventRemove, type RouteProp } from '@react-navigation/native';
 import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
+import { VisionPhotoFit } from '@/components/v2/vision/VisionPhotoFitScreen';
+import { assessPhotoFit } from '@/components/v2/vision/visionPhotoFit';
+import { VisionAddSceneSheet, type AddSceneRequest } from '@/components/v2/vision/VisionAddSceneSheet';
+import { readPhotoSize } from '@/hooks/v2/vision/visionPhotoFitProcessing';
 import { playCreationSound } from '@/services/CreationSounds';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
@@ -121,7 +125,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     // The ceremony stays up until then.
     void Promise.all(model.tiles.map(tile => warmImage(tile.imageUrl))).then(() => {
       if (!alive.current) return;
-      setPendingPhoto(null); setReplaceSceneId(null); setMode('view');
+      setPendingPhoto(null); setReplaceSceneId(null); setAddRequest(null); setMode('view');
     });
   };
   const [actionError, setActionError] = useState<string | null>(null);
@@ -134,6 +138,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [arrivedFrom, setArrivedFrom] = useState<string[] | null>(null);
   // A photo chosen or taken for the board, previewed until the person confirms it.
   const [pendingPhoto, setPendingPhoto] = useState<PickedVisionPhoto | null>(null);
+  // A chosen photo waiting for the person to decide how it fits the Vision frame (Smart Photo Fit).
+  const [fitRequest, setFitRequest] = useState<{ photo: PickedVisionPhoto; size: { width: number; height: number } } | null>(null);
   const anchorIntention = (anchor as { intention?: string } | undefined)?.intention ?? anchor?.intentionText ?? 'Your Anchor';
   const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
@@ -217,6 +223,16 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     return warming;
   };
 
+  const beginPendingPhoto = (photo: PickedVisionPhoto) => {
+    setArrivedFrom(model.tiles.map(tile => tile.sceneId));
+    setPendingPhoto(photo);
+    setPhotoUploading(true);
+    const uri = photo.uri;
+    photoUpload.current = { uri, task: uploadVisionPhoto(photo, model.uploadAsset).finally(() => {
+      if (alive.current && photoUpload.current?.uri === uri) setPhotoUploading(false);
+    }) };
+  };
+
   /** Chooses or takes a photo; it is previewed, and nothing is uploaded until the person confirms. */
   const startAddPhoto = async (source: VisionPhotoSource) => {
     setPhotoPickerOpen(true);
@@ -230,13 +246,13 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     }, picked => {
       if (picked.status === 'cancelled') return;
       if (picked.status !== 'picked') { reportPickProblem(picked); return; }
-      setArrivedFrom(model.tiles.map(tile => tile.sceneId));
-      setPendingPhoto(picked.photo);
-      setPhotoUploading(true);
-      const uri = picked.photo.uri;
-      photoUpload.current = { uri, task: uploadVisionPhoto(picked.photo, model.uploadAsset).finally(() => {
-        if (alive.current && photoUpload.current?.uri === uri) setPhotoUploading(false);
-      }) };
+      // A photo that is not the Vision's portrait frame is offered Smart Photo Fit before it is previewed or uploaded.
+      void (async () => {
+        const size = await readPhotoSize(picked.photo.uri);
+        if (!alive.current) return;
+        if (size && assessPhotoFit(size).relation !== 'fits') { setFitRequest({ photo: picked.photo, size }); return; }
+        beginPendingPhoto(picked.photo);
+      })();
     });
     } finally { setPhotoPickerOpen(false); }
   };
@@ -261,10 +277,15 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     return null;
   };
 
-  const openAddScene = () => {
+  // Add Image opens a compact composer over the board; submitting hands a prepared request to the generation experience.
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [addRequest, setAddRequest] = useState<AddSceneRequest | null>(null);
+  const openAddScene = () => { setActionError(null); setAddSheetOpen(true); };
+  const startAddScene = (request: AddSceneRequest) => {
     setActionError(null);
     setSavedImageUrl(null);
     setArrivedFrom(model.tiles.map(tile => tile.sceneId));
+    setAddRequest(request);
     setMode('addScene');
   };
 
@@ -422,6 +443,11 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     </V2Screen>
   );
 
+  if (fitRequest) return (
+    <VisionPhotoFit photo={fitRequest.photo} size={fitRequest.size} onPremiumRequired={openPaywall} onCancel={() => setFitRequest(null)}
+      onConfirm={({ photo: fitted }) => { const original = fitRequest.photo; setFitRequest(null); beginPendingPhoto({ ...original, uri: fitted.uri, mimeType: fitted.mimeType }); }} />
+  );
+
   if (pendingPhoto) return (
     <VisionCeremony mode="add" startAt="develop" photo={pendingPhoto} photoUploading={photoUploading} anchorId={anchorId}
       anchorIntention={anchorIntention} anchorCategory={anchorCategory} anchorArt={anchorArt} anchorImageUrl={anchor?.enhancedImageUrl}
@@ -434,14 +460,15 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   );
 
   if (mode === 'addScene') return (
-    <VisionCeremony mode="add" visionId={model.vision?.id} startAt={replaceSceneId ? 'describe' : 'ask'} regenerating={Boolean(replaceSceneId)}
+    <VisionCeremony mode="add" visionId={model.vision?.id} startAt={replaceSceneId ? 'describe' : addRequest ? 'develop' : 'ask'} regenerating={Boolean(replaceSceneId)}
+      autoStart={Boolean(addRequest) && !replaceSceneId} initialDescription={addRequest?.description} initialStartPhoto={addRequest?.photo ?? null}
       onAddNote={replaceSceneId ? undefined : openNoteComposer} canAddImage={model.tiles.length < VISION_BOARD_MAX_IMAGES}
       previewImageUrl={model.tiles[0]?.imageUrl} previewCaption={model.tiles[0]?.caption}
       anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory} anchorArt={anchorArt}
       anchorImageUrl={anchor?.enhancedImageUrl} onPremiumRequired={openPaywall} onUploadAsset={model.uploadAsset}
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
-      onBack={() => { setReplaceSceneId(null); setMode('view'); }} onAdd={placeGeneratedScene}
+      onBack={() => { setReplaceSceneId(null); setAddRequest(null); setMode('view'); }} onAdd={placeGeneratedScene}
       savedImageUrl={savedImageUrl} savedImages={savedImages} onPinned={() => finishCeremony('add')} onSealingChange={handleSealingChange}
       onAssemble={async ({ selectedAssets }) => {
         const asset = selectedAssets[0];
@@ -572,5 +599,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       data={buildShareExportData(anchor, { visionTiles: model.tiles, visionNotes: model.vision?.notes ?? [],
         visionAnnotation: model.vision?.title ?? '' })} /> : null}
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
+    {onBoard ? <VisionAddSceneSheet visible={addSheetOpen} onClose={() => setAddSheetOpen(false)} anchorIntention={anchorIntention}
+      onSubmit={startAddScene} onAddOwnPhoto={source => { void startAddPhoto(source); }} onAddNote={openNoteComposer}
+      canAddImage={model.tiles.length < VISION_BOARD_MAX_IMAGES} /> : null}
   </View>;
 }
