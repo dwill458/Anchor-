@@ -82,3 +82,17 @@ The requested migration path is SDK 54 → 55 → 56 → 57 → 58. The official
   ```
 
 - The current local APK uses a temporary synthetic Firebase config and is for isolated emulator QA only. It is not the optional production-connected owner QA APK: use a separately registered Firebase QA app/config and the `expo58-qa` EAS profile only after configuring the authorized backend account. Do not install this local APK over the owner's production-connected SQLCipher app, publish OTA, merge, or promote based on the partial runtime evidence. No production app, installed storage or production delivery settings were changed.
+
+## Expo 58 SQLCipher QA development client (2026-10-18)
+
+- Commit: `fce746b3` on `feat/expo58-upgrade` (SDK 58 working tree committed; screenshots, `.cxx`, and secrets excluded).
+- Identity: package `com.anchorintentions.sqlcipherpreview20261015`, label `Anchor 2.0 QA`, `versionCode` 42 (owner-tested build is 41), `runtimeVersion` `2.0-sqlcipher-v2-realdata-qa`, OTA disabled.
+- Firebase: `android/app/google-services.json` and `google-services.json` are the SQLCipher QA registration (package `com.anchorintentions.sqlcipherpreview20261015`) copied from `E:\Projects\Anchor-SQLCipher`. Both are gitignored and not committed. The earlier synthetic `expo58qa` registration is replaced.
+- Backend: `https://anchor-production-26bf.up.railway.app` (same endpoint as the owner-tested SQLCipher QA profile). Mock auth is off; Google sign-in is on.
+- EAS profile `expo58-devclient-qa`: `developmentClient: true`, `:app:assembleDebug --project-prop expo.sqlite.useSQLCipher=true`, APK, `ANCHOR_SQLCIPHER_PRODUCTION_QA=1`, no channel (no OTA target).
+- Signing reference (owner-tested APK `anchor-sqlcipher-owner-tested.apk`): APK Signature Scheme v2 certificate SHA-256 `77391d32b8cb37d052b4380ff4abba3f927050cd680bd657ed700a0b5e80d154`. The new APK must match this before in-place install.
+- Local checks on `fce746b3`: `npx tsc --noEmit --pretty false` passed (exit 0). Focused Jest (13 suites, 124 tests): 122 passed; the 2 failures are the existing `creationStore.test.ts` category expectation mismatches.
+
+- EAS dev-client build `474c9fda-4582-470d-928e-409553db9575` (profile `expo58-devclient-qa`, commit `f0011055`): FINISHED. Artifact APK SHA-256 `ddc59371045c3e172d54a85079413c75b0319634f2a26ffd3d8069eb94a83e40`, package `com.anchorintentions.sqlcipherpreview20261015`, versionCode 42, targetSdk 36. Contains the dev launcher and SQLCipher (`cipher_version` symbols in `libexpo-sqlite.so`). No synthetic API host or `expo58qa` identity present.
+- **Signing mismatch, not installable in place yet:** the APK's v2 signer SHA-256 is `ea13887fc3d0236ca957dd54d2a385c1b5a7cc7086bdd99f28f52e48db9fbe32`; the owner-tested APK's is `77391d32b8cb37d052b4380ff4abba3f927050cd680bd657ed700a0b5e80d154`. Android will reject an in-place update. The EAS credential used for this profile must be matched to the owner's keystore on expo.dev before installing over the owner's app.
+- Earlier failed EAS attempts on this branch: npm lockfile sync (`c8ebaf3b`), CMake pin 3.31.6 not on EAS image (`f25627ba`), Gradle daemon killed on medium worker (fixed by `large` resource class).
