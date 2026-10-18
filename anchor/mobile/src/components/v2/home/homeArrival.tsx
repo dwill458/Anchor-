@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -672,7 +673,7 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
   origin: { x: number; y: number } | null;
   onOrigin: (point: { x: number; y: number }) => void;
 }) {
-  const hostRef = useRef<View>(null);
+  const hostRef = useRef<ViewInstance>(null);
   const measureOrigin = useCallback(() => {
     hostRef.current?.measureInWindow?.((x, y) => {
       if (Number.isFinite(x) && Number.isFinite(y)) onOrigin({ x, y });

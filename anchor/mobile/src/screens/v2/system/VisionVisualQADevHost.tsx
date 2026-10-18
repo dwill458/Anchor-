@@ -35,20 +35,31 @@ import { useV2Vision } from '@/hooks/v2/vision';
 
 // Local fixtures exercise production components; never mounted in release builds.
 const sources = [require('@/assets/vision/vision-future-desk.jpg'), require('@/assets/vision/vision-future-window.jpg'), require('@/assets/vision/vision-future-family.jpg')];
-const tiles: V2VisionTile[] = Array.from({ length: 8 }, (_, i) => ({ id: `qa-${i}`, sceneId: `qa-${i}`, imageUrl: Image.resolveAssetSource(sources[i % 3]).uri,
+function fixtureAt<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`Missing visual QA fixture at index ${index}.`);
+  return item;
+}
+function fixtureUri(source: number): string {
+  const resolved = Image.resolveAssetSource(source);
+  if (!resolved?.uri) throw new Error('Unable to resolve a visual QA image fixture.');
+  return resolved.uri;
+}
+const tiles: V2VisionTile[] = Array.from({ length: 8 }, (_, i) => ({ id: `qa-${i}`, sceneId: `qa-${i}`, imageUrl: fixtureUri(fixtureAt(sources, i % sources.length)),
   prompt: null, sortOrder: i, isHero: i === 0, sourceType: 'AI_GENERATED' }));
 const sessionSources = [require('@/assets/vision/vision-future-desk.jpg'), require('@/assets/vision/vision-future-window-wide.jpg'),
   require('@/assets/vision/vision-future-family.jpg'), require('@/assets/vision/vision-future-home.jpg'),
   require('@/assets/vision/vision-future-studio.jpg'), require('@/assets/vision/vision-future-movement.jpg'),
   require('@/assets/vision/vision-future-threshold.jpg'), require('@/assets/vision/vision-future-sanctuary.jpg')];
-const sessionTiles: V2VisionTile[] = sessionSources.map((source, i) => ({ ...tiles[i],
-  imageUrl: Image.resolveAssetSource(source).uri, sourceType: 'USER_UPLOAD' }));
+const sessionTiles: V2VisionTile[] = sessionSources.map((source, i) => ({ ...fixtureAt(tiles, i),
+  imageUrl: fixtureUri(source), sourceType: 'USER_UPLOAD' }));
 const description = 'My app is thriving. I see ten thousand people using something I created, and I have the freedom to work by the ocean with my family. The work is meaningful, and there is room to enjoy the life around it.';
 const noop = () => undefined;
 const saved = async () => true;
-const fixtureNotes: VisionNote[] = [{ id: 'qa-note', visionId: 'qa', content: { text: 'A life with room for meaningful work and time together.' },
+const fixtureNote: VisionNote = { id: 'qa-note', visionId: 'qa', content: { text: 'A life with room for meaningful work and time together.' },
   presentation: { styleId: 'paper_blush_torn', x: .26, y: .34, width: .3, height: .24, rotation: -3, scale: 1, layerOrder: 1 },
-  createdAt: '2026-10-10T00:00:00Z', updatedAt: '2026-10-10T00:00:00Z' }];
+  createdAt: '2026-10-10T00:00:00Z', updatedAt: '2026-10-10T00:00:00Z' };
+const fixtureNotes: VisionNote[] = [fixtureNote];
 
 /** Actual board-to-setup interaction, using clearly identified fixtures and no account writes. */
 function VisionEntryLab({ identity, count, onClose }: { identity: any; count: number; onClose: () => void }) {
@@ -269,12 +280,12 @@ export function VisionVisualQADevHost() {
     const count = Math.max(0, Math.min(8, Number(surface.split('-')[1] ?? '3')));
     const shareTiles = sessionTiles.slice(0, count);
     const shareNotes: VisionNote[] = surface.includes('mixed') ? [
-      { ...fixtureNotes[0], presentation: { ...fixtureNotes[0].presentation, styleId: 'sticky_butter_yellow', x: .75, y: .52, width: .24, height: .2 } },
-      { ...fixtureNotes[0], id: 'qa-share-note-2', presentation: { ...fixtureNotes[0].presentation, styleId: 'editorial_golden_hour', x: .24, y: .78, width: .24, height: .18 } },
+      { ...fixtureNote, presentation: { ...fixtureNote.presentation, styleId: 'sticky_butter_yellow', x: .75, y: .52, width: .24, height: .2 } },
+      { ...fixtureNote, id: 'qa-share-note-2', presentation: { ...fixtureNote.presentation, styleId: 'editorial_golden_hour', x: .24, y: .78, width: .24, height: .18 } },
     ] : fixtureNotes;
     const data = buildShareExportData({ intentionText: identity.anchorIntention, category: identity.anchorCategory,
       baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null,
-      enhancedImageUrl: surface.includes('art') ? Image.resolveAssetSource(require('@/assets/onboarding/screen5/anchor-verdigris-relic.png')).uri : null } as any,
+      enhancedImageUrl: surface.includes('art') ? fixtureUri(require('@/assets/onboarding/screen5/anchor-verdigris-relic.png')) : null } as any,
       { visionTiles: shareTiles, visionNotes: surface.includes('notes') ? shareNotes : [], visionAnnotation: 'Room to create' });
     content = <AnchorShareStudio visible data={data} onClose={close} />;
   } else if (surface === 'note-composer') content = <V2VisionNoteComposer route={{ params: { anchorId: anchor?.id ?? 'qa-fixture' } }} navigation={{ goBack: close }} />;
@@ -298,22 +309,22 @@ export function VisionVisualQADevHost() {
     content = <VisionTwoUpStage anchorIntention={identity.anchorIntention} anchorArt={identity.anchorArt} job={job} onBack={close} onSelect={() => close()} onRetry={noop} onEditDescription={noop} />;
   } else if (surface === 'intro') content = <VisionIntroStage {...identity} onBack={close} onStartCreate={() => setSurface('method')} testID="qa" />;
   else if (surface === 'method') content = <VisionMethodStage onBack={() => setSurface('intro')} onChoose={path => setSurface(path === 'photos' ? 'method' : 'create')} testID="qa" />;
-  else if (surface?.startsWith('photo-path')) content = <PhotoPathLab {...identity} mode={surface.includes('add') ? 'add' : 'create'} photo={surface.includes('set') || surface.includes('text') ? tiles[1].imageUrl! : null}
+  else if (surface?.startsWith('photo-path')) content = <PhotoPathLab {...identity} mode={surface.includes('add') ? 'add' : 'create'} photo={surface.includes('set') || surface.includes('text') ? fixtureAt(tiles, 1).imageUrl! : null}
     text={surface.includes('text') ? 'The kitchen is finished, bright and quiet. The window and the old table stay.' : ''} onBack={close} />;
   else if (surface === 'create') content = <VisionMomentInput {...identity} mode="create" anchorId="qa-fixture" onBack={close} onSubmit={noop} />;
-  else if (surface === 'add') content = <VisionMomentInput {...identity} mode="add" anchorId="qa-fixture" previewImageUrl={tiles[0].imageUrl} initialDescription="Working by the ocean with my family while Anchor continues to grow." onBack={close} onSubmit={noop} />;
-  else if (surface === 'photo') content = <V2VisionAddPhoto {...identity} uri={tiles[0].imageUrl!} source="library" onCancel={close} onChooseAgain={noop} onConfirm={async () => null} />;
+  else if (surface === 'add') content = <VisionMomentInput {...identity} mode="add" anchorId="qa-fixture" previewImageUrl={fixtureAt(tiles, 0).imageUrl} initialDescription="Working by the ocean with my family while Anchor continues to grow." onBack={close} onSubmit={noop} />;
+  else if (surface === 'photo') content = <V2VisionAddPhoto {...identity} uri={fixtureAt(tiles, 0).imageUrl!} source="library" onCancel={close} onChooseAgain={noop} onConfirm={async () => null} />;
   else if (surface?.startsWith('home') || surface?.startsWith('details')) {
     const home = surface.startsWith('home');
     const count = Math.max(0, Math.min(10, Number(surface.split('-')[1] ?? '5')));
     const portraitSources = [require('@/assets/vision/stand-ins/desk.jpg'), require('@/assets/vision/stand-ins/family.jpg'), require('@/assets/vision/stand-ins/movement.jpg')];
     const squareSources = [require('@/assets/onboarding/screen5/see-career.jpg'), require('@/assets/onboarding/screen5/see-family.jpg')];
     const previewTiles = Array.from({ length: count }, (_, index) => {
-      const tile = { ...sessionTiles[index % sessionTiles.length], id: `qa-preview-${index}` };
-      const source = surface.includes('portrait') ? portraitSources[index % 3]
-        : surface.includes('square') ? squareSources[index % 2]
-        : surface.includes('mixed') && index % 2 === 0 ? portraitSources[Math.floor(index / 2) % 3] : null;
-      return source ? { ...tile, imageUrl: Image.resolveAssetSource(source).uri } : tile;
+      const tile = { ...fixtureAt(sessionTiles, index % sessionTiles.length), id: `qa-preview-${index}` };
+      const source = surface.includes('portrait') ? fixtureAt(portraitSources, index % portraitSources.length)
+        : surface.includes('square') ? fixtureAt(squareSources, index % squareSources.length)
+        : surface.includes('mixed') && index % 2 === 0 ? fixtureAt(portraitSources, Math.floor(index / 2) % portraitSources.length) : null;
+      return source ? { ...tile, imageUrl: fixtureUri(source) } : tile;
     });
     content = <ScrollView key={surface} contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, flexGrow: 1, backgroundColor: home ? colors.ink.base : colors.canvas }}>
       <Text style={{ ...typography.headingMD, color: home ? colors.paper : colors.text.primary }}>QA fixture · {surface}</Text>

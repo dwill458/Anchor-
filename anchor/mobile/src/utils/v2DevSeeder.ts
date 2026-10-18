@@ -69,7 +69,7 @@ export function seedV2DemoAnchor(): { anchorId: string } {
     prompt: null,
     sourceType: 'AI_GENERATED',
     sortOrder: idx,
-    resolvedImageUrl: Image.resolveAssetSource(src).uri,
+    resolvedImageUrl: Image.resolveAssetSource(src)?.uri ?? null,
     isArchived: false,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),

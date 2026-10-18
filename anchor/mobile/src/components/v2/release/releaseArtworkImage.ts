@@ -200,10 +200,10 @@ export function createReleaseArtworkImage(input: ReleaseArtworkImageInput): SkIm
       const cover = Math.max(inner / iw, inner / ih);
       const srcW = inner / cover;
       const srcH = inner / cover;
-      const clip = Skia.Path.Make();
+      const clip = Skia.PathBuilder.Make();
       clip.addCircle(size / 2, size / 2, inner / 2);
       canvas.save();
-      canvas.clipPath(clip, ClipOp.Intersect, true);
+      canvas.clipPath(clip.detach(), ClipOp.Intersect, true);
       const imagePaint = Skia.Paint();
       imagePaint.setAntiAlias(true);
       canvas.drawImageRect(image, Skia.XYWHRect((iw - srcW) / 2, (ih - srcH) / 2, srcW, srcH), Skia.XYWHRect(4, 4, inner, inner), imagePaint);

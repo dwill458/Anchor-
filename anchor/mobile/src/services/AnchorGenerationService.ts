@@ -187,7 +187,11 @@ export const AnchorGenerationService = {
           require('@/assets/vision/vision-future-window.jpg'),
         ];
         return {
-          variations: FIXTURES.map((source) => Image.resolveAssetSource(source).uri),
+          variations: FIXTURES.map((source) => {
+            const resolved = Image.resolveAssetSource(source);
+            if (!resolved) throw new Error('Unable to resolve the bundled development fixture image.');
+            return resolved.uri;
+          }),
           prompt: 'dev-fixture',
           negativePrompt: '',
           modelUsed: 'dev-model',

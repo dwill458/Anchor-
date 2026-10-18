@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   phoneGlowOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.15)',

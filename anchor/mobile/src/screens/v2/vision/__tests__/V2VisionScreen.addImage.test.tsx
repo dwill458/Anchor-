@@ -52,7 +52,9 @@ describe('V2VisionScreen ceremony additions', () => {
   beforeEach(() => {
     jest.useFakeTimers(); jest.clearAllMocks(); resetV2VisionReadCache(); currentVision = visionWith(3);
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
-    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(cb => cb(10, 20, 150, 180));
+    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(cb => {
+      (cb as (x: number, y: number, width: number, height: number) => void)(10, 20, 150, 180);
+    });
     useAnchorStore.setState({ anchors: [{ id: 'anchor-1', intentionText: 'I build what matters.', intention: 'I build what matters.', category: 'career',
       baseSigilSvg: '<svg viewBox="0 0 10 10"><path d="M1 1L9 9"/></svg>', status: 'ACTIVE', createdAt: stamp } as never] });
     (apiClient.get as jest.Mock).mockImplementation(async (url: string) => {

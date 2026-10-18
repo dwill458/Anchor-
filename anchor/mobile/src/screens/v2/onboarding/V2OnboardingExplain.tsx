@@ -798,7 +798,7 @@ export function V2OnboardingExplain({ header, reduceMotion, active = true, hando
       onPress={handleSkip}
       disabled={!active || ctaReady}
     >
-      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <StatusBar style="light" />
 
       <Animated.View style={[StyleSheet.absoluteFill, styles.world, worldStyle]} pointerEvents="none">
       {/* 1–2. Locked environment + cinematic grade */}
@@ -910,12 +910,12 @@ export function V2OnboardingExplain({ header, reduceMotion, active = true, hando
 
 const styles = StyleSheet.create({
   // Transparent: Screen 3 is mounted beneath and shows through as the world layer thins.
-  screen: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+  screen: { ...StyleSheet.absoluteFill, overflow: "hidden" },
   world: { backgroundColor: "#0E151C" },
   abs: { position: "absolute" },
   fill: { width: "100%", height: "100%" },
   fragment: { position: "absolute", left: 0, top: 0 },
-  notebookShade: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%", tintColor: "#07090F" },
+  notebookShade: { ...StyleSheet.absoluteFill, width: "100%", height: "100%", tintColor: "#07090F" },
   header: { position: "absolute", top: 0, left: 0, right: 0 },
   copy: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 28, alignItems: "stretch" },
   headline: {

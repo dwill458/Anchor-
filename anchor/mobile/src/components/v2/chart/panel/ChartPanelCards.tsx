@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   list: { marginTop: 8, borderTopWidth: 1, borderTopColor: T.line },
   listRow: { borderBottomWidth: 1, borderBottomColor: T.line },
   checkHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: -6 },
-  checkFill: { ...StyleSheet.absoluteFillObject, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  checkFill: { ...StyleSheet.absoluteFill, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   checkRing: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkSpacer: { width: 38, height: 44 },
   iconHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

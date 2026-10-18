@@ -1,5 +1,6 @@
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DeviceEventEmitter, InteractionManager } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 import type { BeatId } from '@/constants/v2/teachingCopy';
 import { getTeachingSeen, setTeachingSeen } from './teachingSeen';
 
@@ -39,11 +40,11 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
     }
     if (decided.current) return;
     let cancelled = false;
-    let interaction: ReturnType<typeof InteractionManager.runAfterInteractions> | undefined;
+    let interaction: ReturnType<typeof scheduleAfterInteractions> | undefined;
     const candidates = eligibleKey ? eligibleKey.split('|') as BeatId[] : [];
     void Promise.all(candidates.map(beat => getTeachingSeen(accountId, beat))).then(seen => {
       if (cancelled) return;
-      interaction = InteractionManager.runAfterInteractions(() => {
+      interaction = scheduleAfterInteractions(() => {
         if (cancelled || live.current.blocked || !live.current.isFocused || live.current.session !== session || decided.current) return;
         decided.current = true;
         const next = candidates.filter((_, index) => !seen[index]).slice(0, cap);

@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 // DEFERRED: replaced by ceremony Develop/Choose.
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Image, Modal, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -38,7 +39,7 @@ export interface VisionTwoUpStageProps {
 }
 
 /** Where a view is on screen. Never hangs the choice: a view that cannot be measured resolves to null. */
-function measure(node: View | null): Promise<VisionImageRect | null> {
+function measure(node: ViewInstance | null): Promise<VisionImageRect | null> {
   return new Promise(resolve => {
     if (!node?.measureInWindow) { resolve(null); return; }
     const giveUp = setTimeout(() => resolve(null), 150);
@@ -68,8 +69,8 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
   const state = useMemo(() => visionTwoUpState(job), [job]);
   const settling = useRef(false);
   const [preview, setPreview] = useState<VisionGenerationCandidate | null>(null);
-  const previewRef = useRef<View>(null);
-  const previewAnchorRef = useRef<View>(null);
+  const previewRef = useRef<ViewInstance>(null);
+  const previewAnchorRef = useRef<ViewInstance>(null);
   const previewAspect = useRef<{ id: string; ratio: number } | null>(null);
   useEffect(() => { if (!busy) settling.current = false; }, [busy, error, preview?.id]);
   const [waitBeat, setWaitBeat] = useState(0);
@@ -80,7 +81,7 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
     return () => timers.forEach(clearTimeout);
   }, [job?.id, state.selectable, state.phase === 'failed']);
   const waitCopy = ['Reading your moment…', 'Composing the scene…', 'Developing the images…', 'Giving your images time to develop…'][waitBeat];
-  const anchorRef = useRef<View>(null);
+  const anchorRef = useRef<ViewInstance>(null);
 
   const gutter = spacing[5];
   const gap = 14;
@@ -145,7 +146,7 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
 
   return (
     <View testID={testID} style={styles.stage}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      <StatusBar barStyle="light-content" animated />
       <LinearGradient pointerEvents="none" colors={[colors.ink.base, colors.ink.deep, '#090D12']} style={StyleSheet.absoluteFill} />
       <Animated.View pointerEvents="box-none" style={[styles.top, { paddingTop: insets.top + spacing[2] }]}>
         <VisionBackButton onPress={onBack} style={styles.back} />
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
   photos: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', marginTop: spacing[5] },
   photo: { overflow: 'hidden', borderRadius: 2, backgroundColor: '#10161D' },
   fill: { width: '100%', height: '100%' },
-  hazeSurface: { ...StyleSheet.absoluteFillObject },
+  hazeSurface: { ...StyleSheet.absoluteFill },
   hazeGlow: { backgroundColor: 'rgba(226,208,176,0.10)' },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing[5], alignItems: 'center', gap: spacing[3] },
   error: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, textAlign: 'center', color: colors.ink.text.secondary },

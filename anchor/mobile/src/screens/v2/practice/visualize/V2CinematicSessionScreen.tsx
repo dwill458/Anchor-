@@ -342,7 +342,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, durationS
       cinematic={{ photoId: '', photoOpacity: elapsed, onMarkLayout }} />
   </View>;
   return <View testID="v2-visualize-session" style={styles.root}>
-    <StatusBar hidden={immersive} barStyle="light-content" backgroundColor={colors.ink.deep} />
+    <StatusBar hidden={immersive} barStyle="light-content" />
     {immersive ? <KeepAwake /> : null}
     {!prepareOnly && mark && geometry ? <CinematicSessionStage tiles={assets.tiles} images={assets.images} focalPoints={assets.focalPoints}
       intention={anchor.intentionText || statement} category={anchor.category} svgText={svgText} enhancedImageUrl={anchor.enhancedImageUrl}
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   guidanceOnPhoto: { color: colors.ink.text.primary, textShadowColor: 'rgba(8,11,15,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 10 },
   // Over the board the caption sits on its own paper, so it reads against any photograph tile beneath it.
   guidanceOnPaper: { color: colors.ink.deep, backgroundColor: 'rgba(244,239,228,0.92)', paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: 12, overflow: 'hidden' },
-  pausedScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12,16,21,0.78)', alignItems: 'center', justifyContent: 'center', padding: spacing[6], gap: spacing[3] },
+  pausedScrim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(12,16,21,0.78)', alignItems: 'center', justifyContent: 'center', padding: spacing[6], gap: spacing[3] },
   pausedTitle: { ...typography.headingMD, color: colors.ink.text.primary },
   pausedCopy: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center', marginBottom: spacing[3] },
   resumeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], minWidth: 200, minHeight: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.ink.text.primary },

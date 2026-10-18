@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { Easing, cancelAnimation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
@@ -164,7 +165,7 @@ type Flight = {
 type PlaceEntry = {
   token: object;
   anchorId: string | undefined;
-  ref: React.RefObject<View | null>;
+  ref: React.RefObject<ViewInstance | null>;
   appearance: AnchorTransitionAppearance;
   /** Diameter of the artwork inside the measured view, when that view is larger than it. */
   artSize?: number;
@@ -857,7 +858,7 @@ function AnchorTransitionLayer({ flight, progress, dissolve, targetX, targetY, t
   originCache: React.MutableRefObject<{ x: number; y: number; width: number; height: number } | null>;
   onLayout: () => void;
 }) {
-  const layerRef = useRef<View>(null);
+  const layerRef = useRef<ViewInstance>(null);
   const windowSize = useWindowDimensions();
   const cached = originCache.current && originCache.current.width === windowSize.width && originCache.current.height === windowSize.height ? originCache.current : null;
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(cached);
@@ -927,7 +928,7 @@ function AnchorTransitionLayer({ flight, progress, dissolve, targetX, targetY, t
 }
 
 export type AnchorTransitionPlaceBinding = {
-  ref: React.RefObject<View | null>;
+  ref: React.RefObject<ViewInstance | null>;
   onLayout: () => void;
   /** True while the travelling copy stands in for this artwork. */
   hidden: boolean;
@@ -960,7 +961,7 @@ export function useAnchorTransitionPlace(
   options: { artSize?: number; measureDelayMs?: number; plainMark?: boolean; enabled?: boolean } = {},
 ): AnchorTransitionPlaceBinding {
   const ctx = useContext(FocusTransitionContext);
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewInstance>(null);
   const tokenRef = useRef<object>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { artSize, measureDelayMs = 0, plainMark = false, enabled = true } = options;
@@ -1104,6 +1105,6 @@ export function useAnchorTransitionDeparture(place: AnchorTransitionPlace) {
 
 const styles = StyleSheet.create({
   scene: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 100 },
+  overlay: { ...StyleSheet.absoluteFill, zIndex: 100 },
   copy: { position: 'absolute' },
 });

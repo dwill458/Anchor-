@@ -259,7 +259,7 @@ export function V2OnboardingFocusArea({
 }
 
 const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, backgroundColor: CREAM, overflow: "hidden" },
+  root: { ...StyleSheet.absoluteFill, backgroundColor: CREAM, overflow: "hidden" },
   question: {
     position: "absolute",
     left: FOCUS_METRICS.sidePad,
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   glyph: { width: 40, alignItems: "center", justifyContent: "center", marginRight: 14 },
   rowLabel: { flex: 1, color: INK, fontFamily: "EBGaramond-Regular", fontSize: 23, letterSpacing: -0.2 },
   chevron: { opacity: 0.45 },
-  message: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingHorizontal: 36 },
+  message: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", paddingHorizontal: 36 },
   messageText: {
     color: INK,
     fontFamily: "EBGaramond-Regular",

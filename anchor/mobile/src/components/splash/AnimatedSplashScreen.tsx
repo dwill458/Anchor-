@@ -200,7 +200,7 @@ export const AnimatedSplashScreen: React.FC<AnimatedSplashScreenProps> = ({
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
     elevation: 1000,
     backgroundColor: SPLASH_BACKGROUND_COLOR,

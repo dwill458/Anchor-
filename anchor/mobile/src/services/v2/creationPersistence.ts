@@ -168,15 +168,19 @@ export async function generateExpressionCandidates({
         require('@/assets/vision/vision-future-desk.jpg'),
         require('@/assets/vision/vision-future-window.jpg'),
       ];
-      const candidates: GeneratedAnchorCandidate[] = FIXTURES.slice(0, wanted).map((source, index) => ({
-        imageUrl: Image.resolveAssetSource(source).uri,
+      const candidates: GeneratedAnchorCandidate[] = FIXTURES.slice(0, wanted).map((source, index) => {
+        const resolved = Image.resolveAssetSource(source);
+        if (!resolved) throw new Error('Unable to resolve the bundled development fixture image.');
+        return {
+        imageUrl: resolved.uri,
         variationId: `dev-variation-${index}`,
         structureMatchScore: 0.96,
         structurePreserved: true,
         classification: 'focused',
         provider: 'gemini',
         model: 'dev-fixture',
-      }));
+      };
+      });
       return {
         candidates,
         metadata: {

@@ -899,7 +899,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <View style={styles.fontLoadingFallback}>
-          <StatusBar style="light" backgroundColor="transparent" translucent />
+          <StatusBar style="light" />
           {fatalStartupFailure ? (
             <StartupRestoreFailure />
           ) : (

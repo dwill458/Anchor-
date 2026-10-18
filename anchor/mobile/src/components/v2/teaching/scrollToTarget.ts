@@ -1,8 +1,8 @@
+import type { ViewInstance } from 'react-native';
 import type React from 'react';
-import type { View } from 'react-native';
 
 export type TeachingRect = { x: number; y: number; width: number; height: number };
-export function measureTeachingTarget(node: View | null): Promise<TeachingRect | null> {
+export function measureTeachingTarget(node: ViewInstance | null): Promise<TeachingRect | null> {
   return new Promise(resolve => {
     const timeout = setTimeout(() => resolve(null), 250);
     if (!node?.measureInWindow) { clearTimeout(timeout); resolve(null); return; }
@@ -15,7 +15,7 @@ export function measureTeachingTarget(node: View | null): Promise<TeachingRect |
 
 export type TeachingScroll = { scrollTo: (options: { y: number; animated: boolean }) => void };
 export type TeachingScrollMetrics = { y: number; max: number; viewportTop: number };
-export async function scrollToTarget(target: React.RefObject<View | null>, scroll: React.RefObject<TeachingScroll | null>, metrics: () => TeachingScrollMetrics, reducedMotion: boolean): Promise<TeachingRect | null> {
+export async function scrollToTarget(target: React.RefObject<ViewInstance | null>, scroll: React.RefObject<TeachingScroll | null>, metrics: () => TeachingScrollMetrics, reducedMotion: boolean): Promise<TeachingRect | null> {
   const before = await measureTeachingTarget(target.current);
   if (!before) return null;
   const { y, max, viewportTop } = metrics();

@@ -17,7 +17,7 @@ const CONTAINED = generateTrueSigil(letters, PlanetaryTier.JUPITER, 'dense').svg
 
 /** Every `d` the renderer drew, in order. */
 function drawnPathData(tree: ReturnType<typeof render>): string[] {
-  return tree.UNSAFE_root.findAll((node: { type: unknown }) => node.type === ('Path' as never)).map((node: { props: { d: string } }) => node.props.d);
+  return tree.UNSAFE_root.findAll((node) => String(node.type) === 'Path').map((node) => String(node.props.d));
 }
 
 describe('describeTrueSigil', () => {

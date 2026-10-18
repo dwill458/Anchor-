@@ -1,3 +1,5 @@
+import type { ScrollViewInstance, TextInputInstance } from 'react-native';
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
@@ -52,8 +54,8 @@ export default function ReturningIntentionScreen() {
     const anchorCount = useAnchorStore((state) => state.anchors.length);
     const entitlements = useEntitlements();
 
-    const scrollViewRef = useRef<ScrollView>(null);
-    const textInputRef = useRef<TextInput>(null);
+    const scrollViewRef = useRef<ScrollViewInstance>(null);
+    const textInputRef = useRef<TextInputInstance>(null);
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');

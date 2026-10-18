@@ -1,6 +1,6 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Image, PixelRatio, StyleSheet, Text, View } from 'react-native';
-import ViewShot, { captureRef, type CaptureOptions } from 'react-native-view-shot';
+import ViewShot, { captureRef, type CaptureOptions, type ViewShotRef } from 'react-native-view-shot';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Ellipse, Line, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SvgXml } from 'react-native-svg';
@@ -575,7 +575,7 @@ const ShareCardRenderer = forwardRef<ShareCardRendererRef, ShareCardRendererProp
   },
   ref
 ) {
-  const viewShotRef = useRef<ViewShot | null>(null);
+  const viewShotRef = useRef<ViewShotRef | null>(null);
   const size = FORMAT_SIZES[format];
   const layoutSize = {
     width: scalePx(size.width),

@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { PixelRatio, Platform, Share, type View } from 'react-native';
 import type { RefObject } from 'react';
 import { captureRef } from 'react-native-view-shot';
@@ -30,7 +31,7 @@ export function resolveCaptureRequest(pixelRatio: number = PixelRatio.get(), os:
   };
 }
 
-export async function captureShareExport(target: RefObject<View | null>): Promise<string> {
+export async function captureShareExport(target: RefObject<ViewInstance | null>): Promise<string> {
   if (!target.current) {
     throw new ServiceError('artwork/export-failed', 'The export is not ready.');
   }

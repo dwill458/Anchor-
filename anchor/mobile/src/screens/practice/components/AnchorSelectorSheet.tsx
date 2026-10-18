@@ -289,9 +289,9 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
           accessibilityViewIsModal={true}
         >
           {Platform.OS === 'ios' ? (
-            <BlurView intensity={48} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={48} tint="dark" style={StyleSheet.absoluteFill} />
           ) : (
-            <View style={[StyleSheet.absoluteFillObject, styles.androidSheetFill]} />
+            <View style={[StyleSheet.absoluteFill, styles.androidSheetFill]} />
           )}
 
           <View style={styles.drag} />
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(6, 9, 13, 0.68)',
   },
   sheetWrap: {

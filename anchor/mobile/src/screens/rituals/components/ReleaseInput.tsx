@@ -1,3 +1,4 @@
+import type { TextInputInstance } from 'react-native';
 /**
  * ReleaseInput
  *
@@ -26,7 +27,7 @@ export const ReleaseInput: React.FC<ReleaseInputProps> = ({
   onChangeText,
   autoFocus = false,
 }) => {
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const isValid = value === 'RELEASE';
   const borderGlow = useSharedValue(0);
   const cursorOpacity = useRef(new RNAnimated.Value(1)).current;
@@ -174,7 +175,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   hiddenInput: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0,
     fontSize: 16,
   },

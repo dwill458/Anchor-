@@ -45,11 +45,11 @@ function V2HomeCategoryEnvironmentComponent({ category, reduceMotion = false }: 
 
 const styles = StyleSheet.create({
   environment: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     top: 30,
   },
   layer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   imageFrame: {
     position: 'absolute',

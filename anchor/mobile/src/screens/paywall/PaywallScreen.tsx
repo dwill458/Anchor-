@@ -728,7 +728,7 @@ export const PaywallScreen: React.FC = () => {
       <LinearGradient
         colors={['#07040C', '#100820', colors.black]}
         locations={[0, 0.46, 1]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View style={styles.bgOrbTop} />
       <View style={styles.bgOrbBottom} />

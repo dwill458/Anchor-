@@ -26,7 +26,7 @@ export function EtchedStroke({ points, size, progress, color, activeTip = false,
     return { values: result, total: distance };
   }, [points, size]);
   const body = useDerivedValue(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     const limit = Math.min(1, Math.max(0, progress.value)) * samples.total;
     const visible = [];
     for (let i = 0; i < samples.values.length; i += 1) {
@@ -41,7 +41,7 @@ export function EtchedStroke({ points, size, progress, color, activeTip = false,
         break;
       }
     }
-    if (limit <= 0 || visible.length < 2) return path;
+    if (limit <= 0 || visible.length < 2) return path.detach();
     visible.forEach((p, i) => {
       const x = p.x + p.nx * width * p.pressure / 2; const y = p.y + p.ny * width * p.pressure / 2;
       if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
@@ -49,12 +49,12 @@ export function EtchedStroke({ points, size, progress, color, activeTip = false,
     for (let i = visible.length - 1; i >= 0; i -= 1) {
       const p = visible[i]; path.lineTo(p.x - p.nx * width * p.pressure / 2, p.y - p.ny * width * p.pressure / 2);
     }
-    path.close(); return path;
+    path.close(); return path.detach();
   }, [samples, width]);
   const centreline = useMemo(() => {
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     points.forEach((p, i) => { if (i === 0) path.moveTo(p.x * size / 100, p.y * size / 100); else path.lineTo(p.x * size / 100, p.y * size / 100); });
-    return path;
+    return path.detach();
   }, [points, size]);
   const tipStart = useDerivedValue(() => Math.max(0, progress.value - 0.035));
   const tipOpacity = useDerivedValue(() => progress.value > 0 && progress.value < 1 ? 1 : 0);

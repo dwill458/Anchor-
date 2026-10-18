@@ -197,7 +197,7 @@ function Welcome({
 
   return (
     <View style={styles.fullBleed} testID="v2-onboarding-welcome">
-      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <StatusBar style="light" />
       {/* 1. PANORAMIC ENVIRONMENTAL ARTWORK — full detail, never blurred; the only
           readability treatment is the graded overlay below. */}
       <Animated.View style={[StyleSheet.absoluteFill, pushStyle]} pointerEvents="none">
@@ -226,7 +226,7 @@ function Welcome({
           "transparent",
         ]}
         locations={[0, 0.16, 0.34]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
@@ -240,7 +240,7 @@ function Welcome({
           "rgba(10, 15, 24, 0.94)",
         ]}
         locations={[0, 0.4, 0.62, 0.82, 1.0]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
@@ -483,7 +483,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onRestore, onDevSkip, 
         <View key="prepared-bridge" style={StyleSheet.absoluteFill} pointerEvents="none">
           <V2OnboardingExplain active={false} reduceMotion={reduceMotion} handoff={handoff} nextReady={false} onContinue={startHandoff} onSkipAnimation={(ms) => OnboardingAnalytics.bridgeSkipped(ms)} />
         </View>
-        <StatusBar style="dark" translucent backgroundColor="transparent" />
+        <StatusBar style="dark" />
         <Welcome
           onStart={() => { OnboardingAnalytics.cta("welcome", "start"); setStep("bridge"); }}
           onSignIn={onSignIn}
@@ -498,7 +498,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onRestore, onDevSkip, 
 
   return (
     <View style={[styles.screen, styles.openingScreen]} testID={step === "motivation" ? "v2-onboarding-motivation" : undefined}>
-      <StatusBar style={step === "motivation" ? "dark" : "light"} translucent backgroundColor="transparent" />
+      <StatusBar style={step === "motivation" ? "dark" : "light"} />
       {/* Screen 3 stays mounted while it is the current step, so back navigation from a
           restored later step always has a screen to land on. */}
       {focusMounted || step === "motivation" ? (
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   darkScreen: { backgroundColor: colors.ink.base },
   fullBleed: { flex: 1, backgroundColor: "#0E151C", overflow: "hidden" },
   panorama: { position: "absolute", top: 0, left: 0 },
-  transitionWash: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
+  transitionWash: { ...StyleSheet.absoluteFill, zIndex: 5 },
   welcomeContentContainer: {
     flex: 1,
     justifyContent: "space-between",
@@ -783,7 +783,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   diagram: { marginHorizontal: -27, paddingHorizontal: 27, marginTop: 9, minHeight: 215, justifyContent: "center", overflow: "hidden" },
-  diagramWash: { ...StyleSheet.absoluteFillObject, top: -18 },
+  diagramWash: { ...StyleSheet.absoluteFill, top: -18 },
   stages: { flexDirection: "row", gap: 8 },
   stage: { flex: 1, alignItems: "center" },
   stageArt: {
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
   progressName: { color: "#E9D5AB", fontSize: 11, letterSpacing: 1 },
   progressCopy: { color: "#DADAD6", fontSize: 12, marginTop: 3 },
   handoffShade: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(9,14,19,0.19)",
   },
   handoffScroll: { justifyContent: "space-between" },

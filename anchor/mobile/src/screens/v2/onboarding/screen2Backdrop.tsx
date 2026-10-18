@@ -64,7 +64,7 @@ export function Screen2Backdrop({
 }
 
 const styles = StyleSheet.create({
-  fill: { ...StyleSheet.absoluteFillObject },
+  fill: { ...StyleSheet.absoluteFill },
   plate: { position: "absolute" },
   fillImage: { width: "100%", height: "100%" },
 });

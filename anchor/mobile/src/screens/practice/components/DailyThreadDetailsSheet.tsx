@@ -49,9 +49,9 @@ export const DailyThreadDetailsSheet: React.FC<DailyThreadDetailsSheetProps> = (
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={styles.sheet}>
           {Platform.OS === 'ios' ? (
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
           ) : (
-            <View style={[StyleSheet.absoluteFillObject, styles.androidFill]} />
+            <View style={[StyleSheet.absoluteFill, styles.androidFill]} />
           )}
           <View style={styles.drag} />
           <Text style={styles.title}>Daily thread</Text>
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.52)',
   },
   sheet: {

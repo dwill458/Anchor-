@@ -221,7 +221,7 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
       accessibilityHint="Reveal remaining time, sound, pause and end controls."
       accessibilityActions={[{ name: 'activate', label: 'Show Deep Focus controls' }]}
       onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'activate') reveal(); }}>
-      <StatusBar barStyle="light-content" backgroundColor={FOCUS_SCREEN_BACKGROUND} />
+      <StatusBar barStyle="light-content" />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.black, darknessStyle]} />
       {phase === 'arrive' && <Animated.View pointerEvents="none" style={[styles.copy, { top: insets.top + 54 }, guidanceStyle]}
         accessibilityElementsHidden={phase !== 'arrive'} importantForAccessibility={phase === 'arrive' ? 'auto' : 'no-hide-descendants'}>
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   black: { backgroundColor: '#000000' },
   curtain: { backgroundColor: colors.canvas },
   stage: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  artwork: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  artwork: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   hidden: { opacity: 0 },
   copy: { position: 'absolute', left: 24, right: 24, alignItems: 'center', justifyContent: 'center' },
   guidance: { ...typography.bodyMD, fontSize: 14, lineHeight: 20, textAlign: 'center', color: 'rgba(255,255,255,0.6)' },
@@ -288,6 +288,6 @@ const styles = StyleSheet.create({
   button: { minHeight: 44, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center' },
   controlText: { ...typography.labelSM, color: '#FFFFFF' },
   timer: { ...typography.labelSM, color: 'rgba(255,255,255,0.55)' },
-  paused: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11,15,24,0.94)', justifyContent: 'center', alignItems: 'center', gap: 12 },
+  paused: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(11,15,24,0.94)', justifyContent: 'center', alignItems: 'center', gap: 12 },
   pausedTitle: { ...typography.headingMD, color: '#FFFFFF' },
 });

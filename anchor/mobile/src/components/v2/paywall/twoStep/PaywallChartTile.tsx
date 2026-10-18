@@ -30,7 +30,7 @@ function Waypoint({ x, y, r, color, pop }: { x: number; y: number; r: number; co
 export function PaywallChartTile({ width, height, reduceMotion }: Props) {
   const points = useMemo(() => ROUTE.map(([fx, fy]) => [fx * width, fy * height] as const), [height, width]);
   const route = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     p.moveTo(points[0][0], points[0][1]);
     for (let i = 1; i < points.length; i += 1) {
       const [x0, y0] = points[i - 1];
@@ -38,22 +38,22 @@ export function PaywallChartTile({ width, height, reduceMotion }: Props) {
       const mid = (x0 + x1) / 2;
       p.cubicTo(mid, y0, mid, y1, x1, y1);
     }
-    return p;
+    return p.detach();
   }, [points]);
   const [fx, fy] = points[points.length - 1];
   const flag = useMemo(() => {
     const pole = height * 0.26;
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     p.moveTo(fx, fy - pole);
     p.lineTo(fx + width * 0.075, fy - pole + pole * 0.2);
     p.lineTo(fx + width * 0.055, fy - pole + pole * 0.32);
     p.lineTo(fx + width * 0.075, fy - pole + pole * 0.46);
     p.lineTo(fx, fy - pole + pole * 0.42);
     p.close();
-    const staff = Skia.Path.Make();
+    const staff = Skia.PathBuilder.Make();
     staff.moveTo(fx, fy);
     staff.lineTo(fx, fy - pole);
-    return { cloth: p, staff };
+    return { cloth: p.detach(), staff: staff.detach() };
   }, [fx, fy, height, width]);
 
   const draw = useSharedValue(reduceMotion ? 1 : 0);

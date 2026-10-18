@@ -126,7 +126,9 @@ describe('V2VisionScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => callback(10, 20, 300, 500));
+    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => {
+      (callback as (x: number, y: number, width: number, height: number) => void)(10, 20, 300, 500);
+    });
     mockPreparationProps = undefined; mockPracticeProps = undefined;
     useAuthStore.setState({ user: null });
     useSubscriptionStore.setState({ entitlementReady: true, hasActiveEntitlement: true, isSubscribed: true, isInTrial: false, devOverrideEnabled: false });

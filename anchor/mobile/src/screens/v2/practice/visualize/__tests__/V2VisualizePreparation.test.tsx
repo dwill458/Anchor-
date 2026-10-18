@@ -70,7 +70,9 @@ describe('Visualize prepares behind its real setup board', () => {
     const note = { id: 'note-1', content: { text: 'A saved intention' }, presentation: { styleId: 'paper' } };
     const entry = { anchorId: anchor.id, visionId: 'v1', tiles, notes: [note], sourceFrame: { x: 12, y: 80, width: 320, height: 500 } };
     const measurements: Array<(x: number, y: number, width: number, height: number) => void> = [];
-    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => { measurements.push(callback); });
+    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => {
+      measurements.push(callback as (x: number, y: number, width: number, height: number) => void);
+    });
     const view = setup([note], entry);
     await flushPhotoWarm();
 
@@ -99,7 +101,9 @@ describe('Visualize prepares behind its real setup board', () => {
   it('settles the source handoff immediately under reduced motion while keeping Begin gated', async () => {
     mockReduceMotion = true;
     const callbacks: Array<(x: number, y: number, width: number, height: number) => void> = [];
-    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => { callbacks.push(callback); });
+    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => {
+      callbacks.push(callback as (x: number, y: number, width: number, height: number) => void);
+    });
     const entry = { anchorId: anchor.id, visionId: 'v1', tiles, notes: [], sourceFrame: { x: 12, y: 80, width: 320, height: 500 } };
     const view = setup([], entry);
     await flushPhotoWarm();
@@ -120,7 +124,9 @@ describe('Visualize prepares behind its real setup board', () => {
     try {
       const entry = { anchorId: anchor.id, visionId: 'v1', tiles, notes: [], sourceFrame: { x: 12, y: 80, width: 320, height: 500 } };
       const measurements: Array<(x: number, y: number, width: number, height: number) => void> = [];
-      jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => { measurements.push(callback); });
+      jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => {
+        measurements.push(callback as (x: number, y: number, width: number, height: number) => void);
+      });
       mockPreparation = undefined;
       const view = setup([], entry);
       await flushPhotoWarm();

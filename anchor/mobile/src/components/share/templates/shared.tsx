@@ -83,7 +83,7 @@ export function ShareAnchorDisc({
       {ring ? (
         <View
           style={{
-            ...StyleSheet.absoluteFillObject,
+            ...StyleSheet.absoluteFill,
             borderRadius: diameter / 2,
             borderWidth: Math.max(1, diameter * 0.006),
             borderColor: 'rgba(244,237,224,.5)',

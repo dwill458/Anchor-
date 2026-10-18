@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,7 +37,7 @@ type Props = {
   frozen?: boolean;
   /** Passed through to the carousel: true while it moves, false once it rests and commits. */
   onMotionChange?: (moving: boolean) => void;
-  teachingThreadRef?: React.RefObject<View | null>;
+  teachingThreadRef?: React.RefObject<ViewInstance | null>;
   testID?: string;
 };
 
@@ -87,7 +88,7 @@ export function consistencyDeltaLabel(delta: number): string {
   return 'Steady this week';
 }
 
-function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2ThreadPresentation; accent: string; active: boolean; teachingRef?: React.RefObject<View | null> }) {
+function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2ThreadPresentation; accent: string; active: boolean; teachingRef?: React.RefObject<ViewInstance | null> }) {
   const measured = thread.value !== null;
   const delta = thread.delta;
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
@@ -200,7 +201,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
   onOpenProgress?: (anchorId?: string, source?: AnchorWindowRect) => void;
   onOpenAllAnchors?: () => void;
-  teachingThreadRef?: React.RefObject<View | null>;
+  teachingThreadRef?: React.RefObject<ViewInstance | null>;
 }) {
   const anchor = summary.anchor;
   const accent = getCategoryColor(anchor.category);
@@ -441,7 +442,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   artworkLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

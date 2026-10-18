@@ -1,5 +1,6 @@
 import React, { createContext, forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import type { ViewInstance } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, ReduceMotion, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +10,7 @@ import { CHART_MAP_TOKENS as T } from '../map/chartMapTokens';
 
 export type ChartSheetDetent = 'hidden' | 'peek' | 'half' | 'full';
 /** A stable native frame that matches the clipped ScrollView viewport. */
-export type ChartSheetViewport = View;
+export type ChartSheetViewport = ViewInstance;
 export type ChartSheetHandle = { snapTo: (detent: ChartSheetDetent) => void; collapse: () => boolean };
 export function chartSheetDetents(height: number, top: number, bottom: number) {
   return { hidden: height, peek: height - (162 + bottom), half: height - Math.round(.56 * height), full: Math.min(top + 45 + 128, height * .38) };
@@ -44,7 +45,7 @@ export function ChartSheetScrollArea({ children, viewportRef, onLayout }: { chil
   const context = useContext(SheetContext);
   const scrollY = context?.scrollY;
   const scroll = useRef<React.ElementRef<typeof Animated.ScrollView>>(null);
-  const setViewportRef = useCallback((node: View | null) => {
+  const setViewportRef = useCallback((node: ViewInstance | null) => {
     if (typeof viewportRef === 'function') viewportRef(node);
     else if (viewportRef) viewportRef.current = node;
   }, [viewportRef]);

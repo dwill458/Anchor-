@@ -30,6 +30,34 @@ function removeExact(content, snippet, label) {
 }
 
 function patchReactNative(root) {
+  const reactNativePackage = require(path.join(root, 'node_modules', 'react-native', 'package.json'));
+  const [reactNativeMajor, reactNativeMinor] = reactNativePackage.version.split('.').map(Number);
+  if (reactNativeMajor === 0 && reactNativeMinor >= 88) {
+    const statusBarPath = path.join(
+      root,
+      'node_modules',
+      'react-native',
+      'ReactAndroid',
+      'src',
+      'main',
+      'java',
+      'com',
+      'facebook',
+      'react',
+      'modules',
+      'statusbar',
+      'StatusBarModule.kt'
+    );
+    const statusBar = read(statusBarPath);
+    if (!statusBar.includes('setStatusBarStyle') || /override fun setColor\(/.test(statusBar)) {
+      throw new Error(`Unexpected React Native ${reactNativePackage.version} status bar module API`);
+    }
+    // RN 0.88 removed the legacy status-bar color API and supplies its own
+    // edge-to-edge WindowUtil behavior. The pre-0.88 source patches would
+    // remove imports/constants that this implementation still uses.
+    return;
+  }
+
   const statusBarPath = path.join(
     root,
     'node_modules',

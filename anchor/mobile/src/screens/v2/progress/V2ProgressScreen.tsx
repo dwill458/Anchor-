@@ -1,3 +1,5 @@
+import type { ViewInstance, ScrollViewInstance } from 'react-native';
+
 import React from 'react';
 import {
   ActivityIndicator,
@@ -88,11 +90,11 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   const teachingFocus = useTeachingFocus();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const reducedMotion = useV2ReduceMotion();
-  const scrollRef = React.useRef<ScrollView>(null);
-  const threadTeachingRef = React.useRef<View>(null);
-  const weekTeachingRef = React.useRef<View>(null);
-  const rhythmTeachingRef = React.useRef<View>(null);
-  const routeTeachingRef = React.useRef<View>(null);
+  const scrollRef = React.useRef<ScrollViewInstance>(null);
+  const threadTeachingRef = React.useRef<ViewInstance>(null);
+  const weekTeachingRef = React.useRef<ViewInstance>(null);
+  const rhythmTeachingRef = React.useRef<ViewInstance>(null);
+  const routeTeachingRef = React.useRef<ViewInstance>(null);
   const scrollMetrics = React.useRef({ y: 0, content: 0, viewport: 0 });
   const controlledScroll = React.useRef(false);
   const [scrolling, setScrolling] = React.useState(false);
@@ -101,7 +103,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
     eligible: model ? progressTeachingBeats({ unmeasured: model.unmeasured, hasWeek: Boolean(model.week), hasRhythm: model.unmeasured || Boolean(model.rhythm && model.heatmap), hasRoute: Boolean(model.route) }) : [],
     cap: 2, isFocused: teachingFocus.isFocused,
     blocked: teachingFocus.transitioning || !model || loading || refreshing || switcherOpen || Boolean(selectedEvent) || rangeMoving || scrolling });
-  const getTeachingRect = React.useCallback(async (target: React.RefObject<View | null>) => {
+  const getTeachingRect = React.useCallback(async (target: React.RefObject<ViewInstance | null>) => {
     controlledScroll.current = true;
     try {
       return await scrollToTarget(target, scrollRef, () => ({ y: scrollMetrics.current.y, max: Math.max(0, scrollMetrics.current.content - scrollMetrics.current.viewport), viewportTop: 0 }), reducedMotion);
@@ -160,7 +162,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
 
   return (
     <View style={styles.root} testID={testID}>
-      <StatusBar barStyle="light-content" backgroundColor={progressTokens.heroBg} animated />
+      <StatusBar barStyle="light-content" animated />
 
       <Animated.View style={[styles.departure, departure]}>
       <ScrollView

@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { interpolateColor, runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -234,7 +235,7 @@ export function VisionArrivalDestination({ url, children, style }: {
   url?: string | null; children: React.ReactNode; style?: any;
 }) {
   const arrival = useVisionImageArrival();
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewInstance>(null);
   const measure = () => {
     if (url && arrival?.url === url) ref.current?.measureInWindow?.((x, y, width, height) => arrival.land(url, { x, y, width, height }));
   };

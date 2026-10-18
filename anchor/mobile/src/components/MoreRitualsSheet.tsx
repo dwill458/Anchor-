@@ -189,11 +189,11 @@ export const MoreRitualsSheet: React.FC<MoreRitualsSheetProps> = ({
 
 const styles = StyleSheet.create({
     root: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         zIndex: 999,
     },
     backdrop: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     sheetWrap: {

@@ -147,11 +147,12 @@ export function FlowCanvas({ fonts, context, layout, getFrame, onFirstFrame }: F
       drawFrameContent(painter, CREAM_PALETTE, context, source.frame);
 
       if (source.boundary < INK_VISIBLE_BELOW) {
-        const edge = Skia.Path.Make();
-        edge.moveTo(left, bottom);
-        for (let x = left; x <= right; x += 2) edge.lineTo(x, source.boundary + tornEdge(x));
-        edge.lineTo(right, bottom);
-        edge.close();
+        const edgeBuilder = Skia.PathBuilder.Make();
+        edgeBuilder.moveTo(left, bottom);
+        for (let x = left; x <= right; x += 2) edgeBuilder.lineTo(x, source.boundary + tornEdge(x));
+        edgeBuilder.lineTo(right, bottom);
+        edgeBuilder.close();
+        const edge = edgeBuilder.detach();
 
         // A faint ink copy of the edge, shifted up, reads as paper thickness.
         canvas.save();

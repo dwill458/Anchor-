@@ -93,7 +93,7 @@ export function VisionPhotoStack<T extends VisionPhotoStackItem>({ items, active
   </View>;
 }
 const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject }, hitTarget: { position: 'absolute', zIndex: 40 },
+  root: { ...StyleSheet.absoluteFill }, hitTarget: { position: 'absolute', zIndex: 40 },
   indicator: { position: 'absolute', zIndex: 41, alignSelf: 'center', flexDirection: 'row', bottom: 26 },
   dotTarget: { width: 32, height: 44, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 5, height: 5, borderRadius: 3, borderWidth: 1, borderColor: '#F4EDE0' }, activeDot: { backgroundColor: '#F4EDE0' },

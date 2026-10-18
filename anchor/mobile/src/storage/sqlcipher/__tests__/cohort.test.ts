@@ -13,9 +13,10 @@ describe('SQLCipher native cohort guard', () => {
     expect(isSqlCipherNativeCohortAllowed('com.anchorintentions.app', true, true)).toBe(true);
   });
 
-  it('keeps the separately named synthetic lab and preview cohorts enabled', () => {
+  it('keeps the separately named synthetic lab, preview, and Expo 58 QA cohorts enabled', () => {
     expect(isSqlCipherNativeCohortAllowed('com.anchorintentions.sqlcipherlab20261013', false, false)).toBe(true);
     expect(isSqlCipherNativeCohortAllowed('com.anchorintentions.sqlcipherpreview20261015', false, false)).toBe(true);
+    expect(isSqlCipherNativeCohortAllowed('com.anchorintentions.expo58qa20261016', false, false)).toBe(true);
   });
 
   it('rejects unrelated packages even when the owner-pilot flag is present', () => {

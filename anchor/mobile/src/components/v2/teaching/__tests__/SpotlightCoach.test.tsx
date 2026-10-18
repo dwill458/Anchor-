@@ -41,7 +41,7 @@ it('dismisses by scrim and Android back, and has no count for one beat', async (
   fireEvent.press(tree.getAllByLabelText('Dismiss tip')[0]);
   expect(dismiss).toHaveBeenCalledWith('scrim');
   const listener = back.mock.calls.find(([name]) => name === 'hardwareBackPress')![1];
-  expect(listener()).toBe(true);
+  expect(listener({} as never)).toBe(true);
   expect(dismiss).toHaveBeenCalledWith('back');
 });
 it('skips an unavailable target silently', async () => {

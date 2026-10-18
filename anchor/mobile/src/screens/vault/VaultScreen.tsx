@@ -9,7 +9,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  InteractionManager,
   ScrollView,
   StyleSheet,
   Text,

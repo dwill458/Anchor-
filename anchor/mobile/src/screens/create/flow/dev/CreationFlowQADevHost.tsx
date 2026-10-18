@@ -138,7 +138,11 @@ export function CreationFlowQADevHost() {
     AnchorGenerationService.generate = async () => {
       await new Promise((resolve) => setTimeout(resolve, config.waitMs));
       return {
-        variations: FIXTURES.map((source) => Image.resolveAssetSource(source).uri),
+        variations: FIXTURES.map((source) => {
+          const resolved = Image.resolveAssetSource(source);
+          if (!resolved) throw new Error('Unable to resolve the bundled creation QA fixture image.');
+          return resolved.uri;
+        }),
         prompt: 'qa',
         negativePrompt: '',
         modelUsed: 'qa-fixture',
@@ -186,7 +190,7 @@ export function CreationFlowQADevHost() {
 }
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 99999, elevation: 99999, backgroundColor: '#F4EDE0' },
+  overlay: { ...StyleSheet.absoluteFill, zIndex: 99999, elevation: 99999, backgroundColor: '#F4EDE0' },
   stub: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4EDE0' },
   stubTitle: { fontSize: 22, color: '#14162B' },
   stubBody: { fontSize: 14, color: '#6B6B66', marginTop: 8 },

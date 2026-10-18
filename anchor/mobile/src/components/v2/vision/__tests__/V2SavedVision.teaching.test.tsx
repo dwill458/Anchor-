@@ -1,5 +1,4 @@
 import React from 'react';
-import { InteractionManager } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { V2SavedVision } from '../V2SavedVision';
 import { getTeachingSeen, resetTeachingSeenCache } from '@/hooks/v2/teaching/teachingSeen';
@@ -19,7 +18,7 @@ jest.mock('../board/VisionBoard', () => {
   <Pressable testID="reorder" onPress={() => { onDragActive(false); onReorder(['s2', 's1']); onTeachingIdleChange(true); }} />
 </> };
 });
-jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((action: any) => { action(); return { cancel: jest.fn(), then: jest.fn(), done: jest.fn() }; });
+jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: (action: () => void) => { action(); return { cancel: jest.fn() }; } }));
 const base = {
   anchorIntention: 'An actual intention', description: 'A future with room to create.', teachingEnabled: true,
   onBack: jest.fn(), onVisualize: jest.fn(), onChart: jest.fn(), onUpdateDescription: jest.fn(async () => true),

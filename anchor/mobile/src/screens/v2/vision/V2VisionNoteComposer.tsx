@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInUp, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import type { VisionNoteFontId, VisionNoteStyleId } from '@/adapters/v2/vision';
 import { useV2ReduceMotion } from '@/hooks/v2';
@@ -172,7 +172,7 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
         <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'} showsVerticalScrollIndicator={false}>
           <View style={styles.previewSection}>
-              <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(240).withInitialValues({ transform: [{ translateY: 6 }] })}
+              <Animated.View entering={reduceMotion ? undefined : FadeInUp.duration(240).withInitialValues({ transform: [{ translateY: 6 }] })}
                 testID="vision-note-preview" accessibilityLabel={`Note preview. ${text}`} style={[styles.previewStage, { width: previewWidth, height: previewHeight }]}>
               {previousStyleId ? <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
                 style={[styles.materialLayer, previousMaterial]}>
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   content: { alignSelf: 'center', width: '100%', maxWidth: 540, paddingHorizontal: spacing[5], paddingBottom: spacing[5] },
   previewSection: { alignItems: 'center', marginTop: spacing[2], marginBottom: spacing[4] },
   previewStage: { alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
-  materialLayer: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  materialLayer: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   previewCaption: { ...typography.caption, color: colors.text.secondary, marginTop: spacing[1] },
   inputBlock: { minHeight: 104, padding: spacing[3], borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.surface },
   input: { ...typography.bodyMD, color: colors.text.primary, minHeight: 62, maxHeight: 132, padding: 0 },

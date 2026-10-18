@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CircularAnchorRenderer, V2Button } from '@/components/v2';
@@ -75,7 +76,7 @@ export function V2FocusPrepScreen({
   const audio = useSessionAudioSetup('focus', { initialVoice, initialAmbient });
   const { voice, ambient, hapticsOn } = audio;
   const [sheetOpen, setSheetOpen] = useState(false);
-  const artworkRef = useRef<View>(null);
+  const artworkRef = useRef<ViewInstance>(null);
   const anchorCenterYRef = useRef<number | undefined>(undefined);
   // Where the Anchor lands from Details or the Practice hub, and leaves from for the session.
   const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: SETUP_PLACE_MEASURE_DELAY_MS });

@@ -1,3 +1,4 @@
+import type { TextInputInstance } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
 import { ActivityIndicator, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
@@ -138,7 +139,7 @@ export function VisionMomentInput({
   };
 
   const [inputFocused, setInputFocused] = useState(false);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const isCreate = mode === 'create';
   const categoryColor = getCategoryColor(anchorCategory);
 
@@ -330,7 +331,7 @@ export function VisionMomentInput({
 
   return (
     <View testID={testID} style={styles.stage}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
+      <StatusBar barStyle="dark-content" />
       <ChartKeyboardFrame
         contentContainerStyle={[styles.content, { paddingTop: insets.top + (ceremony ? 56 : spacing[2]) }]}
         footer={footer}
@@ -550,7 +551,7 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[2], paddingHorizontal: spacing[4] },
   photoEmptyTitle: { fontFamily: VISION_SERIF, fontSize: 22, lineHeight: 28, color: colors.text.primary, textAlign: 'center' },
   photoEmptySub: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, color: colors.text.secondary, textAlign: 'center' },
-  photoImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  photoImage: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
   photoActions: { position: 'absolute', right: spacing[2], bottom: spacing[2], flexDirection: 'row', gap: spacing[2] },
   photoAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: 'rgba(10,15,20,0.72)' },
   photoActionLabel: { fontFamily: 'Inter-SemiBold', fontSize: 13, lineHeight: 18, color: colors.paper },

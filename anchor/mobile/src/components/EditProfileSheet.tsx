@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { requireOptionalNativeModule } from 'expo-modules-core';
+import { requireOptionalNativeModule } from 'expo';
 import { T, settingsTypography } from '@/components/settings/settingsTheme';
 import { IconBack, IconPencil } from '@/components/settings/SettingsIcons';
 import type { StoredProfile } from '@/stores/profileStore';
@@ -189,7 +189,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   return (
     <Modal transparent visible onRequestClose={onClose} animationType="none">
       <View style={styles.modalRoot}>
-        <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
           <Pressable style={styles.backdrop} onPress={onClose} />
         </Animated.View>
 
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(23, 23, 20, 0.45)',
   },
   keyboardAvoiding: {

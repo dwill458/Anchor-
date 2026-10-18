@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -30,7 +31,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 /** A screen-level coach mark. Its root and the sheet targets are measured in window coordinates. */
 export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, detent, targets, viewportRef, viewportLayoutRevision, measureInWindow, onRequestVisible, onReady, onDismiss }: Props) {
   const { width, height } = useWindowDimensions();
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const [rootRect, setRootRect] = useState<Rect | null>(null);
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [tipHeight, setTipHeight] = useState(160);

@@ -6,6 +6,7 @@ def googleServicesPath = System.getenv('GOOGLE_SERVICES_JSON')
 def googleServicesFile = googleServicesPath ? file(googleServicesPath) : file("google-services.json")
 def isReleaseBuild = gradle.startParameter.taskNames.any { it.toLowerCase().contains("release") }
 def isSqlCipherProductionQa = System.getenv('ANCHOR_SQLCIPHER_PRODUCTION_QA') == '1'
+def isExpo58Qa = System.getenv('ANCHOR_EXPO58_QA') == '1'
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -16,7 +17,9 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 react {
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", projectRoot, "android", "absolute"].execute(null, rootDir).text.trim())
     reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
-    hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
+    def hermesCompilerPackage = new File(["node", "--print", "require.resolve('hermes-compiler/package.json')"].execute(null, rootDir).text.trim()).getParentFile()
+    def hermesCompilerBinary = System.getProperty("os.name").toLowerCase().contains("windows") ? "hermesc.exe" : "hermesc"
+    hermesCommand = new File(hermesCompilerPackage, "hermesc/%OS-BIN%/${hermesCompilerBinary}").getAbsolutePath()
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
 
     enableBundleCompression = (findProperty('android.enableBundleCompression') ?: false).toBoolean()
@@ -102,17 +105,17 @@ android {
 
     namespace 'com.anchorintentions.app'
     defaultConfig {
-        applicationId isSqlCipherProductionQa ? 'com.anchorintentions.sqlcipherpreview20261015' : 'com.anchorintentions.app'
+        applicationId isExpo58Qa ? 'com.anchorintentions.expo58qa20261016' : (isSqlCipherProductionQa ? 'com.anchorintentions.sqlcipherpreview20261015' : 'com.anchorintentions.app')
         minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion 35
-        versionCode isSqlCipherProductionQa ? 42 : 39
+    targetSdkVersion 36
+        versionCode isExpo58Qa ? 1 : (isSqlCipherProductionQa ? 42 : 39)
         versionName "2.0.0"
-        resValue "string", "app_name", isSqlCipherProductionQa ? "Anchor 2.0 SQLCipher QA" : "Anchor: Visual Goal Setting"
-        resValue "string", "expo_runtime_version", isSqlCipherProductionQa ? "2.0-sqlcipher-v2-realdata-qa" : "2.0"
-        resValue "bool", "expo_updates_enabled", isSqlCipherProductionQa ? "false" : "true"
+        resValue "string", "app_name", isExpo58Qa ? "Anchor Expo 58 QA" : (isSqlCipherProductionQa ? "Anchor 2.0 SQLCipher QA" : "Anchor: Visual Goal Setting")
+        resValue "string", "expo_runtime_version", isExpo58Qa ? "2.0-expo58-sqlcipher-qa" : (isSqlCipherProductionQa ? "2.0-sqlcipher-v2-realdata-qa" : "2.0")
+        resValue "bool", "expo_updates_enabled", isExpo58Qa || isSqlCipherProductionQa ? "false" : "true"
         manifestPlaceholders = [
-            appScheme: isSqlCipherProductionQa ? "anchor-sqlcipher-qa" : "anchor",
-            expoUpdateUrl: isSqlCipherProductionQa ? "" : "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7",
+            appScheme: isExpo58Qa ? "anchor-expo58-qa" : (isSqlCipherProductionQa ? "anchor-sqlcipher-qa" : "anchor"),
+            expoUpdateUrl: isExpo58Qa || isSqlCipherProductionQa ? "" : "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7",
         ]
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""

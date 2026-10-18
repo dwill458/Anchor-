@@ -67,4 +67,4 @@ export function VisionSealHold({ children, active, committed, reduced, holdMs = 
   </Animated.View>;
 }
 
-const styles = StyleSheet.create({ fill: { ...StyleSheet.absoluteFillObject }, ring: { position: 'absolute', left: '-12.5%', top: '-12.5%' } });
+const styles = StyleSheet.create({ fill: { ...StyleSheet.absoluteFill }, ring: { position: 'absolute', left: '-12.5%', top: '-12.5%' } });

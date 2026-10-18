@@ -105,7 +105,7 @@ describe('Deep Focus interaction and audio', () => {
     const calls = spy.mock.calls;
     const handler = calls.filter(([name]) => name === 'hardwareBackPress').at(-1)?.[1];
     if (!handler) throw new Error('Deep Focus did not register its hardware Back handler');
-    act(() => expect(handler()).toBe(true));
+    act(() => { expect(handler({} as never)).toBe(true); });
     expect(screen.getByTestId('deep-focus-paused-overlay')).toBeTruthy();
     expect(onComplete).not.toHaveBeenCalled();
     view.unmount();

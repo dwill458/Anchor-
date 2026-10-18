@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,

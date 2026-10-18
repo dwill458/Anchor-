@@ -207,7 +207,7 @@ export const VoiceAndSoundSummaryRow: React.FC<SummaryRowProps> = ({ value, onPr
 
 const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4,8,12,0.72)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(4,8,12,0.72)' },
   sheet: {
     backgroundColor: '#111923',
     borderTopColor: 'rgba(212,175,55,0.28)',

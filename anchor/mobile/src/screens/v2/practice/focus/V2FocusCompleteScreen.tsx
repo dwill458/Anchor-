@@ -1,5 +1,6 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type TextInstance } from 'react-native';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -200,8 +201,8 @@ export function V2FocusCompleteScreen({
   const oldValueOut = useSharedValue(1);
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
   const oldValueStyle = useAnimatedStyle(() => ({ opacity: oldValueOut.value }));
-  const artworkRef = useRef<View>(null);
-  const valueRef = useRef<Text>(null);
+  const artworkRef = useRef<ViewInstance>(null);
+  const valueRef = useRef<TextInstance>(null);
   const showsNewValue = hasAuthoritativeMovement && delta !== 0;
 
   const measureDeparture = useCallback(async (): Promise<PracticeDepartureMeasure | null> => {
@@ -262,7 +263,7 @@ export function V2FocusCompleteScreen({
 
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} animated />
+      <StatusBar barStyle="dark-content" animated />
       <Animated.View style={[styles.content, contentStyle]}>
         <Animated.View
           ref={artworkRef}
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   inkOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#0B0F18',
   },
   content: {
@@ -635,7 +636,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   stageSegmentFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 1.5,
     transformOrigin: 'left center',
   },

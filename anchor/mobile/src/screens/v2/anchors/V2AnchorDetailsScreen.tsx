@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Image, Platform, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
@@ -606,10 +607,10 @@ function useRecommendation(anchorId: string) {
 export function V2AnchorDetailsScreen() {
   const teachingFocus = useTeachingFocus();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
-  const visionTeachingRef = useRef<View>(null);
-  const chartTeachingRef = useRef<View>(null);
+  const visionTeachingRef = useRef<ViewInstance>(null);
+  const chartTeachingRef = useRef<ViewInstance>(null);
   const teachingScrollRef = useRef<Animated.ScrollView>(null);
-  const teachingViewportRef = useRef<View>(null);
+  const teachingViewportRef = useRef<ViewInstance>(null);
   const teachingScrollSize = useRef({ content: 0, viewport: 0 });
   const sheetTeachingMoving = useSharedValue(false);
   const teachingPreparing = useSharedValue(false);
@@ -923,7 +924,7 @@ export function V2AnchorDetailsScreen() {
     eligible: detailsTeachingBeats(!hasVisionContent && vision.state.state !== 'loading' && vision.state.state !== 'error', chart.state === 'none'), cap: DETAILS_BEATS_PER_VISIT,
     blocked: !anchor || teachingFocus.transitioning || focusTransition.active || detailsMoving || menuOpen || shareOpen || exportActions.isDownloading || exportActions.isSavingWallpaper || vision.loading || chart.state === 'loading' || chart.state === 'resolving',
     isFocused: teachingFocus.isFocused });
-  const getTeachingRect = useCallback(async (target: React.RefObject<View | null>) => {
+  const getTeachingRect = useCallback(async (target: React.RefObject<ViewInstance | null>) => {
     teachingPreparing.value = true;
     try {
       // Open the existing sheet before measuring its scroll content, without changing its gestures.
@@ -1044,7 +1045,7 @@ export function V2AnchorDetailsScreen() {
   return (
     <AnchorTransitionScene place="details">
       <View style={styles.stage} testID="v2-anchor-details-stage" onLayout={__DEV__ ? () => VisualProfiler.record('detailsLayoutReady', { anchorId: params.anchorId }) : undefined}>
-        <StatusBar barStyle="dark-content" backgroundColor={detailsPalette.cream} />
+        <StatusBar barStyle="dark-content" />
 
         {/* Halo behind the anchor: soft radial gradient bound to category color token */}
         <Animated.View pointerEvents="none" style={[styles.halo, { left: restLeft - restSize * 0.075, top: restTop - restSize * 0.075, width: restSize * 1.15, height: restSize * 1.15 }, anchorMotionStyle, haloOpacityStyle]}>

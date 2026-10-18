@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, findNodeHandle, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, findNodeHandle, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type TextInstance } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useDerivedValue, useSharedValue, withDelay, withSequence, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -110,7 +110,7 @@ export function V2ReleaseCompletion({ ending, ghostSvg, ghostImageUrl, category,
   const [started, setStarted] = useState(false);
   const [settled, setSettled] = useState(false);
   const settledRef = useRef(false);
-  const title = useRef<Text>(null);
+  const title = useRef<TextInstance>(null);
 
   // The paper opens from the artwork centre; the reach is the farthest screen corner, so it covers all.
   const origin = artworkRect
@@ -287,7 +287,7 @@ export function V2ReleaseCompletion({ ending, ghostSvg, ghostImageUrl, category,
   </View>;
 }
 const styles = StyleSheet.create({
-  container: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', paddingHorizontal: 24 },
+  container: { ...StyleSheet.absoluteFill, justifyContent: 'space-between', paddingHorizontal: 24 },
   paper: { backgroundColor: colors.frame },
   bodyWrap: { flex: 1 },
   body: { alignItems: 'center', gap: spacing[3], paddingBottom: spacing[6] },

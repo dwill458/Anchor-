@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(15, 20, 25, 0.6)',
     },
     gradient: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
     },
     content: {
         padding: spacing.lg,

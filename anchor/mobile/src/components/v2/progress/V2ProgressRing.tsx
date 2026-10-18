@@ -124,7 +124,7 @@ export const V2ProgressRing: React.FC<V2ProgressRingProps> = ({
 
 const styles = StyleSheet.create({
   gaugeColumn: { alignItems: 'center' },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  center: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   metricsBelow: { alignItems: 'center', marginTop: 6 },
   numberBelow: {
     fontFamily: progressTokens.serif,

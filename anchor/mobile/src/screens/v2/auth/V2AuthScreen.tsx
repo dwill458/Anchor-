@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -92,8 +93,8 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   const [loading, setLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const signedInUser = useAuthStore((state) => state.user);
-  const emailRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
 
   // Segment width: total width minus padding (20 * 2) minus container inner padding (3 * 2) divided by 2
   const segmentContainerWidth = width - 40;
@@ -552,7 +553,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
 }
 
 const Field = React.forwardRef<
-  TextInput,
+  TextInputInstance,
   React.ComponentProps<typeof TextInput> & {
     icon: React.ReactNode;
     label: string;

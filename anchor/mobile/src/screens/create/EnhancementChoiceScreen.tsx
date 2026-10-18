@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   optionInteractionOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
     opacity: 0,
   },

@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
@@ -16,9 +17,9 @@ type ChartOneMoveRowProps = {
   reducedMotion: boolean;
   onCheck: () => Promise<boolean>;
   onExpandSheet?: () => void;
-  rowRef?: React.RefObject<View | null>;
-  circleRef?: React.RefObject<View | null>;
-  bodyRef?: React.RefObject<View | null>;
+  rowRef?: React.RefObject<ViewInstance | null>;
+  circleRef?: React.RefObject<ViewInstance | null>;
+  bodyRef?: React.RefObject<ViewInstance | null>;
 };
 
 function optionalMoveDetail(move: MoveSummary, key: 'why' | 'doneWhen'): string | null {

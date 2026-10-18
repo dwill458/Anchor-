@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  type TextInstance,
   View,
   findNodeHandle,
   useWindowDimensions,
@@ -52,7 +53,7 @@ export const ReminderTimeSheet: React.FC<ReminderTimeSheetProps> = ({
   const { height: windowHeight } = useWindowDimensions();
   const reduceMotion = useNotificationReduceMotion();
   const press = usePressScale(reduceMotion);
-  const titleRef = useRef<Text>(null);
+  const titleRef = useRef<TextInstance>(null);
 
   const [mounted, setMounted] = useState(open);
   const [donePending, setDonePending] = useState(false);
@@ -247,7 +248,7 @@ export const ReminderTimeSheet: React.FC<ReminderTimeSheetProps> = ({
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 100,
     elevation: 100,
     justifyContent: 'flex-end',

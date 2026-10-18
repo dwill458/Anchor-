@@ -195,7 +195,7 @@ describe('useVisualizeSessionAudio', () => {
     });
     expect(secondStop).toBe(firstStop);
     act(() => jest.advanceTimersByTime(400));
-    await act(async () => Promise.all([firstStop, secondStop]));
+    await act(async () => { await Promise.all([firstStop, secondStop]); });
     expect(firstSessionPlayers[0].stop).toHaveBeenCalledTimes(1);
     firstSession.unmount();
 

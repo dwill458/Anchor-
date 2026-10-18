@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   shadow: { shadowColor: '#251F18', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   assetShadow: { position: 'absolute', tintColor: '#251F18', opacity: 0.08, transform: [{ translateY: 2 }] },
   assetTint: { position: 'absolute', opacity: 0.52 },
-  rules: { ...StyleSheet.absoluteFillObject },
+  rules: { ...StyleSheet.absoluteFill },
   rule: { position: 'absolute', left: spacing[3], right: spacing[3], borderTopWidth: StyleSheet.hairlineWidth },
   textViewport: { flex: 1, zIndex: 1 },
   textContent: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing[1] },

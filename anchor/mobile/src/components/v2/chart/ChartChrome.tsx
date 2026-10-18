@@ -33,7 +33,7 @@ export function ChartInkScreen({
 }) {
   return (
     <View testID={testID} onLayout={onLayout} style={[styles.screen, paper && styles.screenPaper, style]}>
-      <StatusBar barStyle={paper ? 'dark-content' : 'light-content'} backgroundColor={paper ? colors.canvas : colors.ink.base} animated />
+      <StatusBar barStyle={paper ? 'dark-content' : 'light-content'} animated />
       {children}
     </View>
   );

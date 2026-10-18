@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   layer: { position: 'absolute', left: 0, top: 0 },
   marker: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   artClip: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  fill: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  numeralWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  fill: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  numeralWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   numeral: { fontFamily: CHART_MAP_TOKENS.serif, textAlign: 'center', includeFontPadding: false },
 });

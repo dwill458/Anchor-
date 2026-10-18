@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.35,
   },
   completionLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

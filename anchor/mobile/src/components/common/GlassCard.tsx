@@ -50,7 +50,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         <BlurView
           intensity={intensity}
           tint="dark"
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
       ) : null}
@@ -59,7 +59,7 @@ export const GlassCard: React.FC<GlassCardProps> = ({
           colors={glowColors}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
       ) : null}

@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: C.overlay,
   },
   sheet: {
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     height: 76,
   },
   gaugeInner: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

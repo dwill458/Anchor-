@@ -31,16 +31,16 @@ it('stays silent on hold-start and early release', () => {
   let touch!: PanResponderCallbacks;
   jest.spyOn(PanResponder, 'create').mockImplementation((callbacks) => {
     touch = callbacks;
-    return { panHandlers: {} };
+      return { getInteractionHandle: () => undefined, panHandlers: {} as never };
   });
   const onSealLanded = jest.fn();
   const onHoldComplete = jest.fn();
   const { result } = renderHook(() => useChooseController({ reduceMotion: false, onSealLanded, onHoldComplete, onSealAnimationDone: jest.fn() }));
   const event = { nativeEvent: { locationX: 195, locationY: 300 } } as never;
-  act(() => touch.onPanResponderGrant!(event, {} as never));
+  act(() => { touch.onPanResponderGrant!(event, {} as never); });
   expect(onSealLanded).not.toHaveBeenCalled();
   expect(onHoldComplete).not.toHaveBeenCalled();
-  act(() => touch.onPanResponderRelease!(event, {} as never));
+  act(() => { touch.onPanResponderRelease!(event, {} as never); });
   expect(onSealLanded).not.toHaveBeenCalled();
 });
 
@@ -56,18 +56,18 @@ it.each([false, true])('lands sound at the flash, then rests before leaving (red
   onSealLanded.mockImplementation(() => Date.now());
   const { result } = renderHook(() => useChooseController({ reduceMotion, onSealLanded, onHoldComplete, onSealAnimationDone }));
   expect(onSealLanded).not.toHaveBeenCalled();
-  act(() => result.current.sealNow());
+  act(() => { void result.current.sealNow(); });
   expect(result.current.phase).toBe('sealing');
   expect(result.current.flash.value).toMatchObject({ value: 0.4 });
   expect(onSealLanded).toHaveBeenCalledTimes(1);
   expect(Math.abs(onSealLanded.mock.results[0].value - heavyHapticAt.mock.results[0].value)).toBeLessThanOrEqual(120);
   expect(onSealLanded.mock.invocationCallOrder[0]).toBeLessThan(onHoldComplete.mock.invocationCallOrder[0]);
   const sequenceMs = reduceMotion ? 400 : 1600;
-  act(() => jest.advanceTimersByTime(sequenceMs + 499));
+  act(() => { jest.advanceTimersByTime(sequenceMs + 499); });
   expect(onSealAnimationDone).not.toHaveBeenCalled();
-  act(() => jest.advanceTimersByTime(501));
+  act(() => { jest.advanceTimersByTime(501); });
   expect(onSealAnimationDone).toHaveBeenCalledTimes(1);
   expect(safeHaptics.impact).toHaveBeenLastCalledWith('light');
-  act(() => result.current.sealNow());
+  act(() => { void result.current.sealNow(); });
   expect(onSealLanded).toHaveBeenCalledTimes(1);
 });

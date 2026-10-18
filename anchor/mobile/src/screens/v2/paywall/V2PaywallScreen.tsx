@@ -1,3 +1,4 @@
+import type { ScrollViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -264,7 +265,7 @@ function TwoStepPaywall({
   const [step, setStep] = useState<Step>(1);
   const [stepChanges, setStepChanges] = useState(0);
   const progress = useSharedValue(0);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   // Large system text can push the copy past the medallion; the shared frames then move down with it.
   const [copyBottom, setCopyBottom] = useState<[number, number]>([0, 0]);

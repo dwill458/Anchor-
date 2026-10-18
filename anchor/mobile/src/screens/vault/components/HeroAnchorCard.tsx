@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   innerGlowRing: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: CIRCLE_SIZE / 2,
     borderWidth: 2,
     borderColor: withAlpha(colors.anchor15.gilt, 0.1),

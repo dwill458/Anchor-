@@ -23,7 +23,7 @@ const CONTOUR_LINES = 9;
 /** Faint topographic lines on the ink field. Static: drawn once per size. */
 const InkContours = memo(function InkContours({ width, height, top }: { width: number; height: number; top: number }) {
   const path = useMemo(() => {
-    const p = Skia.Path.Make();
+    const p = Skia.PathBuilder.Make();
     const span = Math.max(height - top, 1);
     for (let line = 0; line < CONTOUR_LINES; line += 1) {
       const baseY = top + (span * (line + 0.5)) / CONTOUR_LINES;
@@ -35,7 +35,7 @@ const InkContours = memo(function InkContours({ width, height, top }: { width: n
         p.lineTo(x, y);
       }
     }
-    return p;
+    return p.detach();
   }, [height, top, width]);
   return (
     <Canvas style={[StyleSheet.absoluteFill, { height }]} pointerEvents="none">
@@ -61,16 +61,16 @@ export function PaywallBackdrop({ screenWidth, designWidth: W, contentHeight, ed
   const { fill, edge } = useMemo(() => {
     const side = bottom - sag;
     const control = bottom + sag;
-    const f = Skia.Path.Make();
+    const f = Skia.PathBuilder.Make();
     f.moveTo(0, 0);
     f.lineTo(screenWidth, 0);
     f.lineTo(screenWidth, side);
     f.quadTo(screenWidth / 2, control, 0, side);
     f.close();
-    const e = Skia.Path.Make();
+    const e = Skia.PathBuilder.Make();
     e.moveTo(0, side);
     e.quadTo(screenWidth / 2, control, screenWidth, side);
-    return { fill: f, edge: e };
+    return { fill: f.detach(), edge: e.detach() };
   }, [bottom, sag, screenWidth]);
 
   const moving = useAnimatedStyle(() => ({ transform: [{ translateY: step.value * travel }] }));

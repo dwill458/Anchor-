@@ -7,7 +7,6 @@ import {
   type SkCanvas,
   type SkFont,
   type SkPaint,
-  type SkPath,
   type SkTypeface,
 } from '@shopify/react-native-skia';
 
@@ -92,7 +91,6 @@ function dashEffect(on: number, off: number) {
 export class SkiaPainter implements Painter {
   readonly measure: MeasureText;
   private readonly paints = new PaintPool();
-  private readonly path: SkPath = Skia.Path.Make();
 
   constructor(
     private readonly canvas: SkCanvas,
@@ -150,28 +148,25 @@ export class SkiaPainter implements Painter {
 
   polyline(points: Pt[], stroke: StrokeStyle) {
     if (points.length < 2 || (stroke.alpha ?? 1) <= 0.003) return;
-    const path = this.path;
-    path.reset();
+    const path = Skia.PathBuilder.Make();
     path.moveTo(points[0].x, points[0].y);
     for (let i = 1; i < points.length; i += 1) path.lineTo(points[i].x, points[i].y);
-    this.canvas.drawPath(path, this.strokePaint(stroke));
+    this.canvas.drawPath(path.detach(), this.strokePaint(stroke));
   }
 
   segments(pairs: Array<[Pt, Pt]>, stroke: StrokeStyle) {
     if (pairs.length === 0 || (stroke.alpha ?? 1) <= 0.003) return;
-    const path = this.path;
-    path.reset();
+    const path = Skia.PathBuilder.Make();
     pairs.forEach(([a, b]) => {
       path.moveTo(a.x, a.y);
       path.lineTo(b.x, b.y);
     });
-    this.canvas.drawPath(path, this.strokePaint(stroke));
+    this.canvas.drawPath(path.detach(), this.strokePaint(stroke));
   }
 
   smoothStroke(points: Pt[], stroke: StrokeStyle) {
     if (points.length < 2 || (stroke.alpha ?? 1) <= 0.003) return;
-    const path = this.path;
-    path.reset();
+    const path = Skia.PathBuilder.Make();
     path.moveTo(points[0].x, points[0].y);
     for (let i = 1; i < points.length - 1; i += 1) {
       const q = points[i];
@@ -180,7 +175,7 @@ export class SkiaPainter implements Painter {
     }
     const last = points[points.length - 1];
     path.lineTo(last.x, last.y);
-    this.canvas.drawPath(path, this.strokePaint(stroke));
+    this.canvas.drawPath(path.detach(), this.strokePaint(stroke));
   }
 
   circle(cx: number, cy: number, r: number, style: { fill?: FillStyle; stroke?: StrokeStyle }) {
@@ -202,8 +197,7 @@ export class SkiaPainter implements Painter {
 
   quadCurve(a: Pt, control: Pt, b: Pt, fraction: number, stroke: StrokeStyle) {
     if (fraction <= 0 || (stroke.alpha ?? 1) <= 0.003) return;
-    const path = this.path;
-    path.reset();
+    const path = Skia.PathBuilder.Make();
     path.moveTo(a.x, a.y);
     const steps = 24;
     for (let k = 1; k <= steps; k += 1) {
@@ -214,7 +208,7 @@ export class SkiaPainter implements Painter {
         m * m * a.y + 2 * m * s * control.y + s * s * b.y
       );
     }
-    this.canvas.drawPath(path, this.strokePaint(stroke));
+    this.canvas.drawPath(path.detach(), this.strokePaint(stroke));
   }
 
   text(value: string, x: number, y: number, style: TextStyle) {

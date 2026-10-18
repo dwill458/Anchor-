@@ -1,4 +1,6 @@
 // @ts-nocheck
+import type { ViewInstance } from 'react-native';
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import React, {
   useCallback,
   useEffect,
@@ -14,7 +16,6 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  InteractionManager,
   StatusBar,
   Image,
   Alert,
@@ -276,7 +277,7 @@ const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
 
   return (
     <Reanimated.View
-      style={[StyleSheet.absoluteFillObject, style]}
+      style={[StyleSheet.absoluteFill, style]}
       pointerEvents="none"
     >
       <LinearGradient
@@ -285,7 +286,7 @@ const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
           'rgba(201,168,76,0.07)',
           'transparent',
         ]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
     </Reanimated.View>
   );
@@ -570,7 +571,7 @@ const PrimerModal = ({
       <BlurView
         intensity={blurIntensity}
         tint="dark"
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View style={rs.modalContent}>
         <LinearGradient
@@ -666,7 +667,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [pendingExportAction, setPendingExportAction] = useState<
     'download' | 'wallpaper' | null
   >(null);
-  const anchorCardRef = useRef<View>(null);
+  const anchorCardRef = useRef<ViewInstance>(null);
   const [isExporting, setIsExporting] = useState(false);
   const mediaLibraryPermissionGrantedRef = useRef(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
@@ -691,7 +692,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   } = useShareCard(shareCardRef, shareCardRenderedRef);
 
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = scheduleAfterInteractions(() => {
       setIsReady(true);
     });
     return () => task.cancel();
@@ -1116,7 +1117,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
     let cancelled = false;
 
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = scheduleAfterInteractions(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(async () => {
           if (cancelled || !anchorCardRef.current) {
@@ -1404,7 +1405,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                     ]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFillObject}
+                    style={StyleSheet.absoluteFill}
                   />
                 </Reanimated.View>
               )}
@@ -1614,7 +1615,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                       ]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
-                      style={StyleSheet.absoluteFillObject}
+                      style={StyleSheet.absoluteFill}
                     />
                   </Reanimated.View>
                 )}
@@ -2066,7 +2067,7 @@ const s = StyleSheet.create({
     shadowRadius: 0,
   },
   cardAuraOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 14,
     zIndex: 2,
   },
@@ -2732,7 +2733,7 @@ const s = StyleSheet.create({
     height: '100%',
   },
   physicalThumbFallbackBg: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

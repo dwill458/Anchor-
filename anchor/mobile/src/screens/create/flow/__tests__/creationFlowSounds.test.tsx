@@ -144,7 +144,7 @@ describe('Creation Flow Sound Triggering Suite', () => {
       let touchCallbacks!: PanResponderCallbacks;
       jest.spyOn(PanResponder, 'create').mockImplementation((callbacks) => {
         touchCallbacks = callbacks;
-        return { panHandlers: {} };
+      return { getInteractionHandle: () => undefined, panHandlers: {} as never };
       });
 
       renderHook(() =>

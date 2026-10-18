@@ -293,7 +293,7 @@ const VisualizeAnchorFieldComponent: React.FC<VisualizeAnchorFieldProps> = ({
       {visibleParticleCount > 0 ? (
         <Animated.View
           style={[
-            StyleSheet.absoluteFillObject,
+            StyleSheet.absoluteFill,
             { transform: [{ translateX: particleTranslateX }, { translateY: particleTranslateY }] },
           ]}
         >

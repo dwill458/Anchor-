@@ -2,6 +2,28 @@
 const staticConfig = require('./app.json').expo;
 module.exports = ({ config = staticConfig } = {}) => {
   const base = config;
+  // SDK 58 QA uses its own package/runtime and compiles SQLCipher. This test
+  // identity is distinct from both public Anchor and the working SQLCipher QA app.
+  if (process.env.ANCHOR_EXPO58_QA === '1') {
+    const qaPackage = 'com.anchorintentions.expo58qa20261016';
+    return {
+      ...base,
+      name: 'Anchor Expo 58 QA',
+      scheme: 'anchor-expo58-qa',
+      runtimeVersion: '2.0-expo58-sqlcipher-qa',
+      updates: { enabled: false },
+      android: { ...base.android, package: qaPackage, versionCode: 1, allowBackup: false },
+      ios: { ...base.ios, bundleIdentifier: qaPackage },
+      extra: {
+        ...base.extra,
+        sqlCipherLab: true,
+        sqlCipherPreview: false,
+        sqlCipherOwnerPilot: false,
+        sqlCipherOwnerPilotMigrationEnabled: false,
+      },
+      plugins: [...base.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+    };
+  }
   // Standalone real-account development app. It uses a separate Android package
   // and runtime from the public app, but keeps production Firebase/API wiring.
   if (process.env.ANCHOR_SQLCIPHER_PRODUCTION_QA === '1') {

@@ -118,7 +118,7 @@ export function V2PracticeGrid({ capabilities, heroMode, onSelectMode }: Props) 
               locations={[...RELEASE_SCRIM_LOCATIONS]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
           ) : (
             <LinearGradient pointerEvents="none" colors={[...slimTheme.dark.fade]} locations={[0, 0.62, 1]} style={styles.slimArtworkFade} />
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     rowGap: spacing[3],
   },
   slimRow: { height: SLIM_ARTWORK_HEIGHT, borderRadius: 18, borderWidth: 1, overflow: 'hidden', position: 'relative', shadowColor: '#000000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
-  slimArtwork: { ...StyleSheet.absoluteFillObject },
+  slimArtwork: { ...StyleSheet.absoluteFill },
   slimArtworkFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '100%' },
   releaseSlimCrop: { transform: [{ scale: 1.08 }] },
   visualizeSlimCrop: { transform: [{ scale: 1.16 }, { translateY: 5 }] },

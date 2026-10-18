@@ -368,7 +368,6 @@ export function AnchorLargeWidget({
               imageWidth={34}
               imageHeight={34}
               radius={17}
-              resizeMode="contain"
               style={{ width: 34, height: 34, marginRight: 10 }}
             />
           ) : (
@@ -540,7 +539,6 @@ export function AnchorLargeWidget({
           </FlexWidget>
           <SvgWidget
             svg={buildHeatmapSvg(history, today, primed, contentWidth)}
-            scaleToFill
             style={{ width: 'match_parent', height: 'match_parent' }}
           />
         </FlexWidget>

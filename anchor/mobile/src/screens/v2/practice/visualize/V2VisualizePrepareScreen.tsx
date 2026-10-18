@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -167,8 +168,8 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
 
   // Begin: settings lock, the chrome fades around the collage, then the session takes the same frame.
   const darken = useSharedValue(0);
-  const frameRef = useRef<View>(null);
-  const rootRef = useRef<View>(null);
+  const frameRef = useRef<ViewInstance>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const entryProgress = useSharedValue(0);
   const entryNotesOpacity = useSharedValue(1);
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface,
   },
   durationText: { fontFamily: 'Inter-Regular', fontSize: 16, color: colors.text.primary },
-  preparationSurface: { ...StyleSheet.absoluteFillObject, opacity: 0 },
+  preparationSurface: { ...StyleSheet.absoluteFill, opacity: 0 },
   statusSlot: { minHeight: 40, justifyContent: 'center', marginBottom: spacing[2] },
   hint: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, textAlign: 'center', color: colors.text.secondary },
   hintAction: { marginBottom: spacing[2] },

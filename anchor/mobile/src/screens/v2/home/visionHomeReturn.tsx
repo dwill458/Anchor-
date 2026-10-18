@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, type View } from 'react-native';
 import { Easing, ReduceMotion, cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
@@ -42,8 +43,8 @@ type Options = {
   scrollRef: React.RefObject<TeachingScroll | null>;
   scrollY: SharedValue<number>;
   maxScroll: SharedValue<number>;
-  viewportRef: React.RefObject<View | null>;
-  visionRef: React.RefObject<View | null>;
+  viewportRef: React.RefObject<ViewInstance | null>;
+  visionRef: React.RefObject<ViewInstance | null>;
 };
 
 type Live = { id: string; settle: () => void; end: () => void };

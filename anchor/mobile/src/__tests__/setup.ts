@@ -17,6 +17,17 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 // Mock Expo modules
+jest.mock('expo-notifications/build/NotificationsHandlerModule.native', () => ({
+  __esModule: true,
+  default: {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    removeListener: jest.fn(),
+    removeAllListeners: jest.fn(),
+    emit: jest.fn(),
+    listenerCount: jest.fn(() => 0),
+  },
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),

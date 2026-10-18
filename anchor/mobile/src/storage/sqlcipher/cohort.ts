@@ -1,6 +1,7 @@
 const ISOLATED_SQLCIPHER_APPLICATION_IDS: ReadonlySet<string> = new Set([
   'com.anchorintentions.sqlcipherlab20261013',
   'com.anchorintentions.sqlcipherpreview20261015',
+  'com.anchorintentions.expo58qa20261016',
 ]);
 const OWNER_PILOT_APPLICATION_ID = 'com.anchorintentions.app';
 

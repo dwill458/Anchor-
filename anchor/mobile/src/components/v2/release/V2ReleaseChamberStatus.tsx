@@ -68,7 +68,7 @@ export function V2ReleaseChamberStatus({
 
 const styles = StyleSheet.create({
   chamber: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: RELEASE_CEREMONY_CHAMBER_BG,
     justifyContent: 'space-between',
     paddingHorizontal: 24,

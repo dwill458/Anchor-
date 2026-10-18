@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   iconGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 36,
   },
   title: {

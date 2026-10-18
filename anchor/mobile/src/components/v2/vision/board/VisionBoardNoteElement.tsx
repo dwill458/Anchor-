@@ -134,5 +134,5 @@ const styles = StyleSheet.create({
   note: { position: 'absolute' },
   lifted: { zIndex: 39, elevation: 8, shadowColor: '#161B16', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 5 } },
   fill: { flex: 1 },
-  selected: { ...StyleSheet.absoluteFillObject, borderColor: '#283D36', borderWidth: 1.5, borderRadius: 12 },
+  selected: { ...StyleSheet.absoluteFill, borderColor: '#283D36', borderWidth: 1.5, borderRadius: 12 },
 });

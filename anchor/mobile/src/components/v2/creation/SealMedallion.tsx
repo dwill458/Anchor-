@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
@@ -34,7 +35,7 @@ export function SealMedallion({ children, size, active, disabled, reduceMotion, 
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const hold = useRef<ReturnType<typeof setInterval> | null>(null);
   const decay = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const medallion = useRef<View>(null);
+  const medallion = useRef<ViewInstance>(null);
   const [flash, setFlash] = useState(false);
   const [provenance, setProvenance] = useState<string | null>(null);
   const keepRef = useRef(onKeep); keepRef.current = onKeep;

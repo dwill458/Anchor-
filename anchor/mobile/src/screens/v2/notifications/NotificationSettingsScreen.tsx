@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   trackDisabled: { opacity: 0.45 },
-  trackFill: { ...StyleSheet.absoluteFillObject, backgroundColor: T.ink },
+  trackFill: { ...StyleSheet.absoluteFill, backgroundColor: T.ink },
   thumb: {
     position: 'absolute',
     left: 2,

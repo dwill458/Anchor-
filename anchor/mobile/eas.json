@@ -5,6 +5,31 @@
     "appVersionSource": "local"
   },
   "build": {
+    "expo58-qa": {
+      "distribution": "internal",
+      "developmentClient": false,
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug --project-prop expo.sqlite.useSQLCipher=true"
+      },
+      "env": {
+        "ANCHOR_EXPO58_QA": "1",
+        "BUNDLE_IN_DEBUG": "true",
+        "EXPO_PUBLIC_API_URL": "https://expo58-synthetic.invalid",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "true",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "false",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "true",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true"
+      }
+    },
     "development": {
       "developmentClient": true,
       "distribution": "internal",
@@ -279,6 +304,31 @@
         "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
         "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
         "SENTRY_DISABLE_AUTO_UPLOAD": "false"
+      }
+    },
+    "expo58-devclient-qa": {
+      "distribution": "internal",
+      "environment": "production",
+      "developmentClient": true,
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug --project-prop expo.sqlite.useSQLCipher=true"
+      },
+      "env": {
+        "ANCHOR_SQLCIPHER_PRODUCTION_QA": "1",
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
+        "EXPO_PUBLIC_APP_ENV": "development",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
+        "EXPO_PUBLIC_DEBUG_LOGGING": "false",
+        "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
+        "EXPO_PUBLIC_ENABLE_MERCH": "false",
+        "EXPO_PUBLIC_ENABLE_WIDGETS": "false",
+        "EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN": "true",
+        "EXPO_PUBLIC_ENABLE_MOCK_AUTH": "false",
+        "EXPO_PUBLIC_ENABLE_VISUALIZE": "true",
+        "EXPO_PUBLIC_ENABLE_CHART": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "SENTRY_DISABLE_NATIVE_UPLOAD": "true"
       }
     }
   },

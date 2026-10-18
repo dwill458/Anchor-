@@ -50,9 +50,9 @@ export const MicroTeachBottomSheet: React.FC<MicroTeachBottomSheetProps> = ({
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={styles.sheet}>
           {Platform.OS === 'ios' ? (
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
           ) : (
-            <View style={[StyleSheet.absoluteFillObject, styles.androidFill]} />
+            <View style={[StyleSheet.absoluteFill, styles.androidFill]} />
           )}
           <View style={styles.handle} />
           {title ? <Text style={styles.title}>{title}</Text> : null}
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.52)',
   },
   sheet: {

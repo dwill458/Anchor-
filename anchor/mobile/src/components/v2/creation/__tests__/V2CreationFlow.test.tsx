@@ -238,9 +238,9 @@ describe('V2CreationFlow', () => {
     });
     seed(draftAt({ currentStep: 'reveal' }));
     const { props } = setup();
-    act(() => listeners[listeners.length - 1]());
+    act(() => { listeners[listeners.length - 1](); });
     expect(current().currentStep).toBe('intention');
-    act(() => listeners[listeners.length - 1]());
+    act(() => { listeners[listeners.length - 1](); });
     expect(props.onExit).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });

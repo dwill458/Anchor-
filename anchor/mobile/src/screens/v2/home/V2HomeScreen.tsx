@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -120,12 +121,12 @@ export function V2HomeScreen() {
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const teachingFocus = useTeachingFocus();
-  const todayTeachingRef = useRef<View>(null);
-  const progressTeachingRef = useRef<View>(null);
-  const visionTeachingRef = useRef<View>(null);
-  const chartTeachingRef = useRef<View>(null);
-  const threadTeachingRef = useRef<View>(null);
-  const scrollViewportRef = useRef<View>(null);
+  const todayTeachingRef = useRef<ViewInstance>(null);
+  const progressTeachingRef = useRef<ViewInstance>(null);
+  const visionTeachingRef = useRef<ViewInstance>(null);
+  const chartTeachingRef = useRef<ViewInstance>(null);
+  const threadTeachingRef = useRef<ViewInstance>(null);
+  const scrollViewportRef = useRef<ViewInstance>(null);
   const teachingScrollSize = useRef({ content: 0, viewport: 0 });
   const teachingScrollActive = useSharedValue(false);
   const [carouselMoving, setCarouselMoving] = useState(false);
@@ -471,18 +472,23 @@ export function V2HomeScreen() {
     transform: [{ translateY: interpolate(contentVeil.value, [CONTENT_VEIL_DIM, 1], [6, 0], Extrapolation.CLAMP) }],
   }));
 
+  // Keep native gesture objects out of the animated reaction closure. Capturing the
+  // complete elastic controller makes Worklets try to clone its gesture handlers.
+  const elasticDragging = elastic.dragging;
+  const elasticOverscroll = elastic.overscroll;
+  const elasticMomentum = elastic.momentum;
   useAnimatedReaction(
-    () => contentVeil.value < 0.999 || elastic.dragging.value || Math.abs(elastic.overscroll.value) > 0.5 || (!teachingScrollActive.value && elastic.momentum.value),
+    () => contentVeil.value < 0.999 || elasticDragging.value || Math.abs(elasticOverscroll.value) > 0.5 || (!teachingScrollActive.value && elasticMomentum.value),
     (moving, previous) => { if (moving !== previous) runOnJS(setHomeMotionActive)(moving); },
   );
-  // Canonical Home idle gate: the queue also waits one InteractionManager turn after this clears.
+  // Canonical Home idle gate: the teaching queue also waits for an idle slot after this clears.
   const homeIsIdle = teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival && !visionReturn.active &&
     !veilSwapPending.current && !carouselMoving && !homeMotionActive && !focusTransition.active && !threadEvents.active &&
     model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
     model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
   const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId,
     eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), hasVision, hasChart }), cap: 2, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
-  const getTeachingRect = useCallback(async (target: React.RefObject<View | null>) => {
+  const getTeachingRect = useCallback(async (target: React.RefObject<ViewInstance | null>) => {
     teachingScrollActive.value = true;
     try {
       const viewport = await measureTeachingTarget(scrollViewportRef.current);

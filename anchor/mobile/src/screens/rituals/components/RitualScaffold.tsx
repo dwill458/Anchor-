@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.primary,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.ritual.overlay,
   },
   safeArea: {
