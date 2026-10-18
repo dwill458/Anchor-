@@ -203,6 +203,17 @@ describe('a described scene', () => {
     expect(plain).not.toContain('A calm life by the water');
     expect(plain).not.toContain('Vision-level background');
   });
+
+  it('lets the scene alone decide time of day and light, never the Vision-level background', () => {
+    const [moment, place] = buildVisionSceneVariantPlan('The backyard at night with a fire pit');
+    const base = { intention: 'I build my dream home', category: 'family', description: 'A gorgeous dream home exterior at golden hour', scene: moment };
+    const prompt = buildVisionImagePrompt({ ...base, isAddedScene: true });
+    expect(prompt).toMatch(/time of day, weather, season and light/i);
+    expect(prompt).toMatch(/ignore any time of day or lighting in the Vision-level background/i);
+    expect(place.light).not.toMatch(/same time of day|rest of the Vision/i);
+    expect(place.light).toMatch(/scene's own time of day/i);
+    expect(buildVisionImagePrompt({ ...base, scene: place, isAddedScene: true })).not.toMatch(/rest of the Vision/i);
+  });
 });
 
 

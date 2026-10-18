@@ -146,6 +146,22 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(view.getByTestId('vision-board-photo-sc-4-arrival-pin')).toBeTruthy();
     expect(view.queryByTestId('vision-board-photo-sc-2-arrival-pin')).toBeNull();
   });
+  it('Back from a generating request returns to the board with the sheet refilled, never the entrance', async () => {
+    const generated = { id: 'generation', visionId: 'vision-101', status: 'COMPLETE', retryCount: 0,
+      candidates: [0, 1].map(i => ({ id: `candidate-${i}`, assetId: `generated-${i}`, imageUrl: `file:///generated-${i}.jpg`, prompt: 'The backyard at night.', sortOrder: i })) };
+    (apiClient.post as jest.Mock).mockImplementation(async (url: string) => {
+      if (url.endsWith('/scene-generation')) return { data: generated };
+      throw new Error('unexpected');
+    });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
+    fireEvent.changeText(view.getByTestId('vision-scene-input'), 'The backyard at night with a fire pit');
+    await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+    await advance(300);
+    fireEvent.press(view.getByLabelText('Back')); await advance(SHEET_HANDOFF);
+    await view.findByTestId('vision-board');
+    expect(view.queryByLabelText('Imagine it from words')).toBeNull();
+    expect(view.getByTestId('vision-scene-input').props.value).toBe('The backyard at night with a fire pit');
+  });
   it('canceling before Seal saves no image', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library');
     fireEvent.press(view.getByLabelText('Back')); await view.findByTestId('vision-board');

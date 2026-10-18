@@ -280,6 +280,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   // Add Image opens a compact composer over the board; submitting hands a prepared request to the generation experience.
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [addRequest, setAddRequest] = useState<AddSceneRequest | null>(null);
+  // A request taken back from generation reopens the Add sheet with its words and photo intact.
+  const [addDraft, setAddDraft] = useState<AddSceneRequest | null>(null);
   const openAddScene = () => { setActionError(null); setAddSheetOpen(true); };
   const startAddScene = (request: AddSceneRequest) => {
     setActionError(null);
@@ -468,7 +470,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       anchorImageUrl={anchor?.enhancedImageUrl} onPremiumRequired={openPaywall} onUploadAsset={model.uploadAsset}
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
-      onBack={() => { setReplaceSceneId(null); setAddRequest(null); setMode('view'); }} onAdd={placeGeneratedScene}
+      onBack={() => { const taken = replaceSceneId ? null : addRequest; setReplaceSceneId(null); setAddRequest(null); setMode('view'); if (taken) { setAddDraft(taken); setAddSheetOpen(true); } }} onAdd={placeGeneratedScene}
       savedImageUrl={savedImageUrl} savedImages={savedImages} onPinned={() => finishCeremony('add')} onSealingChange={handleSealingChange}
       onAssemble={async ({ selectedAssets }) => {
         const asset = selectedAssets[0];
@@ -600,6 +602,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
         visionAnnotation: model.vision?.title ?? '' })} /> : null}
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
     {onBoard ? <VisionAddSceneSheet visible={addSheetOpen} onClose={() => setAddSheetOpen(false)} anchorIntention={anchorIntention}
+      restoreDraft={addDraft} onDraftRestored={() => setAddDraft(null)}
       onSubmit={startAddScene} onAddOwnPhoto={source => { void startAddPhoto(source); }} onAddNote={openNoteComposer}
       canAddImage={model.tiles.length < VISION_BOARD_MAX_IMAGES} /> : null}
   </View>;

@@ -136,7 +136,7 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
     <View testID={testID} style={styles.stage}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing[2], paddingBottom: insets.bottom + spacing[6] }]} showsVerticalScrollIndicator={false}>
-        <VisionBackButton onPress={back} style={styles.back} color={colors.text.primary} />
+        <VisionBackButton onPress={back} style={[styles.back, { backgroundColor: 'transparent', borderColor: 'transparent' }]} color={colors.text.primary} />
 
         {step === 'choose' ? (
           <>

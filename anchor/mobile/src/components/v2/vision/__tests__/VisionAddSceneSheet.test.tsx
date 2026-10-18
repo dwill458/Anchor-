@@ -69,6 +69,14 @@ describe('VisionAddSceneSheet', () => {
     expect(view.props.onSubmit).toHaveBeenCalledWith({ description: '', photo: { uri: 'file:///house.jpg', mimeType: 'image/jpeg' } });
   });
 
+  it('refills the composer with a request taken back from generation, once', () => {
+    const onDraftRestored = jest.fn();
+    const draft = { description: 'The backyard at night', photo: null };
+    const view = renderSheet({ restoreDraft: draft, onDraftRestored });
+    expect(view.getByTestId('vision-scene-input').props.value).toBe('The backyard at night');
+    expect(onDraftRestored).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps an unsent draft when closed and reopened', () => {
     const view = renderSheet();
     fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A backyard at night with string lights.');

@@ -254,7 +254,7 @@ export function buildVisionImagePrompt(input: {
     ...(scene.light ? [`Light: ${JSON.stringify(scene.light)}`] : []),
     ...(scene.feeling ? [`Emotional texture: ${JSON.stringify(scene.feeling)}`] : []),
     ...(input.isAddedScene ? [
-      'This photograph is one separate moment. The scene above alone defines its location, environment, action, composition, light and camera. Do not borrow rooms, places, props, light or compositions from any other moment in this Vision.',
+      'This photograph is one separate moment. The scene above alone defines its location, environment, action, composition, light and camera. Do not borrow rooms, places, props, light or compositions from any other moment in this Vision. Time of day, weather, season and light come from the scene alone: if the scene says night, dawn or rain, show exactly that; ignore any time of day or lighting in the Vision-level background.',
       ...(input.description.trim() ? [`Vision-level background (lowest priority; broad mood and subject only, it never overrides the scene's own location or environment) (data): ${JSON.stringify(input.description.trim().slice(0, 600))}`] : []),
     ] : []),
     ...(input.worldReferenceCount
@@ -285,7 +285,7 @@ export function buildVisionImagePrompt(input: {
 
 const VARIANT_DIRECTION: Array<Pick<VisionScenePlanItem, 'role' | 'framing' | 'composition' | 'light'>> = [
   { role: 'The moment itself', framing: 'medium', composition: 'The described moment as it happens, seen from a natural first-person or over-the-shoulder viewpoint', light: 'Natural available light suited to the setting' },
-  { role: 'The place around it', framing: 'wide', composition: 'The same moment from farther away, so the surrounding place and atmosphere read clearly', light: 'The same time of day and light quality as the rest of the Vision' },
+  { role: 'The place around it', framing: 'wide', composition: 'The same moment from farther away, so the surrounding place and atmosphere read clearly', light: "Light that fits the scene's own time of day and setting, exactly as the described moment implies" },
 ];
 
 /**

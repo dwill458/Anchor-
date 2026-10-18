@@ -1,7 +1,7 @@
 import { useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Mic, Square } from 'lucide-react-native';
-import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
+import { speechModule } from '@/hooks/v2/vision/speechRecognition';
 import { v2Haptics } from '@/hooks/v2';
 import { useVisionDictation } from '@/hooks/v2/vision/useVisionDictation';
 import { colors, radii, spacing } from '@/theme/v2';
@@ -25,7 +25,7 @@ type Props = {
 };
 
 function recognitionAvailable(): boolean {
-  try { return ExpoSpeechRecognitionModule.isRecognitionAvailable(); } catch { return false; }
+  try { return speechModule?.isRecognitionAvailable() ?? false; } catch { return false; }
 }
 
 /**

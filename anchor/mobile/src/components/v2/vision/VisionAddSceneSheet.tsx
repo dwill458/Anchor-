@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
@@ -29,6 +29,9 @@ type Props = {
   onAddOwnPhoto?: (source: 'library' | 'camera') => void;
   /** Opens the note composer. Notes stay available when the board has no room for another image. */
   onAddNote?: () => void;
+  /** A request taken back from generation: its words and photo refill the composer, then this is cleared. */
+  restoreDraft?: AddSceneRequest | null;
+  onDraftRestored?: () => void;
   /** False at the board's image limit: the composer is replaced by a short explanation. */
   canAddImage?: boolean;
   testID?: string;
@@ -40,24 +43,50 @@ type Props = {
  * board underneath is never remounted; submitting hands a prepared request to the existing generation
  * experience. A draft survives closing the sheet and clears once a request is sent.
  */
-export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, canAddImage = true, testID = 'vision-add-scene-sheet' }: Props) {
+export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, restoreDraft = null, onDraftRestored, canAddImage = true, testID = 'vision-add-scene-sheet' }: Props) {
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<VisionStartPhoto | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  // Android's animated keyboard value is not reported inside a native Modal window, so its lift comes from the keyboard events instead.
+  const [androidLift, setAndroidLift] = useState(0);
+  const { height: windowHeight } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+  const fieldY = useRef(0);
   const fieldRef = useRef<VisionSceneFieldHandle>(null);
   const flight = useRef(createSingleFlight()).current;
   const handoff = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (handoff.current) clearTimeout(handoff.current); }, []);
+
+  // With the keyboard up there is little room left: the secondary links step aside and the field scrolls into view, so what is being typed stays visible.
+  useEffect(() => {
+    if (!visible) { setKeyboardOpen(false); setAndroidLift(0); return undefined; }
+    const show = Keyboard.addListener('keyboardDidShow', event => {
+      setKeyboardOpen(true);
+      setAndroidLift(Math.max(0, windowHeight - (event.endCoordinates?.screenY ?? windowHeight)));
+      scrollRef.current?.scrollTo({ y: Math.max(0, fieldY.current - spacing[2]), animated: true });
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => { setKeyboardOpen(false); setAndroidLift(0); });
+    return () => { show.remove(); hide.remove(); };
+  }, [visible, windowHeight]);
+
+  useEffect(() => {
+    if (!restoreDraft) return;
+    setText(restoreDraft.description);
+    setPhoto(restoreDraft.photo);
+    onDraftRestored?.();
+  }, [restoreDraft, onDraftRestored]);
 
   const trimmed = text.trim();
   const valid = photo ? trimmed.length === 0 || (trimmed.length >= ADD_SCENE_MIN_CHARS && trimmed.length <= ADD_SCENE_MAX_CHARS)
     : trimmed.length >= ADD_SCENE_MIN_CHARS && trimmed.length <= ADD_SCENE_MAX_CHARS;
 
   // The keyboard's height rides on the UI thread, so the sheet lifts with it frame by frame on iOS and Android.
-  const lift = useAnimatedStyle(() => ({ paddingBottom: keyboard.height.value }));
+  // flexShrink lets the sheet yield to the modal's height cap, so its scrolling body gives way instead of the fixed actions row running off-screen.
+  const lift = useAnimatedStyle(() => ({ paddingBottom: Platform.OS === 'android' ? 0 : keyboard.height.value, flexShrink: 1 }));
 
   const close = () => { fieldRef.current?.stopDictation(); Keyboard.dismiss(); onClose(); };
 
@@ -91,8 +120,8 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
 
   return (
     <V2SheetModal visible={visible} onClose={close} reduceMotion={reduceMotion} scrimAccessibilityLabel="Close" testID={testID}>
-      <Animated.View style={lift}>
-      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[3]) + V2_SHEET_SKIRT }]} accessibilityViewIsModal>
+      <Animated.View style={[lift, androidLift > 0 ? { transform: [{ translateY: -androidLift }] } : null]}>
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[3]) + V2_SHEET_SKIRT }, androidLift > 0 ? { maxHeight: windowHeight - androidLift + V2_SHEET_SKIRT - insets.top - spacing[2] } : null]} accessibilityViewIsModal>
         <V2SheetGrabZone>
           <View style={styles.handle} />
           <Text accessibilityRole="header" style={styles.title}>What else do you see in this future?</Text>
@@ -102,10 +131,11 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
             <Text testID="vision-add-scene-full" accessibilityLiveRegion="polite" style={styles.sub}>Your board is full. Remove an image to add another, or add a note.</Text>
           </View>
         ) : (
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+        <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
           <Text style={styles.label}>Reference photo (optional)</Text>
           <VisionReferencePhoto compact photo={photo} onChange={setPhoto} onNotice={setNotice} testID="vision-add-scene-reference" />
           <Text style={styles.label}>Describe the next scene…</Text>
+          <View onLayout={event => { fieldY.current = event.nativeEvent.layout.y; }}>
           <VisionSceneField
             handleRef={fieldRef}
             testID="vision-scene-input"
@@ -116,6 +146,7 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
             placeholder="e.g. The kitchen with a big island and natural light."
             minHeight={88}
           />
+          </View>
           <VisionSceneShortcuts goal={anchorIntention} text={text} onPick={item => setText(current => applySceneSuggestion(current, item))} />
           {notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
         </ScrollView>
@@ -123,7 +154,7 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
         <View style={styles.actions}>
           {canAddImage ? <VisionInkPill testID="vision-scene-generate" label="Generate Images" accessibilityLabel="Generate images" disabled={!valid}
             onDisabledPress={() => setNotice(`Describe the scene in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters, or add a photo.`)} onPress={() => { void submit(); }} /> : null}
-          {onAddOwnPhoto && canAddImage ? (
+          {onAddOwnPhoto && canAddImage && !keyboardOpen ? (
             <View style={styles.ownRow}>
               <Pressable testID="vision-add-own-photo" accessibilityRole="button" accessibilityLabel="Use my own photo" onPress={() => addOwn('library')} style={styles.ownAction}>
                 <Text style={styles.ownLabel}>Use my own photo</Text>
@@ -133,7 +164,7 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
               </Pressable>
             </View>
           ) : null}
-          {onAddNote ? (
+          {onAddNote && !keyboardOpen ? (
             <Pressable testID="vision-add-note" accessibilityRole="button" accessibilityLabel="Add a note" onPress={addNote} style={[styles.ownAction, styles.noteAction]}>
               <Text style={styles.ownLabel}>Add a note</Text>
             </Pressable>
