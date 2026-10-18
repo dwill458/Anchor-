@@ -1,3 +1,14 @@
+import 'react-native-gesture-handler/jestSetup';
+
+// Tests render gesture detectors without a GestureHandlerRootView; pass children through.
+jest.mock('react-native-gesture-handler', () => {
+  const actual = jest.requireActual('react-native-gesture-handler');
+  return { ...actual, GestureDetector: ({ children }: { children?: unknown }) => children };
+});
+// Reanimated 4 needs Worklets native runtimes; see mocks/reactNativeWorklets.ts.
+jest.mock('react-native-worklets', () => require('./mocks/reactNativeWorklets').default);
+// Reanimated 4 cannot load its native runtime under Jest; see mocks/reactNativeReanimated.ts.
+jest.mock('react-native-reanimated', () => require('./mocks/reactNativeReanimated').default);
 /**
  * Anchor App - Jest Setup
  *

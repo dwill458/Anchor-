@@ -5,7 +5,7 @@ import { VisionBoard, type VisionBoardProps } from '../VisionBoard';
 // Native shared values retain identity across React renders; the package's
 // default Node mock recreates them and cannot model a camera handoff.
 jest.mock('react-native-reanimated', () => {
-  const mock = require('react-native-reanimated/mock');
+  const mock = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { ...mock, useSharedValue: (initial: any) => require('react').useRef({ value: initial }).current,
     withTiming: (target: any, _config: any, callback?: (finished: boolean) => void) => { callback?.(true); return target; },
     withDelay: (_delay: number, value: any) => value,

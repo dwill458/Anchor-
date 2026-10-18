@@ -5,7 +5,7 @@ import { ThreadAuraCanvas } from './ThreadAuraCanvas';
 const mockSetActive = jest.fn();
 const mockTiming = jest.fn();
 jest.mock('react-native-reanimated', () => ({
-  ...require('react-native-reanimated/mock'),
+  ...require('@/__tests__/mocks/reactNativeReanimated').default,
   useSharedValue: (initial: number) => require('react').useRef({ value: initial }).current,
   useFrameCallback: () => require('react').useMemo(() => ({ setActive: mockSetActive }), []),
   withTiming: (target: number, config: unknown) => { mockTiming(target, config); return target; },

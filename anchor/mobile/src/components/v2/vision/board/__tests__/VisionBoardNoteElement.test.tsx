@@ -21,7 +21,7 @@ jest.mock('react-native-gesture-handler', () => {
   } };
 });
 jest.mock('react-native-reanimated', () => ({
-  ...require('react-native-reanimated/mock'),
+  ...require('@/__tests__/mocks/reactNativeReanimated').default,
   runOnJS: (fn: any) => fn,
   withSpring: (to: number) => to,
 }));

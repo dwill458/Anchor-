@@ -80,7 +80,7 @@ jest.mock('@react-navigation/native', () => {
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
-  const Reanimated = require('react-native-reanimated/mock');
+  const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
   Reanimated.default.call = () => {};
   Reanimated.useFrameCallback = jest.fn();
   Reanimated.default.Value = class {

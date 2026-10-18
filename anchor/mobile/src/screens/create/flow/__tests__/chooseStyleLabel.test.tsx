@@ -6,7 +6,7 @@ import { normalizeGeneratedForms } from '../generatedForms';
 import { CARD } from '../choosePager';
 import type { ChooseController } from '../useChooseController';
 
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+jest.mock('react-native-reanimated', () => require('@/__tests__/mocks/reactNativeReanimated').default);
 jest.mock('@/components/common/OptimizedImage', () => ({ OptimizedImage: () => null }));
 
 it('keeps the style line spacing but paints one centred label outside the pager', () => {

@@ -25,7 +25,7 @@ jest.mock('react-native-gesture-handler', () => {
   } };
 });
 jest.mock('react-native-reanimated', () => ({
-  ...require('react-native-reanimated/mock'), runOnJS: (fn: any) => fn,
+  ...require('@/__tests__/mocks/reactNativeReanimated').default, runOnJS: (fn: any) => fn,
 }));
 
 type Photo = VisionPhotoStackItem & { uri: string };

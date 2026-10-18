@@ -4,7 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { PracticeScreen } from '../PracticeScreen';
 
 jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
+  const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
   Reanimated.default.call = () => {};
   Reanimated.useReducedMotion = () => false;
   // ChargedGlowCanvas uses useFrameCallback which is not in the standard mock

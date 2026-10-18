@@ -6,7 +6,7 @@ import { safeHaptics } from '@/utils/haptics';
 // Run the controller's animation callbacks on a deterministic clock, rather than
 // the default Reanimated mock which completes every timing immediately.
 jest.mock('react-native-reanimated', () => {
-  const base = require('react-native-reanimated/mock');
+  const base = require('@/__tests__/mocks/reactNativeReanimated').default;
   return {
     ...base,
     useSharedValue: (value: number) => require('react').useRef({ value }).current,
