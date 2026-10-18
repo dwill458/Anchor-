@@ -41,3 +41,10 @@ anchor/mobile/.chart-pass-c-export/
 anchor/mobile/.expo-*-verify/
 anchor/mobile/.expo-*-export-check/
 
+
+
+# Local QA scratch, never native build inputs.
+_expo58_generated/
+_expo58_worktree/
+anchor/mobile/.expo-thread-aura-verify/
+anchor/mobile/.expo-thread-aura-ios-verify/

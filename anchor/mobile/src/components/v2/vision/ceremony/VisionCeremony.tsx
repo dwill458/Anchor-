@@ -552,6 +552,9 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   };
   const back = () => {
     if (committedRef.current) { if (beat === 'pinned') onBack(); return; }
+    // Adding to an existing board never replays the entrance: Back from a request the Add sheet prepared, or from regenerating one image, returns to the board.
+    const leavesToBoard = mode === 'add' && (props.autoStart || props.regenerating);
+    if (leavesToBoard && (beat === 'describe' || beat === 'develop' || beat === 'choose')) { leaveExample(); onBack(); return; }
     if (beat === 'describe') { leaveExample(); setBeat('ask'); } else if (beat === 'seal') setBeat('keep');
     else if (beat === 'keep' && !ownPhoto) { setChosen(null); setBeat('choose'); }
     else if (beat === 'develop' || beat === 'choose') setBeat('describe'); else onBack();

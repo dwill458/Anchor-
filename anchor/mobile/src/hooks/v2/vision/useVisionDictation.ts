@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
+import { speechModule, useSpeechEvent } from './speechRecognition';
 import { DICTATION_DISCLOSURE_KEY, dictationDisclosure, dictationFailure, mergeDictationWithin } from './visionDictation';
 
 export type DictationState = 'idle' | 'starting' | 'listening';
@@ -28,7 +28,7 @@ export function useVisionDictation({ getText, onText, maxChars }: Options) {
   const mounted = useRef(true);
 
   const stopNative = useCallback(() => {
-    try { ExpoSpeechRecognitionModule.abort(); } catch { /* nothing was running */ }
+    try { speechModule?.abort(); } catch { /* nothing was running */ }
   }, []);
 
   useEffect(() => {
@@ -43,14 +43,14 @@ export function useVisionDictation({ getText, onText, maxChars }: Options) {
     };
   }, [stopNative]);
 
-  useSpeechRecognitionEvent('start', () => { if (mounted.current) { active.current = true; setState('listening'); } });
-  useSpeechRecognitionEvent('end', () => { active.current = false; if (mounted.current) setState('idle'); });
-  useSpeechRecognitionEvent('result', event => {
+  useSpeechEvent('start', () => { if (mounted.current) { active.current = true; setState('listening'); } });
+  useSpeechEvent('end', () => { active.current = false; if (mounted.current) setState('idle'); });
+  useSpeechEvent('result', event => {
     if (!mounted.current || !active.current) return;
     const transcript = event.results?.[0]?.transcript ?? '';
     onText(mergeDictationWithin(base.current, transcript, maxChars));
   });
-  useSpeechRecognitionEvent('error', event => {
+  useSpeechEvent('error', event => {
     active.current = false;
     if (!mounted.current) return;
     setState('idle');
@@ -83,15 +83,15 @@ export function useVisionDictation({ getText, onText, maxChars }: Options) {
     setNotice(null);
     setState('starting');
     try {
-      if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      if (!speechModule?.isRecognitionAvailable()) {
         setNotice(dictationFailure('service-not-allowed').message);
         setState('idle');
         return;
       }
-      const onDevice = ExpoSpeechRecognitionModule.supportsOnDeviceRecognition();
+      const onDevice = speechModule?.supportsOnDeviceRecognition() ?? false;
       if (!(await confirmDisclosure(onDevice))) { setState('idle'); return; }
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!permission.granted) {
+      const permission = await speechModule?.requestPermissionsAsync();
+      if (!permission?.granted) {
         const failure = dictationFailure('not-allowed');
         setNotice(failure.message);
         setState('idle');
@@ -103,7 +103,7 @@ export function useVisionDictation({ getText, onText, maxChars }: Options) {
       }
       if (!mounted.current) return;
       base.current = getText();
-      ExpoSpeechRecognitionModule.start({
+      speechModule?.start({
         lang: 'en-US',
         interimResults: true,
         continuous: true,
@@ -121,7 +121,7 @@ export function useVisionDictation({ getText, onText, maxChars }: Options) {
 
   const stop = useCallback(() => {
     if (!active.current && state === 'idle') return;
-    try { ExpoSpeechRecognitionModule.stop(); } catch { stopNative(); }
+    try { speechModule?.stop(); } catch { stopNative(); }
   }, [state, stopNative]);
 
   const toggle = useCallback(() => { if (state === 'listening') stop(); else void start(); }, [start, state, stop]);
