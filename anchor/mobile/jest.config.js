@@ -6,6 +6,8 @@
 
 module.exports = {
   preset: 'jest-expo',
+  // Reanimated 4 needs Worklets resolved to its JS (non-native) entry under Jest.
+  resolver: 'react-native-worklets/jest/resolver.js',
   rootDir: '.',
   roots: ['<rootDir>/src'],
   testEnvironment: 'node',

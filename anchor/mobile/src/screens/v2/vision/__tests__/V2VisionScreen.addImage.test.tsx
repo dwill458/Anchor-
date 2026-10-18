@@ -1,3 +1,4 @@
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 import { Alert, Image, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';

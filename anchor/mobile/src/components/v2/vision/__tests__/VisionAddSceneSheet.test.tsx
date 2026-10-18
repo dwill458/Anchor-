@@ -1,3 +1,4 @@
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { VisionAddSceneSheet } from '../VisionAddSceneSheet';

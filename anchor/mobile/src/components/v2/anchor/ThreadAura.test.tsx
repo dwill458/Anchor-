@@ -1,3 +1,4 @@
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { AppState, Image, type AppStateStatus } from 'react-native';
