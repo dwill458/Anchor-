@@ -38,7 +38,7 @@ const stubs: Record<string, unknown> = {
   useAnimatedProps,
   useAnimatedReaction: inert,
   useAnimatedRef: () => ({ current: null }),
-  useFrameCallback: inert,
+  useFrameCallback: () => ({ setActive: inert, isActive: false }),
   useReducedMotion: () => false,
   useAnimatedKeyboard: () => ({ height: { value: 0 } }),
   withTiming,
@@ -52,7 +52,8 @@ const stubs: Record<string, unknown> = {
   runOnUI: (fn: AnyFn) => fn,
   makeMutable: <T>(value: T) => ({ value }),
   createAnimatedComponent: identity,
-  Easing: new Proxy({}, { get: () => (t: number) => t }),
+  // Easing.bezier(...) and friends return easing functions; keep them identity.
+  Easing: new Proxy({}, { get: () => () => (t: number) => t }),
   ReduceMotion: { Never: 'never', Always: 'always', System: 'system' },
   Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
   interpolate: (value: number, _in: number[], out: number[]) => out[0],
