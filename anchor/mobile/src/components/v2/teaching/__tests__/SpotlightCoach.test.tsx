@@ -7,7 +7,7 @@ import { measureTeachingTarget } from '../scrollToTarget';
 import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
 jest.mock('../scrollToTarget', () => ({ measureTeachingTarget: jest.fn(async () => ({ x: 0, y: 0, width: 390, height: 844 })) }));
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { ...actual, withTiming: jest.fn((value: unknown) => value) };
 });
 const steps = ['home.today', 'home.progress'].map(id => ({ id, ...TEACHING_COPY.beats[id as 'home.today'] , getRect: async () => ({ x: 20, y: 250, width: 300, height: 70 }) })) as React.ComponentProps<typeof SpotlightCoach>['steps'];

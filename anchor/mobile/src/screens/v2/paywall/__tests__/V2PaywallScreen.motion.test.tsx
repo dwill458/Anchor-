@@ -10,7 +10,7 @@ jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({
   useCreationReduceMotion: () => mockReduceMotion,
 }));
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { ...actual, __esModule: true, withDelay: jest.fn(actual.withDelay), withRepeat: jest.fn(actual.withRepeat) };
 });
 jest.mock('@/services/RevenueCatService', () => ({
