@@ -1,11 +1,9 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
-import { InteractionManager } from 'react-native';
 import { ThreadAuraCanvas } from './ThreadAuraCanvas';
 
 const mockSetActive = jest.fn();
 const mockTiming = jest.fn();
-jest.mock('./threadAuraTexture', () => ({ threadAuraTexture: () => ({ width: () => 1600 }) }));
 jest.mock('react-native-reanimated', () => ({
   ...require('react-native-reanimated/mock'),
   useSharedValue: (initial: number) => require('react').useRef({ value: initial }).current,
@@ -18,10 +16,6 @@ const props = { svg: '<svg/>', threadStrength: 50, categoryColor: '#66856A', siz
 
 beforeEach(() => {
   mockSetActive.mockClear(); mockTiming.mockClear();
-  jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation(callback => {
-    if (typeof callback === 'function') callback();
-    return { cancel: jest.fn(), then: jest.fn(), done: jest.fn() } as never;
-  });
 });
 
 it('retains the previous confirmed score while covered, eases on return, retreats without a reward, and stops on unmount', () => {

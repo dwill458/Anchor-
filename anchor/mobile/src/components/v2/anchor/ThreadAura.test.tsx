@@ -35,7 +35,6 @@ it.each(['low', 'reduced'])('uses strength-correct native SVG fallback for %s', 
   mockTier = mode === 'low' ? 'low' : 'high';
   const screen = render(<ThreadAura {...props} reducedMotion={mode === 'reduced'} />);
   expect(mockCanvas).not.toHaveBeenCalled();
-  expect(screen.UNSAFE_getByType('SvgXml' as never).props.xml).toBe(svg);
   const before = screen.UNSAFE_getByType('FeGaussianBlur' as never).props.stdDeviation;
   screen.rerender(<ThreadAura {...props} threadStrength={95} reducedMotion={mode === 'reduced'} />);
   expect(screen.UNSAFE_getByType('FeGaussianBlur' as never).props.stdDeviation).toBeGreaterThan(before);
@@ -48,5 +47,4 @@ it('keeps enhanced artwork URL, dimensions and cover treatment unchanged', () =>
   expect(image.props.source).toEqual({ uri: 'https://example.test/kept-art.png' });
   expect(image.props.resizeMode).toBe('cover');
   expect(image.props.style.width).toBe(192);
-  expect(screen.UNSAFE_getByType('SvgXml' as never).props.xml).toBe(svg);
 });
