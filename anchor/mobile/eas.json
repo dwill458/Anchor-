@@ -312,7 +312,8 @@
       "developmentClient": true,
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug --project-prop expo.sqlite.useSQLCipher=true"
+        "gradleCommand": ":app:assembleDebug --project-prop expo.sqlite.useSQLCipher=true",
+        "resourceClass": "large"
       },
       "env": {
         "ANCHOR_SQLCIPHER_PRODUCTION_QA": "1",
