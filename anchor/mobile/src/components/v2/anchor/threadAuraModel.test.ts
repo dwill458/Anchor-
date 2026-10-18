@@ -6,17 +6,17 @@ describe('Thread aura presentation mapping', () => {
     expect(normalizeThreadStrength(input)).toBe(expected);
   });
   it.each(['home', 'details'] as const)('grows continuously in %s', variant => {
-    const keys = ['radius', 'blur', 'inner', 'outer', 'movement', 'particles', 'ambient'] as const;
+    const keys = ['core', 'coreWidth', 'mid', 'midWidth', 'bloom', 'bloomWidth', 'filament', 'movement', 'particles'] as const;
     for (const key of keys) {
       const values = strengths.map(value => threadAuraParameters(value / 100, variant)[key]);
       values.forEach((value, i) => { if (i) expect(value).toBeGreaterThan(values[i - 1]); });
       expect(Math.abs(threadAuraParameters(0.75, variant)[key] - threadAuraParameters(0.74999, variant)[key])).toBeLessThan(0.001);
     }
-    expect(threadAuraParameters(0, variant).outer).toBe(0);
-    expect(threadAuraParameters(1, variant).inner).toBeLessThan(0.5);
+    expect(threadAuraParameters(0, variant).filament).toBe(0);
+    expect(threadAuraParameters(0, variant).core).toBeGreaterThan(0);
   });
   it('restrains Home relative to Details', () => {
-    expect(threadAuraParameters(0.95, 'home').outer).toBeLessThan(threadAuraParameters(0.95, 'details').outer);
+    expect(threadAuraParameters(0.95, 'home').bloom).toBeLessThan(threadAuraParameters(0.95, 'details').bloom);
   });
   it('rewards only a measured increase, settles first measurements, retreats quietly', () => {
     expect(auraTransition(null, 25).reward).toBe(false);
