@@ -8,6 +8,8 @@ import { progressTokens } from './progressTokens';
 
 export interface V2ProgressRouteProps {
   route: V2ProgressRouteSummary;
+  /** Drop the "Your route" header when the card sits inside another section. */
+  hideHeader?: boolean;
   /** Tints the etched map the way the Chart does. */
   category?: string | null;
   /** Opens the Chart. When absent the card is not tappable. */
@@ -23,6 +25,7 @@ export interface V2ProgressRouteProps {
  */
 export const V2ProgressRoute: React.FC<V2ProgressRouteProps> = ({
   route,
+  hideHeader = false,
   category,
   onOpenChart,
   testID = 'v2-progress-route',
@@ -77,7 +80,9 @@ export const V2ProgressRoute: React.FC<V2ProgressRouteProps> = ({
 
   return (
     <View style={styles.container} testID={testID}>
-      <V2SectionHeader title="Your route" actionLabel={onOpenChart ? 'Open Chart' : undefined} onActionPress={onOpenChart} />
+      {hideHeader ? null : (
+        <V2SectionHeader title="Your route" actionLabel={onOpenChart ? 'Open Chart' : undefined} onActionPress={onOpenChart} />
+      )}
       {onOpenChart ? (
         <Pressable
           onPress={onOpenChart}

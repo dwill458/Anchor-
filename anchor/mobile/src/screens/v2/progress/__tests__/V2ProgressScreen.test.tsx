@@ -2,6 +2,7 @@ import React from 'react';
 import { render, fireEvent, within } from '@testing-library/react-native';
 import { V2ProgressScreen } from '../V2ProgressScreen';
 import { useV2Progress } from '@/hooks/v2/progress';
+import { useProgressJourney } from '@/hooks/v2/progress/useProgressJourney';
 import { toV2ProgressModel } from '@/adapters/v2/progress';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import type {
@@ -12,7 +13,9 @@ import type {
 } from '@/adapters/v2/progress';
 
 jest.mock('@/hooks/v2/progress');
+jest.mock('@/hooks/v2/progress/useProgressJourney');
 const mockUseV2Progress = useV2Progress as jest.MockedFunction<typeof useV2Progress>;
+const mockUseProgressJourney = useProgressJourney as jest.MockedFunction<typeof useProgressJourney>;
 
 type HookReturn = ReturnType<typeof useV2Progress>;
 
@@ -122,6 +125,7 @@ describe('V2ProgressScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseProgressJourney.mockReturnValue({ state: 'chartOnly', vision: null });
   });
 
   it('renders loading state when loading without model', () => {
@@ -144,10 +148,13 @@ describe('V2ProgressScreen', () => {
     expect(getByText('65')).toBeTruthy();
     expect(getByText(/thread.strength/i)).toBeTruthy();
     expect(queryByText(/consistency/i)).toBeNull();
-    expect(getAllByText('Established').length).toBeGreaterThanOrEqual(1);
+    expect(getByTestId('v2-progress-screen-hero-level')).toBeTruthy();
+    expect(getByText('ESTABLISHED')).toBeTruthy();
 
-    // Renders the mix card: total and per-mode counts
-    expect(getByTestId('v2-progress-screen-summary')).toBeTruthy();
+    // Mode breakdown is secondary: it sits behind the Practice insights toggle.
+    expect(queryByText('Deep Prime')).toBeNull();
+    fireEvent.press(getByTestId('v2-progress-screen-commitment-insights-toggle'));
+    expect(getByTestId('v2-progress-screen-commitment-insights')).toBeTruthy();
     expect(getByText('10 total')).toBeTruthy();
     expect(getByText('Deep Prime')).toBeTruthy();
     expect(queryByText('Deep Focus')).toBeNull();
@@ -191,16 +198,16 @@ describe('V2ProgressScreen', () => {
     expect(getByText('WAYPOINT 2 OF 3')).toBeTruthy();
     expect(getByText('340 / 1,000')).toBeTruthy();
     expect(getByText('34%')).toBeTruthy();
-    expect(getByTestId('v2-progress-screen-route-map')).toBeTruthy();
+    expect(getByTestId('v2-progress-screen-journey-route-map')).toBeTruthy();
 
-    fireEvent.press(getByTestId('v2-progress-screen-route-card'));
+    fireEvent.press(getByTestId('v2-progress-screen-journey-route-card'));
     expect(onNavigateToChart).toHaveBeenCalledWith('anchor-progress-1');
   });
 
   it('hides the route card when the Anchor has no course', () => {
     mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, route: null } }));
     const { queryByTestId, queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
-    expect(queryByTestId('v2-progress-screen-route')).toBeNull();
+    expect(queryByTestId('v2-progress-screen-journey-route')).toBeNull();
     expect(queryByText('Your route')).toBeNull();
   });
 
@@ -212,15 +219,15 @@ describe('V2ProgressScreen', () => {
       });
 
       const { getByTestId, queryByTestId, getByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
-      expect(getByTestId('v2-progress-screen-rhythm-month')).toBeTruthy();
-      expect(queryByTestId('v2-progress-screen-rhythm-week')).toBeNull();
+      expect(getByTestId('v2-progress-screen-commitment-rhythm-month')).toBeTruthy();
+      expect(queryByTestId('v2-progress-screen-commitment-rhythm-week')).toBeNull();
 
       fireEvent.press(getByText('Week'));
-      expect(getByTestId('v2-progress-screen-rhythm-week')).toBeTruthy();
-      expect(queryByTestId('v2-progress-screen-rhythm-month')).toBeNull();
+      expect(getByTestId('v2-progress-screen-commitment-rhythm-week')).toBeTruthy();
+      expect(queryByTestId('v2-progress-screen-commitment-rhythm-month')).toBeNull();
 
       fireEvent.press(getByText('Year'));
-      expect(getByTestId('v2-progress-screen-rhythm-year')).toBeTruthy();
+      expect(getByTestId('v2-progress-screen-commitment-rhythm-year')).toBeTruthy();
     });
 
     it('shows practices, minutes and Moves for every range', () => {
@@ -252,23 +259,110 @@ describe('V2ProgressScreen', () => {
       route: null,
     });
 
-    it('shows the waiting hero, empty pips and ghost cards', () => {
+    it('shows the waiting hero with no strength number or level', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'practiceFirst', vision: null });
       mockUseV2Progress.mockReturnValue(hookReturn({ model: unmeasured() }));
       const { getByText, getByTestId, queryByTestId } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
 
-      expect(getByText('—')).toBeTruthy();
+      expect(queryByTestId('v2-progress-screen-hero-strength')).toBeNull();
+      expect(queryByTestId('v2-progress-screen-hero-level')).toBeNull();
       expect(getByText('Your thread is waiting.')).toBeTruthy();
       expect(getByText('Complete your first practice and this starts to measure. Nothing is scored until then.')).toBeTruthy();
-      for (let n = 1; n <= 5; n += 1) {
-        const pip = getByTestId(`v2-progress-screen-hero-pip-${n}`);
-        expect(JSON.stringify(pip.props.style)).not.toContain('"backgroundColor":"#C9A24B"');
-      }
-
       expect(getByText('Your rhythm will draw itself here.')).toBeTruthy();
-      expect(getByText('Nothing on your route yet.')).toBeTruthy();
+      expect(getByText('Your first practice starts this record.')).toBeTruthy();
       expect(getByText('Your course log starts with your first practice.')).toBeTruthy();
-      expect(queryByTestId('v2-progress-screen-summary')).toBeNull();
-      expect(getByTestId('v2-progress-screen-week')).toBeTruthy();
+      expect(queryByTestId('v2-progress-screen-commitment-insights-toggle')).toBeNull();
+    });
+  });
+
+  describe('Your Journey states', () => {
+    const vision = {
+      tiles: [{ id: 't1', imageUrl: 'https://example.com/a.jpg', sortOrder: 0, isHero: true }],
+      featuredTileId: 't1',
+      statement: 'A house by the water',
+    };
+
+    it('holds a skeleton while Chart and Vision are loading, with no wrong state', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'loading', vision: null });
+      mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, route } }));
+      const { getByTestId, queryByText, queryByTestId } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(getByTestId('v2-progress-screen-journey-loading')).toBeTruthy();
+      expect(queryByText('YOUR JOURNEY')).toBeNull();
+      expect(queryByTestId('v2-progress-screen-journey-route')).toBeNull();
+    });
+
+    it('A: Chart + Vision shows both, each opening its own screen', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'chartVision', vision });
+      mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, route: { ...route, oneMoveTitle: 'Send the proposal' } } }));
+      const onNavigateToChart = jest.fn();
+      const onNavigateToVision = jest.fn();
+      const { getByTestId, getByText } = render(
+        <V2ProgressScreen anchorId="anchor-progress-1" onNavigateToChart={onNavigateToChart} onNavigateToVision={onNavigateToVision} />,
+      );
+      expect(getByText('Vision and chart working together.')).toBeTruthy();
+      fireEvent.press(getByTestId('v2-progress-screen-journey-vision'));
+      expect(onNavigateToVision).toHaveBeenCalledWith('anchor-progress-1');
+      fireEvent.press(getByTestId('v2-progress-screen-journey-route-card'));
+      expect(onNavigateToChart).toHaveBeenCalledWith('anchor-progress-1');
+      expect(getByText('Send the proposal')).toBeTruthy();
+      fireEvent.press(getByTestId('v2-progress-screen-journey-next-move'));
+      expect(onNavigateToChart).toHaveBeenCalledTimes(2);
+    });
+
+    it('B: Chart only has no Vision row or placeholder', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'chartOnly', vision: null });
+      mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, route } }));
+      const { getByTestId, queryByTestId, queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(getByTestId('v2-progress-screen-journey-route')).toBeTruthy();
+      expect(queryByTestId('v2-progress-screen-journey-vision')).toBeNull();
+      expect(queryByText('Your Vision')).toBeNull();
+      expect(queryByTestId('v2-progress-screen-journey-next-move')).toBeNull();
+    });
+
+    it('C: Vision only shows the board and a real reflection, with no waypoint or percentage', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'visionOnly', vision });
+      mockUseV2Progress.mockReturnValue(
+        hookReturn({ model: { ...mockModel, route: null, recentReflection: { text: 'I feel more focused', occurredAt: '2026-10-05T12:00:00.000Z' } } }),
+      );
+      const { getByTestId, getByText, queryByTestId, queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(getByTestId('v2-progress-screen-journey-vision')).toBeTruthy();
+      expect(getByText('“I feel more focused”')).toBeTruthy();
+      expect(queryByTestId('v2-progress-screen-journey-route')).toBeNull();
+      expect(queryByText(/WAYPOINT/)).toBeNull();
+      expect(queryByText(/%/)).toBeNull();
+    });
+
+    it('C: with no reflection or images it stays neutral and never invents either', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'visionOnly', vision: { tiles: [{ id: 't1', imageUrl: null }], statement: 'A house by the water' } });
+      mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, route: null, recentReflection: null } }));
+      const { getByText, queryByText, getByTestId } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(getByText('Your Vision is here whenever you want to return to it.')).toBeTruthy();
+      expect(queryByText('Recent reflection')).toBeNull();
+      expect(getByTestId('v2-progress-screen-journey-vision-row')).toBeTruthy();
+    });
+
+    it('D: practice-first is complete on its own and the invitations are optional and quiet', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'practiceFirst', vision: null });
+      const lifetime = { practices: 12, activeDays: 9, totalSeconds: 7200, firstPracticeAt: '2026-09-01T12:00:00.000Z', waypointsReached: 0 };
+      mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, route: null, lifetime } }));
+      const onNavigateToChart = jest.fn();
+      const onNavigateToVision = jest.fn();
+      const { getByTestId, getByText } = render(
+        <V2ProgressScreen anchorId="anchor-progress-1" onNavigateToChart={onNavigateToChart} onNavigateToVision={onNavigateToVision} />,
+      );
+      expect(getByText(/12 practices across 9 days/)).toBeTruthy();
+      expect(getByText('2h 00m of focused time so far.')).toBeTruthy();
+      fireEvent.press(getByTestId('v2-progress-screen-journey-create-vision'));
+      expect(onNavigateToVision).toHaveBeenCalledWith('anchor-progress-1');
+      fireEvent.press(getByTestId('v2-progress-screen-journey-create-chart'));
+      expect(onNavigateToChart).toHaveBeenCalledWith('anchor-progress-1');
+    });
+
+    it('D without handlers shows no invitation at all', () => {
+      mockUseProgressJourney.mockReturnValue({ state: 'practiceFirst', vision: null });
+      mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, route: null } }));
+      const { queryByTestId } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(queryByTestId('v2-progress-screen-journey-create-vision')).toBeNull();
     });
   });
 

@@ -477,6 +477,7 @@ function V2ProgressRouteScreen() {
       onBack={handleBack}
       onAnchorResolved={handleShownAnchor}
       onNavigateToChart={(id: string) => navigation.navigate('V2Chart', { anchorId: id })}
+      onNavigateToVision={(id: string) => navigation.navigate('V2Vision', { anchorId: id })}
       onNavigateToWeeklyInsight={(id: string) => navigation.navigate('V2WeeklyInsight', { anchorId: id })}
     />
   );

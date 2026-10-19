@@ -139,6 +139,8 @@ export interface V2ProgressRouteSummary {
   currentTitle: string;
   /** The current waypoint's measure, when it has one. */
   currentMetric: V2ProgressRouteMetric | null;
+  /** The Chart's current One Move, when it has one. */
+  oneMoveTitle?: string | null;
   reachedCount: number;
   isFinished: boolean;
   waypoints: V2ProgressRouteWaypoint[];
@@ -152,6 +154,21 @@ export interface V2ProgressInsight {
 export interface V2ProgressReflection {
   id: string;
   word: string;
+  occurredAt: string;
+}
+
+/** Whole-history totals for one Anchor. */
+export interface V2ProgressLifetimeStats {
+  practices: number;
+  activeDays: number;
+  totalSeconds: number;
+  firstPracticeAt: string | null;
+  /** Reached waypoints on the live Chart; 0 with no Chart. */
+  waypointsReached: number;
+}
+
+export interface V2ProgressRecentReflection {
+  text: string;
   occurredAt: string;
 }
 
@@ -181,6 +198,8 @@ export interface V2ProgressModel {
   /** ISO timestamp (or local YYYY-MM-DD) of the last completed practice, if known. */
   lastPracticedAt?: string | null;
   lifetimeSessions?: number;
+  lifetime?: V2ProgressLifetimeStats;
+  recentReflection?: V2ProgressRecentReflection | null;
   /** A deterministic read of this week. Absent while the Anchor is unmeasured. */
   insight?: V2ProgressInsight | null;
   /** The real date Full Strength was first reached on this device (ISO). Null when no record exists. */

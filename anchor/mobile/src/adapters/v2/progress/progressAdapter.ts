@@ -10,6 +10,7 @@ import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
 import { toChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import { calculateStreakWithGrace } from '@/utils/streak';
 import { buildProgressInsight } from './progressInsight';
+import { buildLifetimeStats, buildRecentReflection } from './journeyAdapter';
 import {
   addDays,
   getIsoWeekdayIndex,
@@ -676,6 +677,7 @@ export function buildRouteSummary(course: CourseDetail | null | undefined): V2Pr
     total: view.total,
     currentTitle: view.isFinished ? view.destination : (view.current?.title ?? view.destination),
     currentMetric: view.isFinished ? null : toMetric(view.current?.metric ?? null),
+    oneMoveTitle: view.oneMove?.title ?? null,
     reachedCount: view.reachedCount,
     isFinished: view.isFinished,
     waypoints: view.waypoints.map((w) => ({
@@ -920,5 +922,7 @@ export function toV2ProgressModel(
     reflections: extras.reflections ?? [],
     lastPracticedAt,
     lifetimeSessions: extras.lifetimeSessions,
+    lifetime: buildLifetimeStats(sessions, anchorIds, route),
+    recentReflection: buildRecentReflection(courseLogs),
   };
 }

@@ -16,18 +16,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronDown } from 'lucide-react-native';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
-import { V2Button, V2SectionHeader } from '@/components/v2';
+import { V2Button } from '@/components/v2';
 import { useV2Progress } from '@/hooks/v2/progress';
+import { useProgressJourney } from '@/hooks/v2/progress/useProgressJourney';
 import type { Anchor } from '@/types';
 import {
   V2ProgressHero,
-  V2ProgressWeekCard,
-  V2ProgressRhythm,
-  V2ProgressRoute,
+  V2JourneySection,
+  V2CommitmentSection,
   V2ProgressWeeklyInsight,
   V2ProgressAnchorSheet,
-  V2ProgressGhostCard,
-  V2EvidenceSummary,
   V2ThreadEventTimeline,
   V2ThreadEventDetailSheet,
 } from '@/components/v2/progress';
@@ -48,7 +46,7 @@ export interface V2ProgressScreenProps {
   /** The Anchor currently shown (it changes with the switcher). */
   onAnchorResolved?: (anchor?: Anchor) => void;
   onNavigateToChart?: (anchorId: string) => void;
-  // DEFERRED: the Vision pill left the header; kept in the contract so hosts that pass it still type-check.
+  /** Opens Vision (existing screen; it owns creation and gating). */
   onNavigateToVision?: (anchorId: string) => void;
   onNavigateToPractice?: (anchorId: string) => void;
   /** Opens the full Weekly Insight. Without it the insight card is read-only. */
@@ -61,6 +59,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   onBack,
   onAnchorResolved,
   onNavigateToChart,
+  onNavigateToVision,
   onNavigateToWeeklyInsight,
   testID = 'v2-progress-screen',
 }) => {
@@ -80,6 +79,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
     anchors,
     selectAnchor,
   } = useV2Progress({ anchorId });
+  const journey = useProgressJourney(model?.anchorId, model?.route);
 
   const shownAnchor = model ? (anchors.find((a) => a.id === model.anchorId)?.anchor ?? model.anchor) : undefined;
   React.useEffect(() => { onAnchorResolved?.(shownAnchor); }, [onAnchorResolved, shownAnchor]);
@@ -207,6 +207,8 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
               <View style={styles.headerSpacer} />
             )}
 
+            <View style={styles.titleColumn}>
+            <Text style={styles.screenTitle}>PROGRESS</Text>
             <Pressable
               onPress={canSwitch ? () => setSwitcherOpen(true) : undefined}
               disabled={!canSwitch}
@@ -220,6 +222,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
               </Text>
               {canSwitch ? <ChevronDown size={13} color={progressTokens.heroText} strokeWidth={2.6} /> : null}
             </Pressable>
+            </View>
 
             <View style={styles.headerSpacer} />
           </View>
@@ -234,60 +237,33 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
         </View>
 
         <Animated.View style={[styles.body, bodyReveal]}>
-          {/* This week */}
-          {model.week ? (
-            <View ref={weekTeachingRef} collapsable={false} style={styles.section}>
-              <V2SectionHeader title="This week" />
-              <V2ProgressWeekCard
-                week={model.week}
-                streak={model.streak}
-                longestRhythm={model.rhythm?.Year.bestRun}
-                testID={`${testID}-week`} />
-            </View>
-          ) : null}
+          {/* Your Journey: adapts to what this Anchor has (Chart, Vision, both or neither). */}
+          <View ref={routeTeachingRef} collapsable={false} style={styles.section}>
+            <V2JourneySection
+              state={journey.state}
+              category={model.category}
+              route={model.route}
+              vision={journey.vision}
+              recentReflection={model.recentReflection}
+              lifetime={model.lifetime}
+              onOpenChart={onNavigateToChart ? () => onNavigateToChart(model.anchorId) : undefined}
+              onOpenVision={onNavigateToVision ? () => onNavigateToVision(model.anchorId) : undefined}
+              testID={`${testID}-journey`}
+            />
+          </View>
 
-          {/* Rhythm */}
-          {model.unmeasured ? (
-            <View ref={rhythmTeachingRef} collapsable={false} style={styles.section}>
-              <V2ProgressGhostCard
-                testID={`${testID}-rhythm-empty`}
-                title="Your rhythm will draw itself here."
-                body="A calendar, minutes practiced and how steady you are, all from sessions you actually complete."
-              />
-            </View>
-          ) : model.rhythm && model.heatmap ? (
-            <View ref={rhythmTeachingRef} collapsable={false} style={styles.section}>
-              <V2SectionHeader title="Rhythm" />
-              <V2ProgressRhythm model={model} range={range} onRangeChange={setRange} onRangeMotionChange={setRangeMoving} testID={`${testID}-rhythm`} />
-            </View>
-          ) : null}
-
-          {/* How you practice */}
-          {!model.unmeasured ? (
-            <View style={styles.section}>
-              <V2EvidenceSummary model={model} testID={`${testID}-summary`} />
-            </View>
-          ) : null}
-
-          {/* Your route */}
-          {model.route ? (
-            <View ref={routeTeachingRef} collapsable={false} style={styles.section}>
-              <V2ProgressRoute
-                route={model.route}
-                category={model.category}
-                onOpenChart={onNavigateToChart ? () => onNavigateToChart(model.anchorId) : undefined}
-                testID={`${testID}-route`}
-              />
-            </View>
-          ) : model.unmeasured ? (
-            <View style={styles.section}>
-              <V2ProgressGhostCard
-                testID={`${testID}-route-empty`}
-                title="Nothing on your route yet."
-                body="Add a Chart and your waypoints appear here as you reach them."
-              />
-            </View>
-          ) : null}
+          {/* Your Commitment: this week and Rhythm together, with insights tucked behind a toggle. */}
+          <View style={styles.section}>
+            <V2CommitmentSection
+              model={model}
+              range={range}
+              onRangeChange={setRange}
+              onRangeMotionChange={setRangeMoving}
+              weekRef={weekTeachingRef}
+              rhythmRef={rhythmTeachingRef}
+              testID={`${testID}-commitment`}
+            />
+          </View>
 
           {/* DEFERRED: "In your words" reflections card. It is not part of the redesigned screen; V2ProgressReflections and model.reflections remain. */}
 
@@ -407,6 +383,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerSpacer: { width: 36 },
+  titleColumn: { alignItems: 'center', gap: 8 },
+  screenTitle: { ...typography.labelSM, fontSize: 11, letterSpacing: 3, color: progressTokens.heroText },
   switcher: {
     flexDirection: 'row',
     alignItems: 'center',

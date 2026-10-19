@@ -1,5 +1,7 @@
 export * from './V2ProgressHero';
 export * from './V2ProgressRing';
+export * from './V2JourneySection';
+export * from './V2CommitmentSection';
 export * from './V2ProgressWeek';
 export * from './V2ProgressRhythm';
 export * from './V2ProgressSparkline';
