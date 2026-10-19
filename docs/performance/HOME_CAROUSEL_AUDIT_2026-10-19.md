@@ -62,6 +62,30 @@ One 35 s trace covered Chart, Details and Progress opens plus the Vision and Cha
 - **Refuted experiment:** skipping Details' three below-the-fold sections (Vision preview, Chart preview, Recent Practice) in the served tree left two back-to-back stalls per open (about 165-180 ms and 150-186 ms, against about 246 ms and 118 ms before). Deferring those sections would therefore not remove the stall; the cost is the first draw of the visible hero (artwork, glow canvas, SVG) and screen mount. No deferral code was written. The experiment was reverted and the file verified byte-identical.
 - The stalls share the root of the carousel hitch: first draw of `react-native-svg` views and large native view trees on a debuggable build whose Java runs interpreted/JIT-warming (dex status `run-from-apk`). How much of this remains in a release build is unmeasured, and any structural fix (fewer SVG views, Skia instead of SVG for decorations, splitting screen mounts) changes rendering and needs a design decision plus a release-like baseline.
 
+## Fix 1: hero underline and percentage SVGs only on the centred slot (commit 989ac630)
+
+Neighbouring slots keep same-size spacers instead of mounting the `IntentionMark` and `HandDrawnPercentage` SVG views; the centred slot mounts them as before. Footprint is unchanged, so nothing shifts when a hero becomes centred. Measured on the dev build against the served tree, same swipes and gesture timing, status ring already removed in both columns after the baseline:
+
+| Interaction | Baseline | Ring removed | Ring removed + fix 1 |
+|---|---|---|---|
+| Carousel, 6 slow swipes: p99 | 109-113 ms | 73-85 ms | **44 / 44 / 57 ms** |
+| Carousel: p95 | 21-25 ms | 22-24 ms | **16-17 ms** |
+| Carousel: janky frames | 6.8-8.6% | 7.7-8.7% | **4.9-6.1%** |
+| Home to Details open: p99 (6 cycles) | 150-200 ms | not measured | 65-93 ms (2 outliers 13 and 121 ms while warming) |
+| Home to Details open: janky | 3.5-6.4% | | 2.6-3.2% (steady state) |
+| Home to Progress open: p99 | 133-150 ms | | 34-46 ms steady state (10-73 ms while warming) |
+| Home to Progress open: janky | 5.4-7.4% | | 3.8-4.2% |
+| Vision open: p99 | 40-77 ms | | 23-69 ms |
+| Chart open: janky / missed vsync | 6.8-9.9% / 12-21 | | 7.3% / 19 (one run) |
+| Return to Home from Details or Progress | 16-32 ms | | 21-31 ms (unchanged, already fine) |
+| Return to Home from Vision or Chart: p99 | 150-200 ms | | 150 ms bucket (unchanged) |
+
+Visual check on the device: settled hero shows underline and digits; mid-swipe the departing hero fades its underline and digits; the arriving hero (10%, "Steady this week") is complete once settled. Jest: 23 Home suites, 298 tests pass; `tsc` clean. The gain in Details and Progress opens is a side effect (fewer views to draw on the Home beneath the shared-element flight), not a change to those screens.
+
+**Why returns still stall (root cause, from library source and trace).** `react-native-svg` 15.16.0 `SvgView.onDetachedFromWindow` recycles its `Bitmap`, and the next `onDraw` rasterizes the whole SVG again on the main thread. When Home is covered by Vision or Chart its views detach, and on return every `SvgView` on Home re-rasterizes at once (75-79 ms of pure `Record View#draw()` in the trace, no mounting). The same mechanism makes the first draw of any new SVG view expensive. The largest SVG on Home is the dashed construction ring (about 1000 px square per hero, five heroes mounted, two of them off-screen staging copies). An experiment to confirm that, hiding the construction ring everywhere, was started but interrupted because the owner needed the phone; it was reverted and not measured.
+
+Candidates, not yet tried: (a) do not mount the construction ring on the two off-screen staging slots (no visual change, they are never visible while staged); (b) fewer or smaller SVG views on Home; (c) keeping Home attached while covered, which trades memory and draw cost.
+
 ## Release-like measurement attempt (not completed)
 
 Goal: separate dev-build overhead from real cost by re-measuring the same interactions on a release build. Result: **no release or emulator numbers were obtained.** What was learned:
