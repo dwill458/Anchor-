@@ -1,10 +1,10 @@
 import type { ViewInstance } from 'react-native';
 import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, G, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { AnchorMotion, colors, getCategoryColor, typography } from '@/theme/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { CircularAnchorRenderer } from '@/components/v2';
@@ -64,15 +64,15 @@ function IntentionMark({ color }: { color: string }) {
  * orbit and cardinal tick marks read as a seal or compass rose, not as a
  * personal mark sitting on paper.
  */
+/**
+ * The ring is a fixed shape, so it is a pre-rendered alpha mask (scripts/generate-hero-construction-ring.py)
+ * drawn with Image + tintColor. As an SVG it was a ~1000 px bitmap that every hero re-rasterized on the main
+ * thread each time its view attached.
+ */
+const CONSTRUCTION_RING = require('../../../../assets/home/construction-ring.png');
 const ConstructionStrokes = memo(function ConstructionStrokes({ color, size }: { color: string; size: number }) {
-  const c = size / 2;
-  const outer = size * 0.452;
-  return <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-    <G strokeLinecap="round" fill="none">
-      <Circle cx={c - size * 0.005} cy={c + size * 0.004} r={outer} stroke={color} strokeWidth={1.2}
-        strokeOpacity={0.34} strokeDasharray={`${outer * 5.4} ${outer * 0.5}`} transform={`rotate(-24 ${c} ${c})`} />
-    </G>
-  </Svg>;
+  return <Image source={CONSTRUCTION_RING} resizeMode="stretch" fadeDuration={0} tintColor={color} style={{ width: size, height: size, opacity: 0.34 }}
+    accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
 });
 
 /**
