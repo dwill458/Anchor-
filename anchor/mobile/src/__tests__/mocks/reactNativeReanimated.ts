@@ -4,6 +4,7 @@
  * shared values as plain objects, runs animation callbacks inline, and returns the
  * target value for animation builders. Unknown exports resolve to inert functions.
  */
+import * as React from 'react';
 import * as RN from 'react-native';
 
 type AnyFn = (...args: unknown[]) => unknown;
@@ -11,15 +12,19 @@ type AnyFn = (...args: unknown[]) => unknown;
 const identity = <T>(value: T): T => value;
 const inert: AnyFn = () => undefined;
 
-const useSharedValue = <T>(initial: T) => ({ value: initial });
+const useSharedValue = <T>(initial: T) => {
+  const ref = React.useRef({ value: initial });
+  return ref.current;
+};
 const useDerivedValue = <T>(compute: () => T) => ({ value: compute() });
-const useAnimatedStyle = (compute: () => unknown) => ({ value: compute() });
-const useAnimatedProps = (compute: () => unknown) => ({ value: compute() });
-const withTiming = <T>(toValue: T, _config?: unknown, done?: (finished: boolean) => void) => {
+// Animated styles and props are plain objects that components apply directly.
+const useAnimatedStyle = (compute: () => unknown) => compute();
+const useAnimatedProps = (compute: () => unknown) => compute();
+const withTiming = jest.fn(<T>(toValue: T, _config?: unknown, done?: (finished: boolean) => void) => {
   done?.(true);
   return toValue;
-};
-const withSpring = withTiming;
+});
+const withSpring = jest.fn(withTiming);
 const withDelay = <T>(_delay: number, value: T) => value;
 const withRepeat = <T>(value: T) => value;
 const withSequence = (...values: unknown[]) => values[values.length - 1];

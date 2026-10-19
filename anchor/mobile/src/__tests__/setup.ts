@@ -3,7 +3,9 @@ import 'react-native-gesture-handler/jestSetup';
 // Tests render gesture detectors without a GestureHandlerRootView; pass children through.
 jest.mock('react-native-gesture-handler', () => {
   const actual = jest.requireActual('react-native-gesture-handler');
-  return { ...actual, GestureDetector: ({ children }: { children?: unknown }) => children };
+  // RNGH scroll views wrap a GestureDetector internally; use the React Native ones under Jest.
+  const RN = jest.requireActual('react-native');
+  return { ...actual, GestureDetector: ({ children }: { children?: unknown }) => children, ScrollView: RN.ScrollView, FlatList: RN.FlatList };
 });
 // Reanimated 4 needs Worklets native runtimes; see mocks/reactNativeWorklets.ts.
 jest.mock('react-native-worklets', () => require('./mocks/reactNativeWorklets').default);
@@ -498,3 +500,7 @@ jest.setTimeout(10000);
 // None of our tests assert on animated values, so animations being visual no-ops is fine.
 (global as any).requestAnimationFrame = jest.fn().mockReturnValue(0);
 (global as any).cancelAnimationFrame = jest.fn();
+
+// The Skia aura canvas drives a Reanimated frame callback that the JS-only test runtime cannot unregister.
+// Screens that render Anchors with an aura get a null canvas; ThreadAuraCanvas.test.tsx unmocks the real one.
+jest.mock('@/components/v2/anchor/ThreadAuraCanvas', () => ({ ThreadAuraCanvas: () => null }));
