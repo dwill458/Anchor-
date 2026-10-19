@@ -22,6 +22,8 @@ import type {
 } from '@/types/practice';
 import type { BackgroundAudioMode, GuidanceVoice } from '@/types/sessionAudio';
 import { logger } from '@/utils/logger';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
+import type { MilestoneRecord } from '@/milestones/milestoneModel';
 import {
   getCompletionTimeContext,
   PRACTICE_SESSION_SCHEMA_VERSION,
@@ -392,11 +394,17 @@ export const PracticeCompletionService = {
               delta: number;
             };
             threadStrength?: number;
+            newMilestones?: MilestoneRecord[];
           };
         }>('/api/practice/sessions', serverPayload(session), ...boundRequestArgs(isCurrent, token));
         if (!isCurrent()) return;
 
         const movement = response.data?.data?.threadStrengthMovement;
+        // Milestones the server just recorded for this practice. They queue behind the completion scene.
+        const newMilestones = response.data?.data?.newMilestones;
+        if (Array.isArray(newMilestones) && newMilestones.length > 0) {
+          useMilestoneCelebrationStore.getState().enqueueAwards(newMilestones, accountId);
+        }
         const threadStrength =
           typeof response.data?.data?.threadStrength === 'number'
             ? response.data.data.threadStrength

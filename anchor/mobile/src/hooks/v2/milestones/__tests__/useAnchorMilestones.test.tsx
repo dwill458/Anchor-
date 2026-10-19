@@ -22,6 +22,7 @@ jest.mock('@/stores/encryptedPersistStorage', () => ({
 }));
 
 import { useAnchorMilestones } from '../useAnchorMilestones';
+import { resetMilestoneSnapshots } from '@/milestones/milestoneSnapshots';
 import { milestoneCacheKey, serializeMilestoneCache } from '@/milestones/milestoneCache';
 import type { MilestoneRecord } from '@/milestones/milestoneModel';
 
@@ -43,6 +44,7 @@ describe('useAnchorMilestones', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockStorage.clear();
+    resetMilestoneSnapshots();
     mockUserId = 'user-1';
   });
 

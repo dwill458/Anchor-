@@ -3,6 +3,8 @@ import { render, fireEvent, within } from '@testing-library/react-native';
 import { V2ProgressScreen } from '../V2ProgressScreen';
 import { useV2Progress } from '@/hooks/v2/progress';
 import { useProgressJourney } from '@/hooks/v2/progress/useProgressJourney';
+import { useAnchorMilestones } from '@/hooks/v2/milestones/useAnchorMilestones';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import { toV2ProgressModel } from '@/adapters/v2/progress';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import type {
@@ -14,8 +16,28 @@ import type {
 
 jest.mock('@/hooks/v2/progress');
 jest.mock('@/hooks/v2/progress/useProgressJourney');
+jest.mock('@/hooks/v2/milestones/useAnchorMilestones');
 const mockUseV2Progress = useV2Progress as jest.MockedFunction<typeof useV2Progress>;
 const mockUseProgressJourney = useProgressJourney as jest.MockedFunction<typeof useProgressJourney>;
+const mockUseAnchorMilestones = useAnchorMilestones as jest.MockedFunction<typeof useAnchorMilestones>;
+const milestoneRecord = (id: string, definitionId: string, earnedAt: string, celebratedAt: string | null = null) => ({
+  id,
+  anchorId: 'anchor-progress-1',
+  definitionId,
+  definitionVersion: 1,
+  earnedAt,
+  sourceKind: 'PRACTICE_COMPLETION',
+  sourceEntityId: null,
+  metadata: {},
+  celebratedAt,
+});
+const milestonesReturn = (records: ReturnType<typeof milestoneRecord>[] = []) => ({
+  records,
+  pendingCelebrations: records.filter((r) => !r.celebratedAt),
+  status: 'ready' as const,
+  refresh: jest.fn(),
+  markCelebrated: jest.fn(),
+});
 
 type HookReturn = ReturnType<typeof useV2Progress>;
 
@@ -126,6 +148,8 @@ describe('V2ProgressScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseProgressJourney.mockReturnValue({ state: 'chartOnly', vision: null });
+    mockUseAnchorMilestones.mockReturnValue(milestonesReturn());
+    useMilestoneCelebrationStore.getState().reset();
   });
 
   it('renders loading state when loading without model', () => {
@@ -452,6 +476,51 @@ describe('V2ProgressScreen', () => {
       );
       const { queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
       expect(queryByText('In your words')).toBeNull();
+    });
+  });
+
+  describe('Milestones shelf', () => {
+    it('says so plainly when nothing is earned yet, and shows no locked milestones', () => {
+      mockUseV2Progress.mockReturnValue(hookReturn());
+      const { getByTestId, queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(getByTestId('v2-progress-screen-milestones-empty')).toBeTruthy();
+      expect(queryByText('Established')).toBeNull();
+    });
+
+    it('lists earned milestones for this Anchor, newest first', () => {
+      mockUseAnchorMilestones.mockReturnValue(
+        milestonesReturn([
+          milestoneRecord('m1', 'commitment.practices.1', '2026-08-01T12:00:00.000Z', '2026-08-01T12:01:00.000Z'),
+          milestoneRecord('m2', 'strength.established', '2026-10-01T12:00:00.000Z', '2026-10-01T12:01:00.000Z'),
+        ]),
+      );
+      mockUseV2Progress.mockReturnValue(hookReturn());
+      const { getByTestId, queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(getByTestId('v2-progress-screen-milestones-card-strength.established')).toBeTruthy();
+      expect(getByTestId('v2-progress-screen-milestones-card-commitment.practices.1')).toBeTruthy();
+      expect(queryByText('Your first milestone will appear here.')).toBeNull();
+      // Locked ones are not drawn on the shelf.
+      expect(() => getByTestId('v2-progress-screen-milestones-card-strength.full')).toThrow();
+      expect(mockUseAnchorMilestones).toHaveBeenCalledWith('anchor-progress-1');
+    });
+
+    it('queues earned-but-uncelebrated milestones for celebration, once', () => {
+      mockUseAnchorMilestones.mockReturnValue(
+        milestonesReturn([milestoneRecord('m1', 'commitment.practices.1', '2026-10-01T12:00:00.000Z')]),
+      );
+      mockUseV2Progress.mockReturnValue(hookReturn());
+      const { rerender } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      rerender(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(useMilestoneCelebrationStore.getState().queue.map((item) => item.record.id)).toEqual(['m1']);
+    });
+
+    it('queues nothing for milestones already celebrated', () => {
+      mockUseAnchorMilestones.mockReturnValue(
+        milestonesReturn([milestoneRecord('m1', 'commitment.practices.1', '2026-10-01T12:00:00.000Z', '2026-10-01T12:01:00.000Z')]),
+      );
+      mockUseV2Progress.mockReturnValue(hookReturn());
+      render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      expect(useMilestoneCelebrationStore.getState().queue).toEqual([]);
     });
   });
 

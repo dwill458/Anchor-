@@ -3,6 +3,7 @@ import { apiClient } from '../ApiClient';
 import { AnalyticsService } from '../AnalyticsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 
 const input = (accountId: string, sessionId = 'stable-session') => ({
   sessionId,
@@ -63,6 +64,37 @@ describe('PracticeCompletionService', () => {
     await PracticeCompletionService.flush('account-completion-b');
     expect(post.mock.calls.filter(([, body]) => (body as any).id === 'offline-session')).toHaveLength(2);
     expect(useSessionStore.getState().practiceHistory[0].syncState).toBe('synced');
+  });
+
+  it('queues milestones the server just recorded for celebration, without touching completion', async () => {
+    useAuthStore.setState({ user: { id: 'account-completion-m' } as any });
+    useMilestoneCelebrationStore.getState().reset();
+    await PracticeCompletionService.completePracticeSession(input('account-completion-m', 'milestone-session'), {
+      flushImmediately: false,
+    });
+    const record = {
+      id: 'ms-1', anchorId: 'anchor-1', definitionId: 'commitment.practices.1', definitionVersion: 1,
+      earnedAt: '2026-07-21T12:00:45.000Z', sourceKind: 'PRACTICE_COMPLETION', sourceEntityId: 'milestone-session',
+      metadata: {}, celebratedAt: null,
+    };
+    jest.spyOn(apiClient, 'post').mockResolvedValueOnce({ data: { success: true, data: { newMilestones: [record] } } } as any);
+    await PracticeCompletionService.flush('account-completion-m');
+
+    expect(useSessionStore.getState().practiceHistory[0].syncState).toBe('synced');
+    const queue = useMilestoneCelebrationStore.getState().queue;
+    expect(queue.map((item) => item.record.id)).toEqual(['ms-1']);
+    expect(queue[0]).toMatchObject({ mode: 'award', accountId: 'account-completion-m' });
+  });
+
+  it('queues no celebration when the response carries no milestones', async () => {
+    useAuthStore.setState({ user: { id: 'account-completion-n' } as any });
+    useMilestoneCelebrationStore.getState().reset();
+    await PracticeCompletionService.completePracticeSession(input('account-completion-n', 'plain-session'), {
+      flushImmediately: false,
+    });
+    jest.spyOn(apiClient, 'post').mockResolvedValueOnce({ data: { success: true, data: {} } } as any);
+    await PracticeCompletionService.flush('account-completion-n');
+    expect(useMilestoneCelebrationStore.getState().queue).toEqual([]);
   });
 
   it('refuses cross-account writes', async () => {

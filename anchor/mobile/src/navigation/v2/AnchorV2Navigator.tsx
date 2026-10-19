@@ -23,6 +23,7 @@ import { V2VisionScreen } from '@/screens/v2/vision';
 import { V2VisionNoteComposer } from '@/screens/v2/vision/V2VisionNoteComposer';
 import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypointScreen } from '@/screens/v2/chart';
 import { V2ProgressScreen } from '@/screens/v2/progress';
+import { MilestoneCelebrationHost } from '@/components/v2/milestones/MilestoneCelebrationHost';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
 import { V2ReleaseScreen } from '@/screens/v2/release';
 import { createReleaseContinuations, releaseHomeScreenOptions } from './releaseNavigation';
@@ -601,6 +602,8 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2Auth" component={V2AuthRouteScreen} options={TRANSPARENT_BACKGROUND} />
         <Stack.Screen name="Login" component={V2LoginRouteScreen} options={TRANSPARENT_BACKGROUND} />
       </Stack.Navigator>
+      {/* Milestones celebrate after any practice completion has settled, one at a time, over any screen. */}
+      <MilestoneCelebrationHost />
     </ProgressiveFocusTransitionProvider>
   );
 }

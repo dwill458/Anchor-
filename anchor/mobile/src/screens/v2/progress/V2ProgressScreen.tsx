@@ -19,11 +19,14 @@ import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { V2Button } from '@/components/v2';
 import { useV2Progress } from '@/hooks/v2/progress';
 import { useProgressJourney } from '@/hooks/v2/progress/useProgressJourney';
+import { useAnchorMilestones } from '@/hooks/v2/milestones/useAnchorMilestones';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import type { Anchor } from '@/types';
 import {
   V2ProgressHero,
   V2JourneySection,
   V2CommitmentSection,
+  V2MilestoneShelf,
   V2ProgressWeeklyInsight,
   V2ProgressAnchorSheet,
   V2ThreadEventTimeline,
@@ -80,6 +83,14 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
     selectAnchor,
   } = useV2Progress({ anchorId });
   const journey = useProgressJourney(model?.anchorId, model?.route);
+  const milestones = useAnchorMilestones(model?.anchorId);
+  const milestoneAccountId = useAuthStore(state => state.user?.id ?? null);
+  // Earned but never celebrated (another device, an interrupted scene): queue them behind anything playing.
+  React.useEffect(() => {
+    if (milestones.pendingCelebrations.length > 0) {
+      useMilestoneCelebrationStore.getState().enqueueAwards(milestones.pendingCelebrations, milestoneAccountId);
+    }
+  }, [milestones.pendingCelebrations, milestoneAccountId]);
 
   const shownAnchor = model ? (anchors.find((a) => a.id === model.anchorId)?.anchor ?? model.anchor) : undefined;
   React.useEffect(() => { onAnchorResolved?.(shownAnchor); }, [onAnchorResolved, shownAnchor]);
@@ -249,6 +260,15 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
               onOpenChart={onNavigateToChart ? () => onNavigateToChart(model.anchorId) : undefined}
               onOpenVision={onNavigateToVision ? () => onNavigateToVision(model.anchorId) : undefined}
               testID={`${testID}-journey`}
+            />
+          </View>
+
+          {/* Milestones earned for this Anchor. */}
+          <View style={styles.section}>
+            <V2MilestoneShelf
+              records={milestones.records}
+              categoryColor={getCategoryColor(model.category)}
+              testID={`${testID}-milestones`}
             />
           </View>
 

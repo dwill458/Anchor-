@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
-import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
-import { mergeMilestoneRecords, uncelebrated, type MilestoneRecord } from '@/milestones/milestoneModel';
+import { uncelebrated, type MilestoneRecord } from '@/milestones/milestoneModel';
 import {
-  milestoneCacheKey,
-  parseMilestoneCache,
-  serializeMilestoneCache,
-  type MilestoneCacheSnapshot,
-} from '@/milestones/milestoneCache';
+  applyServerRecords,
+  flushPendingReceipts,
+  getSnapshot,
+  restoreSnapshot,
+  settleMilestone,
+  snapshotKey,
+  subscribeSnapshots,
+} from '@/milestones/milestoneSnapshots';
 
 export type MilestoneStatus = 'loading' | 'ready' | 'offline' | 'error';
 
@@ -35,120 +37,68 @@ const unwrap = (response?: { data?: unknown } | null): ServerPayload | null => {
 };
 
 /**
- * This Anchor's milestones: restored from the device cache at once, then reconciled with the
- * server (which also awards anything earned while offline). Switching Anchors never shows another
- * Anchor's record, and a celebration receipt is kept and retried if the network drops.
+ * This Anchor's milestones: restored from the device snapshot at once, then reconciled with the
+ * server (which also awards anything earned while offline). The snapshot is shared with the
+ * celebration host, so a celebration finishing anywhere updates every mounted reader.
  */
 export function useAnchorMilestones(anchorId: string | null | undefined): UseAnchorMilestonesResult {
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const [records, setRecords] = useState<MilestoneRecord[]>([]);
   const [status, setStatus] = useState<MilestoneStatus>('loading');
-  const snapshot = useRef<MilestoneCacheSnapshot | null>(null);
-  const scope = useRef('');
   const requestId = useRef(0);
-
-  const persist = useCallback((next: MilestoneCacheSnapshot) => {
-    snapshot.current = next;
-    void Promise.resolve(
-      encryptedPersistStorage.setItem(milestoneCacheKey(next.accountId, next.anchorId), serializeMilestoneCache(next)),
-    ).catch(() => undefined);
-  }, []);
-
-  const flushReceipts = useCallback(
-    async (forScope: string) => {
-      const current = snapshot.current;
-      if (!current || scope.current !== forScope) return;
-      for (const id of [...current.pendingCelebrated]) {
-        try {
-          await apiClient.post(`/api/v2/milestones/${encodeURIComponent(id)}/celebrated`);
-        } catch {
-          return; // Still offline: keep the receipt and try on the next read.
-        }
-        const latest = snapshot.current;
-        if (!latest || scope.current !== forScope) return;
-        persist({ ...latest, pendingCelebrated: latest.pendingCelebrated.filter((pending) => pending !== id) });
-      }
-    },
-    [persist],
-  );
 
   const refresh = useCallback(async () => {
     if (!anchorId || !accountId) return;
-    const forScope = `${accountId}:${anchorId}`;
     const thisRequest = ++requestId.current;
     try {
       const response = await apiClient.get(`/api/v2/anchors/${encodeURIComponent(anchorId)}/milestones`);
-      if (requestId.current !== thisRequest || scope.current !== forScope) return;
+      if (requestId.current !== thisRequest) return;
       const payload = unwrap(response);
       if (!payload) {
         setStatus('error');
         return;
       }
-      const cached = snapshot.current;
-      const merged = mergeMilestoneRecords(cached?.records ?? [], payload.milestones);
-      // A receipt still pending locally stays celebrated even if this read predates it.
-      const pending = new Set(cached?.pendingCelebrated ?? []);
-      const settled = merged.map((record) =>
-        pending.has(record.id) && !record.celebratedAt ? { ...record, celebratedAt: new Date().toISOString() } : record,
-      );
-      persist({ schemaVersion: 1, accountId, anchorId, records: settled, pendingCelebrated: [...pending] });
-      setRecords(settled);
+      applyServerRecords(accountId, anchorId, payload.milestones);
       setStatus('ready');
-      void flushReceipts(forScope);
+      void flushPendingReceipts(accountId, anchorId);
     } catch {
-      if (requestId.current !== thisRequest || scope.current !== forScope) return;
+      if (requestId.current !== thisRequest) return;
       // Keep showing what the device already knows; a failed read removes nothing.
-      setStatus(snapshot.current ? 'offline' : 'error');
+      setStatus(getSnapshot(accountId, anchorId) ? 'offline' : 'error');
     }
-  }, [accountId, anchorId, flushReceipts, persist]);
+  }, [accountId, anchorId]);
 
   useEffect(() => {
-    const forScope = anchorId && accountId ? `${accountId}:${anchorId}` : '';
-    scope.current = forScope;
-    snapshot.current = null;
     setRecords([]);
-    setStatus(forScope ? 'loading' : 'ready');
-    if (!anchorId || !accountId) return;
+    if (!anchorId || !accountId) {
+      setStatus('ready');
+      return;
+    }
+    setStatus('loading');
+    const key = snapshotKey(accountId, anchorId);
+    const unsubscribe = subscribeSnapshots((changed) => {
+      if (changed === key) setRecords(getSnapshot(accountId, anchorId)?.records ?? []);
+    });
     let cancelled = false;
     void (async () => {
-      try {
-        const raw = await encryptedPersistStorage.getItem(milestoneCacheKey(accountId, anchorId));
-        const cached = parseMilestoneCache(raw, accountId, anchorId);
-        if (cancelled || scope.current !== forScope) return;
-        // The cache only seeds the first frame; a server read that landed first is newer.
-        if (cached && !snapshot.current) {
-          snapshot.current = cached;
-          setRecords(mergeMilestoneRecords(cached.records, []));
-        }
-      } catch {
-        // No cache is fine.
-      }
-      if (!cancelled) void refresh();
+      const cached = await restoreSnapshot(accountId, anchorId);
+      if (cancelled) return;
+      if (cached) setRecords(cached.records);
+      await refresh();
     })();
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [accountId, anchorId, refresh]);
 
   const markCelebrated = useCallback(
     async (milestoneId: string) => {
-      const current = snapshot.current;
-      if (!current || !anchorId || !accountId) return;
-      const target = current.records.find((record) => record.id === milestoneId);
-      if (!target || target.celebratedAt) return;
-      const stamped = new Date().toISOString();
-      const next: MilestoneCacheSnapshot = {
-        ...current,
-        records: current.records.map((record) => (record.id === milestoneId ? { ...record, celebratedAt: stamped } : record)),
-        pendingCelebrated: current.pendingCelebrated.includes(milestoneId)
-          ? current.pendingCelebrated
-          : [...current.pendingCelebrated, milestoneId],
-      };
-      persist(next);
-      setRecords(next.records);
-      await flushReceipts(`${accountId}:${anchorId}`);
+      if (!accountId || !anchorId) return;
+      const record = getSnapshot(accountId, anchorId)?.records.find((entry) => entry.id === milestoneId);
+      if (record) await settleMilestone(accountId, record);
     },
-    [accountId, anchorId, flushReceipts, persist],
+    [accountId, anchorId],
   );
 
   const pendingCelebrations = useMemo(() => uncelebrated(records), [records]);
