@@ -17,7 +17,6 @@ import { releaseArtFactors, releaseArtParams, useHomeArrivalContext } from './ho
 import { HomeArrivalCounter } from './HomeArrivalCounter';
 import { HomeArrivalUnderline, HomeEvolvedFromLine, HomeEvolvedGhost } from './HomeArrivalEvolved';
 import { useAnchorTransitionPlace, useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
-import { HeroStatusRing } from './V2HomeHeroLight';
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
 import { HandDrawnPercentage } from './HandDrawnPercentage';
@@ -184,7 +183,7 @@ function useHeroEntrance(
     () => (eligible ? { ground, draw, drawing } : undefined),
     [draw, drawing, eligible, ground],
   );
-  return { entrance, onImageLoad, ringDelayMs: eligible ? HERO_ENTRANCE.ringDelayMs : undefined };
+  return { entrance, onImageLoad };
 }
 
 function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, lastActivatedAnchorIdRef, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
@@ -233,7 +232,6 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
     opacity: interpolate(Math.abs(slot * spacing + offset.value), [0, spacing * 0.55], [1, 0], 'clamp'),
   }));
   const entranceState = useHeroEntrance(summary.anchor, slot, reduceMotion, Boolean(arrival?.active), arrival?.reportHeroImageLoaded);
-  const mountSize = anchorSize + 14;
   // The front disc is Home's place for this Anchor. A return from Details measures it when the copy lands, so a scrolled or re-rendered Home is never flown to a stale position.
   const { ref: discRef } = useAnchorTransitionPlace('home', anchor.id, 'paper', { enabled: slot === 0 });
   const transition = useProgressiveFocusTransition();
@@ -376,7 +374,6 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
             </Animated.View>
           </Pressable>
         </View>
-        <HeroStatusRing mountSize={mountSize} done={summary.practicedToday} entranceDelayMs={entranceState.ringDelayMs} reduceMotion={reduceMotion} />
         </View>
       </Animated.View>
 
