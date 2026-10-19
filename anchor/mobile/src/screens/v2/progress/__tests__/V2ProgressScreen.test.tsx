@@ -524,6 +524,29 @@ describe('V2ProgressScreen', () => {
       expect(onNavigateToMilestones).toHaveBeenCalledWith('anchor-progress-1');
     });
 
+    it('adds earned milestones to the story, and opening one goes to that milestone, not the event sheet', () => {
+      mockUseAnchorMilestones.mockReturnValue(
+        milestonesReturn([milestoneRecord('m1', 'commitment.practices.1', '2026-10-01T12:00:00.000Z', '2026-10-01T12:01:00.000Z')]),
+      );
+      const setSelectedEvent = jest.fn();
+      mockUseV2Progress.mockReturnValue(hookReturn({ setSelectedEvent }));
+      const onNavigateToMilestone = jest.fn();
+      const { getByTestId } = render(
+        <V2ProgressScreen anchorId="anchor-progress-1" onNavigateToMilestone={onNavigateToMilestone} />,
+      );
+      fireEvent.press(getByTestId('thread-event-item-evt-milestone-m1'));
+      expect(onNavigateToMilestone).toHaveBeenCalledWith('anchor-progress-1', 'commitment.practices.1');
+      expect(setSelectedEvent).not.toHaveBeenCalled();
+    });
+
+    it('still opens the detail sheet for an ordinary event', () => {
+      const setSelectedEvent = jest.fn();
+      mockUseV2Progress.mockReturnValue(hookReturn({ setSelectedEvent }));
+      const { getByTestId } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
+      fireEvent.press(getByTestId('thread-event-item-evt-1'));
+      expect(setSelectedEvent).toHaveBeenCalledWith(expect.objectContaining({ id: 'evt-1' }));
+    });
+
     it('queues earned-but-uncelebrated milestones for celebration, once', () => {
       mockUseAnchorMilestones.mockReturnValue(
         milestonesReturn([milestoneRecord('m1', 'commitment.practices.1', '2026-10-01T12:00:00.000Z')]),

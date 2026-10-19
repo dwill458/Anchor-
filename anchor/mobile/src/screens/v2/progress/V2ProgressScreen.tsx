@@ -20,6 +20,8 @@ import { V2Button } from '@/components/v2';
 import { useV2Progress } from '@/hooks/v2/progress';
 import { useProgressJourney } from '@/hooks/v2/progress/useProgressJourney';
 import { useAnchorMilestones } from '@/hooks/v2/milestones/useAnchorMilestones';
+import { mergeMilestoneEvents } from '@/adapters/v2/progress/milestoneEvents';
+import type { V2ThreadEventItem } from '@/adapters/v2/progress/types';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import type { Anchor } from '@/types';
 import {
@@ -90,6 +92,10 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   } = useV2Progress({ anchorId });
   const journey = useProgressJourney(model?.anchorId, model?.route);
   const milestones = useAnchorMilestones(model?.anchorId);
+  const storyEvents = React.useMemo(
+    () => (model ? mergeMilestoneEvents(model.events, milestones.records) : []),
+    [model, milestones.records],
+  );
   const milestoneAccountId = useAuthStore(state => state.user?.id ?? null);
   // Earned but never celebrated (another device, an interrupted scene): queue them behind anything playing.
   React.useEffect(() => {
@@ -174,8 +180,16 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   const canSwitch = anchors.length > 1;
   // A brand-new Anchor has only its creation event, which is not progress; the ghost says what comes next.
   const historyEvents = model.unmeasured
-    ? model.events.filter((event) => event.type !== 'ANCHOR_CREATED')
-    : model.events;
+    ? storyEvents.filter((event) => event.type !== 'ANCHOR_CREATED')
+    : storyEvents;
+  // A milestone event opens that milestone; every other event keeps opening its detail sheet.
+  const handleSelectEvent = (event: V2ThreadEventItem) => {
+    if (event.type === 'MILESTONE_EARNED' && event.milestoneDefinitionId && onNavigateToMilestone) {
+      onNavigateToMilestone(model.anchorId, event.milestoneDefinitionId);
+      return;
+    }
+    setSelectedEvent(event);
+  };
 
   return (
     <View style={styles.root} testID={testID}>
@@ -299,7 +313,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
           <View style={styles.section}>
             <V2ThreadEventTimeline
               events={historyEvents}
-              onSelectEvent={setSelectedEvent}
+              onSelectEvent={handleSelectEvent}
               testID={`${testID}-timeline`}
             />
           </View>

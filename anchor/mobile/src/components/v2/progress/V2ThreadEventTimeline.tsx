@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react-native';
 import { colors, getPracticeColor, radii, typography } from '@/theme/v2';
 import { V2SectionHeader } from '@/components/v2/primitives';
 import { groupThreadEventsByDay } from '@/adapters/v2/progress/progressAdapter';
+import { isRoutineEvent } from '@/adapters/v2/progress/milestoneEvents';
 import type { V2ThreadEventItem, ThreadEventSignificance } from '@/adapters/v2/progress/types';
 import { V2ProgressGhostCard } from './V2ProgressGhostCard';
 import { progressTokens } from './progressTokens';
@@ -35,6 +36,11 @@ function getDotColor(event: V2ThreadEventItem): string {
   }
 }
 
+/**
+ * Your story: the moments that mattered first (Anchor created, strength levels, milestones,
+ * waypoints, your own words, the goal). Routine entries (each practice, route tweaks) are all
+ * still here, one tap away behind the toggle, so no history is hidden or lost.
+ */
 export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
   events,
   onSelectEvent,
@@ -42,6 +48,16 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
   testID = 'v2-thread-event-timeline',
 }) => {
   const [shown, setShown] = React.useState(INITIAL_COUNT);
+  const [showRoutine, setShowRoutine] = React.useState(false);
+  const routineCount = React.useMemo(() => events.filter(isRoutineEvent).length, [events]);
+  const listed = React.useMemo(
+    () => (showRoutine ? events : events.filter((event) => !isRoutineEvent(event))),
+    [events, showRoutine],
+  );
+  const toggleRoutine = () => {
+    setShowRoutine((value) => !value);
+    setShown(INITIAL_COUNT);
+  };
 
   if (events.length === 0) {
     return (
@@ -52,13 +68,19 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
     );
   }
 
-  const visible = events.slice(0, shown);
+  const visible = listed.slice(0, shown);
   const groups = groupThreadEventsByDay(visible, now);
-  const hiddenCount = events.length - visible.length;
+  const hiddenCount = listed.length - visible.length;
 
   return (
     <View style={styles.container} testID={testID}>
-      <V2SectionHeader title="Course log" />
+      <V2SectionHeader title="Your story" />
+
+      {listed.length === 0 ? (
+        <Text style={styles.quiet} testID={`${testID}-quiet`}>
+          Your milestones and moments will gather here. Your practices are recorded under all activity.
+        </Text>
+      ) : null}
 
       <View>
         {groups.map((group) => (
@@ -92,6 +114,20 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
           </View>
         ))}
       </View>
+
+      {routineCount > 0 ? (
+        <Pressable
+          onPress={toggleRoutine}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showRoutine }}
+          testID={`${testID}-routine-toggle`}
+          style={styles.more}
+        >
+          <Text style={styles.moreText}>
+            {showRoutine ? 'Hide routine activity' : `Show all activity (${routineCount} routine)`}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {hiddenCount > 0 ? (
         <Pressable
@@ -130,5 +166,6 @@ const styles = StyleSheet.create({
   subtitle: { ...typography.bodySM, color: progressTokens.muted },
   time: { ...typography.caption, color: progressTokens.muted },
   more: { alignItems: 'center', paddingVertical: 12 },
+  quiet: { ...typography.bodySM, color: progressTokens.muted, paddingVertical: 8, paddingHorizontal: 4 },
   moreText: { ...typography.labelMD, color: progressTokens.text, opacity: 0.7 },
 });

@@ -19,7 +19,8 @@ export type CanonicalThreadEventType =
   | 'ANCHOR_RELEASED'
   | 'CHART_CREATED'
   | 'ROUTE_ADJUSTED'
-  | 'FULL_STRENGTH_REACHED';
+  | 'FULL_STRENGTH_REACHED'
+  | 'MILESTONE_EARNED';
 
 export interface V2ThreadEventItem {
   id: string;
@@ -45,7 +46,9 @@ export interface V2ThreadEventItem {
   practiceMode?: 'focus' | 'deepPrime' | 'visualize' | 'release';
   /** The user's own words for a Move (reflection body, else the Move's title). Never invented. */
   note?: string | null;
-  sourceDomain: 'PRACTICE' | 'THREAD_ENGINE' | 'COURSE_EVENT' | 'ANCHOR_LIFECYCLE';
+  /** The milestone this event records, for opening its detail. */
+  milestoneDefinitionId?: string;
+  sourceDomain: 'PRACTICE' | 'THREAD_ENGINE' | 'COURSE_EVENT' | 'ANCHOR_LIFECYCLE' | 'MILESTONE';
   rawDomainEventId?: string | null;
 }
 
