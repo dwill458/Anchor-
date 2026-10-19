@@ -53,6 +53,15 @@ Taps by `adb input`, frames from `dumpsys gfxinfo` reset before each action, 3 s
 
 Two earlier idle runs (GPU 10-11 ms) overlapped someone touching the phone and were discarded. The Thread Strength glow is not a bottleneck at idle on this device; its cost during swipes is bundled into the carousel hitch above. A 120 Hz to 60 Hz idle drop was visible in the dev overlay after navigation.
 
+## Trace of the open and return stalls (Perfetto, dev build)
+
+One 35 s trace covered Chart, Details and Progress opens plus the Vision and Chart returns (the ring buffer dropped the first seconds, so the first open is missing; the clock offset to my tap times is not exact, so frames are attributed by content, not by tap).
+
+- **Opens** (Chart, Details, Progress): a first frame of 130-250 ms made of two phases. The "animation" phase (Fabric mounting) takes 45-145 ms and creates 190-380 native views at once, including about 70 `react-native-svg` views, Skia picture views, ~20-50 texts and 6 images (Details: 372 INSERT, 133 UPDATE_STATE and 382 UPDATE_LAYOUT instructions in one transaction). The "traversal" phase then spends 70-120 ms in `Record View#draw()` for the first draw of those views, plus 10-60 ms waiting on the RenderThread (`postAndWait`, bitmap upload). Follow-up frames of 25-120 ms are more first draws.
+- **Returns** (Vision/Chart to Home): 40-90 ms frames that are almost all `Record View#draw()` with no mounting. Home's views are redrawn on return.
+- **Refuted experiment:** skipping Details' three below-the-fold sections (Vision preview, Chart preview, Recent Practice) in the served tree left two back-to-back stalls per open (about 165-180 ms and 150-186 ms, against about 246 ms and 118 ms before). Deferring those sections would therefore not remove the stall; the cost is the first draw of the visible hero (artwork, glow canvas, SVG) and screen mount. No deferral code was written. The experiment was reverted and the file verified byte-identical.
+- The stalls share the root of the carousel hitch: first draw of `react-native-svg` views and large native view trees on a debuggable build whose Java runs interpreted/JIT-warming (dex status `run-from-apk`). How much of this remains in a release build is unmeasured, and any structural fix (fewer SVG views, Skia instead of SVG for decorations, splitting screen mounts) changes rendering and needs a design decision plus a release-like baseline.
+
 ## Not done / still open
 
 - Release-like profiling (needs an approved separate build).
