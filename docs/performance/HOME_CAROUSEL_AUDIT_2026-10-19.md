@@ -34,9 +34,31 @@ GPU time was 3-4 ms per frame (p50-p99), so the cost is main-thread/UI work, not
 - Removed the Home hero status ring (`HeroStatusRing`, the thin gold ring with a gold dot at twelve o'clock) at the owner's request. Deleted the component and its now-unused constants. The paper disc, hand-drawn underline, Thread Strength reading, Thread Aura and carousel behaviour are untouched.
 - Measured effect (same sequence, served-tree copy of this patch, 3 runs): p99 **73 / 73 / 85 ms** versus **109-113 ms** baseline. p95 (22-24 ms) and jank percentage (7.7-8.7%) are within noise of baseline. Note this is p99, not a 60 FPS result: p95 still exceeds 16.67 ms on the dev build.
 
+## Navigation and glow baseline (same device and served tree, dev build, no changes)
+
+Taps by `adb input`, frames from `dumpsys gfxinfo` reset before each action, 3 s window (4 s for Vision/Chart). 4 cycles each except where noted. "Back" is the in-app back arrow. The device renders at 120 Hz; "janky" is gfxinfo's deadline-based count.
+
+| Interaction | Janky frames | p99 frame | Missed vsync | Notes |
+|---|---|---|---|---|
+| Home to Details | 3.5-6.4% | 150-200 ms | 6-7 | one stall per open; glow stays aligned |
+| Details to Home | 1.2-2.0% | 21-32 ms | 1-3 | smooth |
+| Home to Progress | 5.4-7.4% | 133-150 ms | 5-7 | one stall per open |
+| Progress to Home | ~1.5% | 16-24 ms | 2-5 | smooth |
+| Home to Vision | 1.8-2.1% | 40-77 ms | 4-6 | no large decode stall |
+| Vision scroll (3 up/down) | 0.8-1.1% | 18-19 ms | 0 | 1148 frames, no slow bitmap uploads |
+| Vision to Home | 15-25% of ~45-52 frames | 150-200 ms | 1-4 | one stall per return; short window so the percentage is inflated |
+| Home to Chart | 6.8-9.9% | 46-150 ms | 12-21 | worst entrance measured; first open showed a coach mark |
+| Chart to Home | 10-15% of ~100 frames | 150-200 ms | 2-3 | one stall per return |
+| Idle Home, 53% glow hero (4 clean runs, 10 s) | 0.4-0.6% | 12 ms | 0 | ~128 frames per 10 s (120 Hz sustained); GPU 3 ms p50, 7-8 ms p99 |
+
+Two earlier idle runs (GPU 10-11 ms) overlapped someone touching the phone and were discarded. The Thread Strength glow is not a bottleneck at idle on this device; its cost during swipes is bundled into the carousel hitch above. A 120 Hz to 60 Hz idle drop was visible in the dev overlay after navigation.
+
 ## Not done / still open
 
 - Release-like profiling (needs an approved separate build).
 - Remaining per-hero SVG cost: construction ring, underline, percentage digits. Reducing it without changing the visuals needs a design decision (for example fewer SVG views per hero) and fresh measurement.
-- Thread Strength glow, Vision board decode, Chart/Progress/Details/practice navigation, memory growth over repeated navigation.
+- Root causes of the per-open stalls in Details, Progress and Chart, and of the return stall from Vision and Chart (measured, not yet traced or fixed).
+- Focus, Deep Prime and Visualize startup, and practice completion: not exercised, because starting a session writes to the real account.
+- Memory growth over repeated navigation, and glow cost at 60 Hz or on a release build.
+- Side effect to know about: a tap on the Chart coach-mark scrim dismissed the first-time overlay during testing.
 - Full Jest remains at its previously documented 26 failing suites; the Home suites (23 suites, 298 tests) pass with this change.
