@@ -5,11 +5,10 @@ import {
     TouchableOpacity,
     StyleSheet,
     Animated,
-    Platform,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
+import { AdaptiveGlassView } from './AdaptiveGlassView';
 
 interface BottomCtaBarProps {
     /** Primary CTA button text */
@@ -71,71 +70,42 @@ export const BottomCtaBar: React.FC<BottomCtaBarProps> = ({
             ]}
             pointerEvents={visible ? 'auto' : 'none'}
         >
-            {Platform.OS === 'ios' ? (
-                <BlurView intensity={20} tint="dark" style={styles.blurContainer}>
-                    <View style={[styles.content, { paddingBottom: bottomPadding }]}>
-                        {helperText && (
-                            <Text style={styles.helperText} accessibilityLabel={helperText}>
-                                {helperText}
-                            </Text>
-                        )}
+            <AdaptiveGlassView
+                intensity={20}
+                tint="dark"
+                fallbackColor="rgba(12, 17, 24, 0.92)"
+                style={styles.blurContainer}
+            >
+                <View style={[styles.content, { paddingBottom: bottomPadding }]}>
+                    {helperText && (
+                        <Text style={styles.helperText} accessibilityLabel={helperText}>
+                            {helperText}
+                        </Text>
+                    )}
 
-                        <TouchableOpacity
+                    <TouchableOpacity
+                        style={[
+                            styles.ctaButton,
+                            disabled && styles.ctaButtonDisabled,
+                        ]}
+                        onPress={onPress}
+                        disabled={disabled}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={ctaText}
+                        accessibilityState={{ disabled }}
+                    >
+                        <Text
                             style={[
-                                styles.ctaButton,
-                                disabled && styles.ctaButtonDisabled,
+                                styles.ctaText,
+                                disabled && styles.ctaTextDisabled,
                             ]}
-                            onPress={onPress}
-                            disabled={disabled}
-                            activeOpacity={0.8}
-                            accessibilityRole="button"
-                            accessibilityLabel={ctaText}
-                            accessibilityState={{ disabled }}
                         >
-                            <Text
-                                style={[
-                                    styles.ctaText,
-                                    disabled && styles.ctaTextDisabled,
-                                ]}
-                            >
-                                {ctaText}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                </BlurView>
-            ) : (
-                <View style={[styles.blurContainer, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-                    <View style={[styles.content, { paddingBottom: bottomPadding }]}>
-                        {helperText && (
-                            <Text style={styles.helperText} accessibilityLabel={helperText}>
-                                {helperText}
-                            </Text>
-                        )}
-
-                        <TouchableOpacity
-                            style={[
-                                styles.ctaButton,
-                                disabled && styles.ctaButtonDisabled,
-                            ]}
-                            onPress={onPress}
-                            disabled={disabled}
-                            activeOpacity={0.8}
-                            accessibilityRole="button"
-                            accessibilityLabel={ctaText}
-                            accessibilityState={{ disabled }}
-                        >
-                            <Text
-                                style={[
-                                    styles.ctaText,
-                                    disabled && styles.ctaTextDisabled,
-                                ]}
-                            >
-                                {ctaText}
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                            {ctaText}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
-            )}
+            </AdaptiveGlassView>
         </Animated.View>
     );
 };

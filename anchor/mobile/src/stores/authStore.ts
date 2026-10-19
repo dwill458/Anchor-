@@ -473,6 +473,9 @@ export const useAuthStore = create<AuthState>()(
           inFlightFinalizePendingFirstAnchor = null;
           useCourseStore.getState().bindAccount(nextUserId);
           useSubscriptionStore.getState().resetForAccount();
+          if (isSwitchingAuthenticatedAccounts || (previousUserId && !nextUserId)) {
+            useTeachingStore.getState().reset();
+          }
         }
         useAnchorStore.getState().bindAccount(nextUserId,
           nextUserId ? (previousUserId === nextUserId ? get().pendingFirstAnchorDraft : pendingHandoff.pendingFirstAnchorDraft)?.tempAnchorId : undefined);
@@ -518,6 +521,9 @@ export const useAuthStore = create<AuthState>()(
           inFlightFinalizePendingFirstAnchor = null;
           useCourseStore.getState().bindAccount(user.id);
           useSubscriptionStore.getState().resetForAccount();
+          if (isSwitchingAuthenticatedAccounts) {
+            useTeachingStore.getState().reset();
+          }
         }
         useAnchorStore.getState().bindAccount(user.id,
           (pendingHandoff.pendingFirstAnchorDraft ?? (previousUserId === user.id ? get().pendingFirstAnchorDraft : null))?.tempAnchorId);

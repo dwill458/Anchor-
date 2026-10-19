@@ -44,10 +44,13 @@ it('dismisses by scrim and Android back, and has no count for one beat', async (
   expect(listener()).toBe(true);
   expect(dismiss).toHaveBeenCalledWith('back');
 });
-it('skips an unavailable target silently', async () => {
+it('skips an unavailable target silently and adjusts the remaining step count', async () => {
   const ready = jest.fn();
-  render(<SpotlightCoach visible steps={[{ ...steps[0], getRect: async () => null }, steps[1]]} reducedMotion onReady={ready} onAdvance={jest.fn()} onDismiss={jest.fn()} />);
+  const skip = jest.fn();
+  const tree = render(<SpotlightCoach visible steps={[{ ...steps[0], getRect: async () => null }, steps[1]]} reducedMotion onReady={ready} onSkip={skip} onAdvance={jest.fn()} onDismiss={jest.fn()} />);
   await waitFor(() => expect(ready).toHaveBeenCalledWith('home.progress'));
   expect(ready).not.toHaveBeenCalledWith('home.today');
+  expect(skip).toHaveBeenCalledWith('home.today');
+  expect(tree.queryByText('2 of 2')).toBeNull();
   expect(measureTeachingTarget).toHaveBeenCalled();
 });

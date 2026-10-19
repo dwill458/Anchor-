@@ -277,6 +277,9 @@ export function V2FocusCompleteScreen({
             surface={colors.background}
             accessibilityLabel={`${anchor.category} Anchor artwork`}
             testID="focus-complete-anchor-artwork"
+            threadStrength={toVal}
+            anchorId={anchor.id}
+            strengthProgress={scene.barProgress}
           />
           {scene.kind === 'fullFirst' ? (
             <Svg

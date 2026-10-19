@@ -39,7 +39,12 @@ export const VisionNoteRenderer = memo(function VisionNoteRenderer({
   const resolvedPreset = { ...preset, ...(selectedFont ? { fontFamily: selectedFont.fontFamily, fontSize: Math.min(preset.fontSize, selectedFont.sizeCap) } : {}), ...typographyOverride };
   const bottomInset = compact ? Math.min(0.12, preset.textInsetBottom ?? 0) : (preset.textInsetBottom ?? 0);
   const textHeight = noteHeight * (1 - bottomInset);
-  const textStyle = resolveVisionNoteTextStyle(text, resolvedPreset, { width: noteWidth, height: textHeight });
+  const rawTextStyle = resolveVisionNoteTextStyle(text, resolvedPreset, { width: noteWidth, height: textHeight });
+  const compactCap = compact ? Math.max(11, Math.floor(Math.max(24, noteWidth - 12) / 5.2)) : rawTextStyle.fontSize;
+  const compactFontSize = Math.min(rawTextStyle.fontSize, compactCap);
+  const textStyle = compact && compactFontSize < rawTextStyle.fontSize
+    ? { fontSize: compactFontSize, lineHeight: Math.max(15, Math.ceil(compactFontSize * (resolvedPreset.lineHeight / resolvedPreset.fontSize))) }
+    : rawTextStyle;
   const assetKey = surfaceAssetOverride === undefined ? preset.surfaceAsset : surfaceAssetOverride;
   const noteAsset = assetKey ? noteAssets[assetKey] : null;
   const silhouetteShadow = Boolean(noteAsset && preset.family === 'paper' && shadowOverride !== 'none' && preset.shadow === 'soft');
@@ -59,7 +64,7 @@ export const VisionNoteRenderer = memo(function VisionNoteRenderer({
     <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={text || 'Empty note preview'}
       style={[styles.shadowFrame, frame, shadow === 'soft' && !silhouetteShadow && styles.shadow,
         preset.family === 'sticky' && { backgroundColor: surfaceColor, borderRadius: 1 }]}>
-      <View style={[styles.surface, preset.family === 'paper' && styles.paperSurface, preset.family === 'sticky' && styles.stickySurface,
+      <View style={[styles.surface, compact && styles.compactSurface, preset.family === 'paper' && styles.paperSurface, preset.family === 'sticky' && styles.stickySurface,
         { backgroundColor: noteAsset ? 'transparent' : surfaceColor, borderColor: preset.borderColor ?? 'transparent' }]}>
         {preset.family === 'sticky' ? <View pointerEvents="none" style={styles.stickyAdhesive} /> : null}
         {noteAsset ? <>
@@ -72,7 +77,7 @@ export const VisionNoteRenderer = memo(function VisionNoteRenderer({
         {preset.ruled ? <View pointerEvents="none" style={styles.rules}>{[0, 1, 2, 3].map(line =>
           <View key={line} style={[styles.rule, { top: `${28 + line * 16}%`, borderColor: `${preset.inkColor}22` }]} />,
         )}</View> : null}
-      <ScrollView style={[styles.textViewport, bottomInset ? { marginBottom: noteHeight * bottomInset } : null]} contentContainerStyle={styles.textContent} nestedScrollEnabled
+      <ScrollView style={[styles.textViewport, bottomInset ? { marginBottom: noteHeight * bottomInset } : null]} contentContainerStyle={[styles.textContent, compact && styles.compactTextContent]} nestedScrollEnabled
         scrollEnabled={scrollText} showsVerticalScrollIndicator={false} accessibilityElementsHidden>
         <Text allowFontScaling maxFontSizeMultiplier={2} textBreakStrategy="simple" selectable={false}
           style={{ fontFamily: typographyOverride?.fontFamily ?? resolvedPreset.fontFamily, fontSize: typographyOverride?.fontSize ?? textStyle.fontSize, lineHeight: typographyOverride?.lineHeight ?? textStyle.lineHeight,
@@ -102,6 +107,7 @@ function EditorialDetails({ id, compact }: { id: VisionNoteStyleId; compact: boo
 const styles = StyleSheet.create({
   shadowFrame: { backgroundColor: 'transparent', overflow: 'visible' },
   surface: { flex: 1, borderRadius: radii.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: 'transparent', overflow: 'hidden', justifyContent: 'center', paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
+  compactSurface: { paddingHorizontal: 6, paddingVertical: 5 },
   paperSurface: { overflow: 'visible' },
   stickySurface: { borderRadius: 1, borderWidth: 0 },
   stickyAdhesive: { position: 'absolute', top: 0, left: 0, right: 0, height: '11%', backgroundColor: '#FFFFFF', opacity: .08,
@@ -113,4 +119,5 @@ const styles = StyleSheet.create({
   rule: { position: 'absolute', left: spacing[3], right: spacing[3], borderTopWidth: StyleSheet.hairlineWidth },
   textViewport: { flex: 1, zIndex: 1 },
   textContent: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing[1] },
+  compactTextContent: { paddingVertical: 1 },
 });

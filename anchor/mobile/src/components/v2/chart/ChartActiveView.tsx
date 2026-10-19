@@ -361,9 +361,10 @@ export function ChartActiveView({
     }
   }, [accountId, teachingKey, view.courseId]);
   useEffect(() => {
-    if (!__DEV__) return undefined;
     const replay = DeviceEventEmitter.addListener('chartReplayOneMoveTeaching', (courseId?: string) => {
       if (courseId && courseId !== view.courseId) return;
+      teachingShownKey.current = null;
+      setTaughtState({ key: teachingKey, loaded: true, taught: false });
       replayTeaching();
     });
     const reset = DeviceEventEmitter.addListener('chartResetOneMoveTeaching', (courseId?: string) => {
@@ -597,8 +598,6 @@ export function ChartActiveView({
     if (!oneMoveRowRef.current || !oneMoveCircleRef.current || !oneMoveBodyRef.current) return;
     teachingSessionKey.current = teachingKey;
     teachingShownKey.current = teachingKey;
-    setChartTaughtState(accountId, view.courseId);
-    setTaughtState({ key: teachingKey, loaded: true, taught: true });
     setTeachingVisible(true);
   }, [accountId, ceremony, confirmOpen, dayHold, menuOpen, openingFinished, reachEvent, runner, sheetDetent, swapRevision, taughtState, teachingKey, view.courseId, view.waypoints]);
 
@@ -613,8 +612,6 @@ export function ChartActiveView({
   useEffect(() => {
     if (teachingVisible && (runner.isBusy() || reachingRef.current || ceremony || reachEvent || confirmOpen || menuOpen || sheetDetent === 'hidden')) {
       setTeachingVisible(false);
-      setChartTaughtState(accountId, view.courseId);
-      setTaughtState({ key: teachingKey, loaded: true, taught: true });
     }
   }, [accountId, ceremony, confirmOpen, menuOpen, reachEvent, runner, sheetDetent, swapRevision, teachingKey, teachingVisible, view.courseId]);
 

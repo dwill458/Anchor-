@@ -43,10 +43,19 @@ describe('chartTaughtState', () => {
     expect(await getChartTaughtState(null, 'course-3')).toBe(true);
   });
 
-  it('migrates guest taught state to account on read', async () => {
+  it('migrates guest taught state to account on read without leaking to a second account', async () => {
     await encryptedPersistStorage.setItem('guest:chart-taught', '1');
     resetChartTaughtStateCache();
     expect(await getChartTaughtState('new-acct', 'course-1')).toBe(true);
+    expect(await getChartTaughtState('second-acct', 'course-1')).toBe(false);
+    await encryptedPersistStorage.removeItem('anchor:v2:chart2:taught:new-acct');
+  });
+
+  it('does not leak an authenticated account mark into another account or guest', async () => {
+    setChartTaughtState('acct-1', 'course-1');
+    expect(await getChartTaughtState('acct-1', 'course-1')).toBe(true);
+    expect(await getChartTaughtState('acct-2', 'course-1')).toBe(false);
+    expect(await getChartTaughtState(null, 'course-1')).toBe(false);
   });
 
   it('migrates legacy per-course marks on read for backwards compatibility', async () => {

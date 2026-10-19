@@ -28,4 +28,14 @@ describe('read-only Notes preview bridge', () => {
     view.rerender(<Host notes={[note('  '), note('Future style', 'unknown' as never), { ...note('Archived private words'), isArchived: true }]} />);
     expect(view.queryByTestId('vision-preview-note-n1')).toBeNull();
   });
+  it('truncates compact miniature notes at word boundaries instead of single-letter stubs', () => {
+    function CompactHost({ notes }: { notes: VisionNote[] }) {
+      const elements = useVisionEditorialNotes(notes);
+      return <View>{elements.map(item => <View key={item.id}>{item.render({ width: 68, height: 80 })}</View>)}</View>;
+    }
+    const view = render(<CompactHost notes={[note('I provide deeply for my family', 'editorial_misty_mountains')]} />);
+    expect(view.getByTestId('vision-preview-note-n1').props.accessibilityLabel).toBe('I provide deeply…');
+    view.rerender(<CompactHost notes={[note('I love my black Texas mansion', 'editorial_golden_hour')]} />);
+    expect(view.getByTestId('vision-preview-note-n1').props.accessibilityLabel).toBe('I love my black…');
+  });
 });

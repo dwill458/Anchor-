@@ -90,7 +90,7 @@ export const V1_INSIGHT_THRESHOLDS = {
  */
 export const WEEKLY_INSIGHT_COLORS = {
   career: '#3157D8',
-  health: '#2FA879',
+  health: '#238A65',
   ambition: '#E85D32',
   focus: '#8B5CF6',
   prime: '#E0A038',

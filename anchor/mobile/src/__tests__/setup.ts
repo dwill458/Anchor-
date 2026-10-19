@@ -476,3 +476,7 @@ jest.setTimeout(10000);
 // None of our tests assert on animated values, so animations being visual no-ops is fine.
 (global as any).requestAnimationFrame = jest.fn().mockReturnValue(0);
 (global as any).cancelAnimationFrame = jest.fn();
+
+// The Skia aura canvas drives a Reanimated frame callback that the JS-only test runtime cannot unregister.
+// Screens that render Anchors with an aura get a null canvas; ThreadAuraCanvas.test.tsx unmocks the real one.
+jest.mock('@/components/v2/anchor/ThreadAuraCanvas', () => ({ ThreadAuraCanvas: () => null }));

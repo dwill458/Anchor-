@@ -14,7 +14,13 @@ import { seedV2DemoAnchor, DEMO_ANCHOR_ID } from '@/utils/v2DevSeeder';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
 import { resetChartIntroSeen } from '@/components/v2/chart/chartIntroSeen';
+import {
+  useDetectedPerformanceTier,
+  usePerformanceTier,
+  type PerformanceTierOverride,
+} from '@/hooks/usePerformanceTier';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export function V2DevFloatingToolbar() {
@@ -22,6 +28,25 @@ export function V2DevFloatingToolbar() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const activeAnchor = useAnchorStore((s) => s.anchors[0]);
+  const simulatedStrength = useDevThreadStrengthStore((s) => s.value);
+  const simulateStrength = useDevThreadStrengthStore((s) => s.simulate);
+
+  const devPerfTierOverride: PerformanceTierOverride = (
+    typeof useSettingsStore === 'function'
+      ? useSettingsStore((s: any) => s?.devPerfTierOverride)
+      : (useSettingsStore as any)?.getState?.()?.devPerfTierOverride
+  ) ?? 'auto';
+
+  const setDevPerfTierOverride = (tier: PerformanceTierOverride) => {
+    if (typeof useSettingsStore === 'function') {
+      useSettingsStore.getState?.()?.setDevPerfTierOverride?.(tier);
+    } else {
+      (useSettingsStore as any)?.getState?.()?.setDevPerfTierOverride?.(tier);
+    }
+  };
+
+  const detectedTier = useDetectedPerformanceTier();
+  const effectiveTier = usePerformanceTier({ override: devPerfTierOverride });
 
   if (!__DEV__) return null;
 
@@ -166,6 +191,57 @@ export function V2DevFloatingToolbar() {
 
               <View style={styles.divider} />
 
+              <Text style={styles.sectionLabel}>
+                Visual Tier: {effectiveTier.toUpperCase()}
+                {devPerfTierOverride === 'auto' ? ` (Auto: ${detectedTier})` : ' (Forced)'}
+              </Text>
+              <View style={styles.chipRow}>
+                {(['auto', 'high', 'medium', 'low'] as const).map((tier) => {
+                  const isSelected = devPerfTierOverride === tier;
+                  const label =
+                    tier === 'auto' ? 'Auto' : tier === 'medium' ? 'Med' : tier.charAt(0).toUpperCase() + tier.slice(1);
+                  return (
+                    <Pressable
+                      key={tier}
+                      testID={`v2-dev-perf-${tier}`}
+                      style={[styles.chip, isSelected && styles.chipActive]}
+                      onPress={() => setDevPerfTierOverride(tier)}
+                    >
+                      <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.sectionLabel}>
+                Thread Strength glow simulator{simulatedStrength === null ? ' (real data)' : ` (${simulatedStrength}%)`}
+              </Text>
+              <View style={styles.chipRow}>
+                {[0, 1, 26, 49, 80, 100].map((value) => (
+                  <Pressable
+                    key={value}
+                    testID={`v2-dev-strength-${value}`}
+                    style={[styles.chip, simulatedStrength === value && styles.chipActive]}
+                    onPress={() => { simulateStrength(value); setOpen(false); }}
+                  >
+                    <Text style={[styles.chipText, simulatedStrength === value && styles.chipTextActive]}>{value}%</Text>
+                  </Pressable>
+                ))}
+                <Pressable
+                  testID="v2-dev-strength-real"
+                  style={[styles.chip, simulatedStrength === null && styles.chipActive]}
+                  onPress={() => { simulateStrength(null); setOpen(false); }}
+                >
+                  <Text style={[styles.chipText, simulatedStrength === null && styles.chipTextActive]}>Real</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.divider} />
+
               <Pressable style={styles.actionRowDanger} onPress={handleResetOnboarding}>
                 <Text style={styles.actionRowDangerText}>↺ Reset & Return to First Run (Onboarding)</Text>
               </Pressable>
@@ -278,6 +354,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  sectionLabel: { color: colors.text.secondary, fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  chip: { backgroundColor: '#EDE8DF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: radii.sm },
+  chipActive: { backgroundColor: colors.ink.base },
+  chipText: { color: colors.ink.base, fontSize: 13, fontWeight: '600' },
+  chipTextActive: { color: '#FAF7F2' },
   closeButton: {
     marginTop: 12,
     alignItems: 'center',

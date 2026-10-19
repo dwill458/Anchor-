@@ -1,4 +1,4 @@
-import { editorialImageFit, editorialImageIdentity, getEditorialPhotoSlots, getEditorialPreviewHeight, selectEditorialImages } from '../visionEditorialLayout';
+import { editorialImageFit, editorialImageIdentity, getEditorialNoteSlots, getEditorialPhotoSlots, getEditorialPreviewHeight, selectEditorialImages } from '../visionEditorialLayout';
 
 const tiles = Array.from({ length: 20 }, (_, index) => ({ id: `photo-${index}`, imageUrl: `https://vision.test/${index}.jpg` }));
 
@@ -84,7 +84,7 @@ describe('adaptive collage geometry', () => {
 
   it.each(['home', 'details'] as const)('%s returns stable in-bounds slots at small and large counts', variant => {
     const canvas = { width: 360, height: variant === 'home' ? 245 : 223 };
-    for (const count of [1, 2, 3, 4, 6, 8, 20]) {
+    for (const count of [1, 2, 3, 4, 5, 6, 8, 20]) {
       const aspects = Array.from({ length: count }, (_, index) => [0.45, 0.7, 1, 1.8][index % 4]);
       const slots = getEditorialPhotoSlots(variant, count, aspects, canvas);
       expect(slots).toEqual(getEditorialPhotoSlots(variant, count, aspects, canvas));
@@ -104,6 +104,26 @@ describe('adaptive collage geometry', () => {
       }
     }
     expect(getEditorialPhotoSlots(variant, 0)).toEqual([]);
+  });
+
+  it.each(['home', 'details'] as const)('%s spans 5 photos in an interlocking mosaic across canvas width', variant => {
+    const canvas = { width: 360, height: variant === 'home' ? 245 : 223 };
+    for (const aspect of [0.56, 0.75, 1.0, 1.33, 1.5]) {
+      const aspects = Array(5).fill(aspect);
+      const slots = getEditorialPhotoSlots(variant, 5, aspects, canvas);
+      expect(slots).toHaveLength(5);
+      const bounds = slots.map(slot => getRotatedBounds(slot, canvas.width / canvas.height));
+      const minX = Math.min(...bounds.map(b => b.left));
+      const maxX = Math.max(...bounds.map(b => b.right));
+      const minY = Math.min(...bounds.map(b => b.top));
+      const maxY = Math.max(...bounds.map(b => b.bottom));
+      // Must use at least 70% of the stage horizontally, never crushed to a narrow center pillar.
+      expect(maxX - minX).toBeGreaterThanOrEqual(0.70);
+      expect(minX).toBeGreaterThanOrEqual(0.03);
+      expect(maxX).toBeLessThanOrEqual(0.97);
+      expect(minY).toBeGreaterThanOrEqual(0.03);
+      expect(maxY).toBeLessThanOrEqual(0.97);
+    }
   });
 
   it.each(['home', 'details'] as const)('%s packs connected actual prints through the center', variant => {
@@ -166,6 +186,58 @@ describe('adaptive collage geometry', () => {
     expect(slots[1].width * (canvas.width / canvas.height) / slots[1].height).toBeCloseTo(1.8, 5);
     expect(slots[2].width * (canvas.width / canvas.height) / slots[2].height).toBeCloseTo(0.5, 5);
     expect(editorialImageFit(0.75, 0.75)).toBe('cover');
+  });
+
+  it.each(['home', 'details'] as const)('%s keeps 3-image compositions in an overlapping Polaroid trio with balanced breathing room and note clearance', variant => {
+    for (const width of [320, 360, 375, 390, 412, 430]) {
+      for (const aspects of [[0.68, 0.68, 0.68], [0.8, 0.8, 0.8], [1, 1, 1], [1.5, 1.5, 1.5], [0.7, 1.4, 0.8]]) {
+        const height = getEditorialPreviewHeight(variant, width, 3, aspects);
+        const canvasAspect = width / height;
+        const slots = getEditorialPhotoSlots(variant, 3, aspects, { width, height });
+        const [noteSlot] = getEditorialNoteSlots(variant, 1, 3);
+        expect(slots).toHaveLength(3);
+        // Preserve [left: 1, center hero: 0, right: 2] overlapping Polaroid order and depth.
+        expect(slots[1].x + slots[1].width / 2).toBeLessThan(slots[0].x + slots[0].width / 2);
+        expect(slots[0].x + slots[0].width / 2).toBeLessThan(slots[2].x + slots[2].width / 2);
+        expect(slots[0].zIndex).toBeGreaterThan(slots[1].zIndex);
+        expect(slots[0].zIndex).toBeGreaterThan(slots[2].zIndex);
+        // Connected overlapping trio
+        expect(slots[1].x + slots[1].width).toBeGreaterThan(slots[0].x);
+        expect(slots[0].x + slots[0].width).toBeGreaterThan(slots[2].x);
+        const bounds = slots.map(slot => getRotatedBounds(slot, canvasAspect));
+        expect(Math.min(...bounds.map(b => b.top))).toBeGreaterThanOrEqual(0.10 - 1e-6);
+        expect(Math.max(...bounds.map(b => b.bottom))).toBeLessThanOrEqual(0.89 + 1e-6);
+        expect(Math.max(...bounds.map(b => b.right))).toBeLessThanOrEqual(0.84 + 1e-6);
+        // Right photo subject center stays clear of the note slot.
+        expect(slots[2].x + slots[2].width / 2).toBeLessThan(noteSlot.x);
+      }
+    }
+  });
+
+  it.each(['home', 'details'] as const)('%s spreads 4-image compositions across horizontal space rather than a narrow vertical stack', variant => {
+    for (const width of [320, 360, 375, 390, 412, 430]) {
+      for (const aspects of [[0.68, 0.68, 0.68, 0.68], [0.8, 0.8, 0.8, 0.8], [1, 1, 1, 1], [1.5, 1.5, 1.5, 1.5], [0.68, 1.35, 0.75, 1.2]]) {
+        const height = getEditorialPreviewHeight(variant, width, 4, aspects);
+        const canvasAspect = width / height;
+        const slots = getEditorialPhotoSlots(variant, 4, aspects, { width, height });
+        const [noteSlot] = getEditorialNoteSlots(variant, 1, 4);
+        expect(slots).toHaveLength(4);
+        const bounds = slots.map(slot => getRotatedBounds(slot, canvasAspect));
+        const spanX = Math.max(...bounds.map(b => b.right)) - Math.min(...bounds.map(b => b.left));
+        expect(spanX).toBeGreaterThan(0.72);
+        expect(Math.min(...bounds.map(b => b.top))).toBeGreaterThanOrEqual(0.09 - 1e-6);
+        expect(Math.max(...bounds.map(b => b.bottom))).toBeLessThanOrEqual(0.89 + 1e-6);
+        expect(Math.max(...bounds.map(b => b.right))).toBeLessThanOrEqual(0.85 + 1e-6);
+        const centersX = [slots[1], slots[0], slots[2], slots[3]].map(slot => slot.x + slot.width / 2);
+        expect(centersX[0]).toBeLessThan(centersX[1]);
+        expect(centersX[1]).toBeLessThan(centersX[2]);
+        expect(centersX[2]).toBeLessThan(centersX[3]);
+        expect(centersX[3]).toBeLessThan(noteSlot.x);
+        slots.forEach((slot, index) => {
+          expect(slot.width * canvasAspect / slot.height).toBeCloseTo(aspects[index], 5);
+        });
+      }
+    }
   });
 });
 function getRotatedBounds(slot: { x: number; y: number; width: number; height: number; rotation: number }, canvasAspect: number) {

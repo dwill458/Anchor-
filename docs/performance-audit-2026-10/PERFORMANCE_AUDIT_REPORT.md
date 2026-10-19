@@ -1776,3 +1776,7 @@ See [NATIVE_DATA_RECOVERY_VALIDATION.md](NATIVE_DATA_RECOVERY_VALIDATION.md) for
 ## PERF-003 / storage blocking investigation — current bounded pass
 
 See [PERF003_STORAGE_BLOCKING_REMEDIATION.md](PERF003_STORAGE_BLOCKING_REMEDIATION.md) for the current await-chain map, controlled Focus reproducer, identical in-flight write correction, unchanged safety gates, isolated probes, measurements and explicit verification gaps. This supplements the current-source native recovery checkpoint; it does not close physical-device acceptance, restart the audit, or authorize SQLCipher implementation. Changes remain uncommitted and unpublished; motion, visuals, audio and haptics are unchanged.
+
+## SQLCipher implementation checkpoint — 2026-10-14
+
+See [SQLCipher migration implementation](SQLCIPHER_MIGRATION_IMPLEMENTATION.md) and [native measurement evidence](SQLCIPHER_NATIVE_BENCHMARK_RESULTS.json). Implementation and synthetic Android SQLCipher testing are isolated in `codex/sqlcipher-migration`; production activation remains disabled. Measured 72-Anchor read: 4,533.267 ms legacy versus 222.665 ms SQLCipher; single-Anchor update p50: 46,416.314 ms versus 34.739 ms. Encryption, retained-key native updates and interrupted-import recovery passed in the diagnostic package. Full-app data-integrity certification, physical Android/iOS, progress/draft projection replay, key recovery and rollout compatibility remain open. No owner data was migrated and no OTA/release was published. Storage improvement is established; production rollout review is not yet approved.

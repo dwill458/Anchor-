@@ -88,7 +88,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         : '';
     const insets = useSafeAreaInsets();
     const { width, height } = useWindowDimensions();
-    const { recordShown } = useTeachingStore();
+    const recordShown = useTeachingStore((s) => s.recordShown);
 
     const scrollViewRef = useRef<ScrollView>(null);
     const textInputRef = useRef<TextInput>(null);

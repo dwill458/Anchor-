@@ -7,6 +7,7 @@
 export { ScreenHeader } from './ScreenHeader';
 export { ZenBackground } from './ZenBackground';
 export { GlassCard } from './GlassCard';
+export { AdaptiveGlassView, useAdaptiveGlass, type AdaptiveGlassViewProps } from './AdaptiveGlassView';
 export { LogoBreath } from './LogoBreath';
 export { BottomCtaBar, BOTTOM_BAR_HEIGHT } from './BottomCtaBar';
 export { BottomDock, DOCK_HEIGHT } from './BottomDock';

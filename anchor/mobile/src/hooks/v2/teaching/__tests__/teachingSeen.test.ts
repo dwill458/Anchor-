@@ -3,12 +3,14 @@ import { getTeachingSeen, resetAllTeachingSeen, resetTeachingSeenCache, setTeach
 jest.mock('@/stores/encryptedPersistStorage', () => ({ encryptedPersistStorage: { getItem: jest.fn(), setItem: jest.fn(), removeItem: jest.fn() } }));
 const storage = encryptedPersistStorage as jest.Mocked<typeof encryptedPersistStorage>;
 beforeEach(() => { jest.clearAllMocks(); resetTeachingSeenCache(); storage.getItem.mockResolvedValue(null); });
-it('persists per account and beat using the new namespace', async () => {
+it('persists per account and beat using the new namespace without writing to guest storage', async () => {
   setTeachingSeen('a/b', 'home.today');
   await Promise.resolve();
   expect(storage.setItem).toHaveBeenCalledWith('anchor:v2:teach:home.today:a%2Fb', '1');
+  expect(storage.setItem).not.toHaveBeenCalledWith('guest:teach:home.today', '1');
   expect(await getTeachingSeen('a/b', 'home.today')).toBe(true);
   expect(await getTeachingSeen('other', 'home.today')).toBe(false);
+  expect(await getTeachingSeen(null, 'home.today')).toBe(false);
   expect(await getTeachingSeen('a/b', 'home.progress')).toBe(false);
 });
 it('guests persist under guest namespace', async () => {
@@ -21,9 +23,14 @@ it('guests persist under guest namespace', async () => {
   expect(await getTeachingSeen(null, 'home.today')).toBe(true);
   expect(storage.getItem).toHaveBeenCalledWith('guest:teach:home.today');
 });
-it('migrates guest seen state to account on read', async () => {
-  storage.getItem.mockImplementation(async (key: string) => (key === 'guest:teach:home.today' ? '1' : null));
+it('migrates guest seen state to account on read and consumes the guest flag', async () => {
+  const disk = new Map<string, string>([['guest:teach:home.today', '1']]);
+  storage.getItem.mockImplementation(async (key: string) => disk.get(key) ?? null);
+  storage.setItem.mockImplementation(async (key: string, val: string) => { disk.set(key, val); });
+  storage.removeItem.mockImplementation(async (key: string) => { disk.delete(key); });
   expect(await getTeachingSeen('user-1', 'home.today')).toBe(true);
+  await Promise.resolve();
+  expect(await getTeachingSeen('user-2', 'home.today')).toBe(false);
 });
 it('storage throws never crash', async () => {
   storage.getItem.mockImplementation(() => { throw Error('offline'); });

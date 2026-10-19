@@ -18,7 +18,7 @@
  * yet installed. The hook degrades gracefully if they are missing.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, PixelRatio, Platform } from 'react-native';
+import { AccessibilityInfo, Dimensions, PixelRatio, Platform } from 'react-native';
 
 export type PerformanceTier = 'high' | 'medium' | 'low';
 
@@ -87,6 +87,19 @@ const detectPlatformTier = (): PerformanceTier => {
     return 'high';
   }
   if (Platform.OS === 'android') {
+    try {
+      const screen = Dimensions.get('screen');
+      const pixelRatio = PixelRatio.get();
+      const physicalPixelCount = screen.width * screen.height * pixelRatio * pixelRatio;
+
+      // Budget 720p Android displays (e.g. Moto G Play, Galaxy A0x/A1x) have ~1.15M physical pixels
+      if (physicalPixelCount > 0 && physicalPixelCount < 2_000_000) {
+        return 'low';
+      }
+    } catch {
+      // Dimensions not available in some test environments
+    }
+
     const sdk = typeof Platform.Version === 'number' ? Platform.Version : 0;
     if (sdk > 0 && sdk < 29) return 'low';
     if (sdk >= 31) {
@@ -100,7 +113,7 @@ const detectPlatformTier = (): PerformanceTier => {
 const normalizeDeviceText = (value: string | null | undefined): string =>
   (value ?? '').trim().toLowerCase();
 
-const isKnownHighEndAndroidDevice = (device: ExpoDeviceModule | null): boolean => {
+export const isKnownHighEndAndroidDevice = (device: ExpoDeviceModule | null): boolean => {
   if (!device || Platform.OS !== 'android') {
     return false;
   }
@@ -121,6 +134,22 @@ const isKnownHighEndAndroidDevice = (device: ExpoDeviceModule | null): boolean =
   );
 };
 
+export const isKnownLowEndAndroidDevice = (device: ExpoDeviceModule | null): boolean => {
+  if (!device || Platform.OS !== 'android') {
+    return false;
+  }
+
+  const brand = normalizeDeviceText(device.brand || device.manufacturer);
+  const model = normalizeDeviceText(device.modelName || device.designName);
+  const fingerprint = `${brand} ${model}`;
+
+  return (
+    /moto.*g.*play|moto.*e\b|motorola.*fogona|xt2413/i.test(fingerprint) ||
+    /galaxy.*a0\d|galaxy.*a1[0-4]|sm-a0\d|sm-a1[0-4]/i.test(fingerprint) ||
+    /redmi.*(9|10|12)c?|redmi.*a[1-3]/i.test(fingerprint)
+  );
+};
+
 export const getDetectedPerformanceTier = (): PerformanceTier => {
   let tier: PerformanceTier = detectPlatformTier();
   const device = loadExpoDevice();
@@ -134,6 +163,10 @@ export const getDetectedPerformanceTier = (): PerformanceTier => {
       return maxTier(tier, 'high');
     }
 
+    if (isKnownLowEndAndroidDevice(device)) {
+      return 'low';
+    }
+
     const yearClass = device.deviceYearClass;
     if (yearClass !== null && yearClass !== undefined) {
       if (yearClass < 2019) tier = minTier(tier, 'low');
@@ -143,8 +176,15 @@ export const getDetectedPerformanceTier = (): PerformanceTier => {
     const memoryBytes = device.totalMemory;
     if (memoryBytes !== null && memoryBytes !== undefined && memoryBytes > 0) {
       const memoryGb = memoryBytes / 1_073_741_824;
-      if (memoryGb < 2) tier = minTier(tier, 'low');
-      else if (memoryGb < 3) tier = minTier(tier, 'medium');
+      if (Platform.OS === 'android') {
+        // Android reserves 300-500MB of RAM for kernel/radio. Devices with 4GB physical RAM
+        // report ~3.5-3.8GB totalMemory. On modern Android, <=4GB physical is budget entry-level.
+        if (memoryGb < 3.8) tier = minTier(tier, 'low');
+        else if (memoryGb < 5.5) tier = minTier(tier, 'medium');
+      } else {
+        if (memoryGb < 2) tier = minTier(tier, 'low');
+        else if (memoryGb < 3) tier = minTier(tier, 'medium');
+      }
     }
   } catch {
     // expo-device not available — platform tier is sufficient

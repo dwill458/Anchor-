@@ -52,11 +52,15 @@ export const ELASTIC = {
 
 const ELASTIC_ENABLED = Platform.OS === 'android';
 
-/** Rubber-band curve: linear-ish for small pulls, flattening toward `limit`. */
-export function rubberBand(distance: number, limit: number = ELASTIC.limit, resistance: number = ELASTIC.resistance): number {
+/**
+ * Rubber-band curve: linear-ish for small pulls, flattening toward `ELASTIC.limit`.
+ * Reads ELASTIC in the body rather than in default parameters: default values are not
+ * captured into the worklet closure, so they fail on the UI thread ("Property 'ELASTIC' doesn't exist").
+ */
+export function rubberBand(distance: number): number {
   'worklet';
   if (distance <= 0) return 0;
-  return (1 - 1 / ((distance * resistance) / limit + 1)) * limit;
+  return (1 - 1 / ((distance * ELASTIC.resistance) / ELASTIC.limit + 1)) * ELASTIC.limit;
 }
 
 export function useHomeElasticScroll() {

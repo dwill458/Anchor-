@@ -5,9 +5,9 @@ export type V2Category =
 type CategoryKey = Lowercase<V2Category>;
 
 export const categories: Record<CategoryKey, string> = {
-  desire: '#A64F68', health: '#66856A', career: '#A87932', relationships: '#B96563',
-  creativity: '#88769B', spirituality: '#43566E', abundance: '#B09555', family: '#A9634B',
-  learning: '#5F9DA2', adventure: '#B96A3D', focus: '#68645F', custom: '#8A8175',
+  desire: '#C23B72', health: '#238A65', career: '#3157D8', relationships: '#E17D69',
+  creativity: '#E58A27', spirituality: '#7657D9', abundance: '#A48B25', family: '#A96743',
+  learning: '#168C98', adventure: '#329BC9', focus: '#62666D', custom: '#C64D40',
 };
 
 export function getCategoryColor(category?: string | null): string {

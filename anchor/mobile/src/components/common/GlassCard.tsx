@@ -2,6 +2,8 @@ import React from 'react';
 import { Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { tierPolicy } from '@/hooks/usePerformanceTier';
 
 interface GlassCardProps {
   children: React.ReactNode;
@@ -34,21 +36,25 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   showInnerGlow = true,
   glowColors = DEFAULT_GLOW_COLORS,
 }) => {
+  const perfTier = useAppPerformanceTier();
+  const policy = tierPolicy(perfTier);
+  const shouldBlur = policy.enableBlurViews;
+
   return (
     <View
       style={[
         styles.container,
         {
           borderColor,
-          backgroundColor: Platform.OS === 'ios' ? backgroundColor : androidFallbackColor,
+          backgroundColor: shouldBlur ? backgroundColor : androidFallbackColor,
         },
         style,
       ]}
       pointerEvents={pointerEvents}
     >
-      {Platform.OS === 'ios' ? (
+      {shouldBlur ? (
         <BlurView
-          intensity={intensity}
+          intensity={intensity ?? policy.blurIntensity}
           tint="dark"
           style={StyleSheet.absoluteFillObject}
           pointerEvents="none"

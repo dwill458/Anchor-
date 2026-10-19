@@ -438,18 +438,18 @@ export function deriveIntentionSignal(intention: string): IntentionSignal {
 // ============================================================================
 
 export const CATEGORY_PALETTE_MAP: Record<string, { name: string; hex: string; desc: string }> = {
-  desire: { name: 'Desire', hex: '#D94F8A', desc: 'Rose / Crimson (#D94F8A) — magnetic warmth, emotional velocity' },
-  health: { name: 'Health', hex: '#2FA879', desc: 'Emerald / Forest Green (#2FA879) — vital equilibrium, cellular calm' },
+  desire: { name: 'Desire', hex: '#C23B72', desc: 'Rose / Crimson (#C23B72) — magnetic warmth, emotional velocity' },
+  health: { name: 'Health', hex: '#238A65', desc: 'Emerald / Forest Green (#238A65) — vital equilibrium, cellular calm' },
   career: { name: 'Career', hex: '#3157D8', desc: 'Cobalt / Royal Blue (#3157D8) — structural clarity, professional focus' },
-  relationships: { name: 'Relationships', hex: '#E56F7A', desc: 'Coral Rose / Blush (#E56F7A) — intimate resonance, connective warmth' },
-  creativity: { name: 'Creativity', hex: '#F28A2E', desc: 'Tangerine / Warm Amber (#F28A2E) — expressive vitality, innovative spark' },
+  relationships: { name: 'Relationships', hex: '#E17D69', desc: 'Coral Rose / Blush (#E17D69) — intimate resonance, connective warmth' },
+  creativity: { name: 'Creativity', hex: '#E58A27', desc: 'Tangerine / Warm Amber (#E58A27) — expressive vitality, innovative spark' },
   spirituality: { name: 'Spirituality', hex: '#7657D9', desc: 'Deep Violet / Amethyst (#7657D9) — contemplative depth, sacred quiet' },
-  abundance: { name: 'Abundance', hex: '#B6A32A', desc: 'Warm Gold / Olive Ochre (#B6A32A) — fertile radiance, earned grounding' },
-  family: { name: 'Family', hex: '#C86B45', desc: 'Terracotta / Warm Ochre (#C86B45) — ancestral rooting, sheltering warmth' },
-  learning: { name: 'Learning', hex: '#198C9C', desc: 'Deep Teal / Sea Pine (#198C9C) — analytical lucidity, quiet intellect' },
-  adventure: { name: 'Adventure', hex: '#2D9FC8', desc: 'Cerulean / Ocean Blue (#2D9FC8) — horizon expansiveness, forward motion' },
+  abundance: { name: 'Abundance', hex: '#A48B25', desc: 'Warm Gold / Olive Ochre (#A48B25) — fertile radiance, earned grounding' },
+  family: { name: 'Family', hex: '#A96743', desc: 'Terracotta / Warm Ochre (#A96743) — ancestral rooting, sheltering warmth' },
+  learning: { name: 'Learning', hex: '#168C98', desc: 'Deep Teal / Sea Pine (#168C98) — analytical lucidity, quiet intellect' },
+  adventure: { name: 'Adventure', hex: '#329BC9', desc: 'Cerulean / Ocean Blue (#329BC9) — horizon expansiveness, forward motion' },
   focus: { name: 'Focus', hex: '#62666D', desc: 'Slate Gray / Cool Graphite (#62666D) — measured stillness, disciplined reduction' },
-  custom: { name: 'Custom', hex: '#E85D32', desc: 'Vermilion / Coral (#E85D32) — personal resonance, distinct signature' },
+  custom: { name: 'Custom', hex: '#C64D40', desc: 'Vermilion / Coral (#C64D40) — personal resonance, distinct signature' },
 };
 
 export function getCategoryColorInfo(category?: string | null): { name: string; color: string; behavior: string } {

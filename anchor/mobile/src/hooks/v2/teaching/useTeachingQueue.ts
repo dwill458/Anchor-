@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DeviceEventEmitter, InteractionManager } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import type { BeatId } from '@/constants/v2/teachingCopy';
 import { getTeachingSeen, setTeachingSeen } from './teachingSeen';
 
@@ -11,7 +12,6 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
   const [ready, setReady] = useState(false);
   const [replay, setReplay] = useState(0);
   useEffect(() => {
-    if (!__DEV__) return;
     const sub = DeviceEventEmitter.addListener('replayAppTeaching', () => setReplay(value => value + 1));
     return () => sub.remove();
   }, []);
@@ -39,11 +39,11 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
     }
     if (decided.current) return;
     let cancelled = false;
-    let interaction: ReturnType<typeof InteractionManager.runAfterInteractions> | undefined;
+    let interaction: ReturnType<typeof scheduleAfterInteractions> | undefined;
     const candidates = eligibleKey ? eligibleKey.split('|') as BeatId[] : [];
     void Promise.all(candidates.map(beat => getTeachingSeen(accountId, beat))).then(seen => {
       if (cancelled) return;
-      interaction = InteractionManager.runAfterInteractions(() => {
+      interaction = scheduleAfterInteractions(() => {
         if (cancelled || live.current.blocked || !live.current.isFocused || live.current.session !== session || decided.current) return;
         decided.current = true;
         const next = candidates.filter((_, index) => !seen[index]).slice(0, cap);
@@ -55,20 +55,16 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
     return () => { cancelled = true; interaction?.cancel(); };
   }, [accountId, blocked, cap, eligibleKey, isFocused, session, replay]);
 
-  const markShown = useCallback((beat?: BeatId) => {
+  const markShown = useCallback((_beat?: BeatId) => {
     if (owner.current === session && live.current.session === session && live.current.isFocused && !live.current.blocked) {
       decided.current = true;
       batchRef.current = batch;
-      if (beat) {
-        setTeachingSeen(live.current.accountId, beat);
-      } else {
-        batch.forEach(b => setTeachingSeen(live.current.accountId, b));
-      }
     }
   }, [session, batch]);
-  const dismiss = useCallback(() => {
+  const dismiss = useCallback((beatsToCommit?: BeatId[]) => {
     if (owner.current !== session || live.current.session !== session || !live.current.isFocused || live.current.blocked) return;
-    batchRef.current.forEach(beat => setTeachingSeen(live.current.accountId, beat));
+    const committed = Array.isArray(beatsToCommit) ? beatsToCommit : batchRef.current;
+    committed.forEach(beat => setTeachingSeen(live.current.accountId, beat));
     batchRef.current = [];
     setBatch([]);
   }, [session]);

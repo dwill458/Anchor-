@@ -17,6 +17,9 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
 import { resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { useToast } from '@/components/ToastProvider';
+import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Props {
   onBack: () => void;
@@ -37,6 +40,7 @@ const MOTION_OPTIONS = [
 ];
 
 export const AppExperienceSubscreen: React.FC<Props> = ({ onBack }) => {
+  const toast = useToast();
   const [picker, setPicker] = useState<PickerType>(null);
   const [confirmResetTips, setConfirmResetTips] = useState(false);
 
@@ -58,14 +62,19 @@ export const AppExperienceSubscreen: React.FC<Props> = ({ onBack }) => {
 
   const teachingAccountId = useAuthStore((s) => s.user?.id ?? null);
 
-  const handleResetTeachingTips = () => {
+  const handleResetTeachingTips = async () => {
+    setConfirmResetTips(false);
     useTeachingStore.getState().reset();
-    void resetAllTeachingSeen(teachingAccountId);
-    void resetChartTaughtState(teachingAccountId);
+    const resetSeenPromise = resetAllTeachingSeen(teachingAccountId);
+    const resetChartPromise = resetChartTaughtState(teachingAccountId);
+    const removePracticeSeenPromise = Promise.resolve(
+      AsyncStorage.removeItem('practice_teaching_auto_seen_v2')
+    ).catch(() => undefined);
     DeviceEventEmitter.emit('replayAppTeaching');
     DeviceEventEmitter.emit('chartReplayOneMoveTeaching');
     AnalyticsService.track('teaching_reset');
-    setConfirmResetTips(false);
+    toast.info(TEACHING_COPY.replay.confirmation);
+    await Promise.all([resetSeenPromise, resetChartPromise, removePracticeSeenPromise]);
   };
 
   return (

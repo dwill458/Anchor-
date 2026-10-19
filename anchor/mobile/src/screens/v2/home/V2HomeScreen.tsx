@@ -472,12 +472,15 @@ export function V2HomeScreen() {
     transform: [{ translateY: interpolate(contentVeil.value, [CONTENT_VEIL_DIM, 1], [6, 0], Extrapolation.CLAMP) }],
   }));
 
+  // Worklets must capture only shared values: capturing `elastic` drags its gesture objects into the closure,
+  // which Reanimated cannot copy to the UI thread ("Cannot copy value of type NativeGesture / PanGesture").
+  const { dragging: elasticDragging, overscroll: elasticOverscroll, momentum: elasticMomentum, scrollY: elasticScrollY } = elastic;
   useAnimatedReaction(
-    () => contentVeil.value < 0.999 || elastic.dragging.value || Math.abs(elastic.overscroll.value) > 0.5 || (!teachingScrollActive.value && elastic.momentum.value),
+    () => contentVeil.value < 0.999 || elasticDragging.value || Math.abs(elasticOverscroll.value) > 0.5 || (!teachingScrollActive.value && elasticMomentum.value),
     (moving, previous) => { if (moving !== previous) runOnJS(setHomeMotionActive)(moving); },
   );
   useAnimatedReaction(
-    () => elastic.scrollY.value < 450,
+    () => elasticScrollY.value < 450,
     (visible, previous) => { if (visible !== previous) runOnJS(setHeroOnscreen)(visible); },
   );
   // Canonical Home idle gate: the queue also waits one InteractionManager turn after this clears.
@@ -690,7 +693,7 @@ export function V2HomeScreen() {
               thread={model.thread}
               reduceMotion={reduceMotion}
               frozen={focusTransition.active}
-              auraActive={heroOnscreen && teachingFocus.isFocused && !carouselMoving && !homeMotionActive}
+              auraActive={heroOnscreen && teachingFocus.isFocused}
               onMotionChange={handleCarouselMotion}
               onSelect={handleSelectAnchor}
               onOpenActive={handleOpenActive}

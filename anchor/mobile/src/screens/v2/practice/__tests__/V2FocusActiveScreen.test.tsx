@@ -337,10 +337,8 @@ describe('V2FocusActiveScreen', () => {
     act(() => {
       // @ts-ignore - simulate AppState listener
       const listeners = AppState.addEventListener.mock ? AppState.addEventListener.mock.calls : [];
-      const changeListener = listeners.find((call: any[]) => call[0] === 'change')?.[1];
-      if (changeListener) {
-        changeListener('background');
-      }
+      // Every mounted 'change' subscriber (the screen and the Anchor aura) hears the transition.
+      listeners.filter((call: any[]) => call[0] === 'change').forEach((call: any[]) => call[1]('background'));
     });
 
     expect(screen.getByTestId('focus-paused-overlay')).toBeTruthy();

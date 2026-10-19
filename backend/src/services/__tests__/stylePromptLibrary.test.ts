@@ -392,11 +392,11 @@ describe('stylePromptLibrary', () => {
 
       const healthInfo = getCategoryColorInfo('health');
       expect(healthInfo.name).toBe('Health');
-      expect(healthInfo.color).toContain('#2FA879');
+      expect(healthInfo.color).toContain('#238A65');
 
       const desireInfo = getCategoryColorInfo('desire');
       expect(desireInfo.name).toBe('Desire');
-      expect(desireInfo.color).toContain('#D94F8A');
+      expect(desireInfo.color).toContain('#C23B72');
     });
 
     it('applies category options in buildStylePrompt', () => {
@@ -412,7 +412,7 @@ describe('stylePromptLibrary', () => {
       const prompt = buildStylePrompt('heartfelt love and warmth', 'watercolor', 0, 'relationships');
 
       expect(prompt).toContain('CATEGORY:\nRelationships');
-      expect(prompt).toContain('#E56F7A');
+      expect(prompt).toContain('#E17D69');
     });
   });
 
