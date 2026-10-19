@@ -504,6 +504,26 @@ describe('V2ProgressScreen', () => {
       expect(mockUseAnchorMilestones).toHaveBeenCalledWith('anchor-progress-1');
     });
 
+    it('opens a milestone and the full collection for the Anchor Progress is showing', () => {
+      mockUseAnchorMilestones.mockReturnValue(
+        milestonesReturn([milestoneRecord('m2', 'strength.established', '2026-10-01T12:00:00.000Z', '2026-10-01T12:01:00.000Z')]),
+      );
+      mockUseV2Progress.mockReturnValue(hookReturn());
+      const onNavigateToMilestone = jest.fn();
+      const onNavigateToMilestones = jest.fn();
+      const { getByTestId } = render(
+        <V2ProgressScreen
+          anchorId="anchor-progress-1"
+          onNavigateToMilestone={onNavigateToMilestone}
+          onNavigateToMilestones={onNavigateToMilestones}
+        />,
+      );
+      fireEvent.press(getByTestId('v2-progress-screen-milestones-card-strength.established'));
+      expect(onNavigateToMilestone).toHaveBeenCalledWith('anchor-progress-1', 'strength.established');
+      fireEvent.press(getByTestId('v2-progress-screen-milestones-view-all'));
+      expect(onNavigateToMilestones).toHaveBeenCalledWith('anchor-progress-1');
+    });
+
     it('queues earned-but-uncelebrated milestones for celebration, once', () => {
       mockUseAnchorMilestones.mockReturnValue(
         milestonesReturn([milestoneRecord('m1', 'commitment.practices.1', '2026-10-01T12:00:00.000Z')]),

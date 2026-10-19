@@ -62,6 +62,9 @@ export type AnchorV2StackParamList = {
   V2ChartJourney: { anchorId: string };
   /** `anchorTransition`: the Anchor is travelling in from Details, so the route only cross-fades under it. */
   V2Progress: { anchorId?: string; anchorTransition?: boolean };
+  /** Every milestone for one Anchor. The Anchor is the one Progress was showing. */
+  V2MilestoneCollection: { anchorId: string };
+  V2MilestoneDetail: { anchorId: string; definitionId: string };
   V2Release: V2ReleaseRouteParams;
   V2WeeklyInsight: V2WeeklyInsightRouteParams | undefined;
   /** Post-first-practice reminder invitation. `anchorTransition`: the mark flies in from the complete screen. */

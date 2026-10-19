@@ -23,6 +23,7 @@ import { V2VisionScreen } from '@/screens/v2/vision';
 import { V2VisionNoteComposer } from '@/screens/v2/vision/V2VisionNoteComposer';
 import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypointScreen } from '@/screens/v2/chart';
 import { V2ProgressScreen } from '@/screens/v2/progress';
+import { V2MilestoneCollectionScreen, V2MilestoneDetailScreen } from '@/screens/v2/milestones';
 import { MilestoneCelebrationHost } from '@/components/v2/milestones/MilestoneCelebrationHost';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
 import { V2ReleaseScreen } from '@/screens/v2/release';
@@ -406,6 +407,31 @@ function V2WeeklyInsightRouteScreen() {
   return <V2WeeklyInsightScreen route={route} navigation={navigation} onBack={() => navigation.goBack()} />;
 }
 
+function V2MilestoneCollectionRouteScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2MilestoneCollection'>>();
+  return (
+    <V2MilestoneCollectionScreen
+      anchorId={route.params.anchorId}
+      onBack={() => navigation.goBack()}
+      onOpenMilestone={(definitionId: string) =>
+        navigation.navigate('V2MilestoneDetail', { anchorId: route.params.anchorId, definitionId })}
+    />
+  );
+}
+
+function V2MilestoneDetailRouteScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2MilestoneDetail'>>();
+  return (
+    <V2MilestoneDetailScreen
+      anchorId={route.params.anchorId}
+      definitionId={route.params.definitionId}
+      onBack={() => navigation.goBack()}
+    />
+  );
+}
+
 function V2ProgressRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Progress'>>();
@@ -479,6 +505,9 @@ function V2ProgressRouteScreen() {
       onAnchorResolved={handleShownAnchor}
       onNavigateToChart={(id: string) => navigation.navigate('V2Chart', { anchorId: id })}
       onNavigateToVision={(id: string) => navigation.navigate('V2Vision', { anchorId: id })}
+      onNavigateToMilestones={(id: string) => navigation.navigate('V2MilestoneCollection', { anchorId: id })}
+      onNavigateToMilestone={(id: string, definitionId: string) =>
+        navigation.navigate('V2MilestoneDetail', { anchorId: id, definitionId })}
       onNavigateToWeeklyInsight={(id: string) => navigation.navigate('V2WeeklyInsight', { anchorId: id })}
     />
   );
@@ -591,6 +620,8 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2Progress" component={V2ProgressRouteScreen} options={PROGRESS_OPTIONS} />
+        <Stack.Screen name="V2MilestoneCollection" component={V2MilestoneCollectionRouteScreen} options={CREAM_BACKGROUND} />
+        <Stack.Screen name="V2MilestoneDetail" component={V2MilestoneDetailRouteScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} options={({ route }) => route.params?.anchorTransition ? { animation: 'none' } : {}} />
         <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
         {/* Reminder invitation after the first practice. The invitation owns its back (it is "Not now"),

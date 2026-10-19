@@ -52,6 +52,10 @@ export interface V2ProgressScreenProps {
   /** Opens Vision (existing screen; it owns creation and gating). */
   onNavigateToVision?: (anchorId: string) => void;
   onNavigateToPractice?: (anchorId: string) => void;
+  /** Opens every milestone for the Anchor shown. */
+  onNavigateToMilestones?: (anchorId: string) => void;
+  /** Opens one milestone's detail (and its replay). */
+  onNavigateToMilestone?: (anchorId: string, definitionId: string) => void;
   /** Opens the full Weekly Insight. Without it the insight card is read-only. */
   onNavigateToWeeklyInsight?: (anchorId: string) => void;
   testID?: string;
@@ -63,6 +67,8 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   onAnchorResolved,
   onNavigateToChart,
   onNavigateToVision,
+  onNavigateToMilestones,
+  onNavigateToMilestone,
   onNavigateToWeeklyInsight,
   testID = 'v2-progress-screen',
 }) => {
@@ -268,6 +274,8 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
             <V2MilestoneShelf
               records={milestones.records}
               categoryColor={getCategoryColor(model.category)}
+              onOpenMilestone={onNavigateToMilestone ? (record) => onNavigateToMilestone(model.anchorId, record.definitionId) : undefined}
+              onOpenCollection={onNavigateToMilestones ? () => onNavigateToMilestones(model.anchorId) : undefined}
               testID={`${testID}-milestones`}
             />
           </View>
