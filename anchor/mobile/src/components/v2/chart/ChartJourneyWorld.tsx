@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   foregroundPass:{ overflow:'hidden' },
   node:{ position:'absolute',left:0,top:0,alignItems:'center',justifyContent:'center' },
   hit:{ position:'absolute',left:0,top:0,width:48,height:48 },
-  loading:{ ...StyleSheet.absoluteFillObject,alignItems:'center',justifyContent:'center',gap:12 },
+  loading:{ ...StyleSheet.absoluteFill,alignItems:'center',justifyContent:'center',gap:12 },
   loadText:{ ...typography.bodySM,color:'#F2E6CB' },
   retry:{ minHeight:48,paddingHorizontal:24,justifyContent:'center' },
 });

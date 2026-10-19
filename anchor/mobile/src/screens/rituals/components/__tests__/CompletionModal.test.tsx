@@ -5,7 +5,7 @@ import { createMockAnchor } from '@/__tests__/utils/testUtils';
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
-  const Reanimated = require('react-native-reanimated/mock');
+  const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
   Reanimated.default.call = () => {};
   Reanimated.useSharedValue = (initialValue: unknown) => {
     const ref = React.useRef({ value: initialValue });

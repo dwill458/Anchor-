@@ -153,13 +153,13 @@ export const PrimeAnchorCanvas: React.FC<PrimeAnchorCanvasProps> = ({
     const r = (size / 2) * RING_FRACS[1];
     const cx = size / 2;
     const cy = size / 2;
-    const path = Skia.Path.Make();
+    const path = Skia.PathBuilder.Make();
     for (let i = 0; i < DASHED_SEGMENTS; i += 2) {
       const startDeg = (i / DASHED_SEGMENTS) * 360;
       const sweepDeg = (0.55 / DASHED_SEGMENTS) * 360;
       path.addArc(Skia.XYWHRect(cx - r, cy - r, r * 2, r * 2), startDeg, sweepDeg);
     }
-    return path;
+    return path.detach();
   }, [size]);
 
   // ── Stable particle seed data ─────────────────────────────────────────────

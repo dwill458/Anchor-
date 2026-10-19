@@ -1,5 +1,7 @@
+import type { ViewInstance } from 'react-native';
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InteractionManager, Share, type View } from 'react-native';
+import { Share } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { useToast } from '@/components/ToastProvider';
 import { ExportPreviewRenderer, EXPORT_DIMENSIONS } from '@/components/ExportPreviewRenderer';
@@ -76,7 +78,7 @@ export function useAnchorExportActions(anchor: ExportAnchor | null, extras: Shar
   }, [anchor, downloadPending, renderPng, toast]);
 
   // ── Wallpaper ──
-  const wallpaperRef = useRef<View | null>(null);
+  const wallpaperRef = useRef<ViewInstance | null>(null);
   const [wallpaperPending, setWallpaperPending] = useState(false);
 
   const saveWallpaper = useCallback(async () => {
@@ -97,7 +99,7 @@ export function useAnchorExportActions(anchor: ExportAnchor | null, extras: Shar
   useEffect(() => {
     if (!wallpaperPending) return undefined;
     let cancelled = false;
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = scheduleAfterInteractions(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(async () => {
           if (cancelled) return;
@@ -165,6 +167,5 @@ export function useAnchorExportActions(anchor: ExportAnchor | null, extras: Shar
     copyIntention,
     isDownloading: downloadPending,
     isSavingWallpaper: wallpaperPending,
-    hiddenNodes,
-  };
+    hiddenNodes };
 }

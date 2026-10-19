@@ -104,7 +104,6 @@ export function AnchorSmallWidget({ primed, anchorId, sigilSvg, artworkImageUri 
             imageWidth={92}
             imageHeight={92}
             radius={46}
-            resizeMode="contain"
             style={{ width: 92, height: 92, marginLeft: 29, marginTop: 29 }}
           />
         ) : null}

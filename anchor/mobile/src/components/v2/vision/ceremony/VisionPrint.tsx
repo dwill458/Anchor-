@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Image, Keyboard, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
+import { Image, Keyboard, StyleSheet, Text, TextInput, View, type ImageSourcePropType, type ViewInstance } from 'react-native';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedProps, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, withDelay } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,7 +29,7 @@ function sourceUri(source?: ImageSourcePropType): string | undefined {
 
 /** Stable slot: the frame and its photograph keep the same native view through every beat. */
 export function VisionPrintSlot({ placement, children, nodeRef, testID, zIndex = 30 }: {
-  placement: PrintPlacement; children: React.ReactNode; nodeRef?: React.Ref<View>; testID?: string; zIndex?: number;
+  placement: PrintPlacement; children: React.ReactNode; nodeRef?: React.Ref<ViewInstance>; testID?: string; zIndex?: number;
 }) {
   const reduced = useV2ReduceMotion();
   const x = useSharedValue(placement.x), y = useSharedValue(placement.y);
@@ -69,7 +69,7 @@ export interface VisionPrintProps {
   onImageError?: (uri: string) => void;
   /** Fires once per image, the moment its reveal begins. */
   onRevealStart?: (uri: string) => void;
-  imageRef?: React.Ref<View>;
+  imageRef?: React.Ref<ViewInstance>;
   pressed?: boolean;
   /** A tiny line above the caption ("Example", "Yours"); also switches the caption to the compact entrance size. */
   label?: string;
@@ -214,11 +214,11 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
 }
 
 const styles = StyleSheet.create({
-  slot: { position: 'absolute', zIndex: 30 }, fill: { ...StyleSheet.absoluteFillObject },
+  slot: { position: 'absolute', zIndex: 30 }, fill: { ...StyleSheet.absoluteFill },
   // A bundled picture carries its own pixel size, which absoluteFill alone does not override: pin it to the window.
-  photo: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  paper: { ...StyleSheet.absoluteFillObject, backgroundColor: '#F7F1E6', borderRadius: 3, shadowColor: '#000', shadowOpacity: .5, shadowRadius: 24, shadowOffset: { width: 0, height: 18 }, elevation: 8 },
-  grain: { ...StyleSheet.absoluteFillObject, overflow: 'hidden', opacity: .3 }, fleck: { position: 'absolute', width: 1, height: 1, backgroundColor: '#B5A98D' },
+  photo: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
+  paper: { ...StyleSheet.absoluteFill, backgroundColor: '#F7F1E6', borderRadius: 3, shadowColor: '#000', shadowOpacity: .5, shadowRadius: 24, shadowOffset: { width: 0, height: 18 }, elevation: 8 },
+  grain: { ...StyleSheet.absoluteFill, overflow: 'hidden', opacity: .3 }, fleck: { position: 'absolute', width: 1, height: 1, backgroundColor: '#B5A98D' },
   window: { position: 'absolute', top: 8, left: 8, right: 8, overflow: 'hidden', backgroundColor: '#121427' }, ink: { backgroundColor: '#14162B' },
   caption: { position: 'absolute', left: 14, right: 14, bottom: 0, height: CEREMONY.captionStripPts, justifyContent: 'center' },
   captionText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 21, color: '#14162B', textAlign: 'center', padding: 0 },

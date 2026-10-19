@@ -1,3 +1,4 @@
+import type { ViewInstance, ScrollViewInstance } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 // Gesture Handler's ScrollView takes part in gesture arbitration, so a lifted photo keeps the touch on Android.
@@ -94,7 +95,7 @@ export function V2SavedVision({
   onBack, onShare, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
   onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, arrivingNoteId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
 }: Props) {
-  const canvasRef = useRef<View>(null);
+  const canvasRef = useRef<ViewInstance>(null);
   const canvasCapture = useRef<(() => { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number }) | null>(null);
   const canvasBounds = useRef<{ x: number; y: number; width: number; height: number } | undefined>(undefined);
   const measureCanvas = () => canvasRef.current?.measureInWindow?.((x, y, width, height) => {
@@ -124,7 +125,7 @@ export function V2SavedVision({
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const imageArrival = useVisionImageArrival();
   const teachingTarget = useRef<((sceneId: string | null) => Promise<TeachingRect | null>) | null>(null);
-  const teachingScrollRef = useRef<ScrollView>(null);
+  const teachingScrollRef = useRef<ScrollViewInstance>(null);
   const teachingScrollMetrics = useRef({ y: 0, content: 0, viewport: 0 });
   const teachingControlledScroll = useRef(false);
   const revealedNote = useRef<string | null>(null);
@@ -299,7 +300,7 @@ export function V2SavedVision({
           onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: mode === 'view' ? 0 : insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ paddingTop: insets.top }}>
-            <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
+            <StatusBar barStyle="dark-content" />
             <View style={styles.bandContent}>
               {header}
               <VisionIntentionHeading intention={anchorIntention} category={anchorCategory} />

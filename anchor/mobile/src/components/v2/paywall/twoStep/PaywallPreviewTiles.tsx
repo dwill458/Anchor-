@@ -168,8 +168,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   middle: { flex: 1, minWidth: 0 },
   bottomLeft: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'flex-start' },
-  play: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: colors.paywall.gold, alignItems: 'center', justifyContent: 'center' },
-  playRing: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: colors.paywall.gold },
+  play: { ...StyleSheet.absoluteFill, borderWidth: 1, borderColor: colors.paywall.gold, alignItems: 'center', justifyContent: 'center' },
+  playRing: { ...StyleSheet.absoluteFill, borderWidth: 1, borderColor: colors.paywall.gold },
 });
 
 // DEFERRED: previous tiles, sized from screen width W with system font scaling on, so their text
@@ -276,6 +276,6 @@ const styles = StyleSheet.create({
 // DEFERRED:   flex: { flex: 1, minWidth: 0 },
 // DEFERRED:   visionCopy: { flex: 1, flexDirection: 'row', alignItems: 'flex-end' },
 // DEFERRED:   glyph: { borderWidth: 1, borderColor: colors.paywall.hairlineStrong, alignItems: 'center', justifyContent: 'center' },
-// DEFERRED:   play: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: colors.paywall.textDim, alignItems: 'center', justifyContent: 'center', paddingLeft: 2 },
-// DEFERRED:   playRing: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: colors.paywall.text },
+// DEFERRED:   play: { ...StyleSheet.absoluteFill, borderWidth: 1, borderColor: colors.paywall.textDim, alignItems: 'center', justifyContent: 'center', paddingLeft: 2 },
+// DEFERRED:   playRing: { ...StyleSheet.absoluteFill, borderWidth: 1, borderColor: colors.paywall.text },
 // DEFERRED: });

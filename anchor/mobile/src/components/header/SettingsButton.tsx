@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 /**
  * Anchor App - Settings Header Button
  *
@@ -33,7 +34,7 @@ export const SettingsButton: React.FC<SettingsButtonProps> = ({
 }) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const navigation = useNavigation<any>();
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const scale = useSharedValue(1);
   const turns = useSharedValue(0);
 

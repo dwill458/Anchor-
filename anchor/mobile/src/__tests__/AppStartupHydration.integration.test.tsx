@@ -21,6 +21,18 @@ jest.mock('@/services/AuthService', () => ({
 
 jest.mock('@/services/reloadCurrentApp', () => ({ reloadCurrentApp: jest.fn().mockResolvedValue(undefined) }));
 jest.mock('../components/splash/SplashController', () => ({ SplashController: () => null }));
+// App startup behavior is under test; omit only the unrelated local visual QA fixture host.
+jest.mock('@/screens/v2/system/VisionVisualQADevHost', () => ({ VisionVisualQADevHost: () => null }));
+jest.mock('expo-notifications', () => {
+  const actual = jest.requireActual('expo-notifications');
+  const subscription = () => ({ remove: jest.fn() });
+  return {
+    ...actual,
+    addNotificationResponseReceivedListener: jest.fn(subscription),
+    addNotificationReceivedListener: jest.fn(subscription),
+    getLastNotificationResponseAsync: jest.fn().mockResolvedValue(null),
+  };
+});
 
 const anchor = {
   id: 'persisted-anchor',

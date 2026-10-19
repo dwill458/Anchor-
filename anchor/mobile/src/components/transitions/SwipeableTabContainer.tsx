@@ -268,6 +268,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   page: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
 });

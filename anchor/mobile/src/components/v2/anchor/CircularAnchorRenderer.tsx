@@ -137,7 +137,9 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
   };
   const entering = Boolean(entrance);
   const drawLine = Boolean(entrance?.drawing) && !showImage && hasArtwork && Boolean(expression);
-  const Artwork = entering ? Animated.View : View;
+  // Keep one component type here: Reanimated's animated style handle is valid
+  // on Animated.View but not on the union of Animated.View and View.
+  const Artwork = Animated.View;
   const artworkEntrance = entering && !drawLine ? developStyle : undefined;
   return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: entering ? 'transparent' : fieldColor, borderColor: entering ? 'transparent' : borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, aura && styles.auraField, style]}>
     {entering ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth }, groundStyle]} /> : null}

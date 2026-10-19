@@ -6,7 +6,7 @@ import { V2ActivityIndicator, V2EmptyState, V2InlineError, V2Skeleton } from '..
 
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => false }));
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { ...actual, __esModule: true, withRepeat: jest.fn(actual.withRepeat), withDelay: jest.fn(actual.withDelay) };
 });
 

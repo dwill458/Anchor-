@@ -1,0 +1,24 @@
+diff --git a/node_modules/react-native-worklets/android/CMakeLists.txt b/node_modules/react-native-worklets/android/CMakeLists.txt
+index e1f3641..53af99d 100644
+--- a/node_modules/react-native-worklets/android/CMakeLists.txt
++++ b/node_modules/react-native-worklets/android/CMakeLists.txt
+@@ -1,5 +1,7 @@
+-project(Worklets)
+ cmake_minimum_required(VERSION 3.16)
++project(Worklets)
++# Hash long absolute source paths in Windows worktrees before Ninja creates object directories.
++set(CMAKE_OBJECT_PATH_MAX 250)
+ 
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+ 
+@@ -42,8 +44,10 @@ set(ANDROID_CPP_DIR "${CMAKE_SOURCE_DIR}/src/main/cpp")
+ set(COMMON_CPP_DIR "${CMAKE_SOURCE_DIR}/../Common/cpp")
+ 
+ file(GLOB_RECURSE WORKLETS_COMMON_CPP_SOURCES CONFIGURE_DEPENDS
++     RELATIVE "${CMAKE_SOURCE_DIR}"
+      "${COMMON_CPP_DIR}/worklets/*.cpp")
+ file(GLOB_RECURSE WORKLETS_ANDROID_CPP_SOURCES CONFIGURE_DEPENDS
++     RELATIVE "${CMAKE_SOURCE_DIR}"
+      "${ANDROID_CPP_DIR}/worklets/*.cpp")
+ 
+ add_library(worklets SHARED ${WORKLETS_COMMON_CPP_SOURCES}

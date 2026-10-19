@@ -1,3 +1,5 @@
+import type { TextInputInstance } from 'react-native';
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -134,7 +136,7 @@ export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContin
   const [appleAvailable, setAppleAvailable] = useState(Platform.OS === 'ios');
   const [requiresSubscription, setRequiresSubscription] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
   const retryAttemptRef = useRef(0);
   const sealedSoundPlayedRef = useRef(false);
 

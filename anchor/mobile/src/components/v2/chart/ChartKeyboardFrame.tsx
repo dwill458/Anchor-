@@ -1,3 +1,5 @@
+import type { ScrollViewInstance } from 'react-native';
+
 import React, { useCallback, useRef } from 'react';
 import {
   Platform,
@@ -50,7 +52,7 @@ export function ChartKeyboardFrame({
 }: Props) {
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const scrollY = useRef(0);
   const viewport = useRef(0);
 

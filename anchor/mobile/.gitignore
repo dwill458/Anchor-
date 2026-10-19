@@ -32,7 +32,7 @@ bugreport-*.zip
 .env
 /ios/.xcode.env
 /ios/.xcode.env.local
-/ios/
+/ios
 
 # EAS/credentials (never commit private signing material)
 credentials.json

@@ -359,12 +359,12 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     sigilWrapper: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         alignItems: 'center',
         justifyContent: 'center',
     },
     glowOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         borderWidth: 2,
         borderColor: 'rgba(212, 175, 55, 0.1)',
     },

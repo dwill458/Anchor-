@@ -7,12 +7,12 @@ import { colors, typography } from '@/theme';
 export const SanctuaryEmptyState: React.FC = () => {
   return (
     <View style={styles.card}>
-      <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill} />
       <LinearGradient
         colors={['rgba(201,168,76,0.09)', 'rgba(201,168,76,0.03)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <Text style={styles.title}>Forge your first anchor</Text>
       <Text style={styles.body}>Turn intention into a symbol you can return to.</Text>

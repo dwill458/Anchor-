@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
@@ -87,7 +88,7 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
   const [seen, setSeen] = useState<boolean | null>(replay ? replay === 'short' : initialSeen ?? null);
   const resolvedSeen = replay ? replay === 'short' : initialSeen ?? seen;
   const [bodyFrame, setBodyFrame] = useState({ y: 0, height: 0 });
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const started = useRef(false);
   const airStarted = useRef(false);
   const skipOnStart = useRef(skipRequest > 0);
@@ -326,7 +327,7 @@ export function ChartIntroOpening({ category, categoryColor, reducedMotion, onCo
 const styles = StyleSheet.create({
   root: { flex: 1 },
   map: { position: 'absolute', left: 0, top: 0 },
-  paperZone: { ...StyleSheet.absoluteFillObject, zIndex: 1 },
+  paperZone: { ...StyleSheet.absoluteFill, zIndex: 1 },
   copy: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 2, paddingHorizontal: spacing[5], gap: spacing[2] },
   copyText: { gap: spacing[2] },
   headline: { ...chartTypography.displayMedium, fontFamily: 'EBGaramond-Medium', fontSize: 34, lineHeight: 38, color: colors.text.primary },

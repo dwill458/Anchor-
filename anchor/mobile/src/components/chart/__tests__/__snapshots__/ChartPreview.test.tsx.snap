@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`card ChartPreview renders and snapshots complete, and delegates presses 1`] = `
 <View
@@ -74,7 +74,7 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
       style={
         {
           "position": "absolute",
-          "top": -40.28431200449134,
+          "top": -20.354020852330336,
         }
       }
       testID="chart-preview-map-offset"
@@ -95,31 +95,6 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="101"
           style={
             [
               {
@@ -134,7 +109,24 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -210,43 +202,6 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="102"
             pointerEvents="box-none"
             style={
               [
@@ -288,8 +243,8 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -297,37 +252,6 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="103"
                 pointerEvents="none"
                 style={
                   [
@@ -414,8 +338,8 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
-                    "top": 248.21423312057163,
+                    "left": 95.52283053019305,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -423,37 +347,6 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-1"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="104"
                 pointerEvents="none"
                 style={
                   [
@@ -540,8 +433,8 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 135.74563965575743,
-                    "top": 202.87587204371914,
+                    "left": 146.43688198417516,
+                    "top": 192.3522921740891,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -549,37 +442,6 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-2"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="105"
                 pointerEvents="none"
                 style={
                   [
@@ -666,8 +528,8 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 180.62793642665952,
-                    "top": 154.15505143606396,
+                    "left": 196.57612603732042,
+                    "top": 141.94411867653514,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -675,37 +537,6 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-3"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="106"
                 pointerEvents="none"
                 style={
                   [
@@ -792,8 +623,8 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 230.79737327147745,
-                    "top": 110.75379557256646,
+                    "left": 242.4866092523394,
+                    "top": 90.82350442040544,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -801,37 +632,6 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-4"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="107"
                 pointerEvents="none"
                 style={
                   [
@@ -919,8 +719,8 @@ exports[`card ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 48,
-                    "left": 251.68075237363877,
-                    "top": 47.36152004964963,
+                    "left": 254.30985915492954,
+                    "top": 18.065727699530512,
                     "width": 48,
                   },
                 ]
@@ -1124,7 +924,7 @@ exports[`card ChartPreview renders and snapshots empty, and delegates presses 1`
       style={
         {
           "position": "absolute",
-          "top": -132.40638847564406,
+          "top": -121.88280860601395,
         }
       }
       testID="chart-preview-map-offset"
@@ -1145,31 +945,6 @@ exports[`card ChartPreview renders and snapshots empty, and delegates presses 1`
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="90"
           style={
             [
               {
@@ -1184,7 +959,24 @@ exports[`card ChartPreview renders and snapshots empty, and delegates presses 1`
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -1260,43 +1052,6 @@ exports[`card ChartPreview renders and snapshots empty, and delegates presses 1`
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="91"
             pointerEvents="box-none"
             style={
               [
@@ -1379,7 +1134,7 @@ exports[`card ChartPreview renders and snapshots empty, and delegates presses 1`
 
 exports[`card ChartPreview renders and snapshots normal, and delegates presses 1`] = `
 <View
-  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 25% progress. Next move: Publish one useful story"
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 19% progress. Next move: Publish one useful story"
   accessibilityRole="button"
   accessibilityState={
     {
@@ -1451,7 +1206,7 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
       style={
         {
           "position": "absolute",
-          "top": -230.2197243900132,
+          "top": -226.00528846528022,
         }
       }
       testID="chart-preview-map-offset"
@@ -1472,31 +1227,6 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="92"
           style={
             [
               {
@@ -1511,7 +1241,24 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -1587,43 +1334,6 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="93"
             pointerEvents="box-none"
             style={
               [
@@ -1665,8 +1375,8 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -1674,37 +1384,6 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="94"
                 pointerEvents="none"
                 style={
                   [
@@ -1800,30 +1479,53 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
+                    "left": 95.52283053019305,
                     "opacity": 0.4,
-                    "top": 248.21423312057163,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
               }
               testID="chart-map-ghost"
             >
-              <Svg
-                height={39.06103286384976}
-                viewBox="-52 -52 104 104"
-                width={39.06103286384976}
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
               >
-                <Circle
-                  cx={0}
-                  cy={0}
-                  fill="none"
-                  r={30}
-                  stroke="rgba(17,24,32,0.5)"
-                  strokeDasharray="4 7"
-                  strokeWidth={2.5}
-                />
-              </Svg>
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
         </View>
@@ -1898,7 +1600,7 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
         {
           "max": 100,
           "min": 0,
-          "now": 25.4,
+          "now": 18.5589519650655,
         }
       }
       accessible={true}
@@ -1922,7 +1624,7 @@ exports[`card ChartPreview renders and snapshots normal, and delegates presses 1
             {
               "backgroundColor": "#8A8175",
               "minWidth": 4,
-              "width": "25.4%",
+              "width": "18.5589519650655%",
             },
           ]
         }
@@ -2058,7 +1760,7 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
       style={
         {
           "position": "absolute",
-          "top": -230.2197243900132,
+          "top": -226.00528846528022,
         }
       }
       testID="chart-preview-map-offset"
@@ -2079,31 +1781,6 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="98"
           style={
             [
               {
@@ -2118,7 +1795,24 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -2194,43 +1888,6 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="99"
             pointerEvents="box-none"
             style={
               [
@@ -2272,8 +1929,8 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -2281,37 +1938,6 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="100"
                 pointerEvents="none"
                 style={
                   [
@@ -2407,30 +2033,53 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
+                    "left": 95.52283053019305,
                     "opacity": 0.4,
-                    "top": 248.21423312057163,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
               }
               testID="chart-map-ghost"
             >
-              <Svg
-                height={39.06103286384976}
-                viewBox="-52 -52 104 104"
-                width={39.06103286384976}
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
               >
-                <Circle
-                  cx={0}
-                  cy={0}
-                  fill="none"
-                  r={30}
-                  stroke="rgba(17,24,32,0.5)"
-                  strokeDasharray="4 7"
-                  strokeWidth={2.5}
-                />
-              </Svg>
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
         </View>
@@ -2557,7 +2206,7 @@ exports[`card ChartPreview renders and snapshots reached, and delegates presses 
 
 exports[`card ChartPreview renders and snapshots regressed, and delegates presses 1`] = `
 <View
-  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 5% progress. Next move: Publish one useful story"
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 0% progress. Next move: Publish one useful story"
   accessibilityRole="button"
   accessibilityState={
     {
@@ -2629,7 +2278,7 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
       style={
         {
           "position": "absolute",
-          "top": -230.2197243900132,
+          "top": -226.00528846528022,
         }
       }
       testID="chart-preview-map-offset"
@@ -2650,31 +2299,6 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="95"
           style={
             [
               {
@@ -2689,7 +2313,24 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -2765,43 +2406,6 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="96"
             pointerEvents="box-none"
             style={
               [
@@ -2843,8 +2447,8 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -2852,37 +2456,6 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="97"
                 pointerEvents="none"
                 style={
                   [
@@ -2978,30 +2551,53 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
+                    "left": 95.52283053019305,
                     "opacity": 0.4,
-                    "top": 248.21423312057163,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
               }
               testID="chart-map-ghost"
             >
-              <Svg
-                height={39.06103286384976}
-                viewBox="-52 -52 104 104"
-                width={39.06103286384976}
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
               >
-                <Circle
-                  cx={0}
-                  cy={0}
-                  fill="none"
-                  r={30}
-                  stroke="rgba(17,24,32,0.5)"
-                  strokeDasharray="4 7"
-                  strokeWidth={2.5}
-                />
-              </Svg>
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
         </View>
@@ -3076,7 +2672,7 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
         {
           "max": 100,
           "min": 0,
-          "now": 5.4,
+          "now": 0,
         }
       }
       accessible={true}
@@ -3099,8 +2695,8 @@ exports[`card ChartPreview renders and snapshots regressed, and delegates presse
             },
             {
               "backgroundColor": "#8A8175",
-              "minWidth": 4,
-              "width": "5.4%",
+              "minWidth": 0,
+              "width": "0%",
             },
           ]
         }
@@ -3255,31 +2851,6 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="83"
           style={
             [
               {
@@ -3294,7 +2865,24 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -3370,43 +2958,6 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="84"
             pointerEvents="box-none"
             style={
               [
@@ -3448,8 +2999,8 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -3457,37 +3008,6 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="85"
                 pointerEvents="none"
                 style={
                   [
@@ -3574,8 +3094,8 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
-                    "top": 248.21423312057163,
+                    "left": 95.52283053019305,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -3583,37 +3103,6 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-1"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="86"
                 pointerEvents="none"
                 style={
                   [
@@ -3700,8 +3189,8 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 135.74563965575743,
-                    "top": 202.87587204371914,
+                    "left": 146.43688198417516,
+                    "top": 192.3522921740891,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -3709,37 +3198,6 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-2"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="87"
                 pointerEvents="none"
                 style={
                   [
@@ -3826,8 +3284,8 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 180.62793642665952,
-                    "top": 154.15505143606396,
+                    "left": 196.57612603732042,
+                    "top": 141.94411867653514,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -3835,37 +3293,6 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-3"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="88"
                 pointerEvents="none"
                 style={
                   [
@@ -3952,8 +3379,8 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 230.79737327147745,
-                    "top": 110.75379557256646,
+                    "left": 242.4866092523394,
+                    "top": 90.82350442040544,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -3961,37 +3388,6 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
               testID="chart-map-marker-4"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="89"
                 pointerEvents="none"
                 style={
                   [
@@ -4079,8 +3475,8 @@ exports[`hero ChartPreview renders and snapshots complete, and delegates presses
                   },
                   {
                     "height": 48,
-                    "left": 251.68075237363877,
-                    "top": 47.36152004964963,
+                    "left": 254.30985915492954,
+                    "top": 18.065727699530512,
                     "width": 48,
                   },
                 ]
@@ -4323,31 +3719,6 @@ exports[`hero ChartPreview renders and snapshots empty, and delegates presses 1`
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="72"
           style={
             [
               {
@@ -4362,7 +3733,24 @@ exports[`hero ChartPreview renders and snapshots empty, and delegates presses 1`
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -4438,43 +3826,6 @@ exports[`hero ChartPreview renders and snapshots empty, and delegates presses 1`
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="73"
             pointerEvents="box-none"
             style={
               [
@@ -4564,7 +3915,7 @@ exports[`hero ChartPreview renders and snapshots empty, and delegates presses 1`
 
 exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1`] = `
 <View
-  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 25% progress. started at 84. Next move: Publish one useful story"
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 19% progress. started at 84. Next move: Publish one useful story"
   accessibilityRole="button"
   accessibilityState={
     {
@@ -4655,31 +4006,6 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="74"
           style={
             [
               {
@@ -4694,7 +4020,24 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -4770,43 +4113,6 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="75"
             pointerEvents="box-none"
             style={
               [
@@ -4848,8 +4154,8 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -4857,37 +4163,6 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="76"
                 pointerEvents="none"
                 style={
                   [
@@ -4983,30 +4258,53 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
+                    "left": 95.52283053019305,
                     "opacity": 0.4,
-                    "top": 248.21423312057163,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
               }
               testID="chart-map-ghost"
             >
-              <Svg
-                height={39.06103286384976}
-                viewBox="-52 -52 104 104"
-                width={39.06103286384976}
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
               >
-                <Circle
-                  cx={0}
-                  cy={0}
-                  fill="none"
-                  r={30}
-                  stroke="rgba(17,24,32,0.5)"
-                  strokeDasharray="4 7"
-                  strokeWidth={2.5}
-                />
-              </Svg>
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
         </View>
@@ -5115,7 +4413,7 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
         {
           "max": 100,
           "min": 0,
-          "now": 25.4,
+          "now": 18.5589519650655,
         }
       }
       accessible={true}
@@ -5139,7 +4437,7 @@ exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1
             {
               "backgroundColor": "#8A8175",
               "minWidth": 4,
-              "width": "25.4%",
+              "width": "18.5589519650655%",
             },
           ]
         }
@@ -5258,31 +4556,6 @@ exports[`hero ChartPreview renders and snapshots reached, and delegates presses 
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="80"
           style={
             [
               {
@@ -5297,7 +4570,24 @@ exports[`hero ChartPreview renders and snapshots reached, and delegates presses 
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -5373,43 +4663,6 @@ exports[`hero ChartPreview renders and snapshots reached, and delegates presses 
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="81"
             pointerEvents="box-none"
             style={
               [
@@ -5451,8 +4704,8 @@ exports[`hero ChartPreview renders and snapshots reached, and delegates presses 
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -5460,37 +4713,6 @@ exports[`hero ChartPreview renders and snapshots reached, and delegates presses 
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="82"
                 pointerEvents="none"
                 style={
                   [
@@ -5586,30 +4808,53 @@ exports[`hero ChartPreview renders and snapshots reached, and delegates presses 
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
+                    "left": 95.52283053019305,
                     "opacity": 0.4,
-                    "top": 248.21423312057163,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
               }
               testID="chart-map-ghost"
             >
-              <Svg
-                height={39.06103286384976}
-                viewBox="-52 -52 104 104"
-                width={39.06103286384976}
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
               >
-                <Circle
-                  cx={0}
-                  cy={0}
-                  fill="none"
-                  r={30}
-                  stroke="rgba(17,24,32,0.5)"
-                  strokeDasharray="4 7"
-                  strokeWidth={2.5}
-                />
-              </Svg>
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
         </View>
@@ -5770,7 +5015,7 @@ exports[`hero ChartPreview renders and snapshots reached, and delegates presses 
 
 exports[`hero ChartPreview renders and snapshots regressed, and delegates presses 1`] = `
 <View
-  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 5% progress. started at 84. Next move: Publish one useful story"
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 0% progress. started at 84. Next move: Publish one useful story"
   accessibilityRole="button"
   accessibilityState={
     {
@@ -5861,31 +5106,6 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
         testID="chart-preview-etched-map"
       >
         <View
-          collapsable={false}
-          jestAnimatedProps={
-            {
-              "value": {},
-            }
-          }
-          jestAnimatedStyle={
-            {
-              "value": {
-                "opacity": 1,
-              },
-            }
-          }
-          jestInlineStyle={
-            [
-              {
-                "bottom": 0,
-                "left": 0,
-                "position": "absolute",
-                "right": 0,
-                "top": 0,
-              },
-            ]
-          }
-          nativeID="77"
           style={
             [
               {
@@ -5900,7 +5120,24 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
               },
             ]
           }
+          testID="chart-preview-etched-map-layers"
         >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
           <View
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
@@ -5976,43 +5213,6 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
             testID="chart-preview-etched-map-surface"
           />
           <View
-            collapsable={false}
-            jestAnimatedProps={
-              {
-                "value": {},
-              }
-            }
-            jestAnimatedStyle={
-              {
-                "value": {
-                  "transform": [
-                    {
-                      "translateX": 0,
-                    },
-                    {
-                      "translateY": 0,
-                    },
-                    {
-                      "scale": 1,
-                    },
-                  ],
-                },
-              }
-            }
-            jestInlineStyle={
-              [
-                {
-                  "height": 443.1924882629108,
-                  "width": 320,
-                },
-                {
-                  "left": 0,
-                  "position": "absolute",
-                  "top": 0,
-                },
-              ]
-            }
-            nativeID="78"
             pointerEvents="box-none"
             style={
               [
@@ -6054,8 +5254,8 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 47.362391874783526,
-                    "top": 300.68920795808833,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
                     "width": 39.06103286384976,
                   },
                 ]
@@ -6063,37 +5263,6 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
               testID="chart-map-marker-0"
             >
               <View
-                collapsable={false}
-                jestAnimatedProps={
-                  {
-                    "value": {},
-                  }
-                }
-                jestAnimatedStyle={
-                  {
-                    "value": {
-                      "transform": [
-                        {
-                          "scale": 1,
-                        },
-                      ],
-                    },
-                  }
-                }
-                jestInlineStyle={
-                  [
-                    {
-                      "alignItems": "center",
-                      "bottom": 0,
-                      "justifyContent": "center",
-                      "left": 0,
-                      "position": "absolute",
-                      "right": 0,
-                      "top": 0,
-                    },
-                  ]
-                }
-                nativeID="79"
                 pointerEvents="none"
                 style={
                   [
@@ -6189,30 +5358,53 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
                   },
                   {
                     "height": 39.06103286384976,
-                    "left": 87.9560245488661,
+                    "left": 95.52283053019305,
                     "opacity": 0.4,
-                    "top": 248.21423312057163,
+                    "top": 241.62683611467435,
                     "width": 39.06103286384976,
                   },
                 ]
               }
               testID="chart-map-ghost"
             >
-              <Svg
-                height={39.06103286384976}
-                viewBox="-52 -52 104 104"
-                width={39.06103286384976}
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
               >
-                <Circle
-                  cx={0}
-                  cy={0}
-                  fill="none"
-                  r={30}
-                  stroke="rgba(17,24,32,0.5)"
-                  strokeDasharray="4 7"
-                  strokeWidth={2.5}
-                />
-              </Svg>
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
         </View>
@@ -6321,7 +5513,7 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
         {
           "max": 100,
           "min": 0,
-          "now": 5.4,
+          "now": 0,
         }
       }
       accessible={true}
@@ -6344,8 +5536,8 @@ exports[`hero ChartPreview renders and snapshots regressed, and delegates presse
             },
             {
               "backgroundColor": "#8A8175",
-              "minWidth": 4,
-              "width": "5.4%",
+              "minWidth": 0,
+              "width": "0%",
             },
           ]
         }
@@ -6619,7 +5811,7 @@ exports[`row ChartPreview renders and snapshots empty, and delegates presses 1`]
 
 exports[`row ChartPreview renders and snapshots normal, and delegates presses 1`] = `
 <View
-  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 25% progress. Next move: Publish one useful story"
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 19% progress. Next move: Publish one useful story"
   accessibilityRole="button"
   accessibilityState={
     {
@@ -6710,7 +5902,7 @@ exports[`row ChartPreview renders and snapshots normal, and delegates presses 1`
         {
           "max": 100,
           "min": 0,
-          "now": 25.4,
+          "now": 18.5589519650655,
         }
       }
       accessible={true}
@@ -6734,7 +5926,7 @@ exports[`row ChartPreview renders and snapshots normal, and delegates presses 1`
             {
               "backgroundColor": "#8A8175",
               "minWidth": 4,
-              "width": "25.4%",
+              "width": "18.5589519650655%",
             },
           ]
         }
@@ -6940,7 +6132,7 @@ exports[`row ChartPreview renders and snapshots reached, and delegates presses 1
 
 exports[`row ChartPreview renders and snapshots regressed, and delegates presses 1`] = `
 <View
-  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 5% progress. Next move: Publish one useful story"
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 0% progress. Next move: Publish one useful story"
   accessibilityRole="button"
   accessibilityState={
     {
@@ -7031,7 +6223,7 @@ exports[`row ChartPreview renders and snapshots regressed, and delegates presses
         {
           "max": 100,
           "min": 0,
-          "now": 5.4,
+          "now": 0,
         }
       }
       accessible={true}
@@ -7054,8 +6246,8 @@ exports[`row ChartPreview renders and snapshots regressed, and delegates presses
             },
             {
               "backgroundColor": "#8A8175",
-              "minWidth": 4,
-              "width": "5.4%",
+              "minWidth": 0,
+              "width": "0%",
             },
           ]
         }

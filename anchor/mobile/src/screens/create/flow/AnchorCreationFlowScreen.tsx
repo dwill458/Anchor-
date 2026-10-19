@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 // DEFERRED: StructureForge (Focused/Contained/Raw/Drawn) and ManualReinforcement (trace) no longer
 // sit between distillation and style — see DECISION D1 below. Their screens stay registered.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -141,7 +142,7 @@ export default function AnchorCreationFlowScreen() {
 
   // `measureInWindow` origins differ between screens on Android edge-to-edge (the window starts
   // below the status bar), so the field's frame is made relative to THIS screen's own root.
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const [rootOrigin, setRootOrigin] = useState<{ x: number; y: number } | null>(null);
   const rootOriginRef = useRef(rootOrigin);
   rootOriginRef.current = rootOrigin;

@@ -1,3 +1,4 @@
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import React, {
   useCallback,
   useEffect,
@@ -12,8 +13,7 @@ import {
   Text,
   Pressable,
   Platform,
-  InteractionManager,
-} from "react-native";
+  } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -673,7 +673,7 @@ export const PracticeScreen: React.FC = () => {
       };
 
       if (Platform.OS === "android") {
-        InteractionManager.runAfterInteractions(() => {
+        scheduleAfterInteractions(() => {
           requestAnimationFrame(applySelection);
         });
         return;

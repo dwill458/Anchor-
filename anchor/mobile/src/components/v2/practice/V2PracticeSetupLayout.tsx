@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, type StyleProp, type View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, type StyleProp, type ViewInstance, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import Animated from 'react-native-reanimated';
+import type { AnimatedStyle } from 'react-native-reanimated';
 import type { LayoutChangeEvent } from 'react-native';
 import { useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 import { colors, spacing, typography } from '@/theme/v2';
@@ -27,9 +28,9 @@ type Props = {
    */
   backdrop?: React.ReactNode;
   /** Applied to the header and footer, e.g. to fade them as the session begins. */
-  chromeStyle?: StyleProp<ViewStyle>;
+  chromeStyle?: StyleProp<ViewStyle> | AnimatedStyle<ViewStyle>;
   /** The full-screen root, so a setup can express a measured frame relative to its screen. */
-  rootRef?: React.Ref<View>;
+  rootRef?: React.Ref<ViewInstance>;
   /** Reports the true height available to setup content after its dynamic footer is laid out. */
   onScrollViewportLayout?: (height: number) => void;
 };

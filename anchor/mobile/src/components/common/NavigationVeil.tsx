@@ -74,7 +74,7 @@ export const NavigationVeil: React.FC = () => {
 
 const styles = StyleSheet.create({
   veil: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000',
     zIndex: 999,
   },

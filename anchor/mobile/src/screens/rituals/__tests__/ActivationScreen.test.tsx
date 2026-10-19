@@ -73,7 +73,7 @@ jest.mock('@react-navigation/native', () => {
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
-  const Reanimated = require('react-native-reanimated/mock');
+  const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
   Reanimated.default.call = () => { };
   Reanimated.useFrameCallback = jest.fn();
   Reanimated.default.Value = class {
@@ -112,6 +112,12 @@ jest.mock('@/stores/settingsStore');
 jest.mock('@/stores/sessionStore');
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/utils/scheduleAfterInteractions', () => ({
+  scheduleAfterInteractions: (callback: () => void) => {
+    callback();
+    return { cancel: jest.fn() };
+  },
+}));
 jest.mock('@/hooks/useAudio', () => ({
   useAudio: () => ({
     createManagedPlayer: mockCreateManagedPlayer,

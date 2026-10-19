@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -94,9 +95,9 @@ export type ChartWaypointContentProps = {
   /** Phase 3: compose these blocks in the sheet, retaining this component as their handler/modal owner. */
   renderTiers?: (parts: ChartWaypointTiers) => React.ReactNode;
   onExpandSheet?: () => void;
-  oneMoveRowRef?: React.RefObject<View | null>;
-  oneMoveCircleRef?: React.RefObject<View | null>;
-  oneMoveBodyRef?: React.RefObject<View | null>;
+  oneMoveRowRef?: React.RefObject<ViewInstance | null>;
+  oneMoveCircleRef?: React.RefObject<ViewInstance | null>;
+  oneMoveBodyRef?: React.RefObject<ViewInstance | null>;
 };
 
 export type ChartWaypointTiers = {

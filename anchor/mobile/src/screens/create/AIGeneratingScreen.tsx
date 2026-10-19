@@ -379,7 +379,7 @@ export default function AIGeneratingScreen() {
       <LinearGradient
         colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]}
         locations={[0, 0.5, 1]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View pointerEvents="none" style={styles.goldAmbient} />
       <View pointerEvents="none" style={styles.arcTop} />

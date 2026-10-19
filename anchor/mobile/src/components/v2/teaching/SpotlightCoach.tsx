@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -7,7 +8,7 @@ import { measureTeachingTarget, type TeachingRect } from './scrollToTarget';
 
 export type TeachingStep = {
   id: BeatId;
-  targetRef?: React.RefObject<View | null>;
+  targetRef?: React.RefObject<ViewInstance | null>;
   getRect?: () => TeachingRect | null | Promise<TeachingRect | null>;
   title: string;
   body: string;
@@ -30,7 +31,7 @@ export function SpotlightCoach(props: Props) {
   const latest = useRef(props);
   latest.current = props;
   const insets = useSafeAreaInsets();
-  const root = useRef<View>(null);
+  const root = useRef<ViewInstance>(null);
   const [index, setIndex] = useState(0);
   const [skippedIds, setSkippedIds] = useState<BeatId[]>([]);
   const [geometry, setGeometry] = useState<{ root: TeachingRect; target: TeachingRect } | null>(null);

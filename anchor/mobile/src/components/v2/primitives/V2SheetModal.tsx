@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
-import { Gesture, GestureDetector, GestureHandlerRootView, type PanGesture } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView, type LegacyPanGesture } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { AnchorMotion } from '@/theme/v2';
 
@@ -29,7 +29,7 @@ const EXIT_FALLBACK_MS = 700;
  */
 export const V2_SHEET_SKIRT = 48;
 
-const GrabGestureContext = createContext<PanGesture | null>(null);
+const GrabGestureContext = createContext<LegacyPanGesture | null>(null);
 
 /** Android Modals open a separate native root that gesture handlers must be re-rooted in; iOS does not need it. */
 const ModalGestureRoot = Platform.OS === 'android' ? GestureHandlerRootView : View;

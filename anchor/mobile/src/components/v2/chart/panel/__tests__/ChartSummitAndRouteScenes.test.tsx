@@ -1,5 +1,5 @@
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withRepeat: (value: unknown) => value, withSequence: (...values: unknown[]) => values[values.length - 1], withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
 });
 const mockSoundPlay = jest.fn();
@@ -258,6 +258,7 @@ describe('Summit (S1)', () => {
     expect(impact).not.toHaveBeenCalled();
     act(() => { fireEvent.press(screen.getByLabelText('Skip')); });
     await waitFor(() => expect(screen.getByTestId('chart-summit-panel')).toBeTruthy());
+    await wait(25); // The chord is intentionally scheduled 20ms after the flag thud.
     expect(active()).toBeNull();
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(HEAVY);
@@ -340,6 +341,7 @@ describe('Summit (S1)', () => {
     impact.mockClear();
     mockSoundPlay.mockClear();
     await reachFromMenu(screen);
+    await wait(25); // The reduced-motion flag beat still schedules the chord 20ms later.
     expect(impact).toHaveBeenCalledTimes(1);
     expect(impact).toHaveBeenCalledWith(HEAVY);
     expect(soundCalls('chart-summit-thud')).toHaveLength(1);

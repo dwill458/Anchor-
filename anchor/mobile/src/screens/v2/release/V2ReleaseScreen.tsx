@@ -297,7 +297,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   return (
     <View style={styles.scene} testID={testID ?? 'v2-release-screen'}>
       {/* 4.85–5.15s is pure #0B0C0D, status bar content included. */}
-      <StatusBar hidden={silent} barStyle={active ? 'light-content' : 'dark-content'} backgroundColor="transparent" />
+      <StatusBar hidden={silent} barStyle={active ? 'light-content' : 'dark-content'} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, creamStyle]} />
       <View pointerEvents={active ? 'none' : 'auto'} accessibilityElementsHidden={active}
         importantForAccessibility={active ? 'no-hide-descendants' : 'auto'} style={StyleSheet.absoluteFill} testID="v2-release-preflight">

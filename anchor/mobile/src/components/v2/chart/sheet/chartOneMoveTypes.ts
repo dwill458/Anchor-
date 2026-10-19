@@ -1,8 +1,8 @@
+import type { ViewInstance } from 'react-native';
 import type React from 'react';
-import type { View } from 'react-native';
 
 export type ChartOneMoveTargetRefs = {
-  rowRef: React.RefObject<View | null>;
-  circleRef: React.RefObject<View | null>;
-  bodyRef: React.RefObject<View | null>;
+  rowRef: React.RefObject<ViewInstance | null>;
+  circleRef: React.RefObject<ViewInstance | null>;
+  bodyRef: React.RefObject<ViewInstance | null>;
 };

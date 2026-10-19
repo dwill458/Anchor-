@@ -12,8 +12,7 @@ export const HERO_GOLD_LIGHT = '#E2CB92';
 
 /**
  * Entrance timing. The prototype pace is deliberately slowed (see feedback_prototype_timing_too_fast):
- * the draw-on is the ~1s the brief asks for, the ground settles beneath it, and the ring starts once
- * the line has landed so the eye has one thing to follow at a time.
+ * the draw-on is the ~1s the brief asks for, and the ground settles beneath it.
  */
 export const HERO_ENTRANCE = {
   /** Home's first mount stalls the JS thread; starting a beat later keeps that stall out of the animation. */
@@ -23,14 +22,9 @@ export const HERO_ENTRANCE = {
   groundMs: 900,
   /** A raster coin is held back until its image has loaded, but never longer than this. */
   imageWaitMs: 600,
-  ringDelayMs: 1300,
-  ringMs: 1100,
   /** How long until the entrance props can be dropped and the coin renders in its steady state. */
   settleMs: 1600,
 } as const;
-
-/** Ring sits this far outside the paper mount, and is this thick. Hairline: it is status, not frame. */
-export const HERO_RING = { gap: 8, stroke: 1.6 } as const;
 
 /** Halo is this multiple of the coin's diameter. The gradient is gone well before the edge. */
 export const HERO_HALO_SCALE = 1.5;

@@ -80,6 +80,13 @@ interface SubscriptionState extends TrialStatusSnapshot {
 
     // Computed values (accessed via selectors or the hook)
     getEffectiveTier: () => 'free' | 'pro';
+    /**
+     * True once the effective tier is known. Mirrors `useTrialStatus()`: a dev
+     * override, the dev master account and server-verified comped/legacy access
+     * are authoritative without RevenueCat, so a RevenueCat hydration failure
+     * must not leave those accounts "unresolved".
+     */
+    isEntitlementResolved: () => boolean;
 }
 
 export const useSubscriptionStore = create<SubscriptionState>()(
@@ -210,6 +217,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                 if (remoteCompedAccess || legacyMigrationAccess) return 'pro';
 
                 return hasActiveEntitlement ? 'pro' : 'free';
+            },
+
+            isEntitlementResolved: () => {
+                const { devOverrideEnabled, remoteCompedAccess, legacyMigrationAccess, entitlementReady } = get();
+                if (__DEV__ && devOverrideEnabled) return true;
+                if (__DEV__ && useSettingsStore.getState().developerMasterAccountEnabled) return true;
+                return remoteCompedAccess || legacyMigrationAccess || entitlementReady;
             },
         }),
         {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AppState, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import IntentionInputScreen from '@/screens/create/IntentionInputScreen';
@@ -15,12 +15,14 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 import { OnboardingAnalytics } from '@/services/v2/onboardingAnalytics';
+import { BackupRecoverySubscreen } from '@/screens/settings/BackupRecoverySubscreen';
 
 export function V2FirstRunFlow() {
   const navigation = useNavigation<any>();
   const user = useAuthStore((state) => state.user);
   const { draft, hydrated, setStep, bindAccount, markAnchorPersisted, markAuthCompleted, complete, reset } = useFirstRunStore();
   const prevStepRef = useRef<typeof draft.currentStep | undefined>(undefined);
+  const [showRecovery, setShowRecovery] = useState(false);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -68,6 +70,7 @@ export function V2FirstRunFlow() {
   }, [draft.currentStep, hydrated]);
 
   if (!hydrated) return <View style={styles.loading}><Text style={styles.loadingText}>Restoring your progress…</Text></View>;
+  if (showRecovery) return <BackupRecoverySubscreen onBack={() => setShowRecovery(false)} />;
 
   if (['creation', 'intention', 'formation', 'anchor', 'expression'].includes(draft.currentStep)) {
     return <IntentionInputScreen
@@ -119,6 +122,7 @@ export function V2FirstRunFlow() {
   return <V2OnboardingJourney
     onSignIn={() => navigation.navigate('V2Auth', { initialMode: 'signin' })}
     onCreate={() => setStep('creation')}
+    onRestore={() => setShowRecovery(true)}
     onDevSkip={() => {
       useFirstAnchorFlowStore.getState().clearDraft();
       useAuthStore.getState().setHasCompletedOnboarding(true);

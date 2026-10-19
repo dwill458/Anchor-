@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { forwardRef } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, Text, View, type ViewInstance } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
 
@@ -47,7 +47,7 @@ type Props = {
   intention?: string;
 };
 
-export const ExportPreviewRenderer = forwardRef<View, Props>(
+export const ExportPreviewRenderer = forwardRef<ViewInstance, Props>(
   ({ format, resolution, background, showIntention, sigilSvg, sigilUri, intention }, ref) => {
     const { w, h } = EXPORT_DIMENSIONS[format][resolution];
     const layout = resolveExportLayout(w, h, showIntention && !!intention);

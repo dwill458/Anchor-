@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -49,6 +50,8 @@ type Props = {
   /** The shared Anchor transition carries Begin into the session; setup skips its own hand-off. */
   anchorHandoff?: boolean;
   entry?: VisionVisualizeEntry;
+  /** False hands Begin straight to the paywall path; the begin fade and settings lock only belong to a session that starts. */
+  entitled?: boolean;
 };
 
 const ACCENT = practiceColors.visualize;
@@ -68,7 +71,7 @@ const PHOTO_WARM_MAX_MS = 800;
  * order), their real Anchor sits on it, and Begin darkens the page into the
  * session without a cut. Sound and haptics apply to this session only.
  */
-export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, notes, initialDuration, onBack, onOpenVision, onBegin, entry }: Props) {
+export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, notes, initialDuration, onBack, onOpenVision, onBegin, entry, entitled = true }: Props) {
   const accountId = useAuthStore(state => state.user?.id ?? null);
   const viewport = useV2Responsive();
   const metrics = resolvePracticeSetupMetrics(viewport, 'hero');
@@ -165,8 +168,8 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
 
   // Begin: settings lock, the chrome fades around the collage, then the session takes the same frame.
   const darken = useSharedValue(0);
-  const frameRef = useRef<View>(null);
-  const rootRef = useRef<View>(null);
+  const frameRef = useRef<ViewInstance>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const entryProgress = useSharedValue(0);
   const entryNotesOpacity = useSharedValue(1);
@@ -238,6 +241,13 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
 
   const begin = () => {
     if (beganRef.current || !canBegin || !prepared) return;
+    if (!entitled) {
+      // The parent opens the paywall instead of a session. Fading the chrome or locking Begin first would leave this
+      // (still mounted) setup dark and unresponsive when the paywall is dismissed.
+      stopVoicePreview();
+      onBegin({ durationSeconds: duration, voice: sessionVoice, ambient: soundSetup.ambient, haptics: soundSetup.hapticsOn, prepared });
+      return;
+    }
     beganRef.current = true;
     setBeginning(true);
     const voice = sessionVoice;
@@ -435,7 +445,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface,
   },
   durationText: { fontFamily: 'Inter-Regular', fontSize: 16, color: colors.text.primary },
-  preparationSurface: { ...StyleSheet.absoluteFillObject, opacity: 0 },
+  preparationSurface: { ...StyleSheet.absoluteFill, opacity: 0 },
   statusSlot: { minHeight: 40, justifyContent: 'center', marginBottom: spacing[2] },
   hint: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, textAlign: 'center', color: colors.text.secondary },
   hintAction: { marginBottom: spacing[2] },

@@ -1,0 +1,121 @@
+# Source and worktree manifest captured 2026-10-16
+
+## Expo 58 upgrade base
+Revision: 381b30cad1d5bd8278cf8e16850abc206a675281
+Branch: feat/expo58-upgrade
+Status at capture: clean
+
+## Current product development checkout
+Checkout: E:\Projects\Anchor
+Revision: b4f6023280960e104df55cea348d9049131cd57b
+Branch: feat/celebration-layer
+Porcelain status follows:
+ M docs/performance-audit-2026-10/ACCOUNT_SCOPED_PERSISTENCE_REPAIR.md
+ M docs/performance-audit-2026-10/DEVICE_VALIDATION_MATRIX.md
+ M docs/performance-audit-2026-10/PERFORMANCE_AUDIT_REPORT.md
+ M docs/performance-audit-2026-10/PERFORMANCE_REMEDIATION_PLAN.md
+?? docs/performance-audit-2026-10/NATIVE_DATA_RECOVERY_VALIDATION.md
+?? docs/performance-audit-2026-10/PERF003_STORAGE_BLOCKING_REMEDIATION.md
+?? docs/performance-audit-2026-10/SQLCIPHER_MIGRATION_IMPLEMENTATION.md
+?? docs/performance-audit-2026-10/SQLCIPHER_NATIVE_BENCHMARK_RESULTS.json
+?? docs/performance-audit-2026-10/harness/diagnostic-src/Perf003NativeScenarios.ts
+?? docs/performance-audit-2026-10/harness/diagnostic-src/install-perf003-lifecycle.cjs
+?? docs/performance-audit-2026-10/harness/diagnostic-src/install-perf003-probes.cjs
+?? docs/performance-audit-2026-10/harness/diagnostic-src/perf003Probe.ts
+?? docs/performance-audit-2026-10/harness/senior-review/storageSingleFlight.gate.test.ts
+
+## Original SQLCipher migration worktree
+Checkout: C:\Users\dwill\.codex\worktrees\sqlcipher-migration\Anchor
+Revision: 13beacd61d35bffefaa3c5c5ece4416abb3200f9
+Branch: codex/sqlcipher-migration
+Porcelain status follows:
+ M anchor/mobile/App.tsx
+ M anchor/mobile/android/app/src/main/AndroidManifest.xml
+ M anchor/mobile/android/app/src/main/res/values/strings.xml
+ M anchor/mobile/eas.json
+ M anchor/mobile/jest.config.js
+ M anchor/mobile/metro.config.js
+ M anchor/mobile/package-lock.json
+ M anchor/mobile/package.json
+ M anchor/mobile/src/__tests__/AppStartupHydration.integration.test.tsx
+ M anchor/mobile/src/hooks/v2/practice/useV2PracticeModel.ts
+ M anchor/mobile/src/screens/settings/SettingsScreen.tsx
+ M anchor/mobile/src/screens/v2/auth/V2AuthScreen.tsx
+ M anchor/mobile/src/screens/v2/auth/__tests__/V2AuthScreen.test.tsx
+ M anchor/mobile/src/screens/v2/onboarding/V2FirstRunFlow.tsx
+ M anchor/mobile/src/screens/v2/onboarding/V2OnboardingJourney.tsx
+ M anchor/mobile/src/screens/v2/practice/V2PracticePrepareScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/V2PracticeSessionScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/__tests__/V2PracticeSessionScreen.test.tsx
+ M anchor/mobile/src/screens/v2/practice/visualize/V2VisualizePrepareScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx
+ M anchor/mobile/src/services/AnchorSyncService.ts
+ M anchor/mobile/src/services/AppAuthBootstrap.ts
+ M anchor/mobile/src/services/AuthHydrationService.ts
+ M anchor/mobile/src/services/PracticeCompletionService.ts
+ M anchor/mobile/src/services/UserLocalStateService.ts
+ M anchor/mobile/src/services/VisualizationSceneService.ts
+ M anchor/mobile/src/services/__tests__/appAuthState.test.ts
+ M anchor/mobile/src/services/appAuthState.ts
+ M anchor/mobile/src/stores/anchorStore.ts
+ M anchor/mobile/src/stores/authStore.ts
+ M anchor/mobile/src/stores/encryptedPersistStorage.ts
+ M anchor/mobile/src/stores/firstAnchorFlowStore.ts
+ M anchor/mobile/src/stores/sessionStore.ts
+ M anchor/mobile/src/stores/subscriptionStore.ts
+ M anchor/mobile/src/stores/v2/creationStore.ts
+ M anchor/mobile/src/stores/v2/firstRunStore.ts
+ M anchor/mobile/src/stores/visualizationSceneStore.ts
+ M docs/performance-audit-2026-10/ACCOUNT_SCOPED_PERSISTENCE_REPAIR.md
+ M docs/performance-audit-2026-10/DEVICE_VALIDATION_MATRIX.md
+ M docs/performance-audit-2026-10/PERFORMANCE_AUDIT_REPORT.md
+ M docs/performance-audit-2026-10/PERFORMANCE_REMEDIATION_PLAN.md
+?? anchor/mobile/app.config.js
+?? anchor/mobile/src/config/isolatedPreview.ts
+?? anchor/mobile/src/hooks/v2/practice/__tests__/useV2PracticeModel.entitlement.test.ts
+?? anchor/mobile/src/screens/settings/BackupRecoverySubscreen.tsx
+?? anchor/mobile/src/storage/backup/__tests__/archiveCrypto.test.ts
+?? anchor/mobile/src/storage/backup/__tests__/backupRestore.integration.test.ts
+?? anchor/mobile/src/storage/backup/__tests__/backupRuntimePreMigration.test.ts
+?? anchor/mobile/src/storage/backup/__tests__/base64.test.ts
+?? anchor/mobile/src/storage/backup/__tests__/legacyBackupSource.test.ts
+?? anchor/mobile/src/storage/backup/__tests__/namespaceRegistry.test.ts
+?? anchor/mobile/src/storage/backup/archiveCrypto.ts
+?? anchor/mobile/src/storage/backup/archivePayload.ts
+?? anchor/mobile/src/storage/backup/backupRuntime.ts
+?? anchor/mobile/src/storage/backup/backupService.ts
+?? anchor/mobile/src/storage/backup/base64.ts
+?? anchor/mobile/src/storage/backup/databaseAdapters.ts
+?? anchor/mobile/src/storage/backup/legacyBackupSource.ts
+?? anchor/mobile/src/storage/backup/namespaceRegistry.ts
+?? anchor/mobile/src/storage/backup/restoreService.ts
+?? anchor/mobile/src/storage/sqlcipher/__tests__/cohort.test.ts
+?? anchor/mobile/src/storage/sqlcipher/__tests__/database.test.ts
+?? anchor/mobile/src/storage/sqlcipher/__tests__/product.integration.test.ts
+?? anchor/mobile/src/storage/sqlcipher/__tests__/sqliteTestDriver.ts
+?? anchor/mobile/src/storage/sqlcipher/__tests__/store.integration.test.ts
+?? anchor/mobile/src/storage/sqlcipher/cohort.ts
+?? anchor/mobile/src/storage/sqlcipher/database.ts
+?? anchor/mobile/src/storage/sqlcipher/databaseFileUri.ts
+?? anchor/mobile/src/storage/sqlcipher/persistence.ts
+?? anchor/mobile/src/storage/sqlcipher/recordCodec.ts
+?? anchor/mobile/src/storage/sqlcipher/runtime.ts
+?? anchor/mobile/src/storage/sqlcipher/schema.ts
+?? docs/performance-audit-2026-10/NATIVE_DATA_RECOVERY_VALIDATION.md
+?? docs/performance-audit-2026-10/SQLCIPHER_MIGRATION_IMPLEMENTATION.md
+?? docs/performance-audit-2026-10/SQLCIPHER_NATIVE_BENCHMARK_RESULTS.json
+?? docs/performance-audit-2026-10/SQLCIPHER_OWNER_ONLY_PILOT_CUTOVER.md
+?? docs/performance-audit-2026-10/SQLCIPHER_PRODUCT_CHANGESET.json
+?? docs/performance-audit-2026-10/SQLCIPHER_PRODUCT_INTEGRATION.md
+?? docs/performance-audit-2026-10/SQLCIPHER_PRODUCT_NATIVE_RESULTS.json
+?? docs/performance-audit-2026-10/harness/diagnostic-src/SqlCipherBenchmark.tsx
+?? docs/performance-audit-2026-10/harness/diagnostic-src/SqlCipherProductValidation.tsx
+?? docs/performance-audit-2026-10/harness/diagnostic-src/sqlcipher-product-lab-config.patch
+?? docs/performance-audit-2026-10/harness/senior-review/storageSingleFlight.gate.test.ts
+?? docs/performance-audit-2026-10/harness/sqlcipher-product-initial-status.txt
+
+## Integrated SQLCipher development source
+Checkout: E:\Projects\Anchor-SQLCipher
+Revision: 381b30cad1d5bd8278cf8e16850abc206a675281
+Branch: feat/anchor-v2-sqlcipher
+Status at capture: clean

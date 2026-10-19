@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -272,7 +273,7 @@ export function CreationStage({
 
   // Shared-element fallback: the same mounted mark scales and moves into expressions.
   /* ── stage layout → where and how large the mark sits ─────────────────── */
-  const stageRef = useRef<View>(null);
+  const stageRef = useRef<ViewInstance>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const onStageLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;

@@ -45,6 +45,7 @@ import { AppExperienceSubscreen } from './AppExperienceSubscreen';
 import { AccountDataSubscreen } from './AccountDataSubscreen';
 import { PrivacySupportSubscreen } from './PrivacySupportSubscreen';
 import { DeveloperToolsSubscreen } from './DeveloperToolsSubscreen';
+import { BackupRecoverySubscreen } from './BackupRecoverySubscreen';
 import { isChartOpeningPreviewEnabled } from '@/config/chartOpeningPreview';
 
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -71,6 +72,7 @@ export type SettingsSubscreenType =
   | 'experience'
   | 'account'
   | 'privacy'
+  | 'backup'
   | 'developer';
 
 export const SettingsScreen: React.FC = () => {
@@ -293,6 +295,9 @@ export const SettingsScreen: React.FC = () => {
   if (activeSubscreen === 'privacy') {
     return <PrivacySupportSubscreen onBack={() => setActiveSubscreen('main')} />;
   }
+  if (activeSubscreen === 'backup') {
+    return <BackupRecoverySubscreen onBack={() => setActiveSubscreen('main')} />;
+  }
   if (activeSubscreen === 'developer' && __DEV__) {
     return (
       <DeveloperToolsSubscreen
@@ -439,6 +444,13 @@ export const SettingsScreen: React.FC = () => {
             desc="Analytics, support, and legal"
             onPress={() => setActiveSubscreen('privacy')}
             testID="settings-row-Privacy & support"
+          />
+          <SettingsRow
+            icon={<IconLock size={20} color={T.ink2} />}
+            label="Back up my data"
+            desc="Save an encrypted copy or restore your data"
+            onPress={() => setActiveSubscreen('backup')}
+            testID="settings-row-Back up my data"
           />
 
           {/* Developer Tools Section (DEV ONLY) */}

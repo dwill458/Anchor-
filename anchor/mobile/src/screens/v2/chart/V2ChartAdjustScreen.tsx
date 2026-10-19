@@ -128,7 +128,7 @@ export function V2ChartAdjustScreen() {
   if (!course || (course.status !== 'ACTIVE' && !(course.status === 'COMPLETED' && course.routeScope === 'NEXT_STRETCH'))) {
     return (
       <View testID="v2-chart-adjust-missing" style={[styles.screen, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} animated />
+        <StatusBar barStyle="dark-content" animated />
         <View style={styles.topRow}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={12} style={styles.backButton}>
             <ChevronLeft size={24} color={colors.text.primary} />
@@ -263,7 +263,7 @@ export function V2ChartAdjustScreen() {
 
   return (
     <View testID="v2-chart-adjust" style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} animated />
+      <StatusBar barStyle="dark-content" animated />
 
       {/* Header */}
       <View style={styles.header}>

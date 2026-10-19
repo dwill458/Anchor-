@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   glowPulse: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(212,175,55,0.1)',
   },
   topRow: {

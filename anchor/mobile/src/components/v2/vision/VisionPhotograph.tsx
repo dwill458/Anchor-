@@ -67,8 +67,8 @@ export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, 
 const styles = StyleSheet.create({
   fitted: { overflow: 'hidden' },
   uploadPaper: { backgroundColor: colors.canvas },
-  backdrop: { ...StyleSheet.absoluteFillObject, transform: [{ scale: 1.15 }] },
-  veil: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,20,25,0.18)' },
-  whole: { ...StyleSheet.absoluteFillObject },
+  backdrop: { ...StyleSheet.absoluteFill, transform: [{ scale: 1.15 }] },
+  veil: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(15,20,25,0.18)' },
+  whole: { ...StyleSheet.absoluteFill },
   hidden: { opacity: 0 },
 });

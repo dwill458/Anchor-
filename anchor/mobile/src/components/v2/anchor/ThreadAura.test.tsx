@@ -18,7 +18,7 @@ const mockSequence = jest.fn();
 const mockCancelAnimation = jest.fn();
 
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return {
     __esModule: true,
     ...actual,

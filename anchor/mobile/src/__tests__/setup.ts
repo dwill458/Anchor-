@@ -1,3 +1,16 @@
+import 'react-native-gesture-handler/jestSetup';
+
+// Tests render gesture detectors without a GestureHandlerRootView; pass children through.
+jest.mock('react-native-gesture-handler', () => {
+  const actual = jest.requireActual('react-native-gesture-handler');
+  // RNGH scroll views wrap a GestureDetector internally; use the React Native ones under Jest.
+  const RN = jest.requireActual('react-native');
+  return { ...actual, GestureDetector: ({ children }: { children?: unknown }) => children, ScrollView: RN.ScrollView, FlatList: RN.FlatList };
+});
+// Reanimated 4 needs Worklets native runtimes; see mocks/reactNativeWorklets.ts.
+jest.mock('react-native-worklets', () => require('./mocks/reactNativeWorklets').default);
+// Reanimated 4 cannot load its native runtime under Jest; see mocks/reactNativeReanimated.ts.
+jest.mock('react-native-reanimated', () => require('./mocks/reactNativeReanimated').default);
 /**
  * Anchor App - Jest Setup
  *
@@ -17,6 +30,17 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 // Mock Expo modules
+jest.mock('expo-notifications/build/NotificationsHandlerModule.native', () => ({
+  __esModule: true,
+  default: {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    removeListener: jest.fn(),
+    removeAllListeners: jest.fn(),
+    emit: jest.fn(),
+    listenerCount: jest.fn(() => 0),
+  },
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),

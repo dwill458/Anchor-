@@ -1,3 +1,5 @@
+import type { TextInputInstance } from 'react-native';
+
 /**
  * ThreadStrength.tsx
  *
@@ -152,7 +154,7 @@ export function ThreadStrength({
   const trackWidthShared = useSharedValue(0);
 
   // Native TextInput reference for direct Android UI-thread text updates
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
 
   // Animation values
   const progress = useSharedValue(effectiveReduceMotion ? 1 : 0);

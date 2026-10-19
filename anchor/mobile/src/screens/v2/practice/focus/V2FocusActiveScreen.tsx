@@ -741,7 +741,7 @@ export function V2FocusActiveScreen({
         if (event.nativeEvent.actionName === 'activate') revealControls();
       }}
     >
-      <StatusBar barStyle={stage === 'entry' && !anchorHandoff ? 'dark-content' : 'light-content'} backgroundColor={stage === 'entry' && !anchorHandoff ? colors.canvas : FOCUS_SCREEN_BACKGROUND} animated />
+      <StatusBar barStyle={stage === 'entry' && !anchorHandoff ? 'dark-content' : 'light-content'} animated />
       <Reanimated.View
         pointerEvents="none"
         testID="focus-completion-scrim"
@@ -992,12 +992,12 @@ const styles = StyleSheet.create({
   },
   hiddenArtwork: { opacity: 0 },
   entryCurtain: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 20,
     backgroundColor: colors.canvas,
   },
   completionScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000000',
   },
   topHeader: {
@@ -1016,14 +1016,14 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.4)',
   },
   centerStage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
   },
   atmosphere: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   outerAtmosphere: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   intentionRegion: {
     width: '100%',
@@ -1054,7 +1054,7 @@ const styles = StyleSheet.create({
   },
   accessibleProgress: { position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0 },
   anchorArtworkOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
     transformOrigin: 'left center',
   },
   chromeContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'space-between',
   },
   topBar: {
@@ -1236,7 +1236,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
   },
   pausedOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(10, 10, 14, 0.76)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1280,7 +1280,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.78)',
   },
   confirmOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(10, 10, 14, 0.82)',
     alignItems: 'center',
     justifyContent: 'center',

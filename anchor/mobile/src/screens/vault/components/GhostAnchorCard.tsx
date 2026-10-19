@@ -25,12 +25,12 @@ export const GhostAnchorCard: React.FC<GhostAnchorCardProps> = ({
       accessibilityLabel="Add another anchor"
       accessibilityHint="Opens anchor creation"
     >
-      <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
       <LinearGradient
         colors={['rgba(201,168,76,0.09)', 'rgba(201,168,76,0.03)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View style={styles.content}>
         <View style={styles.plusRing}>

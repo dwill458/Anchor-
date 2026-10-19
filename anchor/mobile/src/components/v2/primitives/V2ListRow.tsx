@@ -62,7 +62,7 @@ export function V2ListRow({ icon, title, subtitle, trailing, onPress, accent, di
 const styles = StyleSheet.create({
   base: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2] },
   grouped: { paddingHorizontal: spacing[3], borderRadius: radii.md, backgroundColor: colors.grouped },
-  wash: { ...StyleSheet.absoluteFillObject, borderRadius: radii.md, backgroundColor: colors.border.subtle },
+  wash: { ...StyleSheet.absoluteFill, borderRadius: radii.md, backgroundColor: colors.border.subtle },
   washBleed: { left: -spacing[2], right: -spacing[2] },
   icon: { width: 36, height: 36, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, gap: 2 },

@@ -9,7 +9,7 @@ import { useChartIntroCameraTransform } from '../useChartMapCamera';
 
 jest.mock('react-native-reanimated', () => {
   const ReactActual = jest.requireActual('react') as typeof import('react');
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return {
     ...actual,
     __esModule: true,

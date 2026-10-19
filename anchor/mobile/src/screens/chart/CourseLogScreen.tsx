@@ -31,7 +31,7 @@ export const CourseLogScreen: React.FC = () => {
         onEndReachedThreshold={0.35}
         accessibilityLabel="Course Log, chronological entries"
         ListEmptyComponent={store.loading ? <ActivityIndicator color={colors.gold} /> : <ChartCard><Text style={styles.muted}>There are no entries to show yet.</Text></ChartCard>}
-        ListFooterComponent={store.loading && entries.length ? <Text accessibilityLiveRegion="polite" style={styles.muted}>Loading more entries…</Text> : store.errorCode ? <ChartButton label="Retry" secondary onPress={() => void store.refresh()} /> : null}
+        ListFooterComponent={store.loading && entries.length ? <Text accessibilityLiveRegion="polite" style={styles.muted}>Loading more entries…</Text> : store.errorCode ? <ChartButton label="Retry" secondary onPress={() => void store.refresh()} /> : undefined}
         renderItem={({ item }) => <CourseLogRow entry={item} onEdit={() => item.reflection && navigation.navigate('ReflectionComposer', { source: 'MANUAL_COURSE', promptType: item.reflection.promptType, promptVersion: 1, courseId: route.params.courseId, reflectionId: item.reflection.id, draftKey: `reflection:${item.reflection.id}` })} />}
       />
     </ChartScreenFrame>

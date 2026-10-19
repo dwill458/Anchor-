@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   surfaceEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: VISION_GOLD, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: spacing[4] },
   surfaceSet: { borderWidth: 1, borderColor: colors.text.primary },
   pressed: { opacity: 0.85 },
-  image: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  image: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
   title: { fontFamily: VISION_SERIF, fontSize: 20, lineHeight: 26, color: colors.text.primary, textAlign: 'center' },
   sub: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary, textAlign: 'center' },
   remove: { position: 'absolute', top: spacing[2], right: spacing[2], width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,15,20,0.72)' },

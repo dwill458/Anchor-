@@ -139,6 +139,7 @@ export function V2PracticePrepareScreen({
         onBack={onBack}
         onOpenVision={onOpenVision}
         anchorHandoff={anchorHandoff}
+        entitled={entitled}
         onBegin={(config) => {
           if (!entitled) {
             onPremiumRequired?.({ capability: 'visualize', anchorId: anchor.id, source, durationSeconds: config.durationSeconds });

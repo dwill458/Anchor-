@@ -60,7 +60,7 @@ export function AnchorOptionsMenu({ visible, onClose, onSelect, top, busy }: Pro
 
 const styles = StyleSheet.create({
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: withAlpha(detailsPalette.ink, 0.28),
   },
   menu: {

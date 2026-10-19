@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255, 255, 255, 0.34)",
   },
-  icon: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  icon: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
   devSkipButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,

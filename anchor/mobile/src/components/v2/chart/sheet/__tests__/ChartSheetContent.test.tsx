@@ -1,5 +1,5 @@
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withTiming: (value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; } };
 });
 import React from 'react';

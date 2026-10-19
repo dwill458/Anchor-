@@ -89,7 +89,7 @@ export const TabSlideWrapper: React.FC<TabSlideWrapperProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.background.primary,
   },
 });

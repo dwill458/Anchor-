@@ -89,7 +89,9 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   // The page is measured before the scene plays; answer at once so no measurement timeout sits in the timeline.
-  jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => callback(0, 0, 300, 120));
+  jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => {
+    (callback as (x: number, y: number, width: number, height: number) => void)(0, 0, 300, 120);
+  });
   useCelebrationStore.getState().reset();
   useSettingsStore.setState({ reduceMotion: 'off' });
   useAnchorStore.setState({

@@ -191,6 +191,15 @@ describe('chartAdapter', () => {
         { id: 'wp-1', title: 'Ship beta', state: 'REACHED', reached: true, isCurrent: false, isDestination: false },
         { id: 'wp-2', title: 'Contact 3 creators', state: 'CURRENT', reached: false, isCurrent: true, isDestination: true },
       ],
+      weatherProgress: {
+        courseId: 'course-1',
+        currentIndex: 1,
+        inputs: [
+          { id: 'wp-1', completed: true, mode: 'moves', metric: null, movesDone: 0, movesTotal: 0, requirementsDone: 0, requirementsTotal: 0 },
+          { id: 'wp-2', completed: false, mode: 'moves', metric: null, movesDone: 0, movesTotal: 0, requirementsDone: 0, requirementsTotal: 0 },
+        ],
+        isFinished: false,
+      },
     });
   });
 

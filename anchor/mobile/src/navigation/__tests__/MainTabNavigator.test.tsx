@@ -1,9 +1,10 @@
 import React from 'react';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
+  const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
   Reanimated.default.call = () => {};
   return Reanimated;
 });
@@ -89,8 +90,10 @@ jest.mock('@/constants/teaching', () => ({
 
 import { CustomTabBar } from '../MainTabNavigator';
 
-function parseIconProps(node: { props: { children: string } }) {
-  return JSON.parse(node.props.children);
+function parseIconProps(node: ReactTestInstance) {
+  const serialized = node.props.children;
+  if (typeof serialized !== 'string') throw new Error('Tab icon properties were not serialized.');
+  return JSON.parse(serialized);
 }
 
 describe('CustomTabBar', () => {

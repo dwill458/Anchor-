@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type React from 'react';
 import { Share } from 'react-native';
-import ViewShot, { captureRef } from 'react-native-view-shot';
+import ViewShot, { captureRef, type ViewShotRef } from 'react-native-view-shot';
 import { logger } from '@/utils/logger';
 
-export function useWeeklyShare(viewShotRef: React.RefObject<ViewShot | null>) {
+export function useWeeklyShare(viewShotRef: React.RefObject<ViewShotRef | null>) {
   const [isCapturing, setIsCapturing] = useState(false);
 
   const shareWeek = async () => {

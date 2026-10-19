@@ -1,3 +1,4 @@
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 /**
  * Anchor App - Activation Screen
  *
@@ -7,7 +8,7 @@
  */
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { BackHandler, View, Text, StyleSheet, InteractionManager } from 'react-native';
+import { BackHandler, View, Text, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -26,8 +27,7 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import {
   recordReviewSignal,
-  requestReviewIfEligible,
-} from '@/services/reviewPromptService';
+  requestReviewIfEligible } from '@/services/reviewPromptService';
 import { useToast } from '@/components/ToastProvider';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
@@ -42,14 +42,12 @@ import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import {
   isPostPrimeTraceEligible,
-  markPostPrimeTraceAttemptStarted,
-} from '@/utils/postPrimeTraceEligibility';
+  markPostPrimeTraceAttemptStarted } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import {
   buildRecoveredChargeState,
   isFirstPrimeForAnchor as isAnchorFirstPrime,
-  needsChargeStateBackfill,
-} from '@/utils/anchorPriming';
+  needsChargeStateBackfill } from '@/utils/anchorPriming';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
 import {
@@ -57,8 +55,7 @@ import {
   legacyAudioModeToSessionAudioDefaults,
   resolveSessionAudioConfiguration,
   type SessionAudioConfiguration,
-  type SessionAudioDefaults,
-} from '@/types/sessionAudio';
+  type SessionAudioDefaults } from '@/types/sessionAudio';
 import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
@@ -76,8 +73,7 @@ export const ActivationScreen: React.FC = () => {
     durationOverride,
     audioConfiguration,
     audioModeOverride,
-    returnTo,
-  } = route.params;
+    returnTo } = route.params;
   const toast = useToast();
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -126,19 +122,17 @@ export const ActivationScreen: React.FC = () => {
       return;
     }
 
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = scheduleAfterInteractions(() => {
       navigation.goBack();
       requestAnimationFrame(() => {
         AnalyticsService.track('free_weekly_sessions_used', {
           source: 'activation_screen_backstop',
           remaining_weekly_free_sessions: primeSessionAccess.focus.remaining,
-          tier: primeSessionAccess.tier,
-        });
+          tier: primeSessionAccess.tier });
 
         navigateToPaywall({
           source: 'free_weekly_sessions_used',
-          preferredPlanId: 'annual',
-        });
+          preferredPlanId: 'annual' });
       });
     });
 
@@ -149,15 +143,13 @@ export const ActivationScreen: React.FC = () => {
   const groundNoteTeaching = useTeachingGate({
     screenId: 'activation',
     visitKey: anchorId,
-    candidateIds: ['activation_ground_note_v1'],
-  });
+    candidateIds: ['activation_ground_note_v1'] });
 
   // Seal Whisper (Pattern 5): passed to CompletionModal on first charge, guide ON
   const sealWhisperTeaching = useTeachingGate({
     screenId: 'completion_modal',
     visitKey: anchorId,
-    candidateIds: ['completion_seal_whisper_v1'],
-  });
+    candidateIds: ['completion_seal_whisper_v1'] });
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
@@ -183,8 +175,7 @@ export const ActivationScreen: React.FC = () => {
         pattern: groundNoteTeaching.pattern,
         screen: 'activation',
         trigger: groundNoteTeaching.trigger,
-        guide_mode: true,
-      });
+        guide_mode: true });
     }
   }, [groundNoteTeaching?.teachingId]);
 
@@ -199,8 +190,7 @@ export const ActivationScreen: React.FC = () => {
       resolveSessionAudioPlan({
         sessionType: 'focus',
         durationSeconds: activationDurationSeconds,
-        configuration: resolvedFocusSessionAudio,
-      }),
+        configuration: resolvedFocusSessionAudio }),
     [activationDurationSeconds, resolvedFocusSessionAudio]
   );
 
@@ -232,8 +222,7 @@ export const ActivationScreen: React.FC = () => {
         requested_guidance_voice:
           focusSessionAudioPlan.requestedConfiguration.guidanceVoice,
         background_audio: focusSessionAudioPlan.configuration.backgroundAudio,
-        audio_source: focusSessionAudioPlan.configuration.source,
-      };
+        audio_source: focusSessionAudioPlan.configuration.source };
       AnalyticsService.track(AnalyticsEvents.ANCHOR_ACTIVATED, properties);
       AnalyticsService.track(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED, properties);
     };
@@ -241,8 +230,7 @@ export const ActivationScreen: React.FC = () => {
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
       lastActivatedAt: localActivationTime,
-      ...(recoveredChargeState ?? {}),
-    });
+      ...(recoveredChargeState ?? {}) });
 
     incrementTotalPrimes();
     computeStreak();
@@ -255,8 +243,7 @@ export const ActivationScreen: React.FC = () => {
           activationType: activationType || 'visual',
           durationSeconds: activationDurationSeconds,
           idempotencyKey: completionEventIdRef.current,
-          queuedAt: localActivationTime.toISOString(),
-        });
+          queuedAt: localActivationTime.toISOString() });
         toast.success('Prime session saved for your first anchor');
         trackActivationCompleted(false, true);
         return;
@@ -284,8 +271,7 @@ export const ActivationScreen: React.FC = () => {
       const response = await apiClient.post(`/api/anchors/${effectiveAnchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
-        idempotencyKey: completionEventIdRef.current,
-      });
+        idempotencyKey: completionEventIdRef.current });
 
       if (response.data.data) {
         const data = response.data.data;
@@ -311,8 +297,7 @@ export const ActivationScreen: React.FC = () => {
           activationCount: data.activationCount,
           lastActivatedAt: data.lastActivatedAt ? new Date(data.lastActivatedAt) : undefined,
           ...(recoveredChargeState ?? {}),
-          ...serverChargeState,
-        });
+          ...serverChargeState });
       }
 
       toast.success('Prime session logged successfully');
@@ -330,8 +315,7 @@ export const ActivationScreen: React.FC = () => {
         {
           screen: 'ActivationScreen',
           action: 'activate_anchor',
-          anchor_id: anchorId,
-        }
+          anchor_id: anchorId }
       );
 
       activationSyncFailedRef.current = true;
@@ -359,7 +343,7 @@ export const ActivationScreen: React.FC = () => {
       return;
     }
 
-    InteractionManager.runAfterInteractions(() => {
+    scheduleAfterInteractions(() => {
       void requestReviewIfEligible('focus_session_complete', {
         isReturningToHomeAfterFocusSession: true,
         recentSessionFailed: activationSyncFailedRef.current,
@@ -367,8 +351,7 @@ export const ActivationScreen: React.FC = () => {
         isAnchorCreation: false,
         isPaywall: false,
         isActiveFocusSession: false,
-        isActiveDeepPrimeSession: false,
-      });
+        isActiveDeepPrimeSession: false });
     });
   }, [isPendingFirstAnchor, returnTo]);
 
@@ -387,7 +370,7 @@ export const ActivationScreen: React.FC = () => {
     setShowExitWarning(false);
 
     completionTransitionTaskRef.current?.cancel?.();
-    completionTransitionTaskRef.current = InteractionManager.runAfterInteractions(() => {
+    completionTransitionTaskRef.current = scheduleAfterInteractions(() => {
       setShowCompletion(true);
       completionTransitionTaskRef.current = null;
     });
@@ -443,8 +426,7 @@ export const ActivationScreen: React.FC = () => {
 
     navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
-      anchorId,
-    });
+      anchorId });
   }, [anchorId, beginPostPrimeTraceFlow, navigation]);
 
   useEffect(() => {
@@ -476,12 +458,10 @@ export const ActivationScreen: React.FC = () => {
       FrictionAnalytics.completeFlow('activation', {
         anchor_id: anchorId,
         result: 'post_prime_trace_completed',
-        session_duration_seconds: activationDurationSeconds,
-      });
+        session_duration_seconds: activationDurationSeconds });
       AnalyticsService.track('post_prime_trace_completed', {
         anchor_id: anchorId,
-        session_duration_seconds: activationDurationSeconds,
-      });
+        session_duration_seconds: activationDurationSeconds });
     }
 
     showReflectionModal();
@@ -590,8 +570,7 @@ export const ActivationScreen: React.FC = () => {
           : 'silent',
       audioConfiguration: focusSessionAudioPlan.configuration,
       reflectionWord,
-      completedAt,
-    });
+      completedAt });
     await PracticeCompletionService.queueLegacyCompletion({
       id: completionEventId,
       anchorId,
@@ -601,8 +580,7 @@ export const ActivationScreen: React.FC = () => {
       completedAt,
       guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
-      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
-    });
+      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail' });
     void recordReviewSignal('focus_session_completed');
 
     if (returnTo === 'practice') {
@@ -616,8 +594,7 @@ export const ActivationScreen: React.FC = () => {
         anchorId,
         ritualType: 'ritual',
         durationSeconds: 300,
-        returnTo: 'detail',
-      });
+        returnTo: 'detail' });
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
     } else if (returnTo === 'vault') {
@@ -716,12 +693,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
+    paddingHorizontal: spacing.xl },
   errorText: {
     fontSize: typography.sizes.body1,
     fontFamily: typography.fonts.body,
     color: colors.error,
-    textAlign: 'center',
-  },
-});
+    textAlign: 'center' } });

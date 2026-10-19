@@ -6,7 +6,7 @@ import { ArrivalScope, Reveal } from '../Reveal';
 
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => false }));
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { ...actual, __esModule: true, withDelay: jest.fn(actual.withDelay) };
 });
 

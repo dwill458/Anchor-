@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useWeeklyStats, type WeeklyStats } from '@/hooks/useWeeklyStats';
@@ -201,7 +201,7 @@ export function WeeklySummaryModal({
   const stats = useWeeklyStats();
   const anchors = useAnchorStore((state) => state.anchors);
   const lifetimePrimes = useAnchorStore((state) => state.totalPrimes);
-  const viewShotRef = useRef<ViewShot>(null);
+  const viewShotRef = useRef<ViewShotRef>(null);
   const { shareWeek, isCapturing } = useWeeklyShare(viewShotRef);
   const { bottom: bottomInset } = useSafeAreaInsets();
   const sheetTranslateY = useRef(new Animated.Value(48)).current;
@@ -385,7 +385,7 @@ export function WeeklySummaryModal({
         </View>
         )}
 
-        <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: backdropOpacity }]}>
           <Pressable style={styles.backdrop} onPress={onDismiss} />
         </Animated.View>
 

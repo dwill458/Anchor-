@@ -10,7 +10,9 @@ const tile = (i: number, caption?: string | null): V2VisionTile => ({
 } as V2VisionTile);
 
 function setup(tiles: V2VisionTile[]) {
-  jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(cb => cb(0, 0, 300, 300));
+  jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(cb => {
+    (cb as (x: number, y: number, width: number, height: number) => void)(0, 0, 300, 300);
+  });
   return render(<V2SavedVision anchorIntention="I build what matters." description="A quiet studio full of finished work." tiles={tiles}
     onBack={jest.fn()} onVisualize={jest.fn()} onChart={jest.fn()} onUpdateDescription={jest.fn(async () => true)}
     onReorder={jest.fn(async () => true)} onRemove={jest.fn(async () => true)} onAddPhoto={jest.fn()} onAddGenerate={jest.fn()}

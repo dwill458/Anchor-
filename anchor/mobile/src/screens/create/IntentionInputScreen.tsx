@@ -1,3 +1,5 @@
+import type { ScrollViewInstance, TextInputInstance } from 'react-native';
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     View,
@@ -90,8 +92,8 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     const { width, height } = useWindowDimensions();
     const recordShown = useTeachingStore((s) => s.recordShown);
 
-    const scrollViewRef = useRef<ScrollView>(null);
-    const textInputRef = useRef<TextInput>(null);
+    const scrollViewRef = useRef<ScrollViewInstance>(null);
+    const textInputRef = useRef<TextInputInstance>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
     // The one onboarding answer frames the field: its own placeholder and tip, in place on the

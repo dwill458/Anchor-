@@ -283,7 +283,7 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
       <LinearGradient
         colors={palette.gradient}
         locations={'gradientLocations' in palette ? palette.gradientLocations : undefined}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         start={'gradientVertical' in palette && palette.gradientVertical ? { x: 0.5, y: 0 } : { x: 0, y: 0 }}
         end={'gradientVertical' in palette && palette.gradientVertical ? { x: 0.5, y: 1 } : { x: 1, y: 1 }}
       />
@@ -350,14 +350,14 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   orb: {
     position: 'absolute',
   },
   grainWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   grainDot: {
     position: 'absolute',
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)',
   },
   vignetteWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   vignetteTop: {
     position: 'absolute',

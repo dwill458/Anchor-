@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
 import * as SecureStore from 'expo-secure-store';
 import {
   encryptedPersistStorage,
@@ -469,7 +470,11 @@ export const useAuthStore = create<AuthState>()(
         const isSwitchingAuthenticatedAccounts = Boolean(
           previousUserId && nextUserId && previousUserId !== nextUserId,
         );
+        if (isSwitchingAuthenticatedAccounts || (!user && previousUserId)) {
+          useTeachingStore.getState().reset();
+        }
         if (previousUserId !== nextUserId) {
+          if (sqlCipherEnabled()) useSessionStore.getState().reset();
           inFlightFinalizePendingFirstAnchor = null;
           useCourseStore.getState().bindAccount(nextUserId);
           useSubscriptionStore.getState().resetForAccount();
@@ -517,7 +522,11 @@ export const useAuthStore = create<AuthState>()(
         const isSwitchingAuthenticatedAccounts = Boolean(
           previousUserId && previousUserId !== user.id,
         );
+        if (isSwitchingAuthenticatedAccounts) {
+          useTeachingStore.getState().reset();
+        }
         if (previousUserId !== user.id) {
+          if (sqlCipherEnabled()) useSessionStore.getState().reset();
           inFlightFinalizePendingFirstAnchor = null;
           useCourseStore.getState().bindAccount(user.id);
           useSubscriptionStore.getState().resetForAccount();

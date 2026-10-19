@@ -19,7 +19,7 @@ jest.mock('react-native-gesture-handler', () => {
   } };
 });
 jest.mock('react-native-reanimated', () => ({
-  ...require('react-native-reanimated/mock'), runOnJS: (fn: any) => fn,
+  ...require('@/__tests__/mocks/reactNativeReanimated').default, runOnJS: (fn: any) => fn,
 }));
 jest.mock('../../VisionPhotograph', () => ({ VisionPhotograph: (props: any) => {
   const { Image } = require('react-native');
@@ -127,10 +127,22 @@ it('reports a committed unavailable fallback after foreground failure even when 
   const onPhotoAssetReady = jest.fn();
   const rect = { x: 0, y: 0, width: 100, height: 100, rotation: 0, zIndex: 1, frame: 0 };
   const shared: any = { order: { value: ['p1'] }, slots: { value: [rect] }, dragging: { value: '' }, cameraScale: { value: 1 }, layoutVersion: { value: 0 } };
-  const view = render(<VisionBoardPhoto sceneId="p1" imageUrl="https://assets.test/photo.jpg" accessibilityLabel="Photo" initialRect={rect}
-    entering={false} exiting={false} shared={shared} reduceMotion interactive={false} dragEnabled={false} onPhotoAssetReady={onPhotoAssetReady} />);
+  const pendingFrames: FrameRequestCallback[] = [];
+  const originalRequestAnimationFrame = global.requestAnimationFrame;
+  global.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+    pendingFrames.push(callback);
+    return pendingFrames.length;
+  }) as typeof global.requestAnimationFrame;
+  try {
+    const view = render(<VisionBoardPhoto sceneId="p1" imageUrl="https://assets.test/photo.jpg" accessibilityLabel="Photo" initialRect={rect}
+      entering={false} exiting={false} shared={shared} reduceMotion interactive={false} dragEnabled={false} onPhotoAssetReady={onPhotoAssetReady} />);
 
-  fireEvent(view.getByTestId('board-image'), 'error');
-  expect(view.getByText('Image unavailable')).toBeTruthy();
-  await waitFor(() => expect(onPhotoAssetReady).toHaveBeenCalledWith('p1'));
+    fireEvent(view.getByTestId('board-image'), 'error');
+    expect(view.getByText('Image unavailable')).toBeTruthy();
+    expect(onPhotoAssetReady).not.toHaveBeenCalled();
+    await act(async () => { pendingFrames.shift()?.(0); });
+    expect(onPhotoAssetReady).toHaveBeenCalledWith('p1');
+  } finally {
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+  }
 });

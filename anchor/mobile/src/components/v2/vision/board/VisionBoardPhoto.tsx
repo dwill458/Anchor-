@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { memo, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -119,7 +120,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       }
     });
   }, [displayUrl, failedUrl, imageFailed, imageUrl, onPhotoAssetReady, sceneId]);
-  const imageRef = useRef<View>(null);
+  const imageRef = useRef<ViewInstance>(null);
   // The flight lands only once this photograph has decoded. Landing on layout let the arrival
   // overlay dissolve over a frame that was still blank, which read as a cream flash.
   const decodedUrl = useRef<string | null>(null);

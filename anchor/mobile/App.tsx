@@ -71,6 +71,7 @@ import { AuthService } from './src/services/AuthService';
 import { subscribeToAppAuthState } from './src/services/AppAuthBootstrap';
 import { handleUnauthenticatedAuthRestore } from './src/services/appAuthState';
 import { StartupRestoreFailure } from './src/components/startup/StartupRestoreFailure';
+import { discardInterruptedBackupRestores } from './src/storage/backup/backupRuntime';
 import { useRequiredLocalHydrationGuard } from './src/hooks/useRequiredLocalHydrationGuard';
 
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
@@ -328,6 +329,13 @@ export default function App() {
     safeFailure: startupSafeFailure || Boolean(fontLoadError),
     fatalFailure: fatalStartupFailure,
   });
+
+  React.useEffect(() => {
+    // Remove only inactive restore generations left by process death. When the
+    // pre-migration SecureStore runtime is active this is a no-op and does not
+    // open SQLCipher or write its lifecycle marker.
+    void discardInterruptedBackupRestores().catch(() => undefined);
+  }, []);
   const appIsReady = startup.isReady;
   const effectiveAnalyticsEnabled =
     process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && analyticsEnabled;
@@ -891,7 +899,7 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <View style={styles.fontLoadingFallback}>
-          <StatusBar style="light" backgroundColor="transparent" translucent />
+          <StatusBar style="light" />
           {fatalStartupFailure ? (
             <StartupRestoreFailure />
           ) : (

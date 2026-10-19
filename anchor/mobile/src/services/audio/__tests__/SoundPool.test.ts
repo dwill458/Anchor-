@@ -236,7 +236,7 @@ it('treats didJustFinish as loaded', async () => {
   useSettingsStore.setState({ soundEffectsEnabled: original });
 });
 
-it('caps live players at MAX_LIVE_PLAYERS (16) and evicts idle entries', () => {
+it('caps live players at the configured MAX_LIVE_PLAYERS limit', async () => {
   const original = useSettingsStore.getState().soundEffectsEnabled;
   useSettingsStore.setState({ soundEffectsEnabled: true });
   SoundPool.reset();
@@ -255,14 +255,15 @@ it('caps live players at MAX_LIVE_PLAYERS (16) and evicts idle entries', () => {
 
   jest.mocked(createAudioPlayer).mockImplementation(makePlayer as never);
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 30; i++) {
     SoundPool.register(`test:cap-${i}`, i);
     SoundPool.prewarm([`test:cap-${i}`]);
   }
 
   const { MAX_LIVE_PLAYERS, countLivePlayers } = require('../SoundPool');
-  expect(MAX_LIVE_PLAYERS).toBe(16);
-  expect(countLivePlayers()).toBeLessThanOrEqual(16);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  expect(MAX_LIVE_PLAYERS).toBe(24);
+  expect(countLivePlayers()).toBe(MAX_LIVE_PLAYERS);
 
   useSettingsStore.setState({ soundEffectsEnabled: original });
   SoundPool.reset();

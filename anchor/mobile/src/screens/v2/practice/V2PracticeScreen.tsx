@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -132,8 +133,8 @@ export function V2PracticeScreen({
 }: Props) {
   const teachingFocus = useTeachingFocus();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
-  const todayTeachingRef = useRef<View>(null);
-  const switchTeachingRef = useRef<View>(null);
+  const todayTeachingRef = useRef<ViewInstance>(null);
+  const switchTeachingRef = useRef<ViewInstance>(null);
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
   const reduceMotion = useV2ReduceMotion();
   const [selectedOverrideId, setSelectedOverrideId] = useState<string | null>(null);
@@ -571,7 +572,7 @@ export function V2PracticeScreen({
   return (
     <AnchorTransitionScene place="practice">
     <PracticeLayer layerKey="hub" depth={0} reduceMotion={reduceMotion} settle={!anchorInFlight}>
-    <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+    <StatusBar barStyle="light-content" animated />
     <V2Screen scroll style={styles.screen} testID="v2-practice-screen">
       <Pressable
         accessibilityRole="button"

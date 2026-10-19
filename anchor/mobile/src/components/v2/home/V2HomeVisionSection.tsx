@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
+import type { AnimatedStyle } from 'react-native-reanimated';
 import { VisionEditorialPreview } from '@/components/v2/vision/VisionEditorialPreview';
 import { useVisionEditorialNotes } from '@/components/v2/vision/useVisionEditorialNotes';
 import { colors, typography } from '@/theme/v2';
@@ -13,7 +14,7 @@ type Props = {
   onOpenVision?: () => void;
   onRetry?: () => void;
   /** The first Vision image's return to Home: the label and the print settle in through these. Absent, both are plain. */
-  arrival?: { label: StyleProp<ViewStyle>; body: StyleProp<ViewStyle> };
+  arrival?: { label: StyleProp<ViewStyle> | AnimatedStyle<ViewStyle>; body: StyleProp<ViewStyle> | AnimatedStyle<ViewStyle> };
   testID?: string;
 };
 

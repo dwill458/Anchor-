@@ -114,7 +114,7 @@ export function VisionInkBand({ children, style, fadeTo = colors.canvas }: { chi
   const insets = useSafeAreaInsets();
   return (
     <View style={style}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      <StatusBar barStyle="light-content" animated />
       <LinearGradient
         pointerEvents="none"
         colors={[colors.ink.base, colors.ink.base, `${colors.ink.base}CC`, fadeTo]}

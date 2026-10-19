@@ -267,7 +267,7 @@ function DeferredVisionCreationFlow({
     const failed = uploads.some(item => item.status === 'failed');
     stage = (
       <View testID={`${testID}-uploading`} style={styles.paper}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
+        <StatusBar barStyle="dark-content" />
         <ScrollView contentContainerStyle={[styles.paperContent, { paddingTop: insets.top + spacing[2], paddingBottom: insets.bottom + spacing[5] }]}>
           <VisionBackButton onPress={() => { setUploads([]); setStep('method'); }} style={styles.paperBack} />
           <Text accessibilityRole="header" style={styles.paperTitle}>{failed ? 'One photo needs another try.' : 'Placing your photos…'}</Text>
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   thumbs: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3], justifyContent: 'center' },
   thumb: { width: 104, height: 140, borderRadius: radii.md, overflow: 'hidden', backgroundColor: colors.grouped },
   thumbImage: { width: '100%', height: '100%' },
-  thumbShade: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,15,20,0.5)' },
+  thumbShade: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,15,20,0.5)' },
   thumbError: { fontFamily: 'Inter-SemiBold', fontSize: 12, color: colors.paper, textAlign: 'center', padding: 6 },
   paperNotice: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, textAlign: 'center', color: colors.semantic.error },
   paperAction: { alignSelf: 'stretch' },

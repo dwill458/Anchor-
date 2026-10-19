@@ -1,3 +1,4 @@
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 /**
  * Anchor App - Charge Complete Screen
  *
@@ -14,8 +15,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  InteractionManager,
-} from 'react-native';
+  } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -108,12 +108,12 @@ export const ChargeCompleteScreen: React.FC = () => {
       if (shouldOffer) {
         setShowPostPrimeTrace(true);
         if (!traceDefaultEnabled) {
-          InteractionManager.runAfterInteractions(() => {
+          scheduleAfterInteractions(() => {
             setShowCompletion(true);
           });
         }
       } else {
-        InteractionManager.runAfterInteractions(() => {
+        scheduleAfterInteractions(() => {
           setShowCompletion(true);
         });
       }
@@ -123,7 +123,7 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   const handleSkipPostPrimeTrace = () => {
     setShowPostPrimeTrace(false);
-    InteractionManager.runAfterInteractions(() => {
+    scheduleAfterInteractions(() => {
       setShowCompletion(true);
     });
   };
@@ -173,7 +173,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       });
     }
 
-    InteractionManager.runAfterInteractions(() => {
+    scheduleAfterInteractions(() => {
       setShowCompletion(true);
     });
   }, [

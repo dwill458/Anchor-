@@ -42,3 +42,12 @@
 
 # react-native-webview
 -keep class com.reactnativecommunity.webview.** { *; }
+
+# Expo SDK 58 Android modules bridge these enums to JavaScript without the v2
+# Enumerable marker. Preserve the enum entries and String values when R8 shrinks.
+-keep enum expo.modules.sqlite.SQLAction { *; }
+-keep enum expo.modules.crypto.DigestAlgorithm { *; }
+-keep enum expo.modules.crypto.DigestOptions$Encoding { *; }
+-keep enum expo.modules.haptics.arguments.HapticType { *; }
+-keep enum expo.modules.haptics.arguments.ImpactStyle { *; }
+-keep enum expo.modules.haptics.arguments.NotificationType { *; }

@@ -1,9 +1,10 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ViewInstance } from 'react-native';
 import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
-import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, G, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { AnchorMotion, colors, getCategoryColor, typography } from '@/theme/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { CircularAnchorRenderer } from '@/components/v2';
@@ -16,10 +17,9 @@ import { releaseArtFactors, releaseArtParams, useHomeArrivalContext } from './ho
 import { HomeArrivalCounter } from './HomeArrivalCounter';
 import { HomeArrivalUnderline, HomeEvolvedFromLine, HomeEvolvedGhost } from './HomeArrivalEvolved';
 import { useAnchorTransitionPlace, useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
-import { HeroStatusRing } from './V2HomeHeroLight';
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
-import { HandDrawnPercentage } from './HandDrawnPercentage';
+import { HandDrawnPercentage, handDrawnPercentageWidth } from './HandDrawnPercentage';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
 const PAPER_ARTWORK_SHARE = 0.72;
@@ -38,7 +38,7 @@ type Props = {
   auraActive?: boolean;
   /** Passed through to the carousel: true while it moves, false once it rests and commits. */
   onMotionChange?: (moving: boolean) => void;
-  teachingThreadRef?: React.RefObject<View | null>;
+  teachingThreadRef?: React.RefObject<ViewInstance | null>;
   testID?: string;
 };
 
@@ -64,15 +64,15 @@ function IntentionMark({ color }: { color: string }) {
  * orbit and cardinal tick marks read as a seal or compass rose, not as a
  * personal mark sitting on paper.
  */
+/**
+ * The ring is a fixed shape, so it is a pre-rendered alpha mask (scripts/generate-hero-construction-ring.py)
+ * drawn with Image + tintColor. As an SVG it was a ~1000 px bitmap that every hero re-rasterized on the main
+ * thread each time its view attached.
+ */
+const CONSTRUCTION_RING = require('../../../../assets/home/construction-ring.png');
 const ConstructionStrokes = memo(function ConstructionStrokes({ color, size }: { color: string; size: number }) {
-  const c = size / 2;
-  const outer = size * 0.452;
-  return <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-    <G strokeLinecap="round" fill="none">
-      <Circle cx={c - size * 0.005} cy={c + size * 0.004} r={outer} stroke={color} strokeWidth={1.2}
-        strokeOpacity={0.34} strokeDasharray={`${outer * 5.4} ${outer * 0.5}`} transform={`rotate(-24 ${c} ${c})`} />
-    </G>
-  </Svg>;
+  return <Image source={CONSTRUCTION_RING} resizeMode="stretch" fadeDuration={0} tintColor={color} style={{ width: size, height: size, opacity: 0.34 }}
+    accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
 });
 
 /**
@@ -89,7 +89,7 @@ export function consistencyDeltaLabel(delta: number): string {
   return 'Steady this week';
 }
 
-function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2ThreadPresentation; accent: string; active: boolean; teachingRef?: React.RefObject<View | null> }) {
+function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2ThreadPresentation; accent: string; active: boolean; teachingRef?: React.RefObject<ViewInstance | null> }) {
   const measured = thread.value !== null;
   const delta = thread.delta;
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
@@ -99,7 +99,8 @@ function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2Thre
       <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
         <View style={styles.threadValueContainer}>
-          <HandDrawnPercentage value={thread.value as number} color={accent} height={20} />
+          {/* Neighbours reserve the digits' footprint; the SVG mounts only on the centred slot. */}
+          {active ? <HandDrawnPercentage value={thread.value as number} color={accent} height={20} /> : <View style={{ width: handDrawnPercentageWidth(thread.value as number, 20), height: 20 }} />}
           <Text
             testID={active ? 'v2-home-thread-value' : undefined}
             style={styles.threadValueHidden}
@@ -183,7 +184,7 @@ function useHeroEntrance(
     () => (eligible ? { ground, draw, drawing } : undefined),
     [draw, drawing, eligible, ground],
   );
-  return { entrance, onImageLoad, ringDelayMs: eligible ? HERO_ENTRANCE.ringDelayMs : undefined };
+  return { entrance, onImageLoad };
 }
 
 function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, lastActivatedAnchorIdRef, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
@@ -206,7 +207,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
   onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
   onOpenProgress?: (anchorId?: string, source?: AnchorWindowRect) => void;
   onOpenAllAnchors?: () => void;
-  teachingThreadRef?: React.RefObject<View | null>;
+  teachingThreadRef?: React.RefObject<ViewInstance | null>;
 }) {
   const anchor = summary.anchor;
   // Dev-only Thread Strength simulator; inert (value null, nonce 0) outside development.
@@ -232,7 +233,6 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
     opacity: interpolate(Math.abs(slot * spacing + offset.value), [0, spacing * 0.55], [1, 0], 'clamp'),
   }));
   const entranceState = useHeroEntrance(summary.anchor, slot, reduceMotion, Boolean(arrival?.active), arrival?.reportHeroImageLoaded);
-  const mountSize = anchorSize + 14;
   // The front disc is Home's place for this Anchor. A return from Details measures it when the copy lands, so a scrolled or re-rendered Home is never flown to a stale position.
   const { ref: discRef } = useAnchorTransitionPlace('home', anchor.id, 'paper', { enabled: slot === 0 });
   const transition = useProgressiveFocusTransition();
@@ -375,7 +375,6 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
             </Animated.View>
           </Pressable>
         </View>
-        <HeroStatusRing mountSize={mountSize} done={summary.practicedToday} entranceDelayMs={entranceState.ringDelayMs} reduceMotion={reduceMotion} />
         </View>
       </Animated.View>
 
@@ -387,7 +386,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
         </Text>
         <View style={styles.intentionMark}>
           <HomeArrivalUnderline active={slot === 0} width={INTENTION_MARK_WIDTH} height={INTENTION_MARK_HEIGHT}>
-            <IntentionMark color={accent} />
+            {slot === 0 ? <IntentionMark color={accent} /> : <View style={{ width: INTENTION_MARK_WIDTH, height: INTENTION_MARK_HEIGHT }} />}
           </HomeArrivalUnderline>
         </View>
         </View>
@@ -476,7 +475,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   artworkLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

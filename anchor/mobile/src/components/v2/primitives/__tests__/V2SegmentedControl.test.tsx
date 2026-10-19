@@ -6,7 +6,7 @@ import { V2SegmentedControl } from '../V2SegmentedControl';
 let mockReduce = false;
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => mockReduce }));
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { ...actual, __esModule: true, withSpring: jest.fn(actual.withSpring), withTiming: jest.fn(actual.withTiming) };
 });
 

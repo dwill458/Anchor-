@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   background: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   bgOrb: {
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     shadowRadius: 58,
   },
   grainOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.08,
     backgroundColor: 'rgba(255,255,255,0.025)',
   },

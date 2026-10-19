@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, DeviceEventEmitter, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -318,9 +319,9 @@ export function ChartActiveView({
   const [teachingViewportRevision, setTeachingViewportRevision] = useState(0);
   const [teachingRequested, setTeachingRequested] = useState(false);
   const [openingFinished, setOpeningFinished] = useState(false);
-  const oneMoveRowRef = useRef<View>(null);
-  const oneMoveCircleRef = useRef<View>(null);
-  const oneMoveBodyRef = useRef<View>(null);
+  const oneMoveRowRef = useRef<ViewInstance>(null);
+  const oneMoveCircleRef = useRef<ViewInstance>(null);
+  const oneMoveBodyRef = useRef<ViewInstance>(null);
   const oneMoveViewportRef = useRef<ChartSheetViewport | null>(null);
   const teachingShownKey = useRef<string | null>(null);
   const accountId = useAuthStore((state) => state.user?.id ?? null);
@@ -1277,7 +1278,7 @@ export function ChartActiveView({
 
   return (
     <View testID={testID ?? 'chart-active'} style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={T.paper} animated />
+      <StatusBar barStyle="dark-content" animated />
       {/* Keeps the cloud bitmaps decoded for the next open's frame-one veil. */}
       <ChartWeatherVeilPrimer />
       <ChartMapHeader categoryLabel={categoryLabel} category={identity.category} accent={accent} visionImageUrl={vision?.imageUrl ?? null} hasVision={Boolean(vision)} onBack={offCurrent ? backToCurrent : onBack} onMenu={() => setMenuOpen(true)} onOpenVision={onOpenVision} />

@@ -1,5 +1,6 @@
 import { AuthService } from '@/services/AuthService';
 import AuthHydrationService from '@/services/AuthHydrationService';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { prefetchHomeStartupData } from '@/services/v2/homeStartupPrefetch';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -255,6 +256,11 @@ export function subscribeToAppAuthState({
         });
         if (!isCurrent(currentVersion)) return;
         hydrationSpan({ ok: true });
+        // The server answered, so retry any practice completions that were committed locally while it
+        // was unreachable. Each carries a stable id, so a retry cannot duplicate the session.
+        void PracticeCompletionService.flush(session.user.id).catch((flushError) => {
+          logger.warn('Deferred practice upload retry failed', flushError);
+        });
       } catch (hydrationError) {
         if (!isCurrent(currentVersion)) return;
         hydrationSpan({ ok: false });
@@ -275,6 +281,18 @@ export function subscribeToAppAuthState({
           store.setLoading(false);
           settleInitialRestore(currentVersion);
           logger.warn('Network unreachable — restored session from cache (offline mode)');
+          // Restore this account's locally committed Anchors, practice history and progress. Hydration's
+          // remote calls fail while the API is unreachable and it then falls back to the account-scoped
+          // device snapshots; it only leaves offline mode when the profile request actually succeeds.
+          try {
+            await AuthHydrationService.hydrateAuthenticatedData({
+              skipAnchorRefresh: Boolean(useAuthStore.getState().pendingFirstAnchorDraft),
+            });
+          } catch (hydrationError) {
+            if (!isCurrent(currentVersion)) return;
+            logger.warn('Offline session restored, but local data hydration failed', hydrationError);
+            onStartupSafeFailure();
+          }
           return;
         }
       }

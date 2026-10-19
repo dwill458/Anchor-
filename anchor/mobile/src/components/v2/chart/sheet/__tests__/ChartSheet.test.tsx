@@ -1,5 +1,5 @@
 jest.mock('react-native-reanimated', () => {
-  const actual = jest.requireActual('react-native-reanimated');
+  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
   return { __esModule: true, ...actual, runOnJS: (fn: unknown) => fn, withTiming: jest.fn((value: number, _config: unknown, done?: (finished: boolean) => void) => { done?.(true); return value; }) };
 });
 import React from 'react';
@@ -37,7 +37,7 @@ describe('ChartSheet', () => {
   it('cycles peek → half → full → peek with accessible labels and hardware back', () => {
     const ref = React.createRef<ChartSheetHandle>();
     const change = jest.fn();
-    let back: (() => boolean | null | undefined) | undefined;
+    let back: ((event: { readonly type: string; readonly timeStamp: number }) => boolean | undefined) | undefined;
     const subscription = jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_name, callback) => { back = callback; return { remove: jest.fn() }; });
     const screen = render(<ChartSheet ref={ref} busy={{ value: false } as SharedValue<boolean>} reducedMotion={false} onDetentChange={change}><Text>Content</Text></ChartSheet>);
     act(() => ref.current!.snapTo('peek'));
@@ -46,9 +46,9 @@ describe('ChartSheet', () => {
     fireEvent.press(screen.getByLabelText('Expand panel'));
     expect(change).toHaveBeenLastCalledWith('full');
     expect(screen.getByLabelText('Collapse panel')).toBeTruthy();
-    act(() => { expect(back!()).toBe(true); });
+    act(() => { expect(back!({ type: 'hardwareBackPress', timeStamp: 0 })).toBe(true); });
     expect(change).toHaveBeenLastCalledWith('peek');
-    act(() => { expect(back!()).toBe(false); });
+    act(() => { expect(back!({ type: 'hardwareBackPress', timeStamp: 0 })).toBe(false); });
     subscription.mockRestore();
   });
   it('keeps expansion disabled while the sequence is busy and uses 180ms linear under Reduce Motion', () => {

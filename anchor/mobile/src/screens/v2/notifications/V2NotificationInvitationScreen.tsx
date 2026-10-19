@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
@@ -140,7 +141,7 @@ export function V2NotificationInvitationScreen() {
   const fliesRef = useRef(route.params?.anchorTransition === true && !reduceMotion);
   const revealBase = fliesRef.current ? FLIGHT_REVEAL_OFFSET : 1;
 
-  const markRef = useRef<View>(null);
+  const markRef = useRef<ViewInstance>(null);
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
   const scale = useSharedValue(1);

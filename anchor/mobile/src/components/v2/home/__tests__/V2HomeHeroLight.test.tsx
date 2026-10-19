@@ -10,7 +10,7 @@ import { useHomeGlowSeenStore } from '@/stores/v2/homeGlowSeenStore';
 let mockFinishImmediately = false;
 const mockWithTiming = jest.fn();
 jest.mock('react-native-reanimated', () => {
-  const mock = require('react-native-reanimated/mock');
+  const mock = require('@/__tests__/mocks/reactNativeReanimated').default;
   return {
     ...mock,
     useSharedValue: (initial: unknown) => require('react').useRef({ value: initial }).current,

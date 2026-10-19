@@ -67,7 +67,7 @@ export function VisionIntroStage({ anchorIntention, anchorCategory, onBack, onSt
 
   return (
     <View testID={`${testID}-empty`} style={styles.stage}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" />
       <View style={[styles.photoWindow, { height: photoHeight }]}>
         <Animated.View style={heroStyle}>
           <Animated.Image

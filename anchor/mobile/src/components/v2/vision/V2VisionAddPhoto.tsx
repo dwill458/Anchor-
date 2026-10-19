@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 // DEFERRED: replaced by VisionCeremony develop → keep → seal for single photos.
 import { useRef, useState } from 'react';
 import { Image, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -36,7 +37,7 @@ export function V2VisionAddPhoto({
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const arrival = useVisionImageArrival();
-  const frameRef = useRef<View>(null);
+  const frameRef = useRef<ViewInstance>(null);
   const sourceRect = useRef<{ x: number; y: number; width: number; height: number } | undefined>(undefined);
   const measure = () => frameRef.current?.measureInWindow?.((x, y, width, height) => { sourceRect.current = { x, y, width, height }; });
   const [saving, setSaving] = useState(false);
@@ -59,7 +60,7 @@ export function V2VisionAddPhoto({
 
   return (
     <View testID={testID} style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      <StatusBar barStyle="light-content" animated />
       <View style={[styles.page, { paddingTop: insets.top }]}>
         <VisionHeaderRow title="Add Image" onBack={saving ? undefined : onCancel} />
         <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} />

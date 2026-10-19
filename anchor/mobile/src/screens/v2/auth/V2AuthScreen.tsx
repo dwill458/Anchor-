@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -31,6 +32,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ArrowRight, ChevronLeft, Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react-native';
 import { V2Screen } from '@/components/v2';
 import { AuthService } from '@/services/AuthService';
+import { ISOLATED_PREVIEW_AUTH_MESSAGE, isIsolatedSqlCipherPreview } from '@/config/isolatedPreview';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 import { useAuthStore } from '@/stores/authStore';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
@@ -91,8 +93,8 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   const [loading, setLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const signedInUser = useAuthStore((state) => state.user);
-  const emailRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
 
   // Segment width: total width minus padding (20 * 2) minus container inner padding (3 * 2) divided by 2
   const segmentContainerWidth = width - 40;
@@ -122,6 +124,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   };
 
   const complete = async (run: () => ReturnType<typeof AuthService.signInWithEmail>, method: AuthMethod) => {
+    if (isIsolatedSqlCipherPreview()) { setError(ISOLATED_PREVIEW_AUTH_MESSAGE); return; }
     setError(null);
     setLoading(true);
     const context: AuthContext = saveProgress ? 'save_progress' : 'v2_auth';
@@ -177,6 +180,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   };
 
   const sendReset = async () => {
+    if (isIsolatedSqlCipherPreview()) { setError(ISOLATED_PREVIEW_AUTH_MESSAGE); return; }
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setError('Enter your email first to reset your password.');
@@ -549,7 +553,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
 }
 
 const Field = React.forwardRef<
-  TextInput,
+  TextInputInstance,
   React.ComponentProps<typeof TextInput> & {
     icon: React.ReactNode;
     label: string;

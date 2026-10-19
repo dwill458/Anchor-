@@ -70,7 +70,7 @@ export const AnchorArtworkExportCanvas = forwardRef<
             colors={['#040610', '#120B27', '#1A1138']}
             start={{ x: 0.1, y: 0 }}
             end={{ x: 0.9, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           />
           <LinearGradient
             colors={['rgba(222, 184, 78, 0.18)', 'rgba(222, 184, 78, 0)']}
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   frameBorder: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 48,
     borderWidth: 2,
     borderColor: 'rgba(222, 184, 78, 0.26)',

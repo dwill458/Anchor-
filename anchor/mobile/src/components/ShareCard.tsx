@@ -1,6 +1,6 @@
 import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import ViewShot from 'react-native-view-shot';
+import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { WeeklyStats } from '@/hooks/useWeeklyStats';
@@ -373,7 +373,7 @@ export const ShareCard = forwardRef<ShareCardRef, ShareCardProps>(function Share
 ) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const size = EXPORT_SIZES[format];
-  const viewShotRef = useRef<ViewShot | null>(null);
+  const viewShotRef = useRef<ViewShotRef | null>(null);
   const scale = Math.min((screenWidth - 24) / size.width, (screenHeight - 24) / size.height, 1);
   const previewWidth = size.width * scale;
   const previewHeight = size.height * scale;

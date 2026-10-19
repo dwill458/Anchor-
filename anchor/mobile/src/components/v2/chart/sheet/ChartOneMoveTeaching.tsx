@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -24,7 +25,7 @@ type Props = {
 };
 
 type Rect = { x: number; y: number; width: number; height: number };
-type MeasurableNode = { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void };
+type MeasurableNode = ViewInstance | { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void };
 const PAD = 8;
 const MARGIN = 18;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -33,7 +34,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, detent, targets, viewportRef, viewportLayoutRevision, measureInWindow, onRequestVisible, onReady, onDismiss }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const rootRef = useRef<View>(null);
+  const rootRef = useRef<ViewInstance>(null);
   const [rootRect, setRootRect] = useState<Rect | null>(null);
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
   const [tipHeight, setTipHeight] = useState(160);

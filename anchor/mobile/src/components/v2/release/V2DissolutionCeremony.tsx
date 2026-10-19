@@ -72,7 +72,7 @@ export function V2DissolutionCeremony({ artworkSvg, anchorId = 'anchor', categor
 }
 
 const styles = StyleSheet.create({
-  chamber: { ...StyleSheet.absoluteFillObject, backgroundColor: RELEASE_CEREMONY_CHAMBER_BG,
+  chamber: { ...StyleSheet.absoluteFill, backgroundColor: RELEASE_CEREMONY_CHAMBER_BG,
     alignItems: 'center', justifyContent: 'center' },
   stage: { width: 244, height: 244 },
 });

@@ -20,7 +20,7 @@ export function setWidgetSnapshot(json: string): boolean {
   }
   try {
     // Lazy require: keeps startup safe on binaries without the native module.
-    const { requireNativeModule } = require('expo-modules-core');
+    const { requireNativeModule } = require('expo');
     const nativeModule = requireNativeModule('AnchorWidgetBridge');
     return nativeModule.setWidgetSnapshot(json) === true;
   } catch {

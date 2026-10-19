@@ -71,6 +71,32 @@ const GLYPHS: Record<string, Glyph> = {
   },
 };
 
+const GLYPH_SPACING = 1.6;
+const GLYPH_BOX_HEIGHT = 26;
+
+function layoutPercentage(value: number | string, height: number) {
+  const rawStr = String(value).trim();
+  const text = rawStr.endsWith('%') ? rawStr : `${rawStr}%`;
+  const chars = text.split('');
+  let totalW = 0;
+  const layout = chars.map((ch) => {
+    const glyph = GLYPHS[ch] || GLYPHS['0'];
+    const x = totalW;
+    totalW += glyph.w + GLYPH_SPACING;
+    return { glyph, x };
+  });
+  if (layout.length > 0) {
+    totalW -= GLYPH_SPACING;
+  }
+  const width = Math.max(1, Math.round((totalW / GLYPH_BOX_HEIGHT) * height));
+  return { layout, totalW, glyphBoxHeight: GLYPH_BOX_HEIGHT, width };
+}
+
+/** The footprint HandDrawnPercentage occupies, so a neighbouring slot can reserve it without mounting the SVG. */
+export function handDrawnPercentageWidth(value: number | string, height = 22): number {
+  return layoutPercentage(value, height).width;
+}
+
 export interface HandDrawnPercentageProps {
   value: number | string;
   color: string;
@@ -90,23 +116,7 @@ export const HandDrawnPercentage = memo(function HandDrawnPercentage({
   style,
   testID,
 }: HandDrawnPercentageProps) {
-  const rawStr = String(value).trim();
-  const text = rawStr.endsWith('%') ? rawStr : `${rawStr}%`;
-  const chars = text.split('');
-
-  const spacing = 1.6;
-  let totalW = 0;
-  const layout = chars.map((ch) => {
-    const glyph = GLYPHS[ch] || GLYPHS['0'];
-    const x = totalW;
-    totalW += glyph.w + spacing;
-    return { glyph, x };
-  });
-  if (layout.length > 0) {
-    totalW -= spacing;
-  }
-  const glyphBoxHeight = 26;
-  const width = Math.max(1, Math.round((totalW / glyphBoxHeight) * height));
+  const { layout, totalW, glyphBoxHeight, width } = layoutPercentage(value, height);
 
   return (
     <Svg

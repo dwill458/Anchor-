@@ -6,8 +6,9 @@
  */
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { encryptedPersistStorage } from './encryptedPersistStorage';
+import { privateJsonStorage } from '@/storage/sqlcipher/persistence';
 import type { Anchor } from '@/types';
 import { acknowledgesLocalEdits, pendingLocalFields } from '@/services/anchorReconciliation';
 import { useTeachingStore } from './teachingStore';
@@ -695,18 +696,18 @@ export const useAnchorStore = create<AnchorState>()(
     },
     {
       name: 'anchor-vault-storage',
-      storage: createJSONStorage(() => ({
-        ...encryptedPersistStorage,
+      storage: {
+        ...privateJsonStorage<unknown>(encryptedPersistStorage),
         setItem: (name, value) => {
           // A failed/incomplete restore must never publish an empty replacement.
           if (!useAnchorStore.getState().persistedHydrated) return Promise.resolve();
-          latestPersistenceWrite = Promise.resolve(encryptedPersistStorage.setItem(name, value)).then(() => undefined);
+          latestPersistenceWrite = Promise.resolve(privateJsonStorage<unknown>(encryptedPersistStorage).setItem(name, value)).then(() => undefined);
           return latestPersistenceWrite.catch(() => {
             useAnchorStore.setState({ persistedHydrated: false, persistenceRecoveryRequired: true,
               error: 'Your Anchor could not be saved. Restart to recover the last saved version.' });
           });
         },
-      })),
+      },
       // Persist anchors, last sync time, and currentAnchorId
       partialize: (state) => ({
         ownershipVersion: 1,

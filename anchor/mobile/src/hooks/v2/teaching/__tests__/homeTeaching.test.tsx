@@ -1,10 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { InteractionManager } from 'react-native';
 import { homeTeachingBeats } from '../homeTeaching';
 import { useTeachingQueue } from '../useTeachingQueue';
 import { resetTeachingSeenCache } from '../teachingSeen';
 jest.mock('@/stores/encryptedPersistStorage', () => ({ encryptedPersistStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(), removeItem: jest.fn() } }));
-jest.spyOn(InteractionManager, 'runAfterInteractions').mockImplementation((action: any) => { action(); return { cancel: jest.fn(), then: jest.fn(), done: jest.fn() }; });
+jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: (action: () => void) => { action(); return { cancel: jest.fn() }; } }));
 beforeEach(resetTeachingSeenCache);
 async function visit(hasVision: boolean, hasChart: boolean, expected: string[]) {
   const hook = renderHook(() => useTeachingQueue({ screenId: 'home', accountId: null, eligible: homeTeachingBeats({ hasAnchor: true, hasVision, hasChart }), cap: 2, blocked: false, isFocused: true }));

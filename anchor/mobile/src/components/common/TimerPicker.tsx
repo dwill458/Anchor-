@@ -1,3 +1,5 @@
+import type { ScrollViewInstance } from 'react-native';
+
 /**
  * TimerPicker - Reusable modal component for selecting custom durations
  *
@@ -58,7 +60,7 @@ export const TimerPicker: React.FC<TimerPickerProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [selectedMinutes, setSelectedMinutes] = useState(initialMinutes);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
 
   // Generate array of minutes to display
   const minuteOptions = Array.from(
@@ -217,7 +219,7 @@ export const TimerPicker: React.FC<TimerPickerProps> = ({
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
 

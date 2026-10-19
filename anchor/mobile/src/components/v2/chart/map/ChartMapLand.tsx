@@ -76,6 +76,7 @@ function loadLandscape(): Promise<SkImage | null> {
   if (landscapeLoad) return landscapeLoad;
   landscapeLoad = Promise.resolve().then(async () => {
     const source = NativeImage.resolveAssetSource(LANDSCAPE);
+    if (!source?.uri) return null;
     const data = await Skia.Data.fromURI(source.uri);
     landscapeImageCache = Skia.Image.MakeImageFromEncoded(data);
     return landscapeImageCache;

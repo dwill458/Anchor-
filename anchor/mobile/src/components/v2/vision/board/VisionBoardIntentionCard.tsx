@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { memo, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View, type LayoutRectangle } from 'react-native';
 import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
@@ -36,7 +37,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   paperOpacity, pinOpacity, onTeachingMotionChange,
 }: Props) {
   const arrival = useVisionImageArrival();
-  const markSlot = useRef<View>(null);
+  const markSlot = useRef<ViewInstance>(null);
   // When a chosen image arrives with the person's Anchor, tell it where the board holds the mark.
   const landAnchor = () => {
     if (!arrival?.anchorInFlight) return;

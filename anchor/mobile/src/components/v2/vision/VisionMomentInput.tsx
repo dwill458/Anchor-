@@ -1,3 +1,4 @@
+import type { TextInputInstance } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
 import { ActivityIndicator, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
@@ -127,6 +128,7 @@ export function VisionMomentInput({
   const fieldRef = useRef<VisionSceneFieldHandle>(null);
 
   const [inputFocused, setInputFocused] = useState(false);
+  const inputRef = useRef<TextInputInstance>(null);
   const isCreate = mode === 'create';
   const categoryColor = getCategoryColor(anchorCategory);
 
@@ -273,7 +275,7 @@ export function VisionMomentInput({
 
   return (
     <View testID={testID} style={styles.stage}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
+      <StatusBar barStyle="dark-content" />
       <ChartKeyboardFrame
         contentContainerStyle={[styles.content, { paddingTop: insets.top + (ceremony ? 56 : spacing[2]) }]}
         footer={footer}
@@ -425,6 +427,24 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
     borderRadius: radii.md, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default, overflow: 'hidden',
   },
   accentBar: { position: 'absolute', left: spacing[3], top: spacing[3], bottom: spacing[3], width: 3, borderRadius: 2 },
+  pathToggle: { flexDirection: 'row', padding: 3, borderRadius: radii.pill, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
+  pathPill: { position: 'absolute', left: 3, top: 3, bottom: 3, borderRadius: radii.pill, backgroundColor: colors.ink.deep },
+  pathOption: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[2], borderRadius: radii.pill },
+  pathLabel: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
+  pathLabelActive: { fontFamily: 'Inter-SemiBold', color: colors.paper },
+  photoZone: { height: 208, borderRadius: radii.lg, overflow: 'hidden', backgroundColor: colors.surface },
+  photoZoneEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: VISION_GOLD },
+  photoZoneSet: { borderWidth: 1, borderColor: colors.text.primary },
+  photoEmptyWrap: { flex: 1 },
+  photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[2], paddingHorizontal: spacing[4] },
+  photoEmptyTitle: { fontFamily: VISION_SERIF, fontSize: 22, lineHeight: 28, color: colors.text.primary, textAlign: 'center' },
+  photoEmptySub: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, color: colors.text.secondary, textAlign: 'center' },
+  photoImage: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
+  photoActions: { position: 'absolute', right: spacing[2], bottom: spacing[2], flexDirection: 'row', gap: spacing[2] },
+  photoAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: 'rgba(10,15,20,0.72)' },
+  photoActionLabel: { fontFamily: 'Inter-SemiBold', fontSize: 13, lineHeight: 18, color: colors.paper },
+  inputFrame: { borderRadius: radii.lg, borderWidth: 1, borderColor: colors.text.primary, backgroundColor: colors.surface },
+  textInput: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, minHeight: 124, maxHeight: 200, padding: spacing[4] },
   region: { gap: spacing[3] },
   suggestionWrap: { alignSelf: 'flex-start' },
   referenceGroup: { gap: spacing[3] },

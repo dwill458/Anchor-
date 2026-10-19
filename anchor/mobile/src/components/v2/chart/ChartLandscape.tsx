@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   caption: { position: 'absolute' },
   captionTitle: { ...typography.labelSM, color: ROUTE_LIGHT, letterSpacing: 1.2 },
   markerSlot: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  markerHit: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  markerHit: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   markerDot: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   markerCompleted: { backgroundColor: ROUTE_LIGHT },
   markerEngraving: { borderWidth: 1.5, borderColor: ROUTE_LIGHT, backgroundColor: 'rgba(14, 21, 28, 0.7)' },

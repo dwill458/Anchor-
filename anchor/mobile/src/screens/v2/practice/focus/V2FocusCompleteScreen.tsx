@@ -1,5 +1,6 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type TextInstance } from 'react-native';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -22,6 +23,7 @@ import {
   type PracticeSceneKind,
 } from '@/hooks/v2/practice/usePracticeCompletionScene';
 import type { ArrivalRect } from '@/stores/v2/homeArrivalStore';
+import type { FocusSaveWaitResult } from './focusSaveWait';
 import { offerPracticeDeparture, type PracticeDepartureMeasure } from '@/stores/v2/practiceDeparture';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 
@@ -101,6 +103,8 @@ export interface V2FocusCompleteScreenProps {
   beforeStrength?: number | null;
   afterStrength?: number | null;
   sessionSaved?: boolean;
+  sessionSaveState?: 'saving' | FocusSaveWaitResult;
+  onRetrySave?: () => void;
   /** Stable id of the completed session. Keys the completion scene and the Thread settle cue to one play per session. */
   sessionId?: string | null;
   /** Shared completion presentation; Focus keeps its original copy by default. */
@@ -119,6 +123,8 @@ export function V2FocusCompleteScreen({
   beforeStrength: propBefore,
   afterStrength: propAfter,
   sessionSaved = true,
+  sessionSaveState = sessionSaved ? 'saved' : 'failed',
+  onRetrySave,
   sessionId = null,
   practiceTitle,
   enterFrom = 'ink',
@@ -200,8 +206,8 @@ export function V2FocusCompleteScreen({
   const oldValueOut = useSharedValue(1);
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
   const oldValueStyle = useAnimatedStyle(() => ({ opacity: oldValueOut.value }));
-  const artworkRef = useRef<View>(null);
-  const valueRef = useRef<Text>(null);
+  const artworkRef = useRef<ViewInstance>(null);
+  const valueRef = useRef<TextInstance>(null);
   const showsNewValue = hasAuthoritativeMovement && delta !== 0;
 
   const measureDeparture = useCallback(async (): Promise<PracticeDepartureMeasure | null> => {
@@ -262,7 +268,7 @@ export function V2FocusCompleteScreen({
 
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} animated />
+      <StatusBar barStyle="dark-content" animated />
       <Animated.View style={[styles.content, contentStyle]}>
         <Animated.View
           ref={artworkRef}
@@ -435,8 +441,27 @@ export function V2FocusCompleteScreen({
         </> : (
           <View style={styles.unmeasuredContainer}>
             <Text style={styles.unmeasuredHint}>
-              This session could not be saved. Thread Strength was not updated.
+              {sessionSaveState === 'unknown'
+                ? 'Saving is taking longer than expected. The outcome is still being confirmed. Thread Strength will appear after the save is confirmed.'
+                : sessionSaveState === 'saving'
+                  ? 'Your session is still being saved. Thread Strength will appear after the save is confirmed.'
+                  : 'This session could not be saved. Thread Strength was not updated.'}
             </Text>
+            {onRetrySave && sessionSaveState !== 'saved' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={sessionSaveState === 'failed' ? 'Retry saving session' : 'Check session save status'}
+                accessibilityState={{ disabled: sessionSaveState === 'saving', busy: sessionSaveState === 'saving' }}
+                disabled={sessionSaveState === 'saving'}
+                testID="focus-complete-retry-save"
+                onPress={onRetrySave}
+                style={styles.retrySave}
+              >
+                <Text style={styles.againText}>
+                  {sessionSaveState === 'failed' ? 'Retry saving' : 'Check save status'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
       </Animated.View>
@@ -490,7 +515,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   inkOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#0B0F18',
   },
   content: {
@@ -545,6 +570,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  retrySave: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing[3] },
   measuredCard: {
     paddingVertical: spacing[2],
     paddingHorizontal: spacing[1],
@@ -638,7 +664,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   stageSegmentFill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 1.5,
     transformOrigin: 'left center',
   },

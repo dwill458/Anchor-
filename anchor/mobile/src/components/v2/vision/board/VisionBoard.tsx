@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
@@ -82,7 +83,7 @@ export function VisionBoard({
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const selectNote = useCallback((id: string) => { setSelectedNoteId(id); v2Haptics.selection(); }, []);
   const [dragging, setDragging] = useState(false);
-  const teachingViewportRef = useRef<View>(null);
+  const teachingViewportRef = useRef<ViewInstance>(null);
   const [teachingMovingObjects, setTeachingMovingObjects] = useState<ReadonlySet<string>>(() => new Set());
   const [cameraAtRest, setCameraAtRest] = useState(false);
   const onTeachingMotionChange = useCallback((sceneId: string, moving: boolean) => {

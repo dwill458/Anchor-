@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
+import type { AnimatedStyle } from 'react-native-reanimated';
 import Svg, { Path, Polygon } from 'react-native-svg';
 import { Check } from 'lucide-react-native';
 import type { V2HomeTodayState } from '@/adapters/v2/home';
@@ -27,7 +28,7 @@ type Props = {
   onBegin?: () => void;
   onOpenAllPractices?: () => void;
   onRetry?: () => void;
-  contentStyle?: StyleProp<ViewStyle>;
+  contentStyle?: StyleProp<ViewStyle> | AnimatedStyle<ViewStyle>;
   testID?: string;
 };
 

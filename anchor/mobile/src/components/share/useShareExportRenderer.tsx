@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, type ImageSourcePropType } from 'react-native';
 import { ShareTemplate } from './ShareTemplate';
@@ -69,7 +70,7 @@ function nextFrames(count: number) {
  * `exportNode` must be rendered once by the host (it sits off-screen).
  */
 export function useShareExportRenderer(data: ShareExportData | null) {
-  const nodeRef = useRef<View | null>(null);
+  const nodeRef = useRef<ViewInstance | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const targetRef = useRef<Target | null>(null);
   const readyKeys = useRef(new Set<string>());

@@ -328,7 +328,7 @@ export function V2ChartJourneyScreen() {
 
   return (
     <View testID="v2-chart-journey" style={[styles.screen, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} animated />
+      <StatusBar barStyle="dark-content" animated />
 
       {/* Header */}
       <View style={styles.header}>

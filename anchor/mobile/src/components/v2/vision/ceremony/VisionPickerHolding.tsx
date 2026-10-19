@@ -68,7 +68,7 @@ export function VisionPickerHolding({ retrying, onRetry, onBack, anchorArt }: {
     </> : null}
   </View>;
 }
-const styles = StyleSheet.create({ root: { ...StyleSheet.absoluteFillObject, zIndex: 100, backgroundColor: '#14162B', justifyContent: 'center', alignItems: 'center', gap: 20 },
+const styles = StyleSheet.create({ root: { ...StyleSheet.absoluteFill, zIndex: 100, backgroundColor: '#14162B', justifyContent: 'center', alignItems: 'center', gap: 20 },
   mark: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: '#F4EDE0' },
   text: { fontFamily: 'Inter-Medium', fontSize: 18, color: '#F4EDE0' },
   button: { minHeight: 44, paddingHorizontal: 24, justifyContent: 'center' }, buttonText: { fontFamily: 'Inter-Medium', color: '#F4EDE0' },

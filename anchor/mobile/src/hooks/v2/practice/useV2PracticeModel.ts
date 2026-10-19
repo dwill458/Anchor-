@@ -9,7 +9,7 @@ import type { Anchor } from '@/types';
 export type V2PracticeCapabilities = { focus: boolean; deep_prime: boolean; visualize: boolean; release: boolean };
 
 export function useV2PracticeModel(anchor: Anchor | null, suppliedRecommendation?: V2RecommendationContext | null) {
-  const entitlementReady = useSubscriptionStore((state) => state.entitlementReady);
+  const entitlementReady = useSubscriptionStore((state) => state.isEntitlementResolved());
   const hasActiveEntitlement = useSubscriptionStore((state) => state.getEffectiveTier() === 'pro');
   // Seeded from the recommendation Home already read, so the Today hero is on
   // the first frame of the push rather than replacing a "Loading" line after it.

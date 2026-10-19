@@ -1,3 +1,4 @@
+import type { ViewInstance } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
@@ -78,7 +79,7 @@ export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'in
   onSealingChange?: (active: boolean) => void;
 }
 
-function measure(node: View | null): Promise<VisionImageRect | null> {
+function measure(node: ViewInstance | null): Promise<VisionImageRect | null> {
   return new Promise(resolve => {
     if (!node?.measureInWindow) { resolve(null); return; }
     const timer = setTimeout(() => resolve(null), 150);
@@ -131,7 +132,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const startedFromExample = useRef<{ category: AnchorCategory; index: number; moment: string; reported: boolean } | null>(null);
   // The open plays once per ceremony: the ref flips when the person first leaves Ask, so Back never replays it.
   const entrancePlayed = useRef(false), previousBeat = useRef<VisionCeremonyBeat | null>(null);
-  const printRefs = useRef<Array<View | null>>([]), anchorRef = useRef<View>(null);
+  const printRefs = useRef<Array<ViewInstance | null>>([]), anchorRef = useRef<ViewInstance>(null);
   const savingRef = useRef(false), savedRef = useRef(false), committedRef = useRef(false), alive = useRef(true);
   const sealingNotified = useRef(false);
   const setSealingActive = (active: boolean) => {
@@ -564,7 +565,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     style={[styles.button, ghost && styles.ghost]}><Text style={[styles.buttonText, ghost && styles.ghostText]}>{text}</Text></Pressable>;
 
   return <View testID={testID} style={styles.stage}>
-    <StatusBar barStyle="light-content" backgroundColor="#14162B" />
+    <StatusBar barStyle="light-content" />
     {beat === 'pinned' ? <Animated.View pointerEvents="none" style={[styles.board, { height: height + 50 }, boardStyle]}><VisionTornEdge width={width} color={colors.canvas} /><View style={styles.boardFill} /></Animated.View> : null}
     {/* DEFERRED: replaced by VisionEntrance (Oct 2026). Add mode's preview print behind the empty frame (testID vision-ceremony-preview). */}
     {/* Prints and Anchor are siblings of the changing copy, so neither ever remounts at a beat boundary. */}
@@ -694,7 +695,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
 }
 
 const styles = StyleSheet.create({
-  stage: { flex: 1, backgroundColor: '#14162B', overflow: 'hidden' }, fill: { ...StyleSheet.absoluteFillObject },
+  stage: { flex: 1, backgroundColor: '#14162B', overflow: 'hidden' }, fill: { ...StyleSheet.absoluteFill },
   copy: { position: 'absolute', left: 24, right: 24, alignItems: 'center', gap: 10 },
   title: { fontFamily: VISION_SERIF, fontSize: 30, lineHeight: 33, color: '#F4EDE0', textAlign: 'center' },
   intention: { fontFamily: VISION_SERIF_ITALIC, fontSize: 19, color: '#E9DFCC', textAlign: 'center' },
@@ -711,10 +712,10 @@ const styles = StyleSheet.create({
   status: { fontFamily: VISION_SERIF_ITALIC, fontSize: 21, color: '#F4EDE0', textAlign: 'center' },
   // The anchor art carries its own disc; no extra border or backing (it read as a stray ring on device).
   mark: { flex: 1, borderRadius: 100 },
-  ripple: { ...StyleSheet.absoluteFillObject, borderRadius: 100, borderWidth: 1, borderColor: '#F4EDE0' },
+  ripple: { ...StyleSheet.absoluteFill, borderRadius: 100, borderWidth: 1, borderColor: '#F4EDE0' },
   press: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontFamily: 'Inter-SemiBold', fontSize: 11, letterSpacing: 2, color: '#ADAABC' },
   board: { position: 'absolute', left: 0, right: 0, zIndex: 10 }, boardFill: { flex: 1, backgroundColor: colors.canvas },
-  suggestion: { ...StyleSheet.absoluteFillObject, padding: 20, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  suggestion: { ...StyleSheet.absoluteFill, padding: 20, alignItems: 'center', justifyContent: 'center', gap: 10 },
   suggestionLabel: { fontFamily: 'Inter-SemiBold', fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', color: '#ADAABC', textAlign: 'center' },
   suggestionText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 17, lineHeight: 24, color: 'rgba(244,237,224,0.72)', textAlign: 'center' },
   preview: { position: 'absolute', padding: 8, borderRadius: 3, backgroundColor: '#F7F1E6', transform: [{ rotate: '-4deg' }],

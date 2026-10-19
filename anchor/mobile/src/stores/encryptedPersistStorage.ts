@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import type { StateStorage } from 'zustand/middleware';
+import { sqlCipherEnabled, readDatabaseValue, writeDatabaseValue, removeDatabaseValue } from '@/storage/sqlcipher/persistence';
 
 import { logger } from '@/utils/logger';
 import { perfLog } from '@/utils/perfDiagnostics';
+import { traceStabilizationStage } from '@/utils/stabilizationDiagnostics';
 
 type AsyncStateStorage = StateStorage & {
   setItem: (name: string, value: string) => Promise<void>;
@@ -131,7 +133,7 @@ async function clearSecureChunks(name: string): Promise<number> {
   return existingMeta?.chunks ?? 0;
 }
 
-export async function readSecureValue(name: string, retries = 2): Promise<string | null> {
+export async function readLegacySecureValue(name: string, retries = 2): Promise<string | null> {
   const startedAt = Date.now();
   const meta = await readSecureMeta(name);
   if (!meta) {
@@ -149,7 +151,7 @@ export async function readSecureValue(name: string, retries = 2): Promise<string
 
   if (chunks.some((chunk) => chunk == null)) {
     const currentMeta = await readSecureMeta(name);
-    if (retries > 0 && currentMeta?.generation !== meta.generation) return readSecureValue(name, retries - 1);
+    if (retries > 0 && currentMeta?.generation !== meta.generation) return readLegacySecureValue(name, retries - 1);
     throw new Error('Incomplete secure storage generation requires recovery');
   }
 
@@ -166,7 +168,7 @@ const committedGeneration = new Map<string, number>();
 const manifestWrites = new Map<string, Promise<void>>();
 const processGeneration = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
-export async function writeSecureValue(name: string, value: string): Promise<void> {
+export async function writeLegacySecureValue(name: string, value: string): Promise<void> {
   const startedAt = Date.now();
   const revision = (requestedGeneration.get(name) ?? 0) + 1;
   requestedGeneration.set(name, revision);
@@ -218,6 +220,15 @@ export async function writeSecureValue(name: string, value: string): Promise<voi
   perfLog('secure-write', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: chunks.length, secureCalls: chunks.length * 2 + 1 });
 }
 
+const databaseNamespace = (name: string) => name !== 'anchor-auth-storage' && name !== 'anchor:cached_user';
+export async function readSecureValue(name: string, retries = 2): Promise<string | null> {
+  return sqlCipherEnabled() && databaseNamespace(name) ? readDatabaseValue(name) :
+    traceStabilizationStage(databaseNamespace(name) ? 'legacy.private.read' : 'legacy.auth.read', () => readLegacySecureValue(name, retries));
+}
+export async function writeSecureValue(name: string, value: string): Promise<void> {
+  if (sqlCipherEnabled() && databaseNamespace(name)) return writeDatabaseValue(name, value);
+  return traceStabilizationStage(databaseNamespace(name) ? 'legacy.private.write' : 'legacy.auth.write', () => writeLegacySecureValue(name, value));
+}
 async function migrateLegacyAsyncStorageValue(name: string): Promise<string | null> {
   const legacyValue = await AsyncStorage.getItem(name);
   if (!legacyValue) return null;
@@ -340,6 +351,7 @@ async function flushWrite(name: string): Promise<void> {
  */
 export const encryptedPersistStorage: AsyncStateStorage = {
   getItem: async (name: string): Promise<string | null> => {
+    if (sqlCipherEnabled() && databaseNamespace(name)) return readDatabaseValue(name);
     const startedAt = Date.now();
     try {
       const secureValue = await readSecureValue(name);
@@ -362,6 +374,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
   },
 
   setItem: async (name: string, value: string): Promise<void> => {
+    if (sqlCipherEnabled() && databaseNamespace(name)) return writeDatabaseValue(name, value);
     const count = (writeCounts.get(name) ?? 0) + 1;
     writeCounts.set(name, count);
     perfLog('persist-setItem', { key: name, count, payloadChars: value.length, chunks: splitIntoChunks(value).length });
@@ -371,6 +384,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
   },
 
   removeItem: async (name: string): Promise<void> => {
+    if (sqlCipherEnabled() && databaseNamespace(name)) return removeDatabaseValue(name);
     const startedAt = Date.now();
     const pending = pendingWrites.get(name);
     if (pending) {

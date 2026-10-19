@@ -1,3 +1,5 @@
+import type { ViewInstance } from 'react-native';
+
 import { chartTypography as typography } from './chartTypography';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -271,7 +273,7 @@ export function ChartCreationFlow({
   // One key per creation attempt, so a retried submit cannot create two Charts.
   const createKey = useRef(freshKey(`chart-create:${anchorId}`));
   const planStarted = useRef<number>(0);
-  const stageRef = useRef<View>(null);
+  const stageRef = useRef<ViewInstance>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Review panel: 0 = risen over the map, 1 = below the screen.
@@ -1018,7 +1020,7 @@ const styles = StyleSheet.create({
   question: { ...typography.headingLG, fontFamily: CHART_MAP_TOKENS.serif, color: colors.ink.text.primary },
   introLandscape: { position: 'absolute', left: 0, bottom: 0 },
   hidden: { display: 'none' },
-  dim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(17,24,32,.45)' },
+  dim: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(17,24,32,.45)' },
   sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, top: '16%' },
   sheet: { flex: 1, paddingTop: spacing[5] },
   sheetScroll: { gap: spacing[3], paddingBottom: spacing[3] },

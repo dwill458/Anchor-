@@ -171,11 +171,11 @@ export function VisionPhoto({
 
 const styles = StyleSheet.create({
   frame: { overflow: 'hidden', backgroundColor: colors.ink.deep },
-  imageWrapper: { ...StyleSheet.absoluteFillObject },
+  imageWrapper: { ...StyleSheet.absoluteFill },
   // Overscan protects every planned camera position, including narrow Android
   // crops where an 18px pan could otherwise reveal the frame edge.
   image: { width: '118%', height: '118%', marginLeft: '-9%', marginTop: '-9%' },
-  fill: { ...StyleSheet.absoluteFillObject },
+  fill: { ...StyleSheet.absoluteFill },
   scrim: { position: 'absolute', left: 0, right: 0, height: '55%' },
   scrimTop: { top: 0 },
   scrimBottom: { bottom: 0 },

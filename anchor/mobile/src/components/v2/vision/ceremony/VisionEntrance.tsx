@@ -312,7 +312,7 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
 }
 
 const styles = StyleSheet.create({
-  fill: { ...StyleSheet.absoluteFillObject },
+  fill: { ...StyleSheet.absoluteFill },
   back: { position: 'absolute', left: 18, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: '#F4EDE029' },
   headline: { position: 'absolute', left: 28, right: 28, alignItems: 'center' },
   title: { fontFamily: VISION_SERIF, fontSize: 34, lineHeight: 36, color: '#F4EDE0', textAlign: 'center' },
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   openingAnchor: { position: 'absolute' },
   openingMark: { flex: 1, borderRadius: 200 },
   ring: { position: 'absolute' },
-  emptyCenter: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 12 },
+  emptyCenter: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 12 },
   emptyText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 19, color: '#E9DFCC', textAlign: 'center' },
   pin: { position: 'absolute', top: -8, left: '50%', marginLeft: -8, width: 16, height: 16 },
 });

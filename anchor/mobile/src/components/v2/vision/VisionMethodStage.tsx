@@ -63,7 +63,7 @@ export function VisionMethodStage({ onBack, onChoose, testID }: Props) {
   }));
   return (
     <View testID={`${testID}-method`} style={styles.stage}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
+      <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing[2], paddingBottom: insets.bottom + spacing[6] }]} showsVerticalScrollIndicator={false}>
         <VisionBackButton onPress={onBack} style={styles.back} />
         <Reveal order={0} style={styles.stretch}>

@@ -154,7 +154,7 @@ function V2DissolvedArtworkComponent({
 const styles = StyleSheet.create({
   frame: { overflow: 'hidden' },
   image: { width: '100%', height: '100%' },
-  previousImage: { ...StyleSheet.absoluteFillObject },
+  previousImage: { ...StyleSheet.absoluteFill },
 });
 
 export const V2DissolvedArtwork = memo(V2DissolvedArtworkComponent);
