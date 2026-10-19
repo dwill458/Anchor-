@@ -37,6 +37,7 @@ jest.mock('@/hooks/v2/vision', () => ({
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { PAYWALL_TIMING } from '@/components/v2/paywall/twoStep';
+import './paywallSkiaMock';
 import { V2PaywallScreen } from '../V2PaywallScreen';
 
 const withDelay = Reanimated.withDelay as jest.Mock;

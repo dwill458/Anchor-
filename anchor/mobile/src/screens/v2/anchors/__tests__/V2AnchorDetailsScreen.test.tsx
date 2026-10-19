@@ -228,7 +228,7 @@ describe('V2AnchorDetailsScreen', () => {
   it('carries the medallion into Practice setup when motion is allowed', async () => {
     useSettingsStore.setState({ reduceMotion: 'off' });
     // Every mocked native view shares one measureInWindow: answer with an on-screen rect.
-    const nativeMethodsModule = require('react-native/jest/MockNativeMethods');
+    const nativeMethodsModule = require('@react-native/jest-preset/jest/MockNativeMethods');
     const nativeMethods = (nativeMethodsModule.default ?? nativeMethodsModule) as { measureInWindow: jest.Mock };
     nativeMethods.measureInWindow.mockImplementation((callback: (...rect: number[]) => void) => callback(90, 60, 210, 210));
     const onOpenPractice = jest.fn();

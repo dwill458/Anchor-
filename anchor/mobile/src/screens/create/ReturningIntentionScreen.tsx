@@ -45,7 +45,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 export default function ReturningIntentionScreen() {
     const navigation = useNavigation<NavigationProp>();
     const insets = useSafeAreaInsets();
-    const { recordShown } = useTeachingStore();
+    const recordShown = useTeachingStore((s) => s.recordShown);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const pendingForgeIntent = useAuthStore((state) => state.pendingForgeIntent);
     const setPendingForgeIntent = useAuthStore((state) => state.setPendingForgeIntent);

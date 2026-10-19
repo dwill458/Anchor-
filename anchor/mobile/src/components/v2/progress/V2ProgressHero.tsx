@@ -7,6 +7,8 @@ import type { V2ProgressModel } from '@/adapters/v2/progress/types';
 import type { Anchor } from '@/types';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { useAuraStrength } from '@/stores/devThreadStrengthStore';
+import { useV2ReduceMotion } from '@/hooks/v2';
 import { useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 import { V2ProgressRing } from './V2ProgressRing';
 import { progressTokens } from './progressTokens';
@@ -38,6 +40,8 @@ function stageNumber(stage: V2ProgressModel['highestEvolutionStage']): number {
 export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, now, testID = 'v2-progress-hero' }) => {
   const { intention, category, threadStrength, unmeasured, highestEvolutionStage } = model;
   const currentAnchor = anchor ?? model.anchor;
+  const glow = useAuraStrength(unmeasured ? null : threadStrength);
+  const reduceMotion = useV2ReduceMotion();
   const verdict = getProgressVerdict(threadStrength, unmeasured, model.lastPracticedAt, now);
   const stage = unmeasured ? 0 : stageNumber(highestEvolutionStage);
   // A fact about the past, shown only when this device recorded the date. Never a status.
@@ -83,6 +87,7 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
               {...anchorRenderProps(currentAnchor)}
               size={ARTWORK_SIZE}
               appearance="bare"
+              aura={{ anchorId: `${currentAnchor.id}${glow.keySuffix}`, threadStrength: glow.strength, variant: 'details', active: true, reducedMotion: reduceMotion }}
               accessibilityLabel={`${categoryLabel(category)} Anchor artwork`}
               testID={`${testID}-artwork`}
             />

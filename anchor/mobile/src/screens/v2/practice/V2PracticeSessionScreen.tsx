@@ -10,10 +10,12 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { markStabilizationStage, traceStabilizationStage } from '@/utils/stabilizationDiagnostics';
 import { useV2Vision } from '@/hooks/v2/vision';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { V2FocusActiveScreen, V2FocusCompleteScreen } from './focus';
+import { waitForFocusSave, type FocusSaveWaitResult } from './focus/focusSaveWait';
 import { V2DeepFocusActiveScreen } from './deepFocus/V2DeepFocusActiveScreen';
 import { isDeepFocusDuration } from './deepFocus/deepFocusTimeline';
 import { V2CinematicSessionScreen, type PreparedCinematicSession, type CinematicCompletion } from './visualize/V2CinematicSessionScreen';
@@ -39,6 +41,14 @@ type Props = {
 };
 
 type SessionStatus = 'active' | 'completing' | 'error';
+type FocusSessionData = {
+  plannedDurationSeconds: number;
+  actualDurationSeconds: number;
+  startedAt: string;
+  completedAt: string;
+};
+
+const FOCUS_SAVE_UI_WAIT_MS = 5_000;
 
 export function V2PracticeSessionScreen({
   anchorId,
@@ -106,8 +116,9 @@ export function V2PracticeSessionScreen({
   const startedAtRef = useRef(new Date());
   const legacyClockStartedRef = useRef(false);
   const [focusPhase, setFocusPhase] = useState<'active' | 'complete'>('active');
-  const [focusPersistenceFailed, setFocusPersistenceFailed] = useState(false);
+  const [focusSaveState, setFocusSaveState] = useState<'saving' | FocusSaveWaitResult>('saving');
   const focusCompletionStartedRef = useRef(false);
+  const focusSessionRequestRef = useRef<{ sessionId: string; sessionData: FocusSessionData } | null>(null);
   const [strengthSnapshot, setStrengthSnapshot] = useState<{
     before: number | null;
     after: number | null;
@@ -154,13 +165,8 @@ export function V2PracticeSessionScreen({
   const focusEndingPromiseRef = useRef<Promise<void> | null>(null);
 
   const startFocusPersistence = useCallback(
-    (sessionData: {
-      plannedDurationSeconds: number;
-      actualDurationSeconds: number;
-      startedAt: string;
-      completedAt: string;
-    }) => {
-      if (focusEndingPromiseRef.current) return focusEndingPromiseRef.current;
+    (sessionData: FocusSessionData, retryAfterFailure = false) => {
+      if (focusEndingPromiseRef.current && !retryAfterFailure) return focusEndingPromiseRef.current;
       if (sessionData.actualDurationSeconds < sessionData.plannedDurationSeconds) {
         return Promise.resolve();
       }
@@ -169,12 +175,14 @@ export function V2PracticeSessionScreen({
 
       const beforeStrength =
         typeof anchor?.threadStrength === 'number' ? anchor.threadStrength : null;
-      const sessionId = `v2-${mode}-${anchor?.id}-${Date.now()}`;
+      const sessionId = focusSessionRequestRef.current?.sessionId ?? `v2-${mode}-${anchor?.id}-${Date.now()}`;
+      focusSessionRequestRef.current ??= { sessionId, sessionData };
       setFocusSessionId(sessionId);
+      setFocusSaveState('saving');
 
       const promise = (async () => {
         try {
-          await PracticeCompletionService.completePracticeSession(
+          await traceStabilizationStage('focus.persistence', () => PracticeCompletionService.completePracticeSession(
             {
               sessionId,
               accountId: resolvedAccountId,
@@ -192,16 +200,17 @@ export function V2PracticeSessionScreen({
               metadata: { v2_entry_source: source },
             },
             { mirrorLegacySession: true, flushImmediately: false }
-          );
+          ));
 
           // The canonical record is already durable locally. Network sync must
           // not hold the completion surface hostage when the account API is slow
           // or unavailable; `flush` retains the queued record on failure.
           void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
+          setFocusSaveState('saved');
         } catch {
-          // A rejection can mean the local durable write failed. Do not report
-          // reinforcement unless PracticeCompletionService accepted the record.
-          setFocusPersistenceFailed(true);
+          // A rejection is a confirmed failure. Retry reuses this same session ID.
+          setFocusSaveState('failed');
+          throw new Error('Focus session durable receipt failed');
         }
 
         const freshAnchor = anchor
@@ -229,6 +238,7 @@ export function V2PracticeSessionScreen({
       })();
 
       focusEndingPromiseRef.current = promise;
+      void promise.catch(() => undefined);
       return promise;
     },
     [accountId, anchor, mode, resolvedAmbient, resolvedVoice, source]
@@ -242,7 +252,7 @@ export function V2PracticeSessionScreen({
       completedAt: string;
     }) => {
       if (!anchor || sessionData.actualDurationSeconds < sessionData.plannedDurationSeconds) return;
-      void startFocusPersistence(sessionData);
+      void startFocusPersistence(sessionData).catch(() => undefined);
     },
     [anchor, startFocusPersistence]
   );
@@ -264,15 +274,29 @@ export function V2PracticeSessionScreen({
       // and manual endings enter here through the same active-screen callback.
       focusCompletionStartedRef.current = true;
 
-      const persistence =
-        focusEndingPromiseRef.current ?? startFocusPersistence(sessionData);
-      if (persistence) {
-        await persistence;
-      }
+      const persistence = focusEndingPromiseRef.current ?? startFocusPersistence(sessionData);
+      const result = persistence
+        ? await traceStabilizationStage('focus.receipt', () => waitForFocusSave(persistence, FOCUS_SAVE_UI_WAIT_MS))
+        : 'failed';
+      setFocusSaveState(result);
+      markStabilizationStage('focus.complete-state');
       setFocusPhase('complete');
     },
     [anchor, startFocusPersistence]
   );
+
+  const retryFocusPersistence = useCallback(async () => {
+    const request = focusSessionRequestRef.current;
+    if (!request || focusSaveState === 'saved' || focusSaveState === 'saving') return;
+    let receipt = focusEndingPromiseRef.current;
+    if (focusSaveState === 'failed') {
+      // The canonical service is idempotent by account + this stable session ID.
+      receipt = startFocusPersistence(request.sessionData, true);
+    }
+    if (!receipt) return;
+    const result = await waitForFocusSave(receipt, FOCUS_SAVE_UI_WAIT_MS);
+    setFocusSaveState(result);
+  }, [focusSaveState, startFocusPersistence]);
 
   const handleDone = useCallback(() => {
     // Continue has a semantic destination: the Practice hub. The parent clears
@@ -281,12 +305,12 @@ export function V2PracticeSessionScreen({
       onCompleted({
         mode,
         durationSeconds: focusActualDurationSeconds ?? durationSeconds,
-        saved: !focusPersistenceFailed,
+        saved: focusSaveState === 'saved',
       });
       return;
     }
     onCompleted();
-  }, [durationSeconds, focusActualDurationSeconds, focusPersistenceFailed, mode, onCompleted]);
+  }, [durationSeconds, focusActualDurationSeconds, focusSaveState, mode, onCompleted]);
 
   const handleAgain = useCallback(() => {
     onFocusAgain();
@@ -406,7 +430,9 @@ export function V2PracticeSessionScreen({
         durationSeconds={durationSeconds}
         beforeStrength={currentBeforeStrength}
         afterStrength={currentAfterStrength}
-        sessionSaved={!focusPersistenceFailed}
+        sessionSaved={focusSaveState === 'saved'}
+        sessionSaveState={focusSaveState}
+        onRetrySave={() => void retryFocusPersistence()}
         sessionId={focusSessionId}
         onDone={handleDone}
         onAgain={handleAgain}

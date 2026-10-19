@@ -2,6 +2,8 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { ThreadAuraCanvas } from './ThreadAuraCanvas';
 
+jest.unmock('@/components/v2/anchor/ThreadAuraCanvas');
+
 const mockSetActive = jest.fn();
 const mockTiming = jest.fn();
 jest.mock('react-native-reanimated', () => ({

@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`cloud tile layout billows (512, seed 7, 7 clusters, r 46-96) are deterministic and pinned 1`] = `
 [

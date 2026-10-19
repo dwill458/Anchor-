@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { TEACHINGS, type TeachingContent } from '@/constants/teaching';
 import { useTeachingStore, type TeachingState } from '@/stores/teachingStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -53,7 +54,21 @@ function trackSuppressed(id: string, reason: string, guideMode: boolean): void {
   });
 }
 
-export function checkIsReturningUser(store: TeachingState): boolean {
+type TeachingGateStoreSlice = Pick<
+  TeachingState,
+  | 'userFlags'
+  | 'lastVeilCardAt'
+  | 'sessionSeenPatterns'
+  | 'exhaustedIds'
+  | 'sessionSeenIds'
+  | 'lastShownAt'
+  | 'isExhausted'
+  | 'isSessionSeen'
+  | 'isOnCooldown'
+  | 'setUserFlag'
+>;
+
+export function checkIsReturningUser(store: Pick<TeachingState, 'userFlags'>): boolean {
   if (
     store.userFlags.hasCreatedFirstAnchor ||
     store.userFlags.hasCompletedFirstCharge ||
@@ -67,9 +82,6 @@ export function checkIsReturningUser(store: TeachingState): boolean {
   try {
     const anchors = useAnchorStore.getState().anchors;
     if (anchors && anchors.length > 0) {
-      if (!store.userFlags.hasCreatedFirstAnchor) {
-        store.setUserFlag('hasCreatedFirstAnchor', true);
-      }
       return true;
     }
   } catch {
@@ -88,7 +100,22 @@ export function checkIsReturningUser(store: TeachingState): boolean {
 
 export function useTeachingGate(context: TeachingGateContext): TeachingContent | null {
   const guideMode = useSettingsStore((s) => s.guideMode);
-  const store = useTeachingStore();
+  const store = useTeachingStore(
+    useShallow(
+      (s): TeachingGateStoreSlice => ({
+        userFlags: s.userFlags,
+        lastVeilCardAt: s.lastVeilCardAt,
+        sessionSeenPatterns: s.sessionSeenPatterns,
+        exhaustedIds: s.exhaustedIds,
+        sessionSeenIds: s.sessionSeenIds,
+        lastShownAt: s.lastShownAt,
+        isExhausted: s.isExhausted,
+        isSessionSeen: s.isSessionSeen,
+        isOnCooldown: s.isOnCooldown,
+        setUserFlag: s.setUserFlag,
+      })
+    )
+  );
   const [teachingStoreHydrated, setTeachingStoreHydrated] = useState(() =>
     useTeachingStore.persist.hasHydrated()
   );
@@ -98,6 +125,7 @@ export function useTeachingGate(context: TeachingGateContext): TeachingContent |
     visitKey: string | null;
     teaching: TeachingContent;
   } | null>(null);
+  const trackedSuppressedRef = useRef<Set<string>>(new Set());
   const candidateKey = context.candidateIds.join('\u0000');
   const visitKey = context.visitKey ?? null;
 
@@ -115,92 +143,125 @@ export function useTeachingGate(context: TeachingGateContext): TeachingContent |
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (!teachingStoreHydrated || store.userFlags.hasCreatedFirstAnchor) return;
+    try {
+      const anchors = useAnchorStore.getState().anchors;
+      if (anchors && anchors.length > 0) {
+        store.setUserFlag('hasCreatedFirstAnchor', true);
+      }
+    } catch {
+      // Store might not be mounted in isolated tests
+    }
+  }, [teachingStoreHydrated, store.userFlags.hasCreatedFirstAnchor, store.setUserFlag]);
+
+  const isReturning = teachingStoreHydrated
+    ? (context.isReturning ?? checkIsReturningUser(store))
+    : false;
+
+  let resolvedContent: TeachingContent | null = null;
+  const suppressedInPass: Array<{ id: string; reason: string }> = [];
+
   if (!teachingStoreHydrated) {
     retainedTeachingRef.current = null;
-    return null;
+  } else {
+    const retainedTeaching = retainedTeachingRef.current;
+    if (
+      retainedTeaching &&
+      retainedTeaching.screenId === context.screenId &&
+      retainedTeaching.candidateKey === candidateKey &&
+      retainedTeaching.visitKey === visitKey
+    ) {
+      const content = retainedTeaching.teaching;
+      const isSuppressedReturning = isReturning && (content.trigger === 'first_time' || content.trigger === 'hesitation');
+      const isGuideBlocked = content.guideOnly && !guideMode;
+
+      if (!isSuppressedReturning && !isGuideBlocked) {
+        resolvedContent = retainedTeaching.teaching;
+      } else {
+        retainedTeachingRef.current = null;
+      }
+    }
+
+    if (!resolvedContent) {
+      // Pattern-level cooldowns — computed once per render
+      const veilCardBlocked = store.lastVeilCardAt
+        ? Date.now() - new Date(store.lastVeilCardAt).getTime() < VEIL_CARD_COOLDOWN_MS
+        : false;
+      const groundNoteBlocked = store.sessionSeenPatterns.includes('bottom_hint');
+
+      for (const id of context.candidateIds) {
+        const content = TEACHINGS[id];
+        if (!content) continue;
+
+        // Gate 1: Returning user suppression for first-time setup and hesitation tips
+        if (isReturning && (content.trigger === 'first_time' || content.trigger === 'hesitation')) {
+          suppressedInPass.push({ id, reason: 'returning_user' });
+          continue;
+        }
+
+        // Gate 2: Guide Mode
+        if (content.guideOnly && !guideMode) {
+          suppressedInPass.push({ id, reason: 'guide_off' });
+          continue;
+        }
+
+        // Gate 3: Lifetime exhaustion (O(1))
+        if (store.isExhausted(id)) {
+          suppressedInPass.push({ id, reason: 'exhausted' });
+          continue;
+        }
+
+        // Gate 4: Session-level suppression (never show the same teaching twice in one app session)
+        if (store.isSessionSeen(id)) {
+          suppressedInPass.push({ id, reason: 'session_seen' });
+          continue;
+        }
+
+        // Gate 5: Per-teaching cooldown
+        if (content.cooldownMs > 0 && store.isOnCooldown(id, content.cooldownMs)) {
+          suppressedInPass.push({ id, reason: 'cooldown' });
+          continue;
+        }
+
+        // Gate 6: Ground Note pattern-level session suppression
+        if (content.pattern === 'bottom_hint' && groundNoteBlocked) {
+          suppressedInPass.push({ id, reason: 'session_seen' });
+          continue;
+        }
+
+        // Gate 7: Veil Card keyboard + 24h pattern cooldown
+        if (content.pattern === 'glass_card' && (context.isKeyboardOpen || veilCardBlocked)) {
+          suppressedInPass.push({ id, reason: 'global_gate_blocked' });
+          continue;
+        }
+
+        // First candidate to clear all gates wins
+        retainedTeachingRef.current = {
+          screenId: context.screenId,
+          candidateKey,
+          visitKey,
+          teaching: content,
+        };
+        resolvedContent = content;
+        break;
+      }
+
+      if (!resolvedContent) {
+        retainedTeachingRef.current = null;
+      }
+    }
   }
 
-  const isReturning = context.isReturning ?? checkIsReturningUser(store);
-
-  const retainedTeaching = retainedTeachingRef.current;
-  if (
-    retainedTeaching &&
-    retainedTeaching.screenId === context.screenId &&
-    retainedTeaching.candidateKey === candidateKey &&
-    retainedTeaching.visitKey === visitKey
-  ) {
-    const content = retainedTeaching.teaching;
-    const isSuppressedReturning = isReturning && (content.trigger === 'first_time' || content.trigger === 'hesitation');
-    const isGuideBlocked = content.guideOnly && !guideMode;
-
-    if (!isSuppressedReturning && !isGuideBlocked) {
-      return retainedTeaching.teaching;
+  useEffect(() => {
+    if (!teachingStoreHydrated || suppressedInPass.length === 0) return;
+    for (const item of suppressedInPass) {
+      const dedupeKey = `${context.screenId}:${visitKey ?? ''}:${item.id}:${item.reason}`;
+      if (trackedSuppressedRef.current.has(dedupeKey)) continue;
+      trackedSuppressedRef.current.add(dedupeKey);
+      trackSuppressed(item.id, item.reason, guideMode);
     }
-    retainedTeachingRef.current = null;
-  }
+  });
 
-  // Pattern-level cooldowns — computed once per render
-  const veilCardBlocked = store.lastVeilCardAt
-    ? Date.now() - new Date(store.lastVeilCardAt).getTime() < VEIL_CARD_COOLDOWN_MS
-    : false;
-  const groundNoteBlocked = store.sessionSeenPatterns.includes('bottom_hint');
-
-  for (const id of context.candidateIds) {
-    const content = TEACHINGS[id];
-    if (!content) continue;
-
-    // Gate 1: Returning user suppression for first-time setup and hesitation tips
-    if (isReturning && (content.trigger === 'first_time' || content.trigger === 'hesitation')) {
-      trackSuppressed(id, 'returning_user', guideMode);
-      continue;
-    }
-
-    // Gate 2: Guide Mode
-    if (content.guideOnly && !guideMode) {
-      trackSuppressed(id, 'guide_off', guideMode);
-      continue;
-    }
-
-    // Gate 3: Lifetime exhaustion (O(1))
-    if (store.isExhausted(id)) {
-      trackSuppressed(id, 'exhausted', guideMode);
-      continue;
-    }
-
-    // Gate 4: Session-level suppression (never show the same teaching twice in one app session)
-    if (store.isSessionSeen(id)) {
-      trackSuppressed(id, 'session_seen', guideMode);
-      continue;
-    }
-
-    // Gate 5: Per-teaching cooldown
-    if (content.cooldownMs > 0 && store.isOnCooldown(id, content.cooldownMs)) {
-      trackSuppressed(id, 'cooldown', guideMode);
-      continue;
-    }
-
-    // Gate 6: Ground Note pattern-level session suppression
-    if (content.pattern === 'bottom_hint' && groundNoteBlocked) {
-      trackSuppressed(id, 'session_seen', guideMode);
-      continue;
-    }
-
-    // Gate 7: Veil Card keyboard + 24h pattern cooldown
-    if (content.pattern === 'glass_card' && (context.isKeyboardOpen || veilCardBlocked)) {
-      trackSuppressed(id, 'global_gate_blocked', guideMode);
-      continue;
-    }
-
-    // First candidate to clear all gates wins
-    retainedTeachingRef.current = {
-      screenId: context.screenId,
-      candidateKey,
-      visitKey,
-      teaching: content,
-    };
-    return content;
-  }
-
-  retainedTeachingRef.current = null;
-  return null;
+  return resolvedContent;
 }

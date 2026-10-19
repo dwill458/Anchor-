@@ -1,4 +1,5 @@
 import type { ViewInstance } from 'react-native';
+import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -186,11 +187,14 @@ function useHeroEntrance(
   return { entrance, onImageLoad, ringDelayMs: eligible ? HERO_ENTRANCE.ringDelayMs : undefined };
 }
 
-function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
+function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, lastActivatedAnchorIdRef, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
   slot: CarouselSlot;
+  isSelectedCenterSlot: boolean;
+  heroActive: boolean;
+  lastActivatedAnchorIdRef: { current: string | null };
   offset: SharedValue<number>;
   spacing: number;
   gutter: number;
@@ -206,6 +210,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   teachingThreadRef?: React.RefObject<ViewInstance | null>;
 }) {
   const anchor = summary.anchor;
+  // Dev-only Thread Strength simulator; inert (value null, nonce 0) outside development.
+  const devStrength = useDevThreadStrengthStore();
   const accent = getCategoryColor(anchor.category);
   // A just-created Anchor arriving from creation needs to know exactly where its mark will rest.
   const arrival = useHomeArrivalContext();
@@ -348,7 +354,21 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
             <Animated.View style={tapScaleStyle}>
               <Animated.View ref={discRef} collapsable={false} testID={slot === 0 ? 'v2-home-anchor-disc' : undefined}>
                 <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper" traceLabel={slot === 0 ? 'home hero' : undefined}
-                  aura={{ anchorId: anchor.id, threadStrength: thread.value, variant: 'home', active: auraActive && slot === 0 && !transition.active && !arrival?.active, reducedMotion: reduceMotion }}
+                  aura={
+                    isSelectedCenterSlot
+                      ? {
+                          anchorId: devStrength.nonce ? `${anchor.id}#dev${devStrength.nonce}` : anchor.id,
+                          threadStrength: __DEV__ && devStrength.value !== null ? devStrength.value : thread.value,
+                          variant: 'home',
+                          active: heroActive && auraActive && !transition.active,
+                          heroActive,
+                          lastActivatedAnchorIdRef,
+                          carouselOffset: offset,
+                          carouselSpacing: spacing,
+                          reducedMotion: reduceMotion,
+                        }
+                      : undefined
+                  }
                   entrance={entranceState.entrance}
                   onImageLoad={slot === 0 ? entranceState.onImageLoad : undefined}
                   accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
@@ -417,19 +437,33 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
   const arrivalKind = useHomeArrivalStore((state) => state.arrival?.kind);
   const evolvedScene = Boolean(arrival?.active && arrivalKind === 'evolved' && anchors[selectedIndex]?.anchor.evolvedFrom?.intention?.trim());
   const insets = useSafeAreaInsets();
+  // True from the moment the track rests on an Anchor until the next drag/tap begins. Unlike
+  // the page-level motion flag it does not wait for the deferred selection commit, so the glow starts on the settle.
+  const [carouselCentered, setCarouselCentered] = useState(true);
+  const lastActivatedAnchorIdRef = useRef<string | null>(null);
+  const handleMotionChange = useCallback(
+    (moving: boolean) => {
+      onMotionChange?.(moving);
+    },
+    [onMotionChange],
+  );
   const layout = resolveHomeHeroLayout({
     platform: Platform.OS,
     width, height, fontScale, evolvedScene, topInset: insets.top, bottomInset: insets.bottom,
   });
-  const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => (
-    <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing} gutter={layout.gutter}
-      anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
-      thread={index === selectedIndex && thread ? thread : summary.thread} reduceMotion={Boolean(reduceMotion)} auraActive={auraActive}
-      onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} />
-  ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, thread, teachingThreadRef, auraActive]);
+  const arrivalActive = Boolean(arrival?.active);
+  const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => {
+    const heroActive = slot === 0 && carouselCentered && !arrivalActive;
+    return (
+      <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} isSelectedCenterSlot={slot === 0} heroActive={heroActive} lastActivatedAnchorIdRef={lastActivatedAnchorIdRef} offset={offset} spacing={spacing} gutter={layout.gutter}
+        anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
+        thread={index === selectedIndex && thread ? thread : summary.thread} reduceMotion={Boolean(reduceMotion)} auraActive={auraActive}
+        onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} />
+    );
+  }, [anchors.length, arrivalActive, auraActive, carouselCentered, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, teachingThreadRef, thread]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
-      onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={onMotionChange} renderHero={renderHero} />
+      onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={handleMotionChange} onCentered={setCarouselCentered} renderHero={renderHero} />
   </View>;
 }
 

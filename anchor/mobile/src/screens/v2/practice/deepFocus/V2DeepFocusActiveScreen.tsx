@@ -245,7 +245,7 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
         <View style={[styles.artwork, place.hidden && styles.hidden]}>
           <Animated.View style={[StyleSheet.absoluteFill, styles.artwork, anchorStyle]}>
             <V2FocusAnchorArtwork svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl} category={anchor.category}
-              size={geometry.anchorSize} surface={FOCUS_SCREEN_BACKGROUND} accessibilityLabel={`${anchor.category} Anchor artwork`} testID="deep-focus-anchor-artwork" />
+              size={geometry.anchorSize} surface={FOCUS_SCREEN_BACKGROUND} accessibilityLabel={`${anchor.category} Anchor artwork`} testID="deep-focus-anchor-artwork" threadStrength={anchor.threadStrength ?? null} anchorId={anchor.id} />
           </Animated.View>
         </View>
       </View>

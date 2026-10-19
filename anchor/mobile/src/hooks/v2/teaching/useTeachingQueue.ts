@@ -1,6 +1,6 @@
-import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeviceEventEmitter } from 'react-native';
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import type { BeatId } from '@/constants/v2/teachingCopy';
 import { getTeachingSeen, setTeachingSeen } from './teachingSeen';
 
@@ -12,7 +12,6 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
   const [ready, setReady] = useState(false);
   const [replay, setReplay] = useState(0);
   useEffect(() => {
-    if (!__DEV__) return;
     const sub = DeviceEventEmitter.addListener('replayAppTeaching', () => setReplay(value => value + 1));
     return () => sub.remove();
   }, []);
@@ -56,20 +55,16 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
     return () => { cancelled = true; interaction?.cancel(); };
   }, [accountId, blocked, cap, eligibleKey, isFocused, session, replay]);
 
-  const markShown = useCallback((beat?: BeatId) => {
+  const markShown = useCallback((_beat?: BeatId) => {
     if (owner.current === session && live.current.session === session && live.current.isFocused && !live.current.blocked) {
       decided.current = true;
       batchRef.current = batch;
-      if (beat) {
-        setTeachingSeen(live.current.accountId, beat);
-      } else {
-        batch.forEach(b => setTeachingSeen(live.current.accountId, b));
-      }
     }
   }, [session, batch]);
-  const dismiss = useCallback(() => {
+  const dismiss = useCallback((beatsToCommit?: BeatId[]) => {
     if (owner.current !== session || live.current.session !== session || !live.current.isFocused || live.current.blocked) return;
-    batchRef.current.forEach(beat => setTeachingSeen(live.current.accountId, beat));
+    const committed = Array.isArray(beatsToCommit) ? beatsToCommit : batchRef.current;
+    committed.forEach(beat => setTeachingSeen(live.current.accountId, beat));
     batchRef.current = [];
     setBatch([]);
   }, [session]);

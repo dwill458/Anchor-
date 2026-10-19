@@ -142,9 +142,12 @@ function rotatedSlotBounds(slot: VisionEditorialPhotoSlot, canvasAspect: number)
   return { left: centerX - width / 2, right: centerX + width / 2, top: centerY - height / 2, bottom: centerY + height / 2 };
 }
 
-function fitRotatedSlots(
+function fitSlotsInBox(
   slots: readonly VisionEditorialPhotoSlot[],
-  safeMargin: number,
+  leftBound: number,
+  rightBound: number,
+  topBound: number,
+  bottomBound: number,
   canvasAspect: number,
 ): VisionEditorialPhotoSlot[] {
   if (!slots.length) return [];
@@ -153,10 +156,11 @@ function fitRotatedSlots(
   const maxX = Math.max(...bounds.map(bound => bound.right));
   const minY = Math.min(...bounds.map(bound => bound.top));
   const maxY = Math.max(...bounds.map(bound => bound.bottom));
-  const usable = 1 - safeMargin * 2;
-  const scale = Math.min(1, usable / (maxX - minX), usable / (maxY - minY));
-  const offsetX = safeMargin + (usable - (maxX - minX) * scale) / 2 - minX * scale;
-  const offsetY = safeMargin + (usable - (maxY - minY) * scale) / 2 - minY * scale;
+  const usableX = Math.max(0.001, rightBound - leftBound);
+  const usableY = Math.max(0.001, bottomBound - topBound);
+  const scale = Math.min(1, usableX / (maxX - minX), usableY / (maxY - minY));
+  const offsetX = leftBound + (usableX - (maxX - minX) * scale) / 2 - minX * scale;
+  const offsetY = topBound + (usableY - (maxY - minY) * scale) / 2 - minY * scale;
   return slots.map(slot => ({
     ...slot,
     x: slot.x * scale + offsetX,
@@ -166,14 +170,157 @@ function fitRotatedSlots(
   }));
 }
 
-/** Four Home photos sit as a centered two-by-two stack, like four real prints. */
-function homeFourPhotoSlots(): VisionEditorialPhotoSlot[] {
-  return [
-    { x: 0.34, y: 0.02, width: 0.19, height: 0.53, rotation: -2.5, zIndex: 1 },
-    { x: 0.48, y: 0.00, width: 0.19, height: 0.53, rotation: 2, zIndex: 2 },
-    { x: 0.34, y: 0.40, width: 0.19, height: 0.53, rotation: -1.5, zIndex: 3 },
-    { x: 0.48, y: 0.38, width: 0.19, height: 0.53, rotation: 2.5, zIndex: 4 },
-  ];
+function fitRotatedSlots(
+  slots: readonly VisionEditorialPhotoSlot[],
+  safeMargin: number,
+  canvasAspect: number,
+): VisionEditorialPhotoSlot[] {
+  return fitSlotsInBox(slots, safeMargin, 1 - safeMargin, safeMargin, 1 - safeMargin, canvasAspect);
+}
+
+/** Three overlapping Polaroids: flanking taped prints with a dominant central hero. */
+function editorialTrio(
+  aspects: readonly number[],
+  canvasAspect: number,
+  margin: number,
+): VisionEditorialPhotoSlot[] {
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / 3;
+  const order = [1, 0, 2];
+  const baseHeights = [0.95, 1.12, 0.94];
+  const rotations = [-1.4, -3.8, 3.4];
+  const zIndices = [3, 1, 2];
+  const prints = order.map((sourceIndex, column) => {
+    const aspect = aspects[sourceIndex];
+    const clamped = Math.min(1.8, Math.max(0.55, aspect));
+    const h = baseHeights[column] * Math.pow(clamped, -0.28);
+    return { sourceIndex, w: h * aspect, h };
+  });
+  const t = Math.max(0, Math.min(1, (avgAspect - 0.68) / (1.5 - 0.68)));
+  const overlap = 0.24 + 0.16 * t;
+  const maxH = Math.max(...prints.map(print => print.h));
+  const stagger = maxH * (0.06 + 0.22 * t);
+  const candidate: VisionEditorialPhotoSlot[] = [];
+  let left = 0;
+  prints.forEach((print, column) => {
+    const yPhysical = column === 1
+      ? 0
+      : (maxH - print.h) * (column === 0 ? 0.50 : 0.38) + (column === 0 ? stagger : stagger * 0.65);
+    candidate[print.sourceIndex] = {
+      x: left,
+      y: yPhysical * canvasAspect,
+      width: print.w,
+      height: print.h * canvasAspect,
+      rotation: rotations[print.sourceIndex],
+      zIndex: zIndices[print.sourceIndex],
+    };
+    if (column < 2) {
+      left += print.w - Math.min(print.w, prints[column + 1].w) * overlap;
+    }
+  });
+  return fitSlotsInBox(
+    candidate,
+    Math.max(margin, 0.08),
+    Math.min(1 - margin, 0.84),
+    Math.max(margin, 0.10),
+    Math.min(1 - margin, 0.89),
+    canvasAspect,
+  );
+}
+
+/** Four interlocking Polaroids spread across the canvas in a two-tier wave. */
+function editorialQuartet(
+  aspects: readonly number[],
+  canvasAspect: number,
+  margin: number,
+): VisionEditorialPhotoSlot[] {
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / 4;
+  const order = [1, 0, 2, 3];
+  const baseHeights = [0.96, 1.06, 0.98, 0.95];
+  const rotations = [-2.2, -3.5, 2.2, 3.2];
+  const zIndices = [4, 2, 3, 1];
+  const prints = order.map((sourceIndex, column) => {
+    const aspect = aspects[sourceIndex];
+    const clamped = Math.min(1.8, Math.max(0.55, aspect));
+    const h = baseHeights[column] * Math.pow(clamped, -0.30);
+    return { sourceIndex, w: h * aspect, h };
+  });
+  const t = Math.max(0, Math.min(1, (avgAspect - 0.68) / (1.5 - 0.68)));
+  const overlap = 0.25 + 0.28 * t;
+  const maxH = Math.max(...prints.map(print => print.h));
+  const tierDrop = maxH * (0.28 + 0.46 * t);
+  const candidate: VisionEditorialPhotoSlot[] = [];
+  let left = 0;
+  prints.forEach((print, column) => {
+    const isLower = column % 2 === 0;
+    const yPhysical = (maxH - print.h) * 0.30 + (isLower ? tierDrop : column === 3 ? tierDrop * 0.10 : 0);
+    candidate[print.sourceIndex] = {
+      x: left,
+      y: yPhysical * canvasAspect,
+      width: print.w,
+      height: print.h * canvasAspect,
+      rotation: rotations[print.sourceIndex],
+      zIndex: zIndices[print.sourceIndex],
+    };
+    if (column < 3) {
+      left += print.w - Math.min(print.w, prints[column + 1].w) * overlap;
+    }
+  });
+  return fitSlotsInBox(
+    candidate,
+    Math.max(margin, 0.06),
+    Math.min(1 - margin, 0.85),
+    Math.max(margin, 0.09),
+    Math.min(1 - margin, 0.89),
+    canvasAspect,
+  );
+}
+
+/** Five interlocking Polaroids spread across the canvas in a two-tier wave. */
+function editorialQuintet(
+  aspects: readonly number[],
+  canvasAspect: number,
+  margin: number,
+): VisionEditorialPhotoSlot[] {
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / 5;
+  const order = [1, 3, 0, 4, 2];
+  const baseHeights = [0.94, 0.96, 1.08, 0.96, 0.94];
+  const rotations = [-3.0, 2.2, -1.2, -2.5, 3.2];
+  const zIndices = [2, 4, 5, 4, 3];
+  const prints = order.map((sourceIndex, column) => {
+    const aspect = aspects[sourceIndex];
+    const clamped = Math.min(1.8, Math.max(0.55, aspect));
+    const h = baseHeights[column] * Math.pow(clamped, -0.30);
+    return { sourceIndex, w: h * aspect, h };
+  });
+  const t = Math.max(0, Math.min(1, (avgAspect - 0.68) / (1.5 - 0.68)));
+  const overlap = 0.28 + 0.24 * t;
+  const maxH = Math.max(...prints.map(print => print.h));
+  const tierDrop = maxH * (0.34 + 0.40 * t);
+  const candidate: VisionEditorialPhotoSlot[] = [];
+  let left = 0;
+  prints.forEach((print, column) => {
+    const isLower = column === 1 || column === 3;
+    const yPhysical = (maxH - print.h) * 0.30 + (isLower ? tierDrop : 0);
+    candidate[print.sourceIndex] = {
+      x: left,
+      y: yPhysical * canvasAspect,
+      width: print.w,
+      height: print.h * canvasAspect,
+      rotation: rotations[print.sourceIndex],
+      zIndex: zIndices[print.sourceIndex],
+    };
+    if (column < 4) {
+      left += print.w - Math.min(print.w, prints[column + 1].w) * overlap;
+    }
+  });
+  return fitSlotsInBox(
+    candidate,
+    Math.max(margin, 0.05),
+    Math.min(1 - margin, 0.88),
+    Math.max(margin, 0.07),
+    Math.min(1 - margin, 0.91),
+    canvasAspect,
+  );
 }
 
 /**
@@ -205,8 +352,14 @@ export function getEditorialPhotoSlots(
   const overlap = Math.min(0.48, Math.max(0.08, canvas.desiredOverlap ?? 0.44));
   const aspects = Array.from({ length: photoCount }, (_, i) =>
     Number.isFinite(sourceAspects[i]) && sourceAspects[i] > 0 ? sourceAspects[i] : 1.5);
-  if (variant === 'home' && photoCount === 4) {
-    return fitRotatedSlots(homeFourPhotoSlots(), margin, canvasAspect);
+  if (photoCount === 3) {
+    return editorialTrio(aspects, canvasAspect, margin);
+  }
+  if (photoCount === 4) {
+    return editorialQuartet(aspects, canvasAspect, margin);
+  }
+  if (photoCount === 5) {
+    return editorialQuintet(aspects, canvasAspect, margin);
   }
   // Portrait collections need a tall central print with supporting photographs
   // tucked around it, rather than row justification shrinking every portrait.
@@ -231,7 +384,9 @@ export function getEditorialPhotoSlots(
   // portrait collections prefer more prints across each row.
   let best: VisionEditorialPhotoSlot[] = [];
   let bestArea = -1;
-  for (let rows = photoCount > 3 && photoCount <= 8 ? Math.ceil(photoCount / 3) : 1; rows <= Math.min(photoCount, Math.ceil(Math.sqrt(photoCount)) + 1); rows += 1) {
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / photoCount;
+  const minRows = photoCount > 3 && photoCount <= 8 ? (avgAspect < 1.1 ? 2 : Math.ceil(photoCount / 3)) : 1;
+  for (let rows = minRows; rows <= Math.min(photoCount, Math.ceil(Math.sqrt(photoCount)) + 1); rows += 1) {
     const candidate: VisionEditorialPhotoSlot[] = [];
     let index = 0;
     let top = 0;
@@ -294,10 +449,10 @@ export function getEditorialNoteSlots(
       ];
   }
   return variant === 'home'
-    ? [{ x: 0.79, y: 0.30, width: 0.18, height: 0.32, rotation: 5, zIndex: 40 }]
+    ? [{ x: 0.77, y: 0.28, width: 0.195, height: 0.34, rotation: 4, zIndex: 40 }]
     : [
-      { x: 0.81, y: 0.12, width: 0.17, height: 0.32, rotation: -5, zIndex: 40 },
-      ...(shown > 1 ? [{ x: 0.04, y: 0.65, width: 0.20, height: 0.30, rotation: -3, zIndex: 41 }] : []),
+      { x: 0.78, y: 0.12, width: 0.19, height: 0.34, rotation: -4, zIndex: 40 },
+      ...(shown > 1 ? [{ x: 0.04, y: 0.63, width: 0.20, height: 0.32, rotation: -3, zIndex: 41 }] : []),
     ];
 }
 

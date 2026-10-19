@@ -26,7 +26,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { ANCHOR_TRANSITION_TIMING, ProgressiveFocusTransitionProvider } from '@/navigation/v2/ProgressiveFocusTransition';
 
 // Every mocked native view shares one measureInWindow; answer it with a plausible on-screen rect.
-const nativeMethodsModule = require('react-native/jest/MockNativeMethods');
+const nativeMethodsModule = require('@react-native/jest-preset/jest/MockNativeMethods');
 const mockNativeMethods = (nativeMethodsModule.default ?? nativeMethodsModule) as { measureInWindow: jest.Mock };
 
 const focusToday: V2RecommendationContext = {

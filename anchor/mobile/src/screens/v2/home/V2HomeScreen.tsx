@@ -696,7 +696,7 @@ export function V2HomeScreen() {
               thread={model.thread}
               reduceMotion={reduceMotion}
               frozen={focusTransition.active}
-              auraActive={heroOnscreen && teachingFocus.isFocused && !carouselMoving && !homeMotionActive}
+              auraActive={heroOnscreen && teachingFocus.isFocused}
               onMotionChange={handleCarouselMotion}
               onSelect={handleSelectAnchor}
               onOpenActive={handleOpenActive}

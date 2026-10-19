@@ -20,7 +20,7 @@ export interface DatabaseDependencies {
   checksum(value: string): Promise<string>;
   legacyRead(namespace: string): Promise<{ value: unknown; raw: string; format: string } | null>;
   checkpoint?(stage: string): Promise<void>;
-  measure?(event: 'queue' | 'key-read' | 'initialization', fields: Record<string, number>): void;
+  measure?(event: 'queue' | 'queue-enqueued' | 'queue-started' | 'transaction-started' | 'transaction-settled' | 'key-read' | 'initialization', fields: Record<string, number>): void;
 }
 type DocumentRow = { shape: string; revision: number; activated: number };
 type RecordRow = { record_id: string; scope: string; payload: string; checksum: string };
@@ -40,22 +40,26 @@ export class EncryptedRecordDatabase {
   private tail: Promise<unknown> = Promise.resolve();
   private documents = new Map<string, CachedDocument>();
   private queueDepth = 0;
+  private operationSequence = 0;
   constructor(private readonly deps: DatabaseDependencies) {}
 
   private queued<T>(task: () => Promise<T>): Promise<T> {
     const queuedAt = performance.now();
     const depth = ++this.queueDepth;
+    const operation = ++this.operationSequence;
+    this.measure('queue-enqueued', { depth, operation });
     const result = this.tail.then(async () => {
       const startedAt = performance.now();
+      this.measure('queue-started', { depth, operation, waitMs: startedAt - queuedAt });
       try { return await task(); } finally {
         this.queueDepth--;
-        this.measure('queue', { depth, waitMs: startedAt - queuedAt, workMs: performance.now() - startedAt });
+        this.measure('queue', { depth, operation, waitMs: startedAt - queuedAt, workMs: performance.now() - startedAt });
       }
     });
     this.tail = result.catch(() => undefined);
     return result;
   }
-  private measure(event: 'queue' | 'key-read' | 'initialization', fields: Record<string, number>): void {
+  private measure(event: Parameters<NonNullable<DatabaseDependencies['measure']>>[0], fields: Record<string, number>): void {
     // Optional numeric diagnostics must never turn a successful commit into failure.
     try { this.deps.measure?.(event, fields); } catch { /* diagnostic observer only */ }
   }
@@ -101,16 +105,24 @@ export class EncryptedRecordDatabase {
     return this.opening;
   }
   private async transaction(db: SqlConnection, task: (txn: SqlConnection) => Promise<void>): Promise<void> {
-    await db.withExclusiveTransactionAsync(async (txn) => {
-      // Expo 16 opens a NEW connection for an exclusive transaction. Key that
-      // connection before its first schema/data access (BEGIN itself is deferred).
-      await txn.execAsync(keyPragma(this.key!));
-      await txn.execAsync('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
-      await task(txn);
-      // PRAGMA foreign_keys is connection-local and changing it after Expo's
-      // BEGIN has no effect. Check explicitly on this transaction connection.
-      if ((await txn.getAllAsync('PRAGMA foreign_key_check')).length) throw new Error('Database reference integrity failure');
-    });
+    const startedAt = performance.now();
+    let committed = 0;
+    this.measure('transaction-started', {});
+    try {
+      await db.withExclusiveTransactionAsync(async (txn) => {
+        // Expo opens a NEW connection for an exclusive transaction. Key that
+        // connection before its first schema/data access (BEGIN itself is deferred).
+        await txn.execAsync(keyPragma(this.key!));
+        await txn.execAsync('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+        await task(txn);
+        // PRAGMA foreign_keys is connection-local and changing it after Expo's
+        // BEGIN has no effect. Check explicitly on this transaction connection.
+        if ((await txn.getAllAsync('PRAGMA foreign_key_check')).length) throw new Error('Database reference integrity failure');
+      });
+      committed = 1;
+    } finally {
+      this.measure('transaction-settled', { committed, ms: performance.now() - startedAt });
+    }
   }
   private async load(namespace: string): Promise<CachedDocument | null> {
     const cached = this.documents.get(namespace);

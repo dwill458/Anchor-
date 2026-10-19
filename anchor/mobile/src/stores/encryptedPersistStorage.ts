@@ -5,6 +5,7 @@ import { sqlCipherEnabled, readDatabaseValue, writeDatabaseValue, removeDatabase
 
 import { logger } from '@/utils/logger';
 import { perfLog } from '@/utils/perfDiagnostics';
+import { traceStabilizationStage } from '@/utils/stabilizationDiagnostics';
 
 type AsyncStateStorage = StateStorage & {
   setItem: (name: string, value: string) => Promise<void>;
@@ -221,11 +222,12 @@ export async function writeLegacySecureValue(name: string, value: string): Promi
 
 const databaseNamespace = (name: string) => name !== 'anchor-auth-storage' && name !== 'anchor:cached_user';
 export async function readSecureValue(name: string, retries = 2): Promise<string | null> {
-  return sqlCipherEnabled() && databaseNamespace(name) ? readDatabaseValue(name) : readLegacySecureValue(name, retries);
+  return sqlCipherEnabled() && databaseNamespace(name) ? readDatabaseValue(name) :
+    traceStabilizationStage(databaseNamespace(name) ? 'legacy.private.read' : 'legacy.auth.read', () => readLegacySecureValue(name, retries));
 }
 export async function writeSecureValue(name: string, value: string): Promise<void> {
   if (sqlCipherEnabled() && databaseNamespace(name)) return writeDatabaseValue(name, value);
-  return writeLegacySecureValue(name, value);
+  return traceStabilizationStage(databaseNamespace(name) ? 'legacy.private.write' : 'legacy.auth.write', () => writeLegacySecureValue(name, value));
 }
 async function migrateLegacyAsyncStorageValue(name: string): Promise<string | null> {
   const legacyValue = await AsyncStorage.getItem(name);

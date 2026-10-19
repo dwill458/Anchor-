@@ -61,6 +61,7 @@ import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { DETAILS_BEATS_PER_VISIT, detailsTeachingBeats } from '@/hooks/v2/teaching/detailsTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
+import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
 import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -927,6 +928,9 @@ export function V2AnchorDetailsScreen() {
   }
 
   const threadValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
+  // Dev-only glow simulator (affects the aura only, not the displayed number); inert outside __DEV__.
+  const devStrength = useDevThreadStrengthStore();
+  const auraStrength = __DEV__ && devStrength.value !== null ? devStrength.value : threadValue;
   const threadDelta = recommendation.value?.delta ?? null;
 
   const openProgress = () => {
@@ -1037,7 +1041,7 @@ export function V2AnchorDetailsScreen() {
           <CircularAnchorRenderer
             {...artwork}
             size={restSize}
-            aura={{ anchorId: anchor.id, threadStrength: threadValue, variant: 'details', active: teachingFocus.isFocused && !focusTransition.active && !place.hidden, reducedMotion: reduceMotion }}
+            aura={{ anchorId: devStrength.nonce ? `${anchor.id}#dev${devStrength.nonce}` : anchor.id, threadStrength: auraStrength, variant: 'details', active: teachingFocus.isFocused && !focusTransition.active && !place.hidden, reducedMotion: reduceMotion }}
             appearance="paper"
             accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
           />

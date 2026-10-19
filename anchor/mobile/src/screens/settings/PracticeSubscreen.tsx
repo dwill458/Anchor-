@@ -45,6 +45,7 @@ import { useToast } from '@/components/ToastProvider';
 import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
 import { resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
 import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Props {
   onBack: () => void;
@@ -106,12 +107,17 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
   const toast = useToast();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const replayTeaching = async () => {
-    await resetAllTeachingSeen(teachingAccountId);
-    await resetChartTaughtState(teachingAccountId);
     useTeachingStore.getState().reset();
+    const resetSeenPromise = resetAllTeachingSeen(teachingAccountId);
+    const resetChartPromise = resetChartTaughtState(teachingAccountId);
+    const removePracticeSeenPromise = Promise.resolve(
+      AsyncStorage.removeItem('practice_teaching_auto_seen_v2')
+    ).catch(() => undefined);
     DeviceEventEmitter.emit('replayAppTeaching');
     DeviceEventEmitter.emit('chartReplayOneMoveTeaching');
+    AnalyticsService.track('teaching_reset');
     toast.info(TEACHING_COPY.replay.confirmation);
+    await Promise.all([resetSeenPromise, resetChartPromise, removePracticeSeenPromise]);
   };
   const [panel, setPanel] = useState<PracticePanel>('main');
   const [activeModeTab, setActiveModeTab] = useState<SessionAudioSessionType>('focus');

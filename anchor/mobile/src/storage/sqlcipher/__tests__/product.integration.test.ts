@@ -29,6 +29,58 @@ describe('SQLCipher product completion recovery', () => {
     useSessionStore.setState(createInitialSessionState());
   });
 
+  it('retains exactly 20 controlled Focus completions across duplicates and reopening', async () => {
+    const owner = 'stabilization-repeat-owner';
+    useAuthStore.setState({ user: createMockUser({ id: owner }) });
+    for (let index = 0; index < 20; index++) {
+      const event = record(`stabilization-focus-${index}`, owner);
+      const input = { sessionId: event.id, accountId: owner, anchorId: null, anchorLocalId: 'synthetic-anchor',
+        mode: 'focus' as const, plannedDurationSeconds: 60, actualDurationSeconds: 60,
+        startedAt: event.startedAt, completedAt: event.completedAt, source: 'practice_screen' as const,
+        guidanceVoice: 'none' as const, backgroundAudio: 'off' as const };
+      const first = await PracticeCompletionService.completePracticeSession(input, { mirrorLegacySession: true, flushImmediately: false });
+      const strength = useSessionStore.getState().threadStrength;
+      const duplicate = await PracticeCompletionService.completePracticeSession(input, { mirrorLegacySession: true, flushImmediately: false });
+      expect(first.duplicate).toBe(false);
+      expect(duplicate.duplicate).toBe(true);
+      expect(useSessionStore.getState().threadStrength).toBe(strength);
+      expect(useSessionStore.getState().practiceHistory).toHaveLength(index + 1);
+    }
+    await db().close();
+    const restored = await loadSessionSnapshot(owner);
+    expect(restored?.practiceHistory).toHaveLength(20);
+    expect(new Set(restored?.practiceHistory?.map(event => event.id)).size).toBe(20);
+    expect(restored?.totalSessionsCount).toBe(20);
+    expect(restored?.todayPractice.totalSeconds).toBe(1200);
+    expect((await db().read(`anchor:practice-write-queue:${owner}`))).toHaveLength(20);
+    expect(restored?.threadStrength).toBe(useSessionStore.getState().threadStrength);
+  });
+
+  it('rejects a failed Focus transaction without projection and permits a durable retry', async () => {
+    const owner = 'stabilization-failure-owner';
+    useAuthStore.setState({ user: createMockUser({ id: owner }) });
+    const event = record('stabilization-retry-focus', owner);
+    const input = { sessionId: event.id, accountId: owner, anchorId: null, mode: 'focus' as const,
+      plannedDurationSeconds: 60, actualDurationSeconds: 60, startedAt: event.startedAt,
+      completedAt: event.completedAt, source: 'practice_screen' as const,
+      guidanceVoice: 'none' as const, backgroundAudio: 'off' as const };
+    const fixture = (require('../runtime') as any).testFixture;
+    const run = fixture.driver.runAsync;
+    fixture.driver.runAsync = async (sql: string, ...params: any[]) => {
+      if (params.includes(`anchor:practice-write-queue:${owner}`)) throw new Error('synthetic disk failure');
+      return run(sql, ...params);
+    };
+    try {
+      await expect(PracticeCompletionService.completePracticeSession(input, { mirrorLegacySession: true, flushImmediately: false })).rejects.toThrow('synthetic disk failure');
+      expect(useSessionStore.getState().practiceHistory).toEqual([]);
+    } finally { fixture.driver.runAsync = run; }
+    expect(await db().read(`anchor:practice-history:${owner}`)).toBeNull();
+    const retry = await PracticeCompletionService.completePracticeSession(input, { mirrorLegacySession: true, flushImmediately: false });
+    expect(retry.duplicate).toBe(false);
+    await db().close();
+    expect((await loadSessionSnapshot(owner))?.practiceHistory?.map(event => event.id)).toEqual([event.id]);
+  });
+
   it.each(['focus', 'deep_prime', 'visualize'] as const)('recovers %s progress after the event commit but before middleware projection', async (mode) => {
     const owner = `projection-${mode}`;
     useAuthStore.setState({ user: createMockUser({ id: owner }) });

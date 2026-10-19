@@ -829,6 +829,8 @@ export function V2FocusActiveScreen({
                   surface={FOCUS_SCREEN_BACKGROUND}
                   accessibilityLabel={`${anchor.category} Anchor artwork`}
                   testID="focus-anchor-artwork"
+                  threadStrength={anchor.threadStrength ?? null}
+                  anchorId={anchor.id}
                 />
               </Reanimated.View>
             </Reanimated.View>

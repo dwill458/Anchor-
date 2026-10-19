@@ -77,7 +77,7 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
 }));
 
 jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: (selector?: (state: any) => any) => {
+  useAnchorStore: Object.assign((selector?: (state: any) => any) => {
     const state = {
       anchors: mockAnchors,
       getActiveAnchors: () => mockAnchors,
@@ -86,7 +86,9 @@ jest.mock('@/stores/anchorStore', () => ({
       getAnchorById: (id: string) => mockAnchors.find((anchor) => anchor.id === id),
     };
     return selector ? selector(state) : state;
-  },
+  }, {
+    getState: () => ({ setCurrentAnchor: mockSetCurrentAnchor }),
+  }),
 }));
 
 jest.mock('@/stores/authStore', () => ({

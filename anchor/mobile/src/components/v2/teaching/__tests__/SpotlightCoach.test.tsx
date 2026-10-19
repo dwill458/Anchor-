@@ -6,10 +6,6 @@ import { SpotlightCoach } from '../SpotlightCoach';
 import { measureTeachingTarget } from '../scrollToTarget';
 import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
 jest.mock('../scrollToTarget', () => ({ measureTeachingTarget: jest.fn(async () => ({ x: 0, y: 0, width: 390, height: 844 })) }));
-jest.mock('react-native-reanimated', () => {
-  const actual = require('@/__tests__/mocks/reactNativeReanimated').default;
-  return { ...actual, withTiming: jest.fn((value: unknown) => value) };
-});
 const steps = ['home.today', 'home.progress'].map(id => ({ id, ...TEACHING_COPY.beats[id as 'home.today'] , getRect: async () => ({ x: 20, y: 250, width: 300, height: 70 }) })) as React.ComponentProps<typeof SpotlightCoach>['steps'];
 beforeEach(() => jest.clearAllMocks());
 it('announces, advances, cuts instantly with reduced motion, and leaves no touch surface when hidden', async () => {
@@ -41,13 +37,16 @@ it('dismisses by scrim and Android back, and has no count for one beat', async (
   fireEvent.press(tree.getAllByLabelText('Dismiss tip')[0]);
   expect(dismiss).toHaveBeenCalledWith('scrim');
   const listener = back.mock.calls.find(([name]) => name === 'hardwareBackPress')![1];
-  expect(listener({} as never)).toBe(true);
+  expect((listener as () => boolean)()).toBe(true);
   expect(dismiss).toHaveBeenCalledWith('back');
 });
-it('skips an unavailable target silently', async () => {
+it('skips an unavailable target silently and adjusts the remaining step count', async () => {
   const ready = jest.fn();
-  render(<SpotlightCoach visible steps={[{ ...steps[0], getRect: async () => null }, steps[1]]} reducedMotion onReady={ready} onAdvance={jest.fn()} onDismiss={jest.fn()} />);
+  const skip = jest.fn();
+  const tree = render(<SpotlightCoach visible steps={[{ ...steps[0], getRect: async () => null }, steps[1]]} reducedMotion onReady={ready} onSkip={skip} onAdvance={jest.fn()} onDismiss={jest.fn()} />);
   await waitFor(() => expect(ready).toHaveBeenCalledWith('home.progress'));
   expect(ready).not.toHaveBeenCalledWith('home.today');
+  expect(skip).toHaveBeenCalledWith('home.today');
+  expect(tree.queryByText('2 of 2')).toBeNull();
   expect(measureTeachingTarget).toHaveBeenCalled();
 });

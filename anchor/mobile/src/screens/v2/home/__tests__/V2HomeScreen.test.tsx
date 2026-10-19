@@ -875,3 +875,54 @@ describe('first arrival skip target', () => {
     expect(screen.queryByTestId('v2-home-arrival-skip')).toBeNull();
   });
 });
+
+describe('Active Hero Thread Strength glow', () => {
+  it('renders Thread Strength glow only on the centered active hero Anchor and disables it on neighboring carousel Anchors', () => {
+    const anchors = [
+      makeAnchor({ id: 'a', localId: 'a', intentionText: 'First intention', category: 'career', threadStrength: 26 }),
+      makeAnchor({ id: 'b', localId: 'b', intentionText: 'Second intention', category: 'health', threadStrength: 80 }),
+      makeAnchor({ id: 'c', localId: 'c', intentionText: 'Third intention', category: 'desire', threadStrength: 54 }),
+    ];
+    useAnchorStore.setState({ anchors, currentAnchorId: 'a' });
+
+    const view = renderHome();
+
+    // Even with 3 Anchors mounted in the carousel (centre + previous + next), only the active hero has a ThreadAura.
+    const initialAuras = screen.getAllByTestId('thread-aura-home', { includeHiddenElements: true });
+    expect(initialAuras).toHaveLength(1);
+    const activeDisc = screen.getByTestId('v2-home-anchor-disc');
+    expect(activeDisc.findAll((node: ReactTestInstance) => node === initialAuras[0], { deep: true })).toHaveLength(1);
+
+    // Commit a carousel switch to Anchor 'b' (80% Thread Strength).
+    act(() => {
+      useAnchorStore.setState({ currentAnchorId: 'b' });
+    });
+    const updatedList = anchors.map((anchor) => ({
+      anchor,
+      thread: toThreadPresentation(anchor),
+      isSelected: anchor.id === 'b',
+    }));
+    mockUseV2HomeModel.mockReturnValue({
+      ...mockUseV2HomeModel.mock.results[mockUseV2HomeModel.mock.results.length - 1].value,
+      selectedAnchor: anchors[1],
+      thread: toThreadPresentation(anchors[1]),
+      anchorList: updatedList,
+      selectedIndex: 1,
+    });
+    act(() => {
+      view.rerender(
+        <V2DailyShellIntentsProvider intents={{}}>
+          <V2HomeScreen />
+        </V2DailyShellIntentsProvider>,
+      );
+    });
+
+    // Still only a single Thread Strength glow exists, belonging to the newly committed active hero.
+    const nextAuras = screen.getAllByTestId('thread-aura-home', { includeHiddenElements: true });
+    expect(nextAuras).toHaveLength(1);
+    expect(screen.getByTestId('v2-home-intention').props.children).toBe('Second intention');
+    expect(
+      screen.getByTestId('v2-home-anchor-disc').findAll((node: ReactTestInstance) => node === nextAuras[0], { deep: true }),
+    ).toHaveLength(1);
+  });
+});

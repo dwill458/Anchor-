@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import '../../../../../screens/v2/paywall/__tests__/paywallSkiaMock';
 import { PaywallChartPreviewTile, PaywallPracticeTile, PaywallVisionTile } from '../PaywallPreviewTiles';
 
 const HIDDEN = { includeHiddenElements: true } as const;

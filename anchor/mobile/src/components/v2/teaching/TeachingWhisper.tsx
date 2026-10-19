@@ -1,15 +1,18 @@
 import { useEffect } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, Text } from 'react-native';
-import Animated, { FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
 
 export function TeachingWhisper({ body, reducedMotion, onDismiss }: { body: string; reducedMotion: boolean; onDismiss: (reason: string) => void }) {
+  const insets = useSafeAreaInsets();
   useEffect(() => {
     AccessibilityInfo.announceForAccessibility(body);
     const timer = setTimeout(() => onDismiss('timeout'), 8000);
     return () => clearTimeout(timer);
   }, [body, onDismiss]);
-  return <Animated.View pointerEvents="box-none" exiting={reducedMotion ? undefined : FadeOut.duration(180)} style={styles.pill} testID="teaching-whisper">
+  const bottomOffset = 28 + (insets?.bottom ?? 0);
+  return <Animated.View pointerEvents="box-none" entering={reducedMotion ? undefined : FadeIn.duration(180)} exiting={reducedMotion ? undefined : FadeOut.duration(180)} style={[styles.pill, bottomOffset !== 28 ? { bottom: bottomOffset } : null]} testID="teaching-whisper">
     <Text style={styles.body}>{body}</Text>
     <Pressable accessibilityRole="button" accessibilityLabel={TEACHING_COPY.common.dismiss} onPress={() => onDismiss('close')} style={styles.close}><Text style={styles.x}>×</Text></Pressable>
   </Animated.View>;

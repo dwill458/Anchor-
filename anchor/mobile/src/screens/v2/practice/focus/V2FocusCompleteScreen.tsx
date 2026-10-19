@@ -23,6 +23,7 @@ import {
   type PracticeSceneKind,
 } from '@/hooks/v2/practice/usePracticeCompletionScene';
 import type { ArrivalRect } from '@/stores/v2/homeArrivalStore';
+import type { FocusSaveWaitResult } from './focusSaveWait';
 import { offerPracticeDeparture, type PracticeDepartureMeasure } from '@/stores/v2/practiceDeparture';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 
@@ -102,6 +103,8 @@ export interface V2FocusCompleteScreenProps {
   beforeStrength?: number | null;
   afterStrength?: number | null;
   sessionSaved?: boolean;
+  sessionSaveState?: 'saving' | FocusSaveWaitResult;
+  onRetrySave?: () => void;
   /** Stable id of the completed session. Keys the completion scene and the Thread settle cue to one play per session. */
   sessionId?: string | null;
   /** Shared completion presentation; Focus keeps its original copy by default. */
@@ -120,6 +123,8 @@ export function V2FocusCompleteScreen({
   beforeStrength: propBefore,
   afterStrength: propAfter,
   sessionSaved = true,
+  sessionSaveState = sessionSaved ? 'saved' : 'failed',
+  onRetrySave,
   sessionId = null,
   practiceTitle,
   enterFrom = 'ink',
@@ -278,6 +283,9 @@ export function V2FocusCompleteScreen({
             surface={colors.background}
             accessibilityLabel={`${anchor.category} Anchor artwork`}
             testID="focus-complete-anchor-artwork"
+            threadStrength={toVal}
+            anchorId={anchor.id}
+            strengthProgress={scene.barProgress}
           />
           {scene.kind === 'fullFirst' ? (
             <Svg
@@ -433,8 +441,27 @@ export function V2FocusCompleteScreen({
         </> : (
           <View style={styles.unmeasuredContainer}>
             <Text style={styles.unmeasuredHint}>
-              This session could not be saved. Thread Strength was not updated.
+              {sessionSaveState === 'unknown'
+                ? 'Saving is taking longer than expected. The outcome is still being confirmed. Thread Strength will appear after the save is confirmed.'
+                : sessionSaveState === 'saving'
+                  ? 'Your session is still being saved. Thread Strength will appear after the save is confirmed.'
+                  : 'This session could not be saved. Thread Strength was not updated.'}
             </Text>
+            {onRetrySave && sessionSaveState !== 'saved' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={sessionSaveState === 'failed' ? 'Retry saving session' : 'Check session save status'}
+                accessibilityState={{ disabled: sessionSaveState === 'saving', busy: sessionSaveState === 'saving' }}
+                disabled={sessionSaveState === 'saving'}
+                testID="focus-complete-retry-save"
+                onPress={onRetrySave}
+                style={styles.retrySave}
+              >
+                <Text style={styles.againText}>
+                  {sessionSaveState === 'failed' ? 'Retry saving' : 'Check save status'}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
       </Animated.View>
@@ -543,6 +570,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  retrySave: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing[3] },
   measuredCard: {
     paddingVertical: spacing[2],
     paddingHorizontal: spacing[1],

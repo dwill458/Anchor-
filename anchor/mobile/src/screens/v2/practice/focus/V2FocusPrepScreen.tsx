@@ -11,6 +11,8 @@ import { getCategoryColor, getCategoryFieldColor, colors, radii, spacing, typogr
 import type { Anchor } from '@/types';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useAuraStrength } from '@/stores/devThreadStrengthStore';
+import { useV2ReduceMotion } from '@/hooks/v2';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { safeHaptics } from '@/utils/haptics';
 import { V2PracticeAudioSheet } from '@/components/v2/practice/V2PracticeAudioSheet';
@@ -62,6 +64,8 @@ export function V2FocusPrepScreen({
   const viewport = useV2Responsive();
   const metrics = resolvePracticeSetupMetrics(viewport, 'focus');
   const preferredDuration = useSettingsStore((state) => state.focusSessionDuration);
+  const glow = useAuraStrength(anchor.threadStrength ?? null);
+  const reduceMotion = useV2ReduceMotion();
 
   const [duration, setDuration] = useState<number>(() => {
     if (initialDuration && DURATION_OPTIONS.includes(initialDuration as 10 | 30 | 60)) {
@@ -174,6 +178,7 @@ export function V2FocusPrepScreen({
                 {...anchorRenderProps(anchor)}
                 size={metrics.artworkSize}
                 appearance="paper"
+                aura={{ anchorId: `${anchor.id}${glow.keySuffix}`, threadStrength: glow.strength, variant: 'details', active: true, reducedMotion: reduceMotion }}
                 accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
               />
             </View>

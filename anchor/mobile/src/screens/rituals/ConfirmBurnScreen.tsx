@@ -54,7 +54,7 @@ export const ConfirmBurnScreen: React.FC = () => {
   const { navigateToVault } = useTabNavigation();
   const { anchorId, intention, sigilSvg, enhancedImageUrl, returnTo, source } = route.params;
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
-  const { recordShown } = useTeachingStore();
+  const recordShown = useTeachingStore((state) => state.recordShown);
   const { hasActiveEntitlement } = useTrialStatus();
   const anchor = getAnchorById(anchorId);
   const resolvedSigilSvg = sigilSvg || anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
@@ -128,6 +128,19 @@ export const ConfirmBurnScreen: React.FC = () => {
       guide_mode: true,
     });
   }, [recordShown, reflectTeaching]);
+
+  useEffect(() => {
+    if (currentStep !== 'release' || !releaseTeaching) return;
+    const content = TEACHINGS[releaseTeaching.teachingId];
+    recordShown(releaseTeaching.teachingId, releaseTeaching.pattern, content?.maxShows ?? 1);
+    AnalyticsService.track('teaching_shown', {
+      teaching_id: releaseTeaching.teachingId,
+      pattern: releaseTeaching.pattern,
+      screen: 'confirm_burn',
+      trigger: releaseTeaching.trigger,
+      guide_mode: true,
+    });
+  }, [currentStep, recordShown, releaseTeaching]);
 
   const activeTeaching = currentStep === 'reflect' ? reflectTeaching : releaseTeaching;
 

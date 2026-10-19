@@ -1,8 +1,10 @@
 import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, BackHandler, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
+import { trackTeaching } from '@/utils/v2/teachingAnalytics';
 import { CHART_MAP_TOKENS as T } from '../map/chartMapTokens';
 import type { ChartSheetDetent, ChartSheetViewport } from './ChartSheet';
 import type { ChartOneMoveTargetRefs } from './chartOneMoveTypes';
@@ -23,7 +25,7 @@ type Props = {
 };
 
 type Rect = { x: number; y: number; width: number; height: number };
-type MeasurableNode = { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void };
+type MeasurableNode = ViewInstance | { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void };
 const PAD = 8;
 const MARGIN = 18;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -31,6 +33,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 /** A screen-level coach mark. Its root and the sheet targets are measured in window coordinates. */
 export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, detent, targets, viewportRef, viewportLayoutRevision, measureInWindow, onRequestVisible, onReady, onDismiss }: Props) {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const rootRef = useRef<ViewInstance>(null);
   const [rootRect, setRootRect] = useState<Rect | null>(null);
   const [targetRect, setTargetRect] = useState<Rect | null>(null);
@@ -38,6 +41,7 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
   const [beat, setBeat] = useState(0);
   const [ready, setReady] = useState(false);
   const readyRef = useRef(false);
+  const shownBeatsRef = useRef(new Set<number>());
   const spotlightValue = useSharedValue({ x: 0, y: 0, width: 0, height: 0 });
   const hasMeasuredSpot = useRef(false);
   const visibilityRequested = useRef(false);
@@ -49,6 +53,7 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
   const rightScrimStyle = useAnimatedStyle(() => ({ left: spotlightValue.value.x + spotlightValue.value.width, top: spotlightValue.value.y, width: Math.max(0, width - spotlightValue.value.x - spotlightValue.value.width), height: spotlightValue.value.height }));
   const beats = CHART_COPY.teaching.oneMove.beats;
   const current = beats[beat];
+  const beatKey = `chart.oneMove.${beat + 1}`;
 
   const measure = useCallback(() => {
     if (!visible || readyRef.current || visibilityRequested.current) return;
@@ -88,6 +93,10 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
           setTargetRect({ x: left - rootX, y: top - rootY, width: right - left, height: bottom - top });
         } else setTargetRect(nextTarget);
         setReady(true);
+        if (!shownBeatsRef.current.has(beat)) {
+          shownBeatsRef.current.add(beat);
+          trackTeaching('teaching_beat_shown', { screen: 'chart', beat: `chart.oneMove.${beat + 1}`, step: beat + 1, total: beats.length, reason: 'ready' });
+        }
         onReady();
       };
       if (viewportRef.current) {
@@ -96,7 +105,7 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
         });
       } else measureNode(target, (x, y, targetWidth, targetHeight) => updateTarget(x, y, targetWidth, targetHeight));
     });
-  }, [beat, detent, measureInWindow, onReady, onRequestVisible, targets.bodyRef, targets.circleRef, targets.rowRef, viewportLayoutRevision, viewportRef, visible]);
+  }, [beat, beats.length, detent, measureInWindow, onReady, onRequestVisible, targets.bodyRef, targets.circleRef, targets.rowRef, viewportLayoutRevision, viewportRef, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -110,7 +119,13 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
     visibilityRequested.current = false;
     setReady(false);
     const frame = requestAnimationFrame(measure);
-    const retry = setInterval(measure, 180);
+    const retry = setInterval(() => {
+      if (readyRef.current && !visibilityRequested.current) {
+        clearInterval(retry);
+        return;
+      }
+      measure();
+    }, 180);
     return () => { cancelAnimationFrame(frame); clearInterval(retry); };
   }, [height, measure, replayVersion, visible, width]);
 
@@ -132,6 +147,7 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
     readyRef.current = false;
     visibilityRequested.current = false;
     visibilityAttempts.current = 0;
+    shownBeatsRef.current.clear();
     setBeat(0);
   }, [replayVersion, visible]);
 
@@ -140,20 +156,29 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
   useEffect(() => {
     if (!visible) return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      trackTeaching('teaching_beat_dismissed', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'back' });
       onDismiss();
       return true;
     });
     return () => subscription.remove();
-  }, [onDismiss, visible]);
+  }, [beat, beatKey, beats.length, onDismiss, visible]);
 
   useEffect(() => {
     if (!visible || !current) return;
     AccessibilityInfo.announceForAccessibility(`${current.title} ${current.body} ${CHART_COPY.teaching.oneMove.steps.replace('{n}', String(beat + 1))}`);
   }, [beat, current, visible]);
 
+  const handleScrimDismiss = () => {
+    trackTeaching('teaching_beat_dismissed', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'scrim' });
+    onDismiss();
+  };
+
   const advance = () => {
-    if (beat === beats.length - 1) onDismiss();
-    else setBeat(value => value + 1);
+    trackTeaching('teaching_beat_advanced', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'next' });
+    if (beat === beats.length - 1) {
+      trackTeaching('teaching_beat_dismissed', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'complete' });
+      onDismiss();
+    } else setBeat(value => value + 1);
   };
   const onRootLayout = () => measure();
   if (!visible || !current) return null;
@@ -165,30 +190,37 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
     height: Math.min(rootRect.height, targetRect.y + targetRect.height + PAD) - Math.max(0, targetRect.y - PAD),
   } : null;
   if (!rootRect || !spotlight || !targetRect || !ready) return <View ref={rootRef} collapsable={false} onLayout={onRootLayout} pointerEvents="none" style={[StyleSheet.absoluteFill, styles.overlayRoot]} testID="chart-one-move-teaching-measure" />;
+  const topMargin = Math.max(MARGIN, (insets?.top ?? 0) + 8);
+  const bottomMargin = Math.max(MARGIN, (insets?.bottom ?? 0) + 8);
   const tipWidth = Math.min(rootRect.width - MARGIN * 2, 360);
-  const below = spotlight.top + spotlight.height + 18;
-  const placeBelow = below + tipHeight + MARGIN <= rootRect.height;
-  const tipTop = placeBelow ? below : Math.max(MARGIN, spotlight.top - tipHeight - 18);
-  const arrowX = Math.max(MARGIN + 12, Math.min(rootRect.width - MARGIN - 30, targetRect.x + targetRect.width / 2 - 9));
   const tipX = Math.max(MARGIN, Math.min(rootRect.width - tipWidth - MARGIN, rootRect.width / 2 - tipWidth / 2));
+  const below = spotlight.top + spotlight.height + 18;
+  const placeBelow = below + tipHeight + bottomMargin <= rootRect.height;
+  const tipTop = placeBelow ? below : Math.max(topMargin, spotlight.top - tipHeight - 18);
+  const tipMaxHeight = placeBelow
+    ? Math.max(0, rootRect.height - tipTop - bottomMargin)
+    : Math.max(0, spotlight.top - tipTop - 18);
+  const arrowX = Math.max(tipX + 12, Math.min(tipX + tipWidth - 30, targetRect.x + targetRect.width / 2 - 9));
   const scrim = 'rgba(14,14,12,0.64)';
 
-  return <View ref={rootRef} collapsable={false} onLayout={onRootLayout} pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.overlayRoot]} testID="chart-one-move-teaching">
-    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={onDismiss} style={[styles.scrim, { backgroundColor: scrim }, topScrimStyle]} />
-    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={onDismiss} style={[styles.scrim, { backgroundColor: scrim }, bottomScrimStyle]} />
-    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={onDismiss} style={[styles.scrim, { backgroundColor: scrim }, leftScrimStyle]} />
-    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={onDismiss} style={[styles.scrim, { backgroundColor: scrim }, rightScrimStyle]} />
+  return <View accessibilityViewIsModal ref={rootRef} collapsable={false} onLayout={onRootLayout} pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.overlayRoot]} testID="chart-one-move-teaching">
+    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={handleScrimDismiss} style={[styles.scrim, { backgroundColor: scrim }, topScrimStyle]} />
+    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={handleScrimDismiss} style={[styles.scrim, { backgroundColor: scrim }, bottomScrimStyle]} />
+    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={handleScrimDismiss} style={[styles.scrim, { backgroundColor: scrim }, leftScrimStyle]} />
+    <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={handleScrimDismiss} style={[styles.scrim, { backgroundColor: scrim }, rightScrimStyle]} />
     <Animated.View pointerEvents="none" style={[styles.spotlight, spotlight, spotlightStyle]} />
-    <View pointerEvents="none" style={[styles.arrow, placeBelow ? styles.arrowUp : styles.arrowDown, { left: arrowX, top: placeBelow ? tipTop - 10 : spotlight.top - 10 }]} />
-    <View onLayout={event => setTipHeight(event.nativeEvent.layout.height)} accessibilityRole="summary" accessibilityLiveRegion="polite" accessible={false} style={[styles.tip, { left: tipX, top: tipTop, width: tipWidth }]}>
-      <Text style={styles.title}>{current.title}</Text>
-      <Text style={styles.body}>{current.body}</Text>
-      <View style={styles.footer}>
-        <Text style={styles.steps}>{CHART_COPY.teaching.oneMove.steps.replace('{n}', String(beat + 1))}</Text>
-        <Pressable accessibilityRole="button" onPress={advance} style={styles.button}>
-          <Text style={styles.buttonText}>{beat === beats.length - 1 ? CHART_COPY.teaching.oneMove.gotIt : CHART_COPY.teaching.oneMove.next}</Text>
-        </Pressable>
-      </View>
+    <View pointerEvents="none" style={[styles.arrow, placeBelow ? styles.arrowUp : styles.arrowDown, { left: arrowX, top: placeBelow ? tipTop - 10 : tipTop + tipHeight }]} />
+    <View onLayout={event => setTipHeight(event.nativeEvent.layout.height)} accessibilityRole="summary" accessibilityLiveRegion="polite" accessible={false} style={[styles.tip, { left: tipX, top: tipTop, width: tipWidth, maxHeight: tipMaxHeight }]}>
+      <ScrollView bounces={false} contentContainerStyle={styles.tipContent}>
+        <Text style={styles.title}>{current.title}</Text>
+        <Text style={styles.body}>{current.body}</Text>
+        <View style={styles.footer}>
+          <Text style={styles.steps}>{CHART_COPY.teaching.oneMove.steps.replace('{n}', String(beat + 1))}</Text>
+          <Pressable accessibilityRole="button" onPress={advance} style={styles.button}>
+            <Text style={styles.buttonText}>{beat === beats.length - 1 ? CHART_COPY.teaching.oneMove.gotIt : CHART_COPY.teaching.oneMove.next}</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
     </View>
   </View>;
 }
@@ -197,7 +229,8 @@ const styles = StyleSheet.create({
   overlayRoot: { zIndex: 30, elevation: 30 },
   scrim: { position: 'absolute' },
   spotlight: { position: 'absolute', borderRadius: 18, borderWidth: 2, borderColor: '#F4EFE6' },
-  tip: { position: 'absolute', backgroundColor: '#F4EFE6', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.24, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
+  tip: { position: 'absolute', backgroundColor: '#F4EFE6', borderRadius: 16, shadowColor: '#000', shadowOpacity: 0.24, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
+  tipContent: { padding: 16 },
   title: { color: '#1D1B18', fontFamily: T.serif, fontSize: 19, lineHeight: 24, marginBottom: 6 },
   body: { color: '#4A463F', fontFamily: T.sans, fontSize: 14, lineHeight: 20, marginBottom: 12 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

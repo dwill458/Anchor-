@@ -40,10 +40,18 @@ export async function getChartTaughtState(accountId: string | null, courseId?: s
     }
     if (!taught && accountId) {
       try {
-        const guestValue = await encryptedPersistStorage.getItem(guestKey());
+        const gKey = guestKey();
+        const guestValue = await encryptedPersistStorage.getItem(gKey);
         if (guestValue === '1') {
           taught = true;
+          generations.set(gKey, (generations.get(gKey) ?? 0) + 1);
+          cache.delete(gKey);
           persist(memoryKey, '1');
+          try {
+            Promise.resolve(encryptedPersistStorage.removeItem(gKey)).catch(() => undefined);
+          } catch {
+            // ignore guest cleanup error
+          }
         }
       } catch {
         // ignore guest read error
@@ -61,15 +69,13 @@ export function setChartTaughtState(accountId: string | null, _courseId?: string
   generations.set(memoryKey, (generations.get(memoryKey) ?? 0) + 1);
   cache.set(memoryKey, true);
   persist(memoryKey, '1');
-  if (accountId) {
-    persist(guestKey(), '1');
-  }
 }
 
 /** Clears both the session cache and encrypted mark for the development Chart lab or settings reset. */
 export async function resetChartTaughtState(accountId: string | null, courseId?: string): Promise<void> {
   const memoryKey = accountId ? storageKey(accountId) : guestKey();
   generations.set(memoryKey, (generations.get(memoryKey) ?? 0) + 1);
+  generations.set(guestKey(), (generations.get(guestKey()) ?? 0) + 1);
   cache.delete(memoryKey);
   cache.delete(guestKey());
   try {
@@ -87,5 +93,5 @@ export async function resetChartTaughtState(accountId: string | null, courseId?:
 /** Test helper for cases that need to model a fresh process. */
 export function resetChartTaughtStateCache(): void {
   cache.clear();
-  generations.clear();
+  generations.forEach((generation, key) => generations.set(key, generation + 1));
 }

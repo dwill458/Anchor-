@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { traceStabilizationStage } from '@/utils/stabilizationDiagnostics';
 import { sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
 const database = () => (require('@/storage/sqlcipher/runtime') as typeof import('@/storage/sqlcipher/runtime')).recordDatabase();
 
@@ -251,8 +252,8 @@ export const PracticeCompletionService = {
     }
 
     if (sqlCipherEnabled()) {
-      const commit = canonicalCompletionTail.then(async () => {
-      if (!useSessionStore.persist.hasHydrated()) await useSessionStore.persist.rehydrate();
+      const commit = traceStabilizationStage('canonical.queue', () => canonicalCompletionTail.then(async () => {
+      if (!useSessionStore.persist.hasHydrated()) await traceStabilizationStage('canonical.hydration', () => Promise.resolve(useSessionStore.persist.rehydrate()));
       if (!useSessionStore.persist.hasHydrated()) throw new Error('Practice storage must be restored before confirming completion');
       if (useAuthStore.getState().user?.id !== record.accountId) throw new Error('Practice account changed during storage restoration');
       const append = (current: unknown) => {
@@ -267,7 +268,7 @@ export const PracticeCompletionService = {
       let projection = createInitialSessionState();
       // Canonical completion is authoritative. The session summary is a
       // projection published only after its event and outbox commit together.
-      await database().mutateMany([
+      await traceStabilizationStage('canonical.commit', () => database().mutateMany([
         { namespace: queueKey(record.accountId), change: append },
         { namespace: `anchor:practice-history:${record.accountId}`, change: append },
         { namespace: `anchor:session-snapshot:${record.accountId}`, change: (current) => {
@@ -275,13 +276,13 @@ export const PracticeCompletionService = {
           projection = projectCanonicalCompletion(base, record, mirrorLegacySession);
           return projection;
         } },
-      ]);
+      ]));
       if (useAuthStore.getState().user?.id === record.accountId) {
         if (mirrorLegacySession) useSessionStore.getState().recordPracticeSession(record);
         else useSessionStore.getState().appendCanonicalPracticeSession(record);
         useSessionStore.setState(projection);
       }
-      });
+      }));
       canonicalCompletionTail = commit.catch(() => undefined);
       await commit;
       if (flushImmediately) void this.flush(record.accountId);

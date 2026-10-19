@@ -43,6 +43,12 @@ type Props = {
   frozen?: boolean;
   /** True from the start of a drag or tap until the carousel rests and its selection is committed. */
   onMotionChange?: (moving: boolean) => void;
+  /**
+   * Fires the instant the track rests on an Anchor (`true`, before the deferred selection commit)
+   * and again as soon as a new drag or tap begins (`false`). Lets ambient effects start on the
+   * authoritative settle instead of waiting for the commit round-trip.
+   */
+  onCentered?: (centered: boolean) => void;
 };
 
 /** Centre-to-centre distance that leaves PEEK_FRACTION of a neighbour inside the screen edge. */
@@ -180,7 +186,7 @@ const TrackSlot = memo(function TrackSlot({
   );
 });
 
-function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, frozen = false, onMotionChange, testID }: Props) {
+function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, frozen = false, onMotionChange, onCentered, testID }: Props) {
   // The track is `width: 100%` of a full-bleed parent, and its geometry is
   // derived from its *measured* width. It must never inherit a page gutter, or
   // the slot centres (trackWidth / 2) stop matching the viewport centre and the
@@ -211,13 +217,14 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
 
   const selectedId = anchors[selectedIndex]?.anchor.id;
   // Read by the deferred commit, which must see the props of the moment it fires.
-  const latest = useRef({ anchors, onSelect, onMotionChange, selectedId });
-  latest.current = { anchors, onSelect, onMotionChange, selectedId };
+  const latest = useRef({ anchors, onSelect, onMotionChange, onCentered, selectedId });
+  latest.current = { anchors, onSelect, onMotionChange, onCentered, selectedId };
   const pendingId = useRef<string | null>(null);
   const commitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moving = useRef(false);
 
   const setMoving = useCallback((next: boolean) => {
+    if (next) latest.current.onCentered?.(false);
     if (moving.current === next) return;
     moving.current = next;
     latest.current.onMotionChange?.(next);
@@ -249,6 +256,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     if (virtualIndex !== target.value) return;
     VisualProfiler.record('snapFinished');
     setCenter(virtualIndex);
+    latest.current.onCentered?.(true);
     cancelPendingCommit();
     commitTimer.current = setTimeout(() => {
       commitTimer.current = null;

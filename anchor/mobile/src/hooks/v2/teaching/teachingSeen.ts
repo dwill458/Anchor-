@@ -31,7 +31,10 @@ export async function getTeachingSeen(accountId: string | null, beat: BeatId): P
         const guestValue = await encryptedPersistStorage.getItem(guestKey);
         if (guestValue === '1') {
           seen = true;
+          generations.set(guestKey, (generations.get(guestKey) ?? 0) + 1);
+          cache.set(guestKey, false);
           void write(key, () => encryptedPersistStorage.setItem(key, '1'));
+          void write(guestKey, () => encryptedPersistStorage.removeItem(guestKey));
         }
       } catch {
         // ignore guest fallback error
@@ -47,11 +50,6 @@ export function setTeachingSeen(accountId: string | null, beat: BeatId): void {
   generations.set(key, (generations.get(key) ?? 0) + 1);
   cache.set(key, true);
   void write(key, () => encryptedPersistStorage.setItem(key, '1'));
-  if (accountId) {
-    const guestKey = keyFor(null, beat);
-    cache.set(guestKey, true);
-    void write(guestKey, () => encryptedPersistStorage.setItem(guestKey, '1'));
-  }
 }
 
 export async function resetAllTeachingSeen(accountId: string | null): Promise<void> {

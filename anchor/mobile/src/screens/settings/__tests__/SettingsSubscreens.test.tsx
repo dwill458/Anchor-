@@ -316,6 +316,10 @@ describe('PracticeSubscreen', () => {
 // NotificationsSubscreen cases migrated to screens/v2/notifications/__tests__/NotificationSettingsScreen.test.tsx
 
 describe('AppExperienceSubscreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('renders interface options and toggles openDailyAnchorAutomatically', () => {
     render(<AppExperienceSubscreen onBack={jest.fn()} />);
 
@@ -325,6 +329,16 @@ describe('AppExperienceSubscreen', () => {
 
     fireEvent.press(screen.getByTestId('settings-row-Open to Practice'));
     expect(mockUpdateSetting).toHaveBeenCalledWith('openDailyAnchorAutomatically', true);
+  });
+
+  it('resets teaching tips from the confirmation sheet and shows toast confirmation', async () => {
+    render(<AppExperienceSubscreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByTestId('settings-row-Reset Teaching Tips'));
+    fireEvent.press(screen.getByText('Reset'));
+
+    await waitFor(() => expect(mockTeachingReset).toHaveBeenCalledWith('account-a'));
+    await waitFor(() => expect(mockToastInfo).toHaveBeenCalledWith('App tips reset.'));
   });
 });
 

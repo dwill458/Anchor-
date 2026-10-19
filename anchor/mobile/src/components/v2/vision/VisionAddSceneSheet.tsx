@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
@@ -54,7 +54,7 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
   // Android's animated keyboard value is not reported inside a native Modal window, so its lift comes from the keyboard events instead.
   const [androidLift, setAndroidLift] = useState(0);
   const { height: windowHeight } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const fieldY = useRef(0);
   const fieldRef = useRef<VisionSceneFieldHandle>(null);
   const flight = useRef(createSingleFlight()).current;

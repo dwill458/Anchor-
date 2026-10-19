@@ -2,6 +2,7 @@ import type { ViewInstance } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TEACHING_COPY, type BeatId } from '@/constants/v2/teachingCopy';
 import { measureTeachingTarget, type TeachingRect } from './scrollToTarget';
 
@@ -18,6 +19,7 @@ type Props = {
   onAdvance: (stepId: BeatId) => void;
   onDismiss: (reason: string) => void;
   onReady: (stepId: BeatId) => void;
+  onSkip?: (stepId: BeatId) => void;
 };
 const PAD = 8;
 const MARGIN = 18;
@@ -28,8 +30,10 @@ export function SpotlightCoach(props: Props) {
   const { visible, steps, reducedMotion } = props;
   const latest = useRef(props);
   latest.current = props;
+  const insets = useSafeAreaInsets();
   const root = useRef<ViewInstance>(null);
   const [index, setIndex] = useState(0);
+  const [skippedIds, setSkippedIds] = useState<BeatId[]>([]);
   const [geometry, setGeometry] = useState<{ root: TeachingRect; target: TeachingRect } | null>(null);
   const [tipHeight, setTipHeight] = useState(180);
   const dimensions = useWindowDimensions();
@@ -37,20 +41,25 @@ export function SpotlightCoach(props: Props) {
   const hasSpot = useRef(false);
   const current = steps[index];
   const stepKey = steps.map(step => step.id).join('|');
-  useEffect(() => { setIndex(0); hasSpot.current = false; setGeometry(null); }, [visible, stepKey]);
+  useEffect(() => { setIndex(0); setSkippedIds([]); hasSpot.current = false; setGeometry(null); }, [visible, stepKey]);
 
   useEffect(() => {
     setGeometry(null);
     if (!visible || !current) return;
     let cancelled = false;
-    const frame = requestAnimationFrame(() => {
+    const skipCurrent = () => {
+      latest.current.onSkip?.(current.id);
+      setSkippedIds(prev => (prev.includes(current.id) ? prev : [...prev, current.id]));
+      if (index < latest.current.steps.length - 1) setIndex(value => value + 1);
+      else latest.current.onDismiss('unmeasurable');
+    };
+    const run = () => {
       void (async () => {
         const target = await (current.getRect ? current.getRect() : measureTeachingTarget(current.targetRef?.current ?? null));
         const bounds = await measureTeachingTarget(root.current);
         if (cancelled) return;
         if (!bounds || !target || target.width <= 0 || target.height <= 0 || target.y + target.height <= bounds.y || target.y >= bounds.y + bounds.height) {
-          if (index < latest.current.steps.length - 1) setIndex(value => value + 1);
-          else latest.current.onDismiss('unmeasurable');
+          skipCurrent();
           return;
         }
         const left = Math.max(0, target.x - bounds.x - PAD);
@@ -63,12 +72,13 @@ export function SpotlightCoach(props: Props) {
         latest.current.onReady(current.id);
       })().catch(() => {
         if (cancelled) return;
-        if (index < latest.current.steps.length - 1) setIndex(value => value + 1);
-        else latest.current.onDismiss('unmeasurable');
+        skipCurrent();
       });
-    });
-    return () => { cancelled = true; cancelAnimationFrame(frame); };
-  }, [visible, current?.id, index, stepKey, reducedMotion, dimensions.width, dimensions.height, spot]);
+    };
+    const frame = requestAnimationFrame(run);
+    const timer = setTimeout(run, 16);
+    return () => { cancelled = true; cancelAnimationFrame(frame); clearTimeout(timer); };
+  }, [visible, current?.id, index, stepKey, reducedMotion, dimensions.width, dimensions.height]);
 
   useEffect(() => {
     if (!visible) return;
@@ -83,11 +93,19 @@ export function SpotlightCoach(props: Props) {
   if (!visible || !current) return null;
   if (!geometry) return <View ref={root} collapsable={false} pointerEvents="none" style={[StyleSheet.absoluteFill, styles.root]} testID="spotlight-coach-measure" />;
   const { root: bounds, target } = geometry;
+  const topMargin = Math.max(MARGIN, (insets?.top ?? 0) + 8);
+  const bottomMargin = Math.max(MARGIN, (insets?.bottom ?? 0) + 8);
   const tipWidth = Math.min(bounds.width - MARGIN * 2, 360);
+  const tipLeft = (bounds.width - tipWidth) / 2;
   const below = target.y + target.height + 18;
-  const placeBelow = below + tipHeight + MARGIN <= bounds.height;
-  const tipTop = placeBelow ? below : Math.max(MARGIN, target.y - tipHeight - 18);
-  const arrowX = Math.max(MARGIN + 12, Math.min(bounds.width - MARGIN - 30, target.x + target.width / 2 - 9));
+  const placeBelow = below + tipHeight + bottomMargin <= bounds.height;
+  const tipTop = placeBelow ? below : Math.max(topMargin, target.y - tipHeight - 18);
+  const tipMaxHeight = placeBelow
+    ? Math.max(0, bounds.height - tipTop - bottomMargin)
+    : Math.max(0, target.y - tipTop - 18);
+  const arrowX = Math.max(tipLeft + 12, Math.min(tipLeft + tipWidth - 30, target.x + target.width / 2 - 9));
+  const visibleSteps = steps.filter(step => !skippedIds.includes(step.id));
+  const visibleIndex = Math.max(0, visibleSteps.findIndex(step => step.id === current.id));
   const advance = () => {
     latest.current.onAdvance(current.id);
     if (index === steps.length - 1) latest.current.onDismiss('complete');
@@ -98,12 +116,12 @@ export function SpotlightCoach(props: Props) {
     {/* The hole stays visually clear, but taps there dismiss rather than launch a practice beneath a tip. */}
     <AnimatedPressable accessibilityRole="button" accessibilityLabel={TEACHING_COPY.common.dismiss} onPress={() => latest.current.onDismiss('scrim')} style={[styles.spot, spotStyle]} />
     <View pointerEvents="none" style={[styles.arrow, placeBelow ? styles.arrowUp : styles.arrowDown, { left: arrowX, top: placeBelow ? tipTop - 10 : tipTop + tipHeight }]} />
-    <View onLayout={event => setTipHeight(event.nativeEvent.layout.height)} style={[styles.tip, { left: (bounds.width - tipWidth) / 2, top: tipTop, width: tipWidth, maxHeight: bounds.height - tipTop - MARGIN }]}>
+    <View onLayout={event => setTipHeight(event.nativeEvent.layout.height)} style={[styles.tip, { left: tipLeft, top: tipTop, width: tipWidth, maxHeight: tipMaxHeight }]}>
       <ScrollView bounces={false} contentContainerStyle={styles.tipContent}>
         <Text style={styles.title}>{current.title}</Text>
         <Text style={styles.body}>{current.body}</Text>
         <View style={styles.footer}>
-          {steps.length > 1 ? <Text style={styles.count}>{TEACHING_COPY.common.step.replace('{n}', String(index + 1)).replace('{total}', String(steps.length))}</Text> : <View />}
+          {visibleSteps.length > 1 ? <Text style={styles.count}>{TEACHING_COPY.common.step.replace('{n}', String(visibleIndex + 1)).replace('{total}', String(visibleSteps.length))}</Text> : <View />}
           <Pressable accessibilityRole="button" onPress={advance} style={styles.button}><Text style={styles.buttonText}>{index === steps.length - 1 ? TEACHING_COPY.common.gotIt : TEACHING_COPY.common.next}</Text></Pressable>
         </View>
       </ScrollView>

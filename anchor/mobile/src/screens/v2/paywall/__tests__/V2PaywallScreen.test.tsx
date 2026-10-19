@@ -45,6 +45,7 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
+import './paywallSkiaMock';
 import { V2PaywallScreen } from '../V2PaywallScreen';
 
 const plan = (planId: string, price: number, trialEligible = false) => ({

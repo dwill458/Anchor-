@@ -127,7 +127,7 @@ function emitAppState(nextState: 'active' | 'background') {
     view.unmount();
   });
 
-  it('causally holds Focus completion behind a delayed durable receipt and recovers on settlement', async () => {
+  it('shows recoverable unknown state for a delayed receipt and reconciles its late success', async () => {
     let release!: () => void;
     (PracticeCompletionService.completePracticeSession as jest.Mock).mockImplementationOnce(
       () => new Promise<void>(resolve => { release = resolve; }));
@@ -138,10 +138,13 @@ function emitAppState(nextState: 'active' | 'background') {
     await act(async () => { jest.advanceTimersByTime(10000); });
     await act(async () => { jest.advanceTimersByTime(150000); });
     expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('v2-focus-complete-screen')).toBeNull();
+    expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    expect(screen.getByText(/outcome is still being confirmed/i)).toBeTruthy();
+    expect(screen.queryByText('Reinforced today ✓')).toBeNull();
     expect(PracticeCompletionService.flush).not.toHaveBeenCalled();
     await act(async () => { release(); });
     expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    expect(screen.queryByText(/outcome is still being confirmed/i)).toBeNull();
   });
 
   it('completes focus session, writes to PracticeCompletionService, and displays complete screen', async () => {
@@ -278,6 +281,81 @@ function emitAppState(nextState: 'active' | 'background') {
     expect(screen.queryByText('Reinforced today ✓')).toBeNull();
     fireEvent.press(screen.getByTestId('focus-complete-done-button'));
     expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 30, saved: false });
+  });
+
+  it('shows an unknown save state after the UI threshold and does not start a duplicate write on status check', async () => {
+    (PracticeCompletionService.completePracticeSession as jest.Mock).mockImplementationOnce(
+      () => new Promise(() => {})
+    );
+    const onCompleted = jest.fn();
+    render(
+      <V2PracticeSessionScreen
+        anchorId="a1" mode="focus" durationSeconds={10} source="practice_hub"
+        onBack={jest.fn()} onCompleted={onCompleted} onFocusAgain={jest.fn()}
+      />
+    );
+    emitAppState('active');
+    await act(async () => { jest.advanceTimersByTime(800); });
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await act(async () => { jest.advanceTimersByTime(2_300); });
+    emitAppState('background');
+    emitAppState('active');
+    await act(async () => { jest.advanceTimersByTime(5_000); });
+
+    expect(screen.getByText(/outcome is still being confirmed/i)).toBeTruthy();
+    expect(screen.getByTestId('focus-complete-retry-save')).toBeTruthy();
+    expect(screen.queryByText('Reinforced today ✓')).toBeNull();
+    fireEvent.press(screen.getByTestId('focus-complete-retry-save'));
+    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(screen.getByTestId('focus-complete-done-button'));
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 10, saved: false });
+  });
+
+  it('reconciles a late durable receipt after the UI wait and then shows the saved completion', async () => {
+    let resolveReceipt!: () => void;
+    (PracticeCompletionService.completePracticeSession as jest.Mock).mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveReceipt = resolve; })
+    );
+    render(
+      <V2PracticeSessionScreen
+        anchorId="a1" mode="focus" durationSeconds={10} source="practice_hub"
+        onBack={jest.fn()} onCompleted={jest.fn()} onFocusAgain={jest.fn()}
+      />
+    );
+    emitAppState('active');
+    await act(async () => { jest.advanceTimersByTime(800); });
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await act(async () => { jest.advanceTimersByTime(2_300); });
+    await act(async () => { jest.advanceTimersByTime(5_000); });
+    expect(screen.getByText(/outcome is still being confirmed/i)).toBeTruthy();
+
+    await act(async () => { resolveReceipt(); await Promise.resolve(); });
+    expect(screen.queryByText(/outcome is still being confirmed/i)).toBeNull();
+    expect(screen.queryByTestId('focus-complete-retry-save')).toBeNull();
+  });
+
+  it('retries a confirmed failure with the original completion ID', async () => {
+    const onCompleted = jest.fn();
+    (PracticeCompletionService.completePracticeSession as jest.Mock)
+      .mockRejectedValueOnce(new Error('encrypted session queue unavailable'));
+    render(
+      <V2PracticeSessionScreen
+        anchorId="a1" mode="focus" durationSeconds={10} source="practice_hub"
+        onBack={jest.fn()} onCompleted={onCompleted} onFocusAgain={jest.fn()}
+      />
+    );
+    emitAppState('active');
+    await act(async () => { jest.advanceTimersByTime(800); });
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await act(async () => { jest.advanceTimersByTime(2_300); });
+
+    const initialId = (PracticeCompletionService.completePracticeSession as jest.Mock).mock.calls[0][0].sessionId;
+    await act(async () => { fireEvent.press(screen.getByTestId('focus-complete-retry-save')); });
+    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(2);
+    expect((PracticeCompletionService.completePracticeSession as jest.Mock).mock.calls[1][0].sessionId).toBe(initialId);
+    fireEvent.press(screen.getByTestId('focus-complete-done-button'));
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 10, saved: true });
   });
 
   it('exits focus session without marking as completed when End Session is pressed early', async () => {

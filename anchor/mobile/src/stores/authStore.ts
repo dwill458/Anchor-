@@ -470,6 +470,9 @@ export const useAuthStore = create<AuthState>()(
         const isSwitchingAuthenticatedAccounts = Boolean(
           previousUserId && nextUserId && previousUserId !== nextUserId,
         );
+        if (isSwitchingAuthenticatedAccounts || (!user && previousUserId)) {
+          useTeachingStore.getState().reset();
+        }
         if (previousUserId !== nextUserId) {
           if (sqlCipherEnabled()) useSessionStore.getState().reset();
           inFlightFinalizePendingFirstAnchor = null;
@@ -516,6 +519,9 @@ export const useAuthStore = create<AuthState>()(
         const isSwitchingAuthenticatedAccounts = Boolean(
           previousUserId && previousUserId !== user.id,
         );
+        if (isSwitchingAuthenticatedAccounts) {
+          useTeachingStore.getState().reset();
+        }
         if (previousUserId !== user.id) {
           if (sqlCipherEnabled()) useSessionStore.getState().reset();
           inFlightFinalizePendingFirstAnchor = null;

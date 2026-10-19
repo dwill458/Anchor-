@@ -66,7 +66,19 @@ type Props = {
   /** Home's first-load entrance. Absent everywhere else, where the coin simply is. */
   entrance?: CircularAnchorEntrance;
   /** Present only on Home and Details; all other renderers keep their current behavior. */
-  aura?: Pick<ThreadAuraProps, 'anchorId' | 'threadStrength' | 'variant' | 'active' | 'reducedMotion'>;
+  aura?: Pick<
+    ThreadAuraProps,
+    | 'anchorId'
+    | 'threadStrength'
+    | 'variant'
+    | 'active'
+    | 'heroActive'
+    | 'lastActivatedAnchorIdRef'
+    | 'carouselOffset'
+    | 'carouselSpacing'
+    | 'strengthProgress'
+    | 'reducedMotion'
+  >;
 };
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
