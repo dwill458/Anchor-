@@ -35,7 +35,7 @@ describe('v2 creation state machine', () => {
     expect(draft().currentStep).toBe('distillation');
     expect(draft().normalizedIntention).toBe('I finish the project');
     expect(draft().distilledLetters).toEqual(distillIntention('I finish the project').finalLetters);
-    expect(draft().category).toBe('career');
+    expect(draft().category).toBe('desire');
   });
 
   it('refuses an unusable intention without leaving the intention step', () => {
@@ -51,7 +51,7 @@ describe('v2 creation state machine', () => {
     store().setIntention('I finish the project');
     store().distill();
     store().formAnchor();
-    const expected = generateTrueSigil(draft().distilledLetters, CATEGORY_TO_TIER.career, 'balanced').svg;
+    const expected = generateTrueSigil(draft().distilledLetters, CATEGORY_TO_TIER[draft().category!], 'balanced').svg;
     expect(draft().structureSvg).toBe(expected);
     expect(draft().structureType).toBe('focused');
     expect(formationForDraft(draft())?.svg).toBe(expected);

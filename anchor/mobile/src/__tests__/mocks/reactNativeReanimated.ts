@@ -18,7 +18,21 @@ const useSharedValue = <T>(initial: T) => {
 };
 const useDerivedValue = <T>(compute: () => T) => ({ value: compute() });
 // Animated styles and props are plain objects that components apply directly.
-const useAnimatedStyle = (compute: () => unknown) => compute();
+// Reanimated keeps an animated-style handle stable across renders; updating a
+// fresh object here creates artificial prop churn in memoized screen sections.
+const useAnimatedStyle = (compute: () => unknown) => {
+  const next = compute();
+  const ref = React.useRef(next);
+  if (next && typeof next === 'object' && ref.current && typeof ref.current === 'object') {
+    const current = ref.current as Record<string, unknown>;
+    const updated = next as Record<string, unknown>;
+    Object.keys(current).forEach((key) => { if (!(key in updated)) delete current[key]; });
+    Object.assign(current, updated);
+  } else {
+    ref.current = next;
+  }
+  return ref.current;
+};
 const useAnimatedProps = (compute: () => unknown) => compute();
 const withTiming = jest.fn(<T>(toValue: T, _config?: unknown, done?: (finished: boolean) => void) => {
   done?.(true);

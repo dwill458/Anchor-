@@ -478,12 +478,13 @@ export function V2HomeScreen() {
   const elasticDragging = elastic.dragging;
   const elasticOverscroll = elastic.overscroll;
   const elasticMomentum = elastic.momentum;
+  const elasticScrollY = elastic.scrollY;
   useAnimatedReaction(
     () => contentVeil.value < 0.999 || elasticDragging.value || Math.abs(elasticOverscroll.value) > 0.5 || (!teachingScrollActive.value && elasticMomentum.value),
     (moving, previous) => { if (moving !== previous) runOnJS(setHomeMotionActive)(moving); },
   );
   useAnimatedReaction(
-    () => elastic.scrollY.value < 450,
+    () => elasticScrollY.value < 450,
     (visible, previous) => { if (visible !== previous) runOnJS(setHeroOnscreen)(visible); },
   );
   // Canonical Home idle gate: the teaching queue also waits for an idle slot after this clears.

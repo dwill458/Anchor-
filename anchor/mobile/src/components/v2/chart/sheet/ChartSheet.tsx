@@ -36,7 +36,11 @@ const SheetContext = createContext<{
 
 export function ChartSheetTier({ children, tier }: { children: React.ReactNode; tier: 'half' | 'full' }) {
   const context = useContext(SheetContext);
-  const style = useAnimatedStyle(() => ({ opacity: !context ? 1 : tier === 'half' ? context.fraction.value : Math.max(0, Math.min(1, (context.positions.half - context.y.value) / (context.positions.half - context.positions.full))) }));
+  const fraction = context?.fraction;
+  const y = context?.y;
+  const half = context?.positions.half;
+  const full = context?.positions.full;
+  const style = useAnimatedStyle(() => ({ opacity: !fraction || !y || half === undefined || full === undefined ? 1 : tier === 'half' ? fraction.value : Math.max(0, Math.min(1, (half - y.value) / (half - full))) }));
   const hidden = context?.detent === 'peek' || context?.detent === 'hidden' || (tier === 'full' && context?.detent !== 'full');
   return <Animated.View testID={`chart-sheet-${tier}`} style={[styles.tier, style]} pointerEvents={hidden ? 'none' : 'auto'} accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}>{children}</Animated.View>;
 }
