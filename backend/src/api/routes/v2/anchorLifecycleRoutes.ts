@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { AuthRequest, authMiddleware } from '../../middleware/auth';
 import { getAuthenticatedUserId } from './authHelper';
 import { intentionCompletionService } from '../../../services/v2/IntentionCompletionService';
+import { milestoneService } from '../../../services/v2/milestones/MilestoneService';
 
 const router = Router();
 router.use(authMiddleware);
@@ -16,6 +17,7 @@ async function handleCompleteAnchor(
     const { id } = req.params;
 
     const result = await intentionCompletionService.completeIntention(userId, id);
+    await milestoneService.evaluateQuietly(userId, id);
     res.json({
       success: true,
       data: result,

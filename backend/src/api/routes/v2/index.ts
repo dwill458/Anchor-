@@ -7,6 +7,7 @@ import threadEventRoutes from './threadEvents';
 import weeklyInsightRoutes from './weeklyInsightRoutes';
 import chartRoutes from './chartRoutes';
 import sessionAudioRoutes from './sessionAudioRoutes';
+import milestoneRoutes from './milestoneRoutes';
 
 const v2Router = Router();
 
@@ -25,5 +26,6 @@ v2Router.use('/', releaseRoutes);
 v2Router.use('/', threadEventRoutes);
 v2Router.use('/', weeklyInsightRoutes);
 v2Router.use('/', chartRoutes);
+v2Router.use('/', milestoneRoutes);
 
 export default v2Router;

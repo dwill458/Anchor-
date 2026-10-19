@@ -27,6 +27,7 @@ import {
 } from '../../services/v2/ThreadStrengthService';
 import { visionService } from '../../services/v2/VisionService';
 import { logger } from '../../utils/logger';
+import { milestoneService } from '../../services/v2/milestones/MilestoneService';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -360,6 +361,8 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
         } catch {
           // ignore
         }
+        // A replay may be the retry of a request that failed after saving: reconcile quietly.
+        await milestoneService.evaluateQuietly(user.id, existing.anchorId);
       }
       res.json({
         success: true,
@@ -508,6 +511,9 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       }
     }
 
+    // Recorded server-side before the response, so the client can queue the celebration from it.
+    const newMilestones = await milestoneService.evaluateQuietly(user.id, created.anchorId);
+
     if (created.anchorId && created.practiceMode === 'visualize') {
       try {
         const activeVision = await prisma.vision.findFirst({
@@ -535,8 +541,9 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
             ...created,
             threadStrengthMovement: threadMovement,
             threadStrength: threadMovement?.afterStrength,
+            newMilestones,
           }
-        : created,
+        : { ...created, newMilestones },
       idempotent: false,
     });
   } catch (error) {

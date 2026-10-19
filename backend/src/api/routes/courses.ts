@@ -5,6 +5,7 @@ import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { courseService } from '../../services/CourseService';
+import { milestoneService } from '../../services/v2/milestones/MilestoneService';
 import {
   requireChartEnabled,
   requireChartInitialized,
@@ -334,15 +335,15 @@ router.post(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userId = await requireWriteUser(req);
-      res.json({
-        success: true,
-        data: await courseService.completeWaypoint(
-          userId,
-          req.params.courseId,
-          req.params.waypointId,
-          validate(CompleteSchema, req.body ?? {})
-        ),
-      });
+      const result = await courseService.completeWaypoint(
+        userId,
+        req.params.courseId,
+        req.params.waypointId,
+        validate(CompleteSchema, req.body ?? {})
+      );
+      // Awards never block the Chart action; the next Progress read reconciles a failure.
+      await milestoneService.evaluateQuietly(userId, result.course?.anchorId);
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }

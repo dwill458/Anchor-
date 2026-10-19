@@ -73,6 +73,7 @@ model User {
   assets              Asset[]
   recommendationSignalAcks RecommendationSignalAck[]
   threadEventLedger       ThreadEventLedger[]
+  anchorMilestones        AnchorMilestone[]
   weeklyInsightSnapshots  WeeklyInsightSnapshot[]
 
   @@map("users")
@@ -179,6 +180,7 @@ model Anchor {
   courses            Course[]           @relation("AnchorCourses")
   threadV2States     ThreadV2State[]
   threadEventLedger  ThreadEventLedger[]
+  anchorMilestones   AnchorMilestone[]
   visions            Vision[]
   visionGenerations VisionGeneration[]
 
@@ -272,6 +274,29 @@ model WeeklyInsightSnapshot {
   @@unique([userId, anchorId, weekStart])
   @@index([userId, weekStart])
   @@map("weekly_insight_snapshots")
+}
+
+// Permanent record of an earned milestone. The unique key makes every award
+// idempotent; celebratedAt is only a presentation receipt and never decides
+// ownership. Strength decay never removes a row.
+model AnchorMilestone {
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId          String    @map("anchor_id")
+  anchor            Anchor    @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  definitionId      String    @map("definition_id") @db.VarChar(64)
+  definitionVersion Int       @default(1) @map("definition_version")
+  earnedAt          DateTime  @map("earned_at")
+  sourceKind        String    @map("source_kind") @db.VarChar(32)
+  sourceEntityId    String?   @map("source_entity_id")
+  metadata          Json      @default("{}")
+  celebratedAt      DateTime? @map("celebrated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@unique([userId, anchorId, definitionId])
+  @@index([userId, anchorId, earnedAt])
+  @@map("anchor_milestones")
 }
 
 // Anchor 2.0 progression is deliberately separate from the legacy mobile
