@@ -112,6 +112,12 @@ jest.mock('@/stores/settingsStore');
 jest.mock('@/stores/sessionStore');
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/utils/scheduleAfterInteractions', () => ({
+  scheduleAfterInteractions: (callback: () => void) => {
+    callback();
+    return { cancel: jest.fn() };
+  },
+}));
 jest.mock('@/hooks/useAudio', () => ({
   useAudio: () => ({
     createManagedPlayer: mockCreateManagedPlayer,

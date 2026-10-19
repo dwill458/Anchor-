@@ -1,8 +1,10 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, render, waitFor } from '@testing-library/react-native';
 import { Skia } from '@shopify/react-native-skia';
 import { ChartMap } from '../ChartMap';
 import { useChartMapAnimState } from '../useChartMapAnimState';
+import * as chartMapGeometry from '../chartMapGeometry';
 import { buildRouteTable, OVERVIEW_CAMERA, waypointPlacement } from '../chartMapGeometry';
 import { resetCloudTilesCache } from '../chartCloudTiles';
 import { resetWeatherEffectCache } from '../ChartMapWeather';
@@ -36,7 +38,7 @@ function Harness({ weather, reducedMotion = false }: { weather?: 'static' | 'tex
 }
 
 const layersOpacity = (screen: ReturnType<typeof render>) =>
-  (screen.getByTestId('map-layers').props as { jestAnimatedStyle?: { value?: { opacity?: number } } }).jestAnimatedStyle?.value?.opacity;
+  StyleSheet.flatten(screen.getByTestId('map-layers').props.style)?.opacity;
 const shaderSources = (screen: ReturnType<typeof render>) =>
   screen.UNSAFE_queryAllByType('Shader' as never).map((node) => node.props.source);
 
@@ -49,9 +51,13 @@ async function settle(ms = 120) {
 beforeEach(() => {
   resetCloudTilesCache();
   resetWeatherEffectCache();
+  jest.spyOn(chartMapGeometry, 'precomputeFogFieldAsync').mockResolvedValue({
+    cols: 1, rows: 1, dist: new Float32Array([0]), arc: new Float32Array([0]), noise: new Float32Array([0]),
+  } as never);
   (Skia.RuntimeEffect.Make as jest.Mock).mockImplementation((src: string) => ({ __runtimeEffectStub: true, src }));
 });
 afterEach(() => {
+  jest.restoreAllMocks();
   (Skia.RuntimeEffect.Make as jest.Mock).mockImplementation(() => ({ __runtimeEffectStub: true }));
 });
 
@@ -59,10 +65,10 @@ describe('ChartMap living weather (permanent Chart)', () => {
   it('clouds first: nothing of the map is visible until the weather is drawn; closed cover holds its place', async () => {
     const screen = render(<Harness weather="living" />);
     expect(layersOpacity(screen)).toBe(0);
-    await waitFor(() => expect(screen.getByTestId('map-veil', { includeHiddenElements: true })).toBeTruthy());
-    expect(layersOpacity(screen)).toBe(0);
-    // The veil only stands in while the map is hidden: gone means the map is visible (the fog field builds first).
-    await waitFor(() => expect(screen.queryByTestId('map-veil', { includeHiddenElements: true })).toBeNull(), { timeout: 8000 });
+    // The Jest animation mock completes the short veil fade inline, so assert the
+    // visibility gate directly once the prepared weather assets are available.
+    await waitFor(() => expect(layersOpacity(screen)).toBe(1), { timeout: 8000 });
+    expect(screen.queryByTestId('map-veil', { includeHiddenElements: true })).toBeNull();
     // The weather is its own masked layer; the land no longer draws the static cloud shader.
     const sources = shaderSources(screen).map((source: { src?: string }) => source?.src);
     expect(sources).toContain(COVER_SKSL);

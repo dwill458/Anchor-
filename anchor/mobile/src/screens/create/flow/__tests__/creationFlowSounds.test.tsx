@@ -39,10 +39,19 @@ describe('Creation Flow Sound Triggering Suite', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   describe('Run 1: Natural Speed End-to-End', () => {
     it('fires every designed sound at its beat across all 7 steps', async () => {
+      const reanimated = require('react-native-reanimated');
+      jest.spyOn(reanimated, 'withTiming').mockImplementation((...args: unknown[]) => {
+        const [value, config, callback] = args as [unknown, { duration?: number } | undefined, ((finished: boolean) => void) | undefined];
+        // Complete the hold synchronously, but leave the seal settle in its phase
+        // until the independent anchor pulse timer has fired.
+        if (callback && (config?.duration ?? 0) >= 1100) callback(true);
+        return value;
+      });
       // 1. Intention input: tap Continue
       playCreationSound('uiTap');
       expect(SoundPool.play).toHaveBeenCalledWith('creation:uiTap', expect.anything());

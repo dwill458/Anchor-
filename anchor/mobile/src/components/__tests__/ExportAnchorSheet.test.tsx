@@ -81,8 +81,8 @@ describe('export layout', () => {
   });
 
   it('uses ink text on the card and light text on clear', () => {
-    expect(exportTextColor('card')).toBe('#14162B');
-    expect(exportTextColor('clear')).toBe('#F4EDE0');
+    expect(exportTextColor('card')).toBe('#121A22');
+    expect(exportTextColor('clear')).toBe('#F4F1E9');
   });
 
   it('renders a transparent canvas for Clear, cream for Card, at the real export size', () => {
@@ -98,7 +98,7 @@ describe('export layout', () => {
     );
     const cardRoot = card.toJSON();
     if (!cardRoot || Array.isArray(cardRoot)) throw new Error('Expected a single card export root.');
-    expect(cardRoot.props.style).toMatchObject({ backgroundColor: '#F4EDE0' });
+    expect(cardRoot.props.style).toMatchObject({ backgroundColor: '#F4F1E9' });
   });
 
   it('omits the text when the intention is None', () => {

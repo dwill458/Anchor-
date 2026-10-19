@@ -58,6 +58,12 @@ jest.mock('expo-media-library', () => ({
 jest.mock('@/hooks/useAppPerformanceTier', () => ({
     useAppPerformanceTier: () => mockPerfTier,
 }));
+jest.mock('@/utils/scheduleAfterInteractions', () => ({
+    scheduleAfterInteractions: (callback: () => void) => {
+        callback();
+        return { cancel: jest.fn() };
+    },
+}));
 jest.mock('@/components/common', () => {
     const React = require('react');
     const { View } = require('react-native');
@@ -180,7 +186,7 @@ jest.mock('@/stores/sessionStore', () => ({
 }));
 
 jest.mock('@/utils/haptics', () => ({
-    safeHaptics: { impact: jest.fn(), selection: jest.fn() },
+    safeHaptics: { impact: jest.fn(), selection: jest.fn(), notification: jest.fn() },
 }));
 
 jest.mock('@/services/ApiClient', () => ({
@@ -398,6 +404,10 @@ describe('AnchorDetailScreen', () => {
     });
 
     it('exports wallpaper from the detail screen', async () => {
+        jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
+            callback(0);
+            return 0;
+        });
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('SET AS WALLPAPER'));
         await waitFor(() => {
@@ -424,7 +434,7 @@ describe('AnchorDetailScreen', () => {
 
         fireEvent.press(screen.getByText('Delete Anchor'));
 
-        expect(screen.getByText('Burn & Release is the proper practice.')).toBeTruthy();
+        expect(screen.getByText('Release is the proper practice.')).toBeTruthy();
         expect(screen.getByText('Delete Anyway')).toBeTruthy();
 
         fireEvent.press(screen.getByText('Delete Anyway'));

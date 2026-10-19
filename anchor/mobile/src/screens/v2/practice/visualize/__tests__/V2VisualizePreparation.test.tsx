@@ -122,6 +122,12 @@ describe('Visualize prepares behind its real setup board', () => {
   it('holds the hidden session preparation until the entry has finished flying in', async () => {
     jest.useFakeTimers();
     try {
+      const reanimated = require('react-native-reanimated');
+      jest.spyOn(reanimated, 'withTiming').mockImplementation((...args: unknown[]) => {
+        const [value, config, callback] = args as [unknown, { duration?: number } | undefined, ((finished: boolean) => void) | undefined];
+        if (callback) setTimeout(() => callback(true), config?.duration ?? 0);
+        return value;
+      });
       const entry = { anchorId: anchor.id, visionId: 'v1', tiles, notes: [], sourceFrame: { x: 12, y: 80, width: 320, height: 500 } };
       const measurements: Array<(x: number, y: number, width: number, height: number) => void> = [];
       jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => {

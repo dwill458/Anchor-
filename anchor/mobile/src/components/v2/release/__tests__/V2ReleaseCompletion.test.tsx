@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import type { V2ReleaseEnding } from '@/adapters/v2/release';
@@ -196,7 +196,7 @@ describe('V2ReleaseCompletion: the ending scene', () => {
 describe('V2ReleaseCompletion: Return Home exit (RL1)', () => {
   const bodyOpacity = (view: ReturnType<typeof render>) => {
     const node = view.getByTestId('v2-release-completion-body-wrap', { includeHiddenElements: true });
-    return node.props.jestAnimatedStyle?.value?.opacity ?? 1;
+    return StyleSheet.flatten(node.props.style)?.opacity ?? 1;
   };
 
   beforeEach(() => {
@@ -225,6 +225,9 @@ describe('V2ReleaseCompletion: Return Home exit (RL1)', () => {
 
     view.rerender(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" onAction={onAction} leavingAction="home" />);
     act(() => jest.advanceTimersByTime(1000));
+    // The Jest Reanimated stand-in applies shared-value animation targets synchronously;
+    // rerender to expose the updated animated style through React Native's test renderer.
+    view.rerender(<V2ReleaseCompletion ending={ending()} ghostSvg="<svg />" category="creativity" onAction={onAction} leavingAction="home" />);
 
     expect(bodyOpacity(view)).toBe(0);
     // The cream paper holds: the reveal circle is still there, fully open.

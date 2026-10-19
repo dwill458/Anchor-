@@ -62,6 +62,7 @@ beforeEach(() => {
   act(() => useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', false));
 });
 afterEach(() => {
+  jest.restoreAllMocks();
   jest.useRealTimers();
 });
 
@@ -234,6 +235,12 @@ describe('arrival celebration hand-off', () => {
   });
 
   it('lands the first arrival on its settled end state when skipped', () => {
+    const reanimated = require('react-native-reanimated');
+    jest.spyOn(reanimated, 'withTiming').mockImplementation((...args: unknown[]) => {
+      const [target] = args as [number];
+      // Keep the flight in progress until skip() explicitly lands it.
+      return target === 1 ? 0 : target;
+    });
     render(<Home selected="anchor-1" onPose={jest.fn()} />);
     let id = 0;
     act(() => { id = stage('anchor-1', 'first'); });
