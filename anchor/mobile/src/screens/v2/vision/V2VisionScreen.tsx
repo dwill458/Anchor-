@@ -141,7 +141,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   // A chosen photo waiting for the person to decide how it fits the Vision frame (Smart Photo Fit).
   const [fitRequest, setFitRequest] = useState<{ photo: PickedVisionPhoto; size: { width: number; height: number } } | null>(null);
   const anchorIntention = (anchor as { intention?: string } | undefined)?.intention ?? anchor?.intentionText ?? 'Your Anchor';
-  const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
+  // Thread Strength is passed through from the stored Anchor for the board's glow; the board never derives it.
+  const anchorArt = useMemo(() => (anchor ? { ...anchorRenderProps(anchor), threadStrength: anchor.threadStrength ?? null } : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
   const anchorCategory = anchor ? resolveAnchorCategory(anchor.category) : undefined;
   // Every ceremony starts with no saved result, so a stale pin can never drop on the wrong scene.

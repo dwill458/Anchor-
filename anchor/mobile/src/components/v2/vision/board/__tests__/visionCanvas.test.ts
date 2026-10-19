@@ -1,7 +1,15 @@
 import { selectBoardLayout, selectDetailBoardLayout, detailBoardSizeForWidth, toSceneRect, boardSizeForWidth, emptyBoardPlaceholderSlots } from '../visionBoardLayouts';
 
 describe('editorial Vision Canvas geometry', () => {
-  it.each([3, 4, 5, 6, 7, 8])('centres the Anchor on the entire %i-image collage', count => {
+  it.each([3, 4, 5, 6, 7, 8])('centres the Anchor horizontally on the %i-image collage', count => {
+    const layout = selectDetailBoardLayout(count);
+    const scene = detailBoardSizeForWidth(320, count);
+    const rect = toSceneRect(layout.card, scene);
+    expect(rect.x + rect.width / 2).toBeCloseTo(scene.width / 2);
+  });
+  // Three photos use a shorter board, with the Anchor set between the hero's foot and the Add control (see the recipe),
+  // so only the four-to-eight-photo compositions centre the Anchor vertically too.
+  it.each([4, 5, 6, 7, 8])('centres the Anchor on the entire %i-image collage', count => {
     const layout = selectDetailBoardLayout(count);
     const scene = detailBoardSizeForWidth(320, count);
     const rect = toSceneRect(layout.card, scene);

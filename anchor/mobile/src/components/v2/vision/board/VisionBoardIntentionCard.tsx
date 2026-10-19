@@ -10,7 +10,17 @@ import type { AnchorExpression } from '@/constants/v2/creation';
 import { VISION_BOARD_PAPER_MARK_SCALE, type SceneRect } from './visionBoardLayouts';
 import { boardRecomposeEasing, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 
-export type VisionBoardCardArt = { svg: string; imageUrl?: string | null; category?: string | null; expression?: AnchorExpression | null };
+/**
+ * `threadStrength` is the server-authoritative Thread Strength (0 to 100), passed through unchanged. The board
+ * never derives it. Absent or null means the Anchor is shown without a glow.
+ */
+export type VisionBoardCardArt = {
+  svg: string;
+  imageUrl?: string | null;
+  category?: string | null;
+  expression?: AnchorExpression | null;
+  threadStrength?: number | null;
+};
 
 type Props = {
   rect: SceneRect;
@@ -95,7 +105,10 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
         }}>
         {!hideMark && art?.svg ? <CircularAnchorRenderer testID={anchorTestID} svg={art.svg} imageUrl={art.imageUrl}
           expression={art.expression} category={art.category ?? category} appearance={paper ? 'paper' : 'bare'}
-          size={markSize} style={paper ? styles.medallion : undefined} accessibilityLabel={`${categoryLabel(category)} Anchor`} /> : null}
+          size={markSize} style={paper ? styles.medallion : undefined} accessibilityLabel={`${categoryLabel(category)} Anchor`}
+          aura={art.threadStrength === undefined || art.threadStrength === null ? undefined : {
+            threadStrength: art.threadStrength, variant: 'details', active: true, reducedMotion: reduceMotion,
+          }} /> : null}
       </View>
     </View>
   </Animated.View>;

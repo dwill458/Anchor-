@@ -7,8 +7,8 @@ import { colors } from '@/theme/v2';
  * Fits inside the existing aperture without changing print geometry. Uploads
  * that cannot safely fill it retain the original over the board's paper color.
  */
-export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, uploaded = false, onLoad, onAssetReady, style, ...props }:
-  Omit<ImageProps, 'resizeMode'> & { displayAspect: number; uploaded?: boolean; onAssetReady?: () => void }) {
+export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, uploaded = false, fill = false, onLoad, onAssetReady, style, ...props }:
+  Omit<ImageProps, 'resizeMode'> & { displayAspect: number; uploaded?: boolean; /** Always covers the window, centred; no blurred backdrop or contain bands. */ fill?: boolean; onAssetReady?: () => void }) {
   const sourceKey = JSON.stringify(props.source);
   const [source, setSource] = useState<{ key: string; aspect: number } | null>(null);
   const [apertureAspect, setApertureAspect] = useState<number | null>(null);
@@ -19,7 +19,7 @@ export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, 
     const current = settled.current;
     if (current.key !== sourceKey || current.fired) return;
     current.layers.add(layer);
-    if (current.layers.size === (uploaded ? 1 : 2)) {
+    if (current.layers.size === (uploaded || fill ? 1 : 2)) {
       current.fired = true;
       setSettledRecord(current);
     }
@@ -28,7 +28,7 @@ export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, 
     if (settledRecord && settledRecord === settled.current) onAssetReady?.();
   }, [onAssetReady, settledRecord, sourceKey]);
   const sourceAspect = source?.key === sourceKey ? source.aspect : 0;
-  const fit = visionImageFit(sourceAspect, uploaded ? apertureAspect ?? displayAspect : displayAspect, uploaded);
+  const fit = fill ? 'cover' : visionImageFit(sourceAspect, uploaded ? apertureAspect ?? displayAspect : displayAspect, uploaded);
   const handleLayout: ImageProps['onLayout'] = event => {
     const { width, height } = event.nativeEvent.layout;
     if (uploaded && Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
@@ -56,7 +56,7 @@ export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, 
   // foreground/backdrop copies can exhaust Fresco's pool on an eight-photo board.
   const contained = fit === 'contain';
   return <View style={[style, styles.fitted, uploaded && styles.uploadPaper]}>
-    {!uploaded ? <>
+    {!uploaded && !fill ? <>
       <Image source={props.source} resizeMethod="resize" resizeMode="cover" blurRadius={22} fadeDuration={0} onLoad={handleBackdropLoad} onError={handleBackdropError} style={[styles.backdrop, !contained && styles.hidden]} accessible={false} importantForAccessibility="no" />
       <View style={[styles.veil, !contained && styles.hidden]} pointerEvents="none" />
     </> : null}

@@ -49,15 +49,15 @@ describe('VisionMomentInput', () => {
     expect(queryByLabelText("What's different?")).toBeNull();
   });
 
-  it('shows the intention, word coaching with the counter, and the optional reference', () => {
-    const { getByText, getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} />);
+  it('shows the intention and word coaching with the counter, and no appearance reference card', () => {
+    const { getByText, getByTestId, queryByLabelText, queryByText } = render(<VisionMomentInput {...defaultProps} />);
     expect(getByText('I build what matters.')).toBeTruthy();
     const text = 'I open my laptop and see ten thousand active users for my app today.';
     fireEvent.changeText(getByTestId('vision-prompt-input'), text);
     expect(getByTestId('vision-detail-hint').props.children).toBe('14 words · Add a little more detail for stronger images');
     expect(getByText(`${text.length} / 2000`)).toBeTruthy();
-    expect(getByText('Optional · Add photos of yourself for more personal images.')).toBeTruthy();
-    expect(getByLabelText('Make it look like you reference photo')).toBeTruthy();
+    expect(queryByText('Optional · Add photos of yourself for more personal images.')).toBeNull();
+    expect(queryByLabelText('Make it look like you reference photo')).toBeNull();
     expect(getByText('You’ll choose what belongs in your Vision.')).toBeTruthy();
   });
 
@@ -98,14 +98,33 @@ describe('VisionMomentInput', () => {
     expect(getByTestId('vision-prompt-input').props.value).toBe('I am standing in my studio.');
   });
 
-  it('shows guidance about the actual Anchor, not unrelated stock copy', () => {
-    const { getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} anchorIntention="I am the owner of dope ass regal" anchorCategory="desire" />);
+  it('offers contextual moments for this Vision, fills the field with one, and never submits', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId, getByLabelText, getByText, queryByLabelText } = render(
+      <VisionMomentInput {...defaultProps} onSubmit={onSubmit} anchorIntention="Buy my dream home" anchorCategory="home" />,
+    );
     expect(getByTestId('vision-prompt-input').props.placeholder).toBe('Describe the moment you want to see...');
-    fireEvent.press(getByLabelText('Use suggested description'));
-    expect(getByTestId('vision-prompt-input').props.value).toMatch(/owner of dope ass regal/i);
-    expect(getByTestId('vision-prompt-input').props.value).not.toMatch(/Tuesday|kitchen with coffee/);
+    expect(getByText('Suggested for you')).toBeTruthy();
+    fireEvent.press(getByLabelText('Getting the keys'));
+    expect(getByTestId('vision-prompt-input').props.value).toBe('Getting the keys');
+    expect(onSubmit).not.toHaveBeenCalled();
+    // A moment already written is not offered again.
+    expect(queryByLabelText('Getting the keys')).toBeNull();
     fireEvent.press(getByLabelText('Where are you?'));
     expect(getByTestId('vision-cue').props.children).toBeTruthy();
+  });
+
+  it('offers moment-based fallbacks when the Anchor gives no clear theme, never a different goal places', () => {
+    const { getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} anchorIntention="Become someone I respect" anchorCategory="desire" />);
+    expect(getByLabelText('The day it arrives')).toBeTruthy();
+    expect(queryByLabelText('Inside my home')).toBeNull();
+  });
+
+  it('explains a blocked submit instead of failing silently', () => {
+    const { getByTestId, getByText } = render(<VisionMomentInput {...defaultProps} />);
+    fireEvent.changeText(getByTestId('vision-prompt-input'), 'short');
+    fireEvent.press(getByTestId('vision-generate'));
+    expect(getByText('Describe your moment in at least 12 characters, or add a reference photo.')).toBeTruthy();
   });
 
   it('disables submit button when description is under min characters', () => {
@@ -163,6 +182,8 @@ describe('VisionMomentInput', () => {
     const addPhotosBtn = getByTestId('vision-add-photos');
     expect(addPhotosBtn).toBeTruthy();
     fireEvent.press(addPhotosBtn);
-    expect(onAddPhotos).toHaveBeenCalled();
+    expect(onAddPhotos).toHaveBeenLastCalledWith('library');
+    fireEvent.press(getByTestId('vision-add-camera'));
+    expect(onAddPhotos).toHaveBeenLastCalledWith('camera');
   });
 });

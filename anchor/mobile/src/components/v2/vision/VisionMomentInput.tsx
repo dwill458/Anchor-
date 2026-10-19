@@ -19,7 +19,7 @@ import { VisionSceneField, type VisionSceneFieldHandle } from './VisionSceneFiel
 import { VisionSceneShortcuts } from './VisionSceneShortcuts';
 import { VisionBackButton, VisionInkPill, VisionKicker, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { applySceneSuggestion } from './visionSceneSuggestions';
-import { visionCueGuidance, visionDescriptionExample, visionDetailHint, visionDetailLevel, visionTransformCueGuidance, type VisionCueKey, type VisionTransformCueKey } from './visionGuidance';
+import { visionCueGuidance, visionDetailHint, visionDetailLevel, visionTransformCueGuidance, type VisionCueKey, type VisionTransformCueKey } from './visionGuidance';
 
 export type { VisionStartPhoto };
 
@@ -46,7 +46,8 @@ export interface VisionMomentInputProps {
   startPhotoEnabled?: boolean;
   startPhoto?: VisionStartPhoto | null;
   onChangeStartPhoto?: (photo: VisionStartPhoto | null) => void;
-  onAddPhotos?: () => void;
+  /** Starts the own-photo path (each photo goes to the board as it is): from the library or the camera. */
+  onAddPhotos?: (source: 'library' | 'camera') => void;
   loading?: boolean;
   error?: string | null;
   testID?: string;
@@ -69,6 +70,9 @@ const PHOTO_CHIPS: ReadonlyArray<{ key: VisionTransformCueKey; label: string; ic
 
 /** Colours the animated styles interpolate between, held as plain strings so no theme object is carried into a worklet. */
 const colors = paperColors;
+/** The "Make it look like you" card is hidden for now; flip this to bring it back. */
+const SHOW_APPEARANCE_REFERENCE_CARD = false;
+
 const REFERENCE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
   { key: 'change', label: 'Change reference photo', Icon: RefreshCw },
   { key: 'remove', label: 'Remove reference photo', Icon: Trash2, destructive: true },
@@ -140,7 +144,6 @@ export function VisionMomentInput({
   const minChars = isCreate ? 12 : 6;
   const maxChars = isCreate ? 2000 : 400;
 
-  const example = useMemo(() => visionDescriptionExample(anchorIntention, anchorCategory), [anchorCategory, anchorIntention]);
   const hint = visionDetailHint(description);
   const level = visionDetailLevel(description);
 
@@ -239,10 +242,15 @@ export function VisionMomentInput({
     </View>
   );
 
-  // A blocked tap says why: the field still waiting on the person takes a brief wash of gold.
+  // A blocked tap says why: the field still waiting on the person takes a brief wash of gold, and the reason is written beneath it.
   const handleBlockedSubmit = () => {
     v2Haptics.warning();
     inputAttention.pulse();
+    if (trimmed.length > maxChars) setLocalNotice(`Shorten the description to ${maxChars} characters.`);
+    else if (photoPath) setLocalNotice('Add a little more, or clear it to continue with the photo alone.');
+    else setLocalNotice(isCreate
+      ? `Describe your moment in at least ${minChars} characters, or add a reference photo.`
+      : `Describe the scene in at least ${minChars} characters.`);
   };
 
   const submit = (focusedState: boolean) => (
@@ -265,10 +273,16 @@ export function VisionMomentInput({
     <View style={styles.footer}>
       {submit(false)}
       {onAddPhotos ? (
-        <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images" disabled={!isValid}
-          onPress={onAddPhotos} style={[styles.textAction, !isValid && styles.disabled]}>
-          <Text style={styles.textActionLabel}>Use my own photos instead</Text>
-        </Pressable>
+        <View style={styles.ownPhotoRow}>
+          <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images" disabled={loading}
+            onPress={() => onAddPhotos('library')} style={[styles.textAction, loading && styles.disabled]}>
+            <Text style={styles.textActionLabel}>Use my own photos instead</Text>
+          </Pressable>
+          <Pressable testID="vision-add-camera" accessibilityRole="button" accessibilityLabel="Take a photo" disabled={loading}
+            onPress={() => onAddPhotos('camera')} style={[styles.textAction, loading && styles.disabled]}>
+            <Text style={styles.textActionLabel}>Take a photo</Text>
+          </Pressable>
+        </View>
       ) : <Text style={styles.footnote}>{footnote}</Text>}
     </View>
   );
@@ -323,19 +337,11 @@ export function VisionMomentInput({
 
           {exampleStart ? <Text testID="vision-example-note" style={styles.exampleNote}>{ceremonyCopy.fromExample}</Text> : null}
 
-          {isCreate && !trimmed && !photoPath ? (
-            <Animated.View key="suggestion" exiting={content.exiting} style={styles.suggestionWrap}>
-              <Pressable
-                testID="vision-use-suggested-description"
-                accessibilityRole="button"
-                accessibilityLabel="Use suggested description"
-                accessibilityHint="Fills the example from your Anchor. You can edit it before creating images."
-                disabled={loading}
-                onPress={() => { v2Haptics.selection(); setDescription(example); }}
-                style={({ pressed }) => [styles.suggestionAction, pressed && styles.chipPressed, loading && styles.disabled]}
-              >
-                <Text style={styles.suggestionLabel}>Use suggested description</Text>
-              </Pressable>
+          {isCreate && !photoPath && !inputFocused ? (
+            <Animated.View key="suggestion" exiting={content.exiting}>
+              {/* Contextual moments for this Vision. A tap only fills the field; the person edits it and then creates. */}
+              <VisionSceneShortcuts label="Suggested for you" goal={anchorIntention} text={description} disabled={loading}
+                onPick={suggestion => setDescription(applySceneSuggestion(description, suggestion))} />
             </Animated.View>
           ) : null}
 
@@ -361,7 +367,7 @@ export function VisionMomentInput({
 
           {!inputFocused ? chips : null}
 
-          {!inputFocused && !photoPath ? (
+          {SHOW_APPEARANCE_REFERENCE_CARD && !inputFocused && !photoPath ? (
             <Animated.View key="reference-group" exiting={content.exiting} style={styles.referenceGroup}>
               <View style={styles.divider} />
               <Pressable
@@ -446,11 +452,9 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   inputFrame: { borderRadius: radii.lg, borderWidth: 1, borderColor: colors.text.primary, backgroundColor: colors.surface },
   textInput: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, minHeight: 124, maxHeight: 200, padding: spacing[4] },
   region: { gap: spacing[3] },
-  suggestionWrap: { alignSelf: 'flex-start' },
   referenceGroup: { gap: spacing[3] },
   cueBody: { gap: 2 },
-  suggestionAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
-  suggestionLabel: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.primary, textDecorationLine: 'underline' },
+  ownPhotoRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing[5] },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   meterHint: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
   counterText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },

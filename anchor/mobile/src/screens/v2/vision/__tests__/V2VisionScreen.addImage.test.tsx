@@ -46,7 +46,14 @@ const ASK_READY = ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs 
 const SHEET_HANDOFF = 450;
 async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); fireEvent.press(view.getByLabelText('Add to Vision')); await advance(SHEET_HANDOFF); }
 async function ownPhoto(view: ReturnType<typeof render>, source: 'camera' | 'library') {
-  await act(async () => { fireEvent.press(view.getByLabelText(source === 'camera' ? 'Take a photo' : 'Use my own photo')); });
+  // Creating a Vision starts at the entrance's one call to action; its photo links sit in the composer. Add Image uses the sheet.
+  const cta = view.queryByTestId('vision-entrance-cta');
+  if (cta) {
+    await act(async () => { fireEvent.press(cta); });
+    await act(async () => { fireEvent.press(view.getByTestId(source === 'camera' ? 'vision-add-camera' : 'vision-add-photos')); });
+  } else {
+    await act(async () => { fireEvent.press(view.getByLabelText(source === 'camera' ? 'Take a photo' : 'Use my own photo')); });
+  }
   await advance(SHEET_HANDOFF);
   view.getAllByTestId(/^vision-ceremony-print-\d+-sharp$/).forEach(image => fireEvent(image, 'load'));
   await advance(0); await advance(1000); await advance(4400);
@@ -82,7 +89,7 @@ describe('V2VisionScreen ceremony additions', () => {
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
   it('Add image opens the compact composer over the live board and launches nothing', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
-    expect(view.getByText('What else do you see in this future?')).toBeTruthy(); expect(view.getByTestId('vision-board')).toBeTruthy();
+    expect(view.getByText('What do you see next?')).toBeTruthy(); expect(view.getByTestId('vision-board')).toBeTruthy();
     expect(view.getByTestId('vision-scene-input')).toBeTruthy(); expect(view.getByTestId('vision-scene-generate')).toBeTruthy();
     expect(view.queryByTestId('vision-add-sheet-generate')).toBeNull();
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled(); expect(picker.launchCameraAsync).not.toHaveBeenCalled();
@@ -159,7 +166,7 @@ describe('V2VisionScreen ceremony additions', () => {
     await advance(300);
     fireEvent.press(view.getByLabelText('Back')); await advance(SHEET_HANDOFF);
     await view.findByTestId('vision-board');
-    expect(view.queryByLabelText('Imagine it from words')).toBeNull();
+    expect(view.queryByLabelText('Create My Vision →')).toBeNull();
     expect(view.getByTestId('vision-scene-input').props.value).toBe('The backyard at night with a fire pit');
   });
   it('canceling before Seal saves no image', async () => {

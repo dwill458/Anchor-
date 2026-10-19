@@ -18,20 +18,29 @@ describe('VisionAddSceneSheet', () => {
   beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); available.mockReturnValue(false); });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
 
-  it('asks the continuity question and offers the reference photo, description and CTA', () => {
+  it('is the compact cream sheet: the next-scene question, one line of support, the description and Generate Images', () => {
     const view = renderSheet();
-    expect(view.getByText('What else do you see in this future?')).toBeTruthy();
-    expect(view.getByLabelText('Add a reference photo')).toBeTruthy();
+    expect(view.getByText('What do you see next?')).toBeTruthy();
+    expect(view.getByText('Build another moment in your vision.')).toBeTruthy();
     expect(view.getByTestId('vision-scene-input')).toBeTruthy();
     expect(view.getByTestId('vision-scene-generate')).toBeTruthy();
+    expect(view.getByText('Generate Images')).toBeTruthy();
+  });
+
+  it('keeps the full reference-photo card so a photo is one obvious tap away', () => {
+    const view = renderSheet();
+    expect(view.getByLabelText('Add a reference photo')).toBeTruthy();
+    expect(view.getByText('Add a photo')).toBeTruthy();
   });
 
   it('derives shortcuts from the goal, and shows none when the goal gives no theme', () => {
     const view = renderSheet();
+    expect(view.getByText('Suggested for your vision')).toBeTruthy();
     ['Inside my home', 'Getting the keys', 'Family moments', 'Backyard at night'].forEach(label => expect(view.getByLabelText(label)).toBeTruthy());
     view.unmount();
     const other = renderSheet({ anchorIntention: 'Be better' });
-    expect(other.queryByTestId('vision-scene-suggestions')).toBeNull();
+    expect(other.getByLabelText('The day it arrives')).toBeTruthy();
+    expect(other.queryByLabelText('Inside my home')).toBeNull();
   });
 
   it('a shortcut fills the field and never generates', () => {

@@ -22,9 +22,8 @@ export const ENTRANCE = {
   spawnMs: 1050, spawnStagger: 120, printFadeMs: 500, tickAt: 2050, developAt: 2050, developStagger: 160, developMs: 2400,
   headAt: 1900, headMs: 700, headRise: 10, ctaAt: 2150, ctaMs: 700, ctaRise: 14, hintAt: 2450, hintMs: 600, driftAt: 3600,
   pickMs: 900, leaveMs: 300, handoffOverlapMs: 600,
-  anchorBig: 176, ringGap: 14, captionStrip: 52, spawnTy: -130, spawnScale: 0.28, footerGap: 34, footerHeight: 160, noteFooterExtra: 58,
+  anchorBig: 176, ringGap: 14, captionStrip: 52, spawnTy: -130, spawnScale: 0.28, footerGap: 34, footerHeight: 104,
 } as const;
-export const entranceFooterHeight = (withNoteAction: boolean) => ENTRANCE.footerHeight + (withNoteAction ? ENTRANCE.noteFooterExtra : 0);
 const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 const TRANSFORM_ORIGIN = '50% 120%';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -112,10 +111,9 @@ export interface VisionEntranceProps {
   notice?: string | null;
   onPickExample: (example: VisionExample, index: number) => void;
   onPickEmpty: () => void;
+  /** Opens the unified composer (photo, words or voice). */
   onWords: () => void;
-  onPhoto: (source: 'library' | 'camera') => void;
-  onAddNote?: () => void;
-  /** False at the existing per-Vision image limit; note entry remains available. */
+  /** False at the existing per-Vision image limit. */
   canAddImage?: boolean;
   onBack: () => void;
   /** Where the ceremony's persistent top anchor rests, so the hand-off does not jump. */
@@ -226,10 +224,11 @@ function OpeningAnchor({ anchorArt, target, width, height }: { anchorArt?: Visio
 
 /**
  * The Ask beat: pictures first. The person's anchor opens the screen and lifts, three example prints for its
- * category fan out beneath it and develop, and tapping one starts Describe from that moment.
+ * category fan out beneath it and develop, and tapping one starts Describe from that moment. A single call to
+ * action opens the composer, where a photo, words or voice can all start the Vision.
  */
 export function VisionEntrance({ mode, anchorId, category, anchorArt, previewImageUrl, previewCaption, firstRun, active = true, notice,
-  onPickExample, onPickEmpty, onWords, onPhoto, onAddNote, canAddImage = true, onBack, anchorTarget, onAnchorHandoff }: VisionEntranceProps) {
+  onPickExample, onPickEmpty, onWords, canAddImage = true, onBack, anchorTarget, onAnchorHandoff }: VisionEntranceProps) {
   const { width, height } = useWindowDimensions(), insets = useSafeAreaInsets();
   const reduced = useV2ReduceMotion();
   const [open] = useState(() => firstRun && !reduced), [first] = useState(firstRun);
@@ -239,7 +238,7 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
   const examples = useMemo(() => visionExamplesFor(category), [category]);
   const items = useMemo(() => fanItems(mode, examples, previewImageUrl, previewCaption?.trim() || ''), [mode, examples, previewImageUrl, previewCaption]);
   const shown = items.filter(item => item.kind === 'example').length;
-  const footerHeight = entranceFooterHeight(Boolean(onAddNote));
+  const footerHeight = ENTRANCE.footerHeight;
   const footerTop = height - insets.bottom - ENTRANCE.footerGap - footerHeight;
   const layout = useMemo(() => entranceLayout({ width, anchorBottom: anchorTarget.y + anchorTarget.height, footerTop, positions: items.map(item => item.position) }),
     [width, anchorTarget.y, anchorTarget.height, footerTop, items]);
@@ -276,8 +275,7 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
     later(() => { if (item.kind === 'example') onPickExample(item.example, item.exampleIndex); else onPickEmpty(); }, ceremonyDuration(ENTRANCE.pickMs, reduced));
   };
   const press = (action: () => void, requiresImage = false) => () => { if (!interactive || picking !== null || (requiresImage && !canAddImage)) return; stop(); playCreationSound('uiTap'); action(); };
-  const addNote = () => { if (!interactive || picking !== null) return; playCreationSound('uiTap'); onAddNote?.(); };
-  const hint = notice ?? (!canAddImage ? 'This Vision is full. You can still add a note.'
+  const hint = notice ?? (!canAddImage ? 'This Vision is full. Remove an image to add another.'
     : shown ? (mode === 'add' && previewImageUrl ? copy.hintAdd : copy.hintCreate) : null);
 
   return <Animated.View testID="vision-entrance" pointerEvents="box-none" exiting={FadeOut.duration(fadeMs)} style={styles.fill}>
@@ -294,19 +292,11 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
     {hint ? <Animated.View pointerEvents="none" style={[styles.hintWrap, { top: layout.hintTop }, hintStyle]}>
       <Text accessibilityLiveRegion={notice ? 'polite' : undefined} style={[styles.hint, notice ? styles.notice : null]}>{hint}</Text></Animated.View> : null}
     <Animated.View pointerEvents={interactive && picking === null ? 'box-none' : 'none'} style={[styles.footer, { bottom: insets.bottom + ENTRANCE.footerGap }, ctaStyle]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={copy.words} accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage}
-        onPress={press(onWords, true)} style={[styles.button, !canAddImage && styles.disabled]}><Text style={styles.buttonText}>{copy.words}</Text></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={copy.ownPhoto} accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage}
-        onPress={press(() => onPhoto('library'), true)} style={[styles.button, styles.ghost, !canAddImage && styles.disabled]}><Text style={[styles.buttonText, styles.ghostText]}>{copy.ownPhoto}</Text></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={copy.camera} accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage}
-        onPress={press(() => onPhoto('camera'), true)} style={[styles.link, !canAddImage && styles.disabled]}><Text style={styles.linkText}>{copy.camera}</Text></Pressable>
-      {onAddNote ? <View style={styles.noteActionWrap}>
-        <View style={styles.noteDivider} />
-        <Pressable testID="vision-entrance-add-note" accessibilityRole="button" accessibilityLabel="Add a note" onPress={addNote} style={styles.noteAction}>
-          <Text style={styles.noteActionTitle}>Add a note →</Text>
-          <Text style={styles.noteActionSubtitle}>Put your vision into words</Text>
-        </Pressable>
-      </View> : null}
+      <Pressable testID="vision-entrance-cta" accessibilityRole="button" accessibilityLabel={mode === 'create' ? copy.createVision : copy.addScene}
+        accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage} onPress={press(onWords, true)} style={[styles.button, !canAddImage && styles.disabled]}>
+        <Text style={styles.buttonText}>{mode === 'create' ? copy.createVision : copy.addScene}</Text>
+      </Pressable>
+      <Text style={styles.support}>{copy.startFrom}</Text>
     </Animated.View>
   </Animated.View>;
 }
@@ -319,17 +309,10 @@ const styles = StyleSheet.create({
   hintWrap: { position: 'absolute', left: 24, right: 24, height: 16, alignItems: 'center', justifyContent: 'center' },
   hint: { fontFamily: 'Inter-Medium', fontSize: 12, lineHeight: 16, color: '#9A9AB2', textAlign: 'center' },
   notice: { color: '#F4EDE0' },
-  footer: { position: 'absolute', left: 24, right: 24, gap: 8 },
-  button: { height: 50, borderRadius: 28, backgroundColor: '#F4EDE0', justifyContent: 'center', alignItems: 'center' },
+  footer: { position: 'absolute', left: 24, right: 24, gap: 10, alignItems: 'stretch' },
+  button: { height: 52, borderRadius: 28, backgroundColor: '#F4EDE0', justifyContent: 'center', alignItems: 'center' },
   buttonText: { fontFamily: 'Inter-SemiBold', fontSize: 16, color: '#14162B' },
-  ghost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#F4EDE048' }, ghostText: { color: '#F4EDE0' },
-  link: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  linkText: { fontFamily: 'Inter-Medium', fontSize: 13, color: '#C4BDCF', textDecorationLine: 'underline', textAlign: 'center' },
-  noteActionWrap: { marginTop: 2, alignItems: 'center' },
-  noteDivider: { width: '100%', height: StyleSheet.hairlineWidth, backgroundColor: '#F4EDE026', marginBottom: 4 },
-  noteAction: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  noteActionTitle: { fontFamily: 'Inter-Medium', fontSize: 14, lineHeight: 18, color: '#F4EDE0' },
-  noteActionSubtitle: { fontFamily: 'Inter-Regular', fontSize: 11, lineHeight: 14, color: '#9A9AB2' },
+  support: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: '#C4BDCF', textAlign: 'center' },
   disabled: { opacity: 0.48 },
   openingAnchor: { position: 'absolute' },
   openingMark: { flex: 1, borderRadius: 200 },

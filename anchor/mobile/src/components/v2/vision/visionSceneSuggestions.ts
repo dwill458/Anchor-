@@ -1,10 +1,13 @@
 /**
  * Contextual shortcuts for the Add Image composer, derived from the person's own goal.
  * A shortcut only fills the description field; it never generates and is never required.
- * When the goal does not clearly point at a theme there are no shortcuts: a generic
- * list would put the same four moments on every Vision.
+ * When the goal does not clearly point at a theme the shortcuts are moments rather than places
+ * (the day it arrives, who is there, an ordinary morning after), so they stay true to any goal
+ * without putting the same room or setting on every Vision.
  */
 const THEMES: ReadonlyArray<{ test: RegExp; suggestions: readonly string[] }> = [
+  { test: /\b(car|cars|truck|suv|vehicle|motorcycle|rims|wheels|buick|regal|chevy|ford|dodge|mustang|corvette)\b/i,
+    suggestions: ['Behind the wheel', 'Detailing it by hand', 'Pulling up somewhere', 'Golden hour drive'] },
   { test: /\b(home|house|apartment|condo|cabin|dream (home|house)|mortgage|backyard|pool)\b/i,
     suggestions: ['Inside my home', 'Getting the keys', 'Family moments', 'Backyard at night'] },
   { test: /\b(run|running|marathon|race|5k|10k|half marathon|triathlon)\b/i,
@@ -29,14 +32,15 @@ const THEMES: ReadonlyArray<{ test: RegExp; suggestions: readonly string[] }> = 
 
 export const VISION_SCENE_SUGGESTION_MAX = 4;
 
-/** Up to four shortcuts for this goal, minus any the person has already typed. Empty when the goal gives no clear theme. */
+const FALLBACK: readonly string[] = ['The day it arrives', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it'];
+
+/** Up to four shortcuts for this goal, minus any the person has already typed. A goal with no clear theme gets moment-based fallbacks; an empty goal gets none. */
 export function visionSceneSuggestions(goal: string, currentText = ''): string[] {
   const text = goal.trim();
   if (!text) return [];
   const theme = THEMES.find(item => item.test.test(text));
-  if (!theme) return [];
   const typed = currentText.trim().toLowerCase();
-  return theme.suggestions.filter(item => !typed.includes(item.toLowerCase())).slice(0, VISION_SCENE_SUGGESTION_MAX);
+  return (theme?.suggestions ?? FALLBACK).filter(item => !typed.includes(item.toLowerCase())).slice(0, VISION_SCENE_SUGGESTION_MAX);
 }
 
 /** Putting a shortcut into the field: replaces an empty field, otherwise it is added on a new line, never overwriting the person's words. */

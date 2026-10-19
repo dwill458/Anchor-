@@ -124,7 +124,8 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[3]) + V2_SHEET_SKIRT }, androidLift > 0 ? { maxHeight: windowHeight - androidLift + V2_SHEET_SKIRT - insets.top - spacing[2] } : null]} accessibilityViewIsModal>
         <V2SheetGrabZone>
           <View style={styles.handle} />
-          <Text accessibilityRole="header" style={styles.title}>What else do you see in this future?</Text>
+          <Text accessibilityRole="header" style={styles.title}>What do you see next?</Text>
+          <Text style={styles.sub}>Build another moment in your vision.</Text>
         </V2SheetGrabZone>
         {!canAddImage ? (
           <View style={styles.body}>
@@ -134,7 +135,6 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
           <Text style={styles.label}>Reference photo (optional)</Text>
           <VisionReferencePhoto compact photo={photo} onChange={setPhoto} onNotice={setNotice} testID="vision-add-scene-reference" />
-          <Text style={styles.label}>Describe the next scene…</Text>
           <View onLayout={event => { fieldY.current = event.nativeEvent.layout.y; }}>
           <VisionSceneField
             handleRef={fieldRef}
@@ -143,11 +143,11 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
             value={text}
             onChangeText={value => { setText(value); if (notice) setNotice(null); }}
             maxChars={ADD_SCENE_MAX_CHARS}
-            placeholder="e.g. The kitchen with a big island and natural light."
-            minHeight={88}
+            placeholder="Describe your next scene…"
+            minHeight={64}
           />
           </View>
-          <VisionSceneShortcuts goal={anchorIntention} text={text} onPick={item => setText(current => applySceneSuggestion(current, item))} />
+          <VisionSceneShortcuts label="Suggested for your vision" goal={anchorIntention} text={text} onPick={item => setText(current => applySceneSuggestion(current, item))} />
           {notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
         </ScrollView>
         )}
@@ -192,11 +192,11 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   handle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 99, backgroundColor: colors.border.default, marginBottom: 14 },
-  title: { fontFamily: VISION_SERIF, fontSize: 26, lineHeight: 31, color: colors.text.primary, textAlign: 'center', marginBottom: spacing[3] },
+  title: { fontFamily: VISION_SERIF, fontSize: 26, lineHeight: 31, color: colors.text.primary, textAlign: 'center' },
   body: { gap: spacing[3], paddingBottom: spacing[3] },
   label: { fontFamily: 'Inter-SemiBold', fontSize: 12, lineHeight: 16, color: colors.text.secondary },
   notice: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.semantic.error },
-  sub: { fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 21, color: colors.text.secondary, textAlign: 'center' },
+  sub: { fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 21, color: colors.text.secondary, textAlign: 'center', marginTop: spacing[1], marginBottom: spacing[3] },
   noteAction: { alignSelf: 'center' },
   actions: { gap: spacing[2], paddingTop: spacing[2] },
   ownRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing[5] },

@@ -1,6 +1,9 @@
 export const visionCeremonyCopy = {
   askCreate: "When it's true,\nwhat do you see?",
   askAdd: 'What else\ndo you see?',
+  createVision: 'Create My Vision →',
+  addScene: 'Add another scene →',
+  startFrom: 'Start with a photo, your words, or your voice.',
   add: 'Add to your vision',
   words: 'Imagine it from words',
   ownPhoto: 'Use my own photo',

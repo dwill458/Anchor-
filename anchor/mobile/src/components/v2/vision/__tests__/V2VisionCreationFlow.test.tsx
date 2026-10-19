@@ -15,7 +15,7 @@ const base = { anchorId: 'anchor', anchorIntention: 'I build what matters.', ini
   onBack: jest.fn(), onUploadAsset: jest.fn(), onAssemble: jest.fn(async () => true) };
 // The Ask controls go live once the entrance's open has finished.
 const ASK_READY = ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs + 50;
-function enterDescription(view: ReturnType<typeof render>) { act(() => { jest.advanceTimersByTime(ASK_READY); }); fireEvent.press(view.getByLabelText('Imagine it from words')); }
+function enterDescription(view: ReturnType<typeof render>) { act(() => { jest.advanceTimersByTime(ASK_READY); }); fireEvent.press(view.getByLabelText('Create My Vision →')); }
 async function submit(view: ReturnType<typeof render>) { await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); }); }
 
 describe('V2VisionCreationFlow ceremony entry and existing actions', () => {
@@ -24,8 +24,8 @@ describe('V2VisionCreationFlow ceremony entry and existing actions', () => {
   it.each(['empty', 'ready', 'prompt'] as const)('starts legacy initialStep %s at Ask with no stock art', initialStep => {
     const view = render(<V2VisionCreationFlow {...base} initialStep={initialStep} />);
     expect(view.getByText("When it's true, what do you see?")).toBeTruthy();
-    expect(view.getByLabelText('Use my own photo')).toBeTruthy();
-    expect(view.getByLabelText('Take a photo')).toBeTruthy();
+    expect(view.getByTestId('vision-entrance-cta')).toBeTruthy();
+    expect(view.getByText('Start with a photo, your words, or your voice.')).toBeTruthy();
     expect(view.queryByTestId('vision-intro-art')).toBeNull();
     expect(mockStart).not.toHaveBeenCalled(); expect(base.onAssemble).not.toHaveBeenCalled();
   });

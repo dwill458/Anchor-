@@ -2,7 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
-import { ENTRANCE, VisionEntrance, entranceFooterHeight, entranceLayout, fanSlot, type VisionEntranceProps } from '../VisionEntrance';
+import { ENTRANCE, VisionEntrance, entranceLayout, fanSlot, type VisionEntranceProps } from '../VisionEntrance';
 import { visionCeremonyCopy as copy } from '../visionCeremonyCopy';
 
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
@@ -14,7 +14,7 @@ jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples
 
 const example = (i: number) => ({ image: { uri: `file:///example-${i}.webp` }, caption: `Example ${i}`, moment: `Moment ${i}.` });
 const target = { x: 171, y: 66, width: 48, height: 48, opacity: 0 };
-const handlers = () => ({ onPickExample: jest.fn(), onPickEmpty: jest.fn(), onWords: jest.fn(), onPhoto: jest.fn(), onAddNote: jest.fn(), onBack: jest.fn(), onAnchorHandoff: jest.fn() });
+const handlers = () => ({ onPickExample: jest.fn(), onPickEmpty: jest.fn(), onWords: jest.fn(), onBack: jest.fn(), onAnchorHandoff: jest.fn() });
 function setup(overrides: Partial<VisionEntranceProps> = {}) {
   const fns = handlers();
   const props: VisionEntranceProps = { mode: 'create', anchorId: 'anchor', category: 'health', firstRun: true, anchorTarget: target, ...fns, ...overrides };
@@ -53,7 +53,7 @@ describe('VisionEntrance', () => {
     const view = setup({ firstRun: false }); await advance(OPEN_DONE * 2);
     expect(view.queryByTestId('vision-entrance-anchor')).toBeNull(); expect(playCreationSound).not.toHaveBeenCalled(); expect(view.onAnchorHandoff).not.toHaveBeenCalled();
     expect(AnalyticsService.track).toHaveBeenCalledWith('vision_entrance_viewed', expect.objectContaining({ first_run: false }));
-    fireEvent.press(view.getByLabelText(copy.words)); expect(view.onWords).toHaveBeenCalledTimes(1);
+    fireEvent.press(view.getByLabelText(copy.createVision)); expect(view.onWords).toHaveBeenCalledTimes(1);
   });
   it('Reduce Motion shows the final state at once, silently', async () => {
     mockReduced = true; const view = setup(); await advance(400);
@@ -61,20 +61,20 @@ describe('VisionEntrance', () => {
     fireEvent.press(view.getByLabelText('Start from this example: Example 2'));
     expect(calls('anchorPulse')).toHaveLength(0); expect(calls('formTick')).toHaveLength(0);
   });
-  it('reads as a headline, two buttons, a link, a hint and the print labels, and nothing else', () => {
+  it('reads as a headline, one call to action, a supporting line, a hint and the print labels, and nothing else', () => {
     const view = setup({ firstRun: false });
-    for (const text of [copy.askCreate, copy.words, copy.ownPhoto, copy.camera, copy.hintCreate, 'Example 1', 'Example 2', 'Example 3']) expect(view.getByText(text)).toBeTruthy();
+    for (const text of [copy.askCreate, copy.createVision, copy.startFrom, copy.hintCreate, 'Example 1', 'Example 2', 'Example 3']) expect(view.getByText(text)).toBeTruthy();
     expect(view.getAllByText(copy.exampleLabel)).toHaveLength(3);
-    for (const gone of [copy.footnote, copy.suggestionLabel, copy.anotherMoment, copy.add, 'Health']) expect(view.queryByText(gone)).toBeNull();
+    for (const gone of [copy.words, copy.ownPhoto, copy.camera, 'Add a note', copy.footnote, copy.suggestionLabel, copy.anotherMoment, copy.add, 'Health']) expect(view.queryByText(gone)).toBeNull();
   });
   it('pins a bundled picture to its window, since it would otherwise keep its own pixel size', () => {
     const view = setup({ firstRun: false });
     expect(StyleSheet.flatten(view.getByTestId('vision-entrance-print-0-sharp').props.style)).toMatchObject({ width: '100%', height: '100%' });
   });
   it('ignores taps until the controls have faded in', async () => {
-    const view = setup(); fireEvent.press(view.getByLabelText(copy.words)); fireEvent.press(view.getByLabelText('Start from this example: Example 1'));
+    const view = setup(); fireEvent.press(view.getByLabelText(copy.createVision)); fireEvent.press(view.getByLabelText('Start from this example: Example 1'));
     expect(view.onWords).not.toHaveBeenCalled(); await advance(ENTRANCE.pickMs * 2); expect(view.onPickExample).not.toHaveBeenCalled();
-    await advance(ENTRANCE.ctaAt); fireEvent.press(view.getByLabelText(copy.words)); expect(view.onWords).toHaveBeenCalledTimes(1);
+    await advance(ENTRANCE.ctaAt); fireEvent.press(view.getByLabelText(copy.createVision)); expect(view.onWords).toHaveBeenCalledTimes(1);
   });
   it('tapping an example settles, then hands the right example and index over after 900ms', async () => {
     const view = setup(); await advance(OPEN_DONE);
@@ -85,33 +85,23 @@ describe('VisionEntrance', () => {
     await advance(2); expect(view.onPickExample).toHaveBeenCalledWith(mockExamples[2], 2); expect(view.onPickExample).toHaveBeenCalledTimes(1);
     fireEvent.press(view.getByLabelText('Start from this example: Example 1')); await advance(ENTRANCE.pickMs + 50); expect(view.onPickExample).toHaveBeenCalledTimes(1);
   });
-  it('the buttons play the tap cue and forward their source', async () => {
+  it('the call to action plays the tap cue and opens the composer, and Back still leaves', () => {
     const view = setup({ firstRun: false });
-    fireEvent.press(view.getByLabelText(copy.ownPhoto)); fireEvent.press(view.getByLabelText(copy.camera));
-    expect(view.onPhoto.mock.calls).toEqual([['library'], ['camera']]); expect(calls('uiTap')).toHaveLength(2);
+    fireEvent.press(view.getByTestId('vision-entrance-cta')); expect(view.onWords).toHaveBeenCalledTimes(1); expect(calls('uiTap')).toHaveLength(1);
     fireEvent.press(view.getByLabelText(copy.back)); expect(view.onBack).toHaveBeenCalledTimes(1);
   });
-  it('adds the note action below the photo actions without changing the fan geometry', async () => {
-    const view = setup({ firstRun: false, onAddNote: jest.fn() });
-    const footerHeight = entranceFooterHeight(true);
-    const footerTop = 667 - 34 - ENTRANCE.footerGap - footerHeight;
+  it('keeps the fan clear of the one call to action on a short screen', () => {
+    const footerTop = 667 - 34 - ENTRANCE.footerGap - ENTRANCE.footerHeight;
     const short = entranceLayout({ width: 375, anchorBottom: 68, footerTop, positions: ['left', 'center', 'right'] });
     expect(short.W).toBeGreaterThanOrEqual(84);
     expect(short.hintTop + 16 + 16).toBeLessThanOrEqual(footerTop);
-    const action = view.getByLabelText('Add a note');
-    fireEvent.press(action);
-    expect(view.props.onAddNote).toHaveBeenCalledTimes(1);
-    expect(view.getByText('Put your vision into words')).toBeTruthy();
   });
-  it('keeps note entry available when image capacity is full and disables image paths', () => {
-    const view = setup({ firstRun: false, canAddImage: false, onAddNote: jest.fn() });
-    fireEvent.press(view.getByLabelText('Add a note'));
-    expect(view.props.onAddNote).toHaveBeenCalledTimes(1);
-    expect(view.getByLabelText(copy.words).props.accessibilityState.disabled).toBe(true);
-    expect(view.getByLabelText(copy.ownPhoto).props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(view.getByLabelText(copy.words));
+  it('disables the call to action at the image limit and says why', () => {
+    const view = setup({ firstRun: false, canAddImage: false });
+    expect(view.getByTestId('vision-entrance-cta').props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(view.getByLabelText(copy.createVision));
     expect(view.onWords).not.toHaveBeenCalled();
-    expect(view.getByText('This Vision is full. You can still add a note.')).toBeTruthy();
+    expect(view.getByText('This Vision is full. Remove an image to add another.')).toBeTruthy();
   });
   it('shows a photo notice in place of the hint', () => {
     const view = setup({ firstRun: false, notice: 'Unable to open photo library.' });

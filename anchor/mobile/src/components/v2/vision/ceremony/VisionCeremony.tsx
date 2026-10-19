@@ -612,8 +612,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     {beat === 'ask' ? <VisionEntrance key="entrance" mode={mode} anchorId={anchorId} category={resolveAnchorCategory(anchorCategory)} anchorArt={anchorArt}
       previewImageUrl={props.previewImageUrl} previewCaption={props.previewCaption?.trim() || anchorIntention} firstRun={!entrancePlayed.current} active={foreground}
       notice={actions.notice} anchorTarget={anchorPosition} onAnchorHandoff={() => setHandedOff(true)} onBack={back}
-      onWords={startDescribe} onPhoto={source => { void pick(source); }} onPickExample={pickExample} onPickEmpty={startDescribe}
-      onAddNote={props.onAddNote} canAddImage={props.canAddImage} /> : null}
+      onWords={startDescribe} onPickExample={pickExample} onPickEmpty={startDescribe} canAddImage={props.canAddImage} /> : null}
     {committed ? <Animated.View pointerEvents="none" testID="vision-seal-stamp-line" style={[{ position: 'absolute', zIndex: 42, left: (width - sealW) / 2 + 10, top: sealY + sealW * 1.25 + 12, width: sealW - 20, height: 1, backgroundColor: '#B08A4A' }, sealLineStyle]} /> : null}
     <VisionPrintSlot placement={anchorPosition} nodeRef={anchorRef} testID="vision-ceremony-anchor">
       <Animated.View style={[styles.mark, stampStyle]}>
@@ -685,7 +684,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       <VisionMomentInput mode={mode} anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory}
         anchorArt={anchorArt} anchorImageUrl={props.anchorImageUrl} onChangeDescription={setDescriptionFromInput}
         initialDescription={descriptionRef.current} onBack={back} onSubmit={generate} startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto}
-        loading={actions.starting} error={actions.notice ?? actions.generation.error}
+        onAddPhotos={source => { void pick(source); }} loading={actions.starting} error={actions.notice ?? actions.generation.error}
         ceremony fromExample={fromExample ?? undefined} testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
     </Animated.View> : null}
     {/* Only while a skippable scene is the active one: a tap lands the ceremony on its settled board. */}

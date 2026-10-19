@@ -180,6 +180,90 @@ describe('V2VisionNoteComposer', () => {
     expect(view.queryByTestId('vision-note-previous-material')).toBeNull();
   });
 
+  it('feeds the shared renderer the selected material, font and colour', () => {
+    const view = renderScreen();
+    const rendererProps = () => view.UNSAFE_getByProps({ testID: 'vision-note-current-renderer' }).props;
+    expect(rendererProps()).toEqual(expect.objectContaining({ styleId: 'sticky_blush_pink', fontId: 'handwritten' }));
+
+    fireEvent.press(view.getByTestId('vision-note-font-classic'));
+    expect(rendererProps()).toEqual(expect.objectContaining({ fontId: 'classic' }));
+
+    fireEvent.press(view.getByLabelText('Sticky Notes styles'));
+    fireEvent.press(view.getByLabelText('Sage Green note style'));
+    expect(rendererProps()).toEqual(expect.objectContaining({ styleId: 'sticky_sage_green', fontId: 'classic' }));
+
+    fireEvent.press(view.getByLabelText('Paper styles'));
+    expect(rendererProps()).toEqual(expect.objectContaining({ styleId: 'paper_ivory_torn', fontId: 'classic' }));
+  });
+
+  it('hides the font selector for Editorial and submits no fontId for it', async () => {
+    const view = renderScreen();
+    fireEvent.changeText(view.getByTestId('vision-note-input'), 'Editorial words');
+    fireEvent.press(view.getByLabelText('Editorial styles'));
+    expect(view.queryByTestId('vision-note-font-classic')).toBeNull();
+    fireEvent.press(view.getByLabelText('Add to Vision'));
+    await waitFor(() => expect(createNote).toHaveBeenCalledTimes(1));
+    expect(createNote.mock.calls[0][0].presentation.fontId).toBeUndefined();
+    expect(createNote.mock.calls[0][0].presentation.styleId).toBe('editorial_classic_cream');
+  });
+
+  it('keeps the request payload shape for a sticky note', async () => {
+    const view = renderScreen();
+    fireEvent.changeText(view.getByTestId('vision-note-input'), 'Payload check');
+    fireEvent.press(view.getByLabelText('Add to Vision'));
+    await waitFor(() => expect(createNote).toHaveBeenCalledTimes(1));
+    const [request] = createNote.mock.calls[0];
+    expect(Object.keys(request).sort()).toEqual(['clientRequestId', 'content', 'presentation']);
+    expect(Object.keys(request.presentation)).toEqual(expect.arrayContaining(['styleId', 'fontId', 'x', 'y', 'width', 'height', 'rotation', 'scale', 'layerOrder']));
+    expect(request.content).toEqual({ text: 'Payload check' });
+  });
+
+  it('counts code points in N / 200 and reflects the count while typing', () => {
+    const view = renderScreen();
+    expect(view.getByText('0 / 200')).toBeTruthy();
+    fireEvent.changeText(view.getByTestId('vision-note-input'), 'abc🙂');
+    expect(view.getByText('4 / 200')).toBeTruthy();
+    fireEvent.changeText(view.getByTestId('vision-note-input'), 'x'.repeat(200));
+    expect(view.getByText('200 / 200')).toBeTruthy();
+    expect(Array.from(view.getByTestId('vision-note-input').props.value)).toHaveLength(200);
+  });
+
+  it('shows the check badge and selected state only on the chosen swatch', () => {
+    const view = renderScreen();
+    expect(view.getByTestId('vision-note-style-check-sticky_blush_pink')).toBeTruthy();
+    expect(view.queryByTestId('vision-note-style-check-sticky_butter_yellow')).toBeNull();
+    expect(view.getByLabelText('Butter Yellow note style').props.accessibilityState.selected).toBe(false);
+    fireEvent.press(view.getByLabelText('Butter Yellow note style'));
+    expect(view.queryByTestId('vision-note-style-check-sticky_blush_pink')).toBeNull();
+    expect(view.getByTestId('vision-note-style-check-sticky_butter_yellow')).toBeTruthy();
+  });
+
+  it('preserves multiline and long text in the preview and the payload', async () => {
+    const multiline = `First line\n\nSecond line with more words\n${'long '.repeat(30).trim()}`;
+    const view = renderScreen();
+    fireEvent.changeText(view.getByTestId('vision-note-input'), multiline);
+    expect(view.getByTestId('vision-note-input').props.value).toBe(multiline);
+    expect(view.getByTestId('vision-note-preview').props.accessibilityLabel).toBe(`Note preview. ${multiline}`);
+    fireEvent.press(view.getByLabelText('Add to Vision'));
+    await waitFor(() => expect(createNote).toHaveBeenCalledWith(expect.objectContaining({ content: { text: multiline } })));
+  });
+
+  it('renders decorative tape on the preview and a curl only for sticky notes', () => {
+    const view = renderScreen();
+    expect(view.getByTestId('vision-note-preview-tape')).toBeTruthy();
+    expect(view.getByTestId('vision-note-preview-curl')).toBeTruthy();
+    fireEvent.press(view.getByLabelText('Paper styles'));
+    expect(view.queryByTestId('vision-note-preview-curl')).toBeNull();
+  });
+
+  it('does not reset the colour when the already-selected material is tapped again', () => {
+    const view = renderScreen();
+    fireEvent.press(view.getByLabelText('Sticky Notes styles'));
+    fireEvent.press(view.getByLabelText('Sage Green note style'));
+    fireEvent.press(view.getByLabelText('Sticky Notes styles'));
+    expect(view.getByLabelText('Sage Green note style').props.accessibilityState.selected).toBe(true);
+  });
+
   it.each([['ios', 'padding'], ['android', 'height']] as const)('uses keyboard avoidance on %s', (platform, behavior) => {
     const view = renderScreen(platform);
     expect(view.UNSAFE_getByType(KeyboardAvoidingView).props.behavior).toBe(behavior);

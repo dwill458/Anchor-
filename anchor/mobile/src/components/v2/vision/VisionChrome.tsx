@@ -10,7 +10,7 @@ import type { AnchorTransitionPlaceBinding } from '@/navigation/v2/ProgressiveFo
 import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 
 /** What the identity row needs to draw the real Anchor (see `anchorRenderProps`). */
-export type VisionAnchorArt = { svg: string; imageUrl?: string | null; category?: string | null; expression?: AnchorExpression | null };
+export type VisionAnchorArt = { svg: string; imageUrl?: string | null; category?: string | null; expression?: AnchorExpression | null; threadStrength?: number | null };
 
 export type VisionTone = 'light' | 'dark';
 

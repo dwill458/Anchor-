@@ -3,23 +3,25 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { interpolateColor, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { ImpactFeedbackStyle } from 'expo-haptics';
 import { safeHaptics } from '@/utils/haptics';
-import { VISION_GOLD, VISION_SERIF_ITALIC } from '../VisionPaperChrome';
+import { VISION_GOLD } from '../VisionPaperChrome';
 import { CEREMONY, ceremonyDuration } from '../ceremony/VisionDevelop';
 import { useVisionImageArrival } from '../VisionImageArrival';
 import { colors, typography } from '@/theme/v2';
 import { VisionImageEdge } from '../VisionImageEdge';
 import { VisionPhotograph } from '../VisionPhotograph';
-import { BOARD_FRAME_WINDOW } from './visionBoardLayouts';
+import { VisionTapeOverlay } from '../material/VisionTapeOverlay';
+import { VISION_CAPTION_COLOR, VISION_CAPTION_FONTS, VISION_PHOTO, VISION_SHADOW, VISION_TAPE } from '../material/visionMaterialTokens';
+import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, type BoardTape } from './visionBoardLayouts';
 import { boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { boardSlotAtPoint, swapBoardOrder } from './visionBoardReorder';
 import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
 
 const W = BOARD_FRAME_WINDOW;
-/** Photographs fill their canvas aperture. */
+/** Photographs fill their mount's aperture; the mount carries the border. */
 const BLEED = 0;
 const CAPTION_TOUCH_HEIGHT = 30;
 
@@ -58,6 +60,8 @@ export type VisionBoardPhotoProps = {
   cinematicOpacity?: SharedValue<number>;
   /** 0 to 1: the paper edges travel from cream to ink (the Visualize setup darkening into its session). */
   edgeDarken?: SharedValue<number>;
+  /** Tape strips holding this print to the board. They move with the print. */
+  tapes?: readonly BoardTape[];
 };
 
 function kindWeight(kind: number, target: number) {
@@ -65,11 +69,24 @@ function kindWeight(kind: number, target: number) {
   return kind === target ? 1 : 0;
 }
 
+/** A strip of tape across the top edge of a print. Its width follows the print on the UI thread. */
+function PrintTape({ tape, width, testID }: { tape: BoardTape; width: SharedValue<number>; testID?: string }) {
+  const style = useAnimatedStyle(() => {
+    const tapeWidth = tape.width * width.value;
+    return { left: tape.offset * width.value - tapeWidth / 2, width: tapeWidth };
+  });
+  return (
+    <Animated.View pointerEvents="none" testID={testID} style={[styles.tapeHolder, style]}>
+      <VisionTapeOverlay width={1} tone={tape.tone} rotation={tape.rotation} style={styles.tapeFill} />
+    </Animated.View>
+  );
+}
+
 /** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, arriving = false, caption, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onPhotoAssetError, onMove, onTeachingMotionChange,
-  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
+  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken, tapes = [],
 }: VisionBoardPhotoProps) {
   const arrival = useVisionImageArrival();
   const setPrint = arrival?.setPrints?.find(item => item.sceneId === sceneId);
@@ -139,7 +156,8 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const y = useSharedValue(start.y);
   const width = useSharedValue(start.width);
   const height = useSharedValue(start.height);
-  const captionPositionStyle = useAnimatedStyle(() => ({ top: height.value + 5 }));
+  // The caption lives in the mount's band at the foot of the print. The band is a fraction of the print's height.
+  const captionPositionStyle = useAnimatedStyle(() => ({ top: height.value - height.value * BOARD_CAPTION_BAND_FRACTION / 2 - CAPTION_TOUCH_HEIGHT / 2 }));
   const rotation = useSharedValue(start.rotation);
   const z = useSharedValue(start.zIndex);
   const landscape = useSharedValue(kindWeight(0, start.frame));
@@ -325,7 +343,12 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     ],
   }));
 
-  const frameStyle = useAnimatedStyle(() => ({ width: width.value, height: height.value }));
+  // The print is its mount: archival paper, darkening with the page when Visualize sets its edges.
+  const frameStyle = useAnimatedStyle(() => ({
+    width: width.value,
+    height: height.value,
+    backgroundColor: edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
+  }));
 
   const windowStyle = useAnimatedStyle(() => {
     const total = landscape.value + portrait.value + square.value || 1;
@@ -368,7 +391,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     >
       <Animated.View ref={imageRef} collapsable={false} style={[styles.window, windowStyle]}>
         {displayUrl && failedUrl !== displayUrl ? (
-          <VisionPhotograph source={{ uri: displayUrl }} displayAspect={displayAspect} uploaded={uploaded} onLoad={handleDecoded}
+          <VisionPhotograph source={{ uri: displayUrl }} displayAspect={displayAspect} uploaded={uploaded} fill onLoad={handleDecoded}
             onAssetReady={() => onPhotoAssetReady?.(sceneId)}
             onError={() => { if (displayUrl !== imageUrl) setShownUrl(imageUrl ?? null); else { onPhotoAssetError?.(sceneId); setFailedUrl(displayUrl); } }}
             accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
@@ -376,8 +399,11 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
           <View style={styles.unavailable}><Text style={styles.unavailableText}>{interactive && imageFailed ? 'Image unavailable. Tap to retry.' : 'Image unavailable'}</Text></View>
         )}
         <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
-        <VisionImageEdge hero={hero} brush={detailEdges} darken={edgeDarken} />
+        {/* The torn edges of the aperture take the mount's paper colour. */}
+        <VisionImageEdge hero={hero} brush={detailEdges} color={VISION_PHOTO.mount} darken={edgeDarken} />
       </Animated.View>
+      {tapes.map((tape, index) => <PrintTape key={`${tape.photo}-${index}`} tape={tape} width={width}
+        testID={testID ? `${testID}-tape-${index}` : undefined} />)}
       {arriving || setPrint ? <Animated.View pointerEvents="none" testID={`${testID}-arrival-pin`} style={[styles.attachment, { width: 16, height: 16, top: -8, left: '50%', marginLeft: -8 }, pinStyle]}>
         <Svg width={16} height={16}><Defs><RadialGradient id="arrival-pin" cx="35%" cy="30%"><Stop offset="0" stopColor="#F3DCA0" /><Stop offset=".45" stopColor={VISION_GOLD} /><Stop offset="1" stopColor="#7d5d22" /></RadialGradient></Defs><Circle cx={8} cy={8} r={8} fill="url(#arrival-pin)" /></Svg>
       </Animated.View> : null}
@@ -408,7 +434,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
 
 const styles = StyleSheet.create({
   container: { position: 'absolute', overflow: 'visible' },
-  photo: { position: 'absolute', left: 0, top: 0, shadowColor: colors.ink.base, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 8 },
+  photo: { position: 'absolute', left: 0, top: 0, borderRadius: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: VISION_PHOTO.mountEdge, ...VISION_SHADOW.ambient },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
   window: { position: 'absolute', overflow: 'hidden', backgroundColor: colors.canvas },
   fill: { width: '100%', height: '100%' },
@@ -416,7 +442,9 @@ const styles = StyleSheet.create({
   unavailableText: { ...typography.caption, color: colors.text.secondary },
   captionHitArea: { position: 'absolute', left: 0, right: 0, height: CAPTION_TOUCH_HEIGHT, alignItems: 'center', justifyContent: 'flex-start' },
   captionPressable: { minHeight: CAPTION_TOUCH_HEIGHT, minWidth: '100%', alignItems: 'center', justifyContent: 'center' },
-  captionText: { fontFamily: VISION_SERIF_ITALIC, fontSize: 12, color: colors.text.primary, textAlign: 'center' },
+  captionText: { fontFamily: VISION_CAPTION_FONTS.handwritten, fontSize: 15, lineHeight: 18, color: VISION_CAPTION_COLOR, textAlign: 'center' },
   captionPlaceholder: { color: colors.text.secondary, opacity: 0.78 },
   attachment: { position: 'absolute' },
+  tapeHolder: { position: 'absolute', top: -VISION_TAPE.height * 0.45, height: VISION_TAPE.height, zIndex: 2 },
+  tapeFill: { width: '100%' },
 });

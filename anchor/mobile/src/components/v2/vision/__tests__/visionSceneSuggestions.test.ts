@@ -7,8 +7,9 @@ describe('visionSceneSuggestions', () => {
     expect(visionSceneSuggestions('Run a marathon')).not.toContain('Inside my home');
   });
 
-  it('returns no shortcuts rather than a generic list when the goal gives no theme', () => {
-    expect(visionSceneSuggestions('Be better')).toEqual([]);
+  it('falls back to moments, not places, when the goal gives no theme', () => {
+    expect(visionSceneSuggestions('Be better')).toEqual(['The day it arrives', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it']);
+    expect(visionSceneSuggestions('I am the owner of a Regal')).toContain('Behind the wheel');
     expect(visionSceneSuggestions('   ')).toEqual([]);
   });
 

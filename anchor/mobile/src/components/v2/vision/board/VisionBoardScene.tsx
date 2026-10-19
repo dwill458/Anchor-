@@ -98,6 +98,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
           <VisionBoardPhoto
             key={tile.sceneId}
             testID={`vision-board-photo-${tile.sceneId}`}
+            tapes={index >= 0 ? layout.decor.filter(tape => tape.photo === index) : []}
             sceneId={tile.sceneId}
             imageUrl={tile.imageUrl}
             caption={tile.caption ?? undefined}

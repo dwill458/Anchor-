@@ -19,6 +19,7 @@ import { VisionHeaderRow, VisionStatusBarScrim, type VisionAnchorArt } from './V
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { detailBoardSizeForWidth } from './board/visionBoardLayouts';
 import { VisionBoard } from './board/VisionBoard';
+import { VisionPaperSurface } from './material/VisionPaperSurface';
 import { VisionPhotoCaptionEditor } from './board/VisionPhotoCaptionEditor';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
 import { VisionArrivalDestination, useVisionImageArrival } from './VisionImageArrival';
@@ -84,6 +85,8 @@ type Props = {
 };
 
 const PAGE_GUTTER = spacing[5];
+/** Fixed seed: the Vision screen always lies on the same sheet of paper. */
+const VISION_SCREEN_PAPER_SEED = 7;
 /** The board runs nearly edge to edge: it is the hero. */
 const BOARD_GUTTER = spacing[3];
 /** Lets the screen transition finish before the board makes room for new images. */
@@ -287,8 +290,10 @@ export function V2SavedVision({
       ) : undefined} />
   );
 
+  // The whole Vision screen sits on one continuous sheet of archival paper: the board, the header and the
+  // controls below it share it, so no rectangle or seam shows where the board ends.
   return (
-    <View testID={testID} style={styles.root}>
+    <VisionPaperSurface testID={testID} seed={VISION_SCREEN_PAPER_SEED} style={styles.root}>
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <ScrollView ref={teachingScrollRef}
           onLayout={event => { teachingScrollMetrics.current.viewport = event.nativeEvent.layout.height; }}
@@ -442,13 +447,13 @@ export function V2SavedVision({
           </View>
         </>
       )}
-    </View>
+    </VisionPaperSurface>
   );
 }
 
 const styles = StyleSheet.create({
   sectionRule: { width: 32, height: 2, backgroundColor: VISION_GOLD, marginBottom: spacing[2] },
-  root: { flex: 1, backgroundColor: colors.canvas },
+  root: { flex: 1 },
   flex: { flex: 1 },
   bandContent: { paddingHorizontal: PAGE_GUTTER, gap: spacing[4] },
   boardWrap: { paddingHorizontal: BOARD_GUTTER, paddingTop: spacing[3], alignItems: 'center' },

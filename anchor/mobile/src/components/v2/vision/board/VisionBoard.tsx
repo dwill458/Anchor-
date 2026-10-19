@@ -20,6 +20,9 @@ import { projectTeachingSlot } from '@/hooks/v2/teaching/visionTeaching';
 
 export type VisionBoardFocus = { kind: 'photo'; sceneId: string } | { kind: 'card' } | null;
 
+/** Points between the board's lowest print (or the Anchor) and the handwritten title below it. */
+const CAPTION_CLEARANCE = 12;
+
 export type VisionBoardProps = {
   arrivingNoteId?: string;
   arrivingSceneId?: string | null;
@@ -69,10 +72,17 @@ export function VisionBoard({
   const viewport = useMemo(() => detailBoardSizeForWidth(width, tiles.length), [width, tiles.length]);
   const scene = useMemo(() => detailBoardSizeForWidth(width * MOTION.renderScale, tiles.length), [width, tiles.length]);
   const [captionExtra, setCaptionExtra] = useState(0);
-  const captionTop = viewport.height * (tiles.length > 3 ? 0.95 : tiles.length === 1 ? 0.92 : tiles.length === 2 ? 0.9 : 0.83);
   const rest = useMemo(() => restCamera(scene, viewport), [scene, viewport]);
   const board = useVisionBoardScene(tiles, scene, rest.scale, true);
   const { shared, layout, slotRects, order } = board;
+  // The title sits below the board's lowest print or the Anchor, whichever is lower, and never on top of them.
+  const captionTop = useMemo(() => {
+    const inkBottom = [...layout.photos, layout.card].reduce((bottom, slot) => {
+      const rect = toSceneRect(slot, viewport);
+      return Math.max(bottom, rect.y + rect.height);
+    }, 0);
+    return Math.max(viewport.height * (tiles.length > 3 ? 0.95 : tiles.length === 1 ? 0.92 : tiles.length === 2 ? 0.9 : 0.83), inkBottom + CAPTION_CLEARANCE);
+  }, [layout, viewport, tiles.length]);
 
   const cameraX = useSharedValue(0);
   const cameraY = useSharedValue(0);
@@ -226,6 +236,7 @@ export function VisionBoard({
   const count = tiles.length;
 
   return (
+    // The board is transparent: the archival paper is one continuous sheet behind the whole Vision screen.
     <View ref={teachingViewportRef} collapsable={false} testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + (annotation.trim() ? captionExtra : 0) }]}>
       <Animated.View style={[styles.scene, {
         width: scene.width, height: scene.height,
