@@ -102,6 +102,8 @@ Candidates, not yet tried: (a) do not mount the construction ring on the two off
 - **Rejected:** skipping the ring on off-screen staging slots was neutral under the controlled protocol (an earlier "regression" reading was a different-anchor artifact); it was not kept.
 - **Returns from Vision and Chart are not fixed.** With the image ring: Vision return p99 129-150 ms, 15-21% of ~50 frames janky (unchanged); Chart return p99 93-150 ms, 11-17% janky (slightly better). Vision and Chart opens are unchanged (Vision p99 31-53 ms; Chart 7.7-11.4% janky, 14-20 missed vsyncs). The return stall is the re-raster of Home's remaining SVG views and images after detach; reducing it needs more SVG views removed or cached, which was not attempted.
 
+**Return-stall attribution (partial).** Hiding the aura glow on the centred hero (test only) did not remove the Vision return stall: 3 of 4 returns still 113-150 ms with 6-12 janky frames, so the aura canvas is not the cause. A second test, hiding the Home Chart card, was interrupted when the owner needed the phone and produced no numbers. Remaining suspects: the Home photo and art images and the other SVG views re-drawn after detach. Everything temporary was reverted.
+
 **Operational note.** Reloading the app re-runs its startup account sync, and the backend allows 20 `/api/auth/sync` calls per 15 minutes per user. About 15 reloads during testing exceeded it, and the app showed "Unable to restore saved data" (its safeguard refusing to sign out while the sync was rejected). It recovered after the window passed and no data was lost. Keep reloads under about 10 per 15 minutes when profiling the real account.
 
 ## Release-like measurement attempt (not completed)
