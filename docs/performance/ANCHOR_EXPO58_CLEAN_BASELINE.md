@@ -7,7 +7,7 @@ Date: 2026-10-18 (America/Chicago)
 - Development worktree: `E:\Projects\Anchor-Expo58-Clean`
 - Branch: `feat/expo58-sqlcipher-stable`
 - Migration base: Expo 58 source worktree `feat/expo58-vision-aura`, HEAD `5d9a6497996665eb28b4e3641531cac5a7b34546`
-- Migration commit: recorded in the companion Git handoff after this baseline commit is created.
+- Migration baseline commit: `264fdff8` (`feat(expo58): establish clean SQLCipher development baseline`).
 - Original checkout: `E:\Projects\Anchor`, branch `feat/celebration-layer`, HEAD `5765acd2710b2f45144ab7da6069b67c4a80b3c4`.
 - Expo 58 source checkout: `C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor`, branch `feat/expo58-vision-aura`, HEAD `5d9a6497996665eb28b4e3641531cac5a7b34546`.
 - Both original checkouts remain in place. No reset, clean, forced checkout, or source-worktree cleanup was run.
