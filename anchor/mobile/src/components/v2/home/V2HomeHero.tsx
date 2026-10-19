@@ -19,7 +19,7 @@ import { HomeArrivalUnderline, HomeEvolvedFromLine, HomeEvolvedGhost } from './H
 import { useAnchorTransitionPlace, useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
-import { HandDrawnPercentage } from './HandDrawnPercentage';
+import { HandDrawnPercentage, handDrawnPercentageWidth } from './HandDrawnPercentage';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
 const PAPER_ARTWORK_SHARE = 0.72;
@@ -99,7 +99,8 @@ function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2Thre
       <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
         <View style={styles.threadValueContainer}>
-          <HandDrawnPercentage value={thread.value as number} color={accent} height={20} />
+          {/* Neighbours reserve the digits' footprint; the SVG mounts only on the centred slot. */}
+          {active ? <HandDrawnPercentage value={thread.value as number} color={accent} height={20} /> : <View style={{ width: handDrawnPercentageWidth(thread.value as number, 20), height: 20 }} />}
           <Text
             testID={active ? 'v2-home-thread-value' : undefined}
             style={styles.threadValueHidden}
@@ -385,7 +386,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
         </Text>
         <View style={styles.intentionMark}>
           <HomeArrivalUnderline active={slot === 0} width={INTENTION_MARK_WIDTH} height={INTENTION_MARK_HEIGHT}>
-            <IntentionMark color={accent} />
+            {slot === 0 ? <IntentionMark color={accent} /> : <View style={{ width: INTENTION_MARK_WIDTH, height: INTENTION_MARK_HEIGHT }} />}
           </HomeArrivalUnderline>
         </View>
         </View>
