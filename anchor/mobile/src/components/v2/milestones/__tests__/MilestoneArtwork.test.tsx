@@ -59,7 +59,7 @@ describe('MilestoneArtwork', () => {
 
   it('never fills locked artwork: it is an outline', () => {
     const { UNSAFE_getAllByType } = render(<MilestoneArtwork definitionId="commitment.practices.1" state="locked" size={64} />);
-    const shapes = [...UNSAFE_getAllByType(Circle), ...UNSAFE_getAllByType(Path)];
+    const shapes = [...UNSAFE_getAllByType(Circle), ...UNSAFE_getAllByType(Path)].filter(shape => !shape.props.testID?.startsWith('emblem-'));
     // Skip the plate (a Rect) and gradient defs; every drawn motif shape has fill none.
     expect(shapes.length).toBeGreaterThan(0);
     for (const shape of shapes) expect(shape.props.fill).toBe('none');

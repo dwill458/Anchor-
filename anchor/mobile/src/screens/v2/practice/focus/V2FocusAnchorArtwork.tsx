@@ -17,6 +17,7 @@ type V2FocusAnchorArtworkProps = {
   anchorId?: string;
   /** Practice-complete: 0..1 bar progress the glow grows with. */
   strengthProgress?: SharedValue<number>;
+  strengthBloom?: SharedValue<number>;
 };
 
 /**
@@ -33,6 +34,7 @@ export function V2FocusAnchorArtwork({
   threadStrength,
   anchorId,
   strengthProgress,
+  strengthBloom,
 }: V2FocusAnchorArtworkProps) {
   const reduceMotion = useV2ReduceMotion();
   const glow = useAuraStrength(threadStrength);
@@ -44,7 +46,7 @@ export function V2FocusAnchorArtwork({
       category={category}
       size={size}
       appearance="dark"
-      aura={threadStrength === undefined ? undefined : { anchorId: `${anchorId ?? svg.length}${glow.keySuffix}`, threadStrength: glow.strength, variant: 'details', active: true, reducedMotion: reduceMotion, strengthProgress }}
+      aura={threadStrength === undefined ? undefined : { anchorId: `${anchorId ?? svg.length}${glow.keySuffix}`, threadStrength: glow.strength, variant: 'details', active: true, reducedMotion: reduceMotion, strengthProgress, strengthBloom }}
       accessibilityLabel={accessibilityLabel}
     />
   );

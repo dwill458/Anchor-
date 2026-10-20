@@ -112,6 +112,29 @@ describe('useMilestonePresenter', () => {
     unmount();
     expect(mockSettle).not.toHaveBeenCalled();
     expect(useCelebrationStore.getState().active).toBeNull();
+    expect(useMilestoneCelebrationStore.getState().queue.map(item => item.record.id)).toEqual(['m1']);
+    const resumed = renderHook(() => useMilestonePresenter());
+    expect(resumed.result.current.presenting?.record.id).toBe('m1');
+  });
+
+  it('waits while an active practice or Vision editor owns a hold', () => {
+    useMilestoneCelebrationStore.getState().hold('session');
+    const view = renderHook(() => useMilestonePresenter());
+    enqueue(rec('m1', 'commitment.practices.1', '2026-10-01T00:00:00Z'));
+    expect(view.result.current.presenting).toBeNull();
+    act(() => useMilestoneCelebrationStore.getState().release('session'));
+    expect(view.result.current.presenting?.record.id).toBe('m1');
+  });
+
+  it('preserves the current award when an active task interrupts and resumes after that task', () => {
+    const view = renderHook(() => useMilestonePresenter());
+    enqueue(rec('m1', 'vision.first', '2026-10-01T00:00:00Z'));
+    act(() => useMilestoneCelebrationStore.getState().hold('editor'));
+    expect(view.result.current.presenting).toBeNull();
+    expect(useMilestoneCelebrationStore.getState().queue[0]?.record.id).toBe('m1');
+    expect(mockSettle).not.toHaveBeenCalled();
+    act(() => useMilestoneCelebrationStore.getState().release('editor'));
+    expect(view.result.current.presenting?.record.id).toBe('m1');
   });
 
   it('skips a milestone from a newer app version instead of celebrating invented copy', () => {

@@ -3,6 +3,7 @@ const mockPrisma = {
   practiceSession: { findMany: jest.fn() },
   threadV2Movement: { findMany: jest.fn() },
   course: { findMany: jest.fn() },
+  vision: { findMany: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
   anchorMilestone: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -57,7 +58,54 @@ describe('MilestoneService', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockPrisma.anchorMilestone.findMany.mockResolvedValue([]);
+    mockPrisma.vision.findMany.mockResolvedValue([]);
     mockPrisma.anchorMilestone.create.mockImplementation(async ({ data }: any) => row({ ...data, id: `id-${data.definitionId}` }));
+  });
+
+  describe('Vision commit evidence', () => {
+    it('captures only persisted images, stamps an eight-image board once, and uses ownership on every write', async () => {
+      givenHistory([]);
+      const createdAt = new Date('2026-10-19T10:00:00Z');
+      mockPrisma.vision.findFirst.mockResolvedValue({ id: 'v', notes: [], scenes: Array.from({ length: 8 }, (_, i) => ({ assetId: `image-${i}`, createdAt, isArchived: false })) });
+      await service.captureVisionCommit(USER, ANCHOR, 'v');
+      expect(mockPrisma.vision.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'v', userId: USER, anchorId: ANCHOR } }));
+      expect(mockPrisma.vision.updateMany).toHaveBeenCalledWith({ where: { id: 'v', userId: USER, firstCommittedAt: null }, data: { firstCommittedAt: createdAt } });
+      expect(mockPrisma.vision.updateMany).toHaveBeenCalledWith({ where: { id: 'v', userId: USER, boardCompletedAt: null }, data: { boardCompletedAt: expect.any(Date) } });
+    });
+
+    it('never counts repeated or archived images as eight committed board images', async () => {
+      givenHistory([]);
+      mockPrisma.vision.findFirst.mockResolvedValue({ id: 'v', notes: [], scenes: Array.from({ length: 12 }, (_, i) => ({ assetId: `image-${i % 7}`, createdAt: NOW, isArchived: i > 7 })) });
+      await service.captureVisionCommit(USER, ANCHOR, 'v');
+      expect(mockPrisma.vision.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not stamp a generation shell with no committed image', async () => {
+      givenHistory([]);
+      mockPrisma.vision.findFirst.mockResolvedValue({ id: 'v', scenes: [], notes: [] });
+      await service.captureVisionCommit(USER, ANCHOR, 'v');
+      expect(mockPrisma.vision.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('recognizes a saved authored note as completed Vision content without counting a draft request', async () => {
+      givenHistory([]);
+      mockPrisma.vision.findFirst.mockResolvedValue({ id: 'v', scenes: [], notes: [{ createdAt: NOW }] });
+      await service.captureVisionCommit(USER, ANCHOR, 'v');
+      expect(mockPrisma.vision.updateMany).toHaveBeenCalledWith({ where: { id: 'v', userId: USER, firstCommittedAt: null }, data: { firstCommittedAt: NOW } });
+    });
+
+    it('counts only completed guided sessions linked to an owned Vision on this Anchor', async () => {
+      givenHistory([]);
+      mockPrisma.vision.findMany.mockResolvedValue([{ id: 'v', firstCommittedAt: null, boardCompletedAt: null }]);
+      mockPrisma.practiceSession.findMany.mockResolvedValue([
+        { ...session(1, NOW.toISOString()), practiceMode: 'visualize', metadata: { guided_visualize_version: 1, vision_id: 'v' } },
+        { ...session(2, NOW.toISOString()), practiceMode: 'visualize', metadata: { guided_visualize_version: 1, vision_id: 'someone-elses' } },
+        { ...session(3, NOW.toISOString()), practiceMode: 'visualize', metadata: {} },
+      ]);
+      const facts = await service.loadFacts(USER, ANCHOR);
+      expect(facts?.sessions.map(s => s.guidedVisualize)).toEqual([true, false, false]);
+      expect(mockPrisma.practiceSession.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: USER, anchorId: ANCHOR, completionStatus: 'completed' } }));
+    });
   });
 
   describe('evaluateAndAward', () => {

@@ -24,6 +24,7 @@ const FILTERS: Array<{ value: MilestoneFilter; label: string }> = [
   { value: 'strength', label: 'Strength' },
   { value: 'commitment', label: 'Commitment' },
   { value: 'journey', label: 'Journey' },
+  { value: 'vision', label: 'Vision' },
 ];
 
 const COLUMNS = 3;

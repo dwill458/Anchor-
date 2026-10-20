@@ -5,6 +5,9 @@ import { colors } from '@/theme/v2';
 import { progressTokens } from '@/components/v2/progress/progressTokens';
 import { ART_SIZE, motifPrimitives, type ArtPrimitive, type ArtRole } from '@/milestones/artGeometry';
 import { getMilestoneSpec } from '@/milestones/registry';
+import { getMasterAsset } from '@/milestones/masterAssets';
+import { MasterEmblem } from './MasterEmblem';
+import type { SharedValue } from 'react-native-reanimated';
 
 export interface MilestoneArtworkProps {
   definitionId: string;
@@ -14,6 +17,9 @@ export interface MilestoneArtworkProps {
   /** The Anchor's category colour. Only strength artwork uses it. */
   categoryColor?: string;
   testID?: string;
+  animated?: boolean;
+  progress?: SharedValue<number>;
+  reducedMotion?: boolean;
 }
 
 const PLATE_RADIUS = 18;
@@ -74,7 +80,7 @@ function renderPrimitive(prim: ArtPrimitive, index: number, palette: Palette, lo
  * Unknown definitions get a clearly marked development fallback, never unrelated artwork.
  */
 export const MilestoneArtwork: React.FC<MilestoneArtworkProps> = React.memo(
-  ({ definitionId, state, size, categoryColor = progressTokens.gold, testID = 'milestone-artwork' }) => {
+  ({ definitionId, state, size, categoryColor = progressTokens.gold, testID = 'milestone-artwork', animated, progress, reducedMotion }) => {
     const spec = getMilestoneSpec(definitionId);
     const locked = state === 'locked';
     const palette = paletteFor(spec?.family === 'strength' ? 'strength' : 'other', state, categoryColor);
@@ -91,7 +97,7 @@ export const MilestoneArtwork: React.FC<MilestoneArtworkProps> = React.memo(
         accessibilityLabel={`${spec?.title ?? 'Milestone'} artwork, ${locked ? 'locked' : 'earned'}`}
         testID={`${testID}-${locked ? 'locked' : 'earned'}`}
       >
-        <Svg width={size} height={size} viewBox={`0 0 ${ART_SIZE} ${ART_SIZE}`}>
+        {getMasterAsset(definitionId) ? <MasterEmblem milestoneId={definitionId} state={animated && !locked ? 'revealing' : state} size={size} animated={animated} progress={progress} reducedMotion={reducedMotion} /> : <Svg width={size} height={size} viewBox={`0 0 ${ART_SIZE} ${ART_SIZE}`}>
           <Defs>
             <RadialGradient id="msGlow" cx="50%" cy="50%" r="50%">
               <Stop offset="0%" stopColor={categoryColor} stopOpacity={0.42} />
@@ -105,7 +111,7 @@ export const MilestoneArtwork: React.FC<MilestoneArtworkProps> = React.memo(
           ) : (
             <FallbackMark locked={locked} color={LOCKED_INK} />
           )}
-        </Svg>
+        </Svg>}
         {!spec ? <View style={styles.fallbackFlag} testID={`${testID}-fallback`} /> : null}
       </View>
     );

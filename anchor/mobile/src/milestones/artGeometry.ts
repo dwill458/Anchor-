@@ -138,6 +138,24 @@ function sunrise(): ArtPrimitive[] {
 
 export function motifPrimitives(motif: MilestoneMotif, tier: number): ArtPrimitive[] {
   switch (motif) {
+    case 'pictureFrame':
+      return [
+        { kind: 'path', d: 'M 22 32 L 89 22 L 96 86 L 29 94 Z M 34 38 H 98 V 98 H 34 Z M 40 44 H 92 V 91 H 40 Z', role: 'ink', width: 1.5 },
+        { kind: 'path', d: 'M 42 88 L 56 65 L 68 77 L 79 62 L 90 88 Z', role: 'ink', fill: true },
+        { kind: 'circle', cx: 55, cy: 56, r: 5, role: 'gold', fill: true },
+      ];
+    case 'opticalLens':
+      return [
+        ...[43, 35, 24, 13].map((r): ArtPrimitive => ({ kind: 'circle', cx: 60, cy: 60, r, role: r === 35 ? 'gold' : 'ink', width: 1 })),
+        { kind: 'path', d: 'M 60 12 V 108 M 12 60 H 108', role: 'gold', width: 0.7 },
+        { kind: 'circle', cx: 60, cy: 60, r: 6, role: 'gold', fill: true },
+      ];
+    case 'doorway':
+      return [
+        { kind: 'path', d: 'M 23 102 L 38 21 Q 60 7 82 21 L 97 102 Z M 36 88 L 45 29 Q 60 19 75 29 L 84 88 Z M 23 102 H 97 M 29 95 H 91 M 33 88 H 87 M 38 81 H 82 M 42 74 H 78', role: 'ink', width: 1.5 },
+        { kind: 'circle', cx: 60, cy: 53, r: 9, role: 'gold', fill: true },
+        { kind: 'path', d: 'M 60 27 V 39 M 40 39 L 49 46 M 80 39 L 71 46', role: 'gold', width: 1 },
+      ];
     case 'energyRings':
       return energyRings(tier);
     case 'stones':

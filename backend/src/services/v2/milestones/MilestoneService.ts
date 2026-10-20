@@ -46,10 +46,10 @@ export class MilestoneService {
     });
     if (!anchor) return null;
 
-    const [sessions, movements, courses] = await Promise.all([
+    const [sessions, movements, courses, visions] = await Promise.all([
       prisma.practiceSession.findMany({
         where: { userId, anchorId, completionStatus: 'completed' },
-        select: { id: true, completedAt: true, completedDurationSeconds: true },
+        select: { id: true, completedAt: true, completedDurationSeconds: true, practiceMode: true, metadata: true },
       }),
       prisma.threadV2Movement.findMany({
         where: { userId, anchorId },
@@ -67,14 +67,44 @@ export class MilestoneService {
           },
         },
       }),
+      prisma.vision.findMany({
+        where: { userId, anchorId },
+        select: { id: true, firstCommittedAt: true, boardCompletedAt: true },
+      }),
     ]);
 
     return {
-      sessions: sessions.map(s => ({ id: s.id, completedAt: s.completedAt, seconds: s.completedDurationSeconds })),
+      sessions: sessions.map(s => {
+        const metadata = s.metadata && typeof s.metadata === 'object' && !Array.isArray(s.metadata) ? s.metadata : {};
+        return { id: s.id, completedAt: s.completedAt, seconds: s.completedDurationSeconds,
+          guidedVisualize: s.practiceMode === 'visualize' && metadata.guided_visualize_version === 1 &&
+            visions.some(v => v.id === metadata.vision_id),
+        };
+      }),
+      visions,
       movements,
       courses,
       intentionCompletedAt: anchor.intentionCompletedAt,
     };
+  }
+
+  /** Capture saved content and board evidence inside the image transaction, before presentation. */
+  async captureVisionCommit(userId: string, anchorId: string, visionId: string, tx?: Prisma.TransactionClient): Promise<void> {
+    const db = tx ?? prisma;
+    const vision = await db.vision.findFirst({
+      where: { id: visionId, userId, anchorId },
+      select: { id: true,
+        scenes: { where: { assetId: { not: null } }, select: { assetId: true, createdAt: true, isArchived: true }, orderBy: { createdAt: 'asc' } },
+        notes: { select: { createdAt: true }, orderBy: { createdAt: 'asc' }, take: 1 },
+      },
+    });
+    if (!vision) return;
+    const first = [...vision.scenes, ...vision.notes].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
+    if (first) await db.vision.updateMany({ where: { id: visionId, userId, firstCommittedAt: null }, data: { firstCommittedAt: first.createdAt } });
+    if (new Set(vision.scenes.filter(s => !s.isArchived).map(s => s.assetId)).size >= 8) {
+      await db.vision.updateMany({ where: { id: visionId, userId, boardCompletedAt: null }, data: { boardCompletedAt: new Date() } });
+    }
+    if (!tx) await this.evaluateQuietly(userId, anchorId);
   }
 
   /**

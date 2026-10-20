@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { milestoneService } from './milestones/MilestoneService';
 import { AppError } from '../../api/middleware/errorHandler';
 import { resolveStorageKeyUrl } from '../StorageService';
 import {
@@ -196,7 +197,8 @@ export class VisionService {
       }
       const count = await tx.visionNote.count({ where: { visionId, userId, isArchived: false } });
       if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
-      await tx.visionNote.create({ data: { id: randomUUID(), visionId, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+      const saved = await tx.visionNote.create({ data: { id: randomUUID(), visionId, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+      await tx.vision.updateMany({ where: { id: visionId, userId, firstCommittedAt: null }, data: { firstCommittedAt: saved.createdAt } });
       return visionId;
     });
 
@@ -217,13 +219,15 @@ export class VisionService {
             }
             const count = await tx.visionNote.count({ where: { visionId: nowActive.id, userId, isArchived: false } });
             if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
-            await tx.visionNote.create({ data: { id: randomUUID(), visionId: nowActive.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+            const saved = await tx.visionNote.create({ data: { id: randomUUID(), visionId: nowActive.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+            await tx.vision.updateMany({ where: { id: nowActive.id, userId, firstCommittedAt: null }, data: { firstCommittedAt: saved.createdAt } });
             return nowActive.id;
           }
           const created = await tx.vision.create({ data: { id: randomUUID(), userId, anchorId, title: null, description: null, status: 'ACTIVE' }, select: { id: true } });
           const count = await tx.visionNote.count({ where: { visionId: created.id, userId, isArchived: false } });
           if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
-          await tx.visionNote.create({ data: { id: randomUUID(), visionId: created.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+          const saved = await tx.visionNote.create({ data: { id: randomUUID(), visionId: created.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
+          await tx.vision.updateMany({ where: { id: created.id, userId, firstCommittedAt: null }, data: { firstCommittedAt: saved.createdAt } });
           return created.id;
         });
       } catch (error) {
@@ -235,6 +239,7 @@ export class VisionService {
     }
     const result = await this.getAnchorVision(userId, anchorId, clientTimeZone);
     if (!result || result.id !== visionId) throw new AppError('Failed to load created note', 500, 'VISION_NOTE_ERROR');
+    await milestoneService.evaluateQuietly(userId, anchorId);
     return result;
   }
 
@@ -358,12 +363,16 @@ export class VisionService {
         const scene = input.scenes[i];
         if (selectedIds.has(scene.assetId)) continue;
         try {
-          await prisma.visionScene.create({
-            data: {
-              id: randomUUID(), visionId, userId, sourceType: scene.sourceType,
-              assetId: scene.assetId ?? null, prompt: scene.prompt ?? null, caption: scene.caption ?? null,
-              sortOrder: scene.sortOrder ?? i, isArchived: false,
-            },
+          await prisma.$transaction(async tx => {
+            await tx.$queryRaw`SELECT id FROM visions WHERE id = ${visionId} FOR UPDATE`;
+            await tx.visionScene.create({
+              data: {
+                id: randomUUID(), visionId, userId, sourceType: scene.sourceType,
+                assetId: scene.assetId ?? null, prompt: scene.prompt ?? null, caption: scene.caption ?? null,
+                sortOrder: scene.sortOrder ?? i, isArchived: false,
+              },
+            });
+            await milestoneService.captureVisionCommit(userId, anchorId, visionId, tx);
           });
         } catch (error) {
           if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
@@ -376,6 +385,7 @@ export class VisionService {
     if (!result) {
       throw new AppError('Failed to load created vision', 500, 'VISION_ERROR');
     }
+    await milestoneService.evaluateQuietly(userId, anchorId);
     return result;
   }
 
@@ -457,6 +467,7 @@ export class VisionService {
       include: { asset: true },
     });
     if (existing) {
+      await milestoneService.captureVisionCommit(userId, vision.anchorId, visionId);
       const resolvedImageUrl = existing.asset?.storageKey ? await resolveStorageKeyUrl(existing.asset.storageKey) : null;
       return {
         id: existing.id, visionId, sourceType: existing.sourceType as VisionSceneSource,
@@ -480,21 +491,27 @@ export class VisionService {
       sortOrder = maxScene ? maxScene.sortOrder + 1 : 0;
     }
 
-    const scene = await prisma.visionScene.create({
-      data: {
-        id: randomUUID(),
-        visionId,
-        userId,
-        sourceType: input.sourceType,
-        assetId: input.assetId ?? null,
-        prompt: input.prompt ?? null,
-        caption: input.caption ?? null,
-        sortOrder,
-        isArchived: false,
-      },
-      include: { asset: true },
+    const scene = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM visions WHERE id = ${visionId} FOR UPDATE`;
+      const committed = await tx.visionScene.create({
+        data: {
+          id: randomUUID(),
+          visionId,
+          userId,
+          sourceType: input.sourceType,
+          assetId: input.assetId ?? null,
+          prompt: input.prompt ?? null,
+          caption: input.caption ?? null,
+          sortOrder,
+          isArchived: false,
+        },
+        include: { asset: true },
+      });
+      await milestoneService.captureVisionCommit(userId, vision.anchorId, visionId, tx);
+      return committed;
     });
 
+    await milestoneService.evaluateQuietly(userId, vision.anchorId);
     const resolvedImageUrl = scene.asset?.storageKey
       ? await resolveStorageKeyUrl(scene.asset.storageKey)
       : null;

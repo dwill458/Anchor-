@@ -21,6 +21,7 @@ import { isDeepFocusDuration } from './deepFocus/deepFocusTimeline';
 import { V2CinematicSessionScreen, type PreparedCinematicSession, type CinematicCompletion } from './visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
 import type { V2PracticeCompletionResult } from './practiceRoutes';
+import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
 
 type Props = {
   anchorId: string;
@@ -116,6 +117,7 @@ export function V2PracticeSessionScreen({
   const startedAtRef = useRef(new Date());
   const legacyClockStartedRef = useRef(false);
   const [focusPhase, setFocusPhase] = useState<'active' | 'complete'>('active');
+  useMilestonePresentationHold(mode === 'visualize' ? !visualizeCompletion : focusPhase !== 'complete');
   const [focusSaveState, setFocusSaveState] = useState<'saving' | FocusSaveWaitResult>('saving');
   const focusCompletionStartedRef = useRef(false);
   const focusSessionRequestRef = useRef<{ sessionId: string; sessionData: FocusSessionData } | null>(null);

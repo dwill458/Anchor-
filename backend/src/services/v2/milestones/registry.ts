@@ -7,7 +7,7 @@
  * Established 50, Integrated 75, Reinforced 90, plus Full Strength at 100.
  */
 
-export type MilestoneFamily = 'strength' | 'commitment' | 'journey';
+export type MilestoneFamily = 'strength' | 'commitment' | 'journey' | 'vision';
 
 export type MilestoneRule =
   | { kind: 'strength'; threshold: number }
@@ -16,7 +16,10 @@ export type MilestoneRule =
   | { kind: 'firstWaypoint' }
   | { kind: 'halfway' }
   | { kind: 'allWaypoints' }
-  | { kind: 'goal' };
+  | { kind: 'goal' }
+  | { kind: 'visionCreated' }
+  | { kind: 'visionBoard' }
+  | { kind: 'guidedVisualize'; count: number };
 
 export interface MilestoneDefinition {
   id: string;
@@ -43,6 +46,11 @@ export const MILESTONE_DEFINITIONS: readonly MilestoneDefinition[] = [
   { id: 'journey.halfway', family: 'journey', version: 1, rule: { kind: 'halfway' } },
   { id: 'journey.destination', family: 'journey', version: 1, rule: { kind: 'allWaypoints' } },
   { id: 'journey.goal', family: 'journey', version: 1, rule: { kind: 'goal' } },
+  { id: 'vision.first', family: 'vision', version: 1, rule: { kind: 'visionCreated' } },
+  { id: 'vision.board.complete', family: 'vision', version: 1, rule: { kind: 'visionBoard' } },
+  { id: 'vision.visualize.1', family: 'vision', version: 1, rule: { kind: 'guidedVisualize', count: 1 } },
+  { id: 'vision.visualize.10', family: 'vision', version: 1, rule: { kind: 'guidedVisualize', count: 10 } },
+  { id: 'vision.visualize.30', family: 'vision', version: 1, rule: { kind: 'guidedVisualize', count: 30 } },
 ];
 
 export const MILESTONE_IDS: ReadonlySet<string> = new Set(MILESTONE_DEFINITIONS.map(d => d.id));
@@ -50,7 +58,8 @@ export const MILESTONE_IDS: ReadonlySet<string> = new Set(MILESTONE_DEFINITIONS.
 /** Persisted facts for ONE Anchor. Nothing here is client-supplied. */
 export interface MilestoneFacts {
   /** Completed practice sessions only. */
-  sessions: Array<{ id: string; completedAt: Date; seconds: number }>;
+  sessions: Array<{ id: string; completedAt: Date; seconds: number; guidedVisualize?: boolean }>;
+  visions?: Array<{ id: string; firstCommittedAt: Date | null; boardCompletedAt: Date | null }>;
   /** Server-authoritative strength after each session (`ThreadV2Movement.afterStrength`). */
   movements: Array<{ sessionId: string; completedAt: Date; afterStrength: number }>;
   /** Non-deleted Charts for this Anchor. */
@@ -75,7 +84,7 @@ export interface MilestoneAward {
   definitionId: string;
   definitionVersion: number;
   earnedAt: Date;
-  sourceKind: 'PRACTICE_COMPLETION' | 'COURSE_EVENT' | 'ANCHOR_LIFECYCLE';
+  sourceKind: 'PRACTICE_COMPLETION' | 'COURSE_EVENT' | 'ANCHOR_LIFECYCLE' | 'VISION_COMMIT';
   sourceEntityId: string | null;
   metadata: Record<string, number | string>;
 }
@@ -105,7 +114,17 @@ export function evaluateMilestones(facts: MilestoneFacts): MilestoneAward[] {
     const base = { definitionId: def.id, definitionVersion: def.version };
     const rule = def.rule;
 
-    if (rule.kind === 'strength') {
+    if (rule.kind === 'visionCreated' || rule.kind === 'visionBoard') {
+      const hit = earliest((facts.visions ?? []).flatMap(v => {
+        const at = rule.kind === 'visionCreated' ? v.firstCommittedAt : v.boardCompletedAt;
+        return at ? [{ at, id: v.id }] : [];
+      }));
+      if (hit) awards.push({ ...base, earnedAt: hit.at, sourceKind: 'VISION_COMMIT', sourceEntityId: hit.id, metadata: rule.kind === 'visionBoard' ? { images: 8 } : {} });
+    } else if (rule.kind === 'guidedVisualize') {
+      const guided = [...new Map(sessions.filter(s => s.guidedVisualize).map(s => [s.id, s])).values()];
+      const hit = guided[rule.count - 1];
+      if (hit) awards.push({ ...base, earnedAt: hit.completedAt, sourceKind: 'PRACTICE_COMPLETION', sourceEntityId: hit.id, metadata: { sessions: rule.count } });
+    } else if (rule.kind === 'strength') {
       const hit = movements.find(m => m.afterStrength >= rule.threshold);
       if (hit) {
         awards.push({

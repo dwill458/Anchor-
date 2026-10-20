@@ -427,6 +427,7 @@ function V2MilestoneDetailRouteScreen() {
     <V2MilestoneDetailScreen
       anchorId={route.params.anchorId}
       definitionId={route.params.definitionId}
+      onReplayReturn={() => navigation.navigate('V2MilestoneCollection', { anchorId: route.params.anchorId })}
       onBack={() => navigation.goBack()}
     />
   );

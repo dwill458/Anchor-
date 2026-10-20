@@ -72,7 +72,7 @@ describe('registry content', () => {
     expect(describeEarnedValue(strength, {})).toBeNull();
     expect(describeEarnedValue(strength, null)).toBeNull();
     expect(describeEarnedValue(getMilestoneSpec('commitment.minutes.100')!, { minutes: 100 })).toBe('Passed 100 total minutes.');
-    expect(describeEarnedValue(getMilestoneSpec('journey.goal')!, {})).toBeNull();
+    expect(describeEarnedValue(getMilestoneSpec('journey.goal')!, {})).toBe('You marked this intention as completed.');
   });
 });
 

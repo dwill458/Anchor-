@@ -22,6 +22,7 @@ export interface MilestonePresenter {
 export function useMilestonePresenter(): MilestonePresenter {
   const head = useMilestoneCelebrationStore((state) => state.queue[0] ?? null);
   const shift = useMilestoneCelebrationStore((state) => state.shift);
+  const held = useMilestoneCelebrationStore((state) => state.holds.length > 0);
   const [presenting, setPresenting] = useState<MilestonePresentation | null>(null);
   const presentingRef = useRef<MilestonePresentation | null>(null);
   presentingRef.current = presenting;
@@ -33,16 +34,19 @@ export function useMilestonePresenter(): MilestonePresenter {
       presentingRef.current = null;
       useCelebrationStore.getState().finish(item.key);
       if (settle && item.mode === 'award' && item.accountId) void settleMilestone(item.accountId, item.record);
-      shift(item.key);
+      if (settle || item.mode === 'replay') shift(item.key);
       setPresenting(null);
     },
     [shift],
   );
 
   const finish = useCallback(() => end(true), [end]);
+  useEffect(() => {
+    if (presenting && (held || !head)) end(false);
+  }, [end, head, held, presenting]);
 
   useEffect(() => {
-    if (!head || presenting) return;
+    if (!head || presenting || held) return;
     const spec = getMilestoneSpec(head.record.definitionId);
     if (!spec) {
       // A milestone from a newer app version: leave it recorded, never celebrate invented copy.
@@ -51,13 +55,14 @@ export function useMilestonePresenter(): MilestonePresenter {
     }
 
     const start = () => {
+      const begin = () => setPresenting({ ...head, origin: head.mode === 'award' && head.transition ? useMilestoneCelebrationStore.getState().takeOrigin(head.record) : undefined });
       const result = useCelebrationStore.getState().request(spec.celebration.level, head.key, {
         durationMs: spec.celebration.durationMs,
         // The coordinator only skips or preempts to make room for something else: not a user finish.
         onSkip: () => end(false),
-        onStart: () => setPresenting(head),
+        onStart: begin,
       });
-      if (result === 'play') setPresenting(head);
+      if (result === 'play') begin();
     };
 
     if (!useCelebrationStore.getState().current) {
@@ -71,7 +76,7 @@ export function useMilestonePresenter(): MilestonePresenter {
       start();
     });
     return unsubscribe;
-  }, [end, head, presenting, shift]);
+  }, [end, head, held, presenting, shift]);
 
   // Leaving while a celebration is up frees the coordinator and settles nothing.
   useEffect(() => () => end(false), [end]);

@@ -16,6 +16,7 @@ export interface V2MilestoneDetailScreenProps {
   anchorId: string;
   definitionId: string;
   onBack?: () => void;
+  onReplayReturn?: () => void;
   testID?: string;
 }
 
@@ -31,6 +32,7 @@ export const V2MilestoneDetailScreen: React.FC<V2MilestoneDetailScreenProps> = (
   anchorId,
   definitionId,
   onBack,
+  onReplayReturn,
   testID = 'v2-milestone-detail',
 }) => {
   const insets = useSafeAreaInsets();
@@ -125,7 +127,7 @@ export const V2MilestoneDetailScreen: React.FC<V2MilestoneDetailScreenProps> = (
                 variant="secondary"
                 size="large"
                 iconLeft={<Play size={16} color={progressTokens.text} />}
-                onPress={() => requestReplay(record)}
+                onPress={() => requestReplay(record, onReplayReturn ?? onBack)}
                 testID={`${testID}-replay`}
               >
                 Replay celebration

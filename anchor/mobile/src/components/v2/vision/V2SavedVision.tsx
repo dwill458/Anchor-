@@ -1,5 +1,6 @@
 import type { ViewInstance, ScrollViewInstance } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
 import { Alert, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 // Gesture Handler's ScrollView takes part in gesture arbitration, so a lifted photo keeps the touch on Android.
 import { ScrollView } from 'react-native-gesture-handler';
@@ -127,6 +128,7 @@ export function V2SavedVision({
   const teachingFocus = useTeachingFocus();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const imageArrival = useVisionImageArrival();
+  useMilestonePresentationHold(teachingFocus.isFocused && (mode === 'edit' || manageImages || Boolean(captionSceneId) || menuOpen || busy || dragging || addSheetOpen || nativeAlertOpen || (teachingEnabled && !boardIdle) || Boolean(imageArrival?.setActive)));
   const teachingTarget = useRef<((sceneId: string | null) => Promise<TeachingRect | null>) | null>(null);
   const teachingScrollRef = useRef<ScrollViewInstance>(null);
   const teachingScrollMetrics = useRef({ y: 0, content: 0, viewport: 0 });

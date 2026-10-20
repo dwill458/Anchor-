@@ -1,9 +1,12 @@
 const mockPrisma = {
-  anchor: { findFirst: jest.fn() }, vision: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+  $transaction: jest.fn(), $queryRaw: jest.fn(),
+  anchor: { findFirst: jest.fn() }, vision: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn(), updateMany: jest.fn(), findMany: jest.fn() },
+  practiceSession: { findMany: jest.fn() }, threadV2Movement: { findMany: jest.fn() }, course: { findMany: jest.fn() },
   visionScene: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn() },
   asset: { findFirst: jest.fn() },
 };
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
+jest.mock('../milestones/MilestoneService', () => ({ milestoneService: { captureVisionCommit: jest.fn(), evaluateQuietly: jest.fn() } }));
 jest.mock('../../StorageService', () => ({ resolveStorageKeyUrl: async () => 'https://cdn.test/photo.jpg' }));
 import { visionService } from '../VisionService';
 
@@ -17,7 +20,13 @@ const vision = { id: 'vision', anchorId: 'anchor', userId: 'user', title: null, 
 describe('Vision caption persistence and old response compatibility', () => {
   beforeEach(() => {
     jest.resetAllMocks(); mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor' });
+    mockPrisma.$transaction.mockImplementation((operation: (tx: typeof mockPrisma) => unknown) => operation(mockPrisma));
+    mockPrisma.$queryRaw.mockResolvedValue([]);
     mockPrisma.vision.findFirst.mockResolvedValue(vision);
+    mockPrisma.vision.findMany.mockResolvedValue([]);
+    mockPrisma.practiceSession.findMany.mockResolvedValue([]);
+    mockPrisma.threadV2Movement.findMany.mockResolvedValue([]);
+    mockPrisma.course.findMany.mockResolvedValue([]);
     mockPrisma.asset.findFirst.mockResolvedValue({ id: 'asset', userId: 'user', storageKey: 'vision-assets/user/photo.jpg' });
     mockPrisma.visionScene.create.mockResolvedValue(scene); mockPrisma.visionScene.count.mockResolvedValue(0);
     mockPrisma.visionScene.findMany.mockResolvedValue([]); mockPrisma.vision.update.mockResolvedValue(vision);

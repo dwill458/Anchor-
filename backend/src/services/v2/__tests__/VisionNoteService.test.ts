@@ -6,7 +6,7 @@ const note = {
 };
 const tx = {
   $queryRaw: jest.fn().mockResolvedValue([]),
-  vision: { findFirst: jest.fn(), create: jest.fn() },
+  vision: { findFirst: jest.fn(), create: jest.fn(), updateMany: jest.fn() },
   visionNote: { findUnique: jest.fn(), count: jest.fn(), create: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
 };
 const mockPrisma = {
@@ -17,6 +17,7 @@ const mockPrisma = {
   visionScene: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn(), updateMany: jest.fn() },
 };
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
+jest.mock('../milestones/MilestoneService', () => ({ milestoneService: { captureVisionCommit: jest.fn(), evaluateQuietly: jest.fn() } }));
 jest.mock('../../StorageService', () => ({ resolveStorageKeyUrl: jest.fn().mockResolvedValue(null) }));
 
 import { visionService } from '../VisionService';
@@ -51,6 +52,7 @@ describe('Vision note service', () => {
     const result = await visionService.createNote('user-1', 'anchor-1', input as never);
     expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
     expect(tx.visionNote.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ userId: 'user-1', text: 'A future', clientRequestId: note.clientRequestId }) }));
+    expect(tx.vision.updateMany).toHaveBeenCalledWith({ where: { id: 'vision-1', userId: 'user-1', firstCommittedAt: null }, data: { firstCommittedAt: note.createdAt } });
     expect(result.notes?.[0]).toMatchObject({ id: 'note-1', content: { text: 'A future' }, presentation: { styleId: 'sticky_blush_pink' } });
   });
 

@@ -15,7 +15,7 @@ const sessionsOf = (count: number, seconds = 60) =>
 describe('milestone definitions', () => {
   it('has unique, stable ids across the three families', () => {
     expect(MILESTONE_IDS.size).toBe(MILESTONE_DEFINITIONS.length);
-    expect(new Set(MILESTONE_DEFINITIONS.map(m => m.family))).toEqual(new Set(['strength', 'commitment', 'journey']));
+    expect(new Set(MILESTONE_DEFINITIONS.map(m => m.family))).toEqual(new Set(['strength', 'commitment', 'journey', 'vision']));
   });
 
   it('uses the app Thread stage thresholds, not the mockup example levels', () => {
@@ -23,6 +23,25 @@ describe('milestone definitions', () => {
       m.rule.kind === 'strength' ? m.rule.threshold : 0
     );
     expect(thresholds).toEqual([25, 50, 75, 90, 100]);
+  });
+});
+
+describe('Vision milestone evidence', () => {
+  it('does not infer a Vision from visits or an empty persisted shell', () => {
+    expect(ids({ ...empty(), visions: [{ id: 'v', firstCommittedAt: null, boardCompletedAt: null }] })).toEqual([]);
+  });
+  it('awards committed creation and the eight-image board at their original recorded timestamps', () => {
+    const facts = { ...empty(), visions: [{ id: 'v', firstCommittedAt: d('2026-10-01'), boardCompletedAt: d('2026-10-02') }] };
+    expect(ids(facts)).toEqual(['vision.first', 'vision.board.complete']);
+    expect(award(facts, 'vision.board.complete')).toMatchObject({ earnedAt: d('2026-10-02'), metadata: { images: 8 } });
+    expect(evaluateMilestones(facts)).toEqual(evaluateMilestones(facts));
+  });
+  it('counts distinct verified guided completions and preserves threshold earned dates', () => {
+    const completed = sessionsOf(30).map(s => ({ ...s, guidedVisualize: true }));
+    const facts = { ...empty(), sessions: [...completed, completed[0], { ...sessionsOf(1)[0], id: 'unfinished-or-other', guidedVisualize: false }] };
+    const vision = evaluateMilestones(facts).filter(a => a.definitionId.startsWith('vision.'));
+    expect(vision.map(a => a.definitionId)).toEqual(['vision.visualize.1', 'vision.visualize.10', 'vision.visualize.30']);
+    expect(vision.map(a => a.earnedAt)).toEqual([completed[0].completedAt, completed[9].completedAt, completed[29].completedAt]);
   });
 });
 

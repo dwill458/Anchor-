@@ -16,6 +16,14 @@ const rec = (id: string, definitionId: string, earnedAt: string, celebratedAt: s
 const store = () => useMilestoneCelebrationStore.getState();
 
 describe('milestoneCelebrationStore', () => {
+  it('fades only the first simultaneous award from cream and consumes a measured practice origin once', () => {
+    store().setOrigin({ anchorId: 'a1', sessionId: 's1', x: 120, y: 260 });
+    const first = { ...rec('m1', 'commitment.practices.1', '2026-10-01T00:00:00Z'), sourceEntityId: 's1' };
+    store().enqueueAwards([first, { ...first, id: 'm2', definitionId: 'strength.building' }], 'u');
+    expect(store().queue.map(item => item.transition)).toEqual([true, false]);
+    expect(store().takeOrigin(first)).toEqual({ x: 120, y: 260 });
+    expect(store().takeOrigin(first)).toBeUndefined();
+  });
   beforeEach(() => store().reset());
 
   it('queues uncelebrated milestones oldest first', () => {

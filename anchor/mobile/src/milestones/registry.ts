@@ -8,7 +8,7 @@
 
 export const MILESTONE_REGISTRY_VERSION = 1;
 
-export type MilestoneFamily = 'strength' | 'commitment' | 'journey';
+export type MilestoneFamily = 'strength' | 'commitment' | 'journey' | 'vision';
 
 /** Vector motif the artwork component draws. See docs/progress-redesign/ASSET_SPEC.md. */
 export type MilestoneMotif =
@@ -20,7 +20,10 @@ export type MilestoneMotif =
   | 'waypoint'
   | 'ridge'
   | 'summit'
-  | 'sunrise';
+  | 'sunrise'
+  | 'pictureFrame'
+  | 'opticalLens'
+  | 'doorway';
 
 /** Matches the celebration coordinator's levels (2 = standard, 3 = significant, 4 = major). */
 export type MilestoneCelebrationLevel = 2 | 3 | 4;
@@ -72,7 +75,7 @@ const strength = (
   title,
   description:
     threshold === 100
-      ? 'Your Thread reached Full Strength. Strength can ease with time, but this stays earned.'
+      ? 'Your Anchor has reached full strength.'
       : `Your Thread reached ${title} (${threshold}). Strength can ease with time, but this stays earned.`,
   unlock: `Reach ${threshold} Thread Strength.`,
   art: { motif: 'energyRings', tier, usesCategoryColor: true },
@@ -129,6 +132,13 @@ const journey = (
 });
 
 /** In display order within each family. */
+const vision = (id: string, title: string, description: string, unlock: string, motif: MilestoneMotif, tier: MilestoneSpec['art']['tier']): MilestoneSpec => ({
+  id, family: 'vision', version: 1, title, description, unlock,
+  art: { motif, tier, usesCategoryColor: false },
+  celebration: { level: tier >= 4 ? 4 : 3, durationMs: 3800, reveal: 'engrave' },
+  haptic: 'confirmation', sound: 'revealSettle', replay,
+});
+
 export const MILESTONE_SPECS: readonly MilestoneSpec[] = [
   strength('strength.building', 'Building', 25, 1, 2, 3200),
   strength('strength.established', 'Established', 50, 2, 3, 4000),
@@ -136,7 +146,7 @@ export const MILESTONE_SPECS: readonly MilestoneSpec[] = [
   strength('strength.reinforced', 'Reinforced', 90, 4, 4, 4800),
   strength('strength.full', 'Full Strength', 100, 5, 4, 5200),
 
-  commitment('commitment.practices.1', 'First Practice', 'The first time you came back to this intention on purpose.', 'Complete one practice.', 'sealedStar', 1, 2),
+  commitment('commitment.practices.1', 'First Practice', 'You came back to your intention on purpose.', 'Complete one practice.', 'sealedStar', 1, 2),
   commitment('commitment.practices.10', 'Ten Practices', 'Ten completed practices for this Anchor.', 'Complete 10 practices.', 'stones', 2, 2),
   commitment('commitment.practices.30', 'Thirty Practices', 'Thirty completed practices. Not in a row, just in total.', 'Complete 30 practices.', 'lotusStar', 3, 3),
   commitment('commitment.practices.100', 'One Hundred Practices', 'A hundred times you returned to this intention.', 'Complete 100 practices.', 'lotusStar', 5, 4),
@@ -146,7 +156,12 @@ export const MILESTONE_SPECS: readonly MilestoneSpec[] = [
   journey('journey.waypoint.first', 'First Waypoint', 'You reached the first waypoint on your Chart.', 'Complete your first Chart waypoint.', 'waypoint', 1, 3),
   journey('journey.halfway', 'Halfway', 'Half of the waypoints on your Chart are behind you.', 'Complete half of your Chart’s waypoints.', 'ridge', 3, 3),
   journey('journey.destination', 'All Waypoints', 'Every waypoint on your Chart is complete.', 'Complete every waypoint on your Chart.', 'summit', 4, 4),
-  journey('journey.goal', 'Goal Reached', 'You marked this intention as realized.', 'Mark your intention as completed.', 'sunrise', 5, 4, 'A milestone for when this intention comes true.'),
+  journey('journey.goal', 'Goal Reached', "What you once imagined, you've now achieved.", 'Mark your intention as completed.', 'sunrise', 5, 4, 'A milestone for when this intention comes true.'),
+  vision('vision.first', 'First Glimpse', 'You gave your intention something you can see.', 'Create and save a Vision.', 'opticalLens', 1),
+  vision('vision.board.complete', 'Picture Complete', 'Eight images, held together as a picture of your intention.', 'Commit eight images to one Vision board.', 'pictureFrame', 2),
+  vision('vision.visualize.1', 'Seen Clearly', 'You made time to see your intention clearly.', 'Complete one guided Visualize session.', 'opticalLens', 3),
+  vision('vision.visualize.10', 'Familiar Future', 'You have returned to this imagined future ten times.', 'Complete 10 guided Visualize sessions.', 'sunrise', 4),
+  vision('vision.visualize.30', 'Living the Vision', 'Thirty moments of deliberate attention to your intention.', 'Complete 30 guided Visualize sessions.', 'doorway', 5),
 ];
 
 const BY_ID: ReadonlyMap<string, MilestoneSpec> = new Map(MILESTONE_SPECS.map((spec) => [spec.id, spec]));
@@ -159,12 +174,17 @@ export const FAMILY_LABEL: Record<MilestoneFamily, string> = {
   strength: 'Thread Strength',
   commitment: 'Commitment',
   journey: 'Journey',
+  vision: 'Vision',
 };
 
 /** What the server recorded when it awarded the milestone, as one honest line. Null when it recorded nothing to show. */
 export function describeEarnedValue(spec: MilestoneSpec, metadata: unknown): string | null {
   const data = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
   const num = (key: string) => (typeof data[key] === 'number' ? (data[key] as number) : null);
+  if (spec.id === 'vision.first') return 'Your first Vision was saved.';
+  if (spec.id === 'vision.board.complete') return num('images') === null ? null : `${num('images')} committed images.`;
+  if (spec.id.startsWith('vision.visualize.')) return num('sessions') === null ? null : `${num('sessions')} completed guided Visualize sessions.`;
+  if (spec.id === 'journey.goal') return 'You marked this intention as completed.';
   if (spec.family === 'strength') {
     const value = num('strength');
     return value === null ? null : `Thread Strength was ${value} when you reached it.`;

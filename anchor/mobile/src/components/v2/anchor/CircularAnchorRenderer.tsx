@@ -77,6 +77,7 @@ type Props = {
     | 'carouselOffset'
     | 'carouselSpacing'
     | 'strengthProgress'
+    | 'strengthBloom'
     | 'reducedMotion'
   >;
 };

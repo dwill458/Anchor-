@@ -210,7 +210,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, durationS
       const record = await PracticeCompletionService.commitVisualizeCompletion({
         id: sessionId.current, accountId, anchor, durationSeconds, startedAt, completedAt,
         guidanceVoice: voice, backgroundAudio, sceneSnapshot, source: 'practice_screen',
-        metadata: { v2_entry_source: source, ...(visionId ? { vision_id: visionId } : {}) },
+        metadata: { v2_entry_source: source, guided_visualize_version: 1, ...(visionId ? { vision_id: visionId } : {}) },
       }); completionResult.current = { record, saved: true }; outcome = 'queued';
     } catch { outcome = 'failed'; }
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_COMPLETED, {

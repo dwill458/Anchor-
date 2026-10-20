@@ -460,6 +460,7 @@ export interface PracticeCompletionScene {
   barProgress: SharedValue<number>;
   /** Opacity of the artwork atmosphere, the glow behind the Anchor. */
   glowOpacity: SharedValue<number>;
+  glowScale: SharedValue<number>;
   /** Opacity of the "THREAD STRENGTH" label (P1 only; the label is otherwise always visible). */
   labelOpacity: SharedValue<number>;
   /** Opacity of the new value and the movement figure, which appear at the settle. */
@@ -517,6 +518,8 @@ export function usePracticeCompletionScene({
 
   const barProgress = useSharedValue(initial.values.bar);
   const glowOpacity = useSharedValue(initial.values.glow);
+  const glowScale = useSharedValue(1);
+  useEffect(() => () => cancelAnimation(glowScale), [glowScale]);
   const labelOpacity = useSharedValue(initial.values.label);
   const valueOpacity = useSharedValue(initial.values.value);
   const noteOpacity = useSharedValue(initial.values.note);
@@ -552,6 +555,8 @@ export function usePracticeCompletionScene({
   const applyValues = (values: PracticeSceneValues) => {
     cancelAnimation(barProgress);
     cancelAnimation(glowOpacity);
+    cancelAnimation(glowScale);
+    glowScale.value = 1;
     cancelAnimation(labelOpacity);
     cancelAnimation(valueOpacity);
     cancelAnimation(noteOpacity);
@@ -654,6 +659,10 @@ export function usePracticeCompletionScene({
           timing.fillAtMs,
           withTiming(to / 100, { duration: timing.fillMs, easing: ease }),
         );
+        glowScale.value = withDelay(timing.fillAtMs, withSequence(
+          withTiming(1.15, { duration: timing.fillMs, easing: ease }),
+          withTiming(1, { duration: 450, easing: AnchorMotion.easing.enter }),
+        ));
         if (timing.bloomTo !== undefined && timing.ringAtMs !== undefined) {
           // Full Strength: the glow holds, then blooms as the ring starts drawing, then settles.
           glowOpacity.value = withDelay(
@@ -785,6 +794,7 @@ export function usePracticeCompletionScene({
     phase: scene.phase,
     barProgress,
     glowOpacity,
+    glowScale,
     labelOpacity,
     valueOpacity,
     noteOpacity,

@@ -2,6 +2,9 @@ import { useVisionPicker, VisionPickerHolding } from '@/components/v2/vision/cer
 import type { SavedVisionImage } from '@/components/v2/vision/VisionArrivalSet';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { queueVisionMilestones } from '@/milestones/queueVisionMilestones';
+import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
+import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
 import { useNavigation, useRoute, UNSTABLE_usePreventRemove as usePreventRemove, type RouteProp } from '@react-navigation/native';
 import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
@@ -126,6 +129,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     void Promise.all(model.tiles.map(tile => warmImage(tile.imageUrl))).then(() => {
       if (!alive.current) return;
       setPendingPhoto(null); setReplaceSceneId(null); setAddRequest(null); setMode('view');
+      void queueVisionMilestones(anchorId);
     });
   };
   const [actionError, setActionError] = useState<string | null>(null);
@@ -597,6 +601,11 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   // Paint the board's cream behind the saved board and ink behind the ceremony, so a mode change never
   // shows a frame of the other colour (one of the flashes seen on device, Oct 7).
   const onBoard = mode === 'view' && !pendingPhoto && model.state.state === 'ready';
+  const milestoneFocus = useTeachingFocus();
+  useMilestonePresentationHold(milestoneFocus.isFocused && (!onBoard || shareOpen || addSheetOpen || photoPickerOpen || Boolean(picker.state) || Boolean(fitRequest) || Boolean(arrival?.setActive) || Boolean(arrival?.url)));
+  useEffect(() => {
+    if (onBoard && route.params?.savedNoteId) void queueVisionMilestones(anchorId);
+  }, [anchorId, onBoard, route.params?.savedNoteId]);
   return <View style={{ flex: 1, backgroundColor: onBoard ? colors.canvas : '#14162B' }}>{renderContent()}
     {shareOpen && anchor ? <AnchorShareStudio visible onClose={() => setShareOpen(false)} initialLayout="vision"
       data={buildShareExportData(anchor, { visionTiles: model.tiles, visionNotes: model.vision?.notes ?? [],

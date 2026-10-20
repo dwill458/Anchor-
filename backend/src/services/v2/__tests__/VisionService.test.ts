@@ -28,12 +28,14 @@ const mockPrisma = {
 };
 
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
+jest.mock('../milestones/MilestoneService', () => ({ milestoneService: { captureVisionCommit: jest.fn(), evaluateQuietly: jest.fn() } }));
 jest.mock('../../StorageService', () => ({
   resolveStorageKeyUrl: jest.fn((key: string) => Promise.resolve(`https://signed.cdn/${key}`)),
   uploadImageAssetFromBuffer: jest.fn(),
 }));
 
 import { visionService, computeLocalDateKey } from '../VisionService';
+import { milestoneService } from '../milestones/MilestoneService';
 import { resolveStorageKeyUrl } from '../../StorageService';
 import { AppError } from '../../../api/middleware/errorHandler';
 
@@ -139,6 +141,7 @@ describe('VisionService (Anchor 2.0 V2)', () => {
       expect(vision.scenes).toHaveLength(1);
       expect(vision.scenes[0].resolvedImageUrl).toContain('https://signed.cdn/');
       expect(vision.seenToday).toBe(false);
+      expect(milestoneService.captureVisionCommit).toHaveBeenCalledWith(USER_ID, ANCHOR_ID, VISION_ID, mockPrisma);
     });
 
     it('rejects creation if user does not own the anchor', async () => {

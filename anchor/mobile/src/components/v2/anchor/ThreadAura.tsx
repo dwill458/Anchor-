@@ -54,6 +54,8 @@ export type ThreadAuraProps = {
    * progress); opacity and reach follow it on the UI thread, up to `threadStrength`'s calibrated glow.
    */
   strengthProgress?: SharedValue<number>;
+  /** Practice-only overshoot; changes reach without changing the authoritative strength. */
+  strengthBloom?: SharedValue<number>;
   reducedMotion: boolean;
 };
 
@@ -214,7 +216,7 @@ export const ThreadAura = memo(function ThreadAura(props: ThreadAuraProps) {
     cancelAnimation(scale);
   }, [opacity, scale]);
 
-  const { carouselOffset, carouselSpacing, strengthProgress } = props;
+  const { carouselOffset, carouselSpacing, strengthProgress, strengthBloom, reducedMotion } = props;
   const finalProgress = Math.max(normalizeThreadStrength(props.threadStrength), 0.001);
   const animatedLayerStyle = useAnimatedStyle(() => {
     const dragFade = isHome && carouselOffset && carouselSpacing && carouselSpacing > 0
@@ -224,14 +226,14 @@ export const ThreadAura = memo(function ThreadAura(props: ThreadAuraProps) {
       const p = Math.max(0, Math.min(1, strengthProgress.value));
       return {
         opacity: detailsAuraOpacity(p * 100),
-        transform: [{ scale: interpolate(p, [0, finalProgress], [0.82, 1], 'clamp') }],
+        transform: [{ scale: interpolate(p, [0, finalProgress], [0.82, 1], 'clamp') * (reducedMotion ? 1 : strengthBloom?.value ?? 1) }],
       };
     }
     return {
       opacity: opacity.value * dragFade,
       transform: [{ scale: scale.value }],
     };
-  }, [isHome, carouselOffset, carouselSpacing, strengthProgress, finalProgress]);
+  }, [isHome, carouselOffset, carouselSpacing, strengthProgress, strengthBloom, reducedMotion, finalProgress]);
 
   // Native installations without Skia, and web without CanvasKit, retain the same SVG geometry.
   const Renderer = useMemo(() => {

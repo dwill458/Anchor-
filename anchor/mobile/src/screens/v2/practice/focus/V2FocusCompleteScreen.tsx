@@ -26,6 +26,8 @@ import type { ArrivalRect } from '@/stores/v2/homeArrivalStore';
 import type { FocusSaveWaitResult } from './focusSaveWait';
 import { offerPracticeDeparture, type PracticeDepartureMeasure } from '@/stores/v2/practiceDeparture';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
+import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 
 // COPY: from the celebration brief
 const COPY = {
@@ -133,6 +135,12 @@ export function V2FocusCompleteScreen({
 }: V2FocusCompleteScreenProps) {
   const { height } = useWindowDimensions();
   const reduceMotion = useCelebrationReduceMotion();
+  const [milestoneReady, setMilestoneReady] = useState(false);
+  useMilestonePresentationHold(!milestoneReady);
+  useEffect(() => {
+    const timer = setTimeout(() => setMilestoneReady(true), reduceMotion ? 160 : 2500);
+    return () => clearTimeout(timer);
+  }, [reduceMotion]);
   const categoryPalette = getCategoryPalette(anchor.category);
   const artworkSize = Math.round(Math.min(188, Math.max(148, height * 0.22)));
   // V2Screen already applies the bottom safe-area inset.
@@ -207,6 +215,21 @@ export function V2FocusCompleteScreen({
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
   const oldValueStyle = useAnimatedStyle(() => ({ opacity: oldValueOut.value }));
   const artworkRef = useRef<ViewInstance>(null);
+  const originAlive = useRef(true);
+  const recordMilestoneOrigin = useCallback(() => {
+    if (!sessionId || !sessionSaved) return;
+    void measureWindow(artworkRef.current).then(rect => {
+      if (rect && originAlive.current) useMilestoneCelebrationStore.getState().setOrigin({ sessionId, anchorId: anchor.id, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+    });
+  }, [anchor.id, sessionId, sessionSaved]);
+  useEffect(() => {
+    originAlive.current = true;
+    return () => {
+      originAlive.current = false;
+      const store = useMilestoneCelebrationStore.getState();
+      if (store.origin?.sessionId === sessionId) store.setOrigin(null);
+    };
+  }, [sessionId]);
   const valueRef = useRef<TextInstance>(null);
   const showsNewValue = hasAuthoritativeMovement && delta !== 0;
 
@@ -272,6 +295,7 @@ export function V2FocusCompleteScreen({
       <Animated.View style={[styles.content, contentStyle]}>
         <Animated.View
           ref={artworkRef}
+          onLayout={recordMilestoneOrigin}
           collapsable={false}
           style={[styles.artworkContainer, { width: artworkSize, height: artworkSize }, artworkStyle]}
         >
@@ -286,6 +310,7 @@ export function V2FocusCompleteScreen({
             threadStrength={toVal}
             anchorId={anchor.id}
             strengthProgress={scene.barProgress}
+            strengthBloom={scene.glowScale}
           />
           {scene.kind === 'fullFirst' ? (
             <Svg

@@ -1,15 +1,16 @@
-import React, { useEffect, useRef } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import React, { useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ViewInstance } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { X } from 'lucide-react-native';
 import { V2Button } from '@/components/v2/primitives/V2Button';
 import { colors, spacing, typography } from '@/theme/v2';
 import { progressTokens } from '@/components/v2/progress/progressTokens';
-import { playCreationSound } from '@/services/CreationSounds';
-import { v2Haptics } from '@/hooks/v2/haptics';
 import { FAMILY_LABEL, describeEarnedValue, getMilestoneSpec } from '@/milestones/registry';
 import type { MilestoneRecord } from '@/milestones/milestoneModel';
 import { MilestoneArtwork } from './MilestoneArtwork';
+import { useMilestoneReveal } from './useMilestoneReveal';
+import { MilestoneLightStream } from './MilestoneLightStream';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface MilestoneCelebrationSceneProps {
   record: MilestoneRecord;
@@ -18,6 +19,9 @@ export interface MilestoneCelebrationSceneProps {
   categoryColor?: string;
   reducedMotion?: boolean;
   onContinue: () => void;
+  onBackToMilestones?: () => void;
+  transition?: boolean;
+  origin?: { x: number; y: number };
   testID?: string;
 }
 
@@ -40,62 +44,53 @@ export const MilestoneCelebrationScene: React.FC<MilestoneCelebrationSceneProps>
   categoryColor,
   reducedMotion = false,
   onContinue,
+  onBackToMilestones,
+  transition = mode === 'award',
+  origin,
   testID = 'milestone-celebration',
 }) => {
   const spec = getMilestoneSpec(record.definitionId);
-  const art = useSharedValue(reducedMotion ? 1 : 0);
-  const copy = useSharedValue(reducedMotion ? 1 : 0);
-  const cued = useRef(false);
-
-  useEffect(() => {
-    if (!spec) return;
-    if (reducedMotion) {
-      art.value = withTiming(1, { duration: 160 });
-      copy.value = withTiming(1, { duration: 160 });
-    } else {
-      art.value = withTiming(1, { duration: 760, easing: Easing.out(Easing.cubic) });
-      copy.value = withDelay(520, withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) }));
-    }
-    // One haptic and one sound per presentation, even if the effect re-runs.
-    if (!cued.current) {
-      cued.current = true;
-      v2Haptics[spec.haptic]();
-      playCreationSound(spec.sound);
-    }
-  }, [art, copy, reducedMotion, spec]);
-
-  const reveal = spec?.celebration.reveal ?? 'bloom';
-  const artStyle = useAnimatedStyle(() => ({
-    opacity: art.value,
-    transform:
-      reducedMotion || reveal === 'bloom'
-        ? [{ scale: reducedMotion ? 1 : 0.86 + 0.14 * art.value }]
-        : [{ translateY: (reveal === 'rise' ? 24 : 8) * (1 - art.value) }],
-  }));
-  const copyStyle = useAnimatedStyle(() => ({ opacity: copy.value, transform: [{ translateY: 8 * (1 - copy.value) }] }));
+  const { progress, travel, fieldStyle, artStyle, copyStyle, settled } = useMilestoneReveal(spec, reducedMotion, transition);
+  const { width, height } = useWindowDimensions();
+  const artRef = useRef<ViewInstance>(null);
+  const [target, setTarget] = useState<{ x: number; y: number }>();
+  const insets = useSafeAreaInsets();
+  const finished = useRef(false);
+  const finish = () => { if (!finished.current) { finished.current = true; onContinue(); } };
+  const continuePresentation = () => {
+    if (finished.current) return;
+    finish();
+    if (mode === 'replay') onBackToMilestones?.();
+  };
 
   if (!spec) return null;
   const date = formatEarnedDate(record.earnedAt);
   const value = describeEarnedValue(spec, record.metadata);
 
   return (
-    <Modal visible transparent animationType={reducedMotion ? 'fade' : 'none'} onRequestClose={onContinue} testID={testID}>
-      <View style={styles.overlay}>
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={finish} testID={testID}>
+      <View style={styles.overlay} accessibilityViewIsModal>
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.field, fieldStyle]} />
+        {!reducedMotion && !settled && origin && target ? <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <MilestoneLightStream progress={travel} source={origin} target={target} width={width} height={height} />
+        </View> : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
-          onPress={onContinue}
+          onPress={finish}
           hitSlop={12}
-          style={styles.close}
+          style={[styles.close, { top: insets.top + spacing[2] }]}
           testID={`${testID}-close`}
         >
           <X size={20} color={colors.cream} />
         </Pressable>
 
-        <Text style={styles.eyebrow}>{mode === 'replay' ? 'REPLAY' : 'MILESTONE'} · {FAMILY_LABEL[spec.family].toUpperCase()}</Text>
+        <ScrollView style={styles.scroll} contentContainerStyle={[styles.presentation, { paddingTop: insets.top + spacing[8], paddingBottom: insets.bottom + spacing[6] }]} showsVerticalScrollIndicator={false}>
+        <Animated.Text style={[styles.eyebrow, copyStyle]}>{mode === 'replay' ? 'REPLAY' : 'MILESTONE'} · {FAMILY_LABEL[spec.family].toUpperCase()}</Animated.Text>
 
-        <Animated.View style={[styles.art, artStyle]} testID={`${testID}-art`}>
-          <MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} categoryColor={categoryColor} />
+        <Animated.View ref={artRef} onLayout={() => artRef.current?.measureInWindow?.((x, y, w, h) => { if (w > 0) setTarget({ x: x + w / 2, y: y + h / 2 }); })} style={[styles.art, artStyle]} testID={`${testID}-art`}>
+          {!reducedMotion && !settled && !origin ? <View style={styles.stream}><MilestoneLightStream progress={progress} /></View> : null}
+          <MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} categoryColor={categoryColor} animated={!settled} progress={progress} reducedMotion={reducedMotion} />
         </Animated.View>
 
         <Animated.View style={[styles.copy, copyStyle]}>
@@ -108,9 +103,12 @@ export const MilestoneCelebrationScene: React.FC<MilestoneCelebrationSceneProps>
           {mode === 'replay' ? <Text style={styles.note}>Replaying doesn’t change your progress.</Text> : null}
         </Animated.View>
 
-        <V2Button size="large" onPress={onContinue} testID={`${testID}-continue`}>
-          Continue
-        </V2Button>
+        <Animated.View style={copyStyle}>
+          <V2Button size="large" onPress={continuePresentation} testID={`${testID}-continue`}>
+            {mode === 'replay' ? 'Back to Milestones' : 'Continue'}
+          </V2Button>
+        </Animated.View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -119,13 +117,18 @@ export const MilestoneCelebrationScene: React.FC<MilestoneCelebrationSceneProps>
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
+  },
+  scroll: { flex: 1 },
+  presentation: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[5],
     paddingHorizontal: spacing[6],
-    backgroundColor: colors.ink.base,
   },
-  close: { position: 'absolute', top: spacing[8], right: spacing[5], minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  field: { backgroundColor: colors.ink.base },
+  stream: { position: 'absolute', left: -30, top: -30 },
+  close: { position: 'absolute', zIndex: 1, top: spacing[8], right: spacing[5], minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   eyebrow: { ...typography.labelSM, letterSpacing: 1.6, color: progressTokens.heroMuted },
   art: { width: ART_SIZE, height: ART_SIZE },
   copy: { alignItems: 'center', gap: spacing[2] },
