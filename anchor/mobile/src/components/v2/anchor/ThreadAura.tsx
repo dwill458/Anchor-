@@ -257,7 +257,9 @@ export const ThreadAuraStatic = memo(function ThreadAuraStatic(props: ThreadAura
   const p = threadAuraParameters(normalizeThreadStrength(props.threadStrength), props.variant);
   const span = props.size * THREAD_AURA_SPAN;
   const r = props.size / 2;
-  const strokeWidth = r * (0.1 + 0.16 * p.mid);
+  // Keep the low-tier ring inside the same strength-calibrated reach as the shader. Using
+  // overall glow intensity here made the fallback rings much wider at ordinary strengths.
+  const strokeWidth = r * p.midWidth * 0.65;
   const opacity = Math.min(1, p.bloom + p.core * 0.4);
   if (props.lowCost) {
     return <Svg width="100%" height="100%" viewBox={`0 0 ${span} ${span}`}>

@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { VisionPreviewCard } from '../VisionPreviewCard';
 
 const photos = Array.from({ length: 10 }, (_, i) => ({ id: `photo-${i}`, imageUrl: `https://vision.test/${i}.jpg` }));
@@ -47,6 +48,8 @@ describe('VisionPreviewCard: details variant', () => {
     expect(view.getByText('Calm, unhurried')).toBeTruthy();
     expect(view.getByText('View Vision', { exact: false })).toBeTruthy();
     expect(prints(view)).toHaveLength(2);
+    expect(StyleSheet.flatten(view.getByTestId('card-footer').props.style)).toMatchObject({ marginTop: 8 });
+    expect(view.queryByTestId('card-chevron')).toBeNull();
     fireEvent.press(view.getByLabelText('Vision'));
     expect(open).toHaveBeenCalledTimes(1);
   });

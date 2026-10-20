@@ -124,7 +124,7 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
             width={width}
             imageTestID={imageTestID}
           />
-          <View style={[styles.footer, caption ? styles.footerWithCaption : null]}>
+          <View testID={`${testID}-footer`} style={[styles.footer, variant === 'details' ? styles.detailsFooter : null, caption ? styles.footerWithCaption : null]}>
             {/* The vision text sits beside the round control, never under it. */}
             {caption ? (
               <View style={styles.captionRow}>
@@ -141,9 +141,11 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
                 <ChevronRight size={14} color={VISION_CAPTION_COLOR} strokeWidth={2.2} />
               </View>
             ) : null}
-            <View testID={`${testID}-chevron`} pointerEvents="none" accessible={false} style={styles.roundButton}>
-              <ChevronRight size={20} color={VISION_CAPTION_COLOR} strokeWidth={2.2} />
-            </View>
+            {variant !== 'details' ? (
+              <View testID={`${testID}-chevron`} pointerEvents="none" accessible={false} style={styles.roundButton}>
+                <ChevronRight size={20} color={VISION_CAPTION_COLOR} strokeWidth={2.2} />
+              </View>
+            ) : null}
           </View>
         </View>
       )}
@@ -259,6 +261,7 @@ const styles = StyleSheet.create({
   count: { fontFamily: VISION_CAPTION_FONTS.sans, fontSize: 12, lineHeight: 16, color: INK_MUTED },
   // The footer draws above the prints, so the round control is never tucked behind a print that overhangs the stage.
   footer: { marginTop: -34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, position: 'relative', zIndex: 10, elevation: 10 },
+  detailsFooter: { marginTop: 8 },
   footerWithCaption: { marginTop: 8 },
   footerSpacer: { flex: 1 },
   captionRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 0 },
