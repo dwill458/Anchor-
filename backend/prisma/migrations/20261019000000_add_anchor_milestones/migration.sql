@@ -11,8 +11,8 @@ CREATE TABLE "anchor_milestones" (
   "celebrated_at" TIMESTAMP(3),
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "anchor_milestones_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "anchor_milestones_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE,
-  CONSTRAINT "anchor_milestones_anchor_id_fkey" FOREIGN KEY ("anchor_id") REFERENCES "anchors"("id") ON DELETE CASCADE
+  CONSTRAINT "anchor_milestones_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "anchor_milestones_anchor_id_fkey" FOREIGN KEY ("anchor_id") REFERENCES "anchors"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE UNIQUE INDEX "anchor_milestones_user_id_anchor_id_definition_id_key" ON "anchor_milestones"("user_id", "anchor_id", "definition_id");
 CREATE INDEX "anchor_milestones_user_id_anchor_id_earned_at_idx" ON "anchor_milestones"("user_id", "anchor_id", "earned_at");
