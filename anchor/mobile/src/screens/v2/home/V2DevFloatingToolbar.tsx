@@ -15,6 +15,8 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
+import { DEV_MILESTONE_LABELS, makeDevMilestoneRecord } from '@/milestones/devTrigger';
 import { resetChartIntroSeen } from '@/components/v2/chart/chartIntroSeen';
 import {
   useDetectedPerformanceTier,
@@ -49,6 +51,15 @@ export function V2DevFloatingToolbar() {
   const effectiveTier = usePerformanceTier({ override: devPerfTierOverride });
 
   if (!__DEV__) return null;
+
+  // Plays a milestone celebration without earning anything: it is a non-awarding replay of a
+  // synthetic record, queued after this dialog has closed (two modals cannot present together).
+  const handleTriggerMilestone = (definitionId: string) => {
+    const record = makeDevMilestoneRecord(definitionId, activeAnchor?.id ?? 'dev-anchor');
+    if (!record) return;
+    setOpen(false);
+    setTimeout(() => useMilestoneCelebrationStore.getState().requestReplay(record), 400);
+  };
 
   const handleSeed = () => {
     seedV2DemoAnchor();
@@ -238,6 +249,22 @@ export function V2DevFloatingToolbar() {
                 >
                   <Text style={[styles.chipText, simulatedStrength === null && styles.chipTextActive]}>Real</Text>
                 </Pressable>
+              </View>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.sectionLabel}>Milestone celebration (plays only, saves nothing)</Text>
+              <View style={styles.chipRow}>
+                {DEV_MILESTONE_LABELS.map(({ id, label }) => (
+                  <Pressable
+                    key={id}
+                    testID={`v2-dev-milestone-${id}`}
+                    style={styles.chip}
+                    onPress={() => handleTriggerMilestone(id)}
+                  >
+                    <Text style={styles.chipText}>{label}</Text>
+                  </Pressable>
+                ))}
               </View>
 
               <View style={styles.divider} />
