@@ -178,7 +178,9 @@
       "environment": "production",
       "developmentClient": false,
       "android": {
-        "gradleCommand": ":app:assembleRelease --project-prop expo.sqlite.useSQLCipher=true"
+        "gradleCommand": ":app:assembleRelease --project-prop expo.sqlite.useSQLCipher=true",
+        "buildType": "apk",
+        "resourceClass": "large"
       },
       "env": {
         "ANCHOR_SQLCIPHER_PRODUCTION_QA": "1",
