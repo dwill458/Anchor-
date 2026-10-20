@@ -1,0 +1,13 @@
+{
+  "utc": "2026-10-19T02:39:06.218189+00:00",
+  "stoppedUser": 10,
+  "heldBeforeCommit": true,
+  "processesBefore": [
+    "u10_a751     21611 com.anchorintentions.sqlcipherpreview20261015",
+    "u0_a751      24058 com.anchorintentions.sqlcipherpreview20261015"
+  ],
+  "processesAfter": [
+    "u0_a751      24058 com.anchorintentions.sqlcipherpreview20261015"
+  ],
+  "ownerProcessPreserved": true
+}

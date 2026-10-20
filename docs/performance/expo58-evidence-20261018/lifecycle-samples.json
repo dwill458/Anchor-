@@ -1,0 +1,182 @@
+[
+  {
+    "cycle": 1,
+    "utc": "2026-10-19T00:35:08.5972268Z",
+    "beforePssKb": 1188846,
+    "backgroundPssKb": 1158978,
+    "afterPssKb": 1078654,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 61"
+  },
+  {
+    "cycle": 2,
+    "utc": "2026-10-19T00:35:10.9449858Z",
+    "beforePssKb": 1071706,
+    "backgroundPssKb": 1072713,
+    "afterPssKb": 1014236,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 95"
+  },
+  {
+    "cycle": 3,
+    "utc": "2026-10-19T00:35:13.1035339Z",
+    "beforePssKb": 1013788,
+    "backgroundPssKb": 1013806,
+    "afterPssKb": 1013982,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 60"
+  },
+  {
+    "cycle": 4,
+    "utc": "2026-10-19T00:35:15.2968925Z",
+    "beforePssKb": 1013382,
+    "backgroundPssKb": 1013650,
+    "afterPssKb": 1014007,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 65"
+  },
+  {
+    "cycle": 5,
+    "utc": "2026-10-19T00:35:17.6621110Z",
+    "beforePssKb": 1013399,
+    "backgroundPssKb": 1013671,
+    "afterPssKb": 1014159,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 76"
+  },
+  {
+    "cycle": 6,
+    "utc": "2026-10-19T00:35:19.9898142Z",
+    "beforePssKb": 1013630,
+    "backgroundPssKb": 1015562,
+    "afterPssKb": 1014626,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 70"
+  },
+  {
+    "cycle": 7,
+    "utc": "2026-10-19T00:35:22.2044520Z",
+    "beforePssKb": 1014146,
+    "backgroundPssKb": 1014536,
+    "afterPssKb": 1014689,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 74"
+  },
+  {
+    "cycle": 8,
+    "utc": "2026-10-19T00:35:24.4030894Z",
+    "beforePssKb": 1014225,
+    "backgroundPssKb": 1014470,
+    "afterPssKb": 1014718,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 64"
+  },
+  {
+    "cycle": 9,
+    "utc": "2026-10-19T00:35:26.6771841Z",
+    "beforePssKb": 1014234,
+    "backgroundPssKb": 1014514,
+    "afterPssKb": 1014716,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 70"
+  },
+  {
+    "cycle": 10,
+    "utc": "2026-10-19T00:35:29.0309076Z",
+    "beforePssKb": 1014296,
+    "backgroundPssKb": 1014708,
+    "afterPssKb": 1014862,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 77"
+  },
+  {
+    "cycle": 11,
+    "utc": "2026-10-19T00:35:31.4869340Z",
+    "beforePssKb": 1014281,
+    "backgroundPssKb": 995435,
+    "afterPssKb": 1015669,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 72"
+  },
+  {
+    "cycle": 12,
+    "utc": "2026-10-19T00:35:33.7854195Z",
+    "beforePssKb": 1015241,
+    "backgroundPssKb": 1015510,
+    "afterPssKb": 1015769,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 73"
+  },
+  {
+    "cycle": 13,
+    "utc": "2026-10-19T00:35:36.2448093Z",
+    "beforePssKb": 1015272,
+    "backgroundPssKb": 1012475,
+    "afterPssKb": 1012424,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 72"
+  },
+  {
+    "cycle": 14,
+    "utc": "2026-10-19T00:35:38.4786286Z",
+    "beforePssKb": 1011948,
+    "backgroundPssKb": 1012237,
+    "afterPssKb": 1012789,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 70"
+  },
+  {
+    "cycle": 15,
+    "utc": "2026-10-19T00:35:40.7774907Z",
+    "beforePssKb": 1012133,
+    "backgroundPssKb": 1012401,
+    "afterPssKb": 1008962,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 72"
+  },
+  {
+    "cycle": 16,
+    "utc": "2026-10-19T00:35:43.1617772Z",
+    "beforePssKb": 1008306,
+    "backgroundPssKb": 1008381,
+    "afterPssKb": 1004989,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 77"
+  },
+  {
+    "cycle": 17,
+    "utc": "2026-10-19T00:35:45.4380146Z",
+    "beforePssKb": 1004534,
+    "backgroundPssKb": 1000195,
+    "afterPssKb": 1000548,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 67"
+  },
+  {
+    "cycle": 18,
+    "utc": "2026-10-19T00:35:47.6785474Z",
+    "beforePssKb": 1000267,
+    "backgroundPssKb": 1000257,
+    "afterPssKb": 1000690,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 68"
+  },
+  {
+    "cycle": 19,
+    "utc": "2026-10-19T00:35:50.2535198Z",
+    "beforePssKb": 1000222,
+    "backgroundPssKb": 994558,
+    "afterPssKb": 990149,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 69"
+  },
+  {
+    "cycle": 20,
+    "utc": "2026-10-19T00:35:52.5076279Z",
+    "beforePssKb": 989851,
+    "backgroundPssKb": 987710,
+    "afterPssKb": 987562,
+    "launchState": "LaunchState: HOT",
+    "activityTotalMs": "TotalTime: 62"
+  }
+]

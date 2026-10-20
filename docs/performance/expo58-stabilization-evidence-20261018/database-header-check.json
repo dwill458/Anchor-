@@ -1,0 +1,6 @@
+{
+  "operation": "read-only database header comparison",
+  "exitCode": 0,
+  "bytesRead": 16,
+  "plaintextSqliteHeader": false
+}

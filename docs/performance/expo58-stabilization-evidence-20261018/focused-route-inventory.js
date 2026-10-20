@@ -1,0 +1,1 @@
+(() => {const qa=globalThis.__anchorStabilizationQA;qa.guard();const names=[];qa.visitFocused(n=>{const name=typeof n.type==='function'?n.type.name:n.type?.type?.name;if(name&&/V2|Practice|Focus/.test(name))names.push(name);});return {names,state:qa.navigation.getState().routes.map(x=>({name:x.name,key:x.key}))};})()

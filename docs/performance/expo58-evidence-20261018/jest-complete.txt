@@ -1,0 +1,4288 @@
+FAIL src/screens/rituals/__tests__/ActivationScreen.test.tsx (102.029 s)
+  ● ActivationScreen › calls API only after tapping the seal
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      749 |
+      750 |     // Now click Done in CompletionModal
+    > 751 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      752 |     fireEvent.press(getByTestId('completion-modal-done'));
+      753 |
+      754 |     await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:751:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › records and exits only once when completion callbacks re-enter
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      773 |     fireEvent.press(seal);
+      774 |
+    > 775 |     const done = await waitFor(() => getByTestId('completion-modal-done'));
+          |                               ^
+      776 |     const skip = getByLabelText('Skip reflection');
+      777 |     fireEvent.press(done);
+      778 |     fireEvent.press(skip);
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:775:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › updates local activation immediately on seal
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      789 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      790 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 791 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      792 |     fireEvent.press(getByTestId('completion-modal-done'));
+      793 |
+      794 |     await waitFor(() => expect(mockUpdateAnchor).toHaveBeenCalledWith(TEST_ANCHOR_UUID, {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:791:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › does not show exit warning once the focus session is complete
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      852 |
+      853 |     expect(mockGoBack).not.toHaveBeenCalled();
+    > 854 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      855 |   });
+      856 |
+      857 |   it('routes completed-session back attempts into reflection instead of exit warning', async () => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:854:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › routes completed-session back attempts into reflection instead of exit warning
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      873 |     expect(preventDefault).toHaveBeenCalled();
+      874 |     expect(mockGoBack).not.toHaveBeenCalled();
+    > 875 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      876 |   });
+      877 |
+      878 |   it('pops vault stack and returns to Practice after completion when launched from Practice', async () => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:875:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › pops vault stack and returns to Practice after completion when launched from Practice
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      890 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      891 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 892 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      893 |     fireEvent.press(getByTestId('completion-modal-done'));
+      894 |
+      895 |     await waitFor(() => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:892:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › uses provided activation type
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      913 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      914 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 915 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      916 |     fireEvent.press(getByTestId('completion-modal-done'));
+      917 |
+      918 |     await waitFor(() => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:915:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › uses visual as fallback activation type
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      941 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      942 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 943 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      944 |     fireEvent.press(getByTestId('completion-modal-done'));
+      945 |
+      946 |     await waitFor(() => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:943:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › skips the post-prime trace prompt on the first prime session for an anchor
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      986 |     fireEvent.press(getByTestId('focus-session-continue'));
+      987 |
+    > 988 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+          |                  ^
+      989 |     expect(queryByTestId('post-prime-trace-modal')).toBeNull();
+      990 |     expect(mockIsPostPrimeTraceEligible).not.toHaveBeenCalled();
+      991 |   });
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:988:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › marks the anchor as charged when the first quick-prime completes
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      1008 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      1009 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 1010 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+           |                  ^
+      1011 |     fireEvent.press(getByTestId('completion-modal-done'));
+      1012 |
+      1013 |     await waitFor(() =>
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:1010:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › skips post-prime trace into reflection without applying the trace flow
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      1072 |     fireEvent.press(getByTestId('post-prime-skip-button'));
+      1073 |
+    > 1074 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+           |                  ^
+      1075 |     expect(mockNavigate).not.toHaveBeenCalledWith('ManualReinforcement', expect.anything());
+      1076 |   });
+      1077 |
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:1074:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › starts post-prime trace and returns to reflection after a completed trace result
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      1102 |     });
+      1103 |
+    > 1104 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+           |                  ^
+      1105 |   });
+      1106 |
+      1107 |   it('handles API errors gracefully after sealing', async () => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:1104:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › handles API errors gracefully after sealing
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      1113 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      1114 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 1115 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+           |                  ^
+      1116 |     fireEvent.press(getByTestId('completion-modal-done'));
+      1117 |
+      1118 |     await waitFor(() => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:1115:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › treats anchor-not-found sync failures as handled state instead of a Sentry exception
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      1141 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      1142 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 1143 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+           |                  ^
+      1144 |     fireEvent.press(getByTestId('completion-modal-done'));
+      1145 |
+      1146 |     await waitFor(() => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:1143:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › promotes a local temp anchor id before activating
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      1207 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      1208 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 1209 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+           |                  ^
+      1210 |     fireEvent.press(getByTestId('completion-modal-done'));
+      1211 |
+      1212 |     await waitFor(() => {
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:1209:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● ActivationScreen › redirects back to Vault after a creation-launched activation completes
+
+    Unable to find an element with testID: completion-modal-done
+
+    <View>
+      <View>
+        <LinearGradient />
+        <View />
+        <View />
+        <View>
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+          <View />
+        </View>
+        <View>
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+          <LinearGradient />
+        </View>
+      </View>
+      <View />
+      <SafeAreaView>
+        <View>
+          <View>
+            <View
+              accessibilityLabel="Dismiss focus session"
+              accessibilityRole="button"
+              accessible={true}
+              testID="focus-session-dismiss"
+            >
+              <Text>
+                ✕
+              </Text>
+            </View>
+            <Text>
+              SEAL YOUR ANCHOR
+            </Text>
+            <View />
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Seal your anchor — press and hold"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="focus-session-continue"
+            >
+              <View />
+              <View>
+                <View />
+                <View />
+                <View />
+              </View>
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <View>
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+            <Text>
+              Press and hold to seal
+            </Text>
+          </View>
+          <View>
+            <Text>
+              When ready, press and hold the symbol above.
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+
+      1246 |     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
+      1247 |     fireEvent.press(getByTestId('focus-session-continue'));
+    > 1248 |     await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+           |                  ^
+      1249 |     fireEvent.press(getByTestId('completion-modal-done'));
+      1250 |
+      1251 |     await waitFor(() =>
+
+      at Object.<anonymous> (src/screens/rituals/__tests__/ActivationScreen.test.tsx:1248:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/components/v2/chart/panel/__tests__/ChartSummitAndRouteScenes.test.tsx (80.324 s)
+  ● Summit (S1) › Reduce Motion: not skippable (registered short), no travel, and the Heavy haptic and chord still fire once
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      344 |     expect(impact).toHaveBeenCalledWith(HEAVY);
+      345 |     expect(soundCalls('chart-summit-thud')).toHaveLength(1);
+    > 346 |     expect(soundCalls('chart-summit-chord')).toHaveLength(1);
+          |                                              ^
+      347 |     expect(screen.queryByLabelText('Skip')).toBeNull();
+      348 |     // No pen: it belongs to the travel that no longer plays.
+      349 |     expect(soundKeys()).not.toContain('chart-ink');
+
+      at Object.toHaveLength (src/components/v2/chart/panel/__tests__/ChartSummitAndRouteScenes.test.tsx:346:46)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx (37.209 s)
+  ● V2ChartScreen — active Chart › plays the waypoint-reached moment once, then clears the route param
+
+    expect(received).toBeNull()
+
+    Received: {"_fiber": {"_debugHookTypes": null, "_debugInfo": null, "_debugNeedsRemount": false, "_debugOwner": [FiberNode], "_debugStack": [Error: react-stack-top-frame], "_debugTask": null, "actualDuration": 0, "actualStartTime": 1792370433973, "alternate": null, "child": [FiberNode], "childLanes": 0, "deletions": null, "dependencies": null, "elementType": "View", "flags": 0, "index": 0, "key": null, "lanes": 0, "memoizedProps": [Object], "memoizedState": null, "mode": 3, "pendingProps": [Object], "ref": null, "refCleanup": null, "return": [FiberNode], "selfBaseDuration": 0, "sibling": null, "stateNode": [Object], "subtreeFlags": 5243397, "tag": 5, "treeBaseDuration": 0, "type": "View", "updateQueue": null}}
+
+      517 |     expect(screen.getByTestId('chart-commit')).toBeTruthy();
+      518 |     fireEvent.press(screen.getByText("I'm committed"));
+    > 519 |     await waitFor(() => expect(screen.queryByTestId('chart-waypoint-reached')).toBeNull());
+          |                  ^
+      520 |     expect(mockSetParams).toHaveBeenCalledWith({ reached: undefined });
+      521 |   });
+      522 | });
+
+      at Object.<anonymous> (src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx:519:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/components/v2/creation/__tests__/V2CreationFlow.test.tsx (27.29 s)
+  ● V2CreationFlow › distils the real intention and forms the real deterministic structure
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\" color=\"#FFFFFF\"><g><path d=\"M 38.73,38.53 L 39.54,79.27 L 58.4,18.02 L 78.57,39.84 L 78.19,18.19 L 79.37,78.93 L 38.94,19.85 L 38.59,59.84 L 58.26,19.76\" stroke=\"currentColor\" stroke-width=\"1.8\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" /></g></svg>"
+    Received: "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\" color=\"#FFFFFF\"><g><path d=\"M 78.07,18.34 L 30.61,42.92 L 19.96,55.09 L 30.39,31.51 L 30.13,54.43 L 54.5,43.07 L 78.32,43.82 L 54.85,31.75 L 42.31,18.18\" stroke=\"currentColor\" stroke-width=\"1.3\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" /></g></svg>"
+
+      106 |     layoutStage();
+      107 |     await waitFor(() => expect(current().currentStep).toBe('formation'), { timeout: 3000 });
+    > 108 |     expect(current().structureSvg).toBe(STRUCTURE);
+          |                                    ^
+      109 |     await waitFor(() => expect(current().currentStep).toBe('reveal'), { timeout: 8000 });
+      110 |     expect(screen.getByText('This is your Anchor.')).toBeTruthy();
+      111 |     expect(screen.getByTestId('reveal-intention').props.children.join('')).toContain(INTENTION);
+
+      at Object.toBe (src/components/v2/creation/__tests__/V2CreationFlow.test.tsx:108:36)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/components/share/__tests__/useShareExportRenderer.integration.test.tsx (17.279 s)
+  ● captures only after the staged full-resolution composition is ready
+
+    thrown: "Exceeded timeout of 10000 ms for a test.
+    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+
+      at _getError (node_modules/jest-circus/build/jestAdapterInit.js:1985:12)
+          at Array.map (<anonymous>)
+
+    Cause:
+        thrown: "Exceeded timeout of 10000 ms for a test.
+        Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+
+          32 | });
+          33 |
+        > 34 | it('captures only after the staged full-resolution composition is ready', async () => {
+             | ^
+          35 |   const { result } = renderHook(() => useShareExportRenderer(data));
+          36 |   let pending!: Promise<string>;
+          37 |   act(() => { pending = result.current.renderPng('vision', true); });
+
+          at Object.it (src/components/share/__tests__/useShareExportRenderer.integration.test.tsx:34:1)
+
+FAIL src/screens/vault/__tests__/AnchorDetailScreen.test.tsx (10.434 s)
+  ● AnchorDetailScreen › disables anchor glow layers and background orbs on low-tier devices
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"showOrbs": false, "variant": "practice"}
+
+    Number of calls: 0
+
+      334 |         expect(screen.queryByTestId('charged-glow-canvas')).toBeNull();
+      335 |
+    > 336 |         await waitFor(() => {
+          |                      ^
+      337 |             expect(mockZenBackgroundProps).toHaveBeenCalledWith(
+      338 |                 expect.objectContaining({
+      339 |                     variant: 'practice',
+
+      at Object.<anonymous> (src/screens/vault/__tests__/AnchorDetailScreen.test.tsx:336:22)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● AnchorDetailScreen › exports wallpaper from the detail screen
+
+    expect(jest.fn()).toHaveBeenCalled()
+
+    Expected number of calls: >= 1
+    Received number of calls:    0
+
+      401 |         render(<AnchorDetailScreen navigation={navigation} route={route} />);
+      402 |         fireEvent.press(screen.getByText('SET AS WALLPAPER'));
+    > 403 |         await waitFor(() => {
+          |                      ^
+      404 |             expect(mockCaptureRef).toHaveBeenCalled();
+      405 |             expect(mockSavePngToPhotoLibrary).toHaveBeenCalledWith(
+      406 |                 'file:///tmp/anchor-card.png',
+
+      at Object.<anonymous> (src/screens/vault/__tests__/AnchorDetailScreen.test.tsx:403:22)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● AnchorDetailScreen › shows the delete action in production and recommends burn & release first
+
+    Unable to find an element with text: Burn & Release is the proper practice.
+
+    <View>
+      <BlurView>
+        <View
+          accessible={true}
+        >
+          <Text>
+            ←
+          </Text>
+        </View>
+        <Text>
+          ANCHOR DETAILS
+        </Text>
+      </BlurView>
+      <RCTScrollView>
+        <View>
+          <View>
+            <View
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <LinearGradient>
+                  <Text>
+                    CURRENT ANCHOR
+                  </Text>
+                  <Text>
+                    Test Intention
+                  </Text>
+                  <View>
+                    <View>
+                      <View />
+                      <Text>
+                        Health
+                      </Text>
+                    </View>
+                    <View>
+                      <Text>
+                        💤
+                      </Text>
+                      <Text>
+                        Dormant
+                      </Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+                <View
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <LinearGradient />
+                </View>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View>
+                  <LinearGradient>
+                    <View>
+                      <LinearGradient />
+                    </View>
+                    <View>
+                      <View
+                        testID="sigil-svg"
+                      />
+                    </View>
+                  </LinearGradient>
+                </View>
+              </View>
+            </View>
+            <View
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View
+                accessibilityLabel="Open this anchor thread strength"
+                accessibilityRole="button"
+                accessible={true}
+                testID="anchor-thread-strength-row"
+              >
+                <View>
+                  <LinearGradient>
+                    <View>
+                      <View>
+                        <View>
+                          <Zap />
+                        </View>
+                        <View>
+                          <Text
+                            testID="anchor-detail-streak-value"
+                          >
+                            1
+                            <Text>
+                               
+                              Day
+                            </Text>
+                          </Text>
+                          <Text>
+                            Thread Strength
+                          </Text>
+                        </View>
+                      </View>
+                      <View>
+                        <View>
+                          <View />
+                        </View>
+                        <View>
+                          <View>
+                            <Text>
+                              M
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              T
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              W
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              T
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              F
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              S
+                            </Text>
+                            <View />
+                          </View>
+                          <View>
+                            <Text>
+                              S
+                            </Text>
+                            <View />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                    <Text>
+                      Each return strengthens the signal.
+                    </Text>
+                    <View>
+                      <View
+                        accessibilityLabel="Why this matters"
+                        accessibilityRole="button"
+                        accessible={true}
+                      >
+                        <View>
+                          <Svg>
+                            <Circle />
+                            <Circle />
+                            <Line />
+                          </Svg>
+                        </View>
+                        <Text>
+                          Why this matters
+                        </Text>
+                      </View>
+                    </View>
+                    <View>
+                      <View>
+                        <Text>
+                          DISTILLED
+                        </Text>
+                        <Text>
+                          ⓘ
+                        </Text>
+                      </View>
+                      <View>
+                        <View>
+                          <Text>
+                            T
+                          </Text>
+                        </View>
+                        <View>
+                          <Text>
+                            S
+                          </Text>
+                        </View>
+                        <View>
+                          <Text>
+                            T
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </LinearGradient>
+                  <View
+                    style={
+                      {
+                        "opacity": 0,
+                      }
+                    }
+                  >
+                    <LinearGradient />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <View
+              accessible={true}
+            >
+              <View>
+                <View>
+                  <Text>
+                    Ready to prime?
+                  </Text>
+                  <Text>
+                    Open Practice
+                  </Text>
+                </View>
+                <View>
+                  <ChevronRight />
+                </View>
+              </View>
+            </View>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <LinearGradient>
+              <Text>
+                WALLPAPER & EXPORT
+              </Text>
+              <Text>
+                Keep your anchor where you will actually see it.
+              </Text>
+              <Text>
+                Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.
+              </Text>
+              <View>
+                <View>
+                  <View
+                    accessibilityRole="button"
+                    accessible={true}
+                  >
+                    <Text>
+                      SQUARE
+                    </Text>
+                    <Text>
+                      1:1
+                    </Text>
+                  </View>
+                  <View
+                    accessibilityRole="button"
+                    accessible={true}
+                  >
+                    <Text>
+                      STORIES
+                    </Text>
+                    <Text>
+                      9:16
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="anchor-detail-share-button"
+                >
+                  <View>
+                    <Share2 />
+                    <Text>
+                      SHARE MY ANCHOR
+                    </Text>
+                  </View>
+                </View>
+                <View>
+                  <View
+                    accessibilityRole="button"
+                    accessibilityState={
+                      {
+                        "disabled": false,
+                      }
+                    }
+                    accessible={true}
+                    testID="anchor-detail-set-wallpaper-button"
+                  >
+                    <Text>
+                      SET AS WALLPAPER
+                    </Text>
+                  </View>
+                  <View
+                    accessibilityRole="button"
+                    accessible={true}
+                    testID="anchor-detail-download-png-button"
+                  >
+                    <Text>
+                      SAVE PNG
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <View
+              accessible={true}
+            >
+              <Text>
+                Delete Anchor
+              </Text>
+            </View>
+          </View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <Text>
+              Created 
+              October 18, 2026
+            </Text>
+          </View>
+        </View>
+      </RCTScrollView>
+      <Modal
+        testID="confirm-delete-anchor-sheet"
+      >
+        <View>
+          <View
+            style={
+              {
+                "opacity": 0,
+              }
+            }
+          >
+            <View
+              accessibilityLabel="Cancel deletion"
+              accessibilityRole="button"
+              accessible={true}
+            />
+          </View>
+          <View>
+            <SafeAreaView
+              accessibilityViewIsModal={true}
+            >
+              <View>
+                <View />
+                <Text
+                  accessibilityRole="none"
+                >
+                  ANCHOR ARCHIVE
+                </Text>
+                <Text
+                  accessibilityRole="header"
+                >
+                  Release is the proper practice.
+                </Text>
+              </View>
+              <View>
+                <Text>
+                  "
+                  Test Intention
+                  "
+                </Text>
+              </View>
+              <Text>
+                Deleting skips the ceremony and quietly archives this Anchor. If you are ready to let it go, Release is the intended path.
+              </Text>
+              <View>
+                <View
+                  accessibilityLabel="Burn and Release"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="confirm-delete-burn-instead-btn"
+                >
+                  <View>
+                    <View />
+                    <Text>
+                      Release with Ceremony
+                    </Text>
+                    <View />
+                  </View>
+                </View>
+                <View
+                  accessibilityLabel="Delete Anyway"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="confirm-delete-anyway-btn"
+                >
+                  <View>
+                    <View />
+                    <Text>
+                      Delete Anyway
+                    </Text>
+                    <View />
+                  </View>
+                </View>
+                <View
+                  accessibilityLabel="Cancel"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="confirm-delete-cancel-btn"
+                >
+                  <View>
+                    <View />
+                    <Text>
+                      Keep Anchor
+                    </Text>
+                    <View />
+                  </View>
+                </View>
+              </View>
+            </SafeAreaView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+
+      425 |         fireEvent.press(screen.getByText('Delete Anchor'));
+      426 |
+    > 427 |         expect(screen.getByText('Burn & Release is the proper practice.')).toBeTruthy();
+          |                       ^
+      428 |         expect(screen.getByText('Delete Anyway')).toBeTruthy();
+      429 |
+      430 |         fireEvent.press(screen.getByText('Delete Anyway'));
+
+      at Object.getByText (src/screens/vault/__tests__/AnchorDetailScreen.test.tsx:427:23)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (25.145 s)
+  ● Vision ceremony › Back from Describe shows the entrance at rest without replaying the open
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      404 |     expect(view.getByTestId('vision-entrance')).toBeTruthy(); expect(view.queryByTestId('vision-entrance-anchor')).toBeNull();
+      405 |     expect(soundCalls('anchorPulse')).toHaveLength(1); expect(soundCalls('formTick')).toHaveLength(3);
+    > 406 |     expect(anchorOpacity(view)).toBe(1);
+          |                                 ^
+      407 |   });
+      408 |   it('backing out of an untouched example does not leave its moment as a prefill', async () => {
+      409 |     mockExamples = [example(1)]; const view = setup();
+
+      at Object.toBe (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:406:33)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision ceremony › the persistent Anchor stays hidden during the open and appears when the lift lands
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      416 |     const view = setup({}, false);
+      417 |     expect(anchorOpacity(view)).toBe(0); await advance(ENTRANCE.liftAt + ENTRANCE.liftMs - 100); expect(anchorOpacity(view)).toBe(0);
+    > 418 |     await advance(2000); await advance(1000); expect(anchorOpacity(view)).toBe(1);
+          |                                                                           ^
+      419 |   });
+      420 |   it('Reduce Motion skips the open and shows the persistent Anchor at once', async () => {
+      421 |     mockReduced = true; const view = setup({}, false); await advance(400);
+
+      at Object.toBe (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:418:75)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision ceremony › hides the Anchor mark on Describe and brings it back on Develop
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      426 |     mockJob = job('RUNNING', []); const view = setup();
+      427 |     const opacity = () => anchorOpacity(view);
+    > 428 |     await advance(2000); expect(opacity()).toBe(1);
+          |                                            ^
+      429 |     fireEvent.press(view.getByLabelText(copy.words)); await advance(2000); expect(opacity()).toBe(0);
+      430 |     await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); }); await advance(2000); expect(opacity()).toBe(1);
+      431 |   });
+
+      at Object.toBe (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:428:44)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx (21.657 s)
+  ● V2AnchorDetailsScreen › carries the medallion into Practice setup when motion is allowed
+
+    Configuration error:
+
+    Could not locate module react-native/jest/MockNativeMethods mapped as:
+    C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor\anchor\mobile\node_modules\react-native/$1.
+
+    Please check your configuration for these entries:
+    {
+      "moduleNameMapper": {
+        "/^react-native($|\/.*)/": "C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor\anchor\mobile\node_modules\react-native/$1"
+      },
+      "resolver": C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor\anchor\mobile\node_modules\react-native-worklets\jest\resolver.js
+    }
+
+      229 |     useSettingsStore.setState({ reduceMotion: 'off' });
+      230 |     // Every mocked native view shares one measureInWindow: answer with an on-screen rect.
+    > 231 |     const nativeMethodsModule = require('react-native/jest/MockNativeMethods');
+          |                                 ^
+      232 |     const nativeMethods = (nativeMethodsModule.default ?? nativeMethodsModule) as { measureInWindow: jest.Mock };
+      233 |     nativeMethods.measureInWindow.mockImplementation((callback: (...rect: number[]) => void) => callback(90, 60, 210, 210));
+      234 |     const onOpenPractice = jest.fn();
+
+      at createNoMappedModuleFoundError (node_modules/jest-resolve/build/index.js:1322:17)
+      at Object.require (src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx:231:33)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx (5.906 s)
+  ● Visualize prepares behind its real setup board › holds the hidden session preparation until the entry has finished flying in
+
+    expect(received).toBeUndefined()
+
+    Received: {"accountId": null, "ambient": false, "anchor": {"activationCount": 0, "baseSigilSvg": "<svg viewBox=\"0 0 10 10\"><path d=\"M1 1L9 9\"/></svg>", "category": "career", "createdAt": 2026-09-01T12:00:00.000Z, "distilledLetters": ["N", "T", "C"], "id": "a1", "intentionText": "My real intention", "isCharged": false, "localId": "a1", "structureVariant": "balanced", "threadStrength": 50, "updatedAt": 2026-09-01T12:00:00.000Z, "userId": "u1"}, "durationSeconds": 180, "haptics": false, "notes": [], "onContinue": [Function onContinue], "onExit": [Function mockConstructor], "onPreparationIssue": [Function anonymous], "onPrepared": [Function anonymous], "prepareOnly": true, "source": "practice_hub", "statement": "My saved Vision", "tiles": [{"id": "p1", "imageUrl": "https://example.com/photo.jpg", "isHero": true, "prompt": null, "sceneId": "p1", "sortOrder": 0}], "visionId": "v1", "voice": "none"}
+
+      135 |       act(() => measurements.shift()?.(0, 0, 393, 852));
+      136 |       act(() => measurements.shift()?.(20, 160, 320, 520));
+    > 137 |       expect(mockPreparation).toBeUndefined();
+          |                               ^
+      138 |
+      139 |       act(() => { jest.advanceTimersByTime(400); });
+      140 |       expect(view.queryByTestId('v2-visualize-entry-overlay')).toBeNull();
+
+      at Object.toBeUndefined (src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx:137:31)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/practice/__tests__/PracticeScreen.test.tsx (5.659 s)
+  ● PracticeScreen › switches the current anchor from the hero without starting a ritual
+
+    TypeError: _anchorStore.useAnchorStore.getState is not a function
+
+      242 |
+      243 |       selectTimerRef.current = setTimeout(() => {
+    > 244 |         useAnchorStore.getState().setCurrentAnchor(anchor.id);
+          |                        ^
+      245 |         onSelect(anchor);
+      246 |       }, 220);
+      247 |     },
+
+      at Timeout.getState [as _onTimeout] (src/screens/practice/components/AnchorSelectorSheet.tsx:244:24)
+
+  ● PracticeScreen › switches the current anchor from the hero without starting a ritual
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "a2"
+
+    Number of calls: 0
+
+      353 |     fireEvent.press(screen.getByLabelText('Select Anchor Two'));
+      354 |
+    > 355 |     await waitFor(() => {
+          |                  ^
+      356 |       expect(mockSetCurrentAnchor).toHaveBeenCalledWith('a2');
+      357 |       expect(mockNavigate).not.toHaveBeenCalled();
+      358 |       expect(mockNavigateToVault).not.toHaveBeenCalled();
+
+      at Object.<anonymous> (src/screens/practice/__tests__/PracticeScreen.test.tsx:355:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/screens/v2/home/__tests__/homeRenderBudget.test.tsx
+  ● does not re-render Home a second time when Today resolves after a switch
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 1
+
+      Object {
+        "Today": 1,
+    +   "Vision": 1,
+      }
+
+      173 |   const onSettle = take();
+      174 |
+    > 175 |   expect(onSettle).toEqual({ Today: 1 });
+          |                    ^
+      176 | });
+      177 |
+
+      at Object.toEqual (src/screens/v2/home/__tests__/homeRenderBudget.test.tsx:175:20)
+
+FAIL src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx
+  ● reports a committed unavailable fallback after foreground failure even when the backdrop never settles
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "p1"
+
+    Number of calls: 0
+
+      133 |   fireEvent(view.getByTestId('board-image'), 'error');
+      134 |   expect(view.getByText('Image unavailable')).toBeTruthy();
+    > 135 |   await waitFor(() => expect(onPhotoAssetReady).toHaveBeenCalledWith('p1'));
+          |                ^
+      136 | });
+      137 |
+
+      at Object.<anonymous> (src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx:135:16)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/components/v2/home/__tests__/homeArrivalEvolved.test.tsx
+  ● Evolved anchor lands on Home: timing and windows › the ghost is .22 behind the new art between its windows, and gone before and after
+
+    expect(received).toBeCloseTo(expected)
+
+    Expected: 0.22
+    Received: 0
+
+    Expected precision:    2
+    Expected difference: < 0.005
+    Received difference:   0.22
+
+      133 |     const at = (ms: number) => ms / 3400;
+      134 |     expect(evolvedGhostOpacity(at(900), params)).toBe(0);
+    > 135 |     expect(evolvedGhostOpacity(at(1400), params)).toBeCloseTo(EVOLVED_GHOST_OPACITY);
+          |                                                   ^
+      136 |     expect(evolvedGhostOpacity(at(2000), params)).toBeCloseTo(EVOLVED_GHOST_OPACITY);
+      137 |     expect(evolvedGhostOpacity(at(2450), params)).toBeCloseTo(EVOLVED_GHOST_OPACITY / 2, 2);
+      138 |     expect(evolvedGhostOpacity(at(2800), params)).toBe(0);
+
+      at Object.toBeCloseTo (src/components/v2/home/__tests__/homeArrivalEvolved.test.tsx:135:51)
+
+  ● Evolved anchor lands on Home: timing and windows › the underline draws and the line fades in over their windows, eased out, and are complete at the end
+
+    expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0.5
+    Received:   0
+
+      146 |     expect(evolvedUnderlineProgress(at(1300), params)).toBe(0);
+      147 |     const mid = evolvedUnderlineProgress(at(1600), params);
+    > 148 |     expect(mid).toBeGreaterThan(0.5);
+          |                 ^
+      149 |     expect(mid).toBeLessThan(1);
+      150 |     expect(evolvedUnderlineProgress(at(1900), params)).toBeCloseTo(1);
+      151 |     expect(evolvedLineProgress(at(2100), params)).toBe(0);
+
+      at Object.toBeGreaterThan (src/components/v2/home/__tests__/homeArrivalEvolved.test.tsx:148:17)
+
+FAIL src/components/v2/release/__tests__/V2ReleaseCompletion.test.tsx
+  ● V2ReleaseCompletion: Return Home exit (RL1) › fades the ghost, words and buttons over the paper, which stays, with no sound and no haptic
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 1
+
+      227 |     act(() => jest.advanceTimersByTime(1000));
+      228 |
+    > 229 |     expect(bodyOpacity(view)).toBe(0);
+          |                               ^
+      230 |     // The cream paper holds: the reveal circle is still there, fully open.
+      231 |     expect(view.getByTestId('v2-release-completion-reveal')).toBeTruthy();
+      232 |     expect(mockPlayCreationSound).not.toHaveBeenCalled();
+
+      at Object.toBe (src/components/v2/release/__tests__/V2ReleaseCompletion.test.tsx:229:31)
+
+FAIL src/screens/v2/paywall/__tests__/V2PaywallScreen.motion.test.tsx
+  ● V2PaywallScreen motion › stages the offer in on the 70 ms stagger with the medallion, route and sheen timings
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.motion.test.tsx:68:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen motion › replays the sheen and staggers step-2 copy after Continue, without replaying on plan change
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.motion.test.tsx:83:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen motion › resolves instantly with no delays, loops or sheen under reduced motion
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.motion.test.tsx:99:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/navigation/v2/__tests__/homeDetailsReverseTransition.test.tsx
+  ● Details -> Home reverse transition › measures both ends when the return starts, then flies the Anchor home and reveals Home
+
+    expect(received).toBeTruthy()
+
+    Received: null
+
+      108 |
+      109 |     mountCopy();
+    > 110 |     expect(layerOf()).toBeTruthy();
+          |                       ^
+      111 |     // Both the departing Details artwork and Home's disc stand in for the copy.
+      112 |     expect(stateOf('details-art')).toBe('hidden');
+      113 |     expect(stateOf('home-art')).toBe('hidden');
+
+      at Object.toBeTruthy (src/navigation/v2/__tests__/homeDetailsReverseTransition.test.tsx:110:23)
+
+  ● Details -> Home reverse transition › uses Home where it is now, not where it was when last laid out
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: true
+
+    Number of calls: 0
+
+      146 |
+      147 |     expect(moved).toHaveBeenCalledTimes(1);
+    > 148 |     expect(onNavigate).toHaveBeenCalledWith(true);
+          |                        ^
+      149 |   });
+      150 |
+      151 |   it('pops without a flight when Home is scrolled out of the window', () => {
+
+      at Object.toHaveBeenCalledWith (src/navigation/v2/__tests__/homeDetailsReverseTransition.test.tsx:148:24)
+
+FAIL src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx
+  ● V2PaywallScreen step 1 — the offer › shows the offer copy and starts nothing on mount
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:93:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 1 — the offer › dismisses from the X and from "Maybe later" exactly as before
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:103:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 1 — the offer › fires paywall_viewed once, after store pricing settles
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:111:24)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 1 — the offer › uses the real Vision image and title, with a calm fallback when there is none
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:122:24)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › opens on Annual with the trial, timeline and RevenueCat-derived savings
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:140:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › switches to Weekly: Continue, billed-today line, no timeline
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:154:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › shows no trial language anywhere to a user who is not eligible
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:170:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › starts the annual trial and schedules the day-5 reminder
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:183:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › fires paywall_cta_tapped but no conversion when the store sheet is cancelled
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:197:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › offers no free trial while a dev "Expired" tier is simulated
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:207:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › resets after a cancelled purchase and explains a failed one inline
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:215:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › restores through the existing restore call and reports the result
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:229:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › returns to the offer from the back arrow
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:238:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+  ● V2PaywallScreen step 2 — the plans › keeps forbidden vocabulary out of every visible string
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      62 |     const side = bottom - sag;
+      63 |     const control = bottom + sag;
+    > 64 |     const f = Skia.PathBuilder.Make();
+         |                                ^
+      65 |     f.moveTo(0, 0);
+      66 |     f.lineTo(screenWidth, 0);
+      67 |     f.lineTo(screenWidth, side);
+
+      at Make (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:64:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallBackdrop (src/components/v2/paywall/twoStep/PaywallBackdrop.tsx:61:33)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx:246:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/navigation/v2/__tests__/homeDetailsCoverage.test.tsx
+  ● Home <-> Details flight › changes route at once and never fades a screen (reduce motion: false)
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      158 |     act(() => { jest.advanceTimersByTime(ANCHOR_TRANSITION_TIMING.back.navigateAtMs); });
+      159 |     // Details is removed in the spring's still tail, uncovering a fully drawn Home; nothing fades either screen.
+    > 160 |     expect(closeNavigate).toHaveBeenCalledTimes(1);
+          |                           ^
+      161 |     expect(api.exitProgress.value).toBe(0);
+      162 |   });
+      163 | });
+
+      at toHaveBeenCalledTimes (src/navigation/v2/__tests__/homeDetailsCoverage.test.tsx:160:27)
+
+FAIL src/navigation/v2/__tests__/progressSharedTransition.test.tsx
+  ● Progress Shared-Element Transition › orchestrates reverse return flight from Progress gauge ring back to Details
+
+    Unable to find an element with testID: v2-anchor-transition-copy
+
+    [
+      <View>
+        <View
+          testID="details-art"
+        >
+          <Text
+            testID="details-art-state"
+          >
+            shown
+          </Text>
+        </View>
+      </View>,
+      <View>
+        <View
+          testID="progress-art"
+        >
+          <Text
+            testID="progress-art-state"
+          >
+            shown
+          </Text>
+        </View>
+      </View>,
+    ]
+
+      173 |
+      174 |     mountCopy();
+    > 175 |     expect(screen.getByTestId('v2-anchor-transition-copy', { includeHiddenElements: true })).toBeTruthy();
+          |                   ^
+      176 |     // Progress artwork hidden while departing, Details artwork hidden while arriving
+      177 |     expect(stateOf('progress-art')).toBe('hidden');
+      178 |     expect(stateOf('details-art')).toBe('hidden');
+
+      at Object.getByTestId (src/navigation/v2/__tests__/progressSharedTransition.test.tsx:175:19)
+
+FAIL src/components/v2/chart/map/__tests__/chartMapResources.test.tsx
+  ● shares pending decode, fog, grain and cloud work, then opens the warm map with art and landmarks together
+
+    Unable to find an element with testID: chart-map-marker-0
+
+    <View>
+      <View
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+      >
+        <View
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Canvas>
+            <Group>
+              <Group>
+                <Rect />
+                <Group />
+              </Group>
+            </Group>
+            <SkiaImage />
+          </Canvas>
+        </View>
+        <View
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Canvas />
+        </View>
+        <View
+          accessible={false}
+          importantForAccessibility="no"
+          testID="chart-map-surface"
+        />
+      </View>
+    </View>
+
+      29 |   expect(JSON.stringify(cold.toJSON())).not.toContain('M-15,-15 L15,15');
+      30 |   await act(async () => { resolveData({}); await data; });
+    > 31 |   await waitFor(() => expect(cold.getByTestId('chart-map-marker-0')).toBeTruthy());
+         |                ^
+      32 |   expect(hasDecodedChartLandscape()).toBe(true);
+      33 |   expect(fromURI).toHaveBeenCalledTimes(1);
+      34 |   expect(decode).toHaveBeenCalledTimes(1);
+
+      at Object.<anonymous> (src/components/v2/chart/map/__tests__/chartMapResources.test.tsx:31:16)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/v2/notifications/__tests__/NotificationSettingsScreen.test.tsx
+
+
+  ● Test suite failed to run
+
+    TypeError: _asyncStorage.default.removeItem is not a function
+
+      252 |     await writeSecureValue(name, value);
+      253 |     // Ensure no plaintext legacy value remains once encrypted write succeeds.
+    > 254 |     if (name !== 'anchor-vault-storage') await AsyncStorage.removeItem(name);
+          |                                                             ^
+      255 |   } catch (error) {
+      256 |     if (requiresSecureOnly(name)) {
+      257 |       logger.error(`Failed to write secure-only store key ${name}`, error);
+
+      at removeItem (src/stores/encryptedPersistStorage.ts:254:61)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/components/v2/chart/map/__tests__/ChartMap.test.tsx
+  ● ChartMap › uses stable full-resolution base and half-resolution intro ink canvases, and removes only ink after intro
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      83 |       inkCanvas.props.onSize.value = { width: 195, height: (195 * 1180) / 852 };
+      84 |     });
+    > 85 |     await waitFor(() => expect(onIntroSurfaceSized).toHaveBeenCalledTimes(1));
+         |                  ^
+      86 |     expect(screen.getByTestId('split-intro-map-land-base-canvas', { includeHiddenElements: true }).props.onSize).toBeUndefined();
+      87 |     expect(screen.getByTestId('split-intro-map-land-ink-canvas', { includeHiddenElements: true }).props.onSize).toBeUndefined();
+      88 |     expect(baseCanvas).toBeTruthy();
+
+      at Object.<anonymous> (src/components/v2/chart/map/__tests__/ChartMap.test.tsx:85:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/components/v2/chart/map/__tests__/ChartMapWeather.test.tsx
+  ● ChartMap living weather (permanent Chart) › clouds first: nothing of the map is visible until the weather is drawn; closed cover holds its place
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: undefined
+
+      59 |   it('clouds first: nothing of the map is visible until the weather is drawn; closed cover holds its place', async () => {
+      60 |     const screen = render(<Harness weather="living" />);
+    > 61 |     expect(layersOpacity(screen)).toBe(0);
+         |                                   ^
+      62 |     await waitFor(() => expect(screen.getByTestId('map-veil', { includeHiddenElements: true })).toBeTruthy());
+      63 |     expect(layersOpacity(screen)).toBe(0);
+      64 |     // The veil only stands in while the map is hidden: gone means the map is visible (the fog field builds first).
+
+      at Object.toBe (src/components/v2/chart/map/__tests__/ChartMapWeather.test.tsx:61:35)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+FAIL src/components/__tests__/ExportAnchorSheet.test.tsx
+  ● export layout › uses ink text on the card and light text on clear
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "#14162B"
+    Received: "#121A22"
+
+      82 |
+      83 |   it('uses ink text on the card and light text on clear', () => {
+    > 84 |     expect(exportTextColor('card')).toBe('#14162B');
+         |                                     ^
+      85 |     expect(exportTextColor('clear')).toBe('#F4EDE0');
+      86 |   });
+      87 |
+
+      at Object.toBe (src/components/__tests__/ExportAnchorSheet.test.tsx:84:37)
+
+  ● export layout › renders a transparent canvas for Clear, cream for Card, at the real export size
+
+    expect(received).toMatchObject(expected)
+
+    - Expected  - 1
+    + Received  + 1
+
+      Object {
+    -   "backgroundColor": "#F4EDE0",
+    +   "backgroundColor": "#F4F1E9",
+      }
+
+       99 |     const cardRoot = card.toJSON();
+      100 |     if (!cardRoot || Array.isArray(cardRoot)) throw new Error('Expected a single card export root.');
+    > 101 |     expect(cardRoot.props.style).toMatchObject({ backgroundColor: '#F4EDE0' });
+          |                                  ^
+      102 |   });
+      103 |
+      104 |   it('omits the text when the intention is None', () => {
+
+      at Object.toMatchObject (src/components/__tests__/ExportAnchorSheet.test.tsx:101:34)
+
+FAIL src/components/v2/home/__tests__/homeArrivalRelease.test.tsx
+  ● Return Home: timing and windows › moves a neighbour out from the centre while it fades in, and settles the centre art from .94 to 1
+
+    expect(received).toBeCloseTo(expected)
+
+    Expected: 1
+    Received: 0.94
+
+    Expected precision:    2
+    Expected difference: < 0.005
+    Received difference:   0.06000000000000005
+
+      124 |     const end = releaseArtFactors(1, params, 0);
+      125 |     expect(start.scale).toBeCloseTo(0.94);
+    > 126 |     expect(end.scale).toBeCloseTo(1);
+          |                       ^
+      127 |     // The left neighbour starts closer to the centre (positive x) and rests at 0; the right one mirrors it.
+      128 |     expect(releaseArtFactors(0, params, -1)).toMatchObject({ opacity: 0, x: NEIGHBOUR_ARRIVAL_SHIFT });
+      129 |     expect(releaseArtFactors(0, params, 1)).toMatchObject({ opacity: 0, x: -NEIGHBOUR_ARRIVAL_SHIFT });
+
+      at Object.toBeCloseTo (src/components/v2/home/__tests__/homeArrivalRelease.test.tsx:126:23)
+
+FAIL src/screens/create/flow/__tests__/creationFlowSounds.test.tsx
+  ● Creation Flow Sound Triggering Suite › Run 1: Natural Speed End-to-End › fires every designed sound at its beat across all 7 steps
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: "anchorPulse"
+    Received
+           1: "uiTap"
+           2: "distillTick", 0.5
+           3: "distillTick", 0.5
+
+    Number of calls: 16
+
+      182 |         jest.advanceTimersByTime(1200);
+      183 |       });
+    > 184 |       expect(playCreationSound).toHaveBeenCalledWith('anchorPulse');
+          |                                 ^
+      185 |     });
+      186 |   });
+      187 |
+
+      at Object.toHaveBeenCalledWith (src/screens/create/flow/__tests__/creationFlowSounds.test.tsx:184:33)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/components/v2/home/__tests__/homeArrival.test.tsx
+  ● arrival celebration hand-off › lands the first arrival on its settled end state when skipped
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 1
+    Received:   1
+
+      239 |     act(() => { id = stage('anchor-1', 'first'); });
+      240 |     act(() => { useHomeArrivalStore.getState().release(id); });
+    > 241 |     expect(captured.current?.progress.value).toBeLessThan(1);
+          |                                              ^
+      242 |
+      243 |     let skipped = false;
+      244 |     act(() => { skipped = useCelebrationStore.getState().skip(); });
+
+      at Object.toBeLessThan (src/components/v2/home/__tests__/homeArrival.test.tsx:241:46)
+
+FAIL src/components/v2/paywall/twoStep/__tests__/PaywallPreviewTiles.test.tsx
+  ● paywall step-1 preview tiles › Chart: "MY PATH" eyebrow is tile-sized, one line and non-scaling
+
+    TypeError: Cannot read properties of undefined (reading 'Make')
+
+      31 |   const points = useMemo(() => ROUTE.map(([fx, fy]) => [fx * width, fy * height] as const), [height, width]);
+      32 |   const route = useMemo(() => {
+    > 33 |     const p = Skia.PathBuilder.Make();
+         |                                ^
+      34 |     p.moveTo(points[0][0], points[0][1]);
+      35 |     for (let i = 1; i < points.length; i += 1) {
+      36 |       const [x0, y0] = points[i - 1];
+
+      at Make (src/components/v2/paywall/twoStep/PaywallChartTile.tsx:33:32)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at PaywallChartTile (src/components/v2/paywall/twoStep/PaywallChartTile.tsx:32:24)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8851:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/components/v2/paywall/twoStep/__tests__/PaywallPreviewTiles.test.tsx:61:24)
+
+FAIL src/stores/v2/__tests__/creationStore.test.ts
+  ● v2 creation state machine › distils with the production algorithm and detects the category
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "career"
+    Received: "desire"
+
+      36 |     expect(draft().normalizedIntention).toBe('I finish the project');
+      37 |     expect(draft().distilledLetters).toEqual(distillIntention('I finish the project').finalLetters);
+    > 38 |     expect(draft().category).toBe('career');
+         |                              ^
+      39 |   });
+      40 |
+      41 |   it('refuses an unusable intention without leaving the intention step', () => {
+
+      at Object.toBe (src/stores/v2/__tests__/creationStore.test.ts:38:30)
+
+  ● v2 creation state machine › forms the structure with the real generator on the category grid
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\" color=\"#FFFFFF\"><g><path d=\"M 38.73,38.53 L 39.54,79.27 L 58.4,18.02 L 78.57,39.84 L 78.19,18.19 L 79.37,78.93 L 38.94,19.85 L 38.59,59.84 L 58.26,19.76\" stroke=\"currentColor\" stroke-width=\"1.8\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" /></g></svg>"
+    Received: "<svg viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\" color=\"#FFFFFF\"><g><path d=\"M 78.07,18.34 L 30.61,42.92 L 19.96,55.09 L 30.39,31.51 L 30.13,54.43 L 54.5,43.07 L 78.32,43.82 L 54.85,31.75 L 42.31,18.18\" stroke=\"currentColor\" stroke-width=\"1.3\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" /></g></svg>"
+
+      53 |     store().formAnchor();
+      54 |     const expected = generateTrueSigil(draft().distilledLetters, CATEGORY_TO_TIER.career, 'balanced').svg;
+    > 55 |     expect(draft().structureSvg).toBe(expected);
+         |                                  ^
+      56 |     expect(draft().structureType).toBe('focused');
+      57 |     expect(formationForDraft(draft())?.svg).toBe(expected);
+      58 |     expect(draft().currentStep).toBe('formation');
+
+      at Object.toBe (src/stores/v2/__tests__/creationStore.test.ts:55:34)
+
+FAIL src/adapters/v2/home/__tests__/isolation.test.ts
+  ● UI-D isolation › does not touch backend, central V2 navigation, or legacy theme
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "C:\\Users\\dwill\\.codex\\worktrees\\expo58-upgrade\\Anchor\\anchor\\mobile\\src\\screens\\v2\\home\\dailyShell.tsx",
+    + ]
+
+      43 |     const forbidden = /from ['"]@\/(navigation\/v2\/(routes|types|AnchorV2Navigator)|theme\/colors|theme\/typography)['"]/;
+      44 |     const offenders = uiDFiles.filter((file) => forbidden.test(readFileSync(file, 'utf8')));
+    > 45 |     expect(offenders).toEqual([]);
+         |                       ^
+      46 |   });
+      47 |
+      48 |   it('is never imported by production (non-v2) screens or navigation', () => {
+
+      at Object.toEqual (src/adapters/v2/home/__tests__/isolation.test.ts:45:23)
+
+FAIL src/services/audio/__tests__/SoundPool.test.ts
+  ● caps live players at MAX_LIVE_PLAYERS (16) and evicts idle entries
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 16
+    Received: 24
+
+      262 |
+      263 |   const { MAX_LIVE_PLAYERS, countLivePlayers } = require('../SoundPool');
+    > 264 |   expect(MAX_LIVE_PLAYERS).toBe(16);
+          |                            ^
+      265 |   expect(countLivePlayers()).toBeLessThanOrEqual(16);
+      266 |
+      267 |   useSettingsStore.setState({ soundEffectsEnabled: original });
+
+      at Object.toBe (src/services/audio/__tests__/SoundPool.test.ts:264:28)
+
+FAIL src/adapters/v2/home/__tests__/adapters.test.ts
+  ● chartAdapter › reads real destination + next move + progress and never advances anything
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  0
+    + Received  + 27
+
+    @@ -24,6 +24,33 @@
+            "reached": false,
+            "state": "CURRENT",
+            "title": "Contact 3 creators",
+          },
+        ],
+    +   "weatherProgress": Object {
+    +     "courseId": "course-1",
+    +     "currentIndex": 1,
+    +     "inputs": Array [
+    +       Object {
+    +         "completed": true,
+    +         "id": "wp-1",
+    +         "metric": null,
+    +         "mode": "moves",
+    +         "movesDone": 0,
+    +         "movesTotal": 0,
+    +         "requirementsDone": 0,
+    +         "requirementsTotal": 0,
+    +       },
+    +       Object {
+    +         "completed": false,
+    +         "id": "wp-2",
+    +         "metric": null,
+    +         "mode": "moves",
+    +         "movesDone": 0,
+    +         "movesTotal": 0,
+    +         "requirementsDone": 0,
+    +         "requirementsTotal": 0,
+    +       },
+    +     ],
+    +     "isFinished": false,
+    +   },
+      }
+
+      174 |
+      175 |   it('reads real destination + next move + progress and never advances anything', () => {
+    > 176 |     expect(toHomeChartState(course())).toEqual({
+          |                                        ^
+      177 |       state: 'ready',
+      178 |       courseId: 'course-1',
+      179 |       destinationText: 'Reach 1,000 active users',
+
+      at Object.toEqual (src/adapters/v2/home/__tests__/adapters.test.ts:176:40)
+
+FAIL src/screens/v2/practice/__tests__/V2PracticeAnchorTransition.test.tsx
+  ● Test suite failed to run
+
+    Configuration error:
+
+    Could not locate module react-native/jest/MockNativeMethods mapped as:
+    C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor\anchor\mobile\node_modules\react-native/$1.
+
+    Please check your configuration for these entries:
+    {
+      "moduleNameMapper": {
+        "/^react-native($|\/.*)/": "C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor\anchor\mobile\node_modules\react-native/$1"
+      },
+      "resolver": C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor\anchor\mobile\node_modules\react-native-worklets\jest\resolver.js
+    }
+
+      27 |
+      28 | // Every mocked native view shares one measureInWindow; answer it with a plausible on-screen rect.
+    > 29 | const nativeMethodsModule = require('react-native/jest/MockNativeMethods');
+         |                             ^
+      30 | const mockNativeMethods = (nativeMethodsModule.default ?? nativeMethodsModule) as { measureInWindow: jest.Mock };
+      31 |
+      32 | const focusToday: V2RecommendationContext = {
+
+      at createNoMappedModuleFoundError (node_modules/jest-resolve/build/index.js:1322:17)
+      at Object.require (src/screens/v2/practice/__tests__/V2PracticeAnchorTransition.test.tsx:29:29)
+
+FAIL src/__tests__/AppStartupHydration.integration.test.tsx
+  ● Test suite failed to run
+
+    Unable to resolve a visual QA image fixture.
+
+      43 | function fixtureUri(source: number): string {
+      44 |   const resolved = Image.resolveAssetSource(source);
+    > 45 |   if (!resolved?.uri) throw new Error('Unable to resolve a visual QA image fixture.');
+         |                             ^
+      46 |   return resolved.uri;
+      47 | }
+      48 | const tiles: V2VisionTile[] = Array.from({ length: 8 }, (_, i) => ({ id: `qa-${i}`, sceneId: `qa-${i}`, imageUrl: fixtureUri(fixtureAt(sources, i % sources.length)),
+
+      at fixtureUri (src/screens/v2/system/VisionVisualQADevHost.tsx:45:29)
+      at fixtureUri (src/screens/v2/system/VisionVisualQADevHost.tsx:48:115)
+          at Array.from (<anonymous>)
+      at Object.from (src/screens/v2/system/VisionVisualQADevHost.tsx:48:37)
+      at Object.require (App.tsx:93:1)
+      at Object.require (src/__tests__/AppStartupHydration.integration.test.tsx:7:1)
+

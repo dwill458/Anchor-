@@ -1,0 +1,20 @@
+{
+  "utc": "2026-10-19T02:41:18.123266+00:00",
+  "removedUser": 10,
+  "removedProfileName": "AnchorStabilizationQA",
+  "commandResult": "Success: removed user",
+  "profile10Absent": true,
+  "ownerUserStillPresent": true,
+  "ownerQaPackagePresent": true,
+  "productionPackagePresent": true,
+  "remainingQaProcesses": [
+    "u0_a751      24058 com.anchorintentions.sqlcipherpreview20261015",
+    "u10_a751     25304 com.anchorintentions.sqlcipherpreview20261015"
+  ],
+  "ownerPid24058StillRunning": true,
+  "settledProcesses": [
+    "u0_a751      24058 com.anchorintentions.sqlcipherpreview20261015"
+  ],
+  "qaProfileProcessStopped": true,
+  "settledUtc": "2026-10-19T02:41:35.045796+00:00"
+}

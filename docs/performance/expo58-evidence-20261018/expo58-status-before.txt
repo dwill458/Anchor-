@@ -1,0 +1,61 @@
+ M anchor/mobile/src/components/v2/anchor/CircularAnchorRenderer.tsx
+ M anchor/mobile/src/components/v2/anchor/ThreadAura.test.tsx
+ M anchor/mobile/src/components/v2/anchor/ThreadAura.tsx
+ M anchor/mobile/src/components/v2/anchor/ThreadAuraCanvas.test.tsx
+ M anchor/mobile/src/components/v2/anchor/threadAuraModel.test.ts
+ M anchor/mobile/src/components/v2/anchor/threadAuraModel.ts
+ M anchor/mobile/src/components/v2/chart/ChartActiveView.tsx
+ M anchor/mobile/src/components/v2/chart/sheet/ChartOneMoveTeaching.tsx
+ M anchor/mobile/src/components/v2/home/V2HomeAnchorCarousel.tsx
+ M anchor/mobile/src/components/v2/home/V2HomeHero.tsx
+ M anchor/mobile/src/components/v2/progress/V2ProgressHero.tsx
+ M anchor/mobile/src/components/v2/teaching/ScreenTeaching.tsx
+ M anchor/mobile/src/components/v2/teaching/SpotlightCoach.tsx
+ M anchor/mobile/src/components/v2/teaching/TeachingWhisper.tsx
+ M anchor/mobile/src/components/v2/teaching/__tests__/SpotlightCoach.test.tsx
+ M anchor/mobile/src/components/v2/vision/VisionAddSceneSheet.tsx
+ M anchor/mobile/src/components/v2/vision/VisionPhotoFitScreen.tsx
+ M anchor/mobile/src/components/v2/vision/VisionReferencePhoto.tsx
+ M anchor/mobile/src/components/v2/vision/__tests__/useVisionEditorialNotes.test.tsx
+ M anchor/mobile/src/components/v2/vision/__tests__/visionEditorialLayout.test.ts
+ M anchor/mobile/src/components/v2/vision/notes/VisionNoteRenderer.tsx
+ M anchor/mobile/src/components/v2/vision/useVisionEditorialNotes.tsx
+ M anchor/mobile/src/components/v2/vision/visionEditorialLayout.ts
+ M anchor/mobile/src/hooks/v2/chart/__tests__/chartTaughtState.test.ts
+ M anchor/mobile/src/hooks/v2/chart/chartTaughtState.ts
+ M anchor/mobile/src/hooks/v2/teaching/__tests__/teachingSeen.test.ts
+ M anchor/mobile/src/hooks/v2/teaching/teachingSeen.ts
+ M anchor/mobile/src/hooks/v2/teaching/useTeachingQueue.ts
+ M anchor/mobile/src/screens/create/IntentionInputScreen.tsx
+ M anchor/mobile/src/screens/create/ReturningIntentionScreen.tsx
+ M anchor/mobile/src/screens/rituals/ConfirmBurnScreen.tsx
+ M anchor/mobile/src/screens/settings/AppExperienceSubscreen.tsx
+ M anchor/mobile/src/screens/settings/PracticeSubscreen.tsx
+ M anchor/mobile/src/screens/settings/__tests__/SettingsSubscreens.test.tsx
+ M anchor/mobile/src/screens/v2/anchors/V2AnchorDetailsScreen.tsx
+ M anchor/mobile/src/screens/v2/home/V2DevFloatingToolbar.tsx
+ M anchor/mobile/src/screens/v2/home/V2HomeScreen.tsx
+ M anchor/mobile/src/screens/v2/home/__tests__/V2HomeScreen.test.tsx
+ M anchor/mobile/src/screens/v2/practice/__tests__/V2FocusActiveScreen.test.tsx
+ M anchor/mobile/src/screens/v2/practice/deepFocus/V2DeepFocusActiveScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusActiveScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusAnchorArtwork.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusCompleteScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusPrepScreen.tsx
+ M anchor/mobile/src/stores/authStore.ts
+ M anchor/mobile/src/utils/useTeachingGate.ts
+ M anchor/mobile/src/utils/v2/teachingAnalytics.ts
+?? anchor/mobile/android/expo58qa-devcurrent.png
+?? anchor/mobile/android/expo58qa-devlauncher.png
+?? anchor/mobile/android/expo58qa-devlauncher2.png
+?? anchor/mobile/android/expo58qa-first-launch.png
+?? anchor/mobile/android/expo58qa-fresh-connected.png
+?? anchor/mobile/android/expo58qa-fresh-welcome.png
+?? anchor/mobile/android/expo58qa-fresh.png
+?? anchor/mobile/android/expo58qa-home-after-worklets-fix.png
+?? anchor/mobile/android/expo58qa-home-after-worklets-fix2.png
+?? anchor/mobile/android/expo58qa-homewelcome.png
+?? anchor/mobile/android/expo58qa-next.png
+?? anchor/mobile/android/expo58qa-seeded-home.png
+?? anchor/mobile/android/expo58qa-welcome.png
+?? anchor/mobile/src/stores/devThreadStrengthStore.ts

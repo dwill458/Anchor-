@@ -1,0 +1,73 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 287369877 Realtime: 393738653
+
+** MEMINFO in pid 21611 [com.anchorintentions.sqlcipherpreview20261015] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap   677085   421096   255988   315291   678080  1214492  1022613   186958
+  Dalvik Heap    15759    15256      456     2184    17148    54959    18320    36639
+ Dalvik Other    27587    19548      292      304    35632                           
+        Stack     2520     2292      228     2604     2528                           
+       Ashmem       17        0        0        0      620                           
+    Other dev       24        4       20        0      640                           
+     .so mmap     2979      128      768      172    45736                           
+    .jar mmap     1056        0       16        0    48440                           
+    .apk mmap    22177      492    21592     1692    23780                           
+    .ttf mmap      210        0      128        0      448                           
+    .dex mmap    16853     1548    15300    68836    17628                           
+    .oat mmap        8        0        0        0     1488                           
+    .art mmap     4446     2260     1996     4134    14752                           
+   Other mmap    18636    18512      116        0    19456                           
+   EGL mtrack    77912    77912        0        0    77912                           
+    GL mtrack   233828   233828        0        0   233828                           
+      Unknown   190474   167080    23388     3193   191128                           
+        TOTAL  1689981   959956   320288   398410  1409244  1269451  1040933   223597
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:    19512                          31900
+         Native Heap:   421096                         678080
+                Code:    46240                         159268
+               Stack:     2292                           2528
+            Graphics:   311740                         311740
+       Private Other:   479364
+              System:   409737
+             Unknown:                                  225728
+ 
+           TOTAL PSS:  1689981            TOTAL RSS:  1409244       TOTAL SWAP PSS:   398410
+ 
+ Objects
+               Views:      296         ViewRootImpl:        1
+         AppContexts:        7           Activities:        1
+              Assets:       36        AssetManagers:        0
+       Local Binders:      112        Proxy Binders:       89
+       Parcel memory:       29         Parcel count:       98
+    Death Recipients:        3             WebViews:        0
+ 
+ Native Allocations
+                         Count                       Total(kB)
+                        ------                         ------
+    Other (malloced):     1774                            168
+ Other (nonmalloced):      220                            140
+   Bitmap (malloced):       89                         112897
+ 
+ SQL
+         MEMORY_USED:      433
+  PAGECACHE_OVERFLOW:      146          MALLOC_SIZE:       46
+ 
+ DATABASES
+      pgsz     dbsz   Lookaside(b) cache hits cache misses cache size  Dbname
+PER CONNECTION STATS
+         4       28             72   676   309     7  /data/user/10/com.anchorintentions.sqlcipherpreview20261015/databases/RKStorage
+         4       32             69    11    54     8  /data/user/10/com.anchorintentions.sqlcipherpreview20261015/databases/exoplayer_internal.db
+         4      100            109     4    45     6  /data/user/10/com.anchorintentions.sqlcipherpreview20261015/no_backup/androidx.work.workdb
+         4        8                    0     0     0    (attached) temp
+         4      100             25     4    17     2  /data/user/10/com.anchorintentions.sqlcipherpreview20261015/no_backup/androidx.work.workdb (2)
+POOL STATS
+     cache hits  cache misses    cache size  Dbname
+            676           310             7  /data/user/10/com.anchorintentions.sqlcipherpreview20261015/databases/RKStorage
+             11            55             8  /data/user/10/com.anchorintentions.sqlcipherpreview20261015/databases/exoplayer_internal.db
+              8            66             8  /data/user/10/com.anchorintentions.sqlcipherpreview20261015/no_backup/androidx.work.workdb
+ 

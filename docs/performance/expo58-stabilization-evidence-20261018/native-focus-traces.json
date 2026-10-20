@@ -1,0 +1,1153 @@
+{
+  "traces": [
+    {
+      "id": 1,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286332158.783061
+    },
+    {
+      "duplicate": false,
+      "id": 1,
+      "ms": 307.0752079486847,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286332465.85754
+    },
+    {
+      "id": 2,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286444897.041976
+    },
+    {
+      "duplicate": true,
+      "id": 2,
+      "ms": 0.5253640413284302,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286444897.565622
+    },
+    {
+      "id": 3,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286478264.37863
+    },
+    {
+      "duplicate": false,
+      "id": 3,
+      "ms": 226.55739599466324,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286478490.935244
+    },
+    {
+      "id": 4,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286479127.976494
+    },
+    {
+      "duplicate": true,
+      "id": 4,
+      "ms": 0.5758329629898071,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286479128.551025
+    },
+    {
+      "id": 5,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286512629.929606
+    },
+    {
+      "duplicate": false,
+      "id": 5,
+      "ms": 247.91833400726318,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286512877.847158
+    },
+    {
+      "id": 6,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286513465.075804
+    },
+    {
+      "duplicate": true,
+      "id": 6,
+      "ms": 1.8211979866027832,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286513466.894918
+    },
+    {
+      "id": 7,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286546906.489593
+    },
+    {
+      "duplicate": false,
+      "id": 7,
+      "ms": 312.28302097320557,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286547218.771364
+    },
+    {
+      "id": 8,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286547333.473603
+    },
+    {
+      "duplicate": true,
+      "id": 8,
+      "ms": 0.3444799780845642,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286547333.816885
+    },
+    {
+      "id": 9,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286581305.909945
+    },
+    {
+      "duplicate": false,
+      "id": 9,
+      "ms": 600.038488984108,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286581905.946715
+    },
+    {
+      "id": 10,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286582160.675986
+    },
+    {
+      "duplicate": true,
+      "id": 10,
+      "ms": 0.38734400272369385,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286582161.062132
+    },
+    {
+      "id": 11,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286616088.326025
+    },
+    {
+      "duplicate": false,
+      "id": 11,
+      "ms": 479.284843981266,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286616567.60915
+    },
+    {
+      "id": 12,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286616701.43165
+    },
+    {
+      "duplicate": true,
+      "id": 12,
+      "ms": 0.44401001930236816,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286616701.873525
+    },
+    {
+      "id": 13,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286650505.468408
+    },
+    {
+      "duplicate": false,
+      "id": 13,
+      "ms": 439.9003639817238,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286650945.367262
+    },
+    {
+      "id": 14,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286651059.238772
+    },
+    {
+      "duplicate": true,
+      "id": 14,
+      "ms": 0.4298440217971802,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286651059.667731
+    },
+    {
+      "id": 15,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286685051.549957
+    },
+    {
+      "duplicate": false,
+      "id": 15,
+      "ms": 410.40343803167343,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286685461.952301
+    },
+    {
+      "id": 16,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286685673.290947
+    },
+    {
+      "duplicate": true,
+      "id": 16,
+      "ms": 0.3808329701423645,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286685673.670009
+    },
+    {
+      "id": 17,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286719514.538954
+    },
+    {
+      "duplicate": false,
+      "id": 17,
+      "ms": 444.46739596128464,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286719959.005204
+    },
+    {
+      "id": 18,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286720295.944006
+    },
+    {
+      "duplicate": true,
+      "id": 18,
+      "ms": 0.5126559734344482,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286720296.455152
+    },
+    {
+      "id": 19,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286754157.602691
+    },
+    {
+      "duplicate": false,
+      "id": 19,
+      "ms": 441.53093802928925,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286754599.132483
+    },
+    {
+      "id": 20,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286754803.532795
+    },
+    {
+      "duplicate": true,
+      "id": 20,
+      "ms": 0.38729196786880493,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286754803.919045
+    },
+    {
+      "id": 21,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286788689.859866
+    },
+    {
+      "duplicate": false,
+      "id": 21,
+      "ms": 463.39661395549774,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286789153.255386
+    },
+    {
+      "id": 22,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286789403.817157
+    },
+    {
+      "duplicate": true,
+      "id": 22,
+      "ms": 0.3796350359916687,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286789404.195334
+    },
+    {
+      "id": 23,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286822897.335269
+    },
+    {
+      "duplicate": false,
+      "id": 23,
+      "ms": 480.6180730462074,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286823377.952404
+    },
+    {
+      "id": 24,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286823625.518394
+    },
+    {
+      "duplicate": true,
+      "id": 24,
+      "ms": 0.33260399103164673,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286823625.850113
+    },
+    {
+      "id": 25,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286857348.209527
+    },
+    {
+      "duplicate": false,
+      "id": 25,
+      "ms": 471.556145966053,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286857819.764058
+    },
+    {
+      "id": 26,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286857928.751662
+    },
+    {
+      "duplicate": true,
+      "id": 26,
+      "ms": 0.33546900749206543,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286857929.085985
+    },
+    {
+      "id": 27,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286891724.947066
+    },
+    {
+      "duplicate": false,
+      "id": 27,
+      "ms": 515.5912500023842,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286892240.537222
+    },
+    {
+      "id": 28,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286892344.541493
+    },
+    {
+      "duplicate": true,
+      "id": 28,
+      "ms": 0.3994789719581604,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286892344.939514
+    },
+    {
+      "id": 29,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286925994.355542
+    },
+    {
+      "duplicate": false,
+      "id": 29,
+      "ms": 503.4298959970474,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286926497.784396
+    },
+    {
+      "id": 30,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286926589.568407
+    },
+    {
+      "duplicate": true,
+      "id": 30,
+      "ms": 0.3397909998893738,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286926589.907105
+    },
+    {
+      "id": 31,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286960338.84954
+    },
+    {
+      "duplicate": false,
+      "id": 31,
+      "ms": 548.922394990921,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286960887.770842
+    },
+    {
+      "id": 32,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286961001.075685
+    },
+    {
+      "duplicate": true,
+      "id": 32,
+      "ms": 0.29197895526885986,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286961001.366935
+    },
+    {
+      "id": 33,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286994394.116558
+    },
+    {
+      "duplicate": false,
+      "id": 33,
+      "ms": 713.2624480128288,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286995107.377235
+    },
+    {
+      "id": 34,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 286995242.376037
+    },
+    {
+      "duplicate": true,
+      "id": 34,
+      "ms": 0.41130197048187256,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 286995242.785256
+    },
+    {
+      "id": 35,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287028738.923889
+    },
+    {
+      "duplicate": false,
+      "id": 35,
+      "ms": 719.2403120398521,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287029458.162847
+    },
+    {
+      "id": 36,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287029594.427222
+    },
+    {
+      "duplicate": true,
+      "id": 36,
+      "ms": 0.36562496423721313,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287029594.79144
+    },
+    {
+      "id": 37,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287063238.585542
+    },
+    {
+      "duplicate": false,
+      "id": 37,
+      "ms": 766.8445309996605,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287064005.428927
+    },
+    {
+      "id": 38,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287064151.96476
+    },
+    {
+      "duplicate": true,
+      "id": 38,
+      "ms": 0.524167001247406,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287064152.487313
+    },
+    {
+      "id": 39,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287097852.404748
+    },
+    {
+      "duplicate": false,
+      "id": 39,
+      "ms": 792.6203119754791,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287098645.023758
+    },
+    {
+      "id": 40,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287098789.608654
+    },
+    {
+      "duplicate": true,
+      "id": 40,
+      "ms": 0.38604098558425903,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287098789.993029
+    },
+    {
+      "id": 41,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287132694.797859
+    },
+    {
+      "duplicate": false,
+      "id": 41,
+      "ms": 776.9217709898949,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287133471.71838
+    },
+    {
+      "id": 42,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287133675.802703
+    },
+    {
+      "duplicate": true,
+      "id": 42,
+      "ms": 0.4557809829711914,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287133676.257182
+    },
+    {
+      "id": 43,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287373952.098549
+    },
+    {
+      "duplicate": false,
+      "id": 43,
+      "ms": 291.672915995121,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287374243.770528
+    },
+    {
+      "id": 44,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287376592.978808
+    },
+    {
+      "duplicate": true,
+      "id": 44,
+      "ms": 0.4277080297470093,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287376593.405162
+    },
+    {
+      "id": 45,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287410936.512128
+    },
+    {
+      "duplicate": false,
+      "id": 45,
+      "ms": 301.7247920036316,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287411238.235566
+    },
+    {
+      "id": 46,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287413611.659002
+    },
+    {
+      "duplicate": true,
+      "id": 46,
+      "ms": 0.5196880102157593,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287413612.176763
+    },
+    {
+      "id": 47,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287448157.970395
+    },
+    {
+      "duplicate": false,
+      "id": 47,
+      "ms": 341.5210419893265,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287448499.490291
+    },
+    {
+      "id": 48,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287450878.701488
+    },
+    {
+      "duplicate": true,
+      "id": 48,
+      "ms": 0.3002079725265503,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287450879.001019
+    },
+    {
+      "id": 49,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287485417.007308
+    },
+    {
+      "duplicate": false,
+      "id": 49,
+      "ms": 300.4201039671898,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287485717.425954
+    },
+    {
+      "id": 50,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287488001.654599
+    },
+    {
+      "duplicate": true,
+      "id": 50,
+      "ms": 0.34953099489212036,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287488002.00314
+    },
+    {
+      "id": 51,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287522735.311252
+    },
+    {
+      "duplicate": false,
+      "id": 51,
+      "ms": 352.5828130245209,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287523087.892971
+    },
+    {
+      "id": 52,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287525385.794064
+    },
+    {
+      "duplicate": true,
+      "id": 52,
+      "ms": 0.3814060091972351,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287525386.174376
+    },
+    {
+      "id": 53,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287559975.097071
+    },
+    {
+      "duplicate": false,
+      "id": 53,
+      "ms": 293.96223998069763,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287560269.058113
+    },
+    {
+      "id": 54,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287562561.537747
+    },
+    {
+      "duplicate": true,
+      "id": 54,
+      "ms": 0.44947999715805054,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287562561.985352
+    },
+    {
+      "id": 55,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287596728.117057
+    },
+    {
+      "duplicate": false,
+      "id": 55,
+      "ms": 302.8039589524269,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287597030.919661
+    },
+    {
+      "id": 56,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287599507.231848
+    },
+    {
+      "duplicate": true,
+      "id": 56,
+      "ms": 0.4172919988632202,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287599507.647577
+    },
+    {
+      "id": 57,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287633965.346106
+    },
+    {
+      "duplicate": false,
+      "id": 57,
+      "ms": 332.91166603565216,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287634298.25647
+    },
+    {
+      "id": 58,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287636543.51048
+    },
+    {
+      "duplicate": true,
+      "id": 58,
+      "ms": 0.31281203031539917,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287636543.822407
+    },
+    {
+      "id": 59,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287671772.994789
+    },
+    {
+      "duplicate": false,
+      "id": 59,
+      "ms": 325.1435939669609,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287672098.137341
+    },
+    {
+      "id": 60,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287674587.186038
+    },
+    {
+      "duplicate": true,
+      "id": 60,
+      "ms": 0.4403649568557739,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287674587.624788
+    },
+    {
+      "id": 61,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287708751.8954
+    },
+    {
+      "duplicate": false,
+      "id": 61,
+      "ms": 332.2283329963684,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287709084.12191
+    },
+    {
+      "id": 62,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287711333.612326
+    },
+    {
+      "duplicate": true,
+      "id": 62,
+      "ms": 0.4790629744529724,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287711334.089774
+    },
+    {
+      "id": 63,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287746037.725386
+    },
+    {
+      "duplicate": false,
+      "id": 63,
+      "ms": 316.19953095912933,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287746353.923719
+    },
+    {
+      "id": 64,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287748700.471843
+    },
+    {
+      "duplicate": true,
+      "id": 64,
+      "ms": 4.136874973773956,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287748704.607989
+    },
+    {
+      "id": 65,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287783593.16683
+    },
+    {
+      "duplicate": false,
+      "id": 65,
+      "ms": 319.53953099250793,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287783912.705163
+    },
+    {
+      "id": 66,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287786359.213027
+    },
+    {
+      "duplicate": true,
+      "id": 66,
+      "ms": 0.4621869921684265,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287786359.67287
+    },
+    {
+      "id": 67,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287820982.328066
+    },
+    {
+      "duplicate": false,
+      "id": 67,
+      "ms": 387.30302000045776,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287821369.630097
+    },
+    {
+      "id": 68,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287823597.191242
+    },
+    {
+      "duplicate": true,
+      "id": 68,
+      "ms": 0.3890620470046997,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287823597.579679
+    },
+    {
+      "id": 69,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287857784.363572
+    },
+    {
+      "duplicate": false,
+      "id": 69,
+      "ms": 364.587916970253,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287858148.950551
+    },
+    {
+      "id": 70,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287860406.212842
+    },
+    {
+      "duplicate": true,
+      "id": 70,
+      "ms": 0.4077610373497009,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287860406.619665
+    },
+    {
+      "id": 71,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287894720.691631
+    },
+    {
+      "duplicate": false,
+      "id": 71,
+      "ms": 313.0395829677582,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287895033.730069
+    },
+    {
+      "id": 72,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287897498.92939
+    },
+    {
+      "duplicate": true,
+      "id": 72,
+      "ms": 0.4277609586715698,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287897499.355536
+    },
+    {
+      "id": 73,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287931985.885263
+    },
+    {
+      "duplicate": false,
+      "id": 73,
+      "ms": 379.64775997400284,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287932365.531825
+    },
+    {
+      "id": 74,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287934771.61672
+    },
+    {
+      "duplicate": true,
+      "id": 74,
+      "ms": 0.5488539934158325,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287934772.163439
+    },
+    {
+      "id": 75,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287969069.896551
+    },
+    {
+      "duplicate": false,
+      "id": 75,
+      "ms": 336.23359298706055,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287969406.128373
+    },
+    {
+      "id": 76,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 287971688.886862
+    },
+    {
+      "duplicate": true,
+      "id": 76,
+      "ms": 0.4027090072631836,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 287971689.28806
+    },
+    {
+      "id": 77,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 288145136.969661
+    },
+    {
+      "duplicate": false,
+      "id": 77,
+      "ms": 324.99630200862885,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 288145461.965285
+    },
+    {
+      "id": 78,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 288147869.313305
+    },
+    {
+      "duplicate": true,
+      "id": 78,
+      "ms": 0.4193750023841858,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 288147869.730805
+    },
+    {
+      "id": 79,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 288182604.697459
+    },
+    {
+      "duplicate": false,
+      "id": 79,
+      "ms": 300.37411403656006,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 288182905.070844
+    },
+    {
+      "id": 80,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 288185168.607458
+    },
+    {
+      "duplicate": true,
+      "id": 80,
+      "ms": 0.30901002883911133,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 288185168.915531
+    },
+    {
+      "id": 81,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 288219902.221038
+    },
+    {
+      "duplicate": false,
+      "id": 81,
+      "ms": 326.3621880412102,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 288220228.582288
+    },
+    {
+      "id": 82,
+      "phase": "begin",
+      "stage": "focus-complete",
+      "t": 288222509.004683
+    },
+    {
+      "duplicate": true,
+      "id": 82,
+      "ms": 0.33375000953674316,
+      "phase": "durable",
+      "stage": "focus-complete",
+      "t": 288222509.337912
+    }
+  ],
+  "verifiedCycles": 41
+}

@@ -1,0 +1,9 @@
+(() => {const qa=globalThis.__anchorStabilizationQA;qa.guard();if(qa.status!=='ready')throw Error('Synthetic account not ready');qa.crashRetry={status:'pending'};
+(async()=>{const db=qa.load('src/storage/sqlcipher/runtime.ts').recordDatabase();const service=qa.load('src/services/PracticeCompletionService.ts').PracticeCompletionService;
+const initial=await db.read(`anchor:practice-history:${qa.owner}`);if(initial.length!==42)throw Error('Expected42commits');
+const now=new Date().toISOString();const input={sessionId:'stabilization-native-uncommitted',accountId:qa.owner,anchorId:null,anchorLocalId:qa.anchorId,mode:'focus',startedAt:now,completedAt:now,plannedDurationSeconds:30,actualDurationSeconds:30,source:'practice_screen',guidanceVoice:'none',backgroundAudio:'off'};
+const saved=await service.completePracticeSession(input,{mirrorLegacySession:true,flushImmediately:false});const strength=qa.load('src/stores/sessionStore.ts').useSessionStore.getState().threadStrength;
+const duplicate=await service.completePracticeSession(input,{mirrorLegacySession:true,flushImmediately:false});await db.close();const history=await db.read(`anchor:practice-history:${qa.owner}`);const snapshot=await db.read(`anchor:session-snapshot:${qa.owner}`);const queue=await db.read(`anchor:practice-write-queue:${qa.owner}`);
+if(saved.duplicate||!duplicate.duplicate||history.length!==43||queue.length!==43||snapshot.totalSessionsCount!==43||history.filter(x=>x.id===input.sessionId).length!==1||snapshot.threadStrength!==strength)throw Error('Interrupted retry exactly-once failed');
+qa.crashRetry={status:'complete',profile:10,canonicalCount:43,outboxCount:43,snapshotCount:43,interruptedSessionCommittedOnce:true,duplicatePrevented:true,strengthUnchangedOnDuplicate:true,reopened:true};
+})().catch(error=>qa.crashRetry={status:'failed',message:String(error.message)});return {scheduled:true};})()

@@ -1,0 +1,1 @@
+(() => {const qa=globalThis.__anchorStabilizationQA;qa.guard();qa.navigation.reset({index:0,routes:[{name:'V2DevelopmentHome'}]});return {reset:true,baseline:qa.verifiedCycles};})()

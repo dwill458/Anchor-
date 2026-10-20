@@ -1,0 +1,7 @@
+
+Test Suites: 5 passed, 5 total
+Tests:       59 passed, 59 total
+Snapshots:   0 total
+Time:        5.236 s
+Ran all test suites within paths "src/storage/sqlcipher/__tests__/database.test.ts", "src/storage/sqlcipher/__tests__/cohort.test.ts", "src/storage/sqlcipher/__tests__/product.integration.test.ts", "src/storage/sqlcipher/__tests__/store.integration.test.ts", "src/stores/__tests__/secureGeneration.test.ts".
+Test results written to: E:\Projects\Anchor\docs\performance\expo58-evidence-20261018\jest-storage-results.json

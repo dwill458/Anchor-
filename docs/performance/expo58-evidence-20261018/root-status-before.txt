@@ -1,0 +1,63 @@
+ M .claude/settings.local.json
+ M anchor/mobile/src/__tests__/setup.ts
+ M anchor/mobile/src/components/v2/anchor/CircularAnchorRenderer.tsx
+ M anchor/mobile/src/components/v2/anchor/ThreadAura.test.tsx
+ M anchor/mobile/src/components/v2/anchor/ThreadAura.tsx
+ M anchor/mobile/src/components/v2/anchor/ThreadAuraCanvas.test.tsx
+ M anchor/mobile/src/components/v2/anchor/threadAuraModel.test.ts
+ M anchor/mobile/src/components/v2/anchor/threadAuraModel.ts
+ M anchor/mobile/src/components/v2/chart/ChartActiveView.tsx
+ M anchor/mobile/src/components/v2/chart/sheet/ChartOneMoveTeaching.tsx
+ M anchor/mobile/src/components/v2/home/V2HomeAnchorCarousel.tsx
+ M anchor/mobile/src/components/v2/home/V2HomeHero.tsx
+ M anchor/mobile/src/components/v2/progress/V2ProgressHero.tsx
+ M anchor/mobile/src/components/v2/teaching/ScreenTeaching.tsx
+ M anchor/mobile/src/components/v2/teaching/SpotlightCoach.tsx
+ M anchor/mobile/src/components/v2/teaching/TeachingWhisper.tsx
+ M anchor/mobile/src/components/v2/teaching/__tests__/SpotlightCoach.test.tsx
+ M anchor/mobile/src/components/v2/vision/__tests__/useVisionEditorialNotes.test.tsx
+ M anchor/mobile/src/components/v2/vision/__tests__/visionEditorialLayout.test.ts
+ M anchor/mobile/src/components/v2/vision/notes/VisionNoteRenderer.tsx
+ M anchor/mobile/src/components/v2/vision/useVisionEditorialNotes.tsx
+ M anchor/mobile/src/components/v2/vision/visionEditorialLayout.ts
+ M anchor/mobile/src/hooks/v2/chart/__tests__/chartTaughtState.test.ts
+ M anchor/mobile/src/hooks/v2/chart/chartTaughtState.ts
+ M anchor/mobile/src/hooks/v2/teaching/__tests__/teachingSeen.test.ts
+ M anchor/mobile/src/hooks/v2/teaching/teachingSeen.ts
+ M anchor/mobile/src/hooks/v2/teaching/useTeachingQueue.ts
+ M anchor/mobile/src/screens/create/IntentionInputScreen.tsx
+ M anchor/mobile/src/screens/create/ReturningIntentionScreen.tsx
+ M anchor/mobile/src/screens/rituals/ConfirmBurnScreen.tsx
+ M anchor/mobile/src/screens/settings/AppExperienceSubscreen.tsx
+ M anchor/mobile/src/screens/settings/PracticeSubscreen.tsx
+ M anchor/mobile/src/screens/settings/__tests__/SettingsSubscreens.test.tsx
+ M anchor/mobile/src/screens/v2/anchors/V2AnchorDetailsScreen.tsx
+ M anchor/mobile/src/screens/v2/home/V2DevFloatingToolbar.tsx
+ M anchor/mobile/src/screens/v2/home/V2HomeScreen.tsx
+ M anchor/mobile/src/screens/v2/home/__tests__/V2HomeScreen.test.tsx
+ M anchor/mobile/src/screens/v2/practice/V2PracticeSessionScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/__tests__/V2FocusActiveScreen.test.tsx
+ M anchor/mobile/src/screens/v2/practice/deepFocus/V2DeepFocusActiveScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusActiveScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusAnchorArtwork.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusCompleteScreen.tsx
+ M anchor/mobile/src/screens/v2/practice/focus/V2FocusPrepScreen.tsx
+ M anchor/mobile/src/stores/authStore.ts
+ M anchor/mobile/src/utils/useTeachingGate.ts
+ M anchor/mobile/src/utils/v2/teachingAnalytics.ts
+ M docs/performance-audit-2026-10/ACCOUNT_SCOPED_PERSISTENCE_REPAIR.md
+ M docs/performance-audit-2026-10/DEVICE_VALIDATION_MATRIX.md
+ M docs/performance-audit-2026-10/PERFORMANCE_AUDIT_REPORT.md
+ M docs/performance-audit-2026-10/PERFORMANCE_REMEDIATION_PLAN.md
+?? _expo58_generated/
+?? anchor/mobile/.expo-thread-aura-ios-verify/
+?? anchor/mobile/.expo-thread-aura-verify/
+?? anchor/mobile/docs/thread-aura/device-before.png
+?? anchor/mobile/docs/thread-aura/device-details-fixed.png
+?? anchor/mobile/docs/thread-aura/device-home-auto.png
+?? anchor/mobile/docs/thread-aura/device-home-motion.mp4
+?? anchor/mobile/src/stores/devThreadStrengthStore.ts
+?? anchor/mobile/src/utils/focusDebug.ts
+?? anchor/mobile/src/utils/scheduleAfterInteractions.ts
+?? docs/performance-audit-2026-10/SQLCIPHER_MIGRATION_IMPLEMENTATION.md
+?? docs/performance-audit-2026-10/SQLCIPHER_NATIVE_BENCHMARK_RESULTS.json

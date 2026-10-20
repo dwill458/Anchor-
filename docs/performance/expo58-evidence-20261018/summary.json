@@ -1,0 +1,101 @@
+{
+  "capturedUtc": "2026-10-19T00:38:14.678Z",
+  "source": "C:/Users/dwill/.codex/worktrees/expo58-upgrade/Anchor",
+  "commit": "5d9a6497996665eb28b4e3641531cac5a7b34546",
+  "branch": "feat/expo58-vision-aura",
+  "trackedDiffSha256": "792d5e7debac1b720f68f5098c2c642c3e5689b9b760e0a22953ac4a168450f6",
+  "statusSha256": "41d5852552a1cc0545bf9fe121f7d74f236f65a170a26e020505da6d1f322a09",
+  "versions": {
+    "expo": "58.0.14",
+    "react": "19.3.0",
+    "react-native": "0.88.0",
+    "react-native-reanimated": "4.7.1",
+    "react-native-worklets": "0.13.0",
+    "react-native-gesture-handler": "3.3.0",
+    "react-native-svg": "15.16.0",
+    "@shopify/react-native-skia": "2.14.0",
+    "expo-sqlite": "58.0.13",
+    "jest": "30.5.2",
+    "typescript": "6.0.3"
+  },
+  "lifecycle": {
+    "scenario": "DEBUG Focus resolving surface, 20 HOME/background to existing Activity resumes; not screen navigation",
+    "activityTotalMs": {
+      "n": 20,
+      "min": 60,
+      "median": 70,
+      "p95NearestRank": 77,
+      "max": 95
+    },
+    "beforePssKb": {
+      "n": 20,
+      "min": 989851,
+      "median": 1013709,
+      "p95NearestRank": 1071706,
+      "max": 1188846
+    },
+    "backgroundPssKb": {
+      "n": 20,
+      "min": 987710,
+      "median": 1013660.5,
+      "p95NearestRank": 1072713,
+      "max": 1158978
+    },
+    "afterPssKb": {
+      "n": 20,
+      "min": 987562,
+      "median": 1014083,
+      "p95NearestRank": 1015769,
+      "max": 1078654
+    },
+    "firstBeforeKb": 1188846,
+    "lastAfterKb": 987562
+  },
+  "debugJsStalls": {
+    "n": 45,
+    "min": 51,
+    "median": 111,
+    "p95NearestRank": 467,
+    "max": 1119
+  },
+  "fullSuiteInterrupted": {
+    "failedSuiteCount": 34,
+    "failedSuites": [
+      "src/screens/rituals/__tests__/ActivationScreen.test.tsx",
+      "src/components/v2/chart/panel/__tests__/ChartSummitAndRouteScenes.test.tsx",
+      "src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx",
+      "src/components/v2/creation/__tests__/V2CreationFlow.test.tsx",
+      "src/components/share/__tests__/useShareExportRenderer.integration.test.tsx",
+      "src/screens/vault/__tests__/AnchorDetailScreen.test.tsx",
+      "src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx",
+      "src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx",
+      "src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx",
+      "src/screens/practice/__tests__/PracticeScreen.test.tsx",
+      "src/screens/v2/home/__tests__/homeRenderBudget.test.tsx",
+      "src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx",
+      "src/components/v2/home/__tests__/homeArrivalEvolved.test.tsx",
+      "src/components/v2/release/__tests__/V2ReleaseCompletion.test.tsx",
+      "src/screens/v2/paywall/__tests__/V2PaywallScreen.motion.test.tsx",
+      "src/navigation/v2/__tests__/homeDetailsReverseTransition.test.tsx",
+      "src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx",
+      "src/navigation/v2/__tests__/homeDetailsCoverage.test.tsx",
+      "src/navigation/v2/__tests__/progressSharedTransition.test.tsx",
+      "src/components/v2/chart/map/__tests__/chartMapResources.test.tsx",
+      "src/screens/v2/notifications/__tests__/NotificationSettingsScreen.test.tsx",
+      "src/components/v2/chart/map/__tests__/ChartMap.test.tsx",
+      "src/components/v2/chart/map/__tests__/ChartMapWeather.test.tsx",
+      "src/components/__tests__/ExportAnchorSheet.test.tsx",
+      "src/components/v2/home/__tests__/homeArrivalRelease.test.tsx",
+      "src/screens/create/flow/__tests__/creationFlowSounds.test.tsx",
+      "src/components/v2/home/__tests__/homeArrival.test.tsx",
+      "src/components/v2/paywall/twoStep/__tests__/PaywallPreviewTiles.test.tsx",
+      "src/stores/v2/__tests__/creationStore.test.ts",
+      "src/adapters/v2/home/__tests__/isolation.test.ts",
+      "src/services/audio/__tests__/SoundPool.test.ts",
+      "src/adapters/v2/home/__tests__/adapters.test.ts",
+      "src/screens/v2/practice/__tests__/V2PracticeAnchorTransition.test.tsx",
+      "src/__tests__/AppStartupHydration.integration.test.tsx"
+    ],
+    "complete": false
+  }
+}
