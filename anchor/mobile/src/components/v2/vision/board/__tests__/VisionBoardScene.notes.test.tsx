@@ -31,6 +31,14 @@ const props = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('VisionBoardScene note rendering', () => {
+  it('keeps session materials stable and lets Vision opt in without changing persisted notes', () => {
+    mockRenderer.mockClear();
+    const view = render(<VisionBoardScene {...props()} />);
+    expect(mockRenderer).toHaveBeenLastCalledWith(expect.objectContaining({ materialMode: 'legacy' }));
+    view.rerender(<VisionBoardScene {...props({ materialMode: 'photographic' })} />);
+    expect(mockRenderer).toHaveBeenLastCalledWith(expect.objectContaining({ materialMode: 'photographic' }));
+    expect(note.presentation.styleId).toBe('sticky_blush_pink');
+  });
   it('can omit the intention card for the photos-only Visualize surface without altering saved notes', () => {
     mockCard.mockClear();
     render(<VisionBoardScene {...props({ showIntentionCard: false })} />);
@@ -63,3 +71,4 @@ describe('VisionBoardScene note rendering', () => {
     expect(mockPhoto).toHaveBeenCalledWith(expect.objectContaining({ onPhotoAssetReady }));
   });
 });
+

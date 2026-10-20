@@ -47,13 +47,17 @@ async function flushPhotoWarm() {
 describe('Visualize prepares behind its real setup board', () => {
   beforeEach(() => { mockBoardSceneProps = undefined; mockUseBoardScene.mockClear(); mockReduceMotion = false; });
 
-  it('shows the full photo composition without rendering notes or the Anchor mark', () => {
+  it('shows saved notes and the real Anchor on the same shared photo composition', () => {
     const note = { id: 'note-1', content: { text: 'A saved intention' }, presentation: { styleId: 'paper' } };
     setup([note]);
 
     expect(mockUseBoardScene).toHaveBeenCalledWith(tiles, expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }), 1, true);
-    expect(mockBoardSceneProps.notes).toBeUndefined();
-    expect(mockBoardSceneProps.showAnchorMark).toBe(false);
+    expect(mockBoardSceneProps.notes).toEqual([note]);
+    expect(mockBoardSceneProps.showAnchorMark).toBe(true);
+    expect(mockBoardSceneProps.showIntentionCard).toBe(true);
+    expect(mockBoardSceneProps.materialMode).toBe('photographic');
+    expect(mockBoardSceneProps.art.svg).toBe(anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg);
+    expect(mockBoardSceneProps.art.threadStrength).toBe(anchor.threadStrength ?? null);
   });
 
   it('reuses the source scene dimensions to keep cold-entry photo viewports stable', () => {
@@ -295,3 +299,4 @@ describe('Visualize prepares behind its real setup board', () => {
   });
 
 });
+

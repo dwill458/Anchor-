@@ -15,6 +15,8 @@ import { VisionNoteRenderer } from '@/components/v2/vision/notes/VisionNoteRende
 import { visionNoteZIndex } from '@/components/v2/vision/notes/visionNotePlacement';
 
 export type VisionBoardSceneProps = {
+  /** Opt in on Vision and setup only; cinematic/session callers keep their approved surfaces. */
+  materialMode?: 'legacy' | 'photographic';
   arrivingNoteId?: string;
   arrivingSceneId?: string | null;
   scene: Size;
@@ -75,7 +77,7 @@ export type VisionBoardSceneProps = {
  * camera; whoever renders it moves the view it sits in.
  */
 export const VisionBoardScene = memo(function VisionBoardScene({
-  scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion, arrivingSceneId, arrivingNoteId, notes = [], selectedNoteId = null, onNoteSelect, onNotePresentationChange,
+  scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion, arrivingSceneId, arrivingNoteId, notes = [], selectedNoteId = null, onNoteSelect, onNotePresentationChange, materialMode = 'legacy',
   interactive = false, dragEnabled = false, onPhotoPress, onCaptionEdit, onPhotoAssetReady, onPhotoAssetError, onCardPress, onBackgroundPress, onDragActive, onNoteDragActive, onSwap,
   onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, showAnchorMark = true, showIntentionCard = true, notesOpacity, intentionCardOpacity, markAppearance, detailEdges, edgeDarken, cinematic, onTeachingMotionChange,
 }: VisionBoardSceneProps) {
@@ -84,9 +86,9 @@ export const VisionBoardScene = memo(function VisionBoardScene({
   const noteFadeStyle = useAnimatedStyle(() => ({ opacity: notesOpacity?.value ?? 1 }));
   const cardFadeStyle = useAnimatedStyle(() => ({ opacity: intentionCardOpacity?.value ?? 1 }));
   const renderedNotes = [...notes].filter(note => !note.isArchived).sort((a, b) => a.presentation.layerOrder - b.presentation.layerOrder).map(note =>
-    onNoteSelect && onNotePresentationChange ? <VisionBoardNoteElement key={note.id} note={note} arriving={arrivingNoteId === note.id} sceneWidth={scene.width} sceneHeight={scene.height}
+    onNoteSelect && onNotePresentationChange ? <VisionBoardNoteElement materialMode={materialMode} key={note.id} note={note} arriving={arrivingNoteId === note.id} sceneWidth={scene.width} sceneHeight={scene.height}
       cameraScale={shared.cameraScale} onDragActive={onNoteDragActive} reduceMotion={reduceMotion} selected={selectedNoteId === note.id} onSelect={onNoteSelect} onPresentationChange={onNotePresentationChange} /> :
-      <VisionNoteRenderer key={note.id} styleId={note.presentation.styleId} fontId={note.presentation.fontId} text={note.content.text} width={scene.width} height={scene.height}
+      <VisionNoteRenderer materialMode={materialMode} key={note.id} styleId={note.presentation.styleId} fontId={note.presentation.fontId} text={note.content.text} width={scene.width} height={scene.height}
       presentation={{ ...note.presentation, layerOrder: visionNoteZIndex(note.presentation.layerOrder) }} scrollText />);
   return (
     <View style={{ width: scene.width, height: scene.height }}>
@@ -96,6 +98,8 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         const index = layout.photos.length ? roster.filter(entry => !entry.exiting).findIndex(entry => entry.tile.sceneId === tile.sceneId) : -1;
         return (
           <VisionBoardPhoto
+            materialMode={materialMode}
+            frameVariant={index === 3 ? 'wide-bottom' : index === 2 ? 'torn-bottom' : index === 1 ? 'rough-edge' : 'classic'}
             key={tile.sceneId}
             testID={`vision-board-photo-${tile.sceneId}`}
             tapes={index >= 0 ? layout.decor.filter(tape => tape.photo === index) : []}
@@ -144,3 +148,4 @@ export const VisionBoardScene = memo(function VisionBoardScene({
 const styles = StyleSheet.create({
   fill: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
 });
+

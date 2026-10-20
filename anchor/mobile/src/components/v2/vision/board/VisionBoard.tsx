@@ -242,7 +242,7 @@ export function VisionBoard({
         width: scene.width, height: scene.height,
         left: (viewport.width - scene.width) / 2, top: (viewport.height - scene.height) / 2,
       }, cameraStyle]}>
-        <VisionBoardScene arrivingNoteId={arrivingNoteId}
+        <VisionBoardScene materialMode="photographic" arrivingNoteId={arrivingNoteId}
           scene={scene}
           roster={board.roster}
           entering={board.entering}
@@ -379,3 +379,4 @@ const styles = StyleSheet.create({
   noteAction: { minHeight: 38, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#F8F3E9', borderWidth: 1, borderColor: '#C9BFAE' },
   noteActionText: { ...typography.labelSM, color: colors.text.primary },
 });
+

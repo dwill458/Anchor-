@@ -6,8 +6,12 @@ import { radii, spacing } from '@/theme/v2';
 import { noteAssets } from '@/assets/vision/notes/noteAssets';
 import { getVisionNoteFont, getVisionNotePreset, resolveVisionNoteTextStyle, type VisionNoteAssetKey } from './visionNoteStyles';
 import { resolveNoteAssetFrame } from './noteAssetGeometry';
+import { VisionMaterialSurface } from '../material/VisionMaterialSurface';
+import { visionNoteMaterials, visionNoteMaterialTints } from '../material/visionNoteMaterials';
 
 export type VisionNoteRendererProps = {
+  /** Cinematic snapshots keep their original materials unless the caller explicitly opts in. */
+  materialMode?: 'legacy' | 'photographic';
   styleId: VisionNoteStyleId;
   fontId?: VisionNoteFontId;
   text: string;
@@ -30,14 +34,15 @@ export type VisionNoteRendererProps = {
 /** Native note surface and live text, suitable for preview or board composition. */
 export const VisionNoteRenderer = memo(function VisionNoteRenderer({
   styleId, text, width, height, presentation, fontId = presentation?.fontId, colorOverride, surfaceColorOverride, surfaceAssetOverride,
-  rotationOverride, scaleOverride, shadowOverride, typographyOverride, testID = 'vision-note-renderer', scrollText = true, compact = false,
+  rotationOverride, scaleOverride, shadowOverride, typographyOverride, testID = 'vision-note-renderer', scrollText = true, compact = false, materialMode = 'legacy',
 }: VisionNoteRendererProps) {
   const preset = getVisionNotePreset(styleId);
+  const material = materialMode === 'photographic' && surfaceAssetOverride === undefined ? visionNoteMaterials[styleId] : undefined;
   const noteWidth = presentation ? presentation.width * width : width;
   const noteHeight = presentation ? presentation.height * height : height;
   const selectedFont = fontId && preset.family !== 'editorial' ? getVisionNoteFont(fontId) : null;
   const resolvedPreset = { ...preset, ...(selectedFont ? { fontFamily: selectedFont.fontFamily, fontSize: Math.min(preset.fontSize, selectedFont.sizeCap) } : {}), ...typographyOverride };
-  const bottomInset = compact ? Math.min(0.12, preset.textInsetBottom ?? 0) : (preset.textInsetBottom ?? 0);
+  const bottomInset = material && preset.family === 'sticky' ? 0.16 : compact ? Math.min(0.12, preset.textInsetBottom ?? 0) : (preset.textInsetBottom ?? 0);
   const textHeight = noteHeight * (1 - bottomInset);
   const rawTextStyle = resolveVisionNoteTextStyle(text, resolvedPreset, { width: noteWidth, height: textHeight });
   const compactCap = compact ? Math.max(11, Math.floor(Math.max(24, noteWidth - 12) / 5.2)) : rawTextStyle.fontSize;
@@ -62,19 +67,21 @@ export const VisionNoteRenderer = memo(function VisionNoteRenderer({
 
   return (
     <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={text || 'Empty note preview'}
-      style={[styles.shadowFrame, frame, shadow === 'soft' && !silhouetteShadow && styles.shadow,
-        preset.family === 'sticky' && { backgroundColor: surfaceColor, borderRadius: 1 }]}>
+      style={[styles.shadowFrame, frame, !material && shadow === 'soft' && !silhouetteShadow && styles.shadow,
+        !material && preset.family === 'sticky' && { backgroundColor: surfaceColor, borderRadius: 1 }]}>
+      {material ? <VisionMaterialSurface material={material} thumbnail={noteWidth <= 120} tint={visionNoteMaterialTints[styleId]} testID={`${testID}-material`} /> : null}
       <View style={[styles.surface, compact && styles.compactSurface, preset.family === 'paper' && styles.paperSurface, preset.family === 'sticky' && styles.stickySurface,
-        { backgroundColor: noteAsset ? 'transparent' : surfaceColor, borderColor: preset.borderColor ?? 'transparent' }]}>
-        {preset.family === 'sticky' ? <View pointerEvents="none" style={styles.stickyAdhesive} /> : null}
-        {noteAsset ? <>
+        { backgroundColor: material || noteAsset ? 'transparent' : surfaceColor, borderColor: material ? 'transparent' : preset.borderColor ?? 'transparent' },
+        material && styles.photographicSurface]}>
+        {!material && preset.family === 'sticky' ? <View pointerEvents="none" style={styles.stickyAdhesive} /> : null}
+        {!material && noteAsset ? <>
           {silhouetteShadow ? <Image source={noteAsset} resizeMode="stretch" style={[styles.assetShadow, resolveNoteAssetFrame(assetKey!, noteWidth, noteHeight)]} /> : null}
           <Image source={noteAsset} resizeMode="stretch" style={resolveNoteAssetFrame(assetKey!, noteWidth, noteHeight)} />
           {preset.family === 'paper' ? <Image source={noteAsset} resizeMode="stretch"
             style={[styles.assetTint, resolveNoteAssetFrame(assetKey!, noteWidth, noteHeight), { tintColor: surfaceColor }]} /> : null}
         </> : null}
         <EditorialDetails id={styleId} compact={compact} />
-        {preset.ruled ? <View pointerEvents="none" style={styles.rules}>{[0, 1, 2, 3].map(line =>
+        {!material && preset.ruled ? <View pointerEvents="none" style={styles.rules}>{[0, 1, 2, 3].map(line =>
           <View key={line} style={[styles.rule, { top: `${28 + line * 16}%`, borderColor: `${preset.inkColor}22` }]} />,
         )}</View> : null}
       <ScrollView style={[styles.textViewport, bottomInset ? { marginBottom: noteHeight * bottomInset } : null]} contentContainerStyle={[styles.textContent, compact && styles.compactTextContent]} nestedScrollEnabled
@@ -110,6 +117,7 @@ const styles = StyleSheet.create({
   compactSurface: { paddingHorizontal: 6, paddingVertical: 5 },
   paperSurface: { overflow: 'visible' },
   stickySurface: { borderRadius: 1, borderWidth: 0 },
+  photographicSurface: { paddingHorizontal: '12%', paddingTop: '9%', paddingBottom: '8%', borderWidth: 0, overflow: 'visible' },
   stickyAdhesive: { position: 'absolute', top: 0, left: 0, right: 0, height: '11%', backgroundColor: '#FFFFFF', opacity: .08,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#00000015' },
   shadow: { shadowColor: '#251F18', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
@@ -121,3 +129,4 @@ const styles = StyleSheet.create({
   textContent: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing[1] },
   compactTextContent: { paddingVertical: 1 },
 });
+

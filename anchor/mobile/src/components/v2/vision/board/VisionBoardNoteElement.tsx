@@ -8,6 +8,7 @@ import { VisionNoteRenderer } from '@/components/v2/vision/notes/VisionNoteRende
 import { clampVisionNotePresentationForAspect, visionNoteZIndex } from '@/components/v2/vision/notes/visionNotePlacement';
 
 type Props = {
+  materialMode?: 'legacy' | 'photographic';
   note: VisionNote;
   arriving?: boolean;
   sceneWidth: number;
@@ -21,7 +22,7 @@ type Props = {
 };
 
 /** Gesture-capable note surface; persistence occurs once when a gesture settles. */
-export function VisionBoardNoteElement({ note, sceneWidth, sceneHeight, selected, onSelect, onPresentationChange, cameraScale, onDragActive, reduceMotion, arriving = false }: Props) {
+export function VisionBoardNoteElement({ note, sceneWidth, sceneHeight, selected, onSelect, onPresentationChange, cameraScale, onDragActive, reduceMotion, arriving = false, materialMode = 'legacy' }: Props) {
   const p = note.presentation;
   const centerX = useSharedValue(p.x);
   const centerY = useSharedValue(p.y);
@@ -122,7 +123,7 @@ export function VisionBoardNoteElement({ note, sceneWidth, sceneHeight, selected
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.note, selected && styles.lifted, { width, height, left: sceneWidth * p.x - width / 2, top: sceneHeight * p.y - height / 2, zIndex: visionNoteZIndex(p.layerOrder) }, animatedStyle]}>
         <Pressable accessibilityRole="button" accessibilityLabel={`Vision note: ${note.content.text || p.styleId.replaceAll('_', ' ')}`} accessibilityState={{ selected }} onPress={() => onSelect(note.id)} style={styles.fill}>
-          <VisionNoteRenderer styleId={p.styleId} fontId={p.fontId} text={note.content.text} width={width} height={height} rotationOverride={0} scaleOverride={1} scrollText />
+          <VisionNoteRenderer materialMode={materialMode} styleId={p.styleId} fontId={p.fontId} text={note.content.text} width={width} height={height} rotationOverride={0} scaleOverride={1} scrollText />
           {selected ? <View pointerEvents="none" style={styles.selected} /> : null}
         </Pressable>
       </Animated.View>
@@ -136,3 +137,4 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   selected: { ...StyleSheet.absoluteFill, borderColor: '#283D36', borderWidth: 1.5, borderRadius: 12 },
 });
+
