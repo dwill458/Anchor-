@@ -154,9 +154,12 @@ graphify-out/
 backend/graphify-out/
 
 # ----------------------------------------------------------------------------
-# OTA release build output
+# OTA release build output & local upgrade generated output
 # ----------------------------------------------------------------------------
 _ota-release/
+_expo58_generated/
+adb_out.txt
+ui.xml
 
 # ----------------------------------------------------------------------------
 # AI service Python environment and cache

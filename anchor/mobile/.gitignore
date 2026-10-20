@@ -60,6 +60,7 @@ branches.txt
 vault_diff.txt
 android.view.*
 .expo-export*/
+.expo-*-verify/
 *.bundle
 *.pid
 teaching-*.json
