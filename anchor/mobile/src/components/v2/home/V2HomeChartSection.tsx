@@ -2,12 +2,13 @@ import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, typography } from '@/theme/v2';
 import type { HomeChartState } from '@/adapters/v2/home';
-// DEFERRED: import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
-import { ChartPreview } from '@/components/chart/ChartPreview';
+import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
+import { useV2Responsive } from '@/hooks/v2/useV2Responsive';
 
 type Props = {
   chart: HomeChartState;
   anchorId: string;
+  category?: string | null;
   onOpenChart: () => void;
   onRetry?: () => void | Promise<void>;
 };
@@ -25,7 +26,8 @@ type Props = {
  * - `error`     a known relationship failed to load. Show it and allow retry;
  *               never silently substitute fallback content.
  */
-function V2HomeChartSectionComponent({ chart, anchorId, onOpenChart, onRetry }: Props) {
+function V2HomeChartSectionComponent({ chart, category, onOpenChart, onRetry }: Props) {
+  const { width, gutter } = useV2Responsive();
   if (chart.state === 'resolving' || chart.state === 'none') return null;
 
   if (chart.state === 'error') {
@@ -51,14 +53,16 @@ function V2HomeChartSectionComponent({ chart, anchorId, onOpenChart, onRetry }: 
         </Pressable>
       </View>
       <View style={{ marginTop: 10 }}>
-        {/* DEFERRED: <ChartWorldPreview chart={chart} width={mapWidth - 2} category={category} onPress={onOpenChart} testID={testID ?? 'v2-home-chart'} /> */}
-        <ChartPreview variant="card" anchorId={anchorId} onPress={onOpenChart} testID="v2-home-chart" />
+        {chart.state === 'ready' ? <ChartWorldPreview chart={chart} width={width - gutter * 2 - 2}
+          category={category} onPress={onOpenChart} testID="v2-home-chart" />
+          : <View testID="chart-preview-loading" accessibilityLabel="Loading Chart" accessibilityRole="progressbar" style={styles.loading} />}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  loading: { height: 145, borderRadius: 14, backgroundColor: colors.ink.raised },
   container: {
     marginTop: 18,
     paddingTop: 14,

@@ -756,6 +756,7 @@ export function V2HomeScreen() {
           <V2HomeChartSection
             chart={model.chart}
             anchorId={model.selectedAnchor!.id}
+            category={model.selectedAnchor?.category}
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}
           />

@@ -51,7 +51,7 @@ import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
 import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
 import { prefetchChartIntro } from '@/components/v2/chart/chartIntroPrefetch';
-import { VisionEditorialPreview } from '@/components/v2/vision/VisionEditorialPreview';
+import { VisionPreviewCard } from '@/components/v2/vision/VisionPreviewCard';
 import { useVisionEditorialNotes } from '@/components/v2/vision/useVisionEditorialNotes';
 import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
@@ -428,8 +428,9 @@ function VisionSection({
     <View testID="v2-details-vision-section" style={styles.sectionBlock}>
       <SectionHeader title="Vision" action="Edit ›" actionLabel="Edit Vision" onAction={onEditVision} />
       <View style={styles.cardClip}>
-        <VisionEditorialPreview key={state.state === 'ready' ? state.visionId : 'vision'} tiles={tiles} statement={statement} variant="details" accent={accent}
-          featuredTileId={state.state === 'ready' ? state.featuredTileId : undefined} noteElements={noteElements}
+        <VisionPreviewCard key={state.state === 'ready' ? state.visionId : 'vision'} variant="details" tiles={tiles}
+          noteCount={noteElements.length} title={null} statement={statement} accent={accent}
+          featuredTileId={state.state === 'ready' ? state.featuredTileId : undefined}
           testID="v2-details-vision" accessibilityLabel="Vision" onPress={onOpenVision} />
       </View>
       {seenToday ? <Text style={[styles.quiet, { marginTop: 10 }]}>Seen today ✓</Text> : null}
@@ -531,14 +532,14 @@ function ChartSection({
       {chart.state === 'ready' ? (
         <ChartWorldPreview chart={chart} width={width} category={category} variant="details" onPress={() => onOpenChart(chartCourseId)} testID="v2-details-chart" />
       ) : chart.state === 'error' ? (
-        <View style={[styles.chartPending, { minHeight: 270 }]}>
+        <View style={[styles.chartPending, { minHeight: 165 }]}>
           <Text style={styles.quiet}>{chart.message}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Retry Chart" onPress={onRetry} hitSlop={10} style={styles.chartRetry}>
             <Text style={styles.retryText}>Try again</Text>
           </Pressable>
         </View>
       ) : chart.state === 'resolving' || chart.state === 'loading' ? (
-        <View style={[styles.chartPending, { minHeight: 270 }]}>
+        <View style={[styles.chartPending, { minHeight: 165 }]}>
           <Text style={styles.quiet}>Your Chart is loading.</Text>
         </View>
       ) : (

@@ -268,7 +268,8 @@ describe('V2AnchorDetailsScreen', () => {
     renderDetails();
 
     expect(screen.getByLabelText('Chart complete. Destination: Reach 1,000 active users. Open Chart.')).toBeTruthy();
-    expect(screen.getByText('DESTINATION REACHED')).toBeTruthy();
+    expect(screen.getByText('Reach 1,000 active users')).toBeTruthy();
+    expect(screen.getByText('1 of 1')).toBeTruthy();
   });
 
   it('shows a truthful fetch error and retries it', () => {

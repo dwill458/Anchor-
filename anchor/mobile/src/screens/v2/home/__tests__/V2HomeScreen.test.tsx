@@ -534,9 +534,9 @@ describe('Conditional Vision and Chart', () => {
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByText('Your Vision')).toBeNull();
     expect(screen.queryByText('Create Vision')).toBeNull();
-    expect(screen.getByTestId('chart-preview-copy')).toBeTruthy();
-    expect(screen.getByText('Build a steady audience')).toBeTruthy();
-    expect(screen.getByText('Publish one useful story')).toBeTruthy();
+    expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
+    expect(screen.getByText('Contact 3 creators')).toBeTruthy();
+    expect(screen.getByText('2 of 2')).toBeTruthy();
       expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
