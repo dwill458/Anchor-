@@ -248,11 +248,13 @@ describe('V2VisionNoteComposer', () => {
     await waitFor(() => expect(createNote).toHaveBeenCalledWith(expect.objectContaining({ content: { text: multiline } })));
   });
 
-  it('renders decorative tape on the preview and a curl only for sticky notes', () => {
+  it('uses the shared photographed material and tape instead of an editor-only curl', () => {
     const view = renderScreen();
     expect(view.getByTestId('vision-note-preview-tape')).toBeTruthy();
-    expect(view.getByTestId('vision-note-preview-curl')).toBeTruthy();
+    expect(view.getByTestId('vision-note-current-renderer-material')).toBeTruthy();
+    expect(view.queryByTestId('vision-note-preview-curl')).toBeNull();
     fireEvent.press(view.getByLabelText('Paper styles'));
+    expect(view.getByTestId('vision-note-current-renderer-material')).toBeTruthy();
     expect(view.queryByTestId('vision-note-preview-curl')).toBeNull();
   });
 
@@ -269,3 +271,4 @@ describe('V2VisionNoteComposer', () => {
     expect(view.UNSAFE_getByType(KeyboardAvoidingView).props.behavior).toBe(behavior);
   });
 });
+

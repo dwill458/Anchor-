@@ -104,7 +104,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
     return source && source.width > 0 && source.height > 0 ? { from: { ...source }, to: { ...source } } : null;
   });
   // Visualize keeps the saved SVG as its only Anchor source across setup and session.
-  const art = useMemo(() => anchorRenderProps(anchor), [anchor]);
+  const art = useMemo(() => ({ ...anchorRenderProps(anchor), threadStrength: anchor.threadStrength ?? null }), [anchor]);
   const boardTiles = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)), [tiles]);
 
   // The Vision screen warms these on load; this confirms they are cached before the entry flies the board in.
@@ -225,14 +225,15 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
     entryCardOpacity.value = 1;
     if (reduceMotion) {
       entryProgress.value = 1;
-      entryNotesOpacity.value = 0;
-      entryCardOpacity.value = 0;
+      entryNotesOpacity.value = 1;
+      entryCardOpacity.value = 1;
       finishEntry();
       return undefined;
     }
     const duration = VISUALIZE_BEGIN_TIMING.fadeMs;
-    entryNotesOpacity.value = withTiming(0, { duration, easing: Easing.inOut(Easing.cubic) });
-    entryCardOpacity.value = withTiming(0, { duration, easing: Easing.inOut(Easing.cubic) });
+    // The saved notes and Anchor travel with the collage and remain visible at rest.
+    entryNotesOpacity.value = 1;
+    entryCardOpacity.value = 1;
     entryProgress.value = withTiming(1, { duration, easing: Easing.inOut(Easing.cubic) }, finished => {
       if (finished) runOnJS(finishEntry)();
     });
@@ -294,7 +295,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
     <Animated.View testID="v2-visualize-entry-overlay" pointerEvents="none" style={entryFrameStyle}>
       <View style={{ flex: 1 }}>
         <Animated.View style={[{ position: 'absolute', width: scene.width, height: scene.height }, entrySceneStyle]}>
-          <VisionBoardScene notes={entry?.notes} notesOpacity={entryNotesOpacity} intentionCardOpacity={entryCardOpacity}
+          <VisionBoardScene materialMode="photographic" notes={notes ?? entry?.notes} notesOpacity={entryNotesOpacity} intentionCardOpacity={entryCardOpacity}
             scene={scene} roster={board.roster} entering={board.entering} layout={board.layout} shared={board.shared}
             initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement} category={anchor.category}
             art={art} markAppearance="paper" reduceMotion />
@@ -355,9 +356,9 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
               {entryActive ? null : (
                 <View style={{ position: 'absolute', left: photoFrame.sceneLayoutLeft, top: photoFrame.sceneLayoutTop,
                   width: scene.width, height: scene.height, transform: [{ scale: photoFrame.scale }] }}>
-                <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout}
+                <VisionBoardScene materialMode="photographic" notes={notes ?? entry?.notes} scene={scene} roster={board.roster} entering={board.entering} layout={board.layout}
                   shared={board.shared} initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement}
-                  category={anchor.category} art={art} showAnchorMark={false} showIntentionCard={false} markAppearance="paper" reduceMotion />
+                  category={anchor.category} art={art} showAnchorMark showIntentionCard markAppearance="paper" reduceMotion />
                 </View>
               )}
             </View>
@@ -365,7 +366,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
         </Pressable>
 
         <Animated.View style={[styles.identity, fadeStyle]}>
-          <Text style={styles.intention} numberOfLines={2}>{anchor.intentionText}</Text>
+          <Text style={styles.intention}>{anchor.intentionText || statement}</Text>
           <View style={styles.categoryRow}>
             <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
             <Text style={styles.category}>{categoryLabel(anchor.category).toUpperCase()}</Text>
@@ -457,3 +458,4 @@ const styles = StyleSheet.create({
   pressed: { transform: [{ scale: 0.99 }] },
   beginText: { fontFamily: 'Inter-SemiBold', fontSize: 17, color: colors.ink.text.primary },
 });
+

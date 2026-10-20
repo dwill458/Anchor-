@@ -11,8 +11,7 @@ import { clampVisionNotePresentationForAspect, defaultVisionNoteOccupancy, nextV
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import { VisionNoteRenderer } from '@/components/v2/vision/notes/VisionNoteRenderer';
 import { VISION_SERIF } from '@/components/v2/vision/VisionPaperChrome';
-import Svg, { Path } from 'react-native-svg';
-import { VisionPaperGrain, VisionPaperSurface, VisionTapeOverlay, VISION_PAPER, VISION_SHADOW } from '@/components/v2/vision/material';
+import { VisionPaperSurface, VisionTapeOverlay, VISION_PAPER } from '@/components/v2/vision/material';
 import {
   getVisionNotePreset, type VisionNotePreset,
   VISION_NOTE_FAMILIES, VISION_NOTE_MAX_CHARS,
@@ -35,17 +34,13 @@ const TILE_COLUMNS = 3;
 /** Stable style reference so the paper layer's props never change while typing. */
 const PAPER_FILL = StyleSheet.absoluteFill;
 /** Shown inside every material tile while the note is empty, so each thumbnail reads as its material. */
-const TILE_SAMPLE_TEXT = 'Dream Plan Build Repeat';
-/** Fixed seed so the preview's grain never shuffles while the person types or changes material. */
-const PREVIEW_GRAIN_SEED = 11;
+const TILE_SAMPLE_TEXT = '';
 /** Preview size: share of the screen width, height relative to width, and the cap on its share of the screen height. */
-const PREVIEW_WIDTH_SHARE = 0.56;
-const PREVIEW_ASPECT = 0.9;
+const PREVIEW_WIDTH_SHARE = 0.68;
+const PREVIEW_ASPECT = 1;
 const PREVIEW_MAX_HEIGHT_SHARE = 0.3;
 /** The preview is set at a slight tilt, like a note stuck to the page. */
 const PREVIEW_TILT = '2deg';
-/** Sticky notes carry a visible paper grain: a heavier speck than the paper's own fine grain. */
-const STICKY_GRAIN_STROKE = 2.2;
 /** Inset of the thumbnail inside its tile box, so the note never touches or clips at the rounded edge. */
 const TILE_INSET = 8;
 const TILE_TEXT_LIMIT = 40;
@@ -104,24 +99,13 @@ const MaterialTile = memo(function MaterialTile({ family, preset, selected, font
       style={[styles.tile, { width: size }]}>
       <View testID={`vision-note-tile-box-${family}`} style={[styles.tileBox, { width: size, height: size }, selected ? styles.tileBoxSelected : styles.tileBoxIdle]}>
         <View style={[styles.tileThumb, { width: thumb, height: thumb }]}>
-          <VisionNoteRenderer styleId={preset.id} fontId={family === 'editorial' ? undefined : fontId} text={sampleText} width={thumb} height={thumb}
+          <VisionNoteRenderer materialMode="photographic" styleId={preset.id} fontId={family === 'editorial' ? undefined : fontId} text={sampleText} width={thumb} height={thumb}
             testID={`vision-note-tile-${family}`} scrollText={false} shadowOverride="none" compact />
         </View>
         {selected ? <View testID={`vision-note-family-check-${family}`} style={styles.check}><Check size={13} color={colors.paper} /></View> : null}
       </View>
       <Text numberOfLines={1} style={[styles.tileLabel, selected && styles.tileLabelSelected]}>{FAMILY_LABELS[family]}</Text>
     </Pressable>
-  );
-});
-
-/** Lower-right fold of a sticky note: a lifted corner with its shadow on the paper beneath. Static and decorative. */
-const StickyCurl = memo(function StickyCurl() {
-  return (
-    <Svg testID="vision-note-preview-curl" pointerEvents="none" accessible={false} width={46} height={46} viewBox="0 0 46 46" style={styles.curl}>
-      <Path d="M46 0V46H0C16 44 36 32 46 0Z" fill="rgba(37, 31, 24, 0.2)" />
-      <Path d="M46 4C40 26 30 38 6 43C28 41 42 30 46 4Z" fill="#FBF8F1" opacity={0.85} />
-      <Path d="M46 4C40 26 30 38 6 43" fill="none" stroke="rgba(37, 31, 24, 0.22)" strokeWidth={0.8} />
-    </Svg>
   );
 });
 
@@ -142,7 +126,7 @@ const StyleSwatch = memo(function StyleSwatch({ preset, selected, fontId, size, 
       <Pressable testID={`vision-note-style-${preset.id}`} accessibilityRole="button"
         accessibilityLabel={`${preset.label} note style`} accessibilityState={{ selected }} onPress={onPress}
         style={[styles.swatch, { width: size, height: size }, selected ? styles.swatchSelected : styles.swatchIdle]}>
-        <VisionNoteRenderer styleId={preset.id} fontId={preset.family === 'editorial' ? undefined : fontId} text="" width={inner} height={inner}
+        <VisionNoteRenderer materialMode="photographic" styleId={preset.id} fontId={preset.family === 'editorial' ? undefined : fontId} text="" width={inner} height={inner}
           testID={`vision-note-swatch-${preset.id}`} scrollText={false} shadowOverride="none" />
         {selected ? <View testID={`vision-note-style-check-${preset.id}`} style={styles.check}><Check size={13} color={colors.paper} /></View> : null}
       </Pressable>
@@ -282,20 +266,16 @@ export function V2VisionNoteComposer({ route, navigation }: Props) {
             <View style={styles.previewSection}>
               <View style={[styles.previewStage, { width: previewWidth, height: previewHeight }]}>
                 <Animated.View entering={reduceMotion ? undefined : FadeInUp.duration(240).withInitialValues({ transform: [{ translateY: 6 }] })}
-                  testID="vision-note-preview" accessibilityLabel={`Note preview. ${text}`} style={[styles.previewFill, VISION_SHADOW.ambient]}>
+                  testID="vision-note-preview" accessibilityLabel={`Note preview. ${text}`} style={styles.previewFill}>
                   {previousStyleId ? <Animated.View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
                     style={[styles.materialLayer, previousMaterial]}>
-                    <VisionNoteRenderer styleId={previousStyleId} fontId={materialFontId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-previous-material" />
+                    <VisionNoteRenderer materialMode="photographic" styleId={previousStyleId} fontId={materialFontId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-previous-material" />
                   </Animated.View> : null}
                   <Animated.View style={[styles.materialLayer, currentMaterial]}>
-                    <VisionNoteRenderer styleId={styleId} fontId={materialFontId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-current-renderer" />
+                    <VisionNoteRenderer materialMode="photographic" styleId={styleId} fontId={materialFontId} text={text} width={previewWidth} height={previewHeight} testID="vision-note-current-renderer" />
                   </Animated.View>
-                  {/* Static paper grain over the note; the note's own colour and ink stay as they are. */}
-                  <VisionPaperGrain testID="vision-note-preview-grain" seed={PREVIEW_GRAIN_SEED} style={styles.previewGrain}
-                    grainStrokeWidth={family === 'sticky' ? STICKY_GRAIN_STROKE : undefined} />
                 </Animated.View>
-                {family === 'sticky' ? <StickyCurl /> : null}
-                <VisionTapeOverlay testID="vision-note-preview-tape" width={Math.round(previewWidth * 0.34)} rotation={-3} tone="cream" style={styles.tape} />
+                <VisionTapeOverlay photographic testID="vision-note-preview-tape" width={Math.round(previewWidth * 0.34)} rotation={-3} tone="cream" style={styles.tape} />
               </View>
               <Text style={styles.previewCaption}>Preview</Text>
             </View>
@@ -375,9 +355,6 @@ const styles = StyleSheet.create({
   previewStage: { alignItems: 'center', justifyContent: 'center', overflow: 'visible', transform: [{ rotate: PREVIEW_TILT }] },
   previewFill: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   materialLayer: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-  /** Lower-right corner of a sticky note: the fold sits on the note's own corner. */
-  curl: { position: 'absolute', right: 0, bottom: 0 },
-  previewGrain: { opacity: 0.9, borderRadius: radii.sm, overflow: 'hidden' },
   /** Tape sits across the top edge of the note, half on the paper and half on the print. */
   tape: { position: 'absolute', top: -9, alignSelf: 'center', zIndex: 3 },
   previewCaption: { ...typography.caption, color: colors.text.secondary, marginTop: spacing[2] },
@@ -424,3 +401,4 @@ function createClientRequestId(): string {
     return value.toString(16);
   });
 }
+

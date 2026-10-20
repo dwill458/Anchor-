@@ -14,6 +14,8 @@ import { colors, typography } from '@/theme/v2';
 import { VisionImageEdge } from '../VisionImageEdge';
 import { VisionPhotograph } from '../VisionPhotograph';
 import { VisionTapeOverlay } from '../material/VisionTapeOverlay';
+import { VisionPolaroidFrame } from '../material/VisionPolaroidFrame';
+import type { VisionPolaroidVariant } from '@/assets/vision/materials/manifest';
 import { VISION_CAPTION_COLOR, VISION_CAPTION_FONTS, VISION_PHOTO, VISION_SHADOW, VISION_TAPE } from '../material/visionMaterialTokens';
 import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, type BoardTape } from './visionBoardLayouts';
 import { boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
@@ -26,6 +28,8 @@ const BLEED = 0;
 const CAPTION_TOUCH_HEIGHT = 30;
 
 export type VisionBoardPhotoProps = {
+  materialMode?: 'legacy' | 'photographic';
+  frameVariant?: VisionPolaroidVariant;
   caption?: string;
   arriving?: boolean;
   sceneId: string;
@@ -70,14 +74,14 @@ function kindWeight(kind: number, target: number) {
 }
 
 /** A strip of tape across the top edge of a print. Its width follows the print on the UI thread. */
-function PrintTape({ tape, width, testID }: { tape: BoardTape; width: SharedValue<number>; testID?: string }) {
+function PrintTape({ tape, width, testID, photographic = false }: { tape: BoardTape; width: SharedValue<number>; testID?: string; photographic?: boolean }) {
   const style = useAnimatedStyle(() => {
     const tapeWidth = tape.width * width.value;
     return { left: tape.offset * width.value - tapeWidth / 2, width: tapeWidth };
   });
   return (
     <Animated.View pointerEvents="none" testID={testID} style={[styles.tapeHolder, style]}>
-      <VisionTapeOverlay width={1} tone={tape.tone} rotation={tape.rotation} style={styles.tapeFill} />
+      <VisionTapeOverlay photographic={photographic} width={1} tone={tape.tone} rotation={tape.rotation} style={styles.tapeFill} />
     </Animated.View>
   );
 }
@@ -86,8 +90,9 @@ function PrintTape({ tape, width, testID }: { tape: BoardTape; width: SharedValu
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, arriving = false, caption, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onPhotoAssetError, onMove, onTeachingMotionChange,
-  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken, tapes = [],
+  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken, tapes = [], materialMode = 'legacy', frameVariant = 'classic',
 }: VisionBoardPhotoProps) {
+  const photographic = materialMode === 'photographic';
   const arrival = useVisionImageArrival();
   const setPrint = arrival?.setPrints?.find(item => item.sceneId === sceneId);
   const setPhase = setPrint?.phase;
@@ -347,10 +352,11 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frameStyle = useAnimatedStyle(() => ({
     width: width.value,
     height: height.value,
-    backgroundColor: edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
+    backgroundColor: photographic ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
   }));
 
   const windowStyle = useAnimatedStyle(() => {
+    if (photographic) return { left: width.value * 0.06, top: height.value * 0.06, width: width.value * 0.88, height: height.value * (frameVariant === 'wide-bottom' ? 0.64 : 0.72) };
     const total = landscape.value + portrait.value + square.value || 1;
     const blend = (key: 'left' | 'top' | 'right' | 'bottom') =>
       (W.landscape[key] * landscape.value + W.portrait[key] * portrait.value + W.square[key] * square.value) / total;
@@ -380,7 +386,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frame = (
     <Animated.View
       testID={testID}
-      style={[styles.photo, frameStyle]}
+      style={[styles.photo, photographic && styles.materialPhoto, frameStyle]}
       accessible={interactive && !exiting}
       accessibilityRole={interactive ? 'imagebutton' : 'image'}
       accessibilityLabel={accessibilityLabel}
@@ -400,9 +406,10 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         )}
         <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
         {/* The torn edges of the aperture take the mount's paper colour. */}
-        <VisionImageEdge hero={hero} brush={detailEdges} color={VISION_PHOTO.mount} darken={edgeDarken} />
+        {!photographic ? <VisionImageEdge hero={hero} brush={detailEdges} color={VISION_PHOTO.mount} darken={edgeDarken} /> : null}
       </Animated.View>
-      {tapes.map((tape, index) => <PrintTape key={`${tape.photo}-${index}`} tape={tape} width={width}
+      {photographic ? <VisionPolaroidFrame variant={frameVariant} testID={`${testID}-material-frame`} /> : null}
+      {tapes.map((tape, index) => <PrintTape photographic={photographic} key={`${tape.photo}-${index}`} tape={tape} width={width}
         testID={testID ? `${testID}-tape-${index}` : undefined} />)}
       {arriving || setPrint ? <Animated.View pointerEvents="none" testID={`${testID}-arrival-pin`} style={[styles.attachment, { width: 16, height: 16, top: -8, left: '50%', marginLeft: -8 }, pinStyle]}>
         <Svg width={16} height={16}><Defs><RadialGradient id="arrival-pin" cx="35%" cy="30%"><Stop offset="0" stopColor="#F3DCA0" /><Stop offset=".45" stopColor={VISION_GOLD} /><Stop offset="1" stopColor="#7d5d22" /></RadialGradient></Defs><Circle cx={8} cy={8} r={8} fill="url(#arrival-pin)" /></Svg>
@@ -422,7 +429,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
             </Text>
           </Pressable>
         </Animated.View>
-      ) : interactive && caption?.trim() ? (
+      ) : (interactive || photographic) && caption?.trim() ? (
         <Animated.Text pointerEvents="none" testID={`${testID}-caption`} numberOfLines={1}
           style={[styles.captionText, captionStyle, captionPositionStyle]}>{caption}</Animated.Text>
       ) : null}
@@ -435,6 +442,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
 const styles = StyleSheet.create({
   container: { position: 'absolute', overflow: 'visible' },
   photo: { position: 'absolute', left: 0, top: 0, borderRadius: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: VISION_PHOTO.mountEdge, ...VISION_SHADOW.ambient },
+  materialPhoto: { borderWidth: 0, borderRadius: 0 },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
   window: { position: 'absolute', overflow: 'hidden', backgroundColor: colors.canvas },
   fill: { width: '100%', height: '100%' },
@@ -448,3 +456,4 @@ const styles = StyleSheet.create({
   tapeHolder: { position: 'absolute', top: -VISION_TAPE.height * 0.45, height: VISION_TAPE.height, zIndex: 2 },
   tapeFill: { width: '100%' },
 });
+

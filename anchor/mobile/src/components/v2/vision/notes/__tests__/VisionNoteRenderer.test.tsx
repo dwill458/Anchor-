@@ -4,6 +4,13 @@ import { VisionNoteRenderer } from '../VisionNoteRenderer';
 import { VISION_NOTE_PRESETS } from '../visionNoteStyles';
 
 describe('VisionNoteRenderer', () => {
+  it('keeps cinematic callers on their original material unless explicitly opted in', () => {
+    const view = render(<VisionNoteRenderer styleId="sticky_blush_pink" text="Saved words" width={240} height={240} />);
+    expect(view.queryByTestId('vision-note-renderer-material')).toBeNull();
+    view.rerender(<VisionNoteRenderer materialMode="photographic" styleId="sticky_blush_pink" text="Saved words" width={240} height={240} />);
+    expect(view.getByTestId('vision-note-renderer-material')).toBeTruthy();
+    expect(view.UNSAFE_getByType(require('react-native').Text).props.children).toBe('Saved words');
+  });
   it.each(VISION_NOTE_PRESETS)('renders preset $id with its label and accessible live content', preset => {
     const view = render(<VisionNoteRenderer styleId={preset.id} text="A distinct note" width={220} height={150} compact />);
     expect(view.getByTestId('vision-note-renderer').props.accessibilityLabel).toBe('A distinct note');
@@ -43,3 +50,4 @@ describe('VisionNoteRenderer', () => {
     expect(view.UNSAFE_getByType(require('react-native').ScrollView).props.scrollEnabled).toBe(true);
   });
 });
+

@@ -1,0 +1,314 @@
+[
+  {
+    "filename": "sticky-blush-pink.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-31c0e911-a0fe-4b78-b23e-915f8c4daf76.png",
+    "sourceCrop": {
+      "x": 54,
+      "y": 45,
+      "width": 570,
+      "height": 575
+    }
+  },
+  {
+    "filename": "sticky-butter-yellow.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-31c0e911-a0fe-4b78-b23e-915f8c4daf76.png",
+    "sourceCrop": {
+      "x": 655,
+      "y": 45,
+      "width": 574,
+      "height": 575
+    }
+  },
+  {
+    "filename": "sticky-sky-blue.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-31c0e911-a0fe-4b78-b23e-915f8c4daf76.png",
+    "sourceCrop": {
+      "x": 55,
+      "y": 650,
+      "width": 565,
+      "height": 570
+    }
+  },
+  {
+    "filename": "sticky-sage-green.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-31c0e911-a0fe-4b78-b23e-915f8c4daf76.png",
+    "sourceCrop": {
+      "x": 655,
+      "y": 650,
+      "width": 574,
+      "height": 575
+    }
+  },
+  {
+    "filename": "sticky-lavender.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-8d7f9f6a-14aa-4175-a2d3-0ea8246716b3.png",
+    "sourceCrop": {
+      "x": 63,
+      "y": 45,
+      "width": 557,
+      "height": 574
+    }
+  },
+  {
+    "filename": "sticky-peach.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-8d7f9f6a-14aa-4175-a2d3-0ea8246716b3.png",
+    "sourceCrop": {
+      "x": 656,
+      "y": 48,
+      "width": 565,
+      "height": 573
+    }
+  },
+  {
+    "filename": "sticky-warm-ivory.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-8d7f9f6a-14aa-4175-a2d3-0ea8246716b3.png",
+    "sourceCrop": {
+      "x": 62,
+      "y": 641,
+      "width": 561,
+      "height": 575
+    }
+  },
+  {
+    "filename": "sticky-rose-lined.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-8d7f9f6a-14aa-4175-a2d3-0ea8246716b3.png",
+    "sourceCrop": {
+      "x": 655,
+      "y": 640,
+      "width": 563,
+      "height": 575
+    }
+  },
+  {
+    "filename": "paper-ivory-rough.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-bbd178cd-06a5-48cf-acbe-bfb6f988acf0.png",
+    "sourceCrop": {
+      "x": 44,
+      "y": 43,
+      "width": 575,
+      "height": 565
+    }
+  },
+  {
+    "filename": "paper-cream-fiber.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-bbd178cd-06a5-48cf-acbe-bfb6f988acf0.png",
+    "sourceCrop": {
+      "x": 657,
+      "y": 45,
+      "width": 574,
+      "height": 567
+    }
+  },
+  {
+    "filename": "paper-warm-beige.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-bbd178cd-06a5-48cf-acbe-bfb6f988acf0.png",
+    "sourceCrop": {
+      "x": 44,
+      "y": 637,
+      "width": 579,
+      "height": 570
+    }
+  },
+  {
+    "filename": "paper-torn-edge.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-bbd178cd-06a5-48cf-acbe-bfb6f988acf0.png",
+    "sourceCrop": {
+      "x": 655,
+      "y": 638,
+      "width": 578,
+      "height": 579
+    }
+  },
+  {
+    "filename": "editorial-classic-ivory.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-4bb6a4e4-839a-45cf-af96-ae80c988edb6.png",
+    "sourceCrop": {
+      "x": 55,
+      "y": 52,
+      "width": 573,
+      "height": 559
+    }
+  },
+  {
+    "filename": "editorial-warm-cream.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-4bb6a4e4-839a-45cf-af96-ae80c988edb6.png",
+    "sourceCrop": {
+      "x": 662,
+      "y": 53,
+      "width": 577,
+      "height": 559
+    }
+  },
+  {
+    "filename": "editorial-oyster.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-4bb6a4e4-839a-45cf-af96-ae80c988edb6.png",
+    "sourceCrop": {
+      "x": 55,
+      "y": 640,
+      "width": 573,
+      "height": 568
+    }
+  },
+  {
+    "filename": "editorial-soft-parchment.webp",
+    "width": 600,
+    "height": 600,
+    "sourceAtlas": "exec-4bb6a4e4-839a-45cf-af96-ae80c988edb6.png",
+    "sourceCrop": {
+      "x": 661,
+      "y": 640,
+      "width": 581,
+      "height": 566
+    }
+  },
+  {
+    "filename": "tape-cream.webp",
+    "width": 512,
+    "height": 160,
+    "sourceAtlas": "exec-fa5db515-850b-4139-a09f-49ec575a121b.png",
+    "sourceCrop": {
+      "x": 48,
+      "y": 109,
+      "width": 810,
+      "height": 184
+    }
+  },
+  {
+    "filename": "tape-muted-pink.webp",
+    "width": 512,
+    "height": 160,
+    "sourceAtlas": "exec-fa5db515-850b-4139-a09f-49ec575a121b.png",
+    "sourceCrop": {
+      "x": 930,
+      "y": 108,
+      "width": 809,
+      "height": 185
+    }
+  },
+  {
+    "filename": "tape-beige.webp",
+    "width": 512,
+    "height": 160,
+    "sourceAtlas": "exec-fa5db515-850b-4139-a09f-49ec575a121b.png",
+    "sourceCrop": {
+      "x": 70,
+      "y": 385,
+      "width": 788,
+      "height": 175
+    }
+  },
+  {
+    "filename": "tape-translucent-clear.webp",
+    "width": 512,
+    "height": 160,
+    "sourceAtlas": "exec-fa5db515-850b-4139-a09f-49ec575a121b.png",
+    "sourceCrop": {
+      "x": 943,
+      "y": 387,
+      "width": 782,
+      "height": 176
+    }
+  },
+  {
+    "filename": "tape-textured-ivory.webp",
+    "width": 512,
+    "height": 160,
+    "sourceAtlas": "exec-fa5db515-850b-4139-a09f-49ec575a121b.png",
+    "sourceCrop": {
+      "x": 78,
+      "y": 660,
+      "width": 775,
+      "height": 167
+    }
+  },
+  {
+    "filename": "tape-torn-cream.webp",
+    "width": 512,
+    "height": 160,
+    "sourceAtlas": "exec-fa5db515-850b-4139-a09f-49ec575a121b.png",
+    "sourceCrop": {
+      "x": 929,
+      "y": 656,
+      "width": 804,
+      "height": 187
+    }
+  },
+  {
+    "filename": "polaroid-classic.webp",
+    "width": 600,
+    "height": 720,
+    "sourceAtlas": "exec-f34d21ba-9177-4e10-bec9-2dc7c4e98539.png",
+    "sourceCrop": {
+      "x": 42,
+      "y": 33,
+      "width": 517,
+      "height": 619
+    }
+  },
+  {
+    "filename": "polaroid-torn-bottom.webp",
+    "width": 600,
+    "height": 720,
+    "sourceAtlas": "exec-f34d21ba-9177-4e10-bec9-2dc7c4e98539.png",
+    "sourceCrop": {
+      "x": 596,
+      "y": 34,
+      "width": 520,
+      "height": 617
+    }
+  },
+  {
+    "filename": "polaroid-rough-edge.webp",
+    "width": 600,
+    "height": 720,
+    "sourceAtlas": "exec-f34d21ba-9177-4e10-bec9-2dc7c4e98539.png",
+    "sourceCrop": {
+      "x": 30,
+      "y": 696,
+      "width": 531,
+      "height": 623
+    }
+  },
+  {
+    "filename": "polaroid-wide-bottom.webp",
+    "width": 600,
+    "height": 720,
+    "sourceAtlas": "exec-f34d21ba-9177-4e10-bec9-2dc7c4e98539.png",
+    "sourceCrop": {
+      "x": 596,
+      "y": 696,
+      "width": 522,
+      "height": 631
+    }
+  }
+]
