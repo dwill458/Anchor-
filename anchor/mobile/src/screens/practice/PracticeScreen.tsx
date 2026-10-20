@@ -25,11 +25,11 @@ import { Eye, Flame, Zap, ChevronRight } from "lucide-react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { Anchor, PracticeStackParamList } from '@/types';
 import type { PracticeEntrySource } from '@/types/practice';
 import { ZenBackground } from '@/components/common';
@@ -139,7 +139,7 @@ export const PracticeScreen: React.FC = () => {
   const { navigateToPaywall, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotionEnabled();
   const performanceTier = useAppPerformanceTier();
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);

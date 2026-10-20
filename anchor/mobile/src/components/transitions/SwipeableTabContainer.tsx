@@ -30,11 +30,11 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   runOnJS,
-  useReducedMotion,
   interpolate,
   Extrapolation,
   type SharedValue,
 } from 'react-native-reanimated';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import {
   Gesture,
   GestureDetector,
@@ -71,7 +71,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
   tabCount = 2,
   swipeEnabled = true,
 }) => {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReduceMotionEnabled();
   // Only kept true while a swipe is actively dragging or settling — see
   // file header. Outside of that window, only the active tab is mounted.
   const [isSwiping, setIsSwiping] = useState(false);

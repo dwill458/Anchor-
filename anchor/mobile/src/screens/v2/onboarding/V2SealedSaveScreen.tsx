@@ -23,11 +23,11 @@ import Animated, {
   FadeOut,
   interpolate,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
+import { useV2ReduceMotion } from '@/hooks/v2';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight, Check, ChevronDown, ChevronLeft, Eye, EyeOff, Mail } from 'lucide-react-native';
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
@@ -110,7 +110,7 @@ function readableAuthError(error: unknown, mode: Mode): string {
 export function V2SealedSaveScreen({ onAccountReady, onContinueWithout, onContinue, onBack, initialSaved = null }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useV2ReduceMotion();
   const signedInUser = useAuthStore((state) => state.user);
   const pendingTempId = useAuthStore((state) => state.pendingFirstAnchorDraft?.tempAnchorId);
   const canRetryPendingSave = useAuthStore((state) => Boolean(

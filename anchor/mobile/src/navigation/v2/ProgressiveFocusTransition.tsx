@@ -245,9 +245,11 @@ export function isUsableRect(rect: AnchorWindowRect | null | undefined): rect is
 
 /** The rect's centre is on screen: a scrolled-away artwork is not a place to fly from or to. */
 function isInWindow(rect: AnchorWindowRect, window: { width: number; height: number }): boolean {
+  const w = window.width > 0 ? window.width : 400;
+  const h = window.height > 0 ? window.height : 800;
   const cx = rect.x + rect.width / 2;
   const cy = rect.y + rect.height / 2;
-  return cx >= 0 && cx <= window.width && cy >= 0 && cy <= window.height;
+  return cx >= 0 && cx <= w && cy >= 0 && cy <= h;
 }
 
 function sameAnchor(anchor: MovingAnchor, anchorId: string | undefined): boolean {

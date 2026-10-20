@@ -29,12 +29,12 @@ import Animated, {
   Easing,
   FadeInDown,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -95,7 +95,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotionEnabled();
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);

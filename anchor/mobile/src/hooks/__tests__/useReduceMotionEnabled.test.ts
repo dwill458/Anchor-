@@ -29,7 +29,7 @@ describe.each([
   ['useCreationReduceMotion', useCreationReduceMotion],
 ] as const)('%s', (_name, useMotionPreference) => {
   beforeEach(() => {
-    useSettingsStore.setState({ reduceMotion: 'system' });
+    useSettingsStore.setState({ reduceMotion: 'system', devPerfTierOverride: 'auto' });
   });
 
   it('follows the system flag when the preference is "system"', async () => {
@@ -42,7 +42,7 @@ describe.each([
 
   it('honours the OS flag during creation even with the in-app preference off', async () => {
     mockIsReduceMotionEnabled.mockResolvedValue(true);
-    useSettingsStore.setState({ reduceMotion: 'off' });
+    useSettingsStore.setState({ reduceMotion: 'off', devPerfTierOverride: 'high' });
 
     const { result } = renderHook(() => useMotionPreference());
 
@@ -58,5 +58,23 @@ describe.each([
 
     await waitFor(() => expect(mockIsReduceMotionEnabled).toHaveBeenCalled());
     expect(result.current).toBe(true);
+  });
+
+  it('is 100% reduce motion on low-tier hardware even if system flag is off and preference is off', async () => {
+    mockIsReduceMotionEnabled.mockResolvedValue(false);
+    useSettingsStore.setState({ reduceMotion: 'off', devPerfTierOverride: 'low' });
+
+    const { result } = renderHook(() => useMotionPreference());
+
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it('honours forced high-tier developer override when testing flagship behavior', async () => {
+    mockIsReduceMotionEnabled.mockResolvedValue(false);
+    useSettingsStore.setState({ reduceMotion: 'off', devPerfTierOverride: 'high' });
+
+    const { result } = renderHook(() => useMotionPreference());
+
+    await waitFor(() => expect(result.current).toBe(false));
   });
 });
