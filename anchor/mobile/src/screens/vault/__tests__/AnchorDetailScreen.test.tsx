@@ -17,6 +17,7 @@ const mockRequestPhotoLibrarySavePermission = jest.fn();
 const mockSavePngToPhotoLibrary = jest.fn();
 const mockCaptureRef = jest.fn();
 const mockRequestPermissionsAsync = jest.fn();
+const mockAssetCreate = jest.fn();
 const mockSaveToLibraryAsync = jest.fn();
 const mockToastError = jest.fn();
 const mockAnalyticsTrack = jest.fn();
@@ -52,6 +53,7 @@ jest.mock('react-native-view-shot', () => ({
 }));
 
 jest.mock('expo-media-library', () => ({
+    Asset: { create: (...args: any[]) => mockAssetCreate(...args) },
     requestPermissionsAsync: (...args: any[]) => mockRequestPermissionsAsync(...args),
     saveToLibraryAsync: (...args: any[]) => mockSaveToLibraryAsync(...args),
 }));
@@ -266,6 +268,7 @@ describe('AnchorDetailScreen', () => {
         mockSavePngToPhotoLibrary.mockReset();
         mockCaptureRef.mockReset();
         mockRequestPermissionsAsync.mockReset();
+        mockAssetCreate.mockReset();
         mockSaveToLibraryAsync.mockReset();
         mockToastError.mockReset();
         mockAnalyticsTrack.mockReset();
@@ -287,6 +290,7 @@ describe('AnchorDetailScreen', () => {
         mockRequestPhotoLibrarySavePermission.mockResolvedValue(true);
         mockSavePngToPhotoLibrary.mockResolvedValue('file:///tmp/anchor-card-saved.png');
         mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted', granted: true });
+        mockAssetCreate.mockResolvedValue({ id: 'content://saved-image' });
         mockSaveToLibraryAsync.mockResolvedValue(undefined);
         jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
         jest.spyOn(Sharing, 'isAvailableAsync').mockResolvedValue(true);

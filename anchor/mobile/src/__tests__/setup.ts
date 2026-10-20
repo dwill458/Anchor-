@@ -125,6 +125,7 @@ jest.mock('expo-store-review', () => ({
 }));
 
 jest.mock('expo-media-library', () => ({
+  Asset: { create: jest.fn(() => Promise.resolve({ id: 'content://saved-image' })) },
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));

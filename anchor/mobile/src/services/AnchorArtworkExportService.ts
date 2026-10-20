@@ -1,6 +1,6 @@
 import { Platform, Share } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
+import { Asset, requestPermissionsAsync } from 'expo-media-library';
 import { ServiceError } from './ServiceErrors';
 
 export type AnchorArtworkExportMode = 'wallpaper' | 'download';
@@ -44,14 +44,14 @@ const createPhotoLibraryFilename = (filename: string): string => {
 };
 
 export const shouldRequestPhotoLibrarySavePermission = (): boolean =>
-  Platform.OS !== 'android' || Number(Platform.Version) < 29;
+  Platform.OS !== 'android' || Number(Platform.Version) < 30;
 
 export async function requestPhotoLibrarySavePermission(): Promise<boolean> {
   if (!shouldRequestPhotoLibrarySavePermission()) {
     return true;
   }
 
-  const permission = await MediaLibrary.requestPermissionsAsync(true);
+  const permission = await requestPermissionsAsync(true);
   return Boolean(permission.granted);
 }
 
@@ -79,7 +79,7 @@ export async function savePngToPhotoLibrary(
   filename: string
 ): Promise<string> {
   const photoLibraryUri = await preparePngForPhotoLibrary(localUri, filename);
-  await MediaLibrary.saveToLibraryAsync(photoLibraryUri);
+  await Asset.create(photoLibraryUri);
   return photoLibraryUri;
 }
 
