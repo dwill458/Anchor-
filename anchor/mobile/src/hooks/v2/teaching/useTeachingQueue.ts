@@ -55,14 +55,16 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
     return () => { cancelled = true; interaction?.cancel(); };
   }, [accountId, blocked, cap, eligibleKey, isFocused, session, replay]);
 
-  const markShown = useCallback((_beat?: BeatId) => {
+  const markShown = useCallback((beat?: BeatId) => {
     if (owner.current === session && live.current.session === session && live.current.isFocused && !live.current.blocked) {
       decided.current = true;
       batchRef.current = batch;
+      if (beat) setTeachingSeen(live.current.accountId, beat);
     }
   }, [session, batch]);
   const dismiss = useCallback((beatsToCommit?: BeatId[]) => {
     if (owner.current !== session || live.current.session !== session || !live.current.isFocused || live.current.blocked) return;
+    // Presented beats are already marked by markShown; this commits the unpresented remainder.
     const committed = Array.isArray(beatsToCommit) ? beatsToCommit : batchRef.current;
     committed.forEach(beat => setTeachingSeen(live.current.accountId, beat));
     batchRef.current = [];
