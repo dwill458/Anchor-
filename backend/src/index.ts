@@ -241,6 +241,8 @@ app.use('/api/users', express.json({ limit: '8mb' }));
 // enough room for base64 expansion and JSON framing before that route-level
 // validation runs.
 app.use('/api/v2/assets/upload', express.json({ limit: '8mb' }));
+// Ask Chart photos are base64 JSON too (the app sends a resized JPEG; the route enforces 6 MB decoded).
+app.use('/api/v2/anchors/:anchorId/chart/ask/photo', express.json({ limit: '8mb' }));
 // Identity reference photos are base64 JSON as well (5 MB decoded cap in VisionAppearanceReferenceService).
 // Without this they fall under the 1mb parser below and every real photograph is refused with a 413.
 app.use('/api/v2/vision/appearance-reference', express.json({ limit: '8mb' }));

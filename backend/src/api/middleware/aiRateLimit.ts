@@ -9,6 +9,7 @@ import { logger } from '../../utils/logger';
 export type AiFeature =
   | 'chart'
   | 'chart_adjust'
+  | 'chart_ask'
   | 'vision'
   | 'vision_ref'
   | 'anchor'
@@ -157,6 +158,17 @@ export const chartAdjustLimiter = createAiRateLimiter({
   message: 'Chart route adjustment limit reached. Please try again shortly.',
 });
 
+// 2b. Ask Chart conversation turns (short, frequent, cheaper than a route plan):
+// Prod: 40 per 10 minutes | Dev: 200 per 10 minutes
+export const chartAskLimiter = createAiRateLimiter({
+  feature: 'chart_ask',
+  windowMs: 10 * 60 * 1000,
+  prodLimit: 40,
+  devLimit: 200,
+  keyPrefix: 'rl:ai:chart_ask:',
+  message: 'Ask Chart needs a short break. Your conversation is saved, so you can pick it up shortly.',
+});
+
 // 3. Vision image generation (more conservative due to cost):
 // Prod: 8 per 10 minutes | Dev: 60 per 10 minutes
 export const visionGenerationLimiter = createAiRateLimiter({
@@ -279,6 +291,18 @@ export const chartPlanConcurrencyGuard = createConcurrencyGuard(
     const userId = authReq.user?.uid || authReq.dbUser?.id;
     const anchorId = req.params?.anchorId;
     return userId ? `chart:${userId}:${anchorId || 'any'}` : null;
+  }
+);
+
+/** One Ask Chart turn at a time per person and Anchor. The client queues quick messages and sends them in order. */
+export const chartAskConcurrencyGuard = createConcurrencyGuard(
+  'chart_ask',
+  'ASK_TURN_IN_PROGRESS',
+  'Ask Chart is still answering your last message.',
+  req => {
+    const authReq = req as AuthRequest;
+    const userId = authReq.user?.uid || authReq.dbUser?.id;
+    return userId ? `ask:${userId}:${req.params?.anchorId || 'any'}` : null;
   }
 );
 

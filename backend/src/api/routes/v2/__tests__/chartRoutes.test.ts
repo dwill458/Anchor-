@@ -39,7 +39,7 @@ const mockChartService = {
   archiveChart: jest.fn(),
   deleteChart: jest.fn(),
 };
-const mockPlanner = { generate: jest.fn(), adjust: jest.fn(), suggestMoves: jest.fn() };
+const mockPlanner = { generate: jest.fn(), adjust: jest.fn(), suggestMoves: jest.fn(), get: jest.fn() };
 jest.mock('../../../../services/chart/ChartService', () => ({ chartService: mockChartService }));
 jest.mock('../../../../services/chart/ChartPlannerService', () => ({ chartPlannerService: mockPlanner }));
 
@@ -212,6 +212,22 @@ describe('Chart v2 routes', () => {
     mockFlags.write = false;
     const response = await request(app()).post('/api/v2/charts/c1/moves/m1/complete');
     expect(response.status).toBe(403);
+  });
+
+  describe('GET /charts/:courseId/proposals/:proposalId', () => {
+    it('returns the person’s own proposal for that Chart', async () => {
+      mockPlanner.get.mockResolvedValue({ proposalId: 'p1', courseId: 'course-1', waypoints: [] });
+      const response = await request(app()).get('/api/v2/charts/course-1/proposals/p1');
+      expect(response.status).toBe(200);
+      expect(response.body.data.proposalId).toBe('p1');
+      expect(mockPlanner.get).toHaveBeenCalledWith('db-user-1', 'p1');
+    });
+
+    it('does not return a proposal that belongs to a different Chart', async () => {
+      mockPlanner.get.mockResolvedValue({ proposalId: 'p1', courseId: 'other-course', waypoints: [] });
+      const response = await request(app()).get('/api/v2/charts/course-1/proposals/p1');
+      expect(response.status).toBe(404);
+    });
   });
 
   describe('Chart creation is Pro; viewing and working a Chart is not', () => {

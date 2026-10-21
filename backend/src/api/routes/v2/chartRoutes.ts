@@ -310,6 +310,20 @@ router.post(
   })
 );
 
+/**
+ * A saved route proposal (e.g. one Ask Chart prepared) so the route review can open on it. Only the person's own
+ * proposal for this Chart is returned; reading it changes nothing.
+ */
+router.get(
+  '/charts/:courseId/proposals/:proposalId',
+  handle(async (req, res) => {
+    const userId = await readUser(req);
+    const proposal = await chartPlannerService.get(userId, req.params.proposalId);
+    if (proposal.courseId !== req.params.courseId) throw new AppError('Proposal is unavailable', 404, 'PROPOSAL_UNAVAILABLE');
+    res.json({ success: true, data: proposal });
+  })
+);
+
 router.put(
   '/charts/:courseId/route',
   handle(async (req, res) => {

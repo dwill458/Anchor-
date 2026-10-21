@@ -1,9 +1,11 @@
 import { prisma } from '../lib/prisma';
 import { purgeExpiredChartData } from '../services/ChartCleanupService';
+import { purgeExpiredAskPhotos } from '../services/chart/ask/askChartPhotos';
 
 async function main(): Promise<void> {
   const result = await purgeExpiredChartData();
-  console.log(JSON.stringify({ job: 'chart-purge', ...result }));
+  const askPhotosDeleted = await purgeExpiredAskPhotos();
+  console.log(JSON.stringify({ job: 'chart-purge', ...result, askPhotosDeleted }));
 }
 
 main()

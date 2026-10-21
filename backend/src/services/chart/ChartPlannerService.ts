@@ -201,7 +201,7 @@ export class ChartPlannerService {
     return { ok: false, reason: lastReason };
   }
 
-  private async loadAnchorContext(userId: string, anchorId: string) {
+  async loadAnchorContext(userId: string, anchorId: string) {
     const anchor = await prisma.anchor.findFirst({
       where: { id: anchorId, userId },
       select: {

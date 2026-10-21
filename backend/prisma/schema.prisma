@@ -76,6 +76,10 @@ model User {
   anchorMilestones        AnchorMilestone[]
   milestonePresentations MilestonePresentation[]
   weeklyInsightSnapshots  WeeklyInsightSnapshot[]
+  chartConversations      ChartConversation[]
+  chartMessages           ChartMessage[]
+  chartCoachProfile       ChartCoachProfile?
+  chartMemories           ChartMemory[]
 
   @@map("users")
 }
@@ -185,6 +189,8 @@ model Anchor {
   milestonePresentations MilestonePresentation[]
   visions            Vision[]
   visionGenerations VisionGeneration[]
+  chartConversations ChartConversation[]
+  chartMemories      ChartMemory[]
 
   // INTENTION COMPLETION (CCR-1)
   intentionCompletedAt DateTime? @map("intention_completed_at")
@@ -763,6 +769,83 @@ model AIPlanProposal {
   @@index([userId, createdAt])
   @@index([courseId, status])
   @@map("ai_plan_proposals")
+}
+
+// ============================================================================
+// Ask Chart — conversation, coaching preference and user-controlled memory.
+// Progress stays on Course/Waypoint/Move; nothing here is authoritative for it.
+// ============================================================================
+
+model ChartConversation {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId      String   @map("anchor_id")
+  anchor        Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  // Plain reference (no FK): archived or replaced Charts keep their conversation history.
+  courseId      String?  @map("course_id")
+  // CREATE (before the Chart exists) | ONGOING
+  mode          String   @db.VarChar(8)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+
+  messages ChartMessage[]
+
+  @@index([userId, anchorId, lastMessageAt])
+  @@map("chart_conversations")
+}
+
+model ChartMessage {
+  id             String            @id @default(uuid())
+  conversationId String            @map("conversation_id")
+  conversation   ChartConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String            @map("user_id")
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // USER | ASSISTANT
+  role           String            @db.VarChar(12)
+  text           String            @db.VarChar(4000)
+  // Asset ids only. Image bytes are never copied into the conversation.
+  attachments    Json?
+  // Assistant only: suggestions, photo request, proposal and its status.
+  structured     Json?
+  skill          String?           @db.VarChar(24)
+  // Assistant only: agent version, generation source, provider/model. For debugging, never shown as personalisation.
+  meta           Json?
+  idempotencyKey String?           @unique @map("idempotency_key")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@index([conversationId, createdAt])
+  @@index([userId])
+  @@map("chart_messages")
+}
+
+model ChartCoachProfile {
+  userId    String   @id @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // SUPPORTIVE | DRIVEN | DIRECT
+  style     String   @default("DRIVEN") @db.VarChar(12)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("chart_coach_profiles")
+}
+
+// One retained preference per key per Anchor. Never shared across Anchors.
+model ChartMemory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId  String   @map("anchor_id")
+  anchor    Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  key       String   @db.VarChar(24)
+  value     String   @db.VarChar(200)
+  // USER_EDITED | CONVERSATION
+  source    String   @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, anchorId, key])
+  @@map("chart_memories")
 }
 
 model VisualizationScene {
