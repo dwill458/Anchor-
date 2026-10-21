@@ -433,6 +433,7 @@ export class VisionGenerationService {
           devImageModel,
           operation,
           generationRequestId,
+          shouldContinue: canProceed,
         });
         return result.images[0].buffer;
       } catch (error) {
@@ -454,6 +455,7 @@ export class VisionGenerationService {
           devImageModel,
           operation,
           generationRequestId,
+          shouldContinue: canProceed,
         });
         return retryResult.images[0].buffer;
       }

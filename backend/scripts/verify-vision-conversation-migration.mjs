@@ -71,6 +71,16 @@ try {
     await rejected('DELETE FROM assets WHERE id=$1', ['asset-1'], '23001');
     await rejected('DELETE FROM vision_generation_candidates WHERE id=$1', ['original-option-2'], '23001');
   });
+  await test('session retention cascades lineage while keeping the sealed board asset', async () => {
+    await insert('vision_creation_sessions', { id: 'cleanup-session', user_id: 'qa-owner', anchor_id: 'qa-anchor', vision_id: 'qa-vision', description: 'Expired scene', expires_at: new Date(0).toISOString() });
+    await insert('vision_generations', { ...generation, id: 'cleanup-original', session_id: 'cleanup-session', round_number: 0, set_number: 9 });
+    await insert('vision_generation_candidates', { id: 'cleanup-source', generation_id: 'cleanup-original', asset_id: 'asset-7', role: 'option', prompt: 'Original', sort_order: 0, status: 'SUCCEEDED' });
+    await insert('vision_generations', { ...generation, id: 'cleanup-edit', session_id: 'cleanup-session', round_number: 1, set_number: 10, operation: 'EDIT', parent_candidate_id: 'cleanup-source' });
+    await insert('vision_scenes', { id: 'kept-scene', vision_id: 'qa-vision', user_id: 'qa-owner', asset_id: 'asset-7', source_type: 'AI_GENERATED', sort_order: 0 });
+    await db.query('DELETE FROM vision_creation_sessions WHERE id=$1', ['cleanup-session']);
+    assert.equal((await db.query('SELECT count(*)::int AS n FROM vision_generations WHERE session_id=$1', ['cleanup-session'])).rows[0].n, 0);
+    assert.equal((await db.query('SELECT asset_id FROM vision_scenes WHERE id=$1', ['kept-scene'])).rows[0].asset_id, 'asset-7');
+  });
   await test('account deletion still cascades through complete revision history', async () => {
     await db.query('DELETE FROM users WHERE id=$1', ['qa-owner']);
     assert.equal((await db.query('SELECT count(*)::int AS n FROM vision_creation_sessions')).rows[0].n, 0);

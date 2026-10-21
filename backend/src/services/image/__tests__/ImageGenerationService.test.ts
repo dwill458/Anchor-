@@ -16,6 +16,21 @@ import {
 import { OpenAIImageProviderAdapter } from '../adapters/OpenAIImageProviderAdapter';
 
 describe('ImageGenerationService & Multi-Provider Architecture', () => {
+  it('does not start fallback after its owning scene session ends', async () => {
+    process.env.VISION_PRIMARY_PROVIDER = 'openai';
+    process.env.VISION_FALLBACK_PROVIDER = 'gemini';
+    let active = true;
+    const primary = createMockAdapter('openai', true, async () => {
+      active = false;
+      throw new ImageProviderError('openai', ImageProviderErrorType.NETWORK_ERROR, 'Interrupted', true);
+    });
+    const fallback = createMockAdapter('gemini');
+    const service = new ImageGenerationService({ openAiAdapter: primary, geminiAdapter: fallback });
+    await expect(service.generate({ type: 'vision', prompt: 'A peaceful scene', shouldContinue: async () => active }))
+      .rejects.toMatchObject({ statusCode: 409 });
+    expect(primary.generate).toHaveBeenCalledTimes(1);
+    expect(fallback.generate).not.toHaveBeenCalled();
+  });
   const originalEnv = process.env;
 
   beforeEach(() => {

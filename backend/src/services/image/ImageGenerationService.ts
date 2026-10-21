@@ -139,6 +139,17 @@ export class ImageGenerationService {
   }
 
   private async executeWithFallback(request: GenerateImageRequest): Promise<ImageGenerationResult> {
+    const assertActive = async () => {
+      if (request.shouldContinue && !(await request.shouldContinue()))
+        throw new ImageProviderError(
+          'vision',
+          ImageProviderErrorType.INVALID_REQUEST,
+          'Scene session has ended.',
+          false,
+          409
+        );
+    };
+    await assertActive();
     const startTime = Date.now();
     const { primaryProvider, fallbackProvider } = this.resolveRouting(request);
     const attempts: ProviderAttemptRecord[] = [];
@@ -271,6 +282,7 @@ export class ImageGenerationService {
       throw primaryError;
     }
 
+    await assertActive();
     // 3. Execute Fallback
     logger.info(`[ImageGenerationService] Attempt 2: falling back to ${fallbackProvider}`, {
       purpose: request.type,

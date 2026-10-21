@@ -53,6 +53,8 @@ export interface GenerateImageRequest {
   height?: number;
   /** Unique generation request identifier for distributed tracing and deduplication */
   generationRequestId?: string;
+  /** Internal job lifecycle guard, checked before starting another provider call. */
+  shouldContinue?: () => Promise<boolean>;
   /** User ID for logging and deterministic A/B testing */
   userId?: string;
   /** Generation attempt number (1 for initial, 2+ for regeneration) */

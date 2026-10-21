@@ -1,0 +1,62 @@
+{
+  "description": "Compose a completely new eye-level wide photograph of a modern creative studio overlooking the sea at sunset. Put the selected red mug, open notebook, and plant on an oak desk across the lower third. Show a broad sea view and the horizon through a large window. Use wood textures from the place reference and warm light from the inspiration reference. Do not preserve the previous desk viewpoint or room layout.",
+  "referenceRoles": [
+    {
+      "role": "object",
+      "label": "Red mug"
+    },
+    {
+      "role": "object",
+      "label": "Open notebook"
+    },
+    {
+      "role": "object",
+      "label": "Potted plant"
+    },
+    {
+      "role": "place",
+      "label": "Wood textures only"
+    },
+    {
+      "role": "inspiration",
+      "label": "Warm light"
+    }
+  ],
+  "images": 2,
+  "elapsedMs": 13414,
+  "expansion": null,
+  "receipts": [
+    {
+      "provider": "openai",
+      "usage": {
+        "input_tokens": 4262,
+        "input_tokens_details": {
+          "image_tokens": 3760,
+          "text_tokens": 502
+        },
+        "output_tokens": 157,
+        "output_tokens_details": {
+          "image_tokens": 157,
+          "text_tokens": 0
+        },
+        "total_tokens": 4419
+      }
+    },
+    {
+      "provider": "openai",
+      "usage": {
+        "input_tokens": 4262,
+        "input_tokens_details": {
+          "image_tokens": 3760,
+          "text_tokens": 502
+        },
+        "output_tokens": 157,
+        "output_tokens_details": {
+          "image_tokens": 157,
+          "text_tokens": 0
+        },
+        "total_tokens": 4419
+      }
+    }
+  ]
+}

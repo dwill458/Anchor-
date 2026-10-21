@@ -1,0 +1,73 @@
+{
+  "description": "A believable editorial photograph of a quiet sunlit oak writing desk beside a window. A red ceramic mug sits on the left, an open notebook is in the center, and a small green potted plant is on the right. No people. Natural morning light. Keep all three objects clearly visible.",
+  "instruction": "Keep everything the same, including the exact desk, notebook, plant, viewpoint and object positions. Change only the red mug to blue and the morning sunlight to warm sunset light.",
+  "exactSource": "original-option-2.png",
+  "images": 4,
+  "elapsedMs": 29293,
+  "receipts": [
+    {
+      "endpoint": "generations",
+      "usage": {
+        "input_tokens": 229,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 229
+        },
+        "output_tokens": 157,
+        "output_tokens_details": {
+          "image_tokens": 157,
+          "text_tokens": 0
+        },
+        "total_tokens": 386
+      }
+    },
+    {
+      "endpoint": "generations",
+      "usage": {
+        "input_tokens": 229,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 229
+        },
+        "output_tokens": 157,
+        "output_tokens_details": {
+          "image_tokens": 157,
+          "text_tokens": 0
+        },
+        "total_tokens": 386
+      }
+    },
+    {
+      "endpoint": "edits",
+      "usage": {
+        "input_tokens": 1663,
+        "input_tokens_details": {
+          "image_tokens": 1508,
+          "text_tokens": 155
+        },
+        "output_tokens": 157,
+        "output_tokens_details": {
+          "image_tokens": 157,
+          "text_tokens": 0
+        },
+        "total_tokens": 1820
+      }
+    },
+    {
+      "endpoint": "edits",
+      "usage": {
+        "input_tokens": 1663,
+        "input_tokens_details": {
+          "image_tokens": 1508,
+          "text_tokens": 155
+        },
+        "output_tokens": 367,
+        "output_tokens_details": {
+          "image_tokens": 367,
+          "text_tokens": 0
+        },
+        "total_tokens": 2030
+      }
+    }
+  ]
+}

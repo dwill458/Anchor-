@@ -210,6 +210,21 @@ describe('VisionConversationService', () => {
     }));
   });
 
+  it('replays a lost seal acknowledgement only for the exact candidate already on the board', async () => {
+    mockTx.visionCreationSession.findFirst.mockResolvedValue({ ...activeSession, status: 'SEALED', selectedCandidateId: candidateId });
+    mockTx.visionGenerationCandidate.findFirst.mockResolvedValue({ assetId: 'kept-asset' });
+    mockTx.visionScene.findFirst.mockResolvedValue({ id: 'kept-scene' });
+    await expect(service.update(userId, anchorId, sessionId, { status: 'SEALED', selectedCandidateId: candidateId }))
+      .resolves.toEqual({ id: sessionId, status: 'SEALED' });
+    expect(mockTx.visionScene.findFirst).toHaveBeenCalledWith({ where: {
+      visionId, userId, assetId: 'kept-asset', isArchived: false,
+    } });
+    mockTx.visionCreationSession.update.mockClear();
+    await expect(service.update(userId, anchorId, sessionId, { status: 'SEALED', selectedCandidateId: otherCandidateId }))
+      .rejects.toMatchObject({ statusCode: 409, code: 'VISION_SESSION_SEALED' });
+    expect(mockTx.visionCreationSession.update).not.toHaveBeenCalled();
+  });
+
   it('expires stale sessions, returns null for an absent current session, and reports a missing requested session', async () => {
     mockPrisma.visionCreationSession.findFirst.mockResolvedValue(null);
     await expect(service.read(userId, anchorId)).resolves.toBeNull();

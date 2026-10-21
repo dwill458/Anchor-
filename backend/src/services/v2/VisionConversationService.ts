@@ -241,12 +241,19 @@ export class VisionConversationService {
           id: sessionId,
           userId,
           anchorId,
-          status: 'ACTIVE',
-          expiresAt: { gt: new Date() },
+          ...(input.status === 'SEALED'
+            ? { OR: [{ status: 'ACTIVE', expiresAt: { gt: new Date() } }, { status: 'SEALED' }] }
+            : { status: 'ACTIVE', expiresAt: { gt: new Date() } }),
           vision: { status: 'ACTIVE' },
         },
       });
       if (!session) throw missing();
+      if (session.status === 'SEALED' && input.selectedCandidateId !== session.selectedCandidateId)
+        throw new AppError(
+          'This scene already kept another candidate.',
+          409,
+          'VISION_SESSION_SEALED'
+        );
       const selectedCandidateId =
         input.selectedCandidateId === undefined
           ? session.selectedCandidateId
@@ -285,6 +292,7 @@ export class VisionConversationService {
           );
       } else if (input.status === 'SEALED')
         throw new AppError('Choose an image before sealing.', 400, 'INVALID_VISION_CANDIDATE');
+      if (session.status === 'SEALED') return;
       if (
         input.viewedRoundId &&
         !(await tx.visionGeneration.findFirst({
