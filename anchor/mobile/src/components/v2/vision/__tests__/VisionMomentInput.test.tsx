@@ -37,16 +37,16 @@ describe('VisionMomentInput', () => {
     });
   });
 
-  it('renders the authorship title and exactly three guidance prompts in create mode', () => {
-    const { getByText, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} />);
-    expect(getByText('Create Your First Scene')).toBeTruthy();
-    expect(getByText('Add a reference photo for a more personal result.')).toBeTruthy();
+  it('renders the approved create heading and one four-chip spark group', () => {
+    const { getByText, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} startPhotoEnabled />);
+    expect(getByText('Imagine Your First Scene')).toBeTruthy();
+    expect(getByText('Bring a moment from your future to life.')).toBeTruthy();
     expect(getByText('CREATE YOUR VISION')).toBeTruthy();
-    expect(getByLabelText('Where are you?')).toBeTruthy();
-    expect(getByLabelText('What are you doing?')).toBeTruthy();
-    expect(getByLabelText('How does it feel?')).toBeTruthy();
-    expect(queryByLabelText('What can you see?')).toBeNull();
-    expect(queryByLabelText("What's different?")).toBeNull();
+    for (const suggestion of ['The day it happens', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it']) {
+      expect(getByLabelText(suggestion)).toBeTruthy();
+    }
+    expect(queryByLabelText('Where are you?')).toBeNull();
+    expect(queryByLabelText('What should change?')).toBeNull();
   });
 
   it('shows the intention and word coaching with the counter, and no appearance reference card', () => {
@@ -61,63 +61,71 @@ describe('VisionMomentInput', () => {
     expect(getByText('You’ll choose what belongs in your Vision.')).toBeTruthy();
   });
 
-  it('renders hero title for add mode', () => {
-    const { getAllByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
-    expect(getAllByText('What else do you see in this future?')[0]).toBeTruthy();
+  it('renders the approved add-scene heading and subtitle', () => {
+    const { getByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
+    expect(getByText('What Else Do You See?')).toBeTruthy();
+    expect(getByText('Imagine another moment from your future.')).toBeTruthy();
   });
 
-  it('asks a question when a chip is tapped and never writes into the description', () => {
-    const { getByTestId, getByLabelText, queryByTestId } = render(<VisionMomentInput {...defaultProps} />);
+  it('fills the description from a spark chip without submitting or focusing the field', () => {
+    const onSubmit = jest.fn();
+    const { getByTestId, getByLabelText, queryByTestId } = render(<VisionMomentInput {...defaultProps} onSubmit={onSubmit} />);
     const input = getByTestId('vision-prompt-input');
     expect(queryByTestId('vision-cue')).toBeNull();
-    fireEvent.press(getByLabelText('Where are you?'));
-    expect(input.props.value).toBe('');
-    expect(getByTestId('vision-cue')).toBeTruthy();
-    fireEvent.press(getByLabelText('How does it feel?'));
-    expect(getByTestId('vision-prompt-input').props.value).toBe('');
-  });
-
-  it('never focuses the field or opens the keyboard when a chip is tapped', () => {
     const stateFocus = jest.spyOn(TextInput.State, 'focusTextInput');
-    const { getByTestId, getByLabelText, UNSAFE_getByType } = render(<VisionMomentInput {...defaultProps} />);
-    const instance = UNSAFE_getByType(TextInput).instance as { focus: () => void };
-    const instanceFocus = jest.spyOn(instance, 'focus');
-    for (const label of ['Where are you?', 'What are you doing?', 'How does it feel?']) {
-      fireEvent.press(getByLabelText(label));
-      expect(getByTestId('vision-cue')).toBeTruthy();
-    }
-    expect(instanceFocus).not.toHaveBeenCalled();
+    fireEvent.press(getByLabelText('The day it happens'));
+    expect(input.props.value).toBe('The day it happens');
+    expect(onSubmit).not.toHaveBeenCalled();
     expect(stateFocus).not.toHaveBeenCalled();
     stateFocus.mockRestore();
   });
 
-  it('leaves existing text untouched when a chip is tapped', () => {
-    const { getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} />);
-    fireEvent.changeText(getByTestId('vision-prompt-input'), 'I am standing in my studio.');
-    for (const label of ['Where are you?', 'What are you doing?', 'How does it feel?']) fireEvent.press(getByLabelText(label));
-    expect(getByTestId('vision-prompt-input').props.value).toBe('I am standing in my studio.');
+  it('collapses the chips for written text and expands them only on request', () => {
+    const text = 'I open the doors to my own quiet studio.';
+    const { getByTestId, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} />);
+    fireEvent.changeText(getByTestId('vision-prompt-input'), text);
+    expect(getByLabelText('Need a spark? Show suggestions')).toBeTruthy();
+    expect(queryByLabelText('The day it happens')).toBeNull();
+    fireEvent.press(getByTestId('vision-moment-input-suggestions-toggle'));
+    expect(getByLabelText('An ordinary morning after')).toBeTruthy();
   });
 
-  it('offers contextual moments for this Vision, fills the field with one, and never submits', () => {
+  it('keeps typing local and calls the description callback at submit', () => {
+    const onChangeDescription = jest.fn();
     const onSubmit = jest.fn();
-    const { getByTestId, getByLabelText, getByText, queryByLabelText } = render(
-      <VisionMomentInput {...defaultProps} onSubmit={onSubmit} anchorIntention="Buy my dream home" anchorCategory="home" />,
-    );
-    expect(getByTestId('vision-prompt-input').props.placeholder).toBe('Describe the moment you want to see...');
-    expect(getByText('Suggested for you')).toBeTruthy();
-    fireEvent.press(getByLabelText('Getting the keys'));
-    expect(getByTestId('vision-prompt-input').props.value).toBe('Getting the keys');
-    expect(onSubmit).not.toHaveBeenCalled();
-    // A moment already written is not offered again.
-    expect(queryByLabelText('Getting the keys')).toBeNull();
-    fireEvent.press(getByLabelText('Where are you?'));
-    expect(getByTestId('vision-cue').props.children).toBeTruthy();
+    const { getByTestId } = render(<VisionMomentInput {...defaultProps} onChangeDescription={onChangeDescription} onSubmit={onSubmit} />);
+    const input = getByTestId('vision-prompt-input');
+    const text = 'Working from a sunny studio overlooking the ocean with coffee.';
+    fireEvent.changeText(input, text);
+    expect(input.props.value).toBe(text);
+    expect(onChangeDescription).not.toHaveBeenCalled();
+    fireEvent.press(getByTestId('vision-generate'));
+    expect(onChangeDescription).toHaveBeenCalledWith(text);
+    expect(onSubmit).toHaveBeenCalledWith(text, null);
   });
 
-  it('offers moment-based fallbacks when the Anchor gives no clear theme, never a different goal places', () => {
-    const { getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} anchorIntention="Become someone I respect" anchorCategory="desire" />);
-    expect(getByLabelText('The day it arrives')).toBeTruthy();
-    expect(queryByLabelText('Inside my home')).toBeNull();
+  it('submits controlled structured references as the optional fourth argument', () => {
+    const references = [{ id: 'place-1', uri: 'file:///place.jpg', mimeType: 'image/jpeg', role: 'place' as const }];
+    const onSubmit = jest.fn();
+    const { getByTestId } = render(
+      <VisionMomentInput {...defaultProps} startPhotoEnabled references={references} onChangeReferences={jest.fn()} onSubmit={onSubmit} />,
+    );
+    const text = 'A small table outside in the morning light.';
+    fireEvent.changeText(getByTestId('vision-prompt-input'), text);
+    fireEvent.press(getByTestId('vision-generate'));
+
+    expect(onSubmit).toHaveBeenCalledWith(text, null, null, references);
+  });
+
+  it('shows the mini gallery and hides suggestions while typing with the keyboard open', () => {
+    const { getByTestId, getByText, getByLabelText, queryByLabelText } = render(
+      <VisionMomentInput {...defaultProps} startPhotoEnabled />,
+    );
+    fireEvent(getByTestId('vision-prompt-input'), 'focus');
+
+    expect(getByText('0 references attached')).toBeTruthy();
+    expect(getByLabelText('Add reference photo')).toBeTruthy();
+    expect(queryByLabelText('The day it happens')).toBeNull();
   });
 
   it('explains a blocked submit instead of failing silently', () => {

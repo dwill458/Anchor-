@@ -97,7 +97,7 @@ describe('Vision ceremony', () => {
   });
   it('words enters the unified composer (no mode toggle, optional reference photo) and preserves edited input', () => {
     const view = setup(); fireEvent.press(view.getByLabelText(copy.createVision));
-    expect(view.queryByTestId('vision-path-words')).toBeNull(); expect(view.getByTestId('vision-reference-photo-add')).toBeTruthy();
+    expect(view.queryByTestId('vision-path-words')).toBeNull(); expect(view.getByTestId('v2-vision-creation-flow-prompt-references-add')).toBeTruthy();
     fireEvent.changeText(view.getByTestId('vision-prompt-input'), 'My new description');
     fireEvent.press(view.getByLabelText('Go back')); fireEvent.press(view.getByLabelText(copy.createVision));
     expect(view.getByTestId('vision-prompt-input').props.value).toBe('My new description');
@@ -254,7 +254,7 @@ describe('Vision ceremony', () => {
   it('regenerate enters Describe, then follows Develop, Choose, Keep and Seal', async () => {
     mockJob = job(); const onAdd = jest.fn(async () => true);
     const view = setup({ mode: 'add', startAt: 'describe', regenerating: true, onAdd });
-    expect(view.getAllByText('What else do you see in this future?').length).toBeGreaterThan(0);
+    expect(view.getAllByText('What Else Do You See?').length).toBeGreaterThan(0);
     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); }); await develop(view, 2);
     fireEvent.press(view.getByTestId('scene-candidate-c0')); await seal(view);
     expect(onAdd).toHaveBeenCalledWith({ assetId: 'asset-0', prompt: 'Moment 0', caption: base.anchorIntention });
@@ -298,11 +298,11 @@ describe('Vision ceremony', () => {
     const sheet = jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions').mockImplementation((_options, callback) => callback(2));
     const draft = jest.fn(async () => true);
     const view = setup({ initialDescription: '', onSaveDescription: draft });
-    fireEvent.press(view.getByLabelText(copy.createVision)); fireEvent.press(view.getByTestId('vision-reference-photo-add'));
-    const library = view.queryByTestId('vision-reference-source-sheet-library'); if (library) fireEvent.press(library);
+    fireEvent.press(view.getByLabelText(copy.createVision)); fireEvent.press(view.getByTestId('v2-vision-creation-flow-prompt-references-add'));
+    const library = view.queryByTestId('v2-vision-creation-flow-prompt-references-choices-library'); if (library) fireEvent.press(library);
     await advance(500);
     await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
-    expect(mockStart).toHaveBeenCalledWith(expect.any(String), null, 'start-photo'); expect(draft).toHaveBeenCalledWith(base.anchorIntention);
+    expect(mockStart).toHaveBeenCalledWith(expect.any(String), null, null, expect.objectContaining({ operation: 'CREATE', references: [{ assetId: 'start-photo', role: 'inspiration' }] })); expect(draft).toHaveBeenCalledWith(base.anchorIntention);
     await develop(view, 2); fireEvent.press(view.getByTestId('scene-candidate-c0')); await seal(view);
     expect(view.onAssemble).toHaveBeenCalledWith(expect.objectContaining({ description: base.anchorIntention })); sheet.mockRestore();
   });
@@ -582,8 +582,8 @@ describe('Unified composer and prepared requests', () => {
 
   it('is one composer: reference photo, description and microphone together, with no mode toggle', () => {
     const view = setup(); fireEvent.press(view.getByLabelText(copy.createVision));
-    expect(view.getByText('Create Your First Scene')).toBeTruthy();
-    expect(view.getByTestId('vision-reference-photo-add')).toBeTruthy();
+    expect(view.getByText('Imagine Your First Scene')).toBeTruthy();
+    expect(view.getByTestId('v2-vision-creation-flow-prompt-references-add')).toBeTruthy();
     expect(view.getByTestId('vision-prompt-input').props.placeholder).toBe('Describe the moment you want to see...');
     expect(view.getByLabelText('Describe it with your voice')).toBeTruthy();
     expect(view.queryByTestId('vision-path-photo')).toBeNull(); expect(view.queryByTestId('vision-path-words')).toBeNull();
@@ -605,13 +605,13 @@ describe('Unified composer and prepared requests', () => {
     mockSinglePick.mockResolvedValue({ status: 'picked', photo: { uri: 'file:///house.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
     mockSourceUpload.mockResolvedValue({ ok: true, assetId: 'reference-asset' });
     const view = setup({ initialDescription: '' }); fireEvent.press(view.getByLabelText(copy.createVision));
-    fireEvent.press(view.getByTestId('vision-reference-photo-add'));
-    await act(async () => { fireEvent.press(view.getByTestId('vision-reference-source-sheet-library')); });
+    fireEvent.press(view.getByTestId('v2-vision-creation-flow-prompt-references-add'));
+    await act(async () => { fireEvent.press(view.getByTestId('v2-vision-creation-flow-prompt-references-choices-library')); });
     await advance(500);
     fireEvent.changeText(view.getByTestId('vision-prompt-input'), 'Morning light across the pool at sunrise.');
     await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
     expect(mockStart).toHaveBeenCalledTimes(1);
-    expect(mockStart).toHaveBeenCalledWith(expect.stringContaining('Morning light across the pool at sunrise.'), null, 'reference-asset');
+    expect(mockStart).toHaveBeenCalledWith(expect.stringContaining('Morning light across the pool at sunrise.'), null, null, expect.objectContaining({ operation: 'CREATE', references: [{ assetId: 'reference-asset', role: 'inspiration' }] }));
   });
 
   it('a second tap on Create My Images while it is starting is ignored', async () => {
@@ -649,7 +649,7 @@ describe('Unified composer and prepared requests', () => {
     mockSourceUpload.mockResolvedValue({ ok: true, assetId: 'sheet-photo' });
     await advance(0); await advance(200);
     expect(view.getByTestId('vision-scene-input').props.value).toBe('The kitchen with a big island.');
-    expect(view.getByLabelText('Your reference photo')).toBeTruthy();
+    expect(view.getByLabelText('Inspiration reference photo')).toBeTruthy();
   });
 });
 

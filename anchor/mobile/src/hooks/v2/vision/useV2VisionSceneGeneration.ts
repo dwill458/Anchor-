@@ -7,6 +7,8 @@ import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { visionApiData } from './visionApi';
 import { generationMessage, type VisionGenerationJob } from './useV2VisionGeneration';
+import { useVisionConversation } from './useVisionConversation';
+import type { VisionSceneRequestOptions } from '@/types/visionConversation';
 
 const POLL_MS = 2000;
 
@@ -25,7 +27,10 @@ function sceneMessage(cause: unknown): string {
  * never rewrites the Vision's description.
  */
 export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?: () => void) {
-  const [job, setJob] = useState<VisionGenerationJob | null>(null);
+  const conversation = useVisionConversation(anchorId);
+  const [jobState, setJobState] = useState<{ owner: string | null; job: VisionGenerationJob | null } | null>(null);
+  const job = jobState?.owner === conversation.owner ? jobState.job : null;
+  const setJob = useCallback((next: VisionGenerationJob | null) => setJobState({ owner: conversation.owner, job: next }), [conversation.owner]);
   useVisionGenerationAnalytics(anchorId, job);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -34,12 +39,15 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const lastCode = useRef<string | null>(null);
   const fail = useCallback((cause: unknown) => {
+    if (!conversation.isCurrent()) return;
     const code = cause instanceof ApiClientError ? cause.code ?? null : null;
     lastCode.current = code;
     if (mounted.current) { setErrorCode(code); setError(sceneMessage(cause)); }
-  }, []);
+  }, [conversation.isCurrent]);
   const starting = useRef(false);
   const retrying = useRef(false);
+  const pendingRequest = useRef<{ fingerprint: string; key: string } | null>(null);
+  useEffect(() => { setError(null); setErrorCode(null); lastCode.current = null; starting.current = false; retrying.current = false; pendingRequest.current = null; }, [conversation.owner]);
   const base = `/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`;
   const active = Boolean(job && ['QUEUED', 'RUNNING', 'PARTIAL'].includes(job.status));
   const jobId = job?.id ?? null;
@@ -52,13 +60,13 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
   const refresh = useCallback(async () => {
     if (!jobId) return;
     try {
-      const response = await apiClient.get<VisionGenerationJob | null>(`${base}/scene-generation/${encodeURIComponent(jobId)}`);
+      const response = await apiClient.get<VisionGenerationJob | null>(`${base}/scene-generation/${encodeURIComponent(jobId)}`, conversation.requestConfig());
       const next = visionApiData<VisionGenerationJob | null>(response);
-      if (mounted.current && next) { setJob(next); setError(null); }
+      if (mounted.current && conversation.isCurrent() && next) { setJob(next); setError(null); }
     } catch (cause) {
-      if (mounted.current) setError(sceneMessage(cause));
+      if (mounted.current && conversation.isCurrent()) setError(sceneMessage(cause));
     }
-  }, [base, jobId]);
+  }, [base, jobId, conversation.requestConfig, conversation.isCurrent]);
 
   // Poll only while the app is in front; catch up the moment it returns.
   const [foreground, setForeground] = useState(AppState.currentState !== 'background');
@@ -76,24 +84,31 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     return () => clearInterval(timer);
   }, [active, foreground, refresh]);
 
-  const start = useCallback(async (sceneDescription: string, appearanceReferenceId?: string | null, startAssetId?: string | null): Promise<boolean> => {
-    if (starting.current) return false;
+  const start = useCallback(async (sceneDescription: string, appearanceReferenceId?: string | null, startAssetId?: string | null, options?: VisionSceneRequestOptions): Promise<boolean> => {
+    if (starting.current || !conversation.isCurrent()) return false;
     // Mirror the server's Pro rule so the paywall opens before a doomed request (and under a dev tier override).
     if (onPremiumRequired && isProFeatureLocked()) { onPremiumRequired(); return false; }
     starting.current = true;
     const devImageModel = selectedDevImageModel('vision');
     setError(null); lastCode.current = null;
     try {
-      const idempotencyKey = `vision-scene-${Date.now()}-${Math.floor(Math.random() * 1e12)}`;
-      const response = await apiClient.post<VisionGenerationJob>(`${base}/scene-generation`, {
+      const savedSession = options ? await conversation.ensureSession(sceneDescription) : null;
+      const payload = {
         sceneDescription,
-        idempotencyKey,
         ...(devImageModel ? { devImageModel } : {}),
         ...(appearanceReferenceId ? { appearanceReferenceId } : {}),
         ...(startAssetId ? { startAssetId } : {}),
-      });
+        ...(options ? { ...options, sessionId: options.sessionId ?? savedSession!.id } : {}),
+      };
+      const fingerprint = JSON.stringify(payload);
+      if (pendingRequest.current?.fingerprint !== fingerprint) pendingRequest.current = { fingerprint, key: `vision-scene-${Date.now()}-${Math.floor(Math.random() * 1e12)}` };
+      const idempotencyKey = options ? await conversation.prepareRequest(fingerprint) : pendingRequest.current.key;
+      const response = await apiClient.post<VisionGenerationJob>(`${base}/scene-generation`, { ...payload, idempotencyKey }, conversation.requestConfig());
       const next = visionApiData<VisionGenerationJob>(response);
+      if (!conversation.isCurrent()) return false;
       if (mounted.current) { setJob(next); setErrorCode(null); }
+      pendingRequest.current = null;
+      if (options) void conversation.acceptedRequest().catch(() => undefined);
       AnalyticsService.track('vision_image_generation_started', { anchor_id: anchorId, job_id: next.id });
       return true;
     } catch (cause) {
@@ -103,15 +118,15 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     } finally {
       starting.current = false;
     }
-  }, [base, onPremiumRequired, fail]);
+  }, [base, onPremiumRequired, fail, conversation.ensureSession, conversation.prepareRequest, conversation.acceptedRequest, conversation.requestConfig, conversation.isCurrent]);
 
   const retry = useCallback(async (): Promise<boolean> => {
     if (!job || job.status !== 'FAILED' || retrying.current) return false;
     if (onPremiumRequired && isProFeatureLocked()) { onPremiumRequired(); return false; }
     retrying.current = true;
     try {
-      const response = await apiClient.post<VisionGenerationJob>(`${base}/generation/${encodeURIComponent(job.id)}/retry`);
-      if (mounted.current) { setJob(visionApiData<VisionGenerationJob>(response)); setError(null); }
+      const response = await apiClient.post<VisionGenerationJob>(`${base}/generation/${encodeURIComponent(job.id)}/retry`, undefined, conversation.requestConfig());
+      if (mounted.current && conversation.isCurrent()) { setJob(visionApiData<VisionGenerationJob>(response)); setError(null); }
       return true;
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.code === 'VISION_PREMIUM_REQUIRED') onPremiumRequired?.();
@@ -120,8 +135,12 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     } finally {
       retrying.current = false;
     }
-  }, [base, job, onPremiumRequired, fail]);
+  }, [base, job, onPremiumRequired, fail, conversation.requestConfig, conversation.isCurrent]);
   const lastErrorCode = useCallback(() => lastCode.current, []);
+  useEffect(() => {
+    if (job?.status === 'COMPLETE' || job?.status === 'FAILED') void conversation.refresh().catch(() => undefined);
+  }, [job?.id, job?.status, conversation.refresh]);
 
-  return { job, error, errorCode, lastErrorCode, start, retry, refresh };
+  const restoreJob = useCallback((saved: VisionGenerationJob | null) => { setJob(saved); setError(null); }, [setJob]);
+  return { job, error, errorCode, lastErrorCode, start, retry, refresh, restoreJob, conversation };
 }

@@ -18,7 +18,7 @@ const observeSharedValue = <T>(initial: T): MockSharedValue<T> => {
     return current;
   }, set value(value: T) {
     current = value;
-    shared.listeners.forEach(listener => listener());
+    [...shared.listeners].forEach(listener => listener());
   } };
   return shared;
 };
@@ -66,6 +66,7 @@ const useAnimatedStyle = (compute: () => unknown) => {
       observedRef.current = update();
       observedRef.current.forEach(shared => shared.listeners.add(refresh));
     };
+    observedRef.current = update();
     observedRef.current.forEach(shared => shared.listeners.add(refresh));
     return () => observedRef.current.forEach(shared => shared.listeners.delete(refresh));
   }, [update]);

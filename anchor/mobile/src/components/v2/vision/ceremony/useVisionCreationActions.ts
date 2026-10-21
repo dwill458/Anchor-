@@ -8,6 +8,7 @@ import type { VisionStartPhoto } from '../VisionMomentInput';
 import type { VisionTwoUpSelection } from '../VisionTwoUpStage';
 import { VISION_DESCRIPTION_MIN_CHARS, VISION_DESCRIPTION_MAX_CHARS, visionPhotoSceneDescription } from '../visionGuidance';
 import { VISION_BOARD_MAX_IMAGES } from '../board/visionBoardLayouts';
+import type { VisionReferenceAttachment, VisionSceneRequestOptions } from '@/types/visionConversation';
 
 export type VisionCeremonyActionsProps = Pick<V2VisionCreationFlowProps,
   'anchorId' | 'anchorIntention' | 'onPremiumRequired' | 'onSaveDescription' | 'onUploadAsset' | 'onAssemble'> & { mode: 'create' | 'add' };
@@ -28,14 +29,15 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
   // Successful uploads survive a failed scene save, so retry never uploads them twice.
   const uploaded = useRef(new Map<string, VisionFlowAsset>());
   const uploading = useRef(new Map<string, Promise<VisionFlowAsset>>());
+  const referenceUploads = useRef(new Map<string, string>());
   const [uploadingCount, setUploadingCount] = useState(0);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
-  const generate = async (description: string, appearanceReferenceId?: string | null, photo?: VisionStartPhoto | null) => {
+  const generate = async (description: string, appearanceReferenceId?: string | null, photo?: VisionStartPhoto | null, references?: VisionReferenceAttachment[], options?: VisionSceneRequestOptions) => {
     const trimmed = description.trim();
-    const minChars = props.mode === 'add' ? 6 : VISION_DESCRIPTION_MIN_CHARS;
-    const maxChars = props.mode === 'add' ? 400 : VISION_DESCRIPTION_MAX_CHARS;
+    const minChars = options?.operation === 'EDIT' || options?.operation === 'VARIATE' || props.mode === 'add' ? 6 : VISION_DESCRIPTION_MIN_CHARS;
+    const maxChars = VISION_DESCRIPTION_MAX_CHARS;
     const valid = trimmed.length >= minChars && trimmed.length <= maxChars;
     if (photo ? trimmed.length > 0 && !valid : !valid) {
       setNotice(`Describe your Vision in ${minChars}–${maxChars} characters.`); return false;
@@ -43,6 +45,29 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
     if (startingRef.current) return false;
     startingRef.current = true; setStarting(true); setNotice(null);
     try {
+      if (references) {
+        if (references.length > 5) { setNotice('Choose up to five reference photos.'); return false; }
+        const uploaded: VisionReferenceAttachment[] = [];
+        // Serialize uploads so only one base64 image buffer is live at a time.
+        for (const reference of references) {
+          let assetId = reference.assetId ?? referenceUploads.current.get(reference.uri);
+          if (!assetId) {
+            const result = await uploadVisionPhoto(reference, props.onUploadAsset);
+            if (!result.ok) { setNotice(result.message); return false; }
+            assetId = result.assetId; referenceUploads.current.set(reference.uri, assetId);
+          }
+          uploaded.push({ ...reference, assetId });
+          generation.conversation?.saveDraft({ references: [...uploaded, ...references.slice(uploaded.length)] });
+        }
+        if (!generation.conversation?.session && props.mode === 'create' && props.onSaveDescription && !await props.onSaveDescription(trimmed)) {
+          setNotice('Your description could not be saved. Please try again.'); return false;
+        }
+        generation.conversation?.saveDraft({ description: options?.operation === 'EDIT' || options?.operation === 'VARIATE' ? generation.conversation.draft.current?.description ?? '' : trimmed, references: uploaded });
+        return generation.start(trimmed, null, null, {
+          operation: uploaded.length > 1 ? 'COMPOSE' : 'CREATE', ...options,
+          references: uploaded.map(ref => ({ assetId: ref.assetId!, role: ref.role, ...(ref.label ? { label: ref.label } : {}) })),
+        });
+      }
       let startAssetId: string | null = null;
       // This is Describe's photo-to-generation input, not the direct own-photo path.
       if (photo) {

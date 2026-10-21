@@ -3,6 +3,21 @@ import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { useV2VisionSceneGeneration } from '../useV2VisionSceneGeneration';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useDevImageModelStore } from '@/stores/devImageModelStore';
+import { useAuthStore } from '@/stores/authStore';
+
+const secureValues = new Map<string, string>();
+const mockReadSecureValue = jest.fn(async (key: string) => secureValues.get(key) ?? null);
+const mockWriteSecureValue = jest.fn(async (key: string, value: string) => { secureValues.set(key, value); });
+
+jest.mock('@/stores/encryptedPersistStorage', () => ({
+  readSecureValue: (...args: unknown[]) => mockReadSecureValue(...args as [string]),
+  writeSecureValue: (...args: unknown[]) => mockWriteSecureValue(...args as [string, string]),
+}));
+
+jest.mock('@/stores/authStore', () => {
+  const { create } = jest.requireActual('zustand');
+  return { useAuthStore: create(() => ({ user: { id: 'vision-test-owner' } })) };
+});
 
 jest.mock('@/services/ApiClient', () => ({
   apiClient: { get: jest.fn(), post: jest.fn() },
@@ -23,7 +38,15 @@ const running = {
 };
 
 describe('useV2VisionSceneGeneration', () => {
-  beforeEach(() => { jest.clearAllMocks(); useDevImageModelStore.setState({ anchor: null, vision: null }); });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    secureValues.clear();
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: { success: true, data: null } });
+    mockReadSecureValue.mockImplementation(async key => secureValues.get(key) ?? null);
+    mockWriteSecureValue.mockImplementation(async (key, value) => { secureValues.set(key, value); });
+    useAuthStore.setState({ user: { id: 'vision-test-owner' } as never });
+    useDevImageModelStore.setState({ anchor: null, vision: null });
+  });
   afterEach(() => { useDevImageModelStore.setState({ anchor: null, vision: null }); });
 
   it('routes the selected Vision model along with its photo references', async () => {
@@ -44,8 +67,9 @@ describe('useV2VisionSceneGeneration', () => {
     expect(path).toBe('/api/v2/anchors/anchor-1/vision/scene-generation');
     expect(body).toEqual({ sceneDescription: 'Working from a beach house', idempotencyKey: expect.stringMatching(/^[A-Za-z0-9-]{12,100}$/) });
     expect(result.current.job?.id).toBe('scene-job-1');
-    // Nothing is fetched until a job exists: there is no set to resume.
-    expect(apiClient.get).not.toHaveBeenCalled();
+    // The conversation is hydrated at mount, but no generation job is polled before one exists.
+    expect(apiClient.get).toHaveBeenCalledTimes(1);
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v2/anchors/anchor-1/vision/creation-sessions', expect.objectContaining({ anchorAuthGuard: expect.any(Function) }));
   });
 
   it('includes a selected reference without sending an unused field to older servers', async () => {
@@ -64,7 +88,7 @@ describe('useV2VisionSceneGeneration', () => {
       { id: 'c2', assetId: 'a2', role: 'r', prompt: 'p', sortOrder: 1, imageUrl: 'https://x/2.jpg' },
     ] } } });
     await act(async () => { await result.current.refresh(); });
-    expect(apiClient.get).toHaveBeenCalledWith('/api/v2/anchors/anchor-1/vision/scene-generation/scene-job-1');
+    expect(apiClient.get).toHaveBeenCalledWith('/api/v2/anchors/anchor-1/vision/scene-generation/scene-job-1', expect.objectContaining({ anchorAuthGuard: expect.any(Function) }));
     expect(result.current.job?.status).toBe('COMPLETE');
     expect(result.current.job?.candidates).toHaveLength(2);
   });
@@ -82,6 +106,14 @@ describe('useV2VisionSceneGeneration', () => {
     });
     expect(second).toBe(false);
     expect(apiClient.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks an unauthenticated start before making a request', async () => {
+    useAuthStore.setState({ user: null as never });
+    const { result } = renderHook(() => useV2VisionSceneGeneration('anchor-1'));
+    await act(async () => { expect(await result.current.start('Working from a beach house')).toBe(false); });
+    expect(apiClient.post).not.toHaveBeenCalled();
+    expect(result.current.job).toBeNull();
   });
 
   it('opens the Vision premium flow when access is required', async () => {

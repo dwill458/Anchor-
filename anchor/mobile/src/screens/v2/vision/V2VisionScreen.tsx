@@ -10,7 +10,8 @@ import { useNavigation, useRoute, UNSTABLE_usePreventRemove as usePreventRemove,
 import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
 import { VisionPhotoFit } from '@/components/v2/vision/VisionPhotoFitScreen';
 import { assessPhotoFit } from '@/components/v2/vision/visionPhotoFit';
-import { VisionAddSceneSheet, type AddSceneRequest } from '@/components/v2/vision/VisionAddSceneSheet';
+import { type AddSceneRequest } from '@/components/v2/vision/VisionAddSceneSheet';
+import { VisionAddSceneEntry } from '@/components/v2/vision/VisionAddSceneEntry';
 import { readPhotoSize } from '@/hooks/v2/vision/visionPhotoFitProcessing';
 import { playCreationSound } from '@/services/CreationSounds';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
@@ -292,7 +293,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     setActionError(null);
     setSavedImageUrl(null);
     setArrivedFrom(model.tiles.map(tile => tile.sceneId));
-    setAddRequest(request);
+    setAddRequest({ ...request, description: request.description.trim() ||
+      (anchorIntention.trim().length >= 6 ? anchorIntention : 'A meaningful moment from my future.') });
     setMode('addScene');
   };
 
@@ -469,6 +471,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   if (mode === 'addScene') return (
     <VisionCeremony mode="add" visionId={model.vision?.id} startAt={replaceSceneId ? 'describe' : addRequest ? 'develop' : 'ask'} regenerating={Boolean(replaceSceneId)}
       autoStart={Boolean(addRequest) && !replaceSceneId} initialDescription={addRequest?.description} initialStartPhoto={addRequest?.photo ?? null}
+      initialReferences={addRequest?.references}
+      initialSessionId={addRequest?.sessionId}
       onAddNote={replaceSceneId ? undefined : openNoteComposer} canAddImage={model.tiles.length < VISION_BOARD_MAX_IMAGES}
       previewImageUrl={model.tiles[0]?.imageUrl} previewCaption={model.tiles[0]?.caption}
       anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory} anchorArt={anchorArt}
@@ -611,7 +615,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       data={buildShareExportData(anchor, { visionTiles: model.tiles, visionNotes: model.vision?.notes ?? [],
         visionAnnotation: model.vision?.title ?? '' })} /> : null}
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
-    {onBoard ? <VisionAddSceneSheet visible={addSheetOpen} onClose={() => setAddSheetOpen(false)} anchorIntention={anchorIntention}
+    {onBoard ? <VisionAddSceneEntry anchorId={anchorId} onResume={() => { setAddRequest(null); setMode('addScene'); }} visible={addSheetOpen} onClose={() => setAddSheetOpen(false)} anchorIntention={anchorIntention}
       restoreDraft={addDraft} onDraftRestored={() => setAddDraft(null)}
       onSubmit={startAddScene} onAddOwnPhoto={source => { void startAddPhoto(source); }} onAddNote={openNoteComposer}
       canAddImage={model.tiles.length < VISION_BOARD_MAX_IMAGES} /> : null}

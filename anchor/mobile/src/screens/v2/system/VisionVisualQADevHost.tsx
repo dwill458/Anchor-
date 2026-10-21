@@ -22,6 +22,7 @@ import { useVisionEditorialNotes } from '@/components/v2/vision/useVisionEditori
 import { nextVisionNotePresentation, defaultVisionNoteOccupancy, visionBoardAspectForCount } from '@/components/v2/vision/notes/visionNotePlacement';
 import { VisionNoteRenderer, VISION_NOTE_PRESETS } from '@/components/v2/vision/notes';
 import { V2VisionNoteComposer } from '@/screens/v2/vision/V2VisionNoteComposer';
+import { VisionConversationQALab } from './VisionConversationQALab';
 import { AnchorShareStudio } from '@/components/share/AnchorShareStudio';
 import { buildShareExportData } from '@/components/share/shareData';
 import { V2HomeVisionSection } from '@/components/v2/home/V2HomeVisionSection';
@@ -310,6 +311,7 @@ export function VisionVisualQADevHost() {
   else if (surface === 'method') content = <VisionMethodStage onBack={() => setSurface('intro')} onChoose={path => setSurface(path === 'photos' ? 'method' : 'create')} testID="qa" />;
   else if (surface?.startsWith('photo-path')) content = <PhotoPathLab {...identity} mode={surface.includes('add') ? 'add' : 'create'} photo={surface.includes('set') || surface.includes('text') ? fixtureAt(tiles, 1).imageUrl! : null}
     text={surface.includes('text') ? 'The kitchen is finished, bright and quiet. The window and the old table stay.' : ''} onBack={close} />;
+  else if (surface?.startsWith('conversation-')) content = <VisionConversationQALab key={surface} surface={surface.slice('conversation-'.length)} identity={identity} onClose={close} />;
   else if (surface === 'create') content = <VisionMomentInput {...identity} mode="create" anchorId="qa-fixture" onBack={close} onSubmit={noop} />;
   else if (surface === 'add') content = <VisionMomentInput {...identity} mode="add" anchorId="qa-fixture" previewImageUrl={fixtureAt(tiles, 0).imageUrl} initialDescription="Working by the ocean with my family while Anchor continues to grow." onBack={close} onSubmit={noop} />;
   else if (surface === 'photo') content = <V2VisionAddPhoto {...identity} uri={fixtureAt(tiles, 0).imageUrl!} source="library" onCancel={close} onChooseAgain={noop} onConfirm={async () => null} />;

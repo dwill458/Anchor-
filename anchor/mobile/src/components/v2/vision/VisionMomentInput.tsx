@@ -1,25 +1,25 @@
-import type { TextInputInstance } from 'react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
-import { ActivityIndicator, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
+import { ActivityIndicator, Image, Keyboard, Pressable, StatusBar, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { ChevronRight, Heart, MapPin, Plus, RefreshCw, Sun, Trash2, User as UserIcon } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Plus, RefreshCw, Trash2, User as UserIcon } from 'lucide-react-native';
 import { visionCeremonyCopy as ceremonyCopy } from './ceremony/visionCeremonyCopy';
-import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { v2Haptics } from '@/hooks/v2';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
 import { AnchorMotion, colors as paperColors, getCategoryColor, radii, spacing } from '@/theme/v2';
+import type { VisionReferenceAttachment } from '@/types/visionConversation';
 import { VisionIdentity, type VisionAnchorArt } from './VisionChrome';
 import { VisionChoiceSheet, type VisionChoiceAction } from './VisionChoiceSheet';
 import { AttentionWash, useAttention, useVisionContentMotion } from './VisionMotion';
-import { VisionReferencePhoto, type VisionStartPhoto } from './VisionReferencePhoto';
+import { VisionReferenceStrip } from './VisionReferenceStrip';
+import { type VisionStartPhoto } from './VisionReferencePhoto';
 import { VisionSceneField, type VisionSceneFieldHandle } from './VisionSceneField';
-import { VisionSceneShortcuts } from './VisionSceneShortcuts';
 import { VisionBackButton, VisionInkPill, VisionKicker, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { applySceneSuggestion } from './visionSceneSuggestions';
-import { visionCueGuidance, visionDetailHint, visionDetailLevel, visionTransformCueGuidance, type VisionCueKey, type VisionTransformCueKey } from './visionGuidance';
+import { visionDetailHint, visionDetailLevel } from './visionGuidance';
 
 export type { VisionStartPhoto };
 
@@ -38,14 +38,19 @@ export interface VisionMomentInputProps {
   initialDescription?: string;
   description?: string;
   onChangeDescription?: (val: string) => void;
+  /** Saves draft text without lifting controlled typing into the ceremony. */
+  onDraftChange?: (val: string) => void;
   placeholder?: string;
   onBack: () => void;
   /** The start photo is passed only when the person chose "Start from a photo"; the words path calls this with two arguments, as it always has. */
-  onSubmit: (description: string, appearanceReferenceId?: string | null, startPhoto?: VisionStartPhoto | null) => Promise<boolean | void> | void;
+  onSubmit: (description: string, appearanceReferenceId?: string | null, startPhoto?: VisionStartPhoto | null, references?: VisionReferenceAttachment[]) => Promise<boolean | void> | void;
   /** Shows the optional reference photo surface. Off: the screen is the description alone. */
   startPhotoEnabled?: boolean;
   startPhoto?: VisionStartPhoto | null;
   onChangeStartPhoto?: (photo: VisionStartPhoto | null) => void;
+  /** Structured references selected for this scene. If omitted, the strip keeps a local draft. */
+  references?: VisionReferenceAttachment[];
+  onChangeReferences?: (references: VisionReferenceAttachment[]) => void;
   /** Starts the own-photo path (each photo goes to the board as it is): from the library or the camera. */
   onAddPhotos?: (source: 'library' | 'camera') => void;
   loading?: boolean;
@@ -54,19 +59,7 @@ export interface VisionMomentInputProps {
   textInputTestID?: string;
 }
 
-/** Three thinking aids, not autocomplete: each asks a question and never touches the description. */
-const PROMPT_CHIPS: ReadonlyArray<{ key: VisionCueKey; label: string; icon: typeof MapPin }> = [
-  { key: 'where', label: 'Where are you?', icon: MapPin },
-  { key: 'doing', label: 'What are you doing?', icon: Sun },
-  { key: 'feel', label: 'How does it feel?', icon: Heart },
-];
-
-/** The photo path asks about the change to the person's own photo, not for a scene from nothing. */
-const PHOTO_CHIPS: ReadonlyArray<{ key: VisionTransformCueKey; label: string; icon: typeof MapPin }> = [
-  { key: 'change', label: 'What should change?', icon: Sun },
-  { key: 'stays', label: 'What stays the same?', icon: MapPin },
-  { key: 'feel', label: 'How does it feel?', icon: Heart },
-];
+const SPARK_SUGGESTIONS = ['The day it happens', 'Who is with me', 'An ordinary morning after', 'A quiet moment of it'] as const;
 
 /** Colours the animated styles interpolate between, held as plain strings so no theme object is carried into a worklet. */
 const colors = paperColors;
@@ -99,12 +92,15 @@ export function VisionMomentInput({
   initialDescription = '',
   description: propDescription,
   onChangeDescription: propOnChangeDescription,
+  onDraftChange,
   placeholder: customPlaceholder,
   onBack,
   onSubmit,
   startPhotoEnabled = false,
   startPhoto: propStartPhoto,
   onChangeStartPhoto,
+  references: propReferences,
+  onChangeReferences,
   onAddPhotos,
   loading = false,
   error = null,
@@ -113,36 +109,68 @@ export function VisionMomentInput({
 }: VisionMomentInputProps) {
   const insets = useSafeAreaInsets();
   const styles = paperStyles;
-  const [internalDescription, setInternalDescription] = useState(initialDescription);
-  const description = propDescription !== undefined ? propDescription : internalDescription;
+  const [internalDescription, setInternalDescription] = useState(propDescription ?? initialDescription);
+  const descriptionRef = useRef(internalDescription);
+  const description = internalDescription;
+  useEffect(() => {
+    if (propDescription !== undefined && propDescription !== descriptionRef.current) {
+      descriptionRef.current = propDescription;
+      setInternalDescription(propDescription);
+    }
+  }, [propDescription]);
   const [localNotice, setLocalNotice] = useState<string | null>(null);
   const setDescription = (text: string) => {
-    if (propDescription === undefined) setInternalDescription(text);
-    propOnChangeDescription?.(text);
+    descriptionRef.current = text;
+    setInternalDescription(text);
+    onDraftChange?.(text);
     if (localNotice) setLocalNotice(null);
   };
 
   const [internalStartPhoto, setInternalStartPhoto] = useState<VisionStartPhoto | null>(null);
   const startPhoto = propStartPhoto !== undefined ? propStartPhoto : internalStartPhoto;
-  /** True while a reference photo is attached: the description then says what changes, not a scene from nothing. */
-  const photoPath = startPhotoEnabled && Boolean(startPhoto);
+  const [internalReferences, setInternalReferences] = useState<VisionReferenceAttachment[]>([]);
+  const hasControlledReferences = propReferences !== undefined;
+  const localStartPhotoReference = useMemo<VisionReferenceAttachment | null>(() => startPhoto ? ({
+    id: `legacy-start-photo:${startPhoto.uri}`,
+    uri: startPhoto.uri,
+    mimeType: startPhoto.mimeType,
+    role: 'inspiration',
+  }) : null, [startPhoto]);
+  const displayedReferences = useMemo(() => {
+    if (hasControlledReferences) return propReferences ?? [];
+    if (!localStartPhotoReference || internalReferences.some(reference => reference.uri === localStartPhotoReference.uri)) return internalReferences;
+    return [localStartPhotoReference, ...internalReferences].slice(0, 5);
+  }, [hasControlledReferences, internalReferences, localStartPhotoReference, propReferences]);
+  /** The legacy single-photo path stays compatible; structured references describe a scene, not a photo edit. */
+  const photoPath = startPhotoEnabled && Boolean(startPhoto) && !hasControlledReferences && displayedReferences.length === 1;
   const setStartPhoto = (photo: VisionStartPhoto | null) => {
     if (onChangeStartPhoto) onChangeStartPhoto(photo); else setInternalStartPhoto(photo);
+  };
+  const setReferences = (next: VisionReferenceAttachment[]) => {
+    if (!hasControlledReferences) setInternalReferences(next);
+    onChangeReferences?.(next);
+    if (!hasControlledReferences && startPhoto) {
+      const legacy = displayedReferences.find(reference => reference.uri === startPhoto.uri);
+      const nextLegacy = legacy ? next.find(reference => reference.id === legacy.id) : null;
+      if (!nextLegacy) setStartPhoto(null);
+      else if (nextLegacy.uri !== startPhoto.uri || nextLegacy.mimeType !== startPhoto.mimeType) {
+        setStartPhoto({ uri: nextLegacy.uri, mimeType: nextLegacy.mimeType });
+      }
+    }
   };
   const fieldRef = useRef<VisionSceneFieldHandle>(null);
 
   const [inputFocused, setInputFocused] = useState(false);
-  const inputRef = useRef<TextInputInstance>(null);
   const isCreate = mode === 'create';
   const categoryColor = getCategoryColor(anchorCategory);
 
-  const reduceMotion = useV2ReduceMotion();
   const content = useVisionContentMotion();
   const inputAttention = useAttention();
   const [sheet, setSheet] = useState<'reference' | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const minChars = isCreate ? 12 : 6;
-  const maxChars = isCreate ? 2000 : 400;
+  const maxChars = 2000;
 
   const hint = visionDetailHint(description);
   const level = visionDetailLevel(description);
@@ -160,22 +188,14 @@ export function VisionMomentInput({
 
   const trimmed = description.trim();
   // A photo alone is enough to generate; a description is encouraged, but when one is started it must be long enough to mean something.
-  const isValid = photoPath
+  const isValid = displayedReferences.length > 0 && trimmed.length === 0 ? true : photoPath
     ? Boolean(startPhoto) && (trimmed.length === 0 || (trimmed.length >= minChars && trimmed.length <= maxChars))
     : trimmed.length >= minChars && trimmed.length <= maxChars;
 
-  const [activeCue, setActiveCue] = useState<string | null>(null);
-  const cue = useMemo(() => {
-    if (!activeCue) return null;
-    return photoPath
-      ? visionTransformCueGuidance(activeCue as VisionTransformCueKey, anchorIntention)
-      : visionCueGuidance(activeCue as VisionCueKey, anchorIntention, anchorCategory);
-  }, [activeCue, anchorCategory, anchorIntention, photoPath]);
-
-  const handleChipPress = (key: string) => {
+  const handleChipPress = (suggestion: string) => {
     v2Haptics.selection();
-    // Guidance only: a chip never focuses the field, opens the keyboard, or edits the text.
-    setActiveCue(key);
+    setDescription(applySceneSuggestion(description, suggestion));
+    setShowSuggestions(false);
   };
 
   const handlePickReferencePhoto = async () => {
@@ -212,35 +232,33 @@ export function VisionMomentInput({
     if (!isValid || loading) return;
     fieldRef.current?.stopDictation();
     Keyboard.dismiss();
-    if (photoPath) { void onSubmit(trimmed, null, startPhoto); return; }
     const refId = useAppearance ? (appearance.reference?.id ?? null) : null;
-    void onSubmit(trimmed, refId);
+    const refsToSubmit = displayedReferences.filter(reference => !startPhoto || reference.uri !== startPhoto.uri);
+    const hasReferencesArgument = hasControlledReferences || refsToSubmit.length > 0;
+    const requestedDescription = hasReferencesArgument && !trimmed ? (anchorIntention.trim().length >= minChars ? anchorIntention.trim() : `A future moment: ${anchorIntention.trim()}`) : trimmed;
+    propOnChangeDescription?.(requestedDescription);
+    if (hasReferencesArgument) void onSubmit(requestedDescription, photoPath ? null : refId, startPhoto ?? null, refsToSubmit);
+    else if (photoPath) void onSubmit(trimmed, null, startPhoto);
+    else void onSubmit(trimmed, refId);
+  };
+
+  const handleBack = () => {
+    fieldRef.current?.stopDictation();
+    propOnChangeDescription?.(descriptionRef.current);
+    onBack();
   };
 
   const placeholderText = customPlaceholder ?? 'Describe the moment you want to see...';
   const kicker = isCreate ? 'CREATE YOUR VISION' : 'ADD TO YOUR VISION';
   const exampleStart = ceremony && Boolean(fromExample) && !photoPath;
-  const title = exampleStart ? ceremonyCopy.makeItYours : isCreate ? 'Create Your First Scene' : 'What else do you see in this future?';
-  const subtitle = exampleStart ? ceremonyCopy.makeItYoursSub : photoPath
-    ? 'Describe what changes, or leave it blank to continue with your photo.'
-    : isCreate ? 'Add a reference photo for a more personal result.' : 'Add a photo, say it, or type it. Then we’ll make your images.';
-  const ctaLabel = isCreate ? 'Create My Images' : 'Generate Images';
+  const title = exampleStart ? ceremonyCopy.makeItYours : isCreate ? 'Imagine Your First Scene' : 'What Else Do You See?';
+  const subtitle = exampleStart ? ceremonyCopy.makeItYoursSub : isCreate
+    ? 'Bring a moment from your future to life.'
+    : 'Imagine another moment from your future.';
+  const ctaLabel = isCreate ? 'Create My Scene' : 'Create New Version';
   const ctaA11y = isCreate ? 'Continue to create your Vision' : 'Generate image';
   const footnote = 'You’ll choose what belongs in your Vision.';
-
-  const chipSet: ReadonlyArray<{ key: string; label: string; icon: typeof MapPin }> = photoPath ? PHOTO_CHIPS : PROMPT_CHIPS;
-  const chips = (
-    <View style={inputFocused ? styles.chipsAccessory : styles.chipsRow}>
-      {chipSet.map(({ key, label, icon: Icon }) => (
-        <Pressable key={key} onPress={() => handleChipPress(key)} accessibilityRole="button" accessibilityLabel={label}
-          accessibilityState={{ selected: activeCue === key }}
-          style={({ pressed }) => [styles.chip, inputFocused && styles.chipAccessory, activeCue === key && styles.chipActive, pressed && styles.chipPressed]}>
-          <Icon size={14} color={VISION_GOLD} strokeWidth={1.7} />
-          <Text style={styles.chipText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>{label}</Text>
-        </Pressable>
-      ))}
-    </View>
-  );
+  const suggestionsVisible = !inputFocused && (trimmed.length === 0 || showSuggestions);
 
   // A blocked tap says why: the field still waiting on the person takes a brief wash of gold, and the reason is written beneath it.
   const handleBlockedSubmit = () => {
@@ -266,7 +284,6 @@ export function VisionMomentInput({
 
   const footer = inputFocused ? (
     <View style={styles.footer}>
-      <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accessoryScroll}>{chips}</ScrollView>
       {submit(true)}
     </View>
   ) : (
@@ -296,7 +313,7 @@ export function VisionMomentInput({
         footerStyle={styles.footerFrame}
         restingBottom={spacing[3]}
       >
-        <VisionBackButton onPress={onBack} style={[styles.back, ceremony && { position: 'absolute', top: insets.top + 10, left: 18 }, { backgroundColor: 'transparent', borderColor: 'transparent' }]} color={colors.text.primary} />
+        <VisionBackButton onPress={handleBack} style={[styles.back, ceremony && { position: 'absolute', top: insets.top + 10, left: 18 }, { backgroundColor: 'transparent', borderColor: 'transparent' }]} color={colors.text.primary} />
         <View style={styles.header}>
           {exampleStart ? <View testID="vision-example-thumb" style={styles.exampleThumb}><Image testID="vision-example-thumb-image" source={fromExample!.image} resizeMode="cover" style={styles.exampleThumbImage} accessible={false} /></View> : null}
           {exampleStart ? null : <VisionKicker>{kicker}</VisionKicker>}
@@ -316,7 +333,15 @@ export function VisionMomentInput({
           {startPhotoEnabled ? (
             <View>
               <AttentionWash level={inputAttention.level} color={VISION_GOLD} />
-              <VisionReferencePhoto photo={startPhoto ?? null} onChange={setStartPhoto} onNotice={setLocalNotice} disabled={loading} />
+              <VisionReferenceStrip
+                references={displayedReferences}
+                onChange={setReferences}
+                onNotice={setLocalNotice}
+                disabled={loading || (hasControlledReferences && !onChangeReferences)}
+                collapsed={inputFocused}
+                compact={inputFocused}
+                testID={`${testID}-references`}
+              />
             </View>
           ) : null}
 
@@ -337,21 +362,31 @@ export function VisionMomentInput({
 
           {exampleStart ? <Text testID="vision-example-note" style={styles.exampleNote}>{ceremonyCopy.fromExample}</Text> : null}
 
-          {isCreate && !photoPath && !inputFocused ? (
-            <Animated.View key="suggestion" exiting={content.exiting}>
-              {/* Contextual moments for this Vision. A tap only fills the field; the person edits it and then creates. */}
-              <VisionSceneShortcuts label="Suggested for you" goal={anchorIntention} text={description} disabled={loading}
-                onPick={suggestion => setDescription(applySceneSuggestion(description, suggestion))} />
-            </Animated.View>
-          ) : null}
-
-          {cue ? (
-            <Animated.View key="vision-cue" testID="vision-cue" accessibilityLiveRegion="polite" entering={content.entering} exiting={content.exiting} style={styles.cue}>
-              <Animated.View key={activeCue ?? 'cue'} entering={content.entering} style={styles.cueBody}>
-                <Text style={styles.cueQuestion}>{cue.question}</Text>
-                {cue.hint ? <Text style={styles.cueHint}>{cue.hint}</Text> : null}
-              </Animated.View>
-            </Animated.View>
+          {!inputFocused ? (
+            <View style={styles.suggestionGroup}>
+              {trimmed.length === 0 ? (
+                <Text style={styles.suggestionHeading}>Need a spark?</Text>
+              ) : (
+                <Pressable testID={`${testID}-suggestions-toggle`} accessibilityRole="button"
+                  accessibilityLabel={showSuggestions ? 'Hide suggestions' : 'Need a spark? Show suggestions'}
+                  accessibilityState={{ expanded: showSuggestions }} hitSlop={8}
+                  onPress={() => setShowSuggestions(value => !value)} style={styles.suggestionToggle}>
+                  <Text style={styles.suggestionToggleText}>{showSuggestions ? 'Need a spark?' : 'Need a spark? Show suggestions'}</Text>
+                </Pressable>
+              )}
+              {suggestionsVisible ? (
+                <View style={styles.suggestionChips}>
+                  {SPARK_SUGGESTIONS.map(suggestion => (
+                    <Pressable key={suggestion} testID={`${testID}-suggestion-${SPARK_SUGGESTIONS.indexOf(suggestion)}`}
+                      accessibilityRole="button" accessibilityLabel={suggestion} disabled={loading} hitSlop={4}
+                      onPress={() => handleChipPress(suggestion)}
+                      style={({ pressed }) => [styles.suggestionChip, pressed && styles.chipPressed, loading && styles.disabled]}>
+                      <Text style={styles.suggestionChipText}>{suggestion}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           ) : null}
 
           <View style={styles.meter}>
@@ -362,10 +397,6 @@ export function VisionMomentInput({
             </Text>
             <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
           </View>
-
-          {!isCreate ? <VisionSceneShortcuts goal={anchorIntention} text={description} onPick={suggestion => setDescription(applySceneSuggestion(description, suggestion))} disabled={loading} /> : null}
-
-          {!inputFocused ? chips : null}
 
           {SHOW_APPEARANCE_REFERENCE_CARD && !inputFocused && !photoPath ? (
             <Animated.View key="reference-group" exiting={content.exiting} style={styles.referenceGroup}>
@@ -453,25 +484,18 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   textInput: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, minHeight: 124, maxHeight: 200, padding: spacing[4] },
   region: { gap: spacing[3] },
   referenceGroup: { gap: spacing[3] },
-  cueBody: { gap: 2 },
   ownPhotoRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing[5] },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   meterHint: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
   counterText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
-  chipsRow: { flexDirection: 'row', gap: spacing[2] },
-  chipsAccessory: { flexDirection: 'row', gap: spacing[2] },
-  accessoryScroll: { paddingBottom: spacing[1] },
-  chip: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 44, paddingHorizontal: 4, borderRadius: radii.pill,
-    backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default,
-  },
-  chipAccessory: { flex: 0, paddingHorizontal: spacing[3] },
+  suggestionGroup: { gap: spacing[2] },
+  suggestionHeading: { fontFamily: 'Inter-SemiBold', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
+  suggestionToggle: { minHeight: 32, alignSelf: 'flex-start', justifyContent: 'center' },
+  suggestionToggleText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
+  suggestionChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  suggestionChip: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(176,138,74,0.65)' },
+  suggestionChipText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.primary },
   chipPressed: { opacity: 0.7 },
-  chipActive: { borderColor: VISION_GOLD, backgroundColor: colors.grouped },
-  cue: { gap: 2, paddingLeft: spacing[3], borderLeftWidth: 2, borderLeftColor: VISION_GOLD },
-  cueQuestion: { fontFamily: VISION_SERIF_ITALIC, fontSize: 16, lineHeight: 22, color: colors.text.primary },
-  cueHint: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16, color: colors.text.secondary },
-  chipText: { fontFamily: 'Inter-Regular', fontSize: 10.5, lineHeight: 15, color: colors.text.primary, flexShrink: 1 },
   divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: VISION_GOLD, opacity: 0.5, marginTop: spacing[1] },
   referenceCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3], paddingHorizontal: spacing[4], borderRadius: radii.lg,

@@ -4,19 +4,21 @@ import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-re
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
 import { useV2ReduceMotion } from '@/hooks/v2';
-import { colors, radii, spacing } from '@/theme/v2';
+import { colors, radii, spacing, typography } from '@/theme/v2';
 import { VISION_ADD_SHEET_HANDOFF_MS } from './VisionAddSheet';
 import { VisionInkPill, VISION_SERIF } from './VisionPaperChrome';
-import { VisionReferencePhoto, type VisionStartPhoto } from './VisionReferencePhoto';
+import { VisionReferenceStrip } from './VisionReferenceStrip';
+import type { VisionStartPhoto } from './VisionReferencePhoto';
+import type { VisionReferenceAttachment } from '@/types/visionConversation';
 import { VisionSceneField, type VisionSceneFieldHandle } from './VisionSceneField';
 import { VisionSceneShortcuts } from './VisionSceneShortcuts';
 import { applySceneSuggestion } from './visionSceneSuggestions';
 import { createSingleFlight } from './visionSingleFlight';
 
 export const ADD_SCENE_MIN_CHARS = 6;
-export const ADD_SCENE_MAX_CHARS = 400;
+export const ADD_SCENE_MAX_CHARS = 2000;
 
-export type AddSceneRequest = { description: string; photo: VisionStartPhoto | null };
+export type AddSceneRequest = { description: string; photo: VisionStartPhoto | null; references?: VisionReferenceAttachment[]; sessionId?: string };
 
 type Props = {
   visible: boolean;
@@ -32,6 +34,8 @@ type Props = {
   /** A request taken back from generation: its words and photo refill the composer, then this is cleared. */
   restoreDraft?: AddSceneRequest | null;
   onDraftRestored?: () => void;
+  /** Reports a local draft mutation so the owning ceremony can persist it. */
+  onDraftChange?: (request: AddSceneRequest) => void;
   /** False at the board's image limit: the composer is replaced by a short explanation. */
   canAddImage?: boolean;
   testID?: string;
@@ -43,14 +47,16 @@ type Props = {
  * board underneath is never remounted; submitting hands a prepared request to the existing generation
  * experience. A draft survives closing the sheet and clears once a request is sent.
  */
-export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, restoreDraft = null, onDraftRestored, canAddImage = true, testID = 'vision-add-scene-sheet' }: Props) {
+export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, restoreDraft = null, onDraftRestored, onDraftChange, canAddImage = true, testID = 'vision-add-scene-sheet' }: Props) {
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<VisionStartPhoto | null>(null);
+  const [references, setReferences] = useState<VisionReferenceAttachment[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   // Android's animated keyboard value is not reported inside a native Modal window, so its lift comes from the keyboard events instead.
   const [androidLift, setAndroidLift] = useState(0);
   const { height: windowHeight } = useWindowDimensions();
@@ -76,13 +82,38 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
   useEffect(() => {
     if (!restoreDraft) return;
     setText(restoreDraft.description);
-    setPhoto(restoreDraft.photo);
+    const restoredReferences = restoreDraft.references?.length
+      ? restoreDraft.references
+      : restoreDraft.photo
+        ? [{ id: `legacy-reference-${Date.now()}`, ...restoreDraft.photo, role: 'inspiration' as const }]
+        : [];
+    setReferences(restoredReferences);
+    setPhoto(restoredReferences.length ? null : restoreDraft.photo);
+    onDraftChange?.({
+      description: restoreDraft.description,
+      photo: restoredReferences.length ? null : restoreDraft.photo,
+      ...(restoredReferences.length ? { references: restoredReferences } : {}),
+    });
     onDraftRestored?.();
-  }, [restoreDraft, onDraftRestored]);
+  }, [restoreDraft, onDraftRestored, onDraftChange]);
 
   const trimmed = text.trim();
-  const valid = photo ? trimmed.length === 0 || (trimmed.length >= ADD_SCENE_MIN_CHARS && trimmed.length <= ADD_SCENE_MAX_CHARS)
+  const hasReference = photo !== null || references.length > 0;
+  const valid = hasReference ? trimmed.length === 0 || (trimmed.length >= ADD_SCENE_MIN_CHARS && trimmed.length <= ADD_SCENE_MAX_CHARS)
     : trimmed.length >= ADD_SCENE_MIN_CHARS && trimmed.length <= ADD_SCENE_MAX_CHARS;
+
+  const draftRequest = (description: string, nextReferences = references, nextPhoto = photo): AddSceneRequest => ({
+    description,
+    photo: nextReferences.length ? null : nextPhoto,
+    ...(nextReferences.length ? { references: nextReferences } : {}),
+  });
+
+  const updateReferences = (nextReferences: VisionReferenceAttachment[]) => {
+    setReferences(nextReferences);
+    setPhoto(null);
+    setNotice(null);
+    onDraftChange?.(draftRequest(text, nextReferences, null));
+  };
 
   // The keyboard's height rides on the UI thread, so the sheet lifts with it frame by frame on iOS and Android.
   // flexShrink lets the sheet yield to the modal's height cap, so its scrolling body gives way instead of the fixed actions row running off-screen.
@@ -91,13 +122,13 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
   const close = () => { fieldRef.current?.stopDictation(); Keyboard.dismiss(); onClose(); };
 
   const submit = async () => {
-    if (!valid) { setNotice(photo ? `Describe it in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters, or clear the text.` : `Describe the scene in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters.`); return; }
+    if (!valid) { setNotice(hasReference ? `Describe it in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters, or clear the text.` : `Describe the scene in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters.`); return; }
     // One request per tap sequence: a second tap while the first is closing the sheet is dropped.
     await flight.run(async () => {
       fieldRef.current?.stopDictation();
       Keyboard.dismiss();
-      const request: AddSceneRequest = { description: trimmed, photo };
-      setText(''); setPhoto(null); setNotice(null);
+      const request = draftRequest(trimmed);
+      setText(''); setPhoto(null); setReferences([]); setNotice(null); setShowSuggestions(false);
       onClose();
       onSubmit(request);
     });
@@ -124,8 +155,8 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[3]) + V2_SHEET_SKIRT }, androidLift > 0 ? { maxHeight: windowHeight - androidLift + V2_SHEET_SKIRT - insets.top - spacing[2] } : null]} accessibilityViewIsModal>
         <V2SheetGrabZone>
           <View style={styles.handle} />
-          <Text accessibilityRole="header" style={styles.title}>What do you see next?</Text>
-          <Text style={styles.sub}>Build another moment in your vision.</Text>
+          <Text accessibilityRole="header" style={styles.title}>What Else Do You See?</Text>
+          <Text style={styles.sub}>Imagine another moment from your future.</Text>
         </V2SheetGrabZone>
         {!canAddImage ? (
           <View style={styles.body}>
@@ -133,27 +164,34 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
           </View>
         ) : (
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-          <Text style={styles.label}>Reference photo (optional)</Text>
-          <VisionReferencePhoto compact photo={photo} onChange={setPhoto} onNotice={setNotice} testID="vision-add-scene-reference" />
+          <VisionReferenceStrip references={references} onChange={updateReferences} onNotice={setNotice}
+            collapsed={keyboardOpen} compact={keyboardOpen} testID="vision-add-scene-reference" />
           <View onLayout={event => { fieldY.current = event.nativeEvent.layout.y; }}>
           <VisionSceneField
             handleRef={fieldRef}
             testID="vision-scene-input"
             accessibilityLabel="Describe the next scene"
             value={text}
-            onChangeText={value => { setText(value); if (notice) setNotice(null); }}
+            onChangeText={value => { setText(value); if (notice) setNotice(null); onDraftChange?.(draftRequest(value)); }}
             maxChars={ADD_SCENE_MAX_CHARS}
             placeholder="Describe your next scene…"
             minHeight={64}
           />
           </View>
-          <VisionSceneShortcuts label="Suggested for your vision" goal={anchorIntention} text={text} onPick={item => setText(current => applySceneSuggestion(current, item))} />
+          {!keyboardOpen ? <View style={styles.suggestions}>
+            <Pressable testID="vision-add-scene-show-suggestions" accessibilityRole="button" accessibilityLabel={showSuggestions ? 'Hide suggestions' : text.trim() ? 'Show suggestions' : 'Need a spark? Show suggestions'}
+              onPress={() => setShowSuggestions(value => !value)} style={styles.suggestionToggle}>
+              <Text style={styles.suggestionToggleText}>{showSuggestions ? 'Hide suggestions' : text.trim() ? 'Show suggestions' : 'Need a spark? Show suggestions'}</Text>
+            </Pressable>
+            {showSuggestions ? <VisionSceneShortcuts label="Suggested for your vision" goal={anchorIntention} text={text}
+              onPick={item => { const next = applySceneSuggestion(text, item); setText(next); onDraftChange?.(draftRequest(next)); }} /> : null}
+          </View> : null}
           {notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
         </ScrollView>
         )}
         <View style={styles.actions}>
           {canAddImage ? <VisionInkPill testID="vision-scene-generate" label="Generate Images" accessibilityLabel="Generate images" disabled={!valid}
-            onDisabledPress={() => setNotice(`Describe the scene in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters, or add a photo.`)} onPress={() => { void submit(); }} /> : null}
+            onDisabledPress={() => setNotice(`Describe the scene in ${ADD_SCENE_MIN_CHARS}–${ADD_SCENE_MAX_CHARS} characters, or add a reference photo.`)} onPress={() => { void submit(); }} /> : null}
           {onAddOwnPhoto && canAddImage && !keyboardOpen ? (
             <View style={styles.ownRow}>
               <Pressable testID="vision-add-own-photo" accessibilityRole="button" accessibilityLabel="Use my own photo" onPress={() => addOwn('library')} style={styles.ownAction}>
@@ -194,9 +232,11 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 99, backgroundColor: colors.border.default, marginBottom: 14 },
   title: { fontFamily: VISION_SERIF, fontSize: 26, lineHeight: 31, color: colors.text.primary, textAlign: 'center' },
   body: { gap: spacing[3], paddingBottom: spacing[3] },
-  label: { fontFamily: 'Inter-SemiBold', fontSize: 12, lineHeight: 16, color: colors.text.secondary },
-  notice: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.semantic.error },
-  sub: { fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 21, color: colors.text.secondary, textAlign: 'center', marginTop: spacing[1], marginBottom: spacing[3] },
+  suggestions: { gap: spacing[1] },
+  suggestionToggle: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  suggestionToggleText: { ...typography.bodySM, color: colors.text.secondary, textDecorationLine: 'underline' },
+  notice: { ...typography.bodySM, color: colors.semantic.error },
+  sub: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center', marginTop: spacing[1], marginBottom: spacing[3] },
   noteAction: { alignSelf: 'center' },
   actions: { gap: spacing[2], paddingTop: spacing[2] },
   ownRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing[5] },

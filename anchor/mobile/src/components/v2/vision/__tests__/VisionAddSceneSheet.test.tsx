@@ -18,43 +18,47 @@ describe('VisionAddSceneSheet', () => {
   beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); available.mockReturnValue(false); });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
 
-  it('is the compact cream sheet: the next-scene question, one line of support, the description and Generate Images', () => {
+  it('uses the approved add-scene copy, the description and Generate Images', () => {
     const view = renderSheet();
-    expect(view.getByText('What do you see next?')).toBeTruthy();
-    expect(view.getByText('Build another moment in your vision.')).toBeTruthy();
+    expect(view.getByText('What Else Do You See?')).toBeTruthy();
+    expect(view.getByText('Imagine another moment from your future.')).toBeTruthy();
     expect(view.getByTestId('vision-scene-input')).toBeTruthy();
     expect(view.getByTestId('vision-scene-generate')).toBeTruthy();
     expect(view.getByText('Generate Images')).toBeTruthy();
   });
 
-  it('keeps the full reference-photo card so a photo is one obvious tap away', () => {
+  it('keeps the five-slot reference gallery visible and accessible', () => {
     const view = renderSheet();
-    expect(view.getByLabelText('Add a reference photo')).toBeTruthy();
-    expect(view.getByText('Add a photo')).toBeTruthy();
+    expect(view.getByTestId('vision-add-scene-reference')).toBeTruthy();
+    expect(view.getByText('0 of 5 · Roles are optional')).toBeTruthy();
+    expect(view.getByLabelText('Add reference photo')).toBeTruthy();
   });
 
   it('derives shortcuts from the goal, and shows none when the goal gives no theme', () => {
     const view = renderSheet();
+    fireEvent.press(view.getByTestId('vision-add-scene-show-suggestions'));
     expect(view.getByText('Suggested for your vision')).toBeTruthy();
     ['Inside my home', 'Getting the keys', 'Family moments', 'Backyard at night'].forEach(label => expect(view.getByLabelText(label)).toBeTruthy());
     view.unmount();
     const other = renderSheet({ anchorIntention: 'Be better' });
+    fireEvent.press(other.getByTestId('vision-add-scene-show-suggestions'));
     expect(other.getByLabelText('The day it arrives')).toBeTruthy();
     expect(other.queryByLabelText('Inside my home')).toBeNull();
   });
 
   it('a shortcut fills the field and never generates', () => {
     const view = renderSheet();
+    fireEvent.press(view.getByTestId('vision-add-scene-show-suggestions'));
     fireEvent.press(view.getByLabelText('Getting the keys'));
     expect(view.getByTestId('vision-scene-input').props.value).toBe('Getting the keys');
     expect(view.props.onSubmit).not.toHaveBeenCalled();
   });
 
-  it('keeps Generate Images blocked until the description is long enough, with a hint', () => {
+  it('keeps generation blocked until the description is long enough, with a 2000-character hint', () => {
     const view = renderSheet();
     fireEvent.press(view.getByTestId('vision-scene-generate'));
     expect(view.props.onSubmit).not.toHaveBeenCalled();
-    expect(view.getByText(/Describe the scene in 6–400 characters/)).toBeTruthy();
+    expect(view.getByText(/Describe the scene in 6–2000 characters/)).toBeTruthy();
   });
 
   it('hands one prepared request to the ceremony, closes, clears, and ignores a second tap', async () => {
@@ -67,23 +71,57 @@ describe('VisionAddSceneSheet', () => {
     expect(view.getByTestId('vision-scene-input').props.value).toBe('');
   });
 
-  it('a reference photo alone is enough, and travels with the request', async () => {
+  it('sends structured references and omits the legacy photo when a gallery photo is present', async () => {
     mockPick.mockResolvedValue({ status: 'picked', photo: { uri: 'file:///house.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
     const view = renderSheet();
-    await act(async () => { fireEvent.press(view.getByLabelText('Add a reference photo')); });
+    await act(async () => { fireEvent.press(view.getByLabelText('Add reference photo')); });
     await act(async () => { fireEvent.press(view.getByLabelText('Choose from library')); });
     await act(async () => { jest.advanceTimersByTime(VISION_ADD_SHEET_HANDOFF_MS); });
-    expect(view.getByLabelText('Your reference photo')).toBeTruthy();
+    expect(view.getByTestId('vision-add-scene-reference-item-0')).toBeTruthy();
     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
-    expect(view.props.onSubmit).toHaveBeenCalledWith({ description: '', photo: { uri: 'file:///house.jpg', mimeType: 'image/jpeg' } });
+    expect(view.props.onSubmit).toHaveBeenCalledWith({
+      description: '', photo: null,
+      references: [expect.objectContaining({ uri: 'file:///house.jpg', mimeType: 'image/jpeg', role: 'inspiration' })],
+    });
   });
 
   it('refills the composer with a request taken back from generation, once', () => {
     const onDraftRestored = jest.fn();
-    const draft = { description: 'The backyard at night', photo: null };
-    const view = renderSheet({ restoreDraft: draft, onDraftRestored });
+    const onDraftChange = jest.fn();
+    const refs = [{ id: 'saved-ref', uri: 'file:///garden.jpg', mimeType: 'image/jpeg', role: 'place' as const }];
+    const draft = { description: 'The backyard at night', photo: null, references: refs };
+    const view = renderSheet({ restoreDraft: draft, onDraftRestored, onDraftChange });
     expect(view.getByTestId('vision-scene-input').props.value).toBe('The backyard at night');
+    expect(view.getByTestId('vision-add-scene-reference-item-0')).toBeTruthy();
+    expect(view.getByText('1 of 5 · Roles are optional')).toBeTruthy();
     expect(onDraftRestored).toHaveBeenCalledTimes(1);
+    expect(onDraftChange).toHaveBeenCalledWith({ description: draft.description, photo: null, references: refs });
+  });
+
+  it('converts a restored legacy photo into an inspiration reference', async () => {
+    const draft = { description: 'The backyard at night', photo: { uri: 'file:///legacy.jpg', mimeType: 'image/jpeg' } };
+    const view = renderSheet({ restoreDraft: draft });
+    expect(view.getByTestId('vision-add-scene-reference-item-0')).toBeTruthy();
+    await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+    expect(view.props.onSubmit).toHaveBeenCalledWith({
+      description: 'The backyard at night', photo: null,
+      references: [expect.objectContaining({ uri: 'file:///legacy.jpg', role: 'inspiration' })],
+    });
+  });
+
+  it('reports text and structured reference changes through the draft callback', async () => {
+    const onDraftChange = jest.fn();
+    mockPick.mockResolvedValue({ status: 'picked', photo: { uri: 'file:///draft.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } });
+    const view = renderSheet({ onDraftChange });
+    fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A bright room with plants.');
+    expect(onDraftChange).toHaveBeenLastCalledWith({ description: 'A bright room with plants.', photo: null });
+    await act(async () => { fireEvent.press(view.getByLabelText('Add reference photo')); });
+    await act(async () => { fireEvent.press(view.getByLabelText('Choose from library')); });
+    await act(async () => { jest.advanceTimersByTime(VISION_ADD_SHEET_HANDOFF_MS); });
+    expect(onDraftChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      description: 'A bright room with plants.', photo: null,
+      references: [expect.objectContaining({ uri: 'file:///draft.jpg', role: 'inspiration' })],
+    }));
   });
 
   it('keeps an unsent draft when closed and reopened', () => {

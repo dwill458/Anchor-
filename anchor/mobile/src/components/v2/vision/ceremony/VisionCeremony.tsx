@@ -1,6 +1,6 @@
 import type { ViewInstance } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { Alert, AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { ArrowLeft } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -38,6 +38,12 @@ import { editDistancePct, type VisionExample } from './visionExamples';
 import { CEREMONY, ceremonyDuration } from './VisionDevelop';
 import { prefillVisionCaption, visionCeremonyCopy as copy } from './visionCeremonyCopy';
 import { useVisionCreationActions, photoVisionDescription, type CeremonyPhoto } from './useVisionCreationActions';
+import type { VisionConversationRound, VisionReferenceAttachment, VisionSceneRequestOptions } from '@/types/visionConversation';
+import { conversationAttachments } from '@/hooks/v2/vision/useVisionConversation';
+import { VisionRefineSheet } from '../VisionRefineSheet';
+import { VisionResumeCard } from '../VisionResumeCard';
+import { VisionConversationSelection } from '../VisionConversationSelection';
+import { useAuthStore } from '@/stores/authStore';
 
 const CEREMONY_SOUND_KEYS = ['creation:uiTap', 'creation:anchorPulse', 'creation:formTick', 'creation:distillTick', 'creation:revealSettle',
   'creation:formBed', 'creation:sealRise', 'creation:seal', 'creation:visionPin'];
@@ -53,6 +59,8 @@ export interface VisionCeremonyProps extends Omit<V2VisionCreationFlowProps, 'in
   startAt?: 'ask' | 'describe' | 'develop';
   /** The reference photo the composer already holds; kept so Back and retry never lose it. */
   initialStartPhoto?: VisionStartPhoto | null;
+  initialReferences?: VisionReferenceAttachment[];
+  initialSessionId?: string;
   /** Start generating on mount from initialDescription and initialStartPhoto (the Add Image sheet has already prepared the request). */
   autoStart?: boolean;
   photo?: PickedVisionPhoto;
@@ -89,6 +97,12 @@ function measure(node: ViewInstance | null): Promise<VisionImageRect | null> {
 
 /** One persistent print stage for first creation, additions, and regeneration. */
 export function VisionCeremony(props: VisionCeremonyProps) {
+  const owner = useAuthStore(state => state.user?.id ?? 'anonymous');
+  // Remount all image snapshots and ceremony state together at the account/Anchor boundary.
+  return <ScopedVisionCeremony key={`${owner}:${props.anchorId}`} {...props} />;
+}
+
+function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const { anchorId, anchorIntention, anchorArt, anchorCategory, mode, onBack, testID = 'vision-ceremony' } = props;
   const actions = useVisionCreationActions(props);
   const arrival = useVisionImageArrival();
@@ -102,7 +116,80 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const descriptionRef = useRef(description);
   const setDescription = (text: string) => { descriptionRef.current = text; setDescriptionState(text); };
   const setDescriptionFromInput = (text: string) => { descriptionRef.current = text; };
-  const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(props.initialStartPhoto ?? null);
+  const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(props.initialReferences ? null : props.initialStartPhoto ?? null);
+  const conversation = actions.generation.conversation;
+  const session = conversation?.session ?? null;
+  const [references, setReferences] = useState<VisionReferenceAttachment[]>(() => props.initialReferences ?? (props.initialStartPhoto ? [{
+    id: `initial:${props.initialStartPhoto.uri}`, ...props.initialStartPhoto, role: 'inspiration',
+  }] : []));
+  const [viewedRoundId, setViewedRoundId] = useState<string | null>(null);
+  const [viewedRoundSnapshot, setViewedRoundSnapshot] = useState<VisionConversationRound | null>(null);
+  const [refineCandidateId, setRefineCandidateId] = useState<string | null>(null);
+  const [inspectCandidateId, setInspectCandidateId] = useState<string | null>(null);
+  const [resumeDismissed, setResumeDismissed] = useState(Boolean(props.autoStart || props.photo || props.startAt && props.startAt !== 'ask'));
+  const [choicePlacements, setChoicePlacements] = useState<Record<number, PrintPlacement>>({});
+  const hydratedDraft = useRef(false);
+  const [scopeReady, setScopeReady] = useState(!props.regenerating || !conversation);
+  const freshScopeStarted = useRef(false);
+  const rounds: VisionConversationRound[] = session ? [
+    ...session.rounds.filter(round => round.id !== actions.generation.job?.id),
+    ...(actions.generation.job && 'sessionId' in actions.generation.job && actions.generation.job.sessionId === session.id ? [actions.generation.job as VisionConversationRound] : session.rounds.filter(round => round.id === actions.generation.job?.id)),
+  ].sort((a, b) => a.roundNumber - b.roundNumber) : [];
+  const viewedRound = rounds.find(round => round.id === viewedRoundId) ?? (viewedRoundSnapshot?.id === viewedRoundId ? viewedRoundSnapshot : null);
+  const displayedJob = viewedRound ?? actions.generation.job;
+  const displayedRound = displayedJob && 'sessionId' in displayedJob && displayedJob.sessionId ? displayedJob as VisionConversationRound : null;
+  const refineRound = rounds.find(round => round.candidates.some(candidate => candidate.id === refineCandidateId));
+  const refineCandidate = refineRound?.candidates.find(candidate => candidate.id === refineCandidateId);
+  const resumeVisible = !resumeDismissed && beat === 'ask' && session && (session.rounds.length > 0 || Boolean(session.description.trim()));
+  useEffect(() => {
+    if (!conversation?.loaded || hydratedDraft.current || props.autoStart || props.photo || props.regenerating) return;
+    hydratedDraft.current = true;
+    const draft = conversation.draft.current;
+    if (draft && (session || !props.initialDescription)) { setDescription(draft.description); setReferences(draft.references); }
+  }, [conversation?.loaded, session?.id]);
+  const changeReferences = (next: VisionReferenceAttachment[]) => {
+    setReferences(next); setStartPhoto(null); conversation?.saveDraft({ references: next });
+  };
+  const persistSelection = (input: { selectedCandidateId?: string; viewedRoundId?: string }) => {
+    void conversation?.update(input).catch(() => actions.setNotice('Your choice is saved here. Reconnect to sync it.'));
+  };
+  const showRound = (roundId: string, exactCandidateId?: string) => {
+    const round = rounds.find(item => item.id === roundId);
+    if (!round) return;
+    setViewedRoundId(roundId); setViewedRoundSnapshot(round); setReferences(conversationAttachments(round.references)); setChosen(null);
+    setDeveloped(new Set(round.candidates.flatMap(item => item.imageUrl ? [item.imageUrl] : [])));
+    setReadDone(true); setFailedImages(new Set()); setChoicePlacements({});
+    persistSelection({ viewedRoundId: roundId });
+    if (exactCandidateId) setInspectCandidateId(exactCandidateId);
+  };
+  const viewExactCandidate = (candidateId: string) => {
+    const round = rounds.find(item => item.candidates.some(candidate => candidate.id === candidateId));
+    if (round) showRound(round.id, candidateId);
+  };
+  const openRefine = (item: VisionGenerationCandidate) => {
+    if (!item.assetId || !item.imageUrl || committedRef.current) return;
+    setRefineCandidateId(item.id);
+    const round = rounds.find(round => round.candidates.some(candidate => candidate.id === item.id));
+    if (round) { setReferences(conversationAttachments(round.references)); persistSelection({ selectedCandidateId: item.id, viewedRoundId: round.id }); }
+  };
+  const startDifferent = async () => {
+    try {
+      await conversation?.startDifferent();
+      setResumeDismissed(true); setViewedRoundId(null); setViewedRoundSnapshot(null); setReferences([]); setStartPhoto(null); setDescription('');
+      setPhotos([]); setActivePhotoId(null); setChosen(null); setRefineCandidateId(null); setInspectCandidateId(null);
+      actions.generation.restoreJob?.(null); setDeveloped(new Set()); setFailedImages(new Set()); stableUrls.current.clear(); setBeat('describe');
+    } catch (cause) { actions.setNotice(cause instanceof Error ? cause.message : 'Reconnect to start a different scene.'); }
+  };
+  const continueSession = (candidateId?: string) => {
+    if (!session) return;
+    const round = (candidateId ? rounds.find(round => round.candidates.some(candidate => candidate.id === candidateId)) : rounds.find(round => round.id === session.viewedRoundId)) ?? rounds[rounds.length - 1];
+    setResumeDismissed(true); setDescription(conversation?.draft.current?.description ?? session.description);
+    if (!round) { setReferences(conversation?.draft.current?.references ?? conversationAttachments(session.references)); setStartPhoto(null); setBeat('describe'); return; }
+    showRound(round.id); actions.generation.restoreJob?.(round);
+    const index = candidateId ? round.candidates.findIndex(candidate => candidate.id === candidateId) : -1;
+    if (index >= 0) { setChosen(index); persistSelection({ selectedCandidateId: candidateId!, viewedRoundId: round.id }); setBeat('keep'); }
+    else setBeat(['QUEUED', 'RUNNING', 'PARTIAL'].includes(round.status) ? 'develop' : 'choose');
+  };
   // A reference photo and a description are one request; the photo only changes what the scene is made from.
   const inputPath = startPhoto ? 'photo' : 'words';
   const [photos, setPhotos] = useState<CeremonyPhoto[]>(props.photo ? [{ ...props.photo, key: props.photo.uri }] : []);
@@ -120,6 +207,8 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [generationPending, setGenerationPending] = useState(false);
   const [generationAttempt, setGenerationAttempt] = useState(0);
+  const generationStarting = useRef(false);
+  const pendingGeneration = useRef<{ text: string; refs?: VisionReferenceAttachment[]; options?: VisionSceneRequestOptions } | null>(null);
   const [foreground, setForeground] = useState(AppState.currentState !== 'background' && AppState.currentState !== 'inactive');
   const foregroundRef = useRef(foreground); foregroundRef.current = foreground;
   const [litWords, setLitWords] = useState(0), [readDone, setReadDone] = useState(false), [waitBeat, setWaitBeat] = useState(0);
@@ -165,9 +254,9 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     if (!known) { stableUrls.current.set(key, item.imageUrl); return item; }
     return known === item.imageUrl ? item : { ...item, imageUrl: known };
   };
-  const rawState = visionTwoUpState(generationPending ? null : actions.generation.job);
+  const rawState = visionTwoUpState(generationPending ? null : displayedJob);
   const state = { ...rawState, slots: rawState.slots.map(stabilize), ready: rawState.ready.map(item => stabilize(item) as VisionGenerationCandidate) };
-  const reading = !ownPhoto && (!readDone || !actions.generation.job || actions.generation.job.status === 'QUEUED');
+  const reading = !ownPhoto && (!readDone || !displayedJob || displayedJob.status === 'QUEUED');
   const candidate = chosen === null ? null : state.slots[chosen];
   const activePhotoIndex = Math.max(0, photos.findIndex(photo => photo.key === activePhotoId));
   const activePhotoCaption = activePhotoId ? photoCaptions[activePhotoId] ?? prefillVisionCaption(anchorIntention) : caption;
@@ -257,13 +346,17 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   const resumed = useRef(false);
   useEffect(() => {
     if (!props.resumeGeneration) { resumed.current = false; return; }
-    if (!props.resumeGeneration || resumed.current || !descriptionRef.current.trim()) return;
+    if (!scopeReady || !props.resumeGeneration || resumed.current || !descriptionRef.current.trim()) return;
     resumed.current = true; props.onResumeGenerationConsumed?.();
-    void generate(descriptionRef.current);
-  }, [props.resumeGeneration, description]);
+    const pending = pendingGeneration.current;
+    if (pending) void generate(pending.text, undefined, undefined, pending.refs, pending.options);
+    else void generate(descriptionRef.current);
+  }, [props.resumeGeneration, description, scopeReady]);
 
-  const generate = async (text: string, referenceId?: string | null, photo?: VisionStartPhoto | null) => {
-    if (actions.starting || committedRef.current) return;
+  const generate = async (text: string, referenceId?: string | null, photo?: VisionStartPhoto | null, selectedReferences?: VisionReferenceAttachment[], options?: VisionSceneRequestOptions) => {
+    if (!scopeReady || actions.starting || generationStarting.current || committedRef.current) return false;
+    generationStarting.current = true;
+    pendingGeneration.current = { text, refs: selectedReferences ?? (conversation ? references : undefined), options };
     const fromExampleStart = startedFromExample.current;
     if (fromExampleStart && !fromExampleStart.reported) {
       fromExampleStart.reported = true;
@@ -271,24 +364,41 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         edit_distance_pct: editDistancePct(fromExampleStart.moment, text) });
     }
     const fromChoose = beat === 'choose', priorDeveloped = developed;
+    setResumeDismissed(true); setViewedRoundId(null); setViewedRoundSnapshot(null); setChoicePlacements({});
     setDescription(text); setPhotos([]); setActivePhotoId(null); setPhotoCaptions({}); setFailedImages(new Set()); setChosen(null); setDeveloped(new Set()); setRevealStarted(false); actions.setNotice(null);
     setGenerationPending(true); setGenerationAttempt(value => value + 1);
     requestTime.current = Date.now(); setBeat('develop');
-    const started = await actions.generate(text, referenceId, photo);
-    if (!alive.current) return;
+    const structured = selectedReferences ?? (conversation ? references : undefined);
+    const started = await actions.generate(text, structured ? null : referenceId, structured ? null : photo, structured, options);
+    generationStarting.current = false;
+    if (!alive.current) return false;
     setGenerationPending(false);
     // At the limit, "Neither" is a dead end: stay on the developed pair and say why.
-    if (!started && fromChoose && actions.generation.lastErrorCode?.() === 'VISION_GENERATION_LIMIT') { setDeveloped(priorDeveloped); setBeat('choose'); }
+    if (!started && fromChoose && displayedRound) { setViewedRoundId(displayedRound.id); setViewedRoundSnapshot(displayedRound); setDeveloped(priorDeveloped); setBeat('choose'); }
+    else if (!started && fromChoose && actions.generation.lastErrorCode?.() === 'VISION_GENERATION_LIMIT') { setDeveloped(priorDeveloped); setBeat('choose'); }
     else if (!started) setBeat('describe');
+    if (started) pendingGeneration.current = null;
+    return started;
   };
   const [fitRequest, setFitRequest] = useState<{ photo: CeremonyPhoto; size: { width: number; height: number } } | null>(null);
   const autoStarted = useRef(false);
   useEffect(() => {
-    if (!props.autoStart || autoStarted.current) return;
+    if (!props.regenerating || freshScopeStarted.current || conversation?.loaded === false) return;
+    freshScopeStarted.current = true;
+    void (async () => {
+      await conversation?.startDifferent();
+      if (alive.current) setScopeReady(true);
+    })().catch(() => actions.setNotice('Reconnect to start a different scene. Your board image is safe.'));
+  }, [props.regenerating, conversation?.loaded]);
+  useEffect(() => {
+    if (!props.autoStart || autoStarted.current || conversation?.loaded === false) return;
     autoStarted.current = true;
     const photo = props.initialStartPhoto ?? null;
-    void generate(descriptionRef.current, photo ? null : undefined, photo);
-  }, []);
+    void (async () => {
+      if (session && props.initialSessionId !== session.id) await conversation?.startDifferent();
+      await generate(descriptionRef.current, photo ? null : undefined, photo);
+    })().catch(cause => { actions.setNotice(cause instanceof Error ? cause.message : copy.failed); setBeat('describe'); });
+  }, [conversation?.loaded]);
   const pick = async (source: 'library' | 'camera') => {
     if (committedRef.current) return;
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: source });
@@ -336,7 +446,11 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     const keys = failedSlots.map(item => item.assetId ?? item.id);
     setFailedImages(new Set());
     setDeveloped(current => new Set([...current].filter(uri => !failed.has(uri))));
-    await actions.generation.refresh();
+    if (displayedRound && conversation) {
+      const refreshed = await conversation.refresh();
+      const refreshedRound = refreshed?.rounds.find(round => round.id === displayedRound.id);
+      if (refreshedRound) { setViewedRoundId(refreshedRound.id); setViewedRoundSnapshot(refreshedRound); if (actions.generation.job?.id === refreshedRound.id) actions.generation.restoreJob?.(refreshedRound); }
+    } else await actions.generation.refresh();
     if (!alive.current) return;
     stableUrls.current.clear();
     setImageRetryTokens(current => Object.fromEntries([...new Set([...Object.keys(current), ...keys])].map(key => [key, (current[key] ?? 0) + (keys.includes(key) ? 1 : 0)])));
@@ -352,6 +466,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     AnalyticsService.track('vision_image_selected', { anchor_id: anchorId,
       ...(props.visionId ? { vision_id: props.visionId } : {}), asset_id: item.assetId, source_type: 'AI_GENERATED' });
     setChosen(index); setReframe({ x: 0, y: 0 }); setBeat('keep');
+    if (displayedRound) { setViewedRoundId(displayedRound.id); setViewedRoundSnapshot(displayedRound); persistSelection({ selectedCandidateId: item.id, viewedRoundId: displayedRound.id }); }
   };
   const save = async () => {
     if (savingRef.current || savedRef.current) return;
@@ -369,13 +484,16 @@ export function VisionCeremony(props: VisionCeremonyProps) {
       } else if (ownPhoto) result = await actions.saveUploads(photos, descriptionRef.current, activePhotoCaption.trim(), selection, photoCaptions, activePhotoId ?? undefined);
       else {
         if (!candidate?.assetId) throw new Error(copy.saveError);
-        const currentDescription = descriptionRef.current;
+        const currentDescription = session?.description || conversation?.draft.current?.description || descriptionRef.current;
         const asset = { assetId: candidate.assetId, prompt: candidate.prompt || currentDescription.trim(), caption: caption.trim() };
         result = props.onAdd ? await props.onAdd(asset) : await props.onAssemble({ description: startPhoto ? photoVisionDescription(currentDescription.trim(), anchorIntention) : currentDescription.trim(),
           selectedAssets: [{ ...asset, imageUrl: candidate.imageUrl ?? undefined, sourceType: 'AI_GENERATED' }], selection });
       }
       if (result === false) throw new Error(ownPhoto ? copy.photoError : copy.saveError);
       savedRef.current = true;
+      // The board save already validated the exact asset. Session completion is replayable and
+      // must never repeat the board mutation if the network drops during this acknowledgement.
+      if (!ownPhoto && candidate && session) void conversation?.update({ selectedCandidateId: candidate.id, viewedRoundId: displayedRound?.id, status: 'SEALED' }).catch(() => undefined);
       const elapsed = Date.now() - requestTime.current;
       later(() => setBeat('pinned'), skipRequested.current ? 0 : Math.max(0, ceremonyDuration(CEREMONY.printMoveMs + CEREMONY.stampMs, reduced) + CEREMONY.sealHoldMs - elapsed));
     } catch (cause) {
@@ -513,6 +631,8 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     if (beat === 'seal' || beat === 'pinned') return { x: (width - sealW) / 2 + (ownPhoto ? stackPosition * 5 : 0), y: sealY + stackPosition * (ownPhoto ? 5 : 0),
       width: sealW, height: sealW * 1.25 + 54, rotation: hero ? 0 : stackPosition % 2 ? 3 : -3, opacity: hero || (ownPhoto && stackPosition < 3) ? 1 : 0 };
     if (ownPhoto) return { x: (width - curateW) / 2, y: keepY, width: curateW, height: curateW * 1.25 + 54, rotation: 0, opacity: 1 };
+    if (refineCandidate) return { x: (width - 126) / 2, y: insets.top + 62, width: 126, height: 164, rotation: 0, opacity: index === refineCandidate.sortOrder ? 1 : 0 };
+    if (beat === 'choose' && displayedRound && choicePlacements[index]) return { ...choicePlacements[index], opacity: 1 };
     return { x: 24 + index * (twoW + 14), y: insets.top + usable * .33, width: twoW, height: twoW * 1.5,
       rotation: index === 0 ? -1.2 : 1.2, opacity: reading ? 0 : 1 };
   };
@@ -553,6 +673,10 @@ export function VisionCeremony(props: VisionCeremonyProps) {
   };
   const back = () => {
     if (committedRef.current) { if (beat === 'pinned') onBack(); return; }
+    if (beat === 'choose' && displayedRound && displayedRound.roundNumber > 0) {
+      const previous = rounds.filter(round => round.roundNumber < displayedRound.roundNumber).pop();
+      if (previous) { showRound(previous.id); return; }
+    }
     // Adding to an existing board never replays the entrance: Back from a request the Add sheet prepared, or from regenerating one image, returns to the board.
     const leavesToBoard = mode === 'add' && (props.autoStart || props.regenerating);
     if (leavesToBoard && (beat === 'describe' || beat === 'develop' || beat === 'choose')) { leaveExample(); onBack(); return; }
@@ -595,7 +719,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         const item = state.slots[index];
         const uri = item?.imageUrl ?? undefined;
         return <VisionPrintSlot key={item?.assetId ?? `generated-print-${index}`} placement={printPlacement(index)} testID={`vision-ceremony-slot-${index}`}>
-          <Animated.View style={[styles.fill, { zIndex: 1 }, liftStyle]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
+          <Animated.View style={[styles.fill, { zIndex: 1 }, liftStyle, beat === 'choose' && displayedRound && !refineCandidate ? { opacity: 0 } : undefined]} pointerEvents={index === chosen || beat === 'choose' ? 'auto' : 'none'}>
             <VisionPrint uri={uri} developing={beat === 'develop'} revealMs={2400} inkRevealMs={2400} revealed={beat !== 'ask' && beat !== 'describe' && !reading}
               empty={beat === 'ask' || beat === 'describe'} active={foreground} showCaption={showCaption && index === chosen} caption={caption} pinned={false}
               revealDelayMs={0} pressed={stampComplete} imageRef={node => { printRefs.current[index] = node; }} onRevealStart={() => setRevealStarted(true)}
@@ -609,7 +733,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
           </Animated.View>
         </VisionPrintSlot>;
       }).reverse()}
-    {beat === 'ask' ? <VisionEntrance key="entrance" mode={mode} anchorId={anchorId} category={resolveAnchorCategory(anchorCategory)} anchorArt={anchorArt}
+    {beat === 'ask' && !resumeVisible ? <VisionEntrance key="entrance" mode={mode} anchorId={anchorId} category={resolveAnchorCategory(anchorCategory)} anchorArt={anchorArt}
       previewImageUrl={props.previewImageUrl} previewCaption={props.previewCaption?.trim() || anchorIntention} firstRun={!entrancePlayed.current} active={foreground}
       notice={actions.notice} anchorTarget={anchorPosition} onAnchorHandoff={() => setHandedOff(true)} onBack={back}
       onWords={startDescribe} onPickExample={pickExample} onPickEmpty={startDescribe} canAddImage={props.canAddImage} /> : null}
@@ -624,7 +748,7 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         </VisionSealHold>
       </Animated.View>
     </VisionPrintSlot>
-    {beat !== 'describe' && beat !== 'ask' ? <Animated.View key={beat} pointerEvents="box-none" entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
+    {beat !== 'describe' && beat !== 'ask' && !(beat === 'choose' && displayedRound) ? <Animated.View key={beat} pointerEvents="box-none" entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
       {!committed || (beat === 'pinned' && foreground) ? <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={back} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable> : null}
       {/* DEFERRED: replaced by VisionEntrance (Oct 2026). The old Ask copy, intention line, category eyebrow, footer and footnote:
       // {beat === 'ask' ? <>
@@ -675,6 +799,49 @@ export function VisionCeremony(props: VisionCeremonyProps) {
         {!committed ? <Text style={[styles.press, { bottom: insets.bottom + 30 }]}>{copy.press}</Text> : null}
       </> : null}
     </Animated.View> : null}
+    {resumeVisible ? <View style={[styles.fill, { zIndex: 45, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <VisionResumeCard session={session} onContinue={() => continueSession()} onKeep={continueSession} onStartDifferent={() => { void startDifferent(); }} />
+      <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={onBack} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable>
+    </View> : null}
+    {beat === 'choose' && displayedRound && !refineCandidate ? <Animated.View key={`round-${displayedRound.id}`} entering={reduced ? undefined : FadeIn.duration(fade)} style={[styles.fill, { zIndex: 45 }]}>
+      <VisionConversationSelection anchorArt={anchorArt} round={displayedRound} rounds={rounds.length ? rounds : [displayedRound]} selectedCandidateId={session?.selectedCandidateId ?? null}
+        inspectCandidateId={inspectCandidateId} onInspectClosed={() => setInspectCandidateId(null)}
+        onSelect={(item, index) => choose(index, item)} onRefine={item => openRefine(item)} onSelectRound={showRound} onViewCandidate={viewExactCandidate}
+        onBack={back} onAnother={() => {
+          if (displayedRound.roundNumber === 0 && rounds.length <= 1) {
+            void generate(session?.description || descriptionRef.current, null, null, references, { operation: references.length > 1 ? 'COMPOSE' : 'CREATE', sessionId: displayedRound.sessionId });
+            return;
+          }
+          const available = displayedRound.candidates.filter(item => item.assetId && item.imageUrl && item.status === 'SUCCEEDED');
+          const vary = (source: VisionGenerationCandidate) => { void generate(session?.description || descriptionRef.current, null, null, references, { operation: 'VARIATE', parentCandidateId: source.id, sessionId: displayedRound.sessionId }); };
+          const source = available.find(item => item.id === session?.selectedCandidateId);
+          if (source || available.length === 1) vary(source ?? available[0]);
+          else if (available.length > 1) Alert.alert('Which image would you like to vary?', 'Choose the source for this new version.', [
+            ...available.map(item => ({ text: `Option ${item.sortOrder + 1}`, onPress: () => vary(item) })),
+            { text: 'Cancel', style: 'cancel' },
+          ]);
+          else actions.setNotice('These source images are unavailable. Go back to another version or start a different scene.');
+        }}
+        onPrintLayout={(index, rect) => setChoicePlacements(current => {
+          const placement = { ...rect, rotation: index === 0 ? -1.2 : 1.2 };
+          const prior = current[index];
+          return prior && Math.abs(prior.x - rect.x) < 1 && Math.abs(prior.y - rect.y) < 1 && Math.abs(prior.width - rect.width) < 1 && Math.abs(prior.height - rect.height) < 1 ? current : { ...current, [index]: placement };
+        })}
+        onImageError={uri => { setFailedImages(previous => new Set(previous).add(uri)); actions.setNotice('One image could not load. Retry the image or choose another option.'); }}
+        onRetry={failedImages.size > 0 ? () => { void retryFailedGeneratedImages(); } : undefined}
+        busy={actions.starting} error={actions.notice ?? actions.generation.error} />
+    </Animated.View> : null}
+    <VisionRefineSheet visible={Boolean(refineCandidate && refineRound)} source={refineCandidate?.imageUrl && refineRound ? {
+      candidateId: refineCandidate.id, imageUrl: refineCandidate.imageUrl, optionNumber: refineCandidate.sortOrder + 1, roundNumber: refineRound.roundNumber,
+    } : null} references={references} onChangeReferences={changeReferences}
+      initialPrompt={conversation?.draft.current?.draftPrompt ?? ''} onChangePrompt={draftPrompt => conversation?.saveDraft({ draftPrompt })}
+      onClose={() => setRefineCandidateId(null)} loading={actions.starting} error={actions.notice ?? actions.generation.error}
+      onSubmit={async instruction => {
+        if (!refineCandidate || !refineRound) return false;
+        const accepted = await generate(instruction, null, null, references, { operation: 'EDIT', sessionId: refineRound.sessionId, parentCandidateId: refineCandidate.id });
+        if (accepted) { setRefineCandidateId(null); conversation?.saveDraft({ draftPrompt: '' }); }
+        return accepted;
+      }} />
     {ownPhoto && (actions.uploadingCount > 0 || props.photoUploading) && !committed ? <View pointerEvents="none" style={{ position: 'absolute', left: (width - 150) / 2, top: activePrintPlacement.y + 12, zIndex: 42 }}><VisionHairline pending label="Uploading your photos" /></View> : null}
     {fitRequest ? <View style={[styles.fill, { zIndex: 60 }]}><VisionPhotoFit photo={fitRequest.photo} size={fitRequest.size} onPremiumRequired={props.onPremiumRequired}
       onCancel={() => setFitRequest(null)}
@@ -683,8 +850,10 @@ export function VisionCeremony(props: VisionCeremonyProps) {
     {beat === 'describe' ? <Animated.View entering={FadeIn.duration(fade)} exiting={FadeOut.duration(fade)} style={styles.fill}>
       <VisionMomentInput mode={mode} anchorId={anchorId} anchorIntention={anchorIntention} anchorCategory={anchorCategory}
         anchorArt={anchorArt} anchorImageUrl={props.anchorImageUrl} onChangeDescription={setDescriptionFromInput}
-        initialDescription={descriptionRef.current} onBack={back} onSubmit={generate} startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto}
-        onAddPhotos={source => { void pick(source); }} loading={actions.starting} error={actions.notice ?? actions.generation.error}
+        initialDescription={descriptionRef.current} onBack={back} onSubmit={generate} startPhotoEnabled startPhoto={conversation ? null : startPhoto} onChangeStartPhoto={setStartPhoto}
+        references={conversation ? references : undefined} onChangeReferences={changeReferences}
+        onDraftChange={text => { descriptionRef.current = text; conversation?.saveDraft({ description: text }); }}
+        onAddPhotos={source => { void pick(source); }} loading={!scopeReady || actions.starting} error={actions.notice ?? actions.generation.error}
         ceremony fromExample={fromExample ?? undefined} testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
     </Animated.View> : null}
     {/* Only while a skippable scene is the active one: a tap lands the ceremony on its settled board. */}
