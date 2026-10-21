@@ -23,8 +23,20 @@ import {
 } from '@/types/sessionAudio';
 import { safeHaptics } from '@/utils/haptics';
 
-/** Display order: Grounded (Dominic), Serene (Lina), then no guidance. */
-const VOICE_ORDER: readonly GuidanceVoice[] = ['male', 'female', 'none'];
+/**
+ * Guidance voice order:
+ * For Focus and Deep Focus: Grounded (2.0 male), Serene (2.0 female),
+ * Warm (1.5 female), Soothing (1.5 male), then No guidance.
+ * For Visualize: Grounded (male), Serene (female), then No guidance.
+ */
+const PRACTICE_VOICE_ORDER: readonly GuidanceVoice[] = [
+  'male',
+  'female',
+  'warm',
+  'soothing',
+  'none',
+];
+const DEFAULT_VOICE_ORDER: readonly GuidanceVoice[] = ['male', 'female', 'none'];
 const BACKGROUND_ORDER: readonly BackgroundAudioMode[] = ['ambient', 'off'];
 
 export interface V2PracticeAudioSheetProps {
@@ -128,7 +140,10 @@ export function V2PracticeAudioSheet({
 
         <Text style={styles.eyebrow}>GUIDANCE</Text>
         <View style={styles.group}>
-          {VOICE_ORDER.map((voice) => {
+          {(sessionType === 'focus' || sessionType === 'deep_prime'
+            ? PRACTICE_VOICE_ORDER
+            : DEFAULT_VOICE_ORDER
+          ).map((voice) => {
             const selected = draft.guidanceVoice === voice;
             const enabled = available({ ...draft, guidanceVoice: voice });
             const canPreview = voice !== 'none' && lookupVoicePreviewTrack(voice) != null;

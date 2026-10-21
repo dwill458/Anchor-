@@ -53,6 +53,7 @@ import { chartMapScreenTop } from './map/ChartWeatherHold';
 import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
 import { ChartReachBeat } from './ChartReachBeat';
 import { useChartSound } from './useChartSound';
+import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
 
 export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
@@ -88,6 +89,8 @@ type Props = {
   reducedMotion: boolean;
   celebration: ChartCelebration | null;
   onCelebrationDone: () => void;
+  /** A confirmed reach has finished its scene and normal completion feedback. */
+  onMilestoneBoundary?: (waypointId: string) => void;
   onBack: () => void;
   onOpenWaypoint?: (waypointId: string) => void;
   chartActions?: ChartActions;
@@ -170,6 +173,7 @@ export function ChartActiveView({
   reducedMotion,
   celebration,
   onCelebrationDone,
+  onMilestoneBoundary,
   onBack,
   onOpenWaypoint,
   chartActions,
@@ -294,6 +298,8 @@ export function ChartActiveView({
   );
   // The entrance owns the air bed. Losing focus also stops it, including mid-opening.
   const focused = useScreenFocused();
+  const milestoneFocused = useRef(focused);
+  milestoneFocused.current = focused;
   useEffect(() => {
     if (!focused) {
       sound.stopAir();
@@ -865,6 +871,10 @@ export function ChartActiveView({
     setReachEvent({ index: ids.index, result, previousReachedCount: ids.previousReachedCount, total: view.total });
   };
 
+  const pendingMilestoneBoundary = useRef<string | null>(null);
+  const milestoneBoundaryRef = useRef(onMilestoneBoundary);
+  milestoneBoundaryRef.current = onMilestoneBoundary;
+
   useEffect(() => {
     if (!reachEvent) return;
     const { index, result, previousReachedCount, total } = reachEvent;
@@ -888,7 +898,8 @@ export function ChartActiveView({
     reachScenesRef.current.add(sceneId);
     ceremonyLiveRef.current = true;
     const notify = () => onWaypointReached?.(result, previousReachedCount, total);
-    const finish = () => {
+    const finish = (completed = false) => {
+      const finishedHere = ceremonyLiveRef.current;
       ceremonyLiveRef.current = false;
       reachingRef.current = false;
       reachIdRef.current = null;
@@ -901,6 +912,10 @@ export function ChartActiveView({
       if (summitSceneRef.current === sceneId) {
         summitSceneRef.current = null;
         useCelebrationStore.getState().finish(sceneId);
+      }
+      if (completed && finishedHere && mounted.current && milestoneFocused.current) {
+        if (isLast) milestoneBoundaryRef.current?.(waypointId);
+        else pendingMilestoneBoundary.current = waypointId;
       }
     };
     const start = () => {
@@ -951,7 +966,7 @@ export function ChartActiveView({
           },
         });
       }
-      spec.onEnd = finish;
+      spec.onEnd = () => finish(true);
       // Reset on onEnd AND after the run settles, so a skipped or interrupted ceremony can never leave the route frozen.
       void runner.run(spec).finally(() => {
         if (reachingRef.current) finish();
@@ -1066,19 +1081,40 @@ export function ChartActiveView({
   // A reach reported by the screen (legacy `reached` route param) shows the same card. It plays no scene of its own
   // (no note, no haptic), and waits while the coordinator has one playing, so only one celebration is ever on screen.
   const celebrationPlaying = useCelebrationStore((state) => state.active !== null);
+  const handledCommitCelebration = useRef<ChartCelebration | null>(null);
+  useMilestonePresentationHold(focused && (!openingFinished || Boolean(ceremony) || Boolean(reachEvent) || Boolean(commit)));
   useEffect(() => {
-    if (!celebration || reachingRef.current || celebrationPlaying || commit || arrived) return;
+    if (!celebration || handledCommitCelebration.current === celebration || reachingRef.current || celebrationPlaying || commit) return;
+    if (arrived) {
+      if (!openingFinished || !focused) return;
+      handledCommitCelebration.current = celebration;
+      const waypointId = view.waypoints[view.waypoints.length - 1]?.id;
+      if (waypointId) milestoneBoundaryRef.current?.(waypointId);
+      onCelebrationDone();
+      return;
+    }
+    handledCommitCelebration.current = celebration;
     setCommit({ number: Math.max(1, view.reachedCount) });
-  }, [celebration, celebrationPlaying, commit, arrived, view.reachedCount]);
+  }, [celebration, celebrationPlaying, commit, arrived, focused, openingFinished, onCelebrationDone, view.reachedCount, view.waypoints]);
 
   const dismissCommit = () => {
     const finished = celebrationRef.current;
     setCommit(null);
+    setSwapRevision(value => value + 1);
+    const waypointId = pendingMilestoneBoundary.current ?? (finished ? view.waypoints[Math.max(0, view.reachedCount - 1)]?.id : null);
+    pendingMilestoneBoundary.current = waypointId;
     if (finished) {
       onCelebrationDone();
       // Only when the course shows evidence it may need adjusting; the card opens the one Adjust Route flow.
       if (finished.nextTitle && routeAdjustEvidence(view, new Date()) === 'ahead') setShowStillRight(true);
     }
+  };
+
+  const onChartContentApplied = (showingCommit: boolean) => {
+    const waypointId = pendingMilestoneBoundary.current;
+    if (showingCommit || !waypointId) return;
+    pendingMilestoneBoundary.current = null;
+    if (milestoneFocused.current) milestoneBoundaryRef.current?.(waypointId);
   };
 
   /* ---- notifications (fire and forget; never prompts) -------------- */
@@ -1285,7 +1321,7 @@ export function ChartActiveView({
       <ChartMap testID="chart-hero-map" width={width} height={height} frame={frame} table={table} placement={placement} anim={anim} markers={markersShown} categoryColor={categoryColor} category={identity.category ?? undefined} reducedMotion={reducedMotion} arrived={arrived} clouds weather="living" continuous={entrance === 'reveal'} onShown={onMapShown} revision={revision} summitArt={summitArt} plantedFlag={flagPlanted} onMarkerPress={handleMarkerPress} onMapPress={handleMapPress} />
       {ceremony && !ceremony.isLast && view.waypoints[ceremony.index] ? <ChartReachBeat visible={ceremony.filled && !ceremony.advanced} number={view.waypoints[ceremony.index].number} title={view.waypoints[ceremony.index].title} category={identity.category} reducedMotion={reducedMotion} bottom={height - sheetPositions.peek + 12} /> : null}
       <ChartSheet ref={sheetRef} reducedMotion={reducedMotion} busy={sequenceBusy} onDetentChange={onDetentChange} overlay={<ChartOneMoveTeaching visible={teachingVisible} replayVersion={teachingReplayVersion} reducedMotion={reducedMotion} detent={sheetDetent} targets={teachingTargets} viewportRef={oneMoveViewportRef} viewportLayoutRevision={teachingViewportRevision} onRequestVisible={requestTeachingVisibility} onReady={markTeachingShown} onDismiss={dismissTeaching} />}>
-        <ChartSheetContent view={view} waypointId={panelWaypointId} chart={panelActions} category={identity.category} reducedMotion={reducedMotion} actionError={actionError} bottomInset={insets.bottom} onBack={backToCurrent} onReached={handleReached} inputs={inputs} hw={effectiveHw} vision={vision} onOpenVision={onOpenVision} onOpenLog={onOpenLog} onRelease={onRelease ?? onAdjust} onOpenPractice={onOpenPractice} onCompleteMove={handleCompleteMove} oneMoveRowRef={oneMoveRowRef} oneMoveCircleRef={oneMoveCircleRef} oneMoveBodyRef={oneMoveBodyRef} scrollViewportRef={oneMoveViewportRef} onScrollViewportLayout={onTeachingViewportLayout} onReplayTeaching={replayTeaching} commit={commit} onCommitDismiss={dismissCommit} dayClosedHold={dayHold} arrived={arrived} entrance={entrance} stale={stale} viewWaypoint={handleMarkerPress} onExpandSheet={() => { if (!runner.isBusy()) sheetRef.current?.snapTo('full'); }} swapRevision={swapRevision} isContentLocked={isContentLocked} stillRight={showStillRight ? <ChartInkCard testID="chart-still-right" style={styles.stillRight}><Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text><View style={styles.row}><ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} /><ChartInkButton label={CHART_COPY.review.adjust} onPress={() => { setShowStillRight(false); onAdjust(); }} style={styles.flex} /></View></ChartInkCard> : null} />
+        <ChartSheetContent view={view} waypointId={panelWaypointId} chart={panelActions} category={identity.category} reducedMotion={reducedMotion} actionError={actionError} bottomInset={insets.bottom} onBack={backToCurrent} onReached={handleReached} inputs={inputs} hw={effectiveHw} vision={vision} onOpenVision={onOpenVision} onOpenLog={onOpenLog} onRelease={onRelease ?? onAdjust} onOpenPractice={onOpenPractice} onCompleteMove={handleCompleteMove} oneMoveRowRef={oneMoveRowRef} oneMoveCircleRef={oneMoveCircleRef} oneMoveBodyRef={oneMoveBodyRef} scrollViewportRef={oneMoveViewportRef} onScrollViewportLayout={onTeachingViewportLayout} onReplayTeaching={replayTeaching} commit={commit} onCommitDismiss={dismissCommit} onContentApplied={onChartContentApplied} dayClosedHold={dayHold} arrived={arrived} entrance={entrance} stale={stale} viewWaypoint={handleMarkerPress} onExpandSheet={() => { if (!runner.isBusy()) sheetRef.current?.snapTo('full'); }} swapRevision={swapRevision} isContentLocked={isContentLocked} stillRight={showStillRight ? <ChartInkCard testID="chart-still-right" style={styles.stillRight}><Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text><View style={styles.row}><ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} /><ChartInkButton label={CHART_COPY.review.adjust} onPress={() => { setShowStillRight(false); onAdjust(); }} style={styles.flex} /></View></ChartInkCard> : null} />
       </ChartSheet>
 
       {/* Only while the waypoint scene is the active skippable scene: a tap lands it on its settled state. */}

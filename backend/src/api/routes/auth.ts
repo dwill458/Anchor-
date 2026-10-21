@@ -186,7 +186,7 @@ function isUniqueEmailConflict(error: unknown): error is Prisma.PrismaClientKnow
   );
 }
 
-type GuidanceVoice = 'female' | 'male' | 'none';
+type GuidanceVoice = 'female' | 'male' | 'warm' | 'soothing' | 'none';
 type BackgroundAudioMode = 'ambient' | 'off';
 type SessionAudioDefaultsPayload = {
   focus: {
@@ -284,7 +284,7 @@ const UpdateProfileSchema = z.object({
 
 const SessionAudioDefaultsSchema = z
   .object({
-    guidanceVoice: z.enum(['female', 'male', 'none']),
+    guidanceVoice: z.enum(['female', 'male', 'warm', 'soothing', 'none']),
     backgroundAudio: z.enum(['ambient', 'off']),
   })
   .strict();

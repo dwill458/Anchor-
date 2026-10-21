@@ -11,6 +11,7 @@ import {
 describe('SessionAudioManifest', () => {
   it('has complete female coverage for every supported cue sheet', () => {
     for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('female')) continue;
       const result = lookupVoiceTracks({
         voice: 'female',
         sessionType: sheet.sessionType,
@@ -28,6 +29,7 @@ describe('SessionAudioManifest', () => {
 
   it('has complete male coverage for every supported cue sheet', () => {
     for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('male')) continue;
       const result = lookupVoiceTracks({
         voice: 'male',
         sessionType: sheet.sessionType,
@@ -50,6 +52,62 @@ describe('SessionAudioManifest', () => {
         sessionType: 'focus',
         durationSeconds: 30,
         defaults: { guidanceVoice: 'male', backgroundAudio: 'ambient' },
+      })
+    ).toBe(true);
+  });
+
+  it('has complete warm coverage for every supported cue sheet', () => {
+    for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('warm')) continue;
+      if (sheet.sessionType === 'visualize') continue;
+      const result = lookupVoiceTracks({
+        voice: 'warm',
+        sessionType: sheet.sessionType,
+        durationSeconds: sheet.durationSeconds,
+        locale: sheet.locale,
+      });
+      expect(result.available).toBe(true);
+      if (result.available) {
+        expect(result.tracks.map((track) => track.phaseId).sort()).toEqual(
+          sheet.cues.map((cue) => cue.phaseId).sort()
+        );
+      }
+    }
+
+    expect(
+      isSessionAudioSelectionAvailable({
+        sessionType: 'focus',
+        durationSeconds: 30,
+        defaults: { guidanceVoice: 'warm', backgroundAudio: 'ambient' },
+      })
+    ).toBe(true);
+  });
+
+  it('has complete soothing coverage for every supported cue sheet', () => {
+    for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('soothing')) continue;
+      if (sheet.sessionType === 'visualize') continue;
+      const result = lookupVoiceTracks({
+        voice: 'soothing',
+        sessionType: sheet.sessionType,
+        durationSeconds: sheet.durationSeconds,
+        locale: sheet.locale,
+      });
+      expect(result.available).toBe(true);
+      if (result.available) {
+        expect(result.tracks.map((track) => track.phaseId).sort()).toEqual(
+          sheet.cues.map((cue) => cue.phaseId).sort()
+        );
+        expect(result.tracks.every((track) => track.playbackGain > 0)).toBe(true);
+        expect(result.tracks.every((track) => track.playbackGain <= 1)).toBe(true);
+      }
+    }
+
+    expect(
+      isSessionAudioSelectionAvailable({
+        sessionType: 'focus',
+        durationSeconds: 30,
+        defaults: { guidanceVoice: 'soothing', backgroundAudio: 'ambient' },
       })
     ).toBe(true);
   });

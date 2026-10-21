@@ -79,6 +79,11 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
   const reduceMotion = useV2ReduceMotion();
   const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const [headingHeight, setHeadingHeight] = useState(0);
+  const [identityHeight, setIdentityHeight] = useState(0);
+  const onIdentityLayout = useCallback((event: LayoutChangeEvent) => {
+    const measuredHeight = event.nativeEvent.layout.height;
+    setIdentityHeight(previous => Math.abs(previous - measuredHeight) < 1 ? previous : measuredHeight);
+  }, []);
   const onScrollViewportLayout = useCallback((nextHeight: number) => setScrollViewportHeight(previous => Math.abs(previous - nextHeight) < 1 ? previous : nextHeight), []);
   const onHeadingLayout = useCallback((event: LayoutChangeEvent) => {
     const measuredHeight = event.nativeEvent.layout.height;
@@ -130,14 +135,16 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
   const maximumPhotoHeight = height * VISUALIZE_PHOTO_MAX_HEIGHT_FRACTION;
   const frameLayoutReady = scrollViewportHeight > 0 && headingHeight > 0;
   const availablePhotoHeight = frameLayoutReady
-    ? availableVisualizePhotoHeight({ viewportHeight: scrollViewportHeight, headingHeight,
+    ? availableVisualizePhotoHeight({ viewportHeight: scrollViewportHeight, headingHeight, identityHeight,
       topPadding: spacing[1], bodyGap: spacing[3], maximumHeight: maximumPhotoHeight })
     : maximumPhotoHeight;
   const sourceSceneWidth = entry?.sourceFrame?.sceneWidth;
   const sourceSceneHeight = entry?.sourceFrame?.sceneHeight;
   const sceneWidth = Number.isFinite(sourceSceneWidth) && (sourceSceneWidth ?? 0) > 0 ? sourceSceneWidth! : contentWidth;
-  const photoFrame = useMemo(() => fitVisualizePhotoFrame(sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, sourceSceneHeight),
-    [sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, sourceSceneHeight]);
+  const entranceNotes = notes ?? entry?.notes;
+  const photoFrame = useMemo(() => fitVisualizePhotoFrame(sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, sourceSceneHeight,
+    { anchor: true, notes: entranceNotes }),
+    [sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, sourceSceneHeight, entranceNotes]);
   const scene = photoFrame.scene;
 
   // Keep the real setup board visible while the exact session textures and geometry prepare.
@@ -365,7 +372,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
           </View>
         </Pressable>
 
-        <Animated.View style={[styles.identity, fadeStyle]}>
+        <Animated.View onLayout={onIdentityLayout} style={[styles.identity, fadeStyle]}>
           <Text style={styles.intention}>{anchor.intentionText || statement}</Text>
           <View style={styles.categoryRow}>
             <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />

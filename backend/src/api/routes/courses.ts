@@ -342,7 +342,7 @@ router.post(
         validate(CompleteSchema, req.body ?? {})
       );
       // Awards never block the Chart action; the next Progress read reconciles a failure.
-      await milestoneService.evaluateQuietly(userId, result.course?.anchorId);
+      void milestoneService.evaluateQuietly(userId, result.course?.anchorId, { kind: 'chart', sourceEntityId: req.params.courseId, eventId: req.params.waypointId });
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

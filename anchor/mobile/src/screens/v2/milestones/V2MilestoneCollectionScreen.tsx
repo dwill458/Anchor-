@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
@@ -48,11 +48,13 @@ export const V2MilestoneCollectionScreen: React.FC<V2MilestoneCollectionScreenPr
 }) => {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = React.useState<MilestoneFilter>('all');
-  const { records } = useAnchorMilestones(anchorId);
+  const { records, status } = useAnchorMilestones(anchorId);
+  const reconciling = status === 'loading';
+  const incomplete = reconciling || status === 'error' || status === 'offline';
   const category = useAnchorStore((state) => state.anchors.find((anchor) => anchor.id === anchorId)?.category);
   const categoryColor = getCategoryColor(category);
 
-  const items = React.useMemo(() => buildMilestoneItems(records, filter), [records, filter]);
+  const items = React.useMemo(() => buildMilestoneItems(records, filter, { includeLocked: !incomplete }), [records, filter, incomplete]);
   const earnedCount = React.useMemo(() => buildMilestoneItems(records, 'all', { includeLocked: false }).length, [records]);
 
   const renderItem = React.useCallback(
@@ -108,7 +110,7 @@ export const V2MilestoneCollectionScreen: React.FC<V2MilestoneCollectionScreenPr
         <View style={styles.headerCopy}>
           <Text style={styles.screenTitle}>Milestones</Text>
           <Text style={styles.count} testID={`${testID}-count`}>
-            {`${earnedCount} of ${MILESTONE_SPECS.length} earned`}
+            {reconciling ? 'Updating milestones…' : incomplete ? `${earnedCount} earned · saved progress` : `${earnedCount} of ${MILESTONE_SPECS.length} earned`}
           </Text>
         </View>
         <View style={styles.back} />
@@ -135,6 +137,7 @@ export const V2MilestoneCollectionScreen: React.FC<V2MilestoneCollectionScreenPr
         initialNumToRender={9}
         windowSize={7}
         testID={`${testID}-list`}
+        ListEmptyComponent={reconciling ? <ActivityIndicator accessibilityLabel="Updating milestones" /> : incomplete ? <Text>Connect to update milestone progress.</Text> : undefined}
       />
     </View>
   );

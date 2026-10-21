@@ -50,7 +50,7 @@ export const MilestoneCelebrationScene: React.FC<MilestoneCelebrationSceneProps>
   testID = 'milestone-celebration',
 }) => {
   const spec = getMilestoneSpec(record.definitionId);
-  const { progress, travel, fieldStyle, artStyle, copyStyle, settled } = useMilestoneReveal(spec, reducedMotion, transition);
+  const { progress, travel, fieldStyle, artStyle, copyStyle, settled, reducedEarnedStyle, reducedLockedStyle } = useMilestoneReveal(spec, reducedMotion, transition);
   const { width, height } = useWindowDimensions();
   const artRef = useRef<ViewInstance>(null);
   const [target, setTarget] = useState<{ x: number; y: number }>();
@@ -90,7 +90,10 @@ export const MilestoneCelebrationScene: React.FC<MilestoneCelebrationSceneProps>
 
         <Animated.View ref={artRef} onLayout={() => artRef.current?.measureInWindow?.((x, y, w, h) => { if (w > 0) setTarget({ x: x + w / 2, y: y + h / 2 }); })} style={[styles.art, artStyle]} testID={`${testID}-art`}>
           {!reducedMotion && !settled && !origin ? <View style={styles.stream}><MilestoneLightStream progress={progress} /></View> : null}
-          <MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} categoryColor={categoryColor} animated={!settled} progress={progress} reducedMotion={reducedMotion} />
+          {reducedMotion && !settled ? <>
+            <Animated.View style={[StyleSheet.absoluteFill, reducedLockedStyle]}><MilestoneArtwork definitionId={spec.id} state="locked" size={ART_SIZE} /></Animated.View>
+            <Animated.View style={reducedEarnedStyle}><MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} /></Animated.View>
+          </> : <MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} categoryColor={categoryColor} animated={!settled} progress={progress} reducedMotion={reducedMotion} />}
         </Animated.View>
 
         <Animated.View style={[styles.copy, copyStyle]}>

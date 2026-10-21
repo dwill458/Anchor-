@@ -28,6 +28,8 @@ import { offerPracticeDeparture, type PracticeDepartureMeasure } from '@/stores/
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
+import { queueMilestoneAction } from '@/milestones/queueMilestoneAction';
+import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 
 // COPY: from the celebration brief
 const COPY = {
@@ -136,11 +138,21 @@ export function V2FocusCompleteScreen({
   const { height } = useWindowDimensions();
   const reduceMotion = useCelebrationReduceMotion();
   const [milestoneReady, setMilestoneReady] = useState(false);
-  useMilestonePresentationHold(!milestoneReady);
+  const milestoneFocus = useTeachingFocus();
+  const milestoneFocused = useRef(milestoneFocus.isFocused);
+  const milestoneReturn = useRef<() => void>(() => undefined);
+  milestoneFocused.current = milestoneFocus.isFocused;
+  useMilestonePresentationHold(milestoneFocus.isFocused && (!milestoneReady || !sessionSaved));
   useEffect(() => {
     const timer = setTimeout(() => setMilestoneReady(true), reduceMotion ? 160 : 2500);
     return () => clearTimeout(timer);
   }, [reduceMotion]);
+  useEffect(() => {
+    if (!milestoneReady || !sessionSaved || !sessionId || !milestoneFocus.isFocused) return;
+    let active = true;
+    void queueMilestoneAction(anchor.id, { kind: 'practice', sourceEntityId: sessionId }, () => active && milestoneFocused.current, () => milestoneReturn.current());
+    return () => { active = false; };
+  }, [anchor.id, milestoneReady, sessionId, sessionSaved, milestoneFocus.isFocused]);
   const categoryPalette = getCategoryPalette(anchor.category);
   const artworkSize = Math.round(Math.min(188, Math.max(148, height * 0.22)));
   // V2Screen already applies the bottom safe-area inset.
@@ -272,6 +284,7 @@ export function V2FocusCompleteScreen({
     }
     onDone();
   }, [chromeOut, measureDeparture, oldValueOut, onDone, reduceMotion, sessionId, sessionSaved]);
+  milestoneReturn.current = handleContinue;
 
   useEffect(() => {
     if (reduceMotion) {

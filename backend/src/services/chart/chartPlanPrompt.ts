@@ -220,7 +220,7 @@ export function buildPlanningUserMessage(
   }
   if (data.references) {
     instructions.push(
-      'The person attached references (photos, places, documents). Only a photo explicitly labelled start or explicit written present-day facts provide starting evidence. Other references describe aspirations; do not infer budget, skill or available time from any image. Describe only what is plainly visible or written; never identify people or infer private details; if a reference is unclear, ignore it rather than guess.'
+      'The person attached references (photos, places, documents). Only a photo explicitly labelled start or explicit written present-day facts provide starting evidence. When a start photo clearly shows relevant numeric values, transcribe those values and their labels into analysis.startingPointSummary so numeric baselines can be checked against the evidence. Do not copy target numbers from Vision or other reference photos into the startingPointSummary. Other references describe aspirations; do not infer budget, skill or available time from any image. Describe only what is plainly visible or written; never identify people or infer private details; if a reference is unclear, ignore it rather than guess.'
     );
   }
   if (context.onboarding) instructions.push('Onboarding answers may help tailor the explanation or follow-up. The Anchor intention, user-provided destination, and current reality determine the route; never substitute the onboarding wish for them.');

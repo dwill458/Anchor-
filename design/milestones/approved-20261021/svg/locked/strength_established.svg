@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="strength_established" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Established (Strength) locked">
+  <title>Established (Strength) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: strength_established. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="strength_established-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="strength_established-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="strength_established__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#strength_established-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="strength_established__art" transform="translate(128 128) scale(1.14) translate(-128 -128)">
+  <g id="strength_established__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="128" r="70" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="128" r="70" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <circle id="strength_established__structure-ring-outer" cx="128" cy="128" r="70" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_established__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <rect x="78.5" y="78.5" width="99" height="99" rx="3" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="49.5" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <rect x="78.5" y="78.5" width="99" height="99" rx="3" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="49.5" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <rect id="strength_established__emblem-square" x="78.5" y="78.5" width="99" height="99" rx="3" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_established__emblem-ring-inscribed" cx="128" cy="128" r="49.5" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_established__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M128 78.5L177.5 128L128 177.5L78.5 128Z" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="26" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M128 78.5L177.5 128L128 177.5L78.5 128Z" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="26" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="strength_established__engraving-diamond" d="M128 78.5L177.5 128L128 177.5L78.5 128Z" fill="none" stroke="#8C867A" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_established__engraving-ring-core" cx="128" cy="128" r="26" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_established__highlight"/>
+  <g id="strength_established__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="177.5" cy="78.5" r="4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="177.5" cy="177.5" r="4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78.5" cy="177.5" r="4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78.5" cy="78.5" r="4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="11" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="177.5" cy="78.5" r="4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="177.5" cy="177.5" r="4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78.5" cy="177.5" r="4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78.5" cy="78.5" r="4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="11" fill="#B7B0A0"/>
+    </g>
+    <circle id="strength_established__accent-node-01" cx="177.5" cy="78.5" r="4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_established__accent-node-02" cx="177.5" cy="177.5" r="4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_established__accent-node-03" cx="78.5" cy="177.5" r="4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_established__accent-node-04" cx="78.5" cy="78.5" r="4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="strength_established__accent-orb">
+      <circle cx="128" cy="128" r="11" fill="url(#strength_established-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="124.48" cy="124.04" r="2.86" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+  </g>
+</svg>

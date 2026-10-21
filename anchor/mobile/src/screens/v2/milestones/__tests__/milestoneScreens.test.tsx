@@ -2,11 +2,12 @@ import React from 'react';
 import { fireEvent, render, within } from '@testing-library/react-native';
 
 const mockRecords = jest.fn();
+let mockStatus = 'ready';
 jest.mock('@/hooks/v2/milestones/useAnchorMilestones', () => ({
   useAnchorMilestones: (anchorId: string) => ({
     records: mockRecords(anchorId),
     pendingCelebrations: [],
-    status: 'ready',
+    status: mockStatus,
     refresh: jest.fn(),
     markCelebrated: jest.fn(),
   }),
@@ -37,11 +38,25 @@ const EARNED = [
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockStatus = 'ready';
   mockRecords.mockReturnValue(EARNED);
   useMilestoneCelebrationStore.getState().reset();
 });
 
 describe('V2MilestoneCollectionScreen', () => {
+  it('does not present false locked states or a zero-earned total during reconciliation', () => {
+    mockRecords.mockReturnValue([]); mockStatus = 'loading';
+    const view = render(<V2MilestoneCollectionScreen anchorId="a1" />);
+    expect(view.getByText('Updating milestones…')).toBeTruthy();
+    expect(view.queryByTestId('v2-milestone-collection-item-strength.full')).toBeNull();
+    expect(view.queryByText(`0 of ${MILESTONE_SPECS.length} earned`)).toBeNull();
+  });
+  it('keeps cached earned content available offline without declaring other milestones locked', () => {
+    mockStatus = 'offline';
+    const view = render(<V2MilestoneCollectionScreen anchorId="a1" />);
+    expect(view.getByTestId('v2-milestone-collection-item-strength.established')).toBeTruthy();
+    expect(view.queryByTestId('v2-milestone-collection-item-strength.full')).toBeNull();
+  });
   it('reads the milestones of the Anchor it was opened for', () => {
     render(<V2MilestoneCollectionScreen anchorId="a1" />);
     expect(mockRecords).toHaveBeenCalledWith('a1');

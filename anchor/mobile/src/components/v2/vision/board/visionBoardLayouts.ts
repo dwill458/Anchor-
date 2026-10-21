@@ -163,16 +163,17 @@ const FOOT_8: PrintSpec = [0.5, 1.27, 0.38, 'landscape', 3];
 /** Recipes from four photos up use the same nine prints, in this order, so they are a prefix family. */
 const RECIPES: readonly Recipe[] = [
   // 0: an empty board: the Anchor alone, at the legacy resting place.
-  { photos: [], card: { x: 0.49, yWidths: 0.225, rotation: 0 }, tape: [] },
-  // 1: a hero print across the top, with the Anchor set low and to the right.
-  { photos: [[0.5, 0.444, 0.74, 'portrait', -3]], card: { x: 0.73, yWidths: 1, rotation: 0 },
+  { photos: [], card: { x: 0.5, yWidths: 0.225, rotation: 0 }, tape: [] },
+  // Low-count medallions overlap the prints' lower edges. Their actual paper diameter
+  // (slot width × VISION_BOARD_PAPER_MARK_SCALE) clears the fixed Add control below.
+  { photos: [[0.5, 0.444, 0.74, 'portrait', -3]], card: { x: 0.5, yWidths: 0.88, rotation: 0 },
     tape: [[0, 0.5, 0.34, 2.5, 'cream']] },
-  // 2: a hero and a supporting print tucked under its right corner; the Anchor sits in the lower-left.
-  { photos: [[0.5, 0.37, 0.8, 'landscape', -3], [0.81, 0.78, 0.34, 'square', 4]], card: { x: 0.2, yWidths: 1.0, rotation: 0 },
+  // 2: a hero and a supporting print tucked under its right corner, with the Anchor centred between them.
+  { photos: [[0.5, 0.37, 0.8, 'landscape', -3], [0.81, 0.78, 0.34, 'square', 4]], card: { x: 0.5, yWidths: 0.79, rotation: 0 },
     tape: [[0, 0.5, 0.3, 2, 'cream'], [1, 0.5, 0.26, -4, 'kraft']] },
   // 3: a dominant hero across the top, with two supporting prints beside the Anchor. The Anchor sits below the hero's foot.
   { photos: [[0.5, 0.37, 0.8, 'landscape', -3], [0.81, 0.76, 0.34, 'square', 4], [0.19, 0.76, 0.34, 'square', -5]],
-    card: { x: 0.5, yWidths: 0.85, rotation: 0 },
+    card: { x: 0.5, yWidths: 0.78, rotation: 0 },
     tape: [[0, 0.5, 0.3, 2, 'cream'], [1, 0.5, 0.26, -4, 'kraft'], [2, 0.5, 0.26, 5, 'gold']] },
   // 4: the hero across the top, a flank either side of the Anchor, and one print beneath it.
   { photos: [HERO_4, RIGHT_FLANK, LEFT_FLANK, FOOT], card: { x: 0.5, rotation: -2 },

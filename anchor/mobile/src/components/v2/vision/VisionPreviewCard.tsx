@@ -74,7 +74,7 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
 }: VisionPreviewCardProps) {
   const { width: windowWidth } = useWindowDimensions();
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
-  const width = measuredWidth ?? Math.max(1, windowWidth - 48);
+  const width = measuredWidth ?? Math.max(1, windowWidth - 48 - 28);
 
   const photos = useMemo(() => visionPreviewPhotos(tiles, featuredTileId), [tiles, featuredTileId]);
   const photoCount = photos.length;
@@ -92,10 +92,6 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
       accessibilityHint="Opens your full Vision board"
       disabled={!onPress}
       onPress={onPress}
-      onLayout={event => {
-        const next = Math.max(1, event.nativeEvent.layout.width);
-        setMeasuredWidth(previous => (previous === next ? previous : next));
-      }}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <VisionPaperSurface seed={visionPreviewSeed(`vision-card-${variant}`)} style={[StyleSheet.absoluteFill, { backgroundColor: CARD_CREAM }]} />
@@ -122,6 +118,7 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
             photos={photos}
             photoCount={photoCount}
             width={width}
+            onWidth={setMeasuredWidth}
             imageTestID={imageTestID}
           />
           <View testID={`${testID}-footer`} style={[styles.footer, variant === 'details' ? styles.detailsFooter : null, caption ? styles.footerWithCaption : null]}>
@@ -160,15 +157,15 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
 });
 
 /** The torn-paper backdrop and the taped prints. Nothing is drawn for an empty Vision. */
-const PrintStage = memo(function PrintStage({ testID, photos, photoCount, width, imageTestID }: {
-  testID: string; photos: ReturnType<typeof visionPreviewPhotos>; photoCount: number; width: number; imageTestID?: string;
+const PrintStage = memo(function PrintStage({ testID, photos, photoCount, width, onWidth, imageTestID }: {
+  testID: string; photos: ReturnType<typeof visionPreviewPhotos>; photoCount: number; width: number; onWidth: (width: number) => void; imageTestID?: string;
 }) {
   const prints = photos.slice(0, VISION_PREVIEW_PRINT_LIMIT);
   if (!prints.length) return null;
   const slots = visionPrintSlots(prints.length);
   const height = visionStageHeight(prints.length) * width;
   return (
-    <View testID={`${testID}-stage`} style={{ height }}>
+    <View testID={`${testID}-stage`} style={{ height }} onLayout={event => onWidth(Math.max(1, event.nativeEvent.layout.width))}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         {[
           { x: -0.05, y: 0.22, width: 0.62, height: 0.6, rotation: -3, tint: TORN_TINTS[0] },
@@ -259,8 +256,8 @@ const styles = StyleSheet.create({
   title: { fontFamily: VISION_CAPTION_FONTS.serif, fontSize: 17, lineHeight: 22, color: VISION_CAPTION_COLOR },
   countRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   count: { fontFamily: VISION_CAPTION_FONTS.sans, fontSize: 12, lineHeight: 16, color: INK_MUTED },
-  // The footer draws above the prints, so the round control is never tucked behind a print that overhangs the stage.
-  footer: { marginTop: -34, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, position: 'relative', zIndex: 10, elevation: 10 },
+  // The stage reserves the complete print bounds; captions and controls follow it.
+  footer: { marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, position: 'relative', zIndex: 10, elevation: 10 },
   detailsFooter: { marginTop: 8 },
   footerWithCaption: { marginTop: 8 },
   footerSpacer: { flex: 1 },

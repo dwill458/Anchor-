@@ -1,5 +1,5 @@
 import {
-  BOARD_FRAME_ASPECT, BOARD_FRAME_WINDOW, VISION_BOARD_MAX_IMAGES, detailBoardSizeForWidth, selectDetailBoardLayout, toSceneRect,
+  BOARD_FRAME_ASPECT, BOARD_FRAME_WINDOW, VISION_BOARD_MAX_IMAGES, VISION_BOARD_PAPER_MARK_SCALE, detailBoardSizeForWidth, selectDetailBoardLayout, toSceneRect,
   type BoardLayout, type SceneRect, type Size,
 } from '../visionBoardLayouts';
 
@@ -128,7 +128,7 @@ describe('scrapbook recipes for every photo count', () => {
     for (const slot of layout.photos) expect(slot.width * 260).toBeGreaterThanOrEqual(67.6);
   });
 
-  it.each(COUNTS)('places zero photo overlaps on the Anchor centre region for %i photos', count => {
+  it.each([0, 4, 5, 6, 7, 8])('places zero photo overlaps on the Anchor centre region for %i photos', count => {
     const layout = selectDetailBoardLayout(count);
     const scene = sceneFor(count);
     const anchor = boxOf(toSceneRect(layout.card, scene));
@@ -137,6 +137,16 @@ describe('scrapbook recipes for every photo count', () => {
       // Tolerance: a sliver of 0.5% of the Anchor's own area, for rounding at shared edges.
       expect(overlapArea(boxOf(rectOf(layout, index, scene)), anchor)).toBeLessThanOrEqual(anchorArea * 0.005);
     });
+  });
+
+  it.each([1, 2, 3])('centres the full paper medallion over the %i-photo collage and clears Add', count => {
+    const layout = selectDetailBoardLayout(count);
+    const scene = sceneFor(count);
+    expect(layout.card.x).toBe(0.5);
+    const markBottom = layout.card.y * scene.height + layout.card.width * scene.width * VISION_BOARD_PAPER_MARK_SCALE / 2;
+    const addTop = scene.height - 8 - 44;
+    expect(addTop - markBottom).toBeGreaterThanOrEqual(8);
+    for (const photo of layout.photos) expect(photo.zIndex).toBeLessThan(layout.card.zIndex);
   });
 
   it.each(COUNTS.slice(3))('centres the Anchor horizontally for %i photos', count => {
@@ -154,12 +164,13 @@ describe('scrapbook recipes for every photo count', () => {
     expect(rect.y + rect.height / 2).toBeCloseTo(scene.height / 2, 6);
   });
 
-  it('places the Anchor for three photos below the hero, clear of its foot, rather than at the centre', () => {
+  it('places the three-photo Anchor centre below the hero, overlapping its lower paper edge', () => {
     const layout = selectDetailBoardLayout(3);
     const scene = sceneFor(3);
     const hero = boxOf(rectOf(layout, 0, scene));
     const anchor = boxOf(toSceneRect(layout.card, scene));
-    expect(anchor.top).toBeGreaterThanOrEqual(hero.bottom - EDGE_PX);
+    expect((anchor.top + anchor.bottom) / 2).toBeGreaterThan(hero.bottom);
+    expect(anchor.top).toBeLessThan(hero.bottom);
     expect(anchor.bottom).toBeLessThan(scene.height);
     expect(anchor.top).toBeGreaterThan(scene.height / 2);
   });

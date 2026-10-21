@@ -90,6 +90,10 @@ describe("session audio preference domain", () => {
     ["female", "off", "Serene · Silence"],
     ["male", "ambient", "Grounded · Ambient"],
     ["male", "off", "Grounded · Silence"],
+    ["warm", "ambient", "Warm · Ambient"],
+    ["warm", "off", "Warm · Silence"],
+    ["soothing", "ambient", "Soothing · Ambient"],
+    ["soothing", "off", "Soothing · Silence"],
     ["none", "ambient", "No guidance · Ambient"],
     ["none", "off", "No guidance · Silence"],
   ] as const)(

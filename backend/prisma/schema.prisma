@@ -74,6 +74,7 @@ model User {
   recommendationSignalAcks RecommendationSignalAck[]
   threadEventLedger       ThreadEventLedger[]
   anchorMilestones        AnchorMilestone[]
+  milestonePresentations MilestonePresentation[]
   weeklyInsightSnapshots  WeeklyInsightSnapshot[]
 
   @@map("users")
@@ -181,6 +182,7 @@ model Anchor {
   threadV2States     ThreadV2State[]
   threadEventLedger  ThreadEventLedger[]
   anchorMilestones   AnchorMilestone[]
+  milestonePresentations MilestonePresentation[]
   visions            Vision[]
   visionGenerations VisionGeneration[]
 
@@ -292,11 +294,32 @@ model AnchorMilestone {
   sourceEntityId    String?   @map("source_entity_id")
   metadata          Json      @default("{}")
   celebratedAt      DateTime? @map("celebrated_at")
+  backfillVersion   Int?      @map("backfill_version")
+  automaticEventKey String?   @map("automatic_event_key")
+  automaticReservedAt DateTime? @map("automatic_reserved_at")
   createdAt         DateTime  @default(now()) @map("created_at")
 
   @@unique([userId, anchorId, definitionId])
   @@index([userId, anchorId, earnedAt])
   @@map("anchor_milestones")
+}
+
+// One bounded automatic presentation attempt per confirmed action. An expired
+// reservation is never reissued; an interrupted reveal remains manually replayable.
+model MilestonePresentation {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId String @map("anchor_id")
+  anchor Anchor @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  eventKey String @map("event_key")
+  milestoneId String? @map("milestone_id")
+  expiresAt DateTime @map("expires_at")
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, eventKey])
+  @@map("milestone_presentations")
 }
 
 // Anchor 2.0 progression is deliberately separate from the legacy mobile

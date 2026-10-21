@@ -66,7 +66,7 @@ describe('PracticeCompletionService', () => {
     expect(useSessionStore.getState().practiceHistory[0].syncState).toBe('synced');
   });
 
-  it('queues milestones the server just recorded for celebration, without touching completion', async () => {
+  it('syncs earned milestones without presenting UI from background queue flush', async () => {
     useAuthStore.setState({ user: { id: 'account-completion-m' } as any });
     useMilestoneCelebrationStore.getState().reset();
     await PracticeCompletionService.completePracticeSession(input('account-completion-m', 'milestone-session'), {
@@ -82,8 +82,7 @@ describe('PracticeCompletionService', () => {
 
     expect(useSessionStore.getState().practiceHistory[0].syncState).toBe('synced');
     const queue = useMilestoneCelebrationStore.getState().queue;
-    expect(queue.map((item) => item.record.id)).toEqual(['ms-1']);
-    expect(queue[0]).toMatchObject({ mode: 'award', accountId: 'account-completion-m' });
+    expect(queue).toEqual([]);
   });
 
   it('queues no celebration when the response carries no milestones', async () => {

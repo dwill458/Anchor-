@@ -10,6 +10,11 @@ import { useCelebrationStore } from '@/stores/v2/celebrationStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useCelebrationRecordsStore } from '@/stores/v2/celebrationRecordsStore';
+import { NavigationContext } from '@react-navigation/native';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
+
+const mockMilestoneAction = jest.fn();
+jest.mock('@/milestones/queueMilestoneAction', () => ({ queueMilestoneAction: (...args: unknown[]) => mockMilestoneAction(...args) }));
 
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn() }));
 jest.mock('@/hooks/useCelebrationReduceMotion', () => ({
@@ -564,6 +569,50 @@ describe('V2FocusCompleteScreen entry', () => {
   it('arrives on cream after Visualize, whose last frame is the cream board, so there is no dark flash', () => {
     render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={60} practiceTitle="Visualize" enterFrom="cream" onDone={jest.fn()} onAgain={jest.fn()} />);
     expect(opacityOf('v2-focus-complete-ink')).toBe(0);
+  });
+});
+
+describe('authoritative post-practice milestone boundary', () => {
+  beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false); useCelebrationStore.getState().reset(); });
+  afterEach(() => jest.useRealTimers());
+  const props = () => ({ anchor: makeAnchor({ id: 'a1', threadStrength: 35 }), durationSeconds: 60, sessionId: 'confirmed-session', beforeStrength: 30, afterStrength: 35, onDone: jest.fn(), onAgain: jest.fn() });
+  it('preserves normal completion and requests a reservation after its entry, once', () => {
+    const view = render(<V2FocusCompleteScreen {...props()} sessionSaved />);
+    expect(view.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    advance(2499); expect(mockMilestoneAction).not.toHaveBeenCalled();
+    advance(1); expect(mockMilestoneAction).toHaveBeenCalledTimes(1);
+    expect(mockMilestoneAction).toHaveBeenCalledWith('a1', { kind: 'practice', sourceEntityId: 'confirmed-session' }, expect.any(Function), expect.any(Function));
+    const guard = mockMilestoneAction.mock.calls[0][2]; expect(guard()).toBe(true);
+    view.unmount(); expect(guard()).toBe(false);
+  });
+  it('cannot celebrate an unconfirmed or failed save', () => {
+    render(<V2FocusCompleteScreen {...props()} sessionSaved={false} />);
+    advance(6000); expect(mockMilestoneAction).not.toHaveBeenCalled();
+  });
+  it('accepts a late confirmation only while the same completion remains mounted', () => {
+    const p = props(); const view = render(<V2FocusCompleteScreen {...p} sessionSaved={false} />);
+    advance(3000); expect(mockMilestoneAction).not.toHaveBeenCalled();
+    view.rerender(<V2FocusCompleteScreen {...p} sessionSaved />);
+    expect(mockMilestoneAction).toHaveBeenCalledTimes(1);
+  });
+  it('releases its global milestone hold when a failed-save completion loses focus', () => {
+    let focused = true;
+    const listeners = new Map<string, Set<() => void>>();
+    const navigation = {
+      isFocused: () => focused,
+      addListener: (event: string, listener: () => void) => {
+        const callbacks = listeners.get(event) ?? new Set<() => void>();
+        callbacks.add(listener); listeners.set(event, callbacks);
+        return () => callbacks.delete(listener);
+      },
+    };
+    const holdsBefore = useMilestoneCelebrationStore.getState().holds.length;
+    render(<NavigationContext.Provider value={navigation as never}><V2FocusCompleteScreen {...props()} sessionSaved={false} /></NavigationContext.Provider>);
+    advance(3000);
+    expect(useMilestoneCelebrationStore.getState().holds.length).toBeGreaterThan(holdsBefore);
+    act(() => { focused = false; listeners.get('blur')?.forEach(listener => listener()); });
+    expect(useMilestoneCelebrationStore.getState().holds.length).toBe(holdsBefore);
+    expect(mockMilestoneAction).not.toHaveBeenCalled();
   });
 });
 

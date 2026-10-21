@@ -1,4 +1,5 @@
 import {
+  VISION_PREVIEW_PRINT_ASPECT,
   VISION_PREVIEW_PRINT_LIMIT,
   normalizedCaption,
   visionItemCountLabel,
@@ -10,6 +11,7 @@ import {
   visionPrintSlots,
   visionStageHeight,
 } from '../visionPreviewCardModel';
+import { VISION_PHOTO } from '../material/visionMaterialTokens';
 
 const tile = (id: string, imageUrl: string | null = `https://vision.test/${id}.jpg`) => ({ id, imageUrl });
 
@@ -56,6 +58,15 @@ describe('visionPreviewPhotos', () => {
 });
 
 describe('print geometry', () => {
+  it.each([1, 2, 3, 8])('reserves the complete rotated print height for %i photographs before the caption', count => {
+    for (const slot of visionPrintSlots(count)) {
+      const height = slot.width * (3 * VISION_PHOTO.sidePadRatio + (1 - 2 * VISION_PHOTO.sidePadRatio) / VISION_PREVIEW_PRINT_ASPECT);
+      const radians = slot.rotation * Math.PI / 180;
+      const rotatedHeight = Math.abs(slot.width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
+      const bottom = slot.y + height / 2 + rotatedHeight / 2;
+      expect(visionStageHeight(count)).toBeGreaterThanOrEqual(bottom);
+    }
+  });
   it('lays out one to three prints with the featured print first and largest', () => {
     for (const count of [1, 2, 3]) {
       const slots = visionPrintSlots(count);

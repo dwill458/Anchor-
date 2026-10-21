@@ -3,9 +3,7 @@ import { prisma } from '../../../lib/prisma';
 import { AppError } from '../../../api/middleware/errorHandler';
 import { logger } from '../../../utils/logger';
 import { evaluateMilestones, type MilestoneFacts } from './registry';
-
-/** An award earned this long before it was recorded is history being caught up, not news. */
-const HISTORICAL_AFTER_MS = 48 * 60 * 60 * 1000;
+import { ACTION_WINDOW_MS, belongsToAction, milestoneActionKey, RECONCILIATION_VERSION, type MilestoneAction } from './celebrationPolicy';
 
 export interface MilestoneRecord {
   id: string;
@@ -16,8 +14,9 @@ export interface MilestoneRecord {
   sourceKind: string;
   sourceEntityId: string | null;
   metadata: unknown;
-  /** Null until the client reports the celebration finished. Historical awards start settled. */
+  /** Actual acknowledged playback only; silence/backfill never fabricates this receipt. */
   celebratedAt: string | null;
+  backfillVersion?: number | null;
 }
 
 type Row = Prisma.AnchorMilestoneGetPayload<Record<string, never>>;
@@ -32,6 +31,7 @@ const toRecord = (row: Row): MilestoneRecord => ({
   sourceEntityId: row.sourceEntityId,
   metadata: row.metadata,
   celebratedAt: row.celebratedAt ? row.celebratedAt.toISOString() : null,
+  backfillVersion: row.backfillVersion,
 });
 
 const isUniqueViolation = (error: unknown): boolean =>
@@ -104,7 +104,7 @@ export class MilestoneService {
     if (new Set(vision.scenes.filter(s => !s.isArchived).map(s => s.assetId)).size >= 8) {
       await db.vision.updateMany({ where: { id: visionId, userId, boardCompletedAt: null }, data: { boardCompletedAt: new Date() } });
     }
-    if (!tx) await this.evaluateQuietly(userId, anchorId);
+    if (!tx) await this.evaluateQuietly(userId, anchorId, { kind: 'vision', sourceEntityId: visionId });
   }
 
   /**
@@ -112,7 +112,7 @@ export class MilestoneService {
    * recorded by THIS call. Idempotent: the unique key on (user, anchor, definition) means a repeat,
    * a race or a second device records nothing new, and an existing award is never rewritten.
    */
-  async evaluateAndAward(userId: string, anchorId: string, now: Date = new Date()): Promise<MilestoneRecord[]> {
+  async evaluateAndAward(userId: string, anchorId: string, now: Date = new Date(), action?: MilestoneAction): Promise<MilestoneRecord[]> {
     const facts = await this.loadFacts(userId, anchorId);
     if (!facts) return [];
 
@@ -127,8 +127,28 @@ export class MilestoneService {
 
     const created: MilestoneRecord[] = [];
     for (const award of awards) {
-      if (existing.has(award.definitionId)) continue;
-      const historical = now.getTime() - award.earnedAt.getTime() > HISTORICAL_AFTER_MS;
+      const age = now.getTime() - award.earnedAt.getTime();
+      const chart = action?.kind === 'chart' ? facts.courses.find(c => c.id === action.sourceEntityId) : null;
+      const reached = chart?.waypoints.find(w => w.id === action?.eventId)?.reachedAt;
+      const matches = action && belongsToAction(award, action) &&
+        (action.kind !== 'chart' || Boolean(chart && reached &&
+          (award.sourceEntityId === action.eventId || award.earnedAt.getTime() === reached.getTime() ||
+            (award.definitionId === 'journey.destination' && award.sourceEntityId === chart.id &&
+              reached.getTime() === Math.max(...chart.waypoints.map(w => w.reachedAt?.getTime() ?? 0))))));
+      const historical = !matches || age < 0 || age > ACTION_WINDOW_MS;
+      const promote = async () => {
+        if (historical || !action) return;
+        // Repair a classification race with a quiet read using identical recent
+        // evidence only. Never rewrite earn dates or real acknowledgment.
+        await prisma.anchorMilestone.updateMany({
+          where: { userId, anchorId, definitionId: award.definitionId,
+            sourceKind: award.sourceKind, sourceEntityId: award.sourceEntityId,
+            earnedAt: award.earnedAt, backfillVersion: RECONCILIATION_VERSION,
+            automaticEventKey: null, automaticReservedAt: null, celebratedAt: null },
+          data: { backfillVersion: null, automaticEventKey: milestoneActionKey(action) },
+        });
+      };
+      if (existing.has(award.definitionId)) { await promote(); continue; }
       try {
         const row = await prisma.anchorMilestone.create({
           data: {
@@ -140,12 +160,15 @@ export class MilestoneService {
             sourceKind: award.sourceKind,
             sourceEntityId: award.sourceEntityId,
             metadata: award.metadata,
-            celebratedAt: historical ? now : null,
+            celebratedAt: null,
+            backfillVersion: historical ? RECONCILIATION_VERSION : null,
+            automaticEventKey: historical || !action ? null : milestoneActionKey(action),
           },
         });
         created.push(toRecord(row));
       } catch (error) {
         if (!isUniqueViolation(error)) throw error;
+        await promote();
       }
     }
     return created;
@@ -155,10 +178,10 @@ export class MilestoneService {
    * For the write paths (practice, chart, completion). Awarding must never break the action that
    * triggered it, and the next evaluation or Progress read catches up, so failures are logged only.
    */
-  async evaluateQuietly(userId: string, anchorId: string | null | undefined): Promise<MilestoneRecord[]> {
+  async evaluateQuietly(userId: string, anchorId: string | null | undefined, action?: MilestoneAction): Promise<MilestoneRecord[]> {
     if (!anchorId) return [];
     try {
-      return await this.evaluateAndAward(userId, anchorId);
+      return await this.evaluateAndAward(userId, anchorId, new Date(), action);
     } catch (error) {
       logger.error('Milestone evaluation failed', error);
       return [];

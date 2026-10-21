@@ -83,8 +83,10 @@ const PD_VOICES: Array<{
   desc: string;
   preview: boolean;
 }> = [
-  { id: 'female', label: 'Serene', desc: 'Gentle, warm, reflective', preview: true },
   { id: 'male', label: 'Grounded', desc: 'Steady, measured, reassuring', preview: true },
+  { id: 'female', label: 'Serene', desc: 'Gentle, warm, reflective', preview: true },
+  { id: 'warm', label: 'Warm', desc: 'Warm, calm guidance', preview: true },
+  { id: 'soothing', label: 'Soothing', desc: 'Soothing, steady guidance', preview: true },
   { id: 'none', label: 'No guidance', desc: 'No spoken instruction', preview: false },
 ];
 
@@ -173,7 +175,7 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
     return () => backHandler.remove();
   }, [panel]);
 
-  const handleVoicePreview = async (voiceId: 'female' | 'male') => {
+  const handleVoicePreview = async (voiceId: Exclude<GuidanceVoice, 'none'>) => {
     if (activePreviewVoice === voiceId) {
       stopVoicePreview();
       return;
@@ -342,7 +344,10 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
             {/* Guidance Voice Group - Controlled Radio Group */}
             <SectionLabel>Guidance Voice</SectionLabel>
             <View style={styles.voiceCard} accessibilityRole="radiogroup">
-              {PD_VOICES.map((v) => {
+              {(activeModeTab === 'visualize'
+                ? PD_VOICES.filter((v) => v.id === 'male' || v.id === 'female' || v.id === 'none')
+                : PD_VOICES
+              ).map((v) => {
                 const isSelected = currentModeDefaults.guidanceVoice === v.id;
                 const isPreviewPlaying = activePreviewVoice === v.id;
                 return (
@@ -393,7 +398,7 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
                       <TouchableOpacity
                         accessibilityRole="button"
                         accessibilityLabel={`Preview ${v.label}`}
-                        onPress={() => void handleVoicePreview(v.id as 'female' | 'male')}
+                        onPress={() => void handleVoicePreview(v.id as Exclude<GuidanceVoice, 'none'>)}
                         style={[
                           styles.previewBtn,
                           isPreviewPlaying && {

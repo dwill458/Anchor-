@@ -94,6 +94,17 @@ describe('VisionPreviewCard: progress variant', () => {
 });
 
 describe('VisionPreviewCard: states', () => {
+  it('measures the inner stage and keeps the caption below its complete print bounds', () => {
+    const view = render(<VisionPreviewCard variant="home" tiles={photos.slice(0, 1)} statement="My Vision" testID="card" />);
+    fireEvent(view.getByTestId('card-stage'), 'layout', { nativeEvent: { layout: { width: 240 } } });
+    expect(StyleSheet.flatten(view.getByTestId('card-print-0').props.style).width).toBeCloseTo(240 * .56);
+    expect(StyleSheet.flatten(view.getByTestId('card-footer').props.style).marginTop).toBeGreaterThanOrEqual(0);
+  });
+
+  it('keeps the empty Home footer below its header', () => {
+    const view = render(<VisionPreviewCard variant="home" tiles={[]} testID="card" />);
+    expect(StyleSheet.flatten(view.getByTestId('card-footer').props.style).marginTop).toBeGreaterThanOrEqual(0);
+  });
   it('renders a neutral empty paper card for a Vision without photographs, with no fake imagery', () => {
     const view = render(<VisionPreviewCard variant="home" tiles={[]} testID="card" />);
     expect(view.getByText('No items yet')).toBeTruthy();

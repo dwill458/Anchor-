@@ -1,4 +1,5 @@
-import { apiClient } from '@/services/ApiClient';
+import { apiClient, type AccountBoundRequestConfig } from '@/services/ApiClient';
+import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { mergeMilestoneRecords, type MilestoneRecord } from './milestoneModel';
 import {
@@ -99,7 +100,12 @@ export function applyServerRecords(
   return updateSnapshot(accountId, anchorId, (current) => {
     const base = current ?? empty(accountId, anchorId);
     const pending = new Set(base.pendingCelebrated);
-    const records = mergeMilestoneRecords(base.records, server).map((record) =>
+    const withReservations = server.map(record => {
+      const local = base.records.find(r => r.id === record.id);
+      return { ...record, presentationId: record.presentationId ?? local?.presentationId,
+        presentationExpiresAt: record.presentationExpiresAt ?? local?.presentationExpiresAt };
+    });
+    const records = mergeMilestoneRecords(base.records, withReservations).map((record) =>
       pending.has(record.id) && !record.celebratedAt ? { ...record, celebratedAt: now.toISOString() } : record,
     );
     return { ...base, records, pendingCelebrated: [...pending] };
@@ -108,13 +114,27 @@ export function applyServerRecords(
 
 /** Sends every receipt the server has not confirmed. Stops quietly at the first failure (still offline). */
 export async function flushPendingReceipts(accountId: string, anchorId: string): Promise<void> {
+  const { user, token, accountRevision } = useAuthStore.getState();
+  if (user?.id !== accountId) return;
+  const isCurrent = () => {
+    const current = useAuthStore.getState();
+    return current.user?.id === accountId && current.token === token && current.accountRevision === accountRevision;
+  };
+  const config: AccountBoundRequestConfig = { anchorAuthGuard: isCurrent, anchorAuthToken: token ?? undefined };
   const pending = [...(getSnapshot(accountId, anchorId)?.pendingCelebrated ?? [])];
   for (const id of pending) {
+    if (!isCurrent()) return;
     try {
-      await apiClient.post(`/api/v2/milestones/${encodeURIComponent(id)}/celebrated`);
+      const record = getSnapshot(accountId, anchorId)?.records.find(r => r.id === id);
+      if (record?.presentationId) {
+        await apiClient.post(`/api/v2/milestones/${encodeURIComponent(id)}/celebrated`, { presentationId: record.presentationId }, config);
+      } else {
+        await apiClient.post(`/api/v2/milestones/${encodeURIComponent(id)}/celebrated`, undefined, config);
+      }
     } catch {
       return;
     }
+    if (!isCurrent()) return;
     updateSnapshot(accountId, anchorId, (current) => {
       const base = current ?? empty(accountId, anchorId);
       return { ...base, pendingCelebrated: base.pendingCelebrated.filter((pendingId) => pendingId !== id) };

@@ -231,7 +231,10 @@ export function V2SavedVision({
   }, [boardTiles, localOrder, onReorder]);
 
   const remove = useCallback((sceneId: string) => {
-    if (boardTiles.length <= 1) { setNotice('Keep at least one image in your Vision.'); return; }
+    if (boardTiles.length <= 1) {
+      Alert.alert('Keep one image', 'Your Vision needs at least one image. Add another image before removing this one.');
+      return;
+    }
     setNativeAlertOpen(true);
     Alert.alert('Remove image?', 'This image will be removed from your Vision.', [
       { text: 'Cancel', style: 'cancel', onPress: () => setNativeAlertOpen(false) },

@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="vision_picture_complete" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Picture Complete (Vision) locked">
+  <title>Picture Complete (Vision) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: vision_picture_complete. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="vision_picture_complete-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="vision_picture_complete-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="vision_picture_complete__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#vision_picture_complete-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="vision_picture_complete__art" transform="translate(128 128) scale(0.96) translate(-128 -128)">
+  <g id="vision_picture_complete__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <rect x="60.24" y="60.24" width="135.52" height="135.52" rx="11" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="66.4" y="66.4" width="123.2" height="123.2" rx="8" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <rect x="60.24" y="60.24" width="135.52" height="135.52" rx="11" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="66.4" y="66.4" width="123.2" height="123.2" rx="8" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <rect id="vision_picture_complete__structure-frame-outer" x="60.24" y="60.24" width="135.52" height="135.52" rx="11" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect id="vision_picture_complete__structure-frame" x="66.4" y="66.4" width="123.2" height="123.2" rx="8" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_picture_complete__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M68.16 147.36L91.04 128L110.4 142.08L136.8 117.44L164.96 140.32L187.84 124.48" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68.16 187.84V164.96C89.28 149.12 106.88 156.16 128 164.96C152.64 175.52 172 157.92 187.84 149.12V187.84Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M68.16 147.36L91.04 128L110.4 142.08L136.8 117.44L164.96 140.32L187.84 124.48" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68.16 187.84V164.96C89.28 149.12 106.88 156.16 128 164.96C152.64 175.52 172 157.92 187.84 149.12V187.84Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="vision_picture_complete__emblem-ridge-far" d="M68.16 147.36L91.04 128L110.4 142.08L136.8 117.44L164.96 140.32L187.84 124.48" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_picture_complete__emblem-hill-near" d="M68.16 187.84V164.96C89.28 149.12 106.88 156.16 128 164.96C152.64 175.52 172 157.92 187.84 149.12V187.84Z" fill="#8C867A" stroke="#8C867A" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_picture_complete__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <line x1="128" y1="82.36" x2="128" y2="74.36" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="138.5" y1="85.17" x2="142.5" y2="78.25" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="146.19" y1="92.86" x2="153.11" y2="88.86" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="149" y1="103.36" x2="157" y2="103.36" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="146.19" y1="113.86" x2="153.11" y2="117.86" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="138.5" y1="121.55" x2="142.5" y2="128.47" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="124.36" x2="128" y2="132.36" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="117.5" y1="121.55" x2="113.5" y2="128.47" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="109.81" y1="113.86" x2="102.89" y2="117.86" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="107" y1="103.36" x2="99" y2="103.36" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="109.81" y1="92.86" x2="102.89" y2="88.86" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="117.5" y1="85.17" x2="113.5" y2="78.25" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M69.04 172.88C89.28 157.04 106.88 164.08 128 172.88C152.64 183.44 172 165.84 186.96 158.8" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M69.04 179.04C89.28 163.2 106.88 170.24 128 179.04C152.64 189.6 172 172 186.96 164.96" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M69.04 185.2C89.28 169.36 106.88 176.4 128 185.2C152.64 195.76 172 178.16 186.96 171.12" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <line x1="107.47" y1="68.16" x2="107.47" y2="187.84" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="68.16" y1="107.47" x2="187.84" y2="107.47" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="148.53" y1="68.16" x2="148.53" y2="187.84" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="68.16" y1="148.53" x2="187.84" y2="148.53" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <line x1="128" y1="82.36" x2="128" y2="74.36" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="138.5" y1="85.17" x2="142.5" y2="78.25" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="146.19" y1="92.86" x2="153.11" y2="88.86" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="149" y1="103.36" x2="157" y2="103.36" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="146.19" y1="113.86" x2="153.11" y2="117.86" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="138.5" y1="121.55" x2="142.5" y2="128.47" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="124.36" x2="128" y2="132.36" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="117.5" y1="121.55" x2="113.5" y2="128.47" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="109.81" y1="113.86" x2="102.89" y2="117.86" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="107" y1="103.36" x2="99" y2="103.36" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="109.81" y1="92.86" x2="102.89" y2="88.86" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="117.5" y1="85.17" x2="113.5" y2="78.25" fill="none" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M69.04 172.88C89.28 157.04 106.88 164.08 128 172.88C152.64 183.44 172 165.84 186.96 158.8" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M69.04 179.04C89.28 163.2 106.88 170.24 128 179.04C152.64 189.6 172 172 186.96 164.96" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M69.04 185.2C89.28 169.36 106.88 176.4 128 185.2C152.64 195.76 172 178.16 186.96 171.12" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <line x1="107.47" y1="68.16" x2="107.47" y2="187.84" fill="none" stroke="#B7B0A0" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="68.16" y1="107.47" x2="187.84" y2="107.47" fill="none" stroke="#B7B0A0" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="148.53" y1="68.16" x2="148.53" y2="187.84" fill="none" stroke="#B7B0A0" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="68.16" y1="148.53" x2="187.84" y2="148.53" fill="none" stroke="#B7B0A0" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    </g>
+    <line id="vision_picture_complete__engraving-ray-01" x1="128" y1="82.36" x2="128" y2="74.36" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-02" x1="138.5" y1="85.17" x2="142.5" y2="78.25" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-03" x1="146.19" y1="92.86" x2="153.11" y2="88.86" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-04" x1="149" y1="103.36" x2="157" y2="103.36" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-05" x1="146.19" y1="113.86" x2="153.11" y2="117.86" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-06" x1="138.5" y1="121.55" x2="142.5" y2="128.47" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-07" x1="128" y1="124.36" x2="128" y2="132.36" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-08" x1="117.5" y1="121.55" x2="113.5" y2="128.47" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-09" x1="109.81" y1="113.86" x2="102.89" y2="117.86" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-10" x1="107" y1="103.36" x2="99" y2="103.36" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-11" x1="109.81" y1="92.86" x2="102.89" y2="88.86" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-ray-12" x1="117.5" y1="85.17" x2="113.5" y2="78.25" fill="none" stroke="#B3AB99" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_picture_complete__engraving-etch-1" d="M69.04 172.88C89.28 157.04 106.88 164.08 128 172.88C152.64 183.44 172 165.84 186.96 158.8" fill="none" stroke="#EDE9DE" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+    <path id="vision_picture_complete__engraving-etch-2" d="M69.04 179.04C89.28 163.2 106.88 170.24 128 179.04C152.64 189.6 172 172 186.96 164.96" fill="none" stroke="#EDE9DE" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+    <path id="vision_picture_complete__engraving-etch-3" d="M69.04 185.2C89.28 169.36 106.88 176.4 128 185.2C152.64 195.76 172 178.16 186.96 171.12" fill="none" stroke="#EDE9DE" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+    <line id="vision_picture_complete__engraving-seam-v1" x1="107.47" y1="68.16" x2="107.47" y2="187.84" fill="none" stroke="#EDE9DE" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-seam-h1" x1="68.16" y1="107.47" x2="187.84" y2="107.47" fill="none" stroke="#EDE9DE" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-seam-v2" x1="148.53" y1="68.16" x2="148.53" y2="187.84" fill="none" stroke="#EDE9DE" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="vision_picture_complete__engraving-seam-h2" x1="68.16" y1="148.53" x2="187.84" y2="148.53" fill="none" stroke="#EDE9DE" stroke-width="3.4" stroke-linecap="butt" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_picture_complete__highlight"/>
+  <g id="vision_picture_complete__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="62.4" cy="62.4" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="44" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="193.6" cy="62.4" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="44" cy="128" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="212" cy="128" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="62.4" cy="193.6" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="212" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="193.6" cy="193.6" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="103.36" r="14" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="62.4" cy="62.4" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="44" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="193.6" cy="62.4" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="44" cy="128" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="212" cy="128" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="62.4" cy="193.6" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="212" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="193.6" cy="193.6" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="103.36" r="14" fill="#B7B0A0"/>
+    </g>
+    <circle id="vision_picture_complete__accent-cell-1" cx="62.4" cy="62.4" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_picture_complete__accent-cell-2" cx="128" cy="44" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_picture_complete__accent-cell-3" cx="193.6" cy="62.4" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_picture_complete__accent-cell-4" cx="44" cy="128" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_picture_complete__accent-cell-5" cx="212" cy="128" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_picture_complete__accent-cell-6" cx="62.4" cy="193.6" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_picture_complete__accent-cell-7" cx="128" cy="212" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_picture_complete__accent-cell-8" cx="193.6" cy="193.6" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="vision_picture_complete__accent-orb">
+      <circle cx="128" cy="103.36" r="14" fill="url(#vision_picture_complete-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="123.52" cy="98.32" r="3.64" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+  </g>
+</svg>

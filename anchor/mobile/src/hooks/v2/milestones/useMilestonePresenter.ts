@@ -16,7 +16,7 @@ export interface MilestonePresenter {
  * starts while another scene (such as the practice completion) is playing: it waits for the
  * coordinator to go idle, so completion finishes its own transition first and is never preempted
  * or blocked. An award settles its receipt only when the user finishes it; if the coordinator
- * interrupts it (or the host unmounts) nothing is settled, so it simply plays again next time.
+ * interrupts it (or the host unmounts) nothing is acknowledged and the attempt is consumed.
  * Replays settle nothing, ever.
  */
 export function useMilestonePresenter(): MilestonePresenter {
@@ -34,8 +34,10 @@ export function useMilestonePresenter(): MilestonePresenter {
       presentingRef.current = null;
       useCelebrationStore.getState().finish(item.key);
       if (settle && item.mode === 'award' && item.accountId) void settleMilestone(item.accountId, item.record);
-      if (settle || item.mode === 'replay') shift(item.key);
+      // A reserved automatic attempt is consumed even if interrupted. Manual replay remains.
+      shift(item.key);
       setPresenting(null);
+      if (settle && item.mode === 'award' && item.isActive?.() !== false) item.onReturn?.();
     },
     [shift],
   );
@@ -47,6 +49,10 @@ export function useMilestonePresenter(): MilestonePresenter {
 
   useEffect(() => {
     if (!head || presenting || held) return;
+    if (head.mode === 'award' && (head.isActive?.() === false || Date.parse(head.record.presentationExpiresAt ?? '') <= Date.now())) {
+      shift(head.key);
+      return;
+    }
     const spec = getMilestoneSpec(head.record.definitionId);
     if (!spec) {
       // A milestone from a newer app version: leave it recorded, never celebrate invented copy.
@@ -55,6 +61,7 @@ export function useMilestonePresenter(): MilestonePresenter {
     }
 
     const start = () => {
+      if (head.mode === 'award' && (head.isActive?.() === false || Date.parse(head.record.presentationExpiresAt ?? '') <= Date.now())) { shift(head.key); return; }
       const begin = () => setPresenting({ ...head, origin: head.mode === 'award' && head.transition ? useMilestoneCelebrationStore.getState().takeOrigin(head.record) : undefined });
       const result = useCelebrationStore.getState().request(spec.celebration.level, head.key, {
         durationMs: spec.celebration.durationMs,

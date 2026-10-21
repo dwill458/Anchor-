@@ -1,5 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { VisionBoard, type VisionBoardProps } from '../VisionBoard';
 import type { V2VisionTile, VisionNote } from '@/adapters/v2/vision';
 import { selectDetailBoardLayout } from '../visionBoardLayouts';
@@ -21,8 +22,8 @@ const mockPhoto = jest.fn();
 // Records what each print receives, so the tests can check the composition reached the prints.
 // Notes are drawn by a canvas-backed renderer; the mocks expose their text so the board's wiring can be asserted.
 jest.mock('../VisionBoardNoteElement', () => ({ VisionBoardNoteElement: (props: any) => {
-  const { Text } = require('react-native');
-  return <Text testID={`interactive-note-${props.note.id}`}>{props.note.content.text}</Text>;
+  const { Text, Pressable } = require('react-native');
+  return <Pressable testID={`interactive-note-${props.note.id}`} onPress={() => props.onSelect(props.note.id)}><Text>{props.note.content.text}</Text></Pressable>;
 } }));
 jest.mock('@/components/v2/vision/notes/VisionNoteRenderer', () => ({ VisionNoteRenderer: (props: any) => {
   const { Text } = require('react-native');
@@ -58,6 +59,24 @@ const baseProps = (count: number, overrides: Partial<VisionBoardProps> = {}): Vi
 });
 
 describe('Vision board on archival paper with scrapbook prints', () => {
+  it('exposes note deletion after selection and clears controls when that note is removed', () => {
+    const onNoteDelete = jest.fn();
+    const props = baseProps(4, { notes: [note], onNotePresentationChange: jest.fn(), onNoteDelete });
+    const view = render(<VisionBoard {...props} />);
+    fireEvent.press(view.getByTestId('interactive-note-note-1'));
+    fireEvent.press(view.getByLabelText('Delete selected note'));
+    expect(onNoteDelete).toHaveBeenCalledWith(note.id);
+    view.rerender(<VisionBoard {...props} notes={[]} />);
+    expect(view.queryByLabelText('Delete selected note')).toBeNull();
+  });
+
+  it.each([1, 2, 3, 4, 5, 6, 7, 8])('keeps the %i-photo viewport fixed as notes are added or removed', count => {
+    const props = baseProps(count);
+    const view = render(<VisionBoard {...props} />);
+    const height = StyleSheet.flatten(view.getByTestId('vision-board').props.style).height;
+    view.rerender(<VisionBoard {...props} notes={[note, { ...note, id: 'second-note' }]} />);
+    expect(StyleSheet.flatten(view.getByTestId('vision-board').props.style).height).toBe(height);
+  });
   it('leaves the board transparent, so the one archival sheet behind the screen shows through', () => {
     // The paper is drawn once behind the whole Vision screen (V2SavedVision), not as a rectangle under the board.
     const view = render(<VisionBoard {...baseProps(3)} />);

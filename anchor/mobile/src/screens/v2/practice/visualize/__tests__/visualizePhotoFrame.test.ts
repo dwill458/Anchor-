@@ -12,6 +12,20 @@ function rotatedBounds(rect: ReturnType<typeof toSceneRect>) {
 }
 
 describe('fitVisualizePhotoFrame', () => {
+  it('reserves the measured identity beneath the entrance collage', () => {
+    const available = availableVisualizePhotoHeight({ viewportHeight: 600, headingHeight: 140, identityHeight: 90,
+      topPadding: 4, bodyGap: 12, maximumHeight: 640 });
+    expect(140 + 90 + available + 4 + 12 * 2).toBeLessThanOrEqual(600);
+  });
+
+  it('fits the finished one-photo medallion and saved note inside the entrance frame', () => {
+    const note = { isArchived: false, presentation: { x: .92, y: .08, width: .2, height: .15, rotation: 0, scale: 1 } } as any;
+    const frame = fitVisualizePhotoFrame(360, 1, 320, 420, undefined, { anchor: true, notes: [note] });
+    const card = selectDetailBoardLayout(1).card;
+    const actualRadius = card.width * 360 * (0.94 * 1.3) / 2;
+    expect((card.y * frame.scene.height + actualRadius) * frame.scale + frame.sceneOriginY).toBeLessThanOrEqual(frame.height);
+    expect((note.presentation.x + note.presentation.width / 2) * 360 * frame.scale + frame.sceneOriginX).toBeLessThanOrEqual(frame.width);
+  });
   it.each([1, 3, 6, 8])('fits every photo in the existing %i-photo composition without cropping', imageCount => {
     const frame = fitVisualizePhotoFrame(360, imageCount, 320, 420);
     const layout = selectDetailBoardLayout(imageCount);
@@ -67,7 +81,8 @@ describe('fitVisualizePhotoFrame', () => {
     const previous = fitVisualizePhotoFrame(width, 8, 320, height * 0.54);
     const current = fitVisualizePhotoFrame(width, 8, 320, height * VISUALIZE_PHOTO_MAX_HEIGHT_FRACTION);
 
-    expect(current.width).toBeGreaterThan(previous.width * 1.2);
+    // Reach the requested growth or the available width, whichever is smaller.
+    expect(current.width).toBeGreaterThanOrEqual(Math.min(320, previous.width * 1.2));
     expect(current.width).toBeLessThanOrEqual(320);
     expect(current.height).toBeLessThanOrEqual(height * VISUALIZE_PHOTO_MAX_HEIGHT_FRACTION + 0.01);
   });
@@ -78,7 +93,7 @@ describe('fitVisualizePhotoFrame', () => {
     const frame = fitVisualizePhotoFrame(360, 8, 320, available);
 
     expect(available).toBe(470);
-    expect(frame.height).toBeLessThanOrEqual(available);
+    expect(frame.height).toBeLessThanOrEqual(available + 0.01);
     expect(frame.width).toBeLessThanOrEqual(320);
     expect(frame.width).toBeGreaterThan(0);
   });

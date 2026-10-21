@@ -37,7 +37,7 @@ export const V2MilestoneDetailScreen: React.FC<V2MilestoneDetailScreenProps> = (
 }) => {
   const insets = useSafeAreaInsets();
   const spec = getMilestoneSpec(definitionId);
-  const { records } = useAnchorMilestones(anchorId);
+  const { records, status } = useAnchorMilestones(anchorId);
   const category = useAnchorStore((state) => state.anchors.find((anchor) => anchor.id === anchorId)?.category);
   const record = React.useMemo(() => records.find((entry) => entry.definitionId === definitionId) ?? null, [records, definitionId]);
   const requestReplay = useMilestoneCelebrationStore((state) => state.requestReplay);
@@ -58,6 +58,14 @@ export const V2MilestoneDetailScreen: React.FC<V2MilestoneDetailScreenProps> = (
         {onBack ? <V2Button variant="tertiary" onPress={onBack}>Go Back</V2Button> : null}
       </View>
     );
+  }
+
+  if (!record && status && status !== 'ready') {
+    return <View style={[styles.root, styles.center, { paddingTop: insets.top }]} testID={`${testID}-pending`}>
+      {backButton}
+      <Text style={styles.title}>{spec.title}</Text>
+      <Text style={styles.body}>{status === 'loading' ? 'Updating milestone progress…' : 'Connect to confirm this milestone.'}</Text>
+    </View>;
   }
 
   const earned = Boolean(record);

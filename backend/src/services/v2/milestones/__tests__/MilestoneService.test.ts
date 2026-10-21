@@ -144,13 +144,29 @@ describe('MilestoneService', () => {
       expect(created.map(m => m.definitionId).sort()).toEqual(['commitment.practices.1', 'commitment.practices.10']);
     });
 
-    it('catches up offline history, backdated to when it really happened and already settled', async () => {
+    it('catches up history with its real earn date without fabricating a celebration receipt', async () => {
       givenHistory([session(1, '2026-08-01T11:00:00Z')]);
       const created = await service.evaluateAndAward(USER, ANCHOR, NOW);
       const data = mockPrisma.anchorMilestone.create.mock.calls[0][0].data;
       expect(data.earnedAt).toEqual(new Date('2026-08-01T11:00:00Z'));
       // Old history must not fire a celebration the user never expected.
-      expect(created[0].celebratedAt).toBe(NOW.toISOString());
+      expect(created[0].celebratedAt).toBeNull();
+      expect(data.backfillVersion).toBe(1);
+      expect(data.automaticEventKey).toBeNull();
+    });
+
+    it('makes a recent historical read quiet regardless of its age', async () => {
+      givenHistory([session(1, NOW.toISOString())]);
+      await service.evaluateAndAward(USER, ANCHOR, NOW);
+      expect(mockPrisma.anchorMilestone.create.mock.calls[0][0].data).toMatchObject({ backfillVersion: 1, automaticEventKey: null, celebratedAt: null });
+    });
+
+    it('only makes awards attributable to this confirmed practice eligible', async () => {
+      givenHistory(Array.from({ length: 10 }, (_, i) => session(i + 1, new Date(NOW.getTime() - (9 - i) * 1000).toISOString())));
+      await service.evaluateAndAward(USER, ANCHOR, NOW, { kind: 'practice', sourceEntityId: 's10' });
+      const data = mockPrisma.anchorMilestone.create.mock.calls.map(call => call[0].data);
+      expect(data.find(d => d.definitionId === 'commitment.practices.1')).toMatchObject({ backfillVersion: 1, automaticEventKey: null });
+      expect(data.find(d => d.definitionId === 'commitment.practices.10')).toMatchObject({ backfillVersion: null, automaticEventKey: 'practice:s10' });
     });
 
     it('does nothing for an Anchor the user does not own', async () => {
@@ -224,6 +240,73 @@ describe('MilestoneService', () => {
     it('404s for an unknown Anchor', async () => {
       mockPrisma.anchor.findFirst.mockResolvedValue(null);
       await expect(service.reconcileAndList(USER, 'nope')).rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
+});
+
+describe('action-boundary recovery after a quiet gallery read', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    givenHistory([session(1, NOW.toISOString())]);
+    mockPrisma.vision.findMany.mockResolvedValue([]);
+    mockPrisma.anchorMilestone.findMany.mockResolvedValue([row({ backfillVersion: 1, automaticEventKey: null, automaticReservedAt: null })]);
+    mockPrisma.anchorMilestone.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it('promotes only matching recent unreserved evidence without rewriting the permanent award', async () => {
+    expect(await service.evaluateAndAward(USER, ANCHOR, NOW, { kind: 'practice', sourceEntityId: 's1' })).toEqual([]);
+    expect(mockPrisma.anchorMilestone.create).not.toHaveBeenCalled();
+    expect(mockPrisma.anchorMilestone.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        userId: USER, anchorId: ANCHOR, definitionId: 'commitment.practices.1',
+        earnedAt: NOW, sourceKind: 'PRACTICE_COMPLETION', sourceEntityId: 's1',
+        backfillVersion: 1, automaticReservedAt: null, celebratedAt: null,
+      }),
+      data: { backfillVersion: null, automaticEventKey: 'practice:s1' },
+    });
+    // No update to earnedAt, version, metadata, source evidence, or playback receipt.
+    expect(Object.keys(mockPrisma.anchorMilestone.updateMany.mock.calls[0][0].data).sort()).toEqual(['automaticEventKey', 'backfillVersion']);
+  });
+
+  it('does not promote an unrelated practice or actionless gallery read', async () => {
+    await service.evaluateAndAward(USER, ANCHOR, NOW, { kind: 'practice', sourceEntityId: 'different-session' });
+    await service.evaluateAndAward(USER, ANCHOR, NOW);
+    expect(mockPrisma.anchorMilestone.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.anchorMilestone.create).not.toHaveBeenCalled();
+  });
+
+  it('does not turn old historical achievement evidence into fresh progress', async () => {
+    givenHistory([session(1, '2026-01-01T12:00:00Z')]);
+    await service.evaluateAndAward(USER, ANCHOR, NOW, { kind: 'practice', sourceEntityId: 's1' });
+    expect(mockPrisma.anchorMilestone.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not promote future-dated achievement evidence', async () => {
+    givenHistory([session(1, new Date(NOW.getTime() + 1).toISOString())]);
+    await service.evaluateAndAward(USER, ANCHOR, NOW, { kind: 'practice', sourceEntityId: 's1' });
+    expect(mockPrisma.anchorMilestone.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('uses guarded persistence so a concurrent reservation or acknowledgment cannot be undone', async () => {
+    mockPrisma.anchorMilestone.updateMany.mockResolvedValue({ count: 0 });
+    expect(await service.evaluateAndAward(USER, ANCHOR, NOW, { kind: 'practice', sourceEntityId: 's1' })).toEqual([]);
+    const update = mockPrisma.anchorMilestone.updateMany.mock.calls[0]?.[0];
+    expect(update).toBeDefined();
+    expect(update.where).toMatchObject({ automaticReservedAt: null, celebratedAt: null });
+    expect(update.data).not.toHaveProperty('automaticReservedAt');
+    expect(update.data).not.toHaveProperty('celebratedAt');
+    expect(mockPrisma.anchorMilestone.create).not.toHaveBeenCalled();
+  });
+
+  it('also promotes identical evidence when a gallery insert wins after the initial existing-row snapshot', async () => {
+    mockPrisma.anchorMilestone.findMany.mockResolvedValue([]);
+    mockPrisma.anchorMilestone.create.mockRejectedValue(uniqueViolation());
+    expect(await service.evaluateAndAward(USER, ANCHOR, NOW, { kind: 'practice', sourceEntityId: 's1' })).toEqual([]);
+    expect(mockPrisma.anchorMilestone.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ userId: USER, anchorId: ANCHOR, definitionId: 'commitment.practices.1',
+        sourceKind: 'PRACTICE_COMPLETION', sourceEntityId: 's1', earnedAt: NOW,
+        backfillVersion: 1, automaticReservedAt: null, celebratedAt: null }),
+      data: { backfillVersion: null, automaticEventKey: 'practice:s1' },
     });
   });
 });

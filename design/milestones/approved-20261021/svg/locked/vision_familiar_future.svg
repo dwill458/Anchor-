@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="vision_familiar_future" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Familiar Future (Vision) locked">
+  <title>Familiar Future (Vision) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: vision_familiar_future. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="vision_familiar_future-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="vision_familiar_future-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="vision_familiar_future__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#vision_familiar_future-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="vision_familiar_future__art" transform="translate(128 128) scale(0.93) translate(-128 -128)">
+  <g id="vision_familiar_future__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <line x1="60" y1="198" x2="128" y2="172" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+      <line x1="196" y1="198" x2="128" y2="172" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+      <path d="M54 172H202" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <line x1="60" y1="198" x2="128" y2="172" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+      <line x1="196" y1="198" x2="128" y2="172" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+      <path d="M54 172H202" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <line id="vision_familiar_future__structure-floor-1" x1="60" y1="198" x2="128" y2="172" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    <line id="vision_familiar_future__structure-floor-2" x1="196" y1="198" x2="128" y2="172" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    <path id="vision_familiar_future__structure-horizon" d="M54 172H202" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_familiar_future__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M64 198V122A64 64 0 0 1 192 122V198" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 5"/>
+      <path d="M84 189.4V137.4A44 44 0 0 1 172 137.4V189.4" fill="none" stroke="#FFFFFF" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M101 182.2V151.2A27 27 0 0 1 155 151.2V182.2Z" fill="#FFFFFF" fill-opacity="0.22" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M64 198V122A64 64 0 0 1 192 122V198" fill="none" stroke="#B7B0A0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 5"/>
+      <path d="M84 189.4V137.4A44 44 0 0 1 172 137.4V189.4" fill="none" stroke="#B7B0A0" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M101 182.2V151.2A27 27 0 0 1 155 151.2V182.2Z" fill="#B7B0A0" fill-opacity="0.22" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="vision_familiar_future__emblem-arch-1" d="M64 198V122A64 64 0 0 1 192 122V198" fill="none" stroke="#A8A295" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 5"/>
+    <path id="vision_familiar_future__emblem-arch-2" d="M84 189.4V137.4A44 44 0 0 1 172 137.4V189.4" fill="none" stroke="#A8A295" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_familiar_future__emblem-arch-3" d="M101 182.2V151.2A27 27 0 0 1 155 151.2V182.2Z" fill="#B3AB99" fill-opacity="0.22" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_familiar_future__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <line x1="112.41" y1="157" x2="103.75" y2="152" fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="119" y1="150.41" x2="114" y2="141.75" fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="148" x2="128" y2="138" fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="137" y1="150.41" x2="142" y2="141.75" fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="143.59" y1="157" x2="152.25" y2="152" fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <line x1="112.41" y1="157" x2="103.75" y2="152" fill="none" stroke="#B7B0A0" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="119" y1="150.41" x2="114" y2="141.75" fill="none" stroke="#B7B0A0" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="148" x2="128" y2="138" fill="none" stroke="#B7B0A0" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="137" y1="150.41" x2="142" y2="141.75" fill="none" stroke="#B7B0A0" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="143.59" y1="157" x2="152.25" y2="152" fill="none" stroke="#B7B0A0" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <line id="vision_familiar_future__engraving-ray-1" x1="112.41" y1="157" x2="103.75" y2="152" fill="none" stroke="#B3AB99" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_familiar_future__engraving-ray-2" x1="119" y1="150.41" x2="114" y2="141.75" fill="none" stroke="#B3AB99" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_familiar_future__engraving-ray-3" x1="128" y1="148" x2="128" y2="138" fill="none" stroke="#B3AB99" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_familiar_future__engraving-ray-4" x1="137" y1="150.41" x2="142" y2="141.75" fill="none" stroke="#B3AB99" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_familiar_future__engraving-ray-5" x1="143.59" y1="157" x2="152.25" y2="152" fill="none" stroke="#B3AB99" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_familiar_future__highlight"/>
+  <g id="vision_familiar_future__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="202" r="3" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="166" r="10" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="202" r="3" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="166" r="10" fill="#B7B0A0"/>
+    </g>
+    <circle id="vision_familiar_future__accent-base-gem" cx="128" cy="202" r="3" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="vision_familiar_future__accent-orb">
+      <circle cx="128" cy="166" r="10" fill="url(#vision_familiar_future-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="124.8" cy="162.4" r="2.6" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+  </g>
+</svg>

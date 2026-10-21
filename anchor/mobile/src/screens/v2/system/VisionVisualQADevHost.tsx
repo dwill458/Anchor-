@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DeviceEventEmitter, DevSettings, Image, Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, DeviceEventEmitter, DevSettings, Image, Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { runOnJS, useFrameCallback, useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,9 +15,11 @@ import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
 import { VisionIntroStage } from '@/components/v2/vision/VisionIntroStage';
 import { VisionMethodStage } from '@/components/v2/vision/VisionMethodStage';
 import { VisionAddSheet } from '@/components/v2/vision/VisionAddSheet';
+import { VisionAddSceneSheet } from '@/components/v2/vision/VisionAddSceneSheet';
 import { V2VisionAddPhoto } from '@/components/v2/vision/V2VisionAddPhoto';
 import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
 import { VisionEditorialPreview } from '@/components/v2/vision/VisionEditorialPreview';
+import { VisionPreviewCard } from '@/components/v2/vision/VisionPreviewCard';
 import { useVisionEditorialNotes } from '@/components/v2/vision/useVisionEditorialNotes';
 import { nextVisionNotePresentation, defaultVisionNoteOccupancy, visionBoardAspectForCount } from '@/components/v2/vision/notes/visionNotePlacement';
 import { VisionNoteRenderer, VISION_NOTE_PRESETS } from '@/components/v2/vision/notes';
@@ -61,6 +63,43 @@ const fixtureNote: VisionNote = { id: 'qa-note', visionId: 'qa', content: { text
   presentation: { styleId: 'paper_blush_torn', x: .26, y: .34, width: .3, height: .24, rotation: -3, scale: 1, layerOrder: 1 },
   createdAt: '2026-10-10T00:00:00Z', updatedAt: '2026-10-10T00:00:00Z' };
 const fixtureNotes: VisionNote[] = [fixtureNote];
+
+/** Recovery matrix: production components with local-only CRUD; never writes fixture data to an account. */
+function VisionRecoveryLab({ identity, count, noteCount, onClose, onCompose }: {
+  identity: any; count: number; noteCount: number; onClose: () => void; onCompose: () => void;
+}) {
+  // Exercise finished artwork and the real aura renderer on a clean, signed-out emulator.
+  const art = { ...identity.anchorArt, imageUrl: identity.anchorArt.imageUrl ?? fixtureUri(require('@/assets/onboarding/screen5/anchor-verdigris-relic.png')),
+    threadStrength: identity.anchorArt.threadStrength ?? 60 };
+  const [photos, setPhotos] = useState(() => sessionTiles.slice(0, count));
+  const [notes, setNotes] = useState<VisionNote[]>(() => {
+    const result: VisionNote[] = [];
+    for (let i = 0; i < noteCount; i++) result.push({ ...fixtureNote, id: `recovery-note-${i}`,
+      content: { text: i ? 'Keep growing. Make room for family.' : 'A life with room to create.' },
+      presentation: nextVisionNotePresentation(i ? 'sticky_butter_yellow' : 'sticky_blush_pink', result,
+        defaultVisionNoteOccupancy(count), visionBoardAspectForCount(count)) });
+    return result;
+  });
+  const [entry, setEntry] = useState<VisionVisualizeEntry | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const qaAnchor = { id: 'qa-recovery', localId: 'qa-recovery', intentionText: identity.anchorIntention,
+    category: identity.anchorCategory, baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null,
+    enhancedImageUrl: art.imageUrl, threadStrength: art.threadStrength } as any;
+  if (entry) return <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-recovery"
+    tiles={photos} notes={notes} entry={entry} initialDuration={60} onBack={() => setEntry(null)} onBegin={noop} />;
+  return <View style={{ flex: 1 }}><V2SavedVision {...identity} anchorArt={art} tiles={photos} notes={notes} description={description} onBack={onClose}
+    onVisualize={sourceFrame => setEntry({ anchorId: qaAnchor.id, visionId: 'qa-recovery', tiles: photos, notes, sourceFrame })}
+    onNotePresentationChange={async (id, presentation) => { setNotes(previous => previous.map(note => note.id === id ? { ...note, presentation } : note)); return true; }}
+    onNoteEdit={noop} onNoteDelete={id => Alert.alert('Delete this note?', 'Local QA fixture only.', [
+      { text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => setNotes(previous => previous.filter(note => note.id !== id)) },
+    ])} onUpdateDescription={saved} onChart={noop} onReorder={saved}
+    onRemove={async id => { setPhotos(previous => previous.filter(photo => photo.sceneId !== id)); return true; }}
+    onAddImage={() => setAddOpen(true)} onAddPhoto={noop} onAddGenerate={noop} onReplace={async () => undefined}
+    onRegenerate={noop} canGenerateMore onArchive={saved} />
+    <VisionAddSceneSheet visible={addOpen} onClose={() => setAddOpen(false)} anchorIntention={identity.anchorIntention}
+      canAddImage={photos.length < 8} onSubmit={() => setAddOpen(false)} onAddNote={onCompose} onAddOwnPhoto={noop} />
+  </View>;
+}
 
 /** Actual board-to-setup interaction, using clearly identified fixtures and no account writes. */
 function VisionEntryLab({ identity, count, onClose }: { identity: any; count: number; onClose: () => void }) {
@@ -239,7 +278,7 @@ export function VisionVisualQADevHost() {
     });
 
     const open = ({ url }: { url: string }) => {
-      if (!url.startsWith('anchor://vision-visual-qa')) return;
+      if (!/^(anchor|anchor-sqlcipher-qa):\/\/vision-visual-qa(?:[?\/]|$)/.test(url)) return;
       const voice = url.split('voice=')[1]?.split('&')[0];
       setQaVoice(voice === 'male' || voice === 'female' ? voice : 'none');
       const duration = Number(url.split('duration=')[1]?.split('&')[0]);
@@ -261,7 +300,10 @@ export function VisionVisualQADevHost() {
   if (surface === 'geometry' && anchor) return <Modal visible animationType="none" onRequestClose={close}><SavedImageGeometry anchorId={anchor.id} /></Modal>;
   const twoUp = (status: string, count: number) => ({ id: 'qa-job', kind: 'SCENE', status, stage: 'creating_images', setNumber: 1, retryCount: 0, error: null,
     candidates: candidates.slice(0, count).map((candidate, index) => ({ ...candidate, sortOrder: index })) }) as unknown as VisionGenerationJob;
-  if (surface?.startsWith('entry-')) {
+  if (surface?.startsWith('recovery-')) {
+    content = <VisionRecoveryLab key={surface} identity={identity} count={Math.min(8, Number(surface.split('-')[1]) || 0)}
+      noteCount={Math.min(3, Number(surface.split('-')[2]) || 0)} onClose={close} onCompose={() => setSurface('note-composer')} />;
+  } else if (surface?.startsWith('entry-')) {
     content = <VisionEntryLab key={surface} identity={identity} count={Math.max(1, Math.min(8, Number(surface.split('-')[1]) || 6))} onClose={close} />;
   } else if (surface?.startsWith('note-placement-')) {
     content = <NotePlacementLab key={surface} identity={identity} family={surface.split('-')[2]} onClose={close} />;
@@ -330,8 +372,9 @@ export function VisionVisualQADevHost() {
     content = <ScrollView key={surface} contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, flexGrow: 1, backgroundColor: home ? colors.ink.base : colors.canvas }}>
       <Text style={{ ...typography.headingMD, color: home ? colors.paper : colors.text.primary }}>QA fixture · {surface}</Text>
       {home ? <V2HomeVisionSection vision={{ state: 'ready', visionId: 'qa', tiles: previewTiles, notes: surface.includes('notes') ? fixtureNotes : undefined, previewText: description, seenToday: false }} categoryColor="#CE6091" onOpenVision={noop} /> :
-        <View style={{ marginTop: 24 }}><VisionEditorialPreview tiles={previewTiles} variant="details" accent="#CE6091" onPress={noop}
-          noteElements={surface.includes('notes') ? fixtureNoteElements : undefined} /></View>}
+        <View style={{ marginTop: 24 }}><Text style={typography.headingMD}>Vision</Text><VisionPreviewCard tiles={previewTiles} variant="details" title={null}
+          statement={description} accent="#CE6091" onPress={noop} testID="v2-details-vision"
+          noteCount={surface.includes('notes') ? fixtureNotes.length : 0} /></View>}
     </ScrollView>;
   }
   else content = <V2SavedVision {...identity} key={surface} tiles={tiles.slice(0, Number(surface) || 0)} description={description} onBack={close} onVisualize={noop} onChart={noop}

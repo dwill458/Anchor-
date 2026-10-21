@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="commitment_ten_practices" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Ten Practices (Commitment) earned">
+  <title>Ten Practices (Commitment) earned</title>
+  <desc>Anchor milestone emblem. Provisional design slug: commitment_ten_practices. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="commitment_ten_practices-orb" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F8E2A8"/><stop offset="0.38" stop-color="#DDB35F"/>
+      <stop offset="0.78" stop-color="#B08A46"/><stop offset="1" stop-color="#7E5E28"/>
+    </radialGradient>
+    <radialGradient id="commitment_ten_practices-plate" cx="36%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#FFFBF0"/><stop offset="0.6" stop-color="#F7F0DE"/><stop offset="1" stop-color="#EBE3CF"/>
+    </radialGradient>
+    <linearGradient id="commitment_ten_practices-metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2D08A"/><stop offset="0.5" stop-color="#D9B263"/><stop offset="1" stop-color="#A98245"/>
+    </linearGradient>
+  </defs>
+  <g id="commitment_ten_practices__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#commitment_ten_practices-plate)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CDBE96" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFF6DC" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B08A50" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#F0DFB4" stroke-width="0.7"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#B39561" stroke-width="1.2"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FEEED2" stroke-width="0.6"/>
+  </g>
+  <g id="commitment_ten_practices__art" transform="translate(128 128) scale(0.973) translate(-128 -128)">
+  <g id="commitment_ten_practices__structure">
+    <circle id="commitment_ten_practices__structure-ring-outer" cx="128" cy="128" r="94" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+    <circle id="commitment_ten_practices__structure-ring-core" cx="128" cy="128" r="27" fill="none" stroke="#13222C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_ten_practices__emblem">
+    <g id="commitment_ten_practices__emblem-mark-01">
+      <path d="M128 94L122.34 72.29L128 44Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 94L128 44L133.66 72.29Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-02">
+      <path d="M147.98 100.49L156.17 79.6L177.37 60.04Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M147.98 100.49L177.37 60.04L165.33 86.25Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-03">
+      <path d="M160.34 117.49L179.24 105.4L207.89 102.04Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M160.34 117.49L207.89 102.04L182.74 116.17Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-04">
+      <path d="M160.34 138.51L182.74 139.83L207.89 153.96Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M160.34 138.51L207.89 153.96L179.24 150.6Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-05">
+      <path d="M147.98 155.51L165.33 169.75L177.37 195.96Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M147.98 155.51L177.37 195.96L156.17 176.4Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-06">
+      <path d="M128 162L133.66 183.71L128 212Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 162L128 212L122.34 183.71Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-07">
+      <path d="M108.02 155.51L99.83 176.4L78.63 195.96Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M108.02 155.51L78.63 195.96L90.67 169.75Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-08">
+      <path d="M95.66 138.51L76.76 150.6L48.11 153.96Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M95.66 138.51L48.11 153.96L73.26 139.83Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-09">
+      <path d="M95.66 117.49L73.26 116.17L48.11 102.04Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M95.66 117.49L48.11 102.04L76.76 105.4Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-10">
+      <path d="M108.02 100.49L90.67 86.25L78.63 60.04Z" fill="#13222C" stroke="#13222C" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M108.02 100.49L78.63 60.04L99.83 79.6Z" fill="#3A4A55" stroke="#3A4A55" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+  <g id="commitment_ten_practices__engraving">
+    <circle id="commitment_ten_practices__engraving-dot-01" cx="149.63" cy="61.43" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-02" cx="184.63" cy="86.86" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-03" cx="198" cy="128" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-04" cx="184.63" cy="169.14" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-05" cx="149.63" cy="194.57" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-06" cx="106.37" cy="194.57" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-07" cx="71.37" cy="169.14" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-08" cx="58" cy="128" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-09" cx="71.37" cy="86.86" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-dot-10" cx="106.37" cy="61.43" r="1.9" fill="#13222C"/>
+    <circle id="commitment_ten_practices__engraving-ring-fine" cx="128" cy="128" r="44" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+  </g>
+  <g id="commitment_ten_practices__highlight">
+    <path id="commitment_ten_practices__highlight-tip-gold" d="M128 44L123.61 54.13L132.39 54.13Z" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_ten_practices__accent">
+    <circle id="commitment_ten_practices__accent-bead-01" cx="152.72" cy="51.92" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-02" cx="192.72" cy="80.98" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-03" cx="208" cy="128" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-04" cx="192.72" cy="175.02" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-05" cx="152.72" cy="204.08" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-06" cx="103.28" cy="204.08" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-07" cx="63.28" cy="175.02" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-08" cx="48" cy="128" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-09" cx="63.28" cy="80.98" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-10" cx="103.28" cy="51.92" r="3.2" fill="#C9A24A" stroke="#A07C3E" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="commitment_ten_practices__accent-orb">
+      <circle cx="128" cy="128" r="11" fill="url(#commitment_ten_practices-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="124.48" cy="124.04" r="2.86" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+  </g>
+  </g>
+</svg>

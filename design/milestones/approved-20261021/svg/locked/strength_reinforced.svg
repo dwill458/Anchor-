@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="strength_reinforced" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Reinforced (Strength) locked">
+  <title>Reinforced (Strength) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: strength_reinforced. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="strength_reinforced-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="strength_reinforced-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="strength_reinforced__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#strength_reinforced-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="strength_reinforced__art" transform="translate(128 128) scale(1.05) translate(-128 -128)">
+  <g id="strength_reinforced__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="128" r="80" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="75" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="128" r="80" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="75" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <circle id="strength_reinforced__structure-ring-fine" cx="128" cy="128" r="80" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__structure-ring-outer" cx="128" cy="128" r="75" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_reinforced__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M128 66L181.69 97L181.69 159L128 190L74.31 159L74.31 97Z" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M143 102.02L158 128L143 153.98L113 153.98L98 128L113 102.02Z" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M128 66L181.69 97L181.69 159L128 190L74.31 159L74.31 97Z" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M143 102.02L158 128L143 153.98L113 153.98L98 128L113 102.02Z" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="strength_reinforced__emblem-hex-outer" d="M128 66L181.69 97L181.69 159L128 190L74.31 159L74.31 97Z" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_reinforced__emblem-hex-inner" d="M143 102.02L158 128L143 153.98L113 153.98L98 128L113 102.02Z" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_reinforced__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <line x1="128" y1="66" x2="113" y2="102.02" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="66" x2="143" y2="102.02" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="97" x2="143" y2="102.02" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="97" x2="158" y2="128" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="159" x2="158" y2="128" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="159" x2="143" y2="153.98" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="190" x2="143" y2="153.98" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="190" x2="113" y2="153.98" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="159" x2="113" y2="153.98" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="159" x2="98" y2="128" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="97" x2="98" y2="128" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="97" x2="113" y2="102.02" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="62" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <line x1="128" y1="66" x2="113" y2="102.02" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="66" x2="143" y2="102.02" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="97" x2="143" y2="102.02" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="97" x2="158" y2="128" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="159" x2="158" y2="128" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="181.69" y1="159" x2="143" y2="153.98" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="190" x2="143" y2="153.98" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="190" x2="113" y2="153.98" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="159" x2="113" y2="153.98" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="159" x2="98" y2="128" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="97" x2="98" y2="128" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="74.31" y1="97" x2="113" y2="102.02" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="62" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+    </g>
+    <line id="strength_reinforced__engraving-strut-01" x1="128" y1="66" x2="113" y2="102.02" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-02" x1="128" y1="66" x2="143" y2="102.02" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-03" x1="181.69" y1="97" x2="143" y2="102.02" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-04" x1="181.69" y1="97" x2="158" y2="128" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-05" x1="181.69" y1="159" x2="158" y2="128" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-06" x1="181.69" y1="159" x2="143" y2="153.98" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-07" x1="128" y1="190" x2="143" y2="153.98" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-08" x1="128" y1="190" x2="113" y2="153.98" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-09" x1="74.31" y1="159" x2="113" y2="153.98" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-10" x1="74.31" y1="159" x2="98" y2="128" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-11" x1="74.31" y1="97" x2="98" y2="128" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-12" x1="74.31" y1="97" x2="113" y2="102.02" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__engraving-ring-circum" cx="128" cy="128" r="62" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  </g>
+  <g id="strength_reinforced__highlight"/>
+  <g id="strength_reinforced__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="66" r="5.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="181.69" cy="97" r="5.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="181.69" cy="159" r="5.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="190" r="5.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="74.31" cy="159" r="5.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="74.31" cy="97" r="5.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="17" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="11" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="66" r="5.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="181.69" cy="97" r="5.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="181.69" cy="159" r="5.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="190" r="5.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="74.31" cy="159" r="5.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="74.31" cy="97" r="5.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="17" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="11" fill="#B7B0A0"/>
+    </g>
+    <circle id="strength_reinforced__accent-node-01" cx="128" cy="66" r="5.5" fill="#B3AB99" stroke="#8C867A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-02" cx="181.69" cy="97" r="5.5" fill="#B3AB99" stroke="#8C867A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-03" cx="181.69" cy="159" r="5.5" fill="#B3AB99" stroke="#8C867A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-04" cx="128" cy="190" r="5.5" fill="#B3AB99" stroke="#8C867A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-05" cx="74.31" cy="159" r="5.5" fill="#B3AB99" stroke="#8C867A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-06" cx="74.31" cy="97" r="5.5" fill="#B3AB99" stroke="#8C867A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-ring-core" cx="128" cy="128" r="17" fill="#EDE9DE" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="strength_reinforced__accent-orb">
+      <circle cx="128" cy="128" r="11" fill="url(#strength_reinforced-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="124.48" cy="124.04" r="2.86" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+  </g>
+</svg>

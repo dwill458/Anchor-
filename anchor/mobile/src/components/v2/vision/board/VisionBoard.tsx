@@ -92,6 +92,9 @@ export function VisionBoard({
   const [focus, setFocus] = useState<VisionBoardFocus>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const selectNote = useCallback((id: string) => { setSelectedNoteId(id); v2Haptics.selection(); }, []);
+  useEffect(() => {
+    if (selectedNoteId && !notes.some(note => note.id === selectedNoteId && !note.isArchived)) setSelectedNoteId(null);
+  }, [notes, selectedNoteId]);
   const [dragging, setDragging] = useState(false);
   const teachingViewportRef = useRef<ViewInstance>(null);
   const [teachingMovingObjects, setTeachingMovingObjects] = useState<ReadonlySet<string>>(() => new Set());

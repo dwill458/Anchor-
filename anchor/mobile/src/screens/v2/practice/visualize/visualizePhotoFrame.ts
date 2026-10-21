@@ -1,5 +1,6 @@
-import { boardSizeForWidth, detailBoardSizeForWidth, selectBoardLayout, selectDetailBoardLayout, toSceneRect,
+import { boardSizeForWidth, detailBoardSizeForWidth, selectBoardLayout, selectDetailBoardLayout, toSceneRect, VISION_BOARD_PAPER_MARK_SCALE,
   type BoardLayout, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
+import type { VisionNote } from '@/adapters/v2/vision';
 
 export type VisualizePhotoFrame = {
   scene: Size;
@@ -19,13 +20,15 @@ const PHOTO_FRAME_BLEED = 12;
 export function availableVisualizePhotoHeight(input: {
   viewportHeight: number;
   headingHeight: number;
+  identityHeight?: number;
   topPadding: number;
   bodyGap: number;
   maximumHeight: number;
 }): number {
-  // Identity and controls remain in the existing scroll flow below the collage.
-  // Keep only the heading and one gap above the complete photo composition.
-  const fixedContent = input.headingHeight + input.topPadding + input.bodyGap;
+  // The entrance opts into reserving its measured identity. Other callers retain
+  // the original photo-only budget; duration/audio controls stay in the scroll flow.
+  const fixedContent = input.headingHeight + input.topPadding + input.bodyGap
+    + (input.identityHeight === undefined ? 0 : input.identityHeight + input.bodyGap);
   return Math.max(1, Math.min(input.maximumHeight, input.viewportHeight - fixedContent - 4));
 }
 
@@ -52,10 +55,26 @@ export function visualizeEntrySceneTransform(progress: number, sourceFrame: Visu
   return { scale, left: -photoFrame.scene.width * (1 - scale) / 2, top: -photoFrame.scene.height * (1 - scale) / 2 };
 }
 
-function photoCompositionBounds(imageCount: number, scene: Size) {
-  const photos = selectDetailBoardLayout(imageCount).photos;
-  const bounds = photos.map(photo => {
-    const rect = toSceneRect(photo, scene);
+type EntranceDecor = { anchor?: boolean; notes?: readonly VisionNote[] };
+
+function photoCompositionBounds(imageCount: number, scene: Size, decor?: EntranceDecor) {
+  const layout = selectDetailBoardLayout(imageCount);
+  const rectangles = layout.photos.map(photo => toSceneRect(photo, scene));
+  if (decor?.anchor) {
+    const rect = toSceneRect(layout.card, scene);
+    const diameter = rect.width * VISION_BOARD_PAPER_MARK_SCALE;
+    rectangles.push({ ...rect, x: rect.x + (rect.width - diameter) / 2, y: rect.y + (rect.height - diameter) / 2,
+      width: diameter, height: diameter });
+  }
+  for (const note of decor?.notes ?? []) {
+    if (note.isArchived) continue;
+    const p = note.presentation;
+    const width = p.width * scene.width * p.scale;
+    const height = p.height * scene.height * p.scale;
+    rectangles.push({ x: p.x * scene.width - width / 2, y: p.y * scene.height - height / 2,
+      width, height, rotation: p.rotation, zIndex: p.layerOrder });
+  }
+  const bounds = rectangles.map(rect => {
     const radians = rect.rotation * Math.PI / 180;
     const width = Math.abs(rect.width * Math.cos(radians)) + Math.abs(rect.height * Math.sin(radians));
     const height = Math.abs(rect.height * Math.cos(radians)) + Math.abs(rect.width * Math.sin(radians));
@@ -83,11 +102,12 @@ export function fitVisualizePhotoFrame(
   maxWidth: number,
   maxHeight: number,
   sceneHeight?: number,
+  decor?: EntranceDecor,
 ): VisualizePhotoFrame {
   const scene = Number.isFinite(sceneHeight) && (sceneHeight ?? 0) > 0
     ? { width: sceneWidth, height: sceneHeight! }
     : detailBoardSizeForWidth(sceneWidth, imageCount);
-  const bounds = photoCompositionBounds(imageCount, scene);
+  const bounds = photoCompositionBounds(imageCount, scene, decor);
   const compositionWidth = Math.max(1, bounds.right - bounds.left);
   const compositionHeight = Math.max(1, bounds.bottom - bounds.top);
   const scale = Math.min(1, Math.max(1, maxWidth) / compositionWidth, Math.max(1, maxHeight) / compositionHeight);

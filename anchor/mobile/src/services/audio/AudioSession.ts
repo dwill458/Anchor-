@@ -3,8 +3,8 @@ import { sfxLog } from './sfxLog';
 
 export type AudioSessionMode = 'effects' | 'session';
 
-// Flip to false in Phase 2 if effects should also play with the ringer switch on.
-const SFX_RESPECT_SILENT_SWITCH = true;
+// Phase 2: Effects play whenever media volume is up, even if the device ringer switch is on silent/vibrate.
+const SFX_RESPECT_SILENT_SWITCH = false;
 
 let modeQueue = Promise.resolve();
 

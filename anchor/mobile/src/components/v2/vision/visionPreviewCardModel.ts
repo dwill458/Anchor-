@@ -1,4 +1,5 @@
 import { selectEditorialImages, type VisionEditorialImage, type VisionEditorialTile } from './visionEditorialLayout';
+import { VISION_PHOTO } from './material/visionMaterialTokens';
 
 /**
  * Pure model behind the compact Vision preview cards (Home, Anchor Details, Progress).
@@ -94,9 +95,6 @@ const PRINT_SLOTS: Record<1 | 2 | 3, VisionPrintSlot[]> = {
   ],
 };
 
-/** Stage height in stage-width units for 1, 2 or 3+ prints: the lowest print's foot plus a little for tilt. */
-const STAGE_HEIGHT: Record<1 | 2 | 3, number> = { 1: 0.42, 2: 0.4, 3: 0.4 };
-
 /** Slots for up to three prints; a count above three uses the three-print layout. */
 export function visionPrintSlots(printCount: number): VisionPrintSlot[] {
   const count = Math.min(VISION_PREVIEW_PRINT_LIMIT, Math.max(0, Math.floor(printCount)));
@@ -105,9 +103,15 @@ export function visionPrintSlots(printCount: number): VisionPrintSlot[] {
 }
 
 export function visionStageHeight(printCount: number): number {
-  const count = Math.min(VISION_PREVIEW_PRINT_LIMIT, Math.max(0, Math.floor(printCount)));
-  if (count === 0) return 0;
-  return STAGE_HEIGHT[count as 1 | 2 | 3];
+  // Match VisionPhotoArtifact's mount, including the rotated bottom edge. The
+  // caption follows this stage in normal flow and must never sit under a print.
+  return Math.max(0, ...visionPrintSlots(printCount).map(slot => {
+    const height = slot.width * (3 * VISION_PHOTO.sidePadRatio
+      + (1 - 2 * VISION_PHOTO.sidePadRatio) / VISION_PREVIEW_PRINT_ASPECT);
+    const radians = slot.rotation * Math.PI / 180;
+    const rotatedHeight = Math.abs(slot.width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
+    return slot.y + height / 2 + rotatedHeight / 2;
+  }));
 }
 
 /** Collapses whitespace and case so a caption that repeats the intention is recognised. */

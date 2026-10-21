@@ -5,7 +5,7 @@ import { uncelebrated, type MilestoneRecord } from '@/milestones/milestoneModel'
 /**
  * Milestones waiting to be presented this session. It is only a queue: ownership lives on the
  * server, and the presentation receipt is written by `settleMilestone` when a celebration ends.
- * Several unlocks at once line up here and play one after another, never stacked.
+ * Only a server-reserved featured award may enter the automatic queue.
  */
 export type MilestonePresentation = {
   /** Unique per presentation. A replay of the same milestone gets its own key. */
@@ -17,6 +17,7 @@ export type MilestonePresentation = {
   onReturn?: () => void;
   transition?: boolean;
   origin?: { x: number; y: number };
+  isActive?: () => boolean;
 };
 
 type MilestoneCelebrationState = {
@@ -29,8 +30,8 @@ type MilestoneCelebrationState = {
   origin: { sessionId: string; anchorId: string; x: number; y: number } | null;
   setOrigin: (origin: MilestoneCelebrationState['origin']) => void;
   takeOrigin: (record: MilestoneRecord) => { x: number; y: number } | undefined;
-  /** Queues records not yet celebrated, oldest first. Returns how many were added. */
-  enqueueAwards: (records: readonly MilestoneRecord[], accountId: string | null) => number;
+  /** Bounded to one reserved automatic award. Gallery reads cannot enqueue history. */
+  enqueueAwards: (records: readonly MilestoneRecord[], accountId: string | null, isActive?: () => boolean, onReturn?: () => void) => number;
   /** Queues a replay of an earned milestone. It never awards, settles or writes anything. */
   requestReplay: (record: MilestoneRecord, onReturn?: () => void) => void;
   /** Removes the presentation that just ended. */
@@ -55,11 +56,13 @@ export const useMilestoneCelebrationStore = create<MilestoneCelebrationState>()(
   hold: (key) => set(state => ({ holds: state.holds.includes(key) ? state.holds : [...state.holds, key] })),
   release: (key) => set(state => ({ holds: state.holds.filter(id => id !== key) })),
 
-  enqueueAwards: (records, accountId) => {
+  enqueueAwards: (records, accountId, isActive, onReturn) => {
     const { seen, queue } = get();
-    const fresh = uncelebrated(records).filter((record) => !seen.includes(record.id));
+    if (queue.some(item => item.mode === 'award')) return 0;
+    const fresh = uncelebrated(records).filter((record) => !seen.includes(record.id) &&
+      record.presentationId && Date.parse(record.presentationExpiresAt ?? '') > Date.now()).slice(0, 1);
     if (fresh.length === 0) return 0;
-    const additions = fresh.map<MilestonePresentation>((record, index) => ({ key: `award:${record.id}`, mode: 'award', accountId, record, transition: queue.length === 0 && index === 0 }));
+    const additions = fresh.map<MilestonePresentation>((record) => ({ key: `award:${record.id}`, mode: 'award', accountId, record, transition: true, isActive, onReturn }));
     // Awards play before any replay that happens to be waiting, in the order they were earned.
     const firstReplay = queue.findIndex((item) => item.mode === 'replay');
     const next = firstReplay === -1 ? [...queue, ...additions] : [...queue.slice(0, firstReplay), ...additions, ...queue.slice(firstReplay)];

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { withSpring } from 'react-native-reanimated';
@@ -20,6 +20,10 @@ function Host() {
 }
 
 describe('V2SheetModal', () => {
+  it('includes keyboard clearance in the measured root so the lifted sheet remains inside its touch bounds', () => {
+    const view = render(<V2SheetModal visible onClose={jest.fn()} bottomInset={280} testID="keyboard-sheet"><Text>Typing</Text></V2SheetModal>);
+    expect(StyleSheet.flatten(view.getByTestId('keyboard-sheet-layout').props.style).paddingBottom).toBe(280);
+  });
   it('renders its content while visible', () => {
     render(<Host />);
     expect(screen.getByText('Sheet body')).toBeTruthy();

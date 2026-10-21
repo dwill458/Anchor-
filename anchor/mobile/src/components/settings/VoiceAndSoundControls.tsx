@@ -36,14 +36,24 @@ const VOICE_OPTIONS: Array<{
   description: string;
 }> = [
   {
+    voice: "male",
+    label: "Grounded",
+    description: "Steady, measured, reassuring",
+  },
+  {
     voice: "female",
     label: "Serene",
     description: "Gentle, warm, reflective",
   },
   {
-    voice: "male",
-    label: "Grounded",
-    description: "Steady, measured, reassuring",
+    voice: "warm",
+    label: "Warm",
+    description: "Warm, calm guidance",
+  },
+  {
+    voice: "soothing",
+    label: "Soothing",
+    description: "Soothing, steady guidance",
   },
   {
     voice: "none",

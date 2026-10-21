@@ -93,8 +93,9 @@ describe('Visualize prepares behind its real setup board', () => {
 
     act(() => mockPreparation.onPrepared(prepared));
     expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
-    expect(mockBoardSceneProps.notes).toBeUndefined();
-    expect(mockBoardSceneProps.showIntentionCard).toBe(false);
+    expect(mockBoardSceneProps.notes).toEqual([note]);
+    expect(mockBoardSceneProps.showIntentionCard).toBe(true);
+    expect(mockBoardSceneProps.showAnchorMark).toBe(true);
     expect(mockUseBoardScene).toHaveBeenLastCalledWith(tiles, expect.anything(), 1, true);
     } finally {
       jest.useRealTimers();

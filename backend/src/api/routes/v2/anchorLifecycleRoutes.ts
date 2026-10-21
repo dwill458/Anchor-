@@ -17,7 +17,7 @@ async function handleCompleteAnchor(
     const { id } = req.params;
 
     const result = await intentionCompletionService.completeIntention(userId, id);
-    await milestoneService.evaluateQuietly(userId, id);
+    void milestoneService.evaluateQuietly(userId, id, { kind: 'goal', sourceEntityId: id });
     res.json({
       success: true,
       data: result,

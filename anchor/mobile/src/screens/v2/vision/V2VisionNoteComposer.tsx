@@ -358,8 +358,9 @@ const styles = StyleSheet.create({
   /** Tape sits across the top edge of the note, half on the paper and half on the print. */
   tape: { position: 'absolute', top: -9, alignSelf: 'center', zIndex: 3 },
   previewCaption: { ...typography.caption, color: colors.text.secondary, marginTop: spacing[2] },
-  inputBlock: { minHeight: 112, padding: spacing[3], borderRadius: radii.md, borderWidth: StyleSheet.hairlineWidth, borderColor: VISION_PAPER.foxing, backgroundColor: colors.surface },
-  input: { ...typography.bodyMD, color: colors.text.primary, minHeight: 64, maxHeight: 140, padding: 0 },
+  // Reserve two input lines plus the counter; longer drafts grow within the scrollable form.
+  inputBlock: { minHeight: 88, padding: spacing[3], borderRadius: radii.md, borderWidth: StyleSheet.hairlineWidth, borderColor: VISION_PAPER.foxing, backgroundColor: colors.surface },
+  input: { ...typography.bodyMD, color: colors.text.primary, minHeight: 40, maxHeight: 140, padding: 0 },
   counter: { ...typography.caption, color: colors.text.tertiary, textAlign: 'right', marginTop: spacing[1] },
   sectionBlock: { marginTop: spacing[5] },
   sectionLabel: { ...typography.caption, color: colors.text.secondary, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: '600' },

@@ -2,11 +2,21 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 import { VisionAddSceneSheet } from '../VisionAddSceneSheet';
 import { VISION_ADD_SHEET_HANDOFF_MS } from '../VisionAddSheet';
+import { Keyboard, Platform } from 'react-native';
+import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 
 const mockPick = jest.fn();
 jest.mock('@/hooks/v2/vision', () => ({ pickVisionPhoto: (...args: unknown[]) => mockPick(...args) }));
 
 const available = ExpoSpeechRecognitionModule.isRecognitionAvailable as jest.Mock;
+const mockReferenceRoleRender = jest.fn();
+jest.mock('../VisionRoleChip', () => {
+  const actual = jest.requireActual('../VisionRoleChip');
+  return { ...actual, VisionRoleChip: (props: any) => {
+    mockReferenceRoleRender();
+    return require('react').createElement(actual.VisionRoleChip, props);
+  } };
+});
 
 function renderSheet(overrides: Partial<Parameters<typeof VisionAddSceneSheet>[0]> = {}) {
   const props = { visible: true, onClose: jest.fn(), anchorIntention: 'Buy my dream home', onSubmit: jest.fn(), onAddOwnPhoto: jest.fn(), onAddNote: jest.fn(), ...overrides };
@@ -17,6 +27,35 @@ function renderSheet(overrides: Partial<Parameters<typeof VisionAddSceneSheet>[0
 describe('VisionAddSceneSheet', () => {
   beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); available.mockReturnValue(false); });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
+
+  it('does not rebuild the five-photo reference gallery on each typed character', () => {
+    const references = Array.from({ length: 5 }, (_, i) => ({ id: `photo-${i}`, uri: `file:///${i}.jpg`, mimeType: 'image/jpeg', role: 'place' as const }));
+    const view = renderSheet({ restoreDraft: { description: 'A quiet home', photo: null, references } });
+    const renders = mockReferenceRoleRender.mock.calls.length;
+    expect(renders).toBeGreaterThanOrEqual(5);
+    ['A quiet home a', 'A quiet home at', 'A quiet home at sunset'].forEach(value => {
+      fireEvent.changeText(view.getByTestId('vision-scene-input'), value);
+    });
+    expect(mockReferenceRoleRender).toHaveBeenCalledTimes(renders);
+    expect(view.getByTestId('vision-scene-input').props.value).toBe('A quiet home at sunset');
+  });
+
+  it('moves Android keyboard clearance into the measured modal root instead of translating its input outside the parent', () => {
+    const platform = jest.replaceProperty(Platform, 'OS', 'android');
+    const listeners = new Map<string, (event: any) => void>();
+    const listener = jest.spyOn(Keyboard, 'addListener').mockImplementation((name, callback) => {
+      listeners.set(name, callback);
+      return { remove: jest.fn() };
+    });
+    try {
+      const view = renderSheet();
+      const height = require('react-native').Dimensions.get('window').height;
+      act(() => { listeners.get('keyboardDidShow')?.({ endCoordinates: { screenY: height - 280 } }); });
+      expect(view.UNSAFE_getByType(V2SheetModal).props.bottomInset).toBe(280);
+      act(() => { listeners.get('keyboardDidHide')?.({}); });
+      expect(view.UNSAFE_getByType(V2SheetModal).props.bottomInset).toBe(0);
+    } finally { listener.mockRestore(); platform.restore(); }
+  });
 
   it('uses the approved add-scene copy, the description and Generate Images', () => {
     const view = renderSheet();

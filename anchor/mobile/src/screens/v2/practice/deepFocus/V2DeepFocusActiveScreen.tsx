@@ -85,25 +85,44 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
     ambientPlayer.current?.setVolume(gain);
     // The finished mix is one full-length recording (voice and bed together),
     // played once from the session start. Sound switched on late seeks to the clock.
-    const cue = plan.voiceCues.find(item => item.phaseId === FULL_MIX_PHASE_ID);
-    if (cue && voicePlayer.current) {
-      if (endFade <= 0) {
-        voicePlayer.current.stop();
-        voicePlayer.current = null;
-      } else {
-        voicePlayer.current.setVolume(cue.track.playbackGain * endFade);
+    const fullMixCue = plan.voiceCues.find(item => item.phaseId === FULL_MIX_PHASE_ID);
+    if (fullMixCue) {
+      if (voicePlayer.current) {
+        if (endFade <= 0) {
+          voicePlayer.current.stop();
+          voicePlayer.current = null;
+        } else {
+          voicePlayer.current.setVolume(fullMixCue.track.playbackGain * endFade);
+        }
+        return;
       }
+      if (!soundRef.current || played.current.has(fullMixCue.phaseId) || manualStart.value >= 0) return;
+      played.current.add(fullMixCue.phaseId);
+      const player = createSessionAudioPlayer(fullMixCue.track.asset, {
+        volume: fullMixCue.track.playbackGain,
+        onFinish: () => { fullMixFinished.current = true; },
+      });
+      if (time > 1) void player?.seekTo(time);
+      voicePlayer.current = player;
+      player?.play();
       return;
     }
-    if (!cue || !soundRef.current || played.current.has(cue.phaseId) || manualStart.value >= 0) return;
-    played.current.add(cue.phaseId);
-    const player = createSessionAudioPlayer(cue.track.asset, {
-      volume: cue.track.playbackGain,
-      onFinish: () => { fullMixFinished.current = true; },
-    });
-    if (time > 1) void player?.seekTo(time);
-    voicePlayer.current = player;
-    player?.play();
+
+    // Modular cues (Warm / Soothing 1.5 audio)
+    if (!soundRef.current || manualStart.value >= 0) return;
+    const remainingMs = Math.max(0, (durationSeconds - time) * 1000);
+    for (const cue of plan.voiceCues) {
+      if (remainingMs <= cue.triggerAtRemainingMs + 200 && !played.current.has(cue.phaseId)) {
+        played.current.add(cue.phaseId);
+        voicePlayer.current?.stop();
+        const player = createSessionAudioPlayer(cue.track.asset, {
+          volume: cue.track.playbackGain * endFade,
+        });
+        voicePlayer.current = player;
+        player?.play();
+        break;
+      }
+    }
   }, [createSessionAudioPlayer, durationSeconds, haptics, manualStart, plan]);
   const complete = useCallback((data: DeepFocusSessionData) => {
     ambientPlayer.current?.stop();

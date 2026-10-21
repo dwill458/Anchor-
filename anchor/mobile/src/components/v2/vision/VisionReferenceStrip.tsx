@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Camera, Images, MapPin, Package, Plus, Sparkles, Tag, UserRound, X } from 'lucide-react-native';
 import { pickVisionPhoto, type VisionPhotoSource } from '@/hooks/v2/vision';
@@ -46,7 +46,7 @@ export interface VisionReferenceStripProps {
 }
 
 /** A local-only, five-photo reference gallery. References are never routed through Photo Fit. */
-export function VisionReferenceStrip({
+export const VisionReferenceStrip = memo(function VisionReferenceStrip({
   references,
   onChange,
   onNotice,
@@ -271,7 +271,7 @@ export function VisionReferenceStrip({
         }} testID={`${testID}-role-chooser`} />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   disabled: { opacity: 0.55 },

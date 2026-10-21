@@ -98,6 +98,7 @@ type HarnessProps = {
   next?: CourseDetail | null;
   reducedMotion?: boolean;
   onWaypointReached?: jest.Mock;
+  onMilestoneBoundary?: jest.Mock;
   initialWaypointId?: string | null;
   actionError?: string | null;
   onOpenPractice?: jest.Mock;
@@ -114,6 +115,7 @@ function Harness({
   next = null,
   reducedMotion = true,
   onWaypointReached,
+  onMilestoneBoundary,
   initialWaypointId = null,
   actionError = null,
   onOpenPractice,
@@ -151,6 +153,7 @@ function Harness({
       reducedMotion={reducedMotion}
       celebration={celebration}
       onCelebrationDone={() => setCelebration(null)}
+      onMilestoneBoundary={onMilestoneBoundary}
       onBack={jest.fn()}
       chartActions={actions as never}
       initialWaypointId={initialWaypointId}
@@ -419,7 +422,8 @@ describe('ChartActiveView — reach ceremony', () => {
   });
   it('a confirmed reach runs the ceremony, then shows the commit card; "I\'m committed" dismisses it', async () => {
     const onWaypointReached = jest.fn();
-    const { getByTestId, findByTestId, queryByTestId, getByText, getAllByText, queryByText } = render(<Harness next={afterFirstReach()} onWaypointReached={onWaypointReached} />);
+    const onMilestoneBoundary = jest.fn();
+    const { getByTestId, findByTestId, queryByTestId, getByText, getAllByText, queryByText } = render(<Harness next={afterFirstReach()} onWaypointReached={onWaypointReached} onMilestoneBoundary={onMilestoneBoundary} />);
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
@@ -436,16 +440,19 @@ describe('ChartActiveView — reach ceremony', () => {
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
     expect(onWaypointReached.mock.calls[0][1]).toBe(1);
     expect(onWaypointReached.mock.calls[0][2]).toBe(3);
+    expect(onMilestoneBoundary).not.toHaveBeenCalled();
     fireEvent.press(getByText("I'm committed"));
     await settle(400);
     expect(queryByTestId('chart-waypoint-reached')).toBeNull();
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
+    expect(onMilestoneBoundary).toHaveBeenCalledTimes(1);
   });
 
   it('a failed reach plays no ceremony, shows no commit card, and keeps the error on screen', async () => {
     const onWaypointReached = jest.fn();
+    const onMilestoneBoundary = jest.fn();
     const { getByTestId, queryByTestId, getByText } = render(
-      <Harness next={null} onWaypointReached={onWaypointReached} actionError="That didn’t go through. Try again." />
+      <Harness next={null} onWaypointReached={onWaypointReached} onMilestoneBoundary={onMilestoneBoundary} actionError="That didn’t go through. Try again." />
     );
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
@@ -455,6 +462,7 @@ describe('ChartActiveView — reach ceremony', () => {
     await settle(400);
     expect(queryByTestId('chart-waypoint-reached')).toBeNull();
     expect(onWaypointReached).not.toHaveBeenCalled();
+    expect(onMilestoneBoundary).not.toHaveBeenCalled();
     fireEvent.press(getByTestId('chart-sheet-grabber'));
     expect(getByText('That didn’t go through. Try again.')).toBeTruthy();
     await settle(200);
@@ -464,7 +472,8 @@ describe('ChartActiveView — reach ceremony', () => {
 
   it('reaching the last waypoint plays the summit and ends on the arrival panel with View Vision and Release', async () => {
     const onWaypointReached = jest.fn();
-    const { getByTestId, findByText, findByTestId, getByText } = render(<Harness initial={lastWaypointCourse()} next={finishedCourse()} onWaypointReached={onWaypointReached} />);
+    const onMilestoneBoundary = jest.fn();
+    const { getByTestId, findByText, findByTestId, getByText } = render(<Harness initial={lastWaypointCourse()} next={finishedCourse()} onWaypointReached={onWaypointReached} onMilestoneBoundary={onMilestoneBoundary} />);
     await settle(300);
     fireEvent.press(getByTestId('chart-menu-button'));
     fireEvent.press(getByTestId('chart-mark-waypoint'));
@@ -479,6 +488,7 @@ describe('ChartActiveView — reach ceremony', () => {
     expect(getByText('Release')).toBeTruthy();
     expect(onWaypointReached).toHaveBeenCalledTimes(1);
     expect(onWaypointReached.mock.calls[0][0]).toMatchObject({ destinationReached: true });
+    await waitFor(() => expect(onMilestoneBoundary).toHaveBeenCalledTimes(1));
   });
 
   it('a Chart that is already finished opens straight on the arrival panel', async () => {

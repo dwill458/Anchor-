@@ -1,0 +1,4 @@
+src/screens/visualize/VisualizePreparationScreen.tsx(395,7): error TS2322: Type 'GuidanceVoice' is not assignable to type '"female" | "male" | "none"'.
+  Type '"warm"' is not assignable to type '"female" | "male" | "none"'.
+src/services/visualizeAudioManifest.ts(179,5): error TS2739: Type '{ female: number; male: number; }' is missing the following properties from type 'Readonly<Record<"female" | "male" | "warm" | "soothing", number>>': warm, soothing
+src/services/visualizeAudioManifest.ts(181,5): error TS2739: Type '{ female: "verified"; male: "verified"; }' is missing the following properties from type 'Readonly<Record<"female" | "male" | "warm" | "soothing", VisualizeAssetValidationStatus>>': warm, soothing

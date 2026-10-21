@@ -547,14 +547,14 @@ describe('V2ProgressScreen', () => {
       expect(setSelectedEvent).toHaveBeenCalledWith(expect.objectContaining({ id: 'evt-1' }));
     });
 
-    it('queues earned-but-uncelebrated milestones for celebration, once', () => {
+    it('shows historical earned progress without queueing celebrations on Progress reads', () => {
       mockUseAnchorMilestones.mockReturnValue(
         milestonesReturn([milestoneRecord('m1', 'commitment.practices.1', '2026-10-01T12:00:00.000Z')]),
       );
       mockUseV2Progress.mockReturnValue(hookReturn());
       const { rerender } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
       rerender(<V2ProgressScreen anchorId="anchor-progress-1" />);
-      expect(useMilestoneCelebrationStore.getState().queue.map((item) => item.record.id)).toEqual(['m1']);
+      expect(useMilestoneCelebrationStore.getState().queue).toEqual([]);
     });
 
     it('queues nothing for milestones already celebrated', () => {

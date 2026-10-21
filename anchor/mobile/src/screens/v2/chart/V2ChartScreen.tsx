@@ -20,6 +20,7 @@ import { useTrialStatus } from '@/hooks/useTrialStatus';
 import revenueCatService from '@/services/RevenueCatService';
 // DEFERRED: import { ChartJourneyWorld } from '@/components/v2/chart/ChartJourneyWorld';
 import { ChartStaticMap } from '@/components/v2/chart/panel/ChartStaticMap';
+import { queueMilestoneAction } from '@/milestones/queueMilestoneAction';
 
 export interface V2ChartRouteParams {
   anchorId?: string;
@@ -98,13 +99,11 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   useEffect(() => {
     if (!reachedParam || handledReached.current === reachedParam) return;
     handledReached.current = reachedParam;
-    if (!reachedParam.destinationReached) {
-      setCelebration({
+    setCelebration({
         completedTitle: reachedParam.completedTitle,
         nextTitle: reachedParam.nextTitle,
         fromFraction: reachedParam.total > 0 ? Math.max(0, (reachedParam.reachedCount - 1) / reachedParam.total) : 0,
-      });
-    }
+    });
     navigation.setParams({ reached: undefined });
   }, [navigation, reachedParam]);
 
@@ -115,10 +114,13 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   // an initial read failed before any Chart was cached, reopening this screen
   // must retry rather than leave the old unavailable message in place.
   const shouldRefreshOnFocus = useRef(false);
+  const milestoneBoundaryActive = useRef(true);
   shouldRefreshOnFocus.current = hasData || Boolean(chart.error);
   useFocusEffect(
     useCallback(() => {
+      milestoneBoundaryActive.current = true;
       if (shouldRefreshOnFocus.current) void refresh();
+      return () => { milestoneBoundaryActive.current = false; };
     }, [refresh])
   );
 
@@ -235,6 +237,9 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         reducedMotion={reducedMotion}
         celebration={celebration}
         onCelebrationDone={() => setCelebration(null)}
+        onMilestoneBoundary={(waypointId) => {
+          if (data.chart?.id) void queueMilestoneAction(anchorId, { kind: 'chart', sourceEntityId: data.chart.id, eventId: waypointId }, () => milestoneBoundaryActive.current);
+        }}
         onBack={handleBack}
         chartActions={chart}
         course={data.chart ?? undefined}

@@ -1,0 +1,69 @@
+{
+  "backend-tests": {
+    "numPassedTestSuites": 70,
+    "numFailedTestSuites": 2,
+    "numPendingTestSuites": 2,
+    "numPassedTests": 1149,
+    "numFailedTests": 50,
+    "numPendingTests": 23
+  },
+  "backend-focused-tests": {
+    "numPassedTestSuites": 8,
+    "numFailedTestSuites": 0,
+    "numPendingTestSuites": 0,
+    "numPassedTests": 159,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "mobile-tests": {
+    "numPassedTestSuites": 595,
+    "numFailedTestSuites": 8,
+    "numPendingTestSuites": 0,
+    "numPassedTests": 5998,
+    "numFailedTests": 26,
+    "numPendingTests": 1
+  },
+  "mobile-integration-tests": {
+    "numPassedTestSuites": 27,
+    "numFailedTestSuites": 1,
+    "numPendingTestSuites": 0,
+    "numPassedTests": 396,
+    "numFailedTests": 1,
+    "numPendingTests": 0
+  },
+  "mobile-focused-tests": {
+    "numPassedTestSuites": 15,
+    "numFailedTestSuites": 1,
+    "numPendingTestSuites": 0,
+    "numPassedTests": 190,
+    "numFailedTests": 1,
+    "numPendingTests": 0
+  },
+  "navigation-tests": {
+    "numPassedTestSuites": 0,
+    "numFailedTestSuites": 4,
+    "numPendingTestSuites": 0,
+    "numPassedTests": 16,
+    "numFailedTests": 11,
+    "numPendingTests": 0
+  },
+  "limitations": [
+    "No attached native device",
+    "No real PostgreSQL concurrency or migration acceptance",
+    "Explicit mobile goal-completion caller absent",
+    "Repository-wide failures remain; see report",
+    "Approved ZIP has ivory/gold Strength"
+  ],
+  "presenter-final-tests": {
+    "numPassedTestSuites": 1,
+    "numFailedTestSuites": 0,
+    "numPassedTests": 12,
+    "numFailedTests": 0
+  },
+  "nativeTypecheck": "Three pre-existing legacy Visualize voice errors; no milestone file errors",
+  "exports": {
+    "android": "index-c7419ead0bd115df70bf9654f8d46367.hbc",
+    "ios": "index-5bbdbff13167f9fcabc489c550ac9c25.hbc",
+    "scope": "local bundle compilation only; no installation or publication"
+  }
+}

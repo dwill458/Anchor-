@@ -20,6 +20,8 @@ const rec = (id: string, definitionId: string, earnedAt: string): MilestoneRecor
   sourceEntityId: null,
   metadata: {},
   celebratedAt: null,
+  presentationId: `r-${id}`,
+  presentationExpiresAt: new Date(Date.now() + 90000).toISOString(),
 });
 
 const enqueue = (...records: MilestoneRecord[]) =>
@@ -32,6 +34,23 @@ describe('useMilestonePresenter', () => {
     jest.clearAllMocks();
     useCelebrationStore.getState().reset();
     useMilestoneCelebrationStore.getState().reset();
+  });
+
+  it('returns through the originating practice destination once after Continue', () => {
+    const onReturn = jest.fn();
+    const { result } = renderHook(() => useMilestonePresenter());
+    act(() => { useMilestoneCelebrationStore.getState().enqueueAwards([rec('m1', 'commitment.practices.1', new Date().toISOString())], 'user-1', () => true, onReturn); });
+    act(() => { result.current.finish(); result.current.finish(); });
+    expect(onReturn).toHaveBeenCalledTimes(1);
+  });
+
+  it('never invokes a stale return destination after source navigation or interruption', () => {
+    const onReturn = jest.fn(); let active = true;
+    const { result } = renderHook(() => useMilestonePresenter());
+    act(() => { useMilestoneCelebrationStore.getState().enqueueAwards([rec('m1', 'commitment.practices.1', new Date().toISOString())], 'user-1', () => active, onReturn); });
+    active = false;
+    act(() => result.current.finish());
+    expect(onReturn).not.toHaveBeenCalled();
   });
 
   it('presents a queued milestone through the shared coordinator and settles it when the user continues', () => {
@@ -70,18 +89,12 @@ describe('useMilestonePresenter', () => {
     expect(result.current.presenting?.record.id).toBe('m1');
   });
 
-  it('plays several simultaneous unlocks one after another in the order earned', () => {
+  it('features at most one simultaneous unlock and does not stack another', () => {
     const { result } = renderHook(() => useMilestonePresenter());
-    enqueue(
-      rec('m2', 'strength.established', '2026-10-02T00:00:00Z'),
-      rec('m1', 'commitment.practices.1', '2026-10-01T00:00:00Z'),
-    );
-    expect(result.current.presenting?.record.id).toBe('m1');
-    act(() => result.current.finish());
-    expect(result.current.presenting?.record.id).toBe('m2');
+    enqueue(rec('m1', 'commitment.practices.1', '2026-10-01T00:00:00Z'), rec('m2', 'strength.established', '2026-10-01T00:00:00Z'));
     act(() => result.current.finish());
     expect(result.current.presenting).toBeNull();
-    expect(mockSettle).toHaveBeenCalledTimes(2);
+    expect(mockSettle).toHaveBeenCalledTimes(1);
   });
 
   it('never settles a replay', () => {
@@ -93,7 +106,7 @@ describe('useMilestonePresenter', () => {
     expect(result.current.presenting).toBeNull();
   });
 
-  it('does not settle when the coordinator interrupts it, so it plays again later', () => {
+  it('does not fabricate acknowledgment when the coordinator interrupts it', () => {
     const { result } = renderHook(() => useMilestonePresenter());
     enqueue(rec('m1', 'commitment.practices.1', '2026-10-01T00:00:00Z'));
     expect(result.current.presenting).not.toBeNull();
@@ -112,9 +125,9 @@ describe('useMilestonePresenter', () => {
     unmount();
     expect(mockSettle).not.toHaveBeenCalled();
     expect(useCelebrationStore.getState().active).toBeNull();
-    expect(useMilestoneCelebrationStore.getState().queue.map(item => item.record.id)).toEqual(['m1']);
+    expect(useMilestoneCelebrationStore.getState().queue).toEqual([]);
     const resumed = renderHook(() => useMilestonePresenter());
-    expect(resumed.result.current.presenting?.record.id).toBe('m1');
+    expect(resumed.result.current.presenting).toBeNull();
   });
 
   it('waits while an active practice or Vision editor owns a hold', () => {
@@ -126,15 +139,15 @@ describe('useMilestonePresenter', () => {
     expect(view.result.current.presenting?.record.id).toBe('m1');
   });
 
-  it('preserves the current award when an active task interrupts and resumes after that task', () => {
+  it('consumes the attempt on background or active-task interruption without a false receipt', () => {
     const view = renderHook(() => useMilestonePresenter());
     enqueue(rec('m1', 'vision.first', '2026-10-01T00:00:00Z'));
     act(() => useMilestoneCelebrationStore.getState().hold('editor'));
     expect(view.result.current.presenting).toBeNull();
-    expect(useMilestoneCelebrationStore.getState().queue[0]?.record.id).toBe('m1');
+    expect(useMilestoneCelebrationStore.getState().queue).toEqual([]);
     expect(mockSettle).not.toHaveBeenCalled();
     act(() => useMilestoneCelebrationStore.getState().release('editor'));
-    expect(view.result.current.presenting?.record.id).toBe('m1');
+    expect(view.result.current.presenting).toBeNull();
   });
 
   it('skips a milestone from a newer app version instead of celebrating invented copy', () => {

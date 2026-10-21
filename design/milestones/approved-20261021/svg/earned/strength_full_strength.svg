@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="strength_full_strength" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Full Strength (Strength) earned">
+  <title>Full Strength (Strength) earned</title>
+  <desc>Anchor milestone emblem. Provisional design slug: strength_full_strength. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="strength_full_strength-orb" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F8E2A8"/><stop offset="0.38" stop-color="#DDB35F"/>
+      <stop offset="0.78" stop-color="#B08A46"/><stop offset="1" stop-color="#7E5E28"/>
+    </radialGradient>
+    <radialGradient id="strength_full_strength-plate" cx="36%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#FFFBF0"/><stop offset="0.6" stop-color="#F7F0DE"/><stop offset="1" stop-color="#EBE3CF"/>
+    </radialGradient>
+    <linearGradient id="strength_full_strength-metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2D08A"/><stop offset="0.5" stop-color="#D9B263"/><stop offset="1" stop-color="#A98245"/>
+    </linearGradient>
+  </defs>
+  <g id="strength_full_strength__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#strength_full_strength-plate)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CDBE96" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFF6DC" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B08A50" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#F0DFB4" stroke-width="0.7"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#B39561" stroke-width="1.2"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FEEED2" stroke-width="0.6"/>
+  </g>
+  <g id="strength_full_strength__art" transform="translate(128 128) scale(0.971) translate(-128 -128)">
+  <g id="strength_full_strength__structure">
+    <circle id="strength_full_strength__structure-ring-halo" cx="128" cy="128" r="92" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-01" x1="128" y1="42" x2="128" y2="33" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-02" x1="150.26" y1="44.93" x2="151.81" y2="39.13" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-03" x1="171" y1="53.52" x2="175.5" y2="45.73" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-04" x1="188.81" y1="67.19" x2="193.05" y2="62.95" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-05" x1="202.48" y1="85" x2="210.27" y2="80.5" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-06" x1="211.07" y1="105.74" x2="216.87" y2="104.19" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-07" x1="214" y1="128" x2="223" y2="128" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-08" x1="211.07" y1="150.26" x2="216.87" y2="151.81" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-09" x1="202.48" y1="171" x2="210.27" y2="175.5" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-10" x1="188.81" y1="188.81" x2="193.05" y2="193.05" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-11" x1="171" y1="202.48" x2="175.5" y2="210.27" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-12" x1="150.26" y1="211.07" x2="151.81" y2="216.87" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-13" x1="128" y1="214" x2="128" y2="223" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-14" x1="105.74" y1="211.07" x2="104.19" y2="216.87" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-15" x1="85" y1="202.48" x2="80.5" y2="210.27" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-16" x1="67.19" y1="188.81" x2="62.95" y2="193.05" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-17" x1="53.52" y1="171" x2="45.73" y2="175.5" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-18" x1="44.93" y1="150.26" x2="39.13" y2="151.81" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-19" x1="42" y1="128" x2="33" y2="128" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-20" x1="44.93" y1="105.74" x2="39.13" y2="104.19" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-21" x1="53.52" y1="85" x2="45.73" y2="80.5" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-22" x1="67.19" y1="67.19" x2="62.95" y2="62.95" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-23" x1="85" y1="53.52" x2="80.5" y2="45.73" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="strength_full_strength__structure-tick-24" x1="105.74" y1="44.93" x2="104.19" y2="39.13" fill="none" stroke="#A07C3E" stroke-width="1.4" stroke-linecap="butt" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_full_strength__emblem">
+    <circle id="strength_full_strength__emblem-ring-1" cx="128" cy="128" r="66" fill="none" stroke="#13222C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_full_strength__emblem-ring-2" cx="128" cy="128" r="50" fill="none" stroke="#13222C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_full_strength__emblem-ring-3" cx="128" cy="128" r="35" fill="none" stroke="#13222C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_full_strength__engraving">
+    <line id="strength_full_strength__engraving-axis-1" x1="128" y1="105" x2="128" y2="50" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_full_strength__engraving-axis-2" x1="151" y1="128" x2="206" y2="128" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_full_strength__engraving-axis-3" x1="128" y1="151" x2="128" y2="206" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_full_strength__engraving-axis-4" x1="105" y1="128" x2="50" y2="128" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_full_strength__engraving-ring-fine-a" cx="128" cy="128" r="42.5" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+    <circle id="strength_full_strength__engraving-ring-fine-b" cx="128" cy="128" r="58" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+  </g>
+  <g id="strength_full_strength__highlight">
+    <path id="strength_full_strength__highlight-arc-01" d="M153.79 67.25A66 66 0 0 1 188.75 102.21" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_full_strength__highlight-arc-02" d="M102.21 188.75A66 66 0 0 1 67.25 153.79" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_full_strength__highlight-arc-03" d="M174.03 147.54A50 50 0 0 1 147.54 174.03" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_full_strength__highlight-arc-04" d="M81.97 108.46A50 50 0 0 1 108.46 81.97" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_full_strength__highlight-arc-05" d="M114.89 95.55A35 35 0 0 1 141.11 95.55" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_full_strength__highlight-arc-06" d="M141.11 160.45A35 35 0 0 1 114.89 160.45" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_full_strength__highlight-ring-crown" cx="128" cy="128" r="92" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="40 12"/>
+  </g>
+  <g id="strength_full_strength__accent">
+    <g id="strength_full_strength__accent-sat-1">
+      <circle cx="128" cy="50" r="7.5" fill="url(#strength_full_strength-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="125.6" cy="47.3" r="1.95" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+    <g id="strength_full_strength__accent-sat-2">
+      <circle cx="206" cy="128" r="7.5" fill="url(#strength_full_strength-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="203.6" cy="125.3" r="1.95" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+    <g id="strength_full_strength__accent-sat-3">
+      <circle cx="128" cy="206" r="7.5" fill="url(#strength_full_strength-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="125.6" cy="203.3" r="1.95" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+    <g id="strength_full_strength__accent-sat-4">
+      <circle cx="50" cy="128" r="7.5" fill="url(#strength_full_strength-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="47.6" cy="125.3" r="1.95" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+    <g id="strength_full_strength__accent-orb">
+      <circle cx="128" cy="128" r="21" fill="url(#strength_full_strength-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="121.28" cy="120.44" r="5.46" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+  </g>
+  </g>
+</svg>

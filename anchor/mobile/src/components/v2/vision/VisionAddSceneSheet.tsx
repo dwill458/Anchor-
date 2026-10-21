@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +52,8 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
   const [text, setText] = useState('');
+  const latestText = useRef(text);
+  latestText.current = text;
   const [photo, setPhoto] = useState<VisionStartPhoto | null>(null);
   const [references, setReferences] = useState<VisionReferenceAttachment[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -108,12 +110,12 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
     ...(nextReferences.length ? { references: nextReferences } : {}),
   });
 
-  const updateReferences = (nextReferences: VisionReferenceAttachment[]) => {
+  const updateReferences = useCallback((nextReferences: VisionReferenceAttachment[]) => {
     setReferences(nextReferences);
     setPhoto(null);
     setNotice(null);
-    onDraftChange?.(draftRequest(text, nextReferences, null));
-  };
+    onDraftChange?.({ description: latestText.current, photo: null, ...(nextReferences.length ? { references: nextReferences } : {}) });
+  }, [onDraftChange]);
 
   // The keyboard's height rides on the UI thread, so the sheet lifts with it frame by frame on iOS and Android.
   // flexShrink lets the sheet yield to the modal's height cap, so its scrolling body gives way instead of the fixed actions row running off-screen.
@@ -150,8 +152,9 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
   };
 
   return (
-    <V2SheetModal visible={visible} onClose={close} reduceMotion={reduceMotion} scrimAccessibilityLabel="Close" testID={testID}>
-      <Animated.View style={[lift, androidLift > 0 ? { transform: [{ translateY: -androidLift }] } : null]}>
+    <V2SheetModal visible={visible} onClose={close} reduceMotion={reduceMotion} scrimAccessibilityLabel="Close" testID={testID}
+      bottomInset={Platform.OS === 'android' ? androidLift : 0}>
+      <Animated.View style={lift}>
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing[3]) + V2_SHEET_SKIRT }, androidLift > 0 ? { maxHeight: windowHeight - androidLift + V2_SHEET_SKIRT - insets.top - spacing[2] } : null]} accessibilityViewIsModal>
         <V2SheetGrabZone>
           <View style={styles.handle} />

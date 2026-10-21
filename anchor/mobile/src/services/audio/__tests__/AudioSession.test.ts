@@ -3,10 +3,10 @@ import { setAudioSessionMode } from '../AudioSession';
 
 beforeEach(() => jest.clearAllMocks());
 
-it('uses ringer-aware effects mode and keeps mixing with other audio', async () => {
+it('keeps effects audible in silent mode and keeps mixing with other audio', async () => {
   await setAudioSessionMode('effects');
   expect(setAudioModeAsync).toHaveBeenCalledWith(expect.objectContaining({
-    playsInSilentMode: false,
+    playsInSilentMode: true,
     interruptionMode: 'mixWithOthers',
   }));
 });

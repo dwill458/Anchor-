@@ -17,6 +17,7 @@ type Props = ChartWaypointContentProps & {
   onReplayTeaching?: () => void;
   scrollViewportRef?: React.Ref<ChartSheetViewport>;
   onScrollViewportLayout?: () => void;
+  onContentApplied?: (showingCommit: boolean) => void;
 };
 
 /** The handler/modal owner and all three tier frames survive a content swap. */
@@ -64,12 +65,11 @@ export function ChartSheetContent(props: Props) {
   const pending = useRef(false);
   useLayoutEffect(() => {
     const allowedStep = revision.current !== props.swapRevision;
-    revision.current = props.swapRevision;
     if (props.isContentLocked() && !allowedStep) return;
     const changed = snapshot.view !== props.view || snapshot.waypointId !== props.waypointId || snapshot.commit !== props.commit || snapshot.arrived !== props.arrived || snapshot.dayClosedHold !== props.dayClosedHold;
     if (!changed) {
       // Busy/error/modal actions use fresh callbacks without swapping the content frame.
-      if (!pending.current) setSnapshot(props);
+      if (!pending.current) { revision.current = props.swapRevision; setSnapshot(props); }
       return;
     }
     if (timer.current) clearTimeout(timer.current);
@@ -78,6 +78,9 @@ export function ChartSheetContent(props: Props) {
     timer.current = setTimeout(() => {
       // A request may start during fade-out. Keep the queued content for its next permitted call/onEnd.
       if (latest.current.isContentLocked() && !allowedStep) { pending.current = false; opacity.value = withTiming(1, { duration: 160, easing: Easing.linear, reduceMotion: ReduceMotion.Never }); return; }
+      // Consume the permission only after the frame applies. A render during fade-out may
+      // replace this timer; it must retain the pending sequence/dismissal boundary.
+      revision.current = props.swapRevision;
       setSnapshot(props);
       pending.current = false;
       opacity.value = withTiming(1, { duration: props.reducedMotion ? 180 : 160, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
@@ -86,6 +89,7 @@ export function ChartSheetContent(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.view, props.waypointId, props.chart.busy, props.actionError, props.commit, props.arrived, props.dayClosedHold, props.swapRevision, props.stale, props.stillRight, props.inputs, props.hw, props.practiced, props.vision]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  useEffect(() => { latest.current.onContentApplied?.(Boolean(snapshot.commit)); }, [snapshot]);
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return <Animated.View style={[styles.root, style]} testID="chart-sheet-content"><Content snapshot={snapshot} /></Animated.View>;
 }

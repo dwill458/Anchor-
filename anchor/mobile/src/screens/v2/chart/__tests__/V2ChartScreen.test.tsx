@@ -34,6 +34,9 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import type { ChartForAnchor, ChartProposal } from '@/services/v2/chartV2Api';
 import type { CourseDetail } from '@/types/chart';
+import { queueMilestoneAction } from '@/milestones/queueMilestoneAction';
+
+jest.mock('@/milestones/queueMilestoneAction', () => ({ queueMilestoneAction: jest.fn(async () => undefined) }));
 
 const mockNavigate = jest.fn();
 const mockSetParams = jest.fn();
@@ -515,13 +518,29 @@ describe('V2ChartScreen — active Chart', () => {
     expect(screen.getByTestId('chart-waypoint-reached')).toBeTruthy();
     expect(screen.getByText("Look how far you've come.")).toBeTruthy();
     expect(screen.getByTestId('chart-commit')).toBeTruthy();
+    expect(queueMilestoneAction).not.toHaveBeenCalled();
     fireEvent.press(screen.getByText("I'm committed"));
-    await waitFor(() => expect(screen.queryByTestId('chart-waypoint-reached')).toBeNull());
+    await waitFor(() => expect(Boolean(screen.queryByTestId('chart-waypoint-reached'))).toBe(false));
+    expect(queueMilestoneAction).toHaveBeenCalledTimes(1);
     expect(mockSetParams).toHaveBeenCalledWith({ reached: undefined });
+    expect(queueMilestoneAction).toHaveBeenCalledWith('anchor-1', { kind: 'chart', sourceEntityId: 'course-1', eventId: 'w1' }, expect.any(Function));
+    const isActive = (queueMilestoneAction as jest.Mock).mock.calls[0][2] as () => boolean;
+    expect(isActive()).toBe(true);
+    screen.unmount();
+    expect(isActive()).toBe(false);
   });
 });
 
 describe('V2ChartScreen — destination and errors', () => {
+  it('features a confirmed final-waypoint return only after the settled arrival screen', async () => {
+    mockParams = { anchorId: 'anchor-1', reached: { completedTitle: 'Reach 10,000 active users', nextTitle: null, reachedCount: 3, total: 3, destinationReached: true } };
+    serve({ chart: readModel(activeChart({ status: 'COMPLETED', currentWaypointId: null, currentMoveId: null, reachedCount: 3, completedAt: '2026-12-14T00:00:00Z' })), vision: null });
+    const screen = render(<V2ChartScreen />);
+    expect(await screen.findByText("You've arrived.")).toBeTruthy();
+    await waitFor(() => expect(queueMilestoneAction).toHaveBeenCalledWith('anchor-1', { kind: 'chart', sourceEntityId: 'course-1', eventId: 'w3' }, expect.any(Function)));
+    expect(queueMilestoneAction).toHaveBeenCalledTimes(1);
+  });
+
   it('destination reached: the real Vision returns as the hero, with real journey numbers', async () => {
     serve({
       chart: readModel(activeChart({ status: 'COMPLETED', currentWaypointId: null, currentMoveId: null, completedAt: '2026-12-14T00:00:00Z' })),

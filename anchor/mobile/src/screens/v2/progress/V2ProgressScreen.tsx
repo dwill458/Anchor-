@@ -22,7 +22,6 @@ import { useProgressJourney } from '@/hooks/v2/progress/useProgressJourney';
 import { useAnchorMilestones } from '@/hooks/v2/milestones/useAnchorMilestones';
 import { mergeMilestoneEvents } from '@/adapters/v2/progress/milestoneEvents';
 import type { V2ThreadEventItem } from '@/adapters/v2/progress/types';
-import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import type { Anchor } from '@/types';
 import {
   V2ProgressHero,
@@ -36,9 +35,9 @@ import {
 } from '@/components/v2/progress';
 import { progressTokens } from '@/components/v2/progress/progressTokens';
 import { useAnchorTransitionDeparture, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
-import { useAuthStore } from '@/stores/authStore';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+import { useAuthStore } from '@/stores/authStore';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { progressTeachingBeats } from '@/hooks/v2/teaching/progressTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
@@ -96,14 +95,6 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
     () => (model ? mergeMilestoneEvents(model.events, milestones.records) : []),
     [model, milestones.records],
   );
-  const milestoneAccountId = useAuthStore(state => state.user?.id ?? null);
-  // Earned but never celebrated (another device, an interrupted scene): queue them behind anything playing.
-  React.useEffect(() => {
-    if (milestones.pendingCelebrations.length > 0) {
-      useMilestoneCelebrationStore.getState().enqueueAwards(milestones.pendingCelebrations, milestoneAccountId);
-    }
-  }, [milestones.pendingCelebrations, milestoneAccountId]);
-
   const shownAnchor = model ? (anchors.find((a) => a.id === model.anchorId)?.anchor ?? model.anchor) : undefined;
   React.useEffect(() => { onAnchorResolved?.(shownAnchor); }, [onAnchorResolved, shownAnchor]);
   const handleBack = React.useCallback(() => onBack?.(shownAnchor), [onBack, shownAnchor]);

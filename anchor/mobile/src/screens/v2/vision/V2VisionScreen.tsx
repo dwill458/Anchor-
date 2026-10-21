@@ -59,6 +59,11 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
 
 function VisionScreenContent(props: V2VisionScreenProps) {
   const alive = useRef(true);
+  const milestoneFocus = useTeachingFocus();
+  const milestoneBoundaryActive = useRef(true);
+  milestoneBoundaryActive.current = alive.current && milestoneFocus.isFocused;
+  const [milestoneArrival, setMilestoneArrival] = useState(0);
+  const requestedMilestoneArrival = useRef(0);
   const warmedImages = useRef(new Map<string, Promise<void>>());
   useEffect(() => {
     alive.current = true;
@@ -130,7 +135,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     void Promise.all(model.tiles.map(tile => warmImage(tile.imageUrl))).then(() => {
       if (!alive.current) return;
       setPendingPhoto(null); setReplaceSceneId(null); setAddRequest(null); setMode('view');
-      void queueVisionMilestones(anchorId);
+      setMilestoneArrival(value => value + 1);
     });
   };
   const [actionError, setActionError] = useState<string | null>(null);
@@ -605,11 +610,19 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   // Paint the board's cream behind the saved board and ink behind the ceremony, so a mode change never
   // shows a frame of the other colour (one of the flashes seen on device, Oct 7).
   const onBoard = mode === 'view' && !pendingPhoto && model.state.state === 'ready';
-  const milestoneFocus = useTeachingFocus();
   useMilestonePresentationHold(milestoneFocus.isFocused && (!onBoard || shareOpen || addSheetOpen || photoPickerOpen || Boolean(picker.state) || Boolean(fitRequest) || Boolean(arrival?.setActive) || Boolean(arrival?.url)));
   useEffect(() => {
-    if (onBoard && route.params?.savedNoteId) void queueVisionMilestones(anchorId);
-  }, [anchorId, onBoard, route.params?.savedNoteId]);
+    if (!onBoard || !milestoneFocus.isFocused || !model.vision?.id || arrival?.setActive || arrival?.url) return;
+    if (milestoneArrival > requestedMilestoneArrival.current) {
+      requestedMilestoneArrival.current = milestoneArrival;
+      void queueVisionMilestones(anchorId, model.vision.id, () => alive.current && milestoneBoundaryActive.current);
+    }
+  }, [anchorId, onBoard, milestoneFocus.isFocused, model.vision?.id, milestoneArrival, arrival?.setActive, arrival?.url]);
+  useEffect(() => {
+    if (onBoard && milestoneFocus.isFocused && route.params?.savedNoteId && model.vision?.id) {
+      void queueVisionMilestones(anchorId, model.vision.id, () => alive.current && milestoneBoundaryActive.current);
+    }
+  }, [anchorId, onBoard, milestoneFocus.isFocused, model.vision?.id, route.params?.savedNoteId]);
   return <View style={{ flex: 1, backgroundColor: onBoard ? colors.canvas : '#14162B' }}>{renderContent()}
     {shareOpen && anchor ? <AnchorShareStudio visible onClose={() => setShareOpen(false)} initialLayout="vision"
       data={buildShareExportData(anchor, { visionTiles: model.tiles, visionNotes: model.vision?.notes ?? [],

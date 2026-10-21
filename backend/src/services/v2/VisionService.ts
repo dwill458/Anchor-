@@ -239,7 +239,7 @@ export class VisionService {
     }
     const result = await this.getAnchorVision(userId, anchorId, clientTimeZone);
     if (!result || result.id !== visionId) throw new AppError('Failed to load created note', 500, 'VISION_NOTE_ERROR');
-    await milestoneService.evaluateQuietly(userId, anchorId);
+    void milestoneService.evaluateQuietly(userId, anchorId, { kind: 'vision', sourceEntityId: visionId });
     return result;
   }
 
@@ -385,7 +385,7 @@ export class VisionService {
     if (!result) {
       throw new AppError('Failed to load created vision', 500, 'VISION_ERROR');
     }
-    await milestoneService.evaluateQuietly(userId, anchorId);
+    void milestoneService.evaluateQuietly(userId, anchorId, { kind: 'vision', sourceEntityId: visionId });
     return result;
   }
 
@@ -511,7 +511,7 @@ export class VisionService {
       return committed;
     });
 
-    await milestoneService.evaluateQuietly(userId, vision.anchorId);
+    void milestoneService.evaluateQuietly(userId, vision.anchorId, { kind: 'vision', sourceEntityId: visionId });
     const resolvedImageUrl = scene.asset?.storageKey
       ? await resolveStorageKeyUrl(scene.asset.storageKey)
       : null;

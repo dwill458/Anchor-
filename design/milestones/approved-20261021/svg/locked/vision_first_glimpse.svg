@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="vision_first_glimpse" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="First Glimpse (Vision) locked">
+  <title>First Glimpse (Vision) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: vision_first_glimpse. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="vision_first_glimpse-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="vision_first_glimpse-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="vision_first_glimpse__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#vision_first_glimpse-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="vision_first_glimpse__art" transform="translate(128 128) scale(0.94) translate(-128 -128)">
+  <g id="vision_first_glimpse__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="128" r="87" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="78" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="128" r="87" fill="none" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="78" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+    </g>
+    <circle id="vision_first_glimpse__structure-ring-outer" cx="128" cy="128" r="87" fill="none" stroke="#8C867A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_first_glimpse__structure-ring-fine" cx="128" cy="128" r="78" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+  </g>
+  <g id="vision_first_glimpse__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M128 128L128 58L117.39 117.39Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L128 58L138.61 117.39Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L198 128L138.61 117.39Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L198 128L138.61 138.61Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L128 198L138.61 138.61Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L128 198L117.39 138.61Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L58 128L117.39 138.61Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L58 128L117.39 117.39Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M128 128L128 58L117.39 117.39Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L128 58L138.61 117.39Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L198 128L138.61 117.39Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L198 128L138.61 138.61Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L128 198L138.61 138.61Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L128 198L117.39 138.61Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L58 128L117.39 138.61Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 128L58 128L117.39 117.39Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="vision_first_glimpse__emblem-arm-1a" d="M128 128L128 58L117.39 117.39Z" fill="#8C867A" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_first_glimpse__emblem-arm-1b" d="M128 128L128 58L138.61 117.39Z" fill="#EDE9DE" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_first_glimpse__emblem-arm-2a" d="M128 128L198 128L138.61 117.39Z" fill="#8C867A" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_first_glimpse__emblem-arm-2b" d="M128 128L198 128L138.61 138.61Z" fill="#A8A295" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_first_glimpse__emblem-arm-3a" d="M128 128L128 198L138.61 138.61Z" fill="#8C867A" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_first_glimpse__emblem-arm-3b" d="M128 128L128 198L117.39 138.61Z" fill="#A8A295" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_first_glimpse__emblem-arm-4a" d="M128 128L58 128L117.39 138.61Z" fill="#8C867A" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_first_glimpse__emblem-arm-4b" d="M128 128L58 128L117.39 117.39Z" fill="#EDE9DE" stroke="#8C867A" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_first_glimpse__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <line x1="128" y1="54" x2="128" y2="30" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="202" y1="128" x2="226" y2="128" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="202" x2="128" y2="226" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="54" y1="128" x2="30" y2="128" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="144.97" y1="111.03" x2="164.77" y2="91.23" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="144.97" y1="144.97" x2="164.77" y2="164.77" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="111.03" y1="144.97" x2="91.23" y2="164.77" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="111.03" y1="111.03" x2="91.23" y2="91.23" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <line x1="128" y1="54" x2="128" y2="30" fill="none" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="202" y1="128" x2="226" y2="128" fill="none" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="202" x2="128" y2="226" fill="none" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="54" y1="128" x2="30" y2="128" fill="none" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="144.97" y1="111.03" x2="164.77" y2="91.23" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="144.97" y1="144.97" x2="164.77" y2="164.77" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="111.03" y1="144.97" x2="91.23" y2="164.77" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="111.03" y1="111.03" x2="91.23" y2="91.23" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <line id="vision_first_glimpse__engraving-cross-1" x1="128" y1="54" x2="128" y2="30" fill="none" stroke="#A19A8B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_first_glimpse__engraving-cross-2" x1="202" y1="128" x2="226" y2="128" fill="none" stroke="#A19A8B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_first_glimpse__engraving-cross-3" x1="128" y1="202" x2="128" y2="226" fill="none" stroke="#A19A8B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_first_glimpse__engraving-cross-4" x1="54" y1="128" x2="30" y2="128" fill="none" stroke="#A19A8B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_first_glimpse__engraving-diag-1" x1="144.97" y1="111.03" x2="164.77" y2="91.23" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_first_glimpse__engraving-diag-2" x1="144.97" y1="144.97" x2="164.77" y2="164.77" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_first_glimpse__engraving-diag-3" x1="111.03" y1="144.97" x2="91.23" y2="164.77" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_first_glimpse__engraving-diag-4" x1="111.03" y1="111.03" x2="91.23" y2="91.23" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_first_glimpse__highlight"/>
+  <g id="vision_first_glimpse__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="128" r="6.5" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="128" r="6.5" fill="#B7B0A0"/>
+    </g>
+    <g id="vision_first_glimpse__accent-orb">
+      <circle cx="128" cy="128" r="6.5" fill="url(#vision_first_glimpse-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="125.92" cy="125.66" r="1.69" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+  </g>
+</svg>

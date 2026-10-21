@@ -362,7 +362,7 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
           // ignore
         }
         // A replay may be the retry of a request that failed after saving: reconcile quietly.
-        await milestoneService.evaluateQuietly(user.id, existing.anchorId);
+        void milestoneService.evaluateQuietly(user.id, existing.anchorId, { kind: 'practice', sourceEntityId: existing.id });
       }
       res.json({
         success: true,
@@ -511,8 +511,9 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       }
     }
 
-    // Recorded server-side before the response, so the client can queue the celebration from it.
-    const newMilestones = await milestoneService.evaluateQuietly(user.id, created.anchorId);
+    // Evaluation is recoverable and must not delay the confirmed normal completion.
+    const newMilestones: never[] = []; // Legacy response shape; presentation uses a separate reservation.
+    void milestoneService.evaluateQuietly(user.id, created.anchorId, { kind: 'practice', sourceEntityId: created.id });
 
     if (created.anchorId && created.practiceMode === 'visualize') {
       try {

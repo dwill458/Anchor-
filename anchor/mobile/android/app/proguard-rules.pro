@@ -51,3 +51,17 @@
 -keep enum expo.modules.haptics.arguments.HapticType { *; }
 -keep enum expo.modules.haptics.arguments.ImpactStyle { *; }
 -keep enum expo.modules.haptics.arguments.NotificationType { *; }
+
+# expo-audio
+-keep class expo.modules.audio.** { *; }
+-dontwarn expo.modules.audio.**
+
+# AndroidX Media3 (ExoPlayer) - required for expo-audio in R8 full mode
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+-keep class androidx.media3.session.** { *; }
+-keep class androidx.media3.exoplayer.** { *; }
+-keep class androidx.media3.common.** { *; }
+-keepclassmembers class androidx.media3.** {
+    *;
+}

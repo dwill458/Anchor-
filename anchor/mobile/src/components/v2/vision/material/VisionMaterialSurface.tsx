@@ -14,8 +14,15 @@ export const VisionMaterialSurface = memo(function VisionMaterialSurface({ mater
   const asset = visionMaterials[material];
   const source = thumbnail && 'thumbnail' in asset ? asset.thumbnail : asset.source;
   return <View pointerEvents="none" accessible={false} testID={testID} style={StyleSheet.absoluteFill}>
-    <Image source={source} resizeMode="stretch" fadeDuration={0} style={StyleSheet.absoluteFill} />
+    <Image source={source} resizeMode="stretch" fadeDuration={0} style={styles.image} />
     {tint ? <Image source={source} resizeMode="stretch" fadeDuration={0}
-      style={[StyleSheet.absoluteFill, { tintColor: tint.color, opacity: tint.opacity }]} /> : null}
+      style={[styles.image, { tintColor: tint.color, opacity: tint.opacity }]} /> : null}
   </View>;
+});
+
+const styles = StyleSheet.create({
+  // Native Image inserts a bundled asset's intrinsic width/height before this style.
+  // Edges alone do not override those values. Resolve both axes against the bounded
+  // note, print or tape parent, including while its board geometry animates.
+  image: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
 });

@@ -12,9 +12,14 @@ export function validatePlanSemantics(plan: ChartGenerationResult, context: Char
   if (!plan.suggestedOneMove || !/\S+\s+\S+/.test(plan.suggestedOneMove.title) || /^(make progress|work on|keep going|try harder|believe)\b/i.test(plan.suggestedOneMove.title)) fail('one_move_not_actionable');
   const numeric = plan.waypoints.filter(w => w.progressMode === 'numeric');
   const start = context.actualStartingPoint ?? context.followUp?.answer ?? '';
-  if (!start && !adjustment && numeric.some(w => w.metricBaseline !== null)) fail('unsupported_baseline');
-  const statedNumbers = (start.match(/-?\d[\d,]*(?:\.\d+)?/g) ?? []).map(n => Number(n.replace(/,/g, '')));
-  const knownNumbers = [...statedNumbers, ...(adjustment?.route.flatMap(w => [w.metricBaseline, w.metricCurrent, w.metricTarget].filter((n): n is number => typeof n === 'number')) ?? [])];
+  const hasStartPhoto = context.references?.photos.some(photo => photo.role === 'start') ?? false;
+  if (!start && !hasStartPhoto && !adjustment && numeric.some(w => w.metricBaseline !== null)) fail('unsupported_baseline');
+  const extractNumbers = (text: string): number[] => (text.match(/-?\d[\d,]*(?:\.\d+)?/g) ?? []).map(n => Number(n.replace(/,/g, '')));
+  const statedNumbers = extractNumbers(start);
+  // A start-role photo is present-day evidence. The planner must transcribe its relevant values
+  // into startingPointSummary; destination Vision imagery is deliberately excluded here.
+  const photoNumbers = hasStartPhoto ? extractNumbers(plan.analysis?.startingPointSummary ?? '') : [];
+  const knownNumbers = [...statedNumbers, ...photoNumbers, ...(adjustment?.route.flatMap(w => [w.metricBaseline, w.metricCurrent, w.metricTarget].filter((n): n is number => typeof n === 'number')) ?? [])];
   // A later baseline may be an earlier achieved target. Initial money/ability
   // must come from written facts or recorded progress, never a future Vision.
   numeric.forEach((w, index) => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiClient } from '@/services/ApiClient';
+import { apiClient, type AccountBoundRequestConfig } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { uncelebrated, type MilestoneRecord } from '@/milestones/milestoneModel';
 import {
@@ -43,6 +43,8 @@ const unwrap = (response?: { data?: unknown } | null): ServerPayload | null => {
  */
 export function useAnchorMilestones(anchorId: string | null | undefined): UseAnchorMilestonesResult {
   const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const token = useAuthStore((state) => state.token);
+  const accountRevision = useAuthStore((state) => state.accountRevision);
   const [records, setRecords] = useState<MilestoneRecord[]>([]);
   const [status, setStatus] = useState<MilestoneStatus>('loading');
   const requestId = useRef(0);
@@ -50,9 +52,15 @@ export function useAnchorMilestones(anchorId: string | null | undefined): UseAnc
   const refresh = useCallback(async () => {
     if (!anchorId || !accountId) return;
     const thisRequest = ++requestId.current;
+    const isCurrent = () => {
+      const current = useAuthStore.getState();
+      return requestId.current === thisRequest && current.user?.id === accountId &&
+        current.token === token && current.accountRevision === accountRevision;
+    };
     try {
-      const response = await apiClient.get(`/api/v2/anchors/${encodeURIComponent(anchorId)}/milestones`);
-      if (requestId.current !== thisRequest) return;
+      const config: AccountBoundRequestConfig = { anchorAuthGuard: isCurrent, anchorAuthToken: token ?? undefined };
+      const response = await apiClient.get(`/api/v2/anchors/${encodeURIComponent(anchorId)}/milestones`, config);
+      if (!isCurrent()) return;
       const payload = unwrap(response);
       if (!payload) {
         setStatus('error');
@@ -62,11 +70,11 @@ export function useAnchorMilestones(anchorId: string | null | undefined): UseAnc
       setStatus('ready');
       void flushPendingReceipts(accountId, anchorId);
     } catch {
-      if (requestId.current !== thisRequest) return;
+      if (!isCurrent()) return;
       // Keep showing what the device already knows; a failed read removes nothing.
       setStatus(getSnapshot(accountId, anchorId) ? 'offline' : 'error');
     }
-  }, [accountId, anchorId]);
+  }, [accountId, anchorId, token, accountRevision]);
 
   useEffect(() => {
     setRecords([]);
@@ -88,6 +96,7 @@ export function useAnchorMilestones(anchorId: string | null | undefined): UseAnc
     })();
     return () => {
       cancelled = true;
+      ++requestId.current;
       unsubscribe();
     };
   }, [accountId, anchorId, refresh]);
@@ -101,7 +110,8 @@ export function useAnchorMilestones(anchorId: string | null | undefined): UseAnc
     [accountId, anchorId],
   );
 
-  const pendingCelebrations = useMemo(() => uncelebrated(records), [records]);
+  const pendingCelebrations = useMemo(() => uncelebrated(records).filter(record =>
+    record.presentationId && Date.parse(record.presentationExpiresAt ?? '') > Date.now()), [records]);
 
   return { records, pendingCelebrations, status, refresh, markCelebrated };
 }

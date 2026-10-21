@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="journey_goal_reached" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Goal Reached (Journey) locked">
+  <title>Goal Reached (Journey) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: journey_goal_reached. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="journey_goal_reached-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="journey_goal_reached-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="journey_goal_reached__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#journey_goal_reached-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="journey_goal_reached__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M49.02 160C96.41 154 159.59 166 206.98 160" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M51.63 166C97.45 172 158.55 160 204.37 166" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M54.79 172C98.72 166 157.28 178 201.21 172" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M58.58 178C100.23 184 155.77 172 197.42 178" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M63.12 184C102.05 178 153.95 190 192.88 184" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68.55 190C104.22 196 151.78 184 187.45 190" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M75.14 196C106.86 190 149.14 202 180.86 196" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M83.38 202C110.15 208 145.85 196 172.62 202" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M94.34 208C114.54 202 141.46 214 161.66 208" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M49.02 160C96.41 154 159.59 166 206.98 160" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M51.63 166C97.45 172 158.55 160 204.37 166" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M54.79 172C98.72 166 157.28 178 201.21 172" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M58.58 178C100.23 184 155.77 172 197.42 178" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M63.12 184C102.05 178 153.95 190 192.88 184" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68.55 190C104.22 196 151.78 184 187.45 190" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M75.14 196C106.86 190 149.14 202 180.86 196" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M83.38 202C110.15 208 145.85 196 172.62 202" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M94.34 208C114.54 202 141.46 214 161.66 208" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="journey_goal_reached__structure-contour-1" d="M49.02 160C96.41 154 159.59 166 206.98 160" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-2" d="M51.63 166C97.45 172 158.55 160 204.37 166" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-3" d="M54.79 172C98.72 166 157.28 178 201.21 172" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-4" d="M58.58 178C100.23 184 155.77 172 197.42 178" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-5" d="M63.12 184C102.05 178 153.95 190 192.88 184" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-6" d="M68.55 190C104.22 196 151.78 184 187.45 190" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-7" d="M75.14 196C106.86 190 149.14 202 180.86 196" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-8" d="M83.38 202C110.15 208 145.85 196 172.62 202" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-9" d="M94.34 208C114.54 202 141.46 214 161.66 208" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="journey_goal_reached__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M43 152C72 136 112 138 130 154" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M100 182C128 146 188 128 214 152" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M104 206C108.33 203.33 129.33 195.33 130 190" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M130 190C130.67 184.67 107 179 108 174" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M108 174C109 169 129 164 136 160" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M136 160C143 156 147.67 151.67 150 150" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M43 152C72 136 112 138 130 154" fill="none" stroke="#B7B0A0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M100 182C128 146 188 128 214 152" fill="none" stroke="#B7B0A0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M104 206C108.33 203.33 129.33 195.33 130 190" fill="none" stroke="#B7B0A0" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M130 190C130.67 184.67 107 179 108 174" fill="none" stroke="#B7B0A0" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M108 174C109 169 129 164 136 160" fill="none" stroke="#B7B0A0" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M136 160C143 156 147.67 151.67 150 150" fill="none" stroke="#B7B0A0" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="journey_goal_reached__emblem-hill-1" d="M43 152C72 136 112 138 130 154" fill="none" stroke="#8C867A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-hill-2" d="M100 182C128 146 188 128 214 152" fill="none" stroke="#8C867A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-1" d="M104 206C108.33 203.33 129.33 195.33 130 190" fill="none" stroke="#8C867A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-2" d="M130 190C130.67 184.67 107 179 108 174" fill="none" stroke="#8C867A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-3" d="M108 174C109 169 129 164 136 160" fill="none" stroke="#8C867A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-4" d="M136 160C143 156 147.67 151.67 150 150" fill="none" stroke="#8C867A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="journey_goal_reached__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M88 146A40 40 0 0 1 168 146" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M94.5 146A33.5 33.5 0 0 1 161.5 146" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M88 146A40 40 0 0 1 168 146" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M94.5 146A33.5 33.5 0 0 1 161.5 146" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="journey_goal_reached__engraving-sun-outer" d="M88 146A40 40 0 0 1 168 146" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__engraving-sun-inner" d="M94.5 146A33.5 33.5 0 0 1 161.5 146" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="journey_goal_reached__highlight"/>
+  <g id="journey_goal_reached__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="150" cy="150" r="5.5" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="150" cy="150" r="5.5" fill="#B7B0A0"/>
+    </g>
+    <g id="journey_goal_reached__accent-goal">
+      <circle cx="150" cy="150" r="5.5" fill="url(#journey_goal_reached-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="148.24" cy="148.02" r="1.43" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+</svg>

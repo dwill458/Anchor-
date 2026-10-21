@@ -1,0 +1,665 @@
+{
+ "easings": {
+  "linear": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "outCubic": [
+   0.33,
+   1,
+   0.68,
+   1
+  ],
+  "inOutCubic": [
+   0.65,
+   0,
+   0.35,
+   1
+  ],
+  "outQuint": [
+   0.22,
+   1,
+   0.36,
+   1
+  ],
+  "outExpo": [
+   0.16,
+   1,
+   0.3,
+   1
+  ]
+ },
+ "families": {
+  "strength": {
+   "title": "Pulse and Integration",
+   "emotion": "stability, power, growth",
+   "duration": 2900,
+   "steps": [
+    {
+     "name": "seed",
+     "layer": "accent",
+     "match": "accent-orb$",
+     "op": "pop",
+     "from": 0.35,
+     "start": 0,
+     "dur": 420,
+     "ease": "outExpo"
+    },
+    {
+     "name": "form",
+     "layer": "emblem",
+     "op": "draw",
+     "start": 250,
+     "dur": 650,
+     "stagger": 90,
+     "maxSpread": 700,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "frame",
+     "layer": "structure",
+     "op": "draw",
+     "start": 650,
+     "dur": 600,
+     "stagger": 70,
+     "maxSpread": 600,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "engrave",
+     "layer": "engraving",
+     "op": "fade",
+     "start": 1250,
+     "dur": 450,
+     "stagger": 55,
+     "maxSpread": 700,
+     "ease": "outCubic"
+    },
+    {
+     "name": "gold",
+     "layer": "highlight",
+     "op": "draw",
+     "start": 1750,
+     "dur": 520,
+     "stagger": 90,
+     "maxSpread": 540,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "nodes",
+     "layer": "accent",
+     "exclude": "accent-orb$",
+     "op": "pop",
+     "from": 0.5,
+     "start": 1850,
+     "dur": 360,
+     "stagger": 60,
+     "maxSpread": 400,
+     "ease": "outCubic"
+    },
+    {
+     "name": "settle",
+     "layerGroup": "emblem",
+     "op": "layerScale",
+     "keys": [
+      1,
+      1.012,
+      1
+     ],
+     "start": 2100,
+     "dur": 600,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "pulse",
+     "op": "pulse",
+     "start": 2100,
+     "dur": 700,
+     "r0": 12,
+     "r1": 96,
+     "ease": "outCubic"
+    }
+   ]
+  },
+  "commitment": {
+   "title": "Accumulation and Formation",
+   "emotion": "discipline, consistency, effort rewarded",
+   "duration": 2700,
+   "steps": [
+    {
+     "name": "marks",
+     "layer": "emblem",
+     "match": "mark-",
+     "op": "radial",
+     "from": 0.82,
+     "start": 100,
+     "dur": 260,
+     "stagger": 70,
+     "maxSpread": 1300,
+     "ease": "outQuint"
+    },
+    {
+     "name": "form",
+     "layer": "emblem",
+     "exclude": "mark-",
+     "op": "draw",
+     "start": 100,
+     "dur": 700,
+     "stagger": 120,
+     "maxSpread": 500,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "ticks",
+     "layer": "structure",
+     "match": "tick-",
+     "op": "fade",
+     "start": 200,
+     "dur": 200,
+     "stagger": 12,
+     "maxSpread": 1300,
+     "ease": "outCubic"
+    },
+    {
+     "name": "frame",
+     "layer": "structure",
+     "exclude": "tick-",
+     "op": "draw",
+     "start": 600,
+     "dur": 600,
+     "stagger": 80,
+     "maxSpread": 400,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "engrave",
+     "layer": "engraving",
+     "op": "fade",
+     "start": 1300,
+     "dur": 400,
+     "stagger": 35,
+     "maxSpread": 500,
+     "ease": "outCubic"
+    },
+    {
+     "name": "lock",
+     "layerGroup": "emblem",
+     "op": "layerScale",
+     "keys": [
+      1.03,
+      1
+     ],
+     "start": 1450,
+     "dur": 420,
+     "ease": "outQuint"
+    },
+    {
+     "name": "gold",
+     "layer": "highlight",
+     "op": "draw",
+     "start": 1750,
+     "dur": 420,
+     "stagger": 50,
+     "maxSpread": 450,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "orb",
+     "layer": "accent",
+     "match": "accent-orb$",
+     "op": "pop",
+     "from": 0.5,
+     "start": 1700,
+     "dur": 360,
+     "ease": "outExpo"
+    },
+    {
+     "name": "beads",
+     "layer": "accent",
+     "exclude": "accent-orb$",
+     "op": "pop",
+     "from": 0.4,
+     "start": 1900,
+     "dur": 300,
+     "stagger": 40,
+     "maxSpread": 400,
+     "ease": "outCubic"
+    }
+   ]
+  },
+  "journey": {
+   "title": "Progress and Arrival",
+   "emotion": "accomplishment, momentum, arrival",
+   "duration": 3000,
+   "steps": [
+    {
+     "name": "terrain",
+     "layer": "structure",
+     "match": "contour-",
+     "op": "draw",
+     "start": 0,
+     "dur": 700,
+     "stagger": 140,
+     "maxSpread": 450,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "origin",
+     "layer": "emblem",
+     "match": "origin",
+     "op": "pop",
+     "from": 0.4,
+     "start": 350,
+     "dur": 240,
+     "ease": "outCubic"
+    },
+    {
+     "name": "route",
+     "layer": "emblem",
+     "match": "seg-",
+     "op": "draw",
+     "idIndex": "-(\\d+)$",
+     "start": 500,
+     "dur": 300,
+     "stagger": 300,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "inlay",
+     "layer": "highlight",
+     "match": "inlay-",
+     "op": "draw",
+     "idIndex": "-(\\d+)$",
+     "start": 700,
+     "dur": 300,
+     "stagger": 300,
+     "ease": "inOutCubic"
+    },
+    {
+     "name": "waypoints",
+     "layer": "engraving",
+     "match": "wp-ring-",
+     "op": "pop",
+     "from": 0.5,
+     "idIndex": "-(\\d+)$",
+     "start": 800,
+     "dur": 260,
+     "stagger": 300,
+     "ease": "outCubic"
+    },
+    {
+     "name": "waypointOrbs",
+     "layer": "accent",
+     "match": "accent-wp-\\d",
+     "op": "pop",
+     "from": 0.3,
+     "idIndex": "-(\\d+)$",
+     "start": 800,
+     "dur": 260,
+     "stagger": 300,
+     "ease": "outCubic"
+    },
+    {
+     "name": "midMark",
+     "layer": "highlight",
+     "match": "mid-",
+     "op": "pop",
+     "from": 0.6,
+     "start": 1900,
+     "dur": 400,
+     "ease": "outCubic"
+    },
+    {
+     "name": "pennant",
+     "layer": "accent",
+     "match": "pennant",
+     "op": "raise",
+     "start": "$pennantStart",
+     "dur": 450,
+     "ease": "outQuint"
+    },
+    {
+     "name": "summit",
+     "layer": "engraving",
+     "match": "summit-",
+     "op": "$summitOp",
+     "from": "$summitFrom",
+     "start": "$summitStart",
+     "dur": 420,
+     "ease": "outCubic"
+    },
+    {
+     "name": "arrival",
+     "layer": "accent",
+     "match": "accent-wp-6",
+     "op": "pop",
+     "from": 0.2,
+     "start": 2150,
+     "dur": 420,
+     "ease": "outExpo",
+     "only": [
+      "journey_all_waypoints"
+     ]
+    },
+    {
+     "name": "sparks",
+     "layer": "highlight",
+     "match": "spark-",
+     "op": "draw",
+     "start": 2350,
+     "dur": 350,
+     "stagger": 50,
+     "ease": "outCubic"
+    },
+    {
+     "name": "bezel",
+     "layer": "structure",
+     "match": "bezel-",
+     "op": "fade",
+     "start": 2250,
+     "dur": 220,
+     "stagger": 25,
+     "maxSpread": 600,
+     "ease": "outCubic"
+    }
+   ],
+   "perMilestone": {
+    "journey_first_waypoint": {
+     "pennantStart": 1000,
+     "summitStart": 1900,
+     "summitOp": "fade",
+     "summitFrom": 0
+    },
+    "journey_halfway": {
+     "pennantStart": 1500,
+     "summitStart": 2000,
+     "summitOp": "fade",
+     "summitFrom": 0
+    },
+    "journey_all_waypoints": {
+     "pennantStart": 2250,
+     "summitStart": 2050,
+     "summitOp": "pop",
+     "summitFrom": 0.5
+    },
+    "journey_goal_reached": {
+     "pennantStart": 0,
+     "summitStart": 0,
+     "summitOp": "fade",
+     "summitFrom": 0,
+     "extra": [
+      {
+       "name": "horizon",
+       "layer": "structure",
+       "match": "horizon",
+       "op": "draw",
+       "start": 100,
+       "dur": 600,
+       "ease": "inOutCubic"
+      },
+      {
+       "name": "hills",
+       "layer": "emblem",
+       "match": "hill-",
+       "op": "fade",
+       "start": 300,
+       "dur": 600,
+       "stagger": 180,
+       "ease": "outCubic"
+      },
+      {
+       "name": "hillLines",
+       "layer": "engraving",
+       "match": "hillline-",
+       "op": "fade",
+       "start": 900,
+       "dur": 500,
+       "stagger": 120,
+       "ease": "outCubic"
+      },
+      {
+       "name": "sunRise",
+       "layer": "engraving",
+       "match": "sun-",
+       "op": "pop",
+       "from": 0.6,
+       "start": 1750,
+       "dur": 600,
+       "stagger": 100,
+       "ease": "outCubic"
+      },
+      {
+       "name": "goal",
+       "layer": "accent",
+       "match": "accent-goal",
+       "op": "pop",
+       "from": 0.2,
+       "start": 1950,
+       "dur": 420,
+       "ease": "outExpo"
+      },
+      {
+       "name": "rays",
+       "layer": "highlight",
+       "match": "ray-",
+       "op": "draw",
+       "start": 2150,
+       "dur": 500,
+       "stagger": 30,
+       "maxSpread": 380,
+       "ease": "outCubic"
+      }
+     ]
+    }
+   }
+  },
+  "vision": {
+   "title": "Emergence and Clarity",
+   "emotion": "clarity, possibility, realization",
+   "duration": 3000,
+   "steps": [
+    {
+     "name": "emerge",
+     "layer": "structure",
+     "op": "fadeKeys",
+     "keys": [
+      [
+       0,
+       0
+      ],
+      [
+       600,
+       0.4
+      ],
+      [
+       1200,
+       1
+      ]
+     ],
+     "start": 0,
+     "stagger": 70,
+     "maxSpread": 300,
+     "ease": "outCubic"
+    },
+    {
+     "name": "resolve",
+     "layer": "emblem",
+     "op": "pop",
+     "from": 1.035,
+     "start": 500,
+     "dur": 900,
+     "stagger": 80,
+     "maxSpread": 400,
+     "ease": "outQuint"
+    },
+    {
+     "name": "engrave",
+     "layer": "engraving",
+     "op": "fade",
+     "start": 1500,
+     "dur": 700,
+     "stagger": 40,
+     "maxSpread": 500,
+     "ease": "outCubic"
+    },
+    {
+     "name": "orb",
+     "layer": "accent",
+     "op": "pop",
+     "from": 0.8,
+     "start": 1900,
+     "dur": 600,
+     "stagger": 60,
+     "maxSpread": 300,
+     "ease": "outCubic"
+    },
+    {
+     "name": "glow",
+     "layer": "highlight",
+     "op": "fade",
+     "start": 2200,
+     "dur": 600,
+     "stagger": 60,
+     "maxSpread": 300,
+     "ease": "outCubic"
+    }
+   ],
+   "perMilestone": {
+    "vision_seen_clearly": {
+     "extra": [
+      {
+       "name": "focusPull",
+       "layer": "engraving",
+       "match": "ghost-",
+       "op": "translateX",
+       "from": -22,
+       "start": 700,
+       "dur": 1100,
+       "stagger": 90,
+       "ease": "outQuint"
+      }
+     ],
+     "replace": {
+      "engrave": {
+       "exclude": "ghost-"
+      }
+     }
+    },
+    "vision_picture_complete": {
+     "extra": [
+      {
+       "name": "tilesJoin",
+       "layer": "engraving",
+       "match": "seam-",
+       "op": "strokewidth",
+       "from": 14,
+       "start": 1300,
+       "dur": 1000,
+       "ease": "outQuint"
+      }
+     ],
+     "replace": {
+      "engrave": {
+       "exclude": "seam-"
+      }
+     }
+    },
+    "vision_familiar_future": {
+     "extra": [
+      {
+       "name": "ghostArch",
+       "layer": "emblem",
+       "match": "arch-1",
+       "op": "fade",
+       "from": 0,
+       "start": 200,
+       "dur": 600,
+       "ease": "outCubic"
+      },
+      {
+       "name": "nearerArch",
+       "layer": "emblem",
+       "match": "arch-2",
+       "op": "fade",
+       "from": 0,
+       "start": 800,
+       "dur": 600,
+       "ease": "outCubic"
+      },
+      {
+       "name": "homeArch",
+       "layer": "emblem",
+       "match": "arch-3",
+       "op": "fade",
+       "from": 0,
+       "start": 1400,
+       "dur": 600,
+       "ease": "outCubic"
+      }
+     ],
+     "replace": {
+      "resolve": {
+       "exclude": "arch-"
+      }
+     }
+    },
+    "vision_living_the_vision": {
+     "extra": [
+      {
+       "name": "raysOut",
+       "layer": "structure",
+       "match": "ray-",
+       "op": "draw",
+       "start": 1000,
+       "dur": 600,
+       "stagger": 35,
+       "maxSpread": 600,
+       "ease": "outCubic"
+      },
+      {
+       "name": "door",
+       "layer": "emblem",
+       "match": "arch-main",
+       "op": "draw",
+       "start": 300,
+       "dur": 1000,
+       "ease": "inOutCubic"
+      },
+      {
+       "name": "steps",
+       "layer": "emblem",
+       "match": "step-",
+       "op": "pop",
+       "from": 0.6,
+       "start": 1300,
+       "dur": 360,
+       "stagger": 140,
+       "ease": "outCubic"
+      }
+     ],
+     "replace": {
+      "emerge": {
+       "exclude": "ray-"
+      },
+      "resolve": {
+       "exclude": "arch-main|step-"
+      }
+     }
+    }
+   }
+  }
+ },
+ "reducedMotion": {
+  "treatment": "Replace travel, draw, pulse and scale with a single opacity crossfade from the locked artwork to the earned artwork.",
+  "duration": 320,
+  "ease": "outCubic",
+  "hold": "Final earned artwork, full opacity, no residual motion.",
+  "keep": "Haptics and sound still fire (except cues that belong to motion that no longer plays)."
+ },
+ "replay": {
+  "behaviour": "Same timeline as first unlock. Resets every animated element to its start state, runs once, holds the earned artwork. No Thread Strength update, no persistence side effects.",
+  "hold": "Settle on the final earned SVG; the static SVG is the source of truth for the end state."
+ }
+}

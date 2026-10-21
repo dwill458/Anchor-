@@ -98,3 +98,15 @@ it('refreshes route progress when stored high water hydrates without a new serve
   screen.update({ ...screen.props, hw: { w2: .8 } });
   expect(screen.getByTestId('chart-route-segment-1').props.accessibilityValue.now).toBe(80);
 });
+
+it('retains a permitted dismissal across renders before the crossfade applies', () => {
+  const screen = setup({ commit: { number: 1 }, isContentLocked: () => true });
+  const dismissed = { ...screen.props, commit: null, swapRevision: 1 };
+  screen.update(dismissed);
+  act(() => jest.advanceTimersByTime(60));
+  // A server/high-water update replaces the pending timer during the same semantic boundary.
+  screen.update({ ...dismissed, view: { ...dismissed.view, version: 6 } });
+  act(() => jest.advanceTimersByTime(120));
+  expect(screen.queryByTestId('chart-commit')).toBeNull();
+  expect(screen.getByTestId('chart-one-move-check')).toBeTruthy();
+});

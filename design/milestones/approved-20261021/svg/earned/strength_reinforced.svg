@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="strength_reinforced" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Reinforced (Strength) earned">
+  <title>Reinforced (Strength) earned</title>
+  <desc>Anchor milestone emblem. Provisional design slug: strength_reinforced. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="strength_reinforced-orb" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F8E2A8"/><stop offset="0.38" stop-color="#DDB35F"/>
+      <stop offset="0.78" stop-color="#B08A46"/><stop offset="1" stop-color="#7E5E28"/>
+    </radialGradient>
+    <radialGradient id="strength_reinforced-plate" cx="36%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#FFFBF0"/><stop offset="0.6" stop-color="#F7F0DE"/><stop offset="1" stop-color="#EBE3CF"/>
+    </radialGradient>
+    <linearGradient id="strength_reinforced-metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2D08A"/><stop offset="0.5" stop-color="#D9B263"/><stop offset="1" stop-color="#A98245"/>
+    </linearGradient>
+  </defs>
+  <g id="strength_reinforced__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#strength_reinforced-plate)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CDBE96" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFF6DC" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B08A50" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#F0DFB4" stroke-width="0.7"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#B39561" stroke-width="1.2"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FEEED2" stroke-width="0.6"/>
+  </g>
+  <g id="strength_reinforced__art" transform="translate(128 128) scale(1.05) translate(-128 -128)">
+  <g id="strength_reinforced__structure">
+    <circle id="strength_reinforced__structure-ring-fine" cx="128" cy="128" r="80" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__structure-ring-outer" cx="128" cy="128" r="75" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_reinforced__emblem">
+    <path id="strength_reinforced__emblem-hex-outer" d="M128 66L181.69 97L181.69 159L128 190L74.31 159L74.31 97Z" fill="none" stroke="#13222C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_reinforced__emblem-hex-inner" d="M143 102.02L158 128L143 153.98L113 153.98L98 128L113 102.02Z" fill="none" stroke="#13222C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_reinforced__engraving">
+    <line id="strength_reinforced__engraving-strut-01" x1="128" y1="66" x2="113" y2="102.02" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-02" x1="128" y1="66" x2="143" y2="102.02" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-03" x1="181.69" y1="97" x2="143" y2="102.02" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-04" x1="181.69" y1="97" x2="158" y2="128" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-05" x1="181.69" y1="159" x2="158" y2="128" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-06" x1="181.69" y1="159" x2="143" y2="153.98" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-07" x1="128" y1="190" x2="143" y2="153.98" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-08" x1="128" y1="190" x2="113" y2="153.98" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-09" x1="74.31" y1="159" x2="113" y2="153.98" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-10" x1="74.31" y1="159" x2="98" y2="128" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-11" x1="74.31" y1="97" x2="98" y2="128" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="strength_reinforced__engraving-strut-12" x1="74.31" y1="97" x2="113" y2="102.02" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__engraving-ring-circum" cx="128" cy="128" r="62" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  </g>
+  <g id="strength_reinforced__highlight">
+    <path id="strength_reinforced__highlight-arc-01" d="M109.86 55.23A75 75 0 0 1 146.14 55.23" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_reinforced__highlight-arc-02" d="M181.95 75.9A75 75 0 0 1 200.09 107.33" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_reinforced__highlight-arc-03" d="M200.09 148.67A75 75 0 0 1 181.95 180.1" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_reinforced__highlight-arc-04" d="M146.14 200.77A75 75 0 0 1 109.86 200.77" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_reinforced__highlight-arc-05" d="M74.05 180.1A75 75 0 0 1 55.91 148.67" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="strength_reinforced__highlight-arc-06" d="M55.91 107.33A75 75 0 0 1 74.05 75.9" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="strength_reinforced__accent">
+    <circle id="strength_reinforced__accent-node-01" cx="128" cy="66" r="5.5" fill="#C9A24A" stroke="#13222C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-02" cx="181.69" cy="97" r="5.5" fill="#C9A24A" stroke="#13222C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-03" cx="181.69" cy="159" r="5.5" fill="#C9A24A" stroke="#13222C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-04" cx="128" cy="190" r="5.5" fill="#C9A24A" stroke="#13222C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-05" cx="74.31" cy="159" r="5.5" fill="#C9A24A" stroke="#13222C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-node-06" cx="74.31" cy="97" r="5.5" fill="#C9A24A" stroke="#13222C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="strength_reinforced__accent-ring-core" cx="128" cy="128" r="17" fill="#FBF6E8" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="strength_reinforced__accent-orb">
+      <circle cx="128" cy="128" r="11" fill="url(#strength_reinforced-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="124.48" cy="124.04" r="2.86" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+  </g>
+  </g>
+</svg>

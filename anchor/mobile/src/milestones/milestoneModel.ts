@@ -12,6 +12,10 @@ export interface MilestoneRecord {
   metadata: unknown;
   /** Null until a celebration finished. A presentation receipt only; never decides ownership. */
   celebratedAt: string | null;
+  backfillVersion?: number | null;
+  /** Short-lived server reservation; never confers ownership. */
+  presentationId?: string;
+  presentationExpiresAt?: string;
 }
 
 export type MilestoneFilter = 'all' | MilestoneFamily;

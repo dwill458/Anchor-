@@ -13,6 +13,8 @@ type Props = {
   deferDragDismiss?: boolean;
   scrimColor?: string;
   scrimAccessibilityLabel?: string;
+  /** Measured space below the sheet, for keyboard-aware modal consumers. */
+  bottomInset?: number;
   testID?: string;
 };
 
@@ -69,6 +71,7 @@ export function V2SheetModal({
   deferDragDismiss = false,
   scrimColor = 'rgba(23, 23, 20, 0.38)',
   scrimAccessibilityLabel = 'Close',
+  bottomInset = 0,
   testID,
 }: Props) {
   const { height: windowHeight } = useWindowDimensions();
@@ -178,7 +181,7 @@ export function V2SheetModal({
 
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} testID={testID}>
-      <ModalGestureRoot style={styles.root}>
+      <ModalGestureRoot testID={testID ? `${testID}-layout` : undefined} style={[styles.root, { paddingBottom: bottomInset }]}>
         <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: scrimColor }, scrimStyle]}>
           <Pressable
             style={StyleSheet.absoluteFill}
