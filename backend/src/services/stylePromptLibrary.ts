@@ -84,6 +84,8 @@ export type AnchorStyleDefinition = StylePromptDefinition;
 export interface BuildStylePromptOptions {
   category?: string;
   categoryColor?: string;
+  /** Stable per-anchor/generation input used to vary Anchor 2.0 prompt choices across renders. */
+  variationKey?: string;
   recentRenders?: {
     usedStyles?: string[];
     usedStyleFamilies?: string[];
@@ -1236,13 +1238,14 @@ export function selectAnchor2PaletteLane(
   def: Anchor2StyleDefinition,
   intention: string,
   variationIndex: number,
-  category?: string
+  category?: string,
+  variationKey?: string
 ): Anchor2PaletteLane {
   const cleanIntention = normalizeIntention(intention) || 'personal intention';
   const safeIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
   // The index is an offset, not part of the hash: Form I and Form II share a starting point and
   // then step apart, so they can never land on the same lane.
-  const seed = `${def.id}:${cleanIntention}:${(category || '').trim().toLowerCase()}:lane`;
+  const seed = `${def.id}:${cleanIntention}:${(category || '').trim().toLowerCase()}:${variationKey || ''}:lane`;
   const staggered = pickStaggered(def.paletteLanes, seed, safeIndex);
   if (safeIndex % 2 === 0) return staggered;
 
@@ -1306,10 +1309,17 @@ export function buildAnchor2StylePrompt(
     typeof optionsOrCategory === 'string' ? { category: optionsOrCategory } : optionsOrCategory || {};
   const categoryInfo = getCategoryColorInfo(options.category);
 
-  const lane = selectAnchor2PaletteLane(style, intention, safeVariationIndex, options.category);
+  const variationKey = options.variationKey?.trim() || '';
+  const lane = selectAnchor2PaletteLane(
+    style,
+    intention,
+    safeVariationIndex,
+    options.category,
+    variationKey
+  );
   // Staggered, never independently hashed: the two Forms of one request must differ in material
   // subtype, motif and placement as well as palette lane, or choosing between them is a fake choice.
-  const seedBase = `${style.id}:${cleanIntention}`;
+  const seedBase = `${style.id}:${cleanIntention}:${variationKey}`;
   const materialVariant = pickStaggered(style.materialVariants, `${seedBase}:material`, safeVariationIndex);
   const peripheralPlacement = pickStaggered(
     ANCHOR2_PERIPHERAL_PLACEMENTS,
@@ -1323,7 +1333,9 @@ export function buildAnchor2StylePrompt(
 --------------------------------------------------
 This Anchor embodies the intention "${cleanIntention}".
 
-The attached reference image contains the canonical Anchor geometry derived from the user’s intention. The Anchor geometry is the identity of the piece.
+The attached reference image is a geometry reference only: it defines the canonical Anchor lines and their relationships. Preserve that geometry exactly, but do not copy the reference stroke colour, empty surround, or visual treatment. The selected style is art direction for the complete artwork, not a literal instruction to reproduce the reference image.
+
+The Anchor geometry is the identity of the piece.
 
 The finished piece is the owner's personal mark of intent: individual and handmade in character, never a corporate logo, an icon-set glyph, an alphabet monogram, or a magical seal.`,
 
@@ -1433,7 +1445,13 @@ If this data is available, prefer meaningful visual distance from recent Anchors
 
     `REFERENCE IMAGE RULE
 --------------------------------------------------
-The attached image contains the exact Anchor structure. Preserve its lines, circles, intersections, angles, nodes and geometric relationships. The style field may appear around, behind and beneath the structure, in surface treatment and in peripheral composition, but never by altering the core geometry. Never add frames, cards, plaques or enclosing containers around the Anchor.`,
+The attached image is a visual reference for exact Anchor geometry only, not a colour, palette, texture, composition or background reference. Preserve its lines, circles, intersections, angles, nodes and geometric relationships. Treat the chosen style as flexible art direction: express its material identity in a fresh palette and composition instead of copying a reference look. The style field may appear around, behind and beneath the structure, in surface treatment and in peripheral composition, but never by altering the core geometry. Never add frames, cards, plaques or enclosing containers around the Anchor.`,
+
+    `PALETTE LANE AUTHORITY — FINAL COLOUR DIRECTION
+--------------------------------------------------
+Required lane: ${lane.label}
+Required field palette: ${lane.field}
+This selected colorway overrides any default, example or locked color-temperature wording earlier in the style description. Those earlier colors describe familiar material examples; they do not limit this render. Preserve the material, visual grammar, texture and motifs, but use the selected hue family visibly across broad areas of the field. Do not revert to the style's familiar palette or reduce the selected colors to tiny accents. Keep the field value and Anchor contrast specified above.`,
   ];
 
   return sections.join('\n\n');

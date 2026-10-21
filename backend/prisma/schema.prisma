@@ -307,7 +307,7 @@ model ThreadV2State {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   anchorId        String
   anchor          Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
-  strength        Int      @default(50)
+  strength        Float    @default(50)
   lastCompletedAt DateTime? @map("last_completed_at")
   ruleVersion     String   @default("legacy-v1-defaults") @map("rule_version")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -325,9 +325,9 @@ model ThreadV2Movement {
   sessionId      String   @unique @map("session_id")
   practiceType   String   @map("practice_type")
   completedAt    DateTime @map("completed_at")
-  beforeStrength Int      @map("before_strength")
-  afterStrength  Int      @map("after_strength")
-  delta          Int
+  beforeStrength Float    @map("before_strength")
+  afterStrength  Float    @map("after_strength")
+  delta          Float
   reason         String
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

@@ -29,6 +29,13 @@ async function main() {
           anchorId: anchor.id,
           completionStatus: 'completed',
         },
+        select: {
+          id: true,
+          practiceMode: true,
+          completedAt: true,
+          localDateKey: true,
+          timeZone: true,
+        },
         orderBy: [{ completedAt: 'asc' }, { id: 'asc' }],
       });
 
@@ -57,6 +64,8 @@ async function main() {
             practiceType: normalizedMode,
             completedAt: session.completedAt,
             sessionId: session.id,
+            localDateKey: session.localDateKey,
+            timeZone: session.timeZone,
             mode: 'authoritative',
           });
         }

@@ -122,7 +122,9 @@ export const ANCHOR2_VARIATION_MODEL = `VARIATION MODEL
 --------------------------------------------------
 The style defines a visual grammar, not a template. Keep the LOCKED CORE intact, vary within ALLOWED VARIATION, and never enter PROHIBITED DRIFT.
 
-Do not copy a fixed composition: do not reproduce the same corners, patches, leaves, paint marks or motif positions from render to render. The supplied Anchor geometry determines the composition; users who choose the same style should receive related but individually composed results.`;
+Do not copy a fixed composition: do not reproduce the same corners, patches, leaves, paint marks or motif positions from render to render. The supplied Anchor geometry determines the composition; users who choose the same style should receive related but individually composed results.
+
+Actively vary the dominant and accent colours within the style's material world. Across different Anchors, explore a broad range including cobalt and sky blue, turquoise, teal, rust and vivid orange, marigold and lemon yellow, coral, red, green, violet, warm neutrals and cool neutrals. Do not default to cream, black, red, teal and gold as a repeated palette. Use a coherent palette with a clear dominant hue and one or two supporting accents; preserve material truth and Anchor contrast.`;
 
 /**
  * Terms in the legacy global negative prompt that would forbid surfaces or textures the Anchor 2.0

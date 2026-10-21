@@ -42,35 +42,91 @@ export const GRACE_DAYS = 2;
 export const DAILY_DECAY = 3;
 export const DORMANT_FLOOR = 10;
 
+export function getSameDayPracticeMultiplier(sameDaySessionCount: number): number {
+  if (sameDaySessionCount <= 1) return 1.0;
+  if (sameDaySessionCount === 2) return 0.6;
+  if (sameDaySessionCount === 3) return 0.35;
+  if (sameDaySessionCount === 4) return 0.2;
+  return 0.1;
+}
+
+export function roundToPrecision(val: number, decimals: number = 2): number {
+  const factor = 10 ** decimals;
+  return Math.round((val + Number.EPSILON) * factor) / factor;
+}
+
+export function resolveLocalDateKeyFromDate(date: Date, timeZone: string = 'UTC'): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone || 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const getPart = (type: Intl.DateTimeFormatPartTypes): string =>
+      parts.find(p => p.type === type)?.value || '';
+    return `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+  } catch {
+    return date.toISOString().slice(0, 10);
+  }
+}
+
+export function calendarDaysBetweenDateKeys(fromLocalDateKey: string, toLocalDateKey: string): number {
+  const [fromY, fromM, fromD] = fromLocalDateKey.split('-').map(Number);
+  const [toY, toM, toD] = toLocalDateKey.split('-').map(Number);
+  const fromUtc = Date.UTC(fromY, fromM - 1, fromD);
+  const toUtc = Date.UTC(toY, toM - 1, toD);
+  return Math.max(0, Math.round((toUtc - fromUtc) / 86_400_000));
+}
+
+export function countDecayEligibleDaysBetweenDateKeys(
+  fromExclusiveLocalDateKey: string,
+  toExclusiveLocalDateKey: string,
+  restDays: readonly number[] = []
+): number {
+  const rest = new Set(restDays);
+  const days = calendarDaysBetweenDateKeys(fromExclusiveLocalDateKey, toExclusiveLocalDateKey);
+  if (days <= 1) return 0;
+  const [fromY, fromM, fromD] = fromExclusiveLocalDateKey.split('-').map(Number);
+  const fromUtc = Date.UTC(fromY, fromM - 1, fromD);
+  let count = 0;
+  for (let offset = 1; offset < days; offset += 1) {
+    const d = new Date(fromUtc + offset * 86_400_000);
+    if (!rest.has(d.getUTCDay())) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 export function calculateEffectivePracticeGain(
   currentStrength: number | null,
   practiceType: ThreadPracticeType,
   sameDaySessionCount: number = 1
 ): { beforeStrength: number; afterStrength: number; delta: number } {
   const baseGain = BASE_PRACTICE_GAINS[practiceType];
-  const sameDayMultiplier = sameDaySessionCount <= 1 ? 1.0 : sameDaySessionCount === 2 ? 0.5 : 0.0;
+  const sameDayMultiplier = getSameDayPracticeMultiplier(sameDaySessionCount);
 
   if (currentStrength === null) {
     if (baseGain === 0 || sameDayMultiplier === 0) {
       return { beforeStrength: 0, afterStrength: 0, delta: 0 };
     }
-    const effectiveGain = Math.max(
-      1,
-      Math.round(baseGain * sameDayMultiplier * (1 - INITIAL_ESTABLISHED_BASE / 120))
-    );
-    const afterStrength = INITIAL_ESTABLISHED_BASE + effectiveGain;
-    return { beforeStrength: 0, afterStrength, delta: afterStrength };
+    const effectiveGain = baseGain * sameDayMultiplier * (1 - INITIAL_ESTABLISHED_BASE / 120);
+    const afterStrength = roundToPrecision(Math.min(100, INITIAL_ESTABLISHED_BASE + effectiveGain));
+    const delta = afterStrength;
+    return { beforeStrength: 0, afterStrength, delta };
   }
+
   if (baseGain === 0 || sameDayMultiplier === 0) {
-    return { beforeStrength: currentStrength, afterStrength: currentStrength, delta: 0 };
+    const rounded = roundToPrecision(currentStrength);
+    return { beforeStrength: rounded, afterStrength: rounded, delta: 0 };
   }
-  const effectiveGain = Math.max(
-    1,
-    Math.round(baseGain * sameDayMultiplier * (1 - currentStrength / 120))
-  );
-  const afterStrength = Math.min(100, currentStrength + effectiveGain);
-  const delta = afterStrength - currentStrength;
-  return { beforeStrength: currentStrength, afterStrength, delta };
+
+  const effectiveGain = baseGain * sameDayMultiplier * (1 - currentStrength / 120);
+  const afterStrength = roundToPrecision(Math.min(100, currentStrength + effectiveGain));
+  const beforeStrength = roundToPrecision(currentStrength);
+  const delta = roundToPrecision(afterStrength - beforeStrength);
+  return { beforeStrength, afterStrength, delta };
 }
 
 export function calculateThreadDecay(missedDays: number): number {
@@ -113,7 +169,7 @@ export function applyDecay(
   if (score === null) return null;
   const decayAmount = calculateThreadDecay(missedDays);
   if (decayAmount <= 0) return score;
-  return Math.max(DORMANT_FLOOR, score - decayAmount);
+  return roundToPrecision(Math.max(DORMANT_FLOOR, score - decayAmount));
 }
 
 export function determineThreadStatus(
@@ -155,6 +211,8 @@ export class ThreadStrengthService {
     practiceType: ThreadPracticeType;
     completedAt: Date;
     sessionId: string;
+    localDateKey?: string;
+    timeZone?: string;
     mode: ThreadAuthorityMode;
   }): Promise<ThreadMovement> {
     return prisma.$transaction(tx => this.calculateInTransaction(tx, input), {
@@ -169,7 +227,14 @@ export class ThreadStrengthService {
   }): Promise<ThreadMovement | null> {
     const session = await prisma.practiceSession.findFirst({
       where: { id: input.sessionId, userId: input.userId },
-      select: { id: true, anchorId: true, practiceMode: true, completedAt: true },
+      select: {
+        id: true,
+        anchorId: true,
+        practiceMode: true,
+        completedAt: true,
+        localDateKey: true,
+        timeZone: true,
+      },
     });
     if (!session || !session.anchorId) return null;
     const practiceType = normalizeThreadPracticeType(session.practiceMode);
@@ -180,6 +245,8 @@ export class ThreadStrengthService {
       practiceType,
       completedAt: session.completedAt,
       sessionId: session.id,
+      localDateKey: session.localDateKey,
+      timeZone: session.timeZone,
       mode: input.mode,
     });
   }
@@ -192,6 +259,8 @@ export class ThreadStrengthService {
       practiceType: ThreadPracticeType;
       completedAt: Date;
       sessionId: string;
+      localDateKey?: string;
+      timeZone?: string;
       mode: ThreadAuthorityMode;
     }
   ): Promise<ThreadMovement> {
@@ -216,7 +285,30 @@ export class ThreadStrengthService {
       create: { userId: input.userId, anchorId: input.anchorId, strength: 0 },
       update: {},
     });
-    await tx.threadV2Movement.create({
+
+    const priorMovements = await tx.threadV2Movement.findMany({
+      where: { userId: input.userId, anchorId: input.anchorId },
+      orderBy: [{ completedAt: 'asc' }, { sessionId: 'asc' }],
+    });
+
+    // Resolve date keys for all session IDs using practiceSession rows where available
+    const sessionIds = priorMovements.map(m => m.sessionId);
+    const sessions =
+      sessionIds.length > 0 && typeof (tx as any).practiceSession?.findMany === 'function'
+        ? await tx.practiceSession.findMany({
+            where: { id: { in: sessionIds } },
+            select: { id: true, localDateKey: true, timeZone: true, completedAt: true },
+          })
+        : [];
+    const dateMap = new Map<string, string>();
+    for (const s of sessions) {
+      dateMap.set(s.id, s.localDateKey || resolveLocalDateKeyFromDate(s.completedAt, s.timeZone));
+    }
+    const resolvedInputDateKey =
+      input.localDateKey || resolveLocalDateKeyFromDate(input.completedAt, input.timeZone || 'UTC');
+    dateMap.set(input.sessionId, resolvedInputDateKey);
+
+    const newMovementPlaceholder = await tx.threadV2Movement.create({
       data: {
         userId: input.userId,
         anchorId: input.anchorId,
@@ -230,39 +322,73 @@ export class ThreadStrengthService {
       },
     });
 
-    // Recompose every movement in completion order so delayed/offline sessions
-    // cannot double-award or distort the final authoritative state.
-    const movements = await tx.threadV2Movement.findMany({
-      where: { userId: input.userId, anchorId: input.anchorId },
-      orderBy: [{ completedAt: 'asc' }, { sessionId: 'asc' }],
+    const newMovementRecord = {
+      id: newMovementPlaceholder?.id || `movement-${input.sessionId}`,
+      userId: input.userId,
+      anchorId: input.anchorId,
+      sessionId: input.sessionId,
+      practiceType: input.practiceType,
+      completedAt: input.completedAt,
+      beforeStrength: 0,
+      afterStrength: 0,
+      delta: 0,
+      reason: 'practice_completed',
+    };
+
+    // Replay in chronological order
+    const allMovements = [
+      ...priorMovements.filter(m => m.sessionId !== input.sessionId),
+      newMovementRecord,
+    ].sort((a, b) => {
+      const aTime = a.completedAt?.getTime?.() ?? new Date(a.completedAt).getTime();
+      const bTime = b.completedAt?.getTime?.() ?? new Date(b.completedAt).getTime();
+      const timeDiff = aTime - bTime;
+      return timeDiff !== 0 ? timeDiff : a.sessionId.localeCompare(b.sessionId);
     });
+
     let strength: number | null = null;
-    let previous: Date | null = null;
+    let previousDateKey: string | null = null;
     let requested: ThreadMovement | null = null;
     let currentDateKey: string | null = null;
     let sameDaySessionCount = 0;
-    for (const movement of movements) {
-      const dateKey = movement.completedAt.toISOString().slice(0, 10);
-      if (dateKey === currentDateKey) {
+
+    for (const movement of allMovements) {
+      const mDateKey =
+        dateMap.get(movement.sessionId) ||
+        resolveLocalDateKeyFromDate(movement.completedAt, input.timeZone || 'UTC');
+
+      if (mDateKey === currentDateKey) {
         sameDaySessionCount += 1;
       } else {
-        currentDateKey = dateKey;
+        currentDateKey = mDateKey;
         sameDaySessionCount = 1;
       }
-      if (previous) {
-        const missedDays = countDecayEligibleDays(previous, movement.completedAt);
+
+      if (previousDateKey) {
+        const missedDays = countDecayEligibleDaysBetweenDateKeys(previousDateKey, mDateKey);
         strength = applyDecay(strength, missedDays);
       }
+
       const { beforeStrength, afterStrength, delta } = calculateEffectivePracticeGain(
         strength,
         movement.practiceType as ThreadPracticeType,
         sameDaySessionCount
       );
-      await tx.threadV2Movement.update({
-        where: { id: movement.id },
-        data: { beforeStrength, afterStrength, delta },
-      });
-      if (movement.sessionId === input.sessionId)
+
+      // Only update when values differ or for the newly inserted movement
+      if (
+        movement.id === newMovementPlaceholder.id ||
+        movement.beforeStrength !== beforeStrength ||
+        movement.afterStrength !== afterStrength ||
+        movement.delta !== delta
+      ) {
+        await tx.threadV2Movement.update({
+          where: { id: movement.id },
+          data: { beforeStrength, afterStrength, delta },
+        });
+      }
+
+      if (movement.sessionId === input.sessionId) {
         requested = {
           beforeStrength,
           afterStrength,
@@ -270,17 +396,20 @@ export class ThreadStrengthService {
           reason: 'practice_completed',
           idempotent: false,
         };
+      }
+
       strength = afterStrength;
-      previous = movement.completedAt;
+      previousDateKey = mDateKey;
     }
-    const latest = movements[movements.length - 1];
+
+    const latest = allMovements[allMovements.length - 1];
     await tx.threadV2State.update({
       where: { userId_anchorId: { userId: input.userId, anchorId: input.anchorId } },
       data: { strength: strength ?? 0, lastCompletedAt: latest?.completedAt ?? null },
     });
+
     if (!requested) throw new Error('Thread movement was not persisted');
-    // Append the canonical fact in the same transaction as the authoritative
-    // movement. Presentation consumers never infer this from local progress.
+
     await tx.threadEventLedger.upsert({
       where: { idempotencyKey: `practice-thread-event:${input.sessionId}` },
       create: {
@@ -301,6 +430,7 @@ export class ThreadStrengthService {
       },
       update: {},
     });
+
     return requested;
   }
 
@@ -337,6 +467,8 @@ export class ThreadStrengthService {
         practiceType: normalizedType,
         completedAt: session.completedAt,
         sessionId: session.id,
+        localDateKey: session.localDateKey,
+        timeZone: session.timeZone,
         mode: 'authoritative',
       });
     }
@@ -349,7 +481,7 @@ export class ThreadStrengthService {
     userId: string,
     anchorId: string,
     asOfDate: Date = new Date(),
-    _clientTimeZone: string = 'UTC',
+    clientTimeZone: string = 'UTC',
     restDays: readonly number[] = []
   ): Promise<AnchorThreadState> {
     const anchor = await prisma.anchor.findFirst({
@@ -379,11 +511,29 @@ export class ThreadStrengthService {
       };
     }
 
+    const sessionIds = movements.map(m => m.sessionId);
+    const sessions =
+      sessionIds.length > 0 && typeof prisma.practiceSession?.findMany === 'function'
+        ? await prisma.practiceSession.findMany({
+            where: { id: { in: sessionIds } },
+            select: { id: true, localDateKey: true, timeZone: true, completedAt: true },
+          })
+        : [];
+    const sessionDateMap = new Map<string, string>();
+    for (const s of sessions) {
+      sessionDateMap.set(
+        s.id,
+        s.localDateKey || resolveLocalDateKeyFromDate(s.completedAt, s.timeZone || clientTimeZone)
+      );
+    }
+
     const currentStrength = this.calculateStrengthAtDate(
       anchor.createdAt,
       movements,
       asOfDate,
-      restDays
+      restDays,
+      clientTimeZone,
+      sessionDateMap
     );
 
     const sevenDaysAgo = new Date(asOfDate.getTime() - 7 * 86_400_000);
@@ -391,14 +541,17 @@ export class ThreadStrengthService {
       anchor.createdAt,
       movements,
       sevenDaysAgo,
-      restDays
+      restDays,
+      clientTimeZone,
+      sessionDateMap
     );
 
     const delta7d =
-      currentStrength !== null && pastStrength !== null ? currentStrength - pastStrength : null;
+      currentStrength !== null && pastStrength !== null
+        ? roundToPrecision(currentStrength - pastStrength)
+        : null;
     const latest = movements[movements.length - 1];
 
-    // Ensure ThreadV2State table is synced with the latest authoritative strength
     await prisma.threadV2State.upsert({
       where: { userId_anchorId: { userId, anchorId } },
       create: {
@@ -434,30 +587,35 @@ export class ThreadStrengthService {
    */
   calculateStrengthAtDate(
     _createdAt: Date,
-    movements: Array<{ practiceType: string; completedAt: Date }>,
+    movements: Array<{ practiceType: string; completedAt: Date; sessionId?: string }>,
     targetDate: Date,
-    restDays: readonly number[] = []
+    restDays: readonly number[] = [],
+    timeZone: string = 'UTC',
+    sessionDateMap?: Map<string, string>
   ): number | null {
     if (movements.length === 0) return null;
 
     let strength: number | null = null;
-    let cursor: Date | null = null;
+    let cursorDateKey: string | null = null;
     let currentDateKey: string | null = null;
     let sameDaySessionCount = 0;
 
     for (const movement of movements) {
       if (movement.completedAt > targetDate) break;
 
-      const dateKey = movement.completedAt.toISOString().slice(0, 10);
-      if (dateKey === currentDateKey) {
+      const mDateKey =
+        (movement.sessionId ? sessionDateMap?.get(movement.sessionId) : null) ||
+        resolveLocalDateKeyFromDate(movement.completedAt, timeZone);
+
+      if (mDateKey === currentDateKey) {
         sameDaySessionCount += 1;
       } else {
-        currentDateKey = dateKey;
+        currentDateKey = mDateKey;
         sameDaySessionCount = 1;
       }
 
-      if (cursor) {
-        const missedDays = countDecayEligibleDays(cursor, movement.completedAt, restDays);
+      if (cursorDateKey) {
+        const missedDays = countDecayEligibleDaysBetweenDateKeys(cursorDateKey, mDateKey, restDays);
         strength = applyDecay(strength, missedDays);
       }
 
@@ -467,15 +625,18 @@ export class ThreadStrengthService {
         sameDaySessionCount
       );
       strength = afterStrength;
-      cursor = movement.completedAt;
+      cursorDateKey = mDateKey;
     }
 
-    if (cursor && targetDate > cursor) {
-      const missedDays = countDecayEligibleDays(cursor, targetDate, restDays);
-      strength = applyDecay(strength, missedDays);
+    if (cursorDateKey) {
+      const targetDateKey = resolveLocalDateKeyFromDate(targetDate, timeZone);
+      if (targetDateKey > cursorDateKey) {
+        const missedDays = countDecayEligibleDaysBetweenDateKeys(cursorDateKey, targetDateKey, restDays);
+        strength = applyDecay(strength, missedDays);
+      }
     }
 
-    return strength !== null ? Math.max(0, Math.min(100, Math.round(strength))) : null;
+    return strength !== null ? roundToPrecision(Math.max(0, Math.min(100, strength))) : null;
   }
 }
 

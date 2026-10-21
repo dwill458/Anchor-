@@ -290,21 +290,30 @@ export class GeminiImageService {
     tier?: QualityTier;
     category?: string;
     devImageModel?: DevImageModel;
+    variationKey?: string;
   }): Promise<EnhancedSigilResult> {
     if (params.devImageModel) {
       const { imageGenerationService } = await import('./image');
       const baseImageBuffer = await this.svgToPng(params.baseSigilSvg);
       const start = Date.now();
-      const results = await Promise.all(Array.from({ length: params.numberOfVariations }, (_, i) =>
-        imageGenerationService.generate({
-          type: 'anchor',
-          prompt: this.createPrompt(params.intentionText, params.styleApproach, i, params.category),
-          styleId: params.styleApproach,
-          referenceImages: [{ buffer: baseImageBuffer, mimeType: 'image/png', role: 'structure' }],
-          devImageModel: params.devImageModel,
-          numberOfVariations: 1,
-        })
-      ));
+      const results = await Promise.all(
+        Array.from({ length: params.numberOfVariations }, (_, i) =>
+          imageGenerationService.generate({
+            type: 'anchor',
+            prompt: this.createPrompt(
+              params.intentionText,
+              params.styleApproach,
+              i,
+              params.category,
+              params.variationKey
+            ),
+            styleId: params.styleApproach,
+            referenceImages: [{ buffer: baseImageBuffer, mimeType: 'image/png', role: 'structure' }],
+            devImageModel: params.devImageModel,
+            numberOfVariations: 1,
+          })
+        )
+      );
       const images = results.map((result, i) => ({
         base64: result.images[0].buffer.toString('base64'), seed: result.images[0].seed ?? 0, variationIndex: i + 1,
       }));
@@ -312,7 +321,13 @@ export class GeminiImageService {
       return {
         images, costUSD, totalTimeSeconds: Math.round((Date.now() - start) / 1000),
         model: params.devImageModel, tier: params.tier ?? 'premium',
-        prompt: this.createPrompt(params.intentionText, params.styleApproach, 0, params.category),
+        prompt: this.createPrompt(
+          params.intentionText,
+          params.styleApproach,
+          0,
+          params.category,
+          params.variationKey
+        ),
         negativePrompt: getStyleNegativePrompt(params.styleApproach),
       };
     }
@@ -323,6 +338,7 @@ export class GeminiImageService {
       numberOfVariations,
       tier = 'premium',
       category,
+      variationKey,
     } = params;
 
     const isAnchor2 = getStyleGenerationVersion(styleApproach) === 'anchor2';
@@ -359,7 +375,7 @@ export class GeminiImageService {
 
     // 2. Get model configuration
     const modelConfig = MODEL_CONFIGS[tier];
-    const prompt = this.createPrompt(intentionText, styleApproach, 0, category);
+    const prompt = this.createPrompt(intentionText, styleApproach, 0, category, variationKey);
 
     // 3. Generate variations in batches of 2 (paid plan — no free-tier rate limit concerns).
     //    Two concurrent calls per batch cuts wall-clock time roughly in half vs sequential.
@@ -377,7 +393,7 @@ export class GeminiImageService {
         indices.map(idx =>
           this.generateVariation(
             baseImageBuffer,
-            this.createPrompt(intentionText, styleApproach, idx, category),
+            this.createPrompt(intentionText, styleApproach, idx, category, variationKey),
             idx,
             modelConfig,
             0,
@@ -414,9 +430,10 @@ export class GeminiImageService {
     intention: string,
     style: string,
     variationIndex: number = 0,
-    category?: string
+    category?: string,
+    variationKey?: string
   ): string {
-    return buildStylePrompt(intention, style, variationIndex, { category });
+    return buildStylePrompt(intention, style, variationIndex, { category, variationKey });
   }
 
   private createLegacyPrompt(intention: string, style: string, variationIndex: number = 0): string {

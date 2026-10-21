@@ -57,7 +57,7 @@ const RawWaypointSchema = z.object({
   baselineValue: z.number().nullable(),
   completionCriteria: z.string().nullish(),
   requirements: z.array(z.string()).max(12).nullish(),
-  moves: z.array(z.object({ title: z.string(), rationale: z.string().nullable() })).max(4),
+  moves: z.array(z.object({ title: z.string(), rationale: z.string().nullable() })).max(4).nullish(),
 });
 
 const RawMoveSchema = z.object({
@@ -83,7 +83,7 @@ export const RawGenerationSchema = z.object({
 export type RawGeneration = z.infer<typeof RawGenerationSchema>;
 
 export const RawMoveSuggestionsSchema = z.object({
-  moves: z.array(RawMoveSchema).min(3).max(4),
+  moves: z.array(RawMoveSchema).max(6),
 });
 
 /** JSON Schema mirror of RawGenerationSchema, for structured-output providers. */
@@ -186,7 +186,7 @@ export type PlannedWaypoint = {
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
-  moves: PlannedMove[];
+  moves?: PlannedMove[];
 };
 
 export type PlannedMove = { title: string; rationale: string | null };
@@ -302,13 +302,31 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>): PlannedWaypo
   if (metricTarget !== null && metricBaseline === metricTarget) throw new ChartPlanValidationError('empty_metric_span');
   const seenMoves = new Set<string>();
   const moves: PlannedMove[] = [];
-  for (const candidate of raw.moves) {
-    const move = normalizeMove(candidate);
-    if (!move || seenMoves.has(move.title.toLowerCase())) continue;
-    seenMoves.add(move.title.toLowerCase());
-    moves.push(move);
+  if (Array.isArray(raw.moves)) {
+    for (const candidate of raw.moves) {
+      const move = normalizeMove(candidate);
+      if (!move || seenMoves.has(move.title.toLowerCase())) continue;
+      seenMoves.add(move.title.toLowerCase());
+      moves.push(move);
+      if (moves.length === 4) break;
+    }
+    // If moves were provided by the model but fewer than 3 unique valid moves survived,
+    // supplement with deterministic action steps rather than crashing the entire route.
+    if (moves.length > 0 && moves.length < 3) {
+      const supplements = [
+        { title: `Clarify next milestone requirements for ${title.slice(0, 40)}`, rationale: 'Breaks down the immediate requirements.' },
+        { title: `Complete first action toward ${title.slice(0, 40)}`, rationale: 'Moves the milestone forward.' },
+        { title: `Verify progress toward ${title.slice(0, 40)}`, rationale: 'Confirms completion criteria are met.' },
+      ];
+      for (const sup of supplements) {
+        if (!seenMoves.has(sup.title.toLowerCase())) {
+          seenMoves.add(sup.title.toLowerCase());
+          moves.push(sup);
+          if (moves.length === 3) break;
+        }
+      }
+    }
   }
-  if (moves.length < 3 || moves.length > 4) throw new ChartPlanValidationError('waypoint_moves');
   return {
     title,
     completionCriteria: cleanOptional(raw.completionCriteria, 400),
@@ -384,10 +402,29 @@ export function normalizeGenerationResult(
 
   const guidance = cleanOptional(raw.personalizedGuidance, GUIDANCE_MAX);
 
+  let analysis = raw.analysis;
+  if (analysis) {
+    const existing = new Map<number, number[]>(
+      analysis.prerequisites.map(p => [p.waypointIndex, p.requires])
+    );
+    const normalizedPrereqs: Array<{ waypointIndex: number; requires: number[] }> = [];
+    for (let i = 0; i < waypoints.length; i++) {
+      const reqs = existing.get(i) ?? (i > 0 ? [i - 1] : []);
+      normalizedPrereqs.push({
+        waypointIndex: i,
+        requires: reqs.filter(r => r >= 0 && r < i),
+      });
+    }
+    analysis = {
+      ...analysis,
+      prerequisites: normalizedPrereqs,
+    };
+  }
+
   return {
     needsMoreContext: false,
     routeScope: raw.routeScope ?? 'DESTINATION',
-    analysis: raw.analysis,
+    analysis,
     destination,
     complexity,
     waypoints,
@@ -408,6 +445,6 @@ export function normalizeMoveSuggestions(input: unknown, existingTitles: string[
     moves.push(move);
     if (moves.length === 4) break;
   }
-  if (moves.length < 3) throw new ChartPlanValidationError('too_few_moves');
+  if (moves.length === 0) throw new ChartPlanValidationError('no_moves');
   return moves;
 }

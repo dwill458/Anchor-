@@ -86,11 +86,20 @@ Legacy definitions carry none of these fields and keep their derived defaults.
 
 The structure colour follows the value behind it: light field, dark structure; dark field, light
 structure; never forced gold or category colour at the cost of legibility. The lane is picked
-deterministically from `style id : intention : variation index : category`. The builder emits an
+deterministically from `style id : intention : variation index : category : variation key`. The builder emits an
 explicit instruction for the chosen lane; for `mixed` lanes it also requires a calm, low-contrast
 tonal zone behind the geometry. Validation rejects a lane that breaks the light/dark rule. The
 reference PNG still draws the geometry in gold on an empty surround (`svgToPng`); the prompt and
 wrapper say that colour and surround are only a geometry diagram.
+
+Production generation also supplies an opaque per-anchor variation key. Anchor 2.0 uses it only as
+an input to the deterministic palette, material, motif and placement selectors; the key itself is
+never included in prompt text. This lets identical styles and intentions receive different art
+direction across anchors while keeping the two Forms of one anchor deliberately paired. Every one
+of the 15 styles receives eight explicit colorway families (cobalt, turquoise, emerald, violet,
+orange, marigold, coral and indigo) for both light and dark fields. Each lane renders the colors
+through the style's named material, and the selected lane takes precedence over default palette
+examples. Flash also retains its additional style-specific color lanes.
 
 ## Anchor-aware legibility
 

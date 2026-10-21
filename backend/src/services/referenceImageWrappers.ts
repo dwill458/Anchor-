@@ -35,7 +35,7 @@ const LEGACY_OPENAI_TAIL = `CRITICAL COMPOSITION & STRUCTURAL INTEGRITY DIRECTIV
 
 // ── Anchor 2.0 wrappers ──────────────────────────────────────────────────────────────────────
 
-const ANCHOR2_REFERENCE_TAIL = `REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor structure that must be preserved. Keep all main lines, circles, intersections, angles, nodes, and geometric relationships exactly as shown.
+const ANCHOR2_REFERENCE_TAIL = `REFERENCE IMAGE INSTRUCTION: The attached image is a geometry reference only. Preserve the exact Anchor lines, circles, intersections, angles, nodes, and geometric relationships, but do not copy its stroke colour, empty surround, palette or visual treatment. The selected style is art direction for the complete artwork, not a literal instruction to reproduce the reference image.
 ANCHOR 2.0 PRESENTATION REMINDER:
 - Generate one complete edge-to-edge artwork. The selected style's material field is REQUIRED and fills the whole image; do not remove it or leave the Anchor floating on a blank canvas.
 - The Anchor geometry remains the hero at approximately 75–85% of the usable composition, with outer breathing room so no stroke is clipped.
@@ -46,11 +46,12 @@ ANCHOR 2.0 PRESENTATION REMINDER:
 
 const ANCHOR2_OPENAI_TAIL = `CRITICAL COMPOSITION & STRUCTURAL INTEGRITY DIRECTIVE (ANCHOR 2.0):
 1. Preserve the geometric structure, core lines, angles, intersections, and balance of the intended Anchor design exactly.
-2. Generate one complete edge-to-edge artwork. The selected style's material field is REQUIRED and fills the whole image.
-3. The Anchor geometry remains the hero at approximately 75–85% of the usable composition, with breathing room so no stroke is clipped.
-4. Adaptive contrast: a light field takes a dark structure colour and a dark field takes a light structure colour.
-5. Keep the area behind and around the geometry calm and move richer detail toward the perimeter.
-6. No frames, cards, plaques, medallions or extra enclosing rings. No words, no typography, no letters, no numbers, no captions, no watermarks.`;
+2. Treat the attached image as geometry reference only; do not copy its stroke colour, empty surround, palette or visual treatment. The chosen style is art direction, not a literal reproduction request.
+3. Generate one complete edge-to-edge artwork. The selected style's material field is REQUIRED and fills the whole image.
+4. The Anchor geometry remains the hero at approximately 75–85% of the usable composition, with breathing room so no stroke is clipped.
+5. Adaptive contrast: a light field takes a dark structure colour and a dark field takes a light structure colour.
+6. Keep the area behind and around the geometry calm and move richer detail toward the perimeter.
+7. No frames, cards, plaques, medallions or extra enclosing rings. No words, no typography, no letters, no numbers, no captions, no watermarks.`;
 
 const LEGACY_TAILS: Record<ReferenceWrapperProvider, string> = {
   nanoBanana: LEGACY_NANO_BANANA_TAIL,

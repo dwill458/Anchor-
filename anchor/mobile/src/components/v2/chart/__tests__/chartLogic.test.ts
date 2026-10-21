@@ -221,6 +221,7 @@ describe('chart error classification', () => {
     expect(classifyChartError(new ApiClientError('x', 'ROUTE_REWRITE_CONFIRMATION_REQUIRED', 409)).kind).toBe('confirmation_required');
     expect(classifyChartError(new ApiClientError('x', 'COURSE_VERSION_CONFLICT', 409)).kind).toBe('conflict');
     expect(classifyChartError(new ApiClientError('x', 'CHART_ADJUST_UNAVAILABLE', 503)).kind).toBe('unavailable');
+    expect(classifyChartError(new ApiClientError('x', 'CHART_PLAN_UNAVAILABLE', 503)).kind).toBe('unavailable');
     expect(classifyChartError(new ApiClientError('x', 'CHART_PLAN_RATE_LIMITED', 429)).kind).toBe('rate_limited');
     expect(classifyChartError(new ApiClientError('x', 'ANCHOR_UNAVAILABLE', 409)).kind).toBe('anchor_released');
     expect(classifyChartError('weird').kind).toBe('unknown');

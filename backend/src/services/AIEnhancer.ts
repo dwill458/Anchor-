@@ -297,6 +297,7 @@ const STRUCTURE_THRESHOLDS = {
  */
 export interface ControlNetEnhancementRequest {
   devImageModel?: DevImageModel;
+  variationKey?: string;
   sigilSvg: string; // Base or reinforced SVG structure
   styleChoice: GenerationStyleId; // Selected art style (legacy or Anchor 2.0)
   userId: string; // For tracking
@@ -398,6 +399,7 @@ export async function enhanceSigilWithAI(
         numberOfVariations,
         tier,
         devImageModel: request.devImageModel,
+        variationKey: request.variationKey,
       });
 
       // Convert Gemini result format to ControlNet result format

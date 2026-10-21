@@ -94,8 +94,86 @@ export const REQUIRED_ANCHOR2_DNA_KEYS = [
   'negativePromptAdditions',
 ] as const satisfies readonly (keyof VisualLanguageDNA)[];
 
-const defineAnchor2Style = (definition: Anchor2StyleDefinition): Anchor2StyleDefinition =>
-  definition;
+const ANCHOR2_COLORWAYS = [
+  {
+    id: 'cobalt',
+    name: 'Cobalt blue',
+    light: 'cobalt and sky blue with small warm coral accents',
+    dark: 'deep cobalt and midnight blue with pale blue and warm coral accents',
+  },
+  {
+    id: 'turquoise',
+    name: 'Turquoise',
+    light: 'turquoise and sea-glass teal with small amber accents',
+    dark: 'deep teal and petrol blue with bright turquoise and amber accents',
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald green',
+    light: 'emerald and leaf green with pale sage accents',
+    dark: 'deep forest green with vivid emerald and pale sage accents',
+  },
+  {
+    id: 'violet',
+    name: 'Violet',
+    light: 'violet and plum with small lilac and rose accents',
+    dark: 'deep plum and indigo-violet with bright lilac accents',
+  },
+  {
+    id: 'orange',
+    name: 'Burnt orange',
+    light: 'burnt orange and vermilion with small cobalt accents',
+    dark: 'deep rust and oxblood with vivid orange and cobalt accents',
+  },
+  {
+    id: 'marigold',
+    name: 'Marigold yellow',
+    light: 'marigold and lemon yellow with small indigo accents',
+    dark: 'deep indigo and umber with vivid marigold and lemon accents',
+  },
+  {
+    id: 'coral',
+    name: 'Coral',
+    light: 'coral and warm rose with small muted blue accents',
+    dark: 'deep rose and burgundy with bright coral and muted blue accents',
+  },
+  {
+    id: 'indigo',
+    name: 'Indigo',
+    light: 'indigo and periwinkle with small apricot accents',
+    dark: 'deep navy and indigo with pale periwinkle and apricot accents',
+  },
+] as const;
+
+function buildStyleColorwayLanes(definition: Anchor2StyleDefinition): Anchor2PaletteLane[] {
+  const material = definition.materialName;
+  const substrate = definition.visualLanguage.substrate;
+  const generated = ANCHOR2_COLORWAYS.flatMap(colorway => [
+    {
+      id: `colorway_light_${colorway.id}`,
+      label: `${colorway.name} on a light field`,
+      fieldValue: 'light' as const,
+      field: `A light-toned ${material} field with a clearly visible ${colorway.name.toLowerCase()} palette: ${colorway.light}. Keep the ${substrate} and express the colors through its native material behavior and texture. The named hue must be visible across broad areas, not only as tiny accents.`,
+      anchorTone: 'deep ink, charcoal or the style’s darkest native tone',
+      anchorValue: 'dark' as const,
+    },
+    {
+      id: `colorway_dark_${colorway.id}`,
+      label: `${colorway.name} on a dark field`,
+      fieldValue: 'dark' as const,
+      field: `A dark-toned ${material} field with a clearly visible ${colorway.name.toLowerCase()} palette: ${colorway.dark}. Keep the ${substrate} and express the colors through its native material behavior and texture. The named hue must be visible across broad areas, not only as tiny accents.`,
+      anchorTone: 'warm cream, pale silver or the style’s lightest native tone',
+      anchorValue: 'light' as const,
+    },
+  ]);
+
+  return [...definition.paletteLanes, ...generated];
+}
+
+const defineAnchor2Style = (definition: Anchor2StyleDefinition): Anchor2StyleDefinition => ({
+  ...definition,
+  paletteLanes: buildStyleColorwayLanes(definition),
+});
 
 // ============================================================================
 // The 15 Anchor 2.0 styles
@@ -1472,7 +1550,7 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       'thick flash linework that stays subordinate to the Anchor geometry',
     ],
     allowedVariation: [
-      'classic colour flash, blackwork, neo-traditional palette or faded sun-worn ink',
+      'classic colour flash, blackwork, neo-traditional palette or faded sun-worn ink, including vivid blue, orange, yellow and turquoise treatments',
       'which abstract flash forms appear',
       'where the forms cluster toward the edges',
     ],
@@ -1509,6 +1587,54 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         field: 'sun-yellowed flash paper with faded muted red and teal ink forms',
         anchorTone: 'deep umber-black ink',
         anchorValue: 'dark',
+      },
+      {
+        id: 'cobalt_blue',
+        label: 'Cobalt blue flash',
+        fieldValue: 'light',
+        field: 'cool pale-blue flash paper with bold cobalt and ultramarine forms, small cream highlights and restrained charcoal accents',
+        anchorTone: 'deep navy ink',
+        anchorValue: 'dark',
+      },
+      {
+        id: 'ember_orange',
+        label: 'Ember orange flash',
+        fieldValue: 'light',
+        field: 'warm ivory flash paper with vivid burnt-orange and vermilion forms, touches of deep blue and matte charcoal',
+        anchorTone: 'deep charcoal ink',
+        anchorValue: 'dark',
+      },
+      {
+        id: 'marigold_yellow',
+        label: 'Marigold yellow flash',
+        fieldValue: 'light',
+        field: 'soft butter-yellow flash paper with saturated marigold and lemon-yellow forms, balanced by indigo and dark umber accents',
+        anchorTone: 'deep indigo-brown ink',
+        anchorValue: 'dark',
+      },
+      {
+        id: 'turquoise',
+        label: 'Turquoise flash',
+        fieldValue: 'light',
+        field: 'pale sea-glass paper with strong turquoise and blue-green forms, warm orange accents and dark ink outlines',
+        anchorTone: 'deep blue-green ink',
+        anchorValue: 'dark',
+      },
+      {
+        id: 'midnight_blue_stock',
+        label: 'Midnight blue flash',
+        fieldValue: 'dark',
+        field: 'deep matte cobalt-blue flash paper with cream, pale-blue and warm orange filled forms, rays and dotwork',
+        anchorTone: 'warm cream-white ink with a calm clear paper zone around it',
+        anchorValue: 'light',
+      },
+      {
+        id: 'indigo_marigold_stock',
+        label: 'Indigo and marigold flash',
+        fieldValue: 'dark',
+        field: 'dark indigo flash paper with bright marigold-yellow and coral-orange forms, small pale-blue accents and cream linework',
+        anchorTone: 'warm cream-white ink with a calm clear paper zone around it',
+        anchorValue: 'light',
       },
       {
         id: 'black_stock',

@@ -464,6 +464,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
                 tier: effectiveTier,
                 numberOfVariations: numberOfVariationsToGenerate,
                 devImageModel: parsed.devImageModel,
+                variationKey: `${anchorId}:${parsedAttempt}`,
               })
             : enhanceSigilWithControlNet({
                 sigilSvg,

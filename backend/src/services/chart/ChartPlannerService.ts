@@ -34,7 +34,6 @@ import {
   type PlannedWaypoint,
 } from './chartPlanSchema';
 import { validatePlanSemantics } from './chartPlanValidation';
-import { buildTemplateRoute } from './chartTemplateRoute';
 
 export const CHART_PLANNER_VERSION = 'chart-2.1';
 const REFERENCE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -195,6 +194,7 @@ export class ChartPlannerService {
             error.retryable &&
             elapsed < RETRY_WINDOW_MS;
           if (!retry) break;
+          await new Promise(r => setTimeout(r, 500));
         }
       }
     }
@@ -204,7 +204,19 @@ export class ChartPlannerService {
   private async loadAnchorContext(userId: string, anchorId: string) {
     const anchor = await prisma.anchor.findFirst({
       where: { id: anchorId, userId },
-      select: { id: true, intentionText: true, category: true, releasedAt: true, isArchived: true },
+      select: {
+        id: true,
+        intentionText: true,
+        category: true,
+        releasedAt: true,
+        isArchived: true,
+        activationCount: true,
+        practiceSessions: {
+          select: { id: true, completedAt: true },
+          orderBy: { completedAt: 'desc' },
+          take: 5,
+        },
+      },
     });
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     if (anchor.releasedAt || anchor.isArchived) {
@@ -212,7 +224,23 @@ export class ChartPlannerService {
     }
     const vision = await prisma.vision.findFirst({
       where: { anchorId, userId, status: 'ACTIVE' },
-      select: { id: true, title: true, description: true },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        notes: {
+          where: { isArchived: false },
+          select: { text: true },
+          orderBy: { layerOrder: 'asc' },
+          take: 10,
+        },
+        scenes: {
+          where: { isArchived: false },
+          select: { caption: true, prompt: true },
+          orderBy: { sortOrder: 'asc' },
+          take: 5,
+        },
+      },
       orderBy: { updatedAt: 'desc' },
     });
     return { anchor, vision };
@@ -293,6 +321,7 @@ export class ChartPlannerService {
       destinationDescription?: string | null;
       followUp?: { question: string; answer?: string } | null;
       references?: ChartReferenceInput[] | null;
+      requestId?: string;
     }
   ): Promise<ChartPlanResponse> {
     const key = scopedKey(userId, 'create', input.idempotencyKey);
@@ -309,6 +338,17 @@ export class ChartPlannerService {
     const startingContext = input.startingContext?.trim() || null;
     const resolved = await this.resolveReferences(userId, input.references);
     const visionImages = vision ? await this.loadVisionImages(userId, vision.id) : [];
+
+    const visionNotes = vision?.notes?.map(n => n.text).filter(Boolean) ?? [];
+    const visionCaptions = vision?.scenes?.map(s => s.caption || s.prompt).filter(Boolean) as string[] ?? [];
+    const recentPractice = anchor.practiceSessions?.[0];
+    const progress = (anchor.activationCount > 0 || (anchor.practiceSessions?.length ?? 0) > 0)
+      ? {
+          practiceCount: anchor.activationCount || anchor.practiceSessions.length,
+          lastPracticedAt: recentPractice?.completedAt?.toISOString() ?? null,
+        }
+      : null;
+
     const context: ChartPlanningContext = {
       intention: anchor.intentionText,
       category: anchor.category,
@@ -316,7 +356,15 @@ export class ChartPlannerService {
       startingContext,
       destinationDescription: input.destinationDescription ?? startingContext,
       actualStartingPoint: input.actualStartingPoint?.trim() || null,
-      vision: vision && (vision.title || vision.description) ? { title: vision.title, description: vision.description } : null,
+      vision: vision && (vision.title || vision.description || visionNotes.length || visionCaptions.length)
+        ? {
+            title: vision.title,
+            description: vision.description,
+            notes: visionNotes.length ? visionNotes : undefined,
+            captions: visionCaptions.length ? visionCaptions : undefined,
+          }
+        : null,
+      progress,
       // A follow-up counts as answered by text or by an attached reference.
       followUp: input.followUp
         ? {
@@ -335,48 +383,104 @@ export class ChartPlannerService {
     // Exactly one follow-up per creation: once answered, the planner must plan.
     const allowFollowUp = !context.followUp;
 
-    const outcome = await this.runChain<ChartGenerationResult>('route', (provider, timeoutMs) =>
-      provider
-        .generateJson({
+    const allImages = [...visionImages, ...resolved.images];
+    let imageAnalysisFallback = false;
+    const outcome = await this.runChain<ChartGenerationResult>('route', async (provider, timeoutMs) => {
+      try {
+        const raw = await provider.generateJson({
           schemaName: 'chart_route',
           jsonSchema: GENERATION_JSON_SCHEMA as unknown as Record<string, unknown>,
           system: CHART_PLANNER_SYSTEM,
           user: buildPlanningUserMessage(context, { allowFollowUp }),
-          ...(visionImages.length || resolved.images.length ? { images: [...visionImages, ...resolved.images] } : {}),
+          ...(allImages.length && !imageAnalysisFallback ? { images: allImages } : {}),
           timeoutMs,
           temperature: 0.4,
-        })
-        .then(raw => validatePlanSemantics(normalizeGenerationResult(raw, { allowFollowUp }), context, { requireAnalysis: true }))
-    );
+        });
+        return validatePlanSemantics(normalizeGenerationResult(raw, { allowFollowUp }), context, { requireAnalysis: true });
+      } catch (error) {
+        // If image analysis failed with a provider error, gracefully fall back to rich textual context
+        if (allImages.length && !imageAnalysisFallback && error instanceof ChartProviderError) {
+          logger.warn('chart_planner_image_fallback_to_text', { provider: provider.name, error: error.failure });
+          imageAnalysisFallback = true;
+          const textContext = { ...context, visionImageCount: 0 };
+          const raw = await provider.generateJson({
+            schemaName: 'chart_route',
+            jsonSchema: GENERATION_JSON_SCHEMA as unknown as Record<string, unknown>,
+            system: CHART_PLANNER_SYSTEM,
+            user: buildPlanningUserMessage(textContext, { allowFollowUp }),
+            timeoutMs,
+            temperature: 0.4,
+          });
+          return validatePlanSemantics(normalizeGenerationResult(raw, { allowFollowUp }), textContext, { requireAnalysis: true });
+        }
+        throw error;
+      }
+    });
+
+    const correlationId = input.requestId || randomUUID();
+    logger.info('chart_planning_lifecycle', {
+      requestId: correlationId,
+      endpoint: '/anchors/:anchorId/chart/plan',
+      environment: process.env.NODE_ENV ?? 'development',
+      authStatus: 'authenticated',
+      anchorId: anchor.id,
+      visionId: vision?.id ?? null,
+      hasVisionContext: Boolean(context.vision),
+      visionNotesCount: visionNotes.length,
+      visionCaptionsCount: visionCaptions.length,
+      visionImageCount: visionImages.length,
+      referenceCount: input.references?.length ?? 0,
+      referenceImageCount: resolved.images.length,
+      hasStartingPoint: Boolean(context.actualStartingPoint),
+      provider: outcome.ok ? outcome.provider.name : null,
+      model: outcome.ok ? outcome.provider.model : null,
+      fallbackUsed: outcome.ok ? outcome.fallbackUsed : false,
+      imageAnalysisFallback,
+      outcome: outcome.ok ? (outcome.value.needsMoreContext ? 'needs_context' : 'success') : outcome.reason,
+    });
 
     if (outcome.ok && outcome.value.needsMoreContext) {
       return { status: 'needs_context', followUpQuestion: outcome.value.followUpQuestion };
+    }
+
+    if (!outcome.ok) {
+      logger.error('chart_planner_failed', {
+        requestId: correlationId,
+        anchorId: anchor.id,
+        reason: outcome.reason,
+      });
+      throw new AppError(
+        'We couldn’t map this route right now. You can try again or create your route manually.',
+        503,
+        'CHART_PLAN_UNAVAILABLE'
+      );
     }
 
     const inputHash = digest(
       JSON.stringify({
         anchorId: anchor.id,
         startingContext,
+        actualStartingPoint: context.actualStartingPoint,
         followUp: context.followUp?.answer ?? null,
         references: resolved.context
           ? { photos: resolved.context.photos.length, places: resolved.context.places.length, documents: resolved.context.documents.length }
           : null,
       })
     );
+    const proposal = await this.persist(userId, {
+      idempotencyKey: key,
+      kind: 'CREATE',
+      anchorId: anchor.id,
+      courseId: null,
+      baseCourseVersion: null,
+      startingContext,
+      actualStartingPoint: context.actualStartingPoint ?? context.followUp?.answer ?? null,
+      inputHash,
+      outcome,
+    });
     return {
       status: 'proposal',
-      proposal: await this.persist(userId, {
-        idempotencyKey: key,
-        kind: 'CREATE',
-        anchorId: anchor.id,
-        courseId: null,
-        baseCourseVersion: null,
-        startingContext,
-        actualStartingPoint: context.actualStartingPoint ?? context.followUp?.answer ?? null,
-        inputHash,
-        outcome,
-        templateSource: { intention: anchor.intentionText, startingContext },
-      }),
+      proposal,
     };
   }
 
@@ -452,13 +556,32 @@ export class ChartPlannerService {
       throw new AppError('A route to adjust is required', 400, 'VALIDATION_ERROR');
     }
 
+    const visionNotes = vision?.notes?.map(n => n.text).filter(Boolean) ?? [];
+    const visionCaptions = vision?.scenes?.map(s => s.caption || s.prompt).filter(Boolean) as string[] ?? [];
+    const recentPractice = anchor.practiceSessions?.[0];
+    const progress = (anchor.activationCount > 0 || (anchor.practiceSessions?.length ?? 0) > 0)
+      ? {
+          practiceCount: anchor.activationCount || anchor.practiceSessions.length,
+          lastPracticedAt: recentPractice?.completedAt?.toISOString() ?? null,
+        }
+      : null;
+
     const context: ChartPlanningContext = {
       intention: anchor.intentionText,
       category: anchor.category,
       onboarding,
       startingContext,
       actualStartingPoint,
-      vision: vision && (vision.title || vision.description) ? { title: vision.title, description: vision.description } : null,
+      vision:
+        vision && (vision.title || vision.description || visionNotes.length || visionCaptions.length)
+          ? {
+              title: vision.title,
+              description: vision.description,
+              notes: visionNotes.length ? visionNotes : undefined,
+              captions: visionCaptions.length ? visionCaptions : undefined,
+            }
+          : null,
+      progress,
       followUp: null,
       adjustment: {
         reason: input.reason === 'OTHER' && /smaller|too (big|hard|difficult)|overwhelm/i.test(input.detail ?? '') ? 'SMALLER_STEPS' : input.reason,
@@ -525,7 +648,6 @@ export class ChartPlannerService {
         actualStartingPoint: context.actualStartingPoint ?? context.followUp?.answer ?? null,
         inputHash,
         outcome,
-        templateSource: null,
       }),
     };
   }
@@ -596,40 +718,25 @@ export class ChartPlannerService {
       actualStartingPoint?: string | null;
       inputHash: string;
       outcome: ChainOutcome<ChartGenerationResult>;
-      templateSource: { intention: string; startingContext: string | null } | null;
     }
   ): Promise<ChartProposal> {
-    let destination: string;
-    let complexity: ChartComplexity;
-    let waypoints: PlannedWaypoint[];
-    let suggestedOneMove: PlannedMove | null = null;
-    let guidance: string | null = null;
-    let generationSource: string;
-    let modelVersion: string;
-    let fallbackReason: string | null = null;
-
-    if (input.outcome.ok && !input.outcome.value.needsMoreContext) {
-      const plan = input.outcome.value;
-      destination = plan.destination;
-      complexity = plan.complexity;
-      waypoints = plan.waypoints;
-      suggestedOneMove = plan.suggestedOneMove;
-      guidance = plan.personalizedGuidance;
-      generationSource = input.outcome.provider.name;
-      modelVersion = input.outcome.provider.model;
-      fallbackReason = input.outcome.fallbackUsed ? 'primary_failed' : null;
-    } else {
-      if (!input.templateSource) {
-        throw new AppError('Route generation is unavailable', 503, 'CHART_ADJUST_UNAVAILABLE');
-      }
-      const template = buildTemplateRoute(input.templateSource);
-      destination = template.destination;
-      complexity = template.complexity;
-      waypoints = template.waypoints;
-      generationSource = template.needsNaming ? 'template_outline' : 'template_metric';
-      modelVersion = 'deterministic-v2';
-      fallbackReason = input.outcome.ok ? 'unexpected_follow_up' : input.outcome.reason;
+    if (!input.outcome.ok || input.outcome.value.needsMoreContext) {
+      throw new AppError(
+        'Route generation is unavailable',
+        503,
+        input.kind === 'ADJUST' ? 'CHART_ADJUST_UNAVAILABLE' : 'CHART_PLAN_UNAVAILABLE'
+      );
     }
+
+    const plan = input.outcome.value;
+    const destination = plan.destination;
+    const complexity: ChartComplexity = plan.complexity;
+    const waypoints: PlannedWaypoint[] = plan.waypoints;
+    const suggestedOneMove: PlannedMove | null = plan.suggestedOneMove;
+    const guidance: string | null = plan.personalizedGuidance;
+    const generationSource = input.outcome.provider.name;
+    const modelVersion = input.outcome.provider.model;
+    const fallbackReason = input.outcome.fallbackUsed ? 'primary_failed' : null;
 
     const persistedWaypoints: ChartProposalWaypoint[] = waypoints.map(waypoint => ({
       clientKey: randomUUID(),

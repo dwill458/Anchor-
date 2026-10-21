@@ -34,7 +34,16 @@ export type ChartPlanningContext = {
   startingContext: string | null;
   destinationDescription?: string | null;
   actualStartingPoint?: string | null;
-  vision: { title: string | null; description: string | null } | null;
+  vision: {
+    title: string | null;
+    description: string | null;
+    notes?: string[];
+    captions?: string[];
+  } | null;
+  progress?: {
+    practiceCount: number;
+    lastPracticedAt: string | null;
+  } | null;
   /** How many of the attached images are the person's own Vision imagery (always first). */
   visionImageCount?: number;
   followUp: { question: string; answer: string } | null;
@@ -124,7 +133,7 @@ export const CHART_PLANNER_SYSTEM = [
   '- Never assume skills, money, equipment, time or experience not supplied. Vision is destination imagery, never evidence of current resources. Respect prerequisites. Never split a numeric goal into equal or proportional intervals. A beginner first milestone must be achievable without unsupported resources.',
   '- Before displaying a route, produce a bounded internal analysis: startingPointSummary, assumptions, prerequisite order, firstMilestoneEvidence, difficultyReduction (for smaller steps). Each prerequisite names a waypoint index and earlier prerequisite indices. These are audit evidence, not user-facing chain of thought.',
   '- For financially constrained users without a stated affordable surplus, use a prerequisite stretch with no invented money targets or investment account opening. Establish a feasible plan first. For smaller steps reduce the FIRST completion criterion itself, for example one available balance instead of all accounts; rewording the same task is not easier.',
-  '- Analysis prerequisites use zero-based waypoint indices: first waypointIndex=0, and each requires index is strictly earlier. Include exactly one entry per DISPLAYED waypoint, after setup-only milestones are excluded.',
+  '- Analysis prerequisites: use zero-based waypoint indices (0 to N-1). Include an entry for every waypoint: waypointIndex 0 has requires: [], and each subsequent waypointIndex requires strictly earlier indices. Include exactly one entry per DISPLAYED waypoint, after setup-only milestones are excluded.',
   '- Waypoint 1 is the first real change in state, never setup. Do not propose establishing a baseline, measuring where they start, or setting up tracking as a waypoint: the starting point is read from what the person gave you (baselineValue on the first numeric waypoint) and is not part of the route.',
   '- Waypoint titles: max 60 characters, sentence case, no trailing punctuation. Rationale: one short sentence on why this state matters.',
   '',
@@ -155,8 +164,16 @@ export function buildPlanningUserMessage(
     whatWouldMakeItReal: limit(context.destinationDescription ?? context.startingContext, 500),
     actualStartingPoint: limit(context.actualStartingPoint, 500),
     vision: context.vision
-      ? { title: limit(context.vision.title, 140), description: limit(context.vision.description) }
+      ? {
+          title: limit(context.vision.title, 140),
+          description: limit(context.vision.description),
+          ...(context.vision.notes?.length ? { notes: context.vision.notes.map(n => limit(n, 140)) } : {}),
+          ...(context.vision.captions?.length ? { sceneCaptions: context.vision.captions.map(c => limit(c, 100)) } : {}),
+        }
       : null,
+    ...(context.progress && context.progress.practiceCount > 0
+      ? { currentPracticeProgress: { practiceCount: context.progress.practiceCount } }
+      : {}),
   };
   if (context.followUp) {
     data.followUp = {
@@ -219,6 +236,16 @@ export function buildPlanningUserMessage(
   if (context.vision) {
     instructions.push(
       'The person has already pictured the destination in their Vision. Use it to understand what "arrived" looks like; do not ask them to describe the destination again.'
+    );
+    if (context.vision.notes?.length) {
+      instructions.push(
+        'Vision notes describe specific milestones, targets, or inspirations the person placed on their board. Use them as high-priority concrete context for waypoints and targets.'
+      );
+    }
+  }
+  if (context.progress && context.progress.practiceCount > 0) {
+    instructions.push(
+      `The person has practiced ${context.progress.practiceCount} time(s) with this Anchor${context.progress.lastPracticedAt ? ` (most recently on ${context.progress.lastPracticedAt})` : ''}. They have established active practice momentum.`
     );
   }
   if (context.adjustment) {

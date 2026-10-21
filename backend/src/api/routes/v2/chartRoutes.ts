@@ -252,11 +252,15 @@ router.post(
     await requireChartCreationAccess(req);
     const userId = await writeUser(req);
     const body = validate(PlanSchema, req.body);
+    const requestId = (req.headers['x-request-id'] as string) || (req.headers['x-correlation-id'] as string) || undefined;
     const result = await chartPlannerService.generate(userId, {
       anchorId: req.params.anchorId,
       idempotencyKey: body.idempotencyKey,
       startingContext: body.startingContext ?? null,
+      actualStartingPoint: body.actualStartingPoint ?? null,
+      destinationDescription: body.destinationDescription ?? null,
       followUp: body.followUp ?? null,
+      requestId,
       // Added only when present, so text-only clients behave exactly as before.
       ...(body.references?.length ? { references: body.references } : {}),
     });

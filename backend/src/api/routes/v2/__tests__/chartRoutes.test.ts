@@ -93,7 +93,10 @@ describe('Chart v2 routes', () => {
       anchorId: 'a1',
       idempotencyKey: key,
       startingContext: '100 users',
+      destinationDescription: null,
+      actualStartingPoint: null,
       followUp: null,
+      requestId: undefined,
     });
     expect(mockPrisma.user.updateMany).toHaveBeenCalled();
   });

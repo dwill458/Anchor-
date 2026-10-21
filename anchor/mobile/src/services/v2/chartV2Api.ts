@@ -132,7 +132,7 @@ export function classifyChartError(error: unknown): ChartRequestError {
     if (code === 'ROUTE_REWRITE_CONFIRMATION_REQUIRED') return new ChartRequestError('confirmation_required', code, details);
     if (code === 'ANCHOR_UNAVAILABLE') return new ChartRequestError('anchor_released', code, details);
     if (code === 'CHART_PLAN_RATE_LIMITED' || error.status === 429) return new ChartRequestError('rate_limited', code, details);
-    if (code === 'CHART_ADJUST_UNAVAILABLE' || (error.status ?? 0) >= 500) return new ChartRequestError('unavailable', code, details);
+    if (code === 'CHART_ADJUST_UNAVAILABLE' || code === 'CHART_PLAN_UNAVAILABLE' || (error.status ?? 0) >= 500) return new ChartRequestError('unavailable', code, details);
     // A 404 from an endpoint that does not exist (older backend, Chart not
     // deployed) is NOT a missing Anchor: only the domain codes mean that.
     if (error.status === 404) {

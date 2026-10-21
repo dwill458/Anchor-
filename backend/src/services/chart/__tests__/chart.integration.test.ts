@@ -561,25 +561,42 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
       expect(result.proposal.generation.fallbackUsed).toBe(false);
     });
 
-    it('produces a deterministic route when every provider fails — creation is never blocked', async () => {
+    it('fails clearly with CHART_PLAN_UNAVAILABLE when every provider fails — does not persist generic fallback content', async () => {
       const down = provider('openai', async () => {
         throw new ChartProviderError('auth', 'openai');
       });
       const alsoDown = provider('gemini', async () => {
         throw new ChartProviderError('unavailable', 'gemini');
       });
-      const result = await planner(down.instance, alsoDown.instance).generate(userId, {
-        anchorId: plannerAnchorId,
-        idempotencyKey: key('plan-template'),
-        startingContext: 'We have 100 active users',
-        actualStartingPoint: 'We have 100 active users',
+      const idempotencyKey = key('plan-template-fail');
+      await expect(
+        planner(down.instance, alsoDown.instance).generate(userId, {
+          anchorId: plannerAnchorId,
+          idempotencyKey,
+          startingContext: 'We have 100 active users',
+          actualStartingPoint: 'We have 100 active users',
+        })
+      ).rejects.toMatchObject({
+        status: 503,
+        code: 'CHART_PLAN_UNAVAILABLE',
       });
-      expect(result.proposal.generation.source).toBe('template');
-      expect(result.proposal.generation.needsNaming).toBe(true);
-      expect(result.proposal.waypoints.every((w: any) => w.metricTarget === null)).toBe(true);
 
-      const none = await planner().generate(userId, { anchorId: plannerAnchorId, idempotencyKey: key('plan-none'), actualStartingPoint: '100 users.' });
-      expect(none.proposal.generation.source).toBe('template');
+      // Confirm no proposal was persisted
+      const proposalRow = await prisma.aIPlanProposal.findUnique({
+        where: { idempotencyKey: `usr_${userId}:plan:${idempotencyKey}` },
+      });
+      expect(proposalRow).toBeNull();
+
+      await expect(
+        planner().generate(userId, {
+          anchorId: plannerAnchorId,
+          idempotencyKey: key('plan-none-fail'),
+          actualStartingPoint: '100 users.',
+        })
+      ).rejects.toMatchObject({
+        status: 503,
+        code: 'CHART_PLAN_UNAVAILABLE',
+      });
     });
 
     it('asks one follow-up question, then plans once it is answered', async () => {

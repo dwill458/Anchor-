@@ -327,4 +327,72 @@ describe('Structured prerequisite foundation compatibility', () => {
     expect(result.waypoints.map(w => w.title)).toEqual(titles);
     expect(result.analysis?.prerequisites).toEqual(analysis.prerequisites);
   });
+
+  it('normalizes missing index 0 from provider prerequisites without crashing', () => {
+    const titles = ['First Milestone', 'Second Milestone', 'Third Milestone'];
+    // Providers like gpt-4.1-mini omit index 0 since it has no prior dependencies
+    const providerPrerequisites = [
+      { waypointIndex: 1, requires: [0] },
+      { waypointIndex: 2, requires: [1] },
+    ];
+    const analysis = {
+      startingPointSummary: 'Starting point',
+      assumptions: [],
+      firstMilestoneEvidence: 'Clear initial evidence',
+      difficultyReduction: null,
+      prerequisites: providerPrerequisites,
+    };
+    const result = normalizeGenerationResult(route(titles, { analysis }), { allowFollowUp: false });
+    if (result.needsMoreContext) throw new Error('Unexpected clarification');
+    expect(result.analysis?.prerequisites).toHaveLength(3);
+    expect(result.analysis?.prerequisites[0]).toEqual({ waypointIndex: 0, requires: [] });
+    expect(result.analysis?.prerequisites[1]).toEqual({ waypointIndex: 1, requires: [0] });
+    expect(result.analysis?.prerequisites[2]).toEqual({ waypointIndex: 2, requires: [1] });
+  });
+
+  it('resiliently normalizes waypoints with missing or fewer than 3 moves', () => {
+    const titles = ['Milestone A', 'Milestone B'];
+    const rawWaypoints = [
+      waypoint('Milestone A', { moves: null }),
+      waypoint('Milestone B', { moves: [{ title: 'Single move', rationale: 'One step' }] }),
+    ];
+    const result = normalizeGenerationResult(route(titles, { waypoints: rawWaypoints }), { allowFollowUp: false });
+    if (result.needsMoreContext) throw new Error('Unexpected clarification');
+    expect(result.waypoints).toHaveLength(2);
+    expect(result.waypoints[0].title).toBe('Milestone A');
+    expect(result.waypoints[1].title).toBe('Milestone B');
+  });
+});
+
+describe('Vision context and practice momentum in prompt', () => {
+  it('incorporates vision notes, scene captions, and practice count when available', () => {
+    const message = buildPlanningUserMessage(
+      {
+        intention: 'Launch Anchor 2.0',
+        category: 'career',
+        startingContext: 'Beta in TestFlight',
+        actualStartingPoint: '20 active testers',
+        vision: {
+          title: 'Anchor 2.0 Live',
+          description: '10,000 active users',
+          notes: ['Focus on clarity', 'Emphasize ritual flow'],
+          captions: ['App Store feature page', 'User review screen'],
+        },
+        progress: {
+          practiceCount: 15,
+          lastPracticedAt: '2026-10-19T12:00:00.000Z',
+        },
+        followUp: null,
+        adjustment: null,
+      },
+      { allowFollowUp: true }
+    );
+    expect(message).toContain('Vision notes describe specific milestones');
+    expect(message).toContain('Focus on clarity');
+    expect(message).toContain('Emphasize ritual flow');
+    expect(message).toContain('App Store feature page');
+    expect(message).toContain('User review screen');
+    expect(message).toContain('The person has practiced 15 time(s)');
+    expect(message).toContain('"practiceCount": 15');
+  });
 });
