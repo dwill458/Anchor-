@@ -33,8 +33,15 @@ module.exports = ({ config = staticConfig } = {}) => {
       name: 'Anchor SQLCipher QA',
       scheme: 'anchor-sqlcipher-qa',
       runtimeVersion: '2.0-sqlcipher-v2-realdata-qa',
-      updates: { enabled: false },
-      android: { ...base.android, package: qaPackage, versionCode: 42, allowBackup: false },
+      // Keep this cohort on its isolated SQLCipher runtime. OTA is opt-in for
+      // the dedicated preview profile and remains off for existing QA builds.
+      updates: { ...base.updates, enabled: process.env.ANCHOR_SQLCIPHER_OTA_PREVIEW === '1' },
+      android: {
+        ...base.android,
+        package: qaPackage,
+        versionCode: Number(process.env.ANCHOR_SQLCIPHER_VERSION_CODE || 42),
+        allowBackup: false,
+      },
       ios: { ...base.ios, bundleIdentifier: qaPackage },
       extra: {
         ...base.extra,

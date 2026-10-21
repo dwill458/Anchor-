@@ -199,6 +199,14 @@
         "SENTRY_DISABLE_NATIVE_UPLOAD": "true"
       }
     },
+    "sqlcipher-preview-ota": {
+      "extends": "sqlcipher-production-qa",
+      "channel": "sqlcipher-preview",
+      "env": {
+        "ANCHOR_SQLCIPHER_OTA_PREVIEW": "1",
+        "ANCHOR_SQLCIPHER_VERSION_CODE": "43"
+      }
+    },
     "sqlcipher-development": {
       "extends": "sqlcipher-production-qa",
       "channel": "development",
