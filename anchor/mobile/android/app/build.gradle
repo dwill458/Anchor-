@@ -108,7 +108,7 @@ android {
         applicationId isExpo58Qa ? 'com.anchorintentions.expo58qa20261016' : (isSqlCipherProductionQa ? 'com.anchorintentions.sqlcipherpreview20261015' : 'com.anchorintentions.app')
         minSdkVersion rootProject.ext.minSdkVersion
     targetSdkVersion 36
-        versionCode isExpo58Qa ? 1 : (isSqlCipherProductionQa ? 42 : 39)
+        versionCode isExpo58Qa ? 1 : (isSqlCipherProductionQa ? (System.getenv('ANCHOR_SQLCIPHER_VERSION_CODE') ?: '42').toInteger() : 39)
         versionName "2.0.0"
         resValue "string", "app_name", isExpo58Qa ? "Anchor Expo 58 QA" : (isSqlCipherProductionQa ? "Anchor 2.0 SQLCipher QA" : "Anchor: Visual Goal Setting")
         resValue "string", "expo_runtime_version", isExpo58Qa ? "2.0-expo58-sqlcipher-qa" : (isSqlCipherProductionQa ? "2.0-sqlcipher-v2-realdata-qa" : "2.0")
