@@ -117,6 +117,8 @@ export function VisionConversationSelection({
 }: VisionConversationSelectionProps) {
   const insets = useSafeAreaInsets();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const compactLayout = viewportHeight < 900;
+  const veryCompactLayout = viewportHeight < 740;
   const [inspecting, setInspecting] = useState<{ candidate: VisionGenerationCandidate; index: number } | null>(null);
   const candidates = useMemo(() => SORTED(round), [round]);
   const maxRoundNumber = Math.max(...rounds.map(item => item.roundNumber), round.roundNumber);
@@ -129,7 +131,10 @@ export function VisionConversationSelection({
   const galleryWidth = Math.min(viewportWidth - spacing[5] * 2, 430);
   const cardGap = spacing[3];
   const cardWidth = Math.max(1, (galleryWidth - cardGap) / 2);
-  const cardHeight = Math.min(cardWidth * 1.52, viewportHeight * 0.35);
+  // Reserve room for the fixed variation action, history, lineage, and both candidate actions.
+  // Compact phones keep the print proportions readable while allowing the outer ScrollView to
+  // handle genuinely short screens instead of pushing the bottom actions off-screen.
+  const cardHeight = Math.min(cardWidth * 1.52, viewportHeight * (compactLayout ? 0.28 : 0.35));
   const focusedCandidate = inspecting?.candidate;
   const modalCardHeight = Math.min(Math.min(viewportWidth - 52, 390) * 1.5, viewportHeight * 0.5);
 
@@ -180,16 +185,20 @@ export function VisionConversationSelection({
   return (
     <View testID="vision-conversation-selection" style={styles.stage}>
       <StatusBar barStyle="light-content" animated />
-      <LinearGradient pointerEvents="none" colors={[colors.ink.base, colors.ink.deep, '#090D12']} style={StyleSheet.absoluteFill} />
+      <LinearGradient pointerEvents="none" colors={['#1B1D35', '#181A30', '#14162B']} style={StyleSheet.absoluteFill} />
       <ScrollView
         testID="vision-conversation-selection-scroll"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing[2], paddingBottom: spacing[4] }]}
+        contentContainerStyle={[styles.content, {
+          gap: compactLayout ? spacing[2] : spacing[3],
+          paddingTop: insets.top + (compactLayout ? spacing[1] : spacing[2]),
+          paddingBottom: compactLayout ? spacing[2] : spacing[4],
+        }]}
       >
-        <View style={styles.topRow}>
+        <View style={[styles.topRow, compactLayout && styles.compactTopRow]}>
           <VisionBackButton onPress={onBack} color={PAPER} />
-          <View testID="vision-selection-anchor-mark" style={styles.anchorMark} accessible accessibilityRole="image" accessibilityLabel="Anchor">
-            <View style={styles.anchorInner}>
+          <View testID="vision-selection-anchor-mark" style={[styles.anchorMark, compactLayout && styles.compactAnchorMark]} accessible accessibilityRole="image" accessibilityLabel="Anchor">
+            <View style={[styles.anchorInner, compactLayout && styles.compactAnchorInner]}>
               {anchorArt?.svg || anchorArt?.imageUrl ? <CircularAnchorRenderer
                 svg={anchorArt.svg}
                 imageUrl={anchorArt.imageUrl ?? undefined}
@@ -204,17 +213,17 @@ export function VisionConversationSelection({
           <View style={styles.topSpacer} />
         </View>
 
-        <View style={styles.header}>
+        <View style={[styles.header, compactLayout && styles.compactHeader]}>
           <Text style={styles.kicker}>{kicker}</Text>
-          <Text testID="vision-conversation-selection-title" accessibilityRole="header" style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text testID="vision-conversation-selection-title" accessibilityRole="header" style={[styles.title, compactLayout && styles.compactTitle, veryCompactLayout && styles.veryCompactTitle]}>{title}</Text>
+          <Text style={[styles.subtitle, compactLayout && styles.compactSubtitle]}>{subtitle}</Text>
         </View>
 
         {rounds.length > 1 ? (
-          <VisionVersionStrip rounds={rounds} selectedRoundId={round.id} onSelect={onSelectRound} testID="vision-selection-history" />
+          <VisionVersionStrip rounds={rounds} selectedRoundId={round.id} onSelect={onSelectRound} compact={compactLayout} testID="vision-selection-history" />
         ) : null}
         {rounds.length > 1 && selectedCandidateId ? (
-          <VisionLineageLine rounds={rounds} selectedRoundId={round.id} selectedCandidateId={selectedCandidateId}
+          <VisionLineageLine rounds={rounds} selectedRoundId={round.id} selectedCandidateId={selectedCandidateId} compact={compactLayout}
             onViewCandidate={onViewCandidate} testID="vision-selection-lineage" />
         ) : null}
 
@@ -257,7 +266,7 @@ export function VisionConversationSelection({
 
       <Modal visible={Boolean(focusedCandidate)} animationType="fade" onRequestClose={closeInspect}>
         <View testID="vision-conversation-selection-inspect" style={[styles.stage, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-          <LinearGradient pointerEvents="none" colors={[colors.ink.base, colors.ink.deep, '#090D12']} style={StyleSheet.absoluteFill} />
+          <LinearGradient pointerEvents="none" colors={['#1B1D35', '#181A30', '#14162B']} style={StyleSheet.absoluteFill} />
           <View style={styles.modalTop}>
             <VisionBackButton label="Back to options" color={PAPER} onPress={closeInspect} />
             <Text style={styles.modalCount}>{inspecting ? `Candidate ${inspecting.index + 1} of ${candidates.length}` : ''}</Text>
@@ -302,13 +311,20 @@ const styles = StyleSheet.create({
   stage: { flex: 1, backgroundColor: colors.ink.base },
   content: { alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4] },
   topRow: { width: '100%', minHeight: 72, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  compactTopRow: { minHeight: 56 },
   topSpacer: { width: 44, height: 44 },
   anchorMark: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center', borderRadius: 36, borderWidth: 1, borderColor: 'rgba(176,138,74,0.7)' },
+  compactAnchorMark: { width: 56, height: 56, borderRadius: 28 },
   anchorInner: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, borderWidth: 1, borderColor: VISION_GOLD },
+  compactAnchorInner: { width: 40, height: 40, borderRadius: 20 },
   header: { width: '100%', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[2], marginBottom: spacing[1] },
+  compactHeader: { gap: spacing[1], marginBottom: 0 },
   kicker: { color: MUTED, fontFamily: typography.bodySemiBold, fontSize: 13, lineHeight: 18, letterSpacing: 2.5, textAlign: 'center' },
   title: { color: PAPER, fontFamily: VISION_SERIF, fontSize: 34, lineHeight: 40, letterSpacing: -0.4, textAlign: 'center' },
+  compactTitle: { fontSize: 30, lineHeight: 36 },
+  veryCompactTitle: { fontSize: 28, lineHeight: 34 },
   subtitle: { color: MUTED, fontFamily: typography.body, fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 360 },
+  compactSubtitle: { fontSize: 14, lineHeight: 20 },
   candidateRow: { maxWidth: 430, flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start' },
   card: { gap: spacing[2] },
   printFrame: { position: 'relative', overflow: 'hidden', borderRadius: 5, backgroundColor: PAPER, borderWidth: 2, borderColor: PAPER },

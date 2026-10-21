@@ -269,7 +269,8 @@ describe('VisionCeremony conversation integration', () => {
     expect(view.queryByTestId('vision-resume-card')).toBeNull();
     expect(view.queryByTestId('vision-selection-lineage')).toBeNull();
     expect(view.getByTestId('v2-vision-creation-flow-prompt-references')).toBeTruthy();
-    expect(view.getByText('0 of 5 · Roles are optional')).toBeTruthy();
+    expect(view.getByText('Optional · Up to 5')).toBeTruthy();
+    expect(view.queryAllByLabelText(/^Remove reference photo [1-5]$/)).toHaveLength(0);
   });
 
   it('clears prior candidates and reference photos when the owner or anchor scope changes', async () => {
@@ -282,7 +283,8 @@ describe('VisionCeremony conversation integration', () => {
     act(() => useAuthStore.setState({ user: { id: 'owner-b' } as never }));
     expect(view.queryByTestId('vision-conversation-selection')).toBeNull();
     fireEvent.press(view.getByLabelText(copy.createVision));
-    expect(view.getByText('0 of 5 · Roles are optional')).toBeTruthy();
+    expect(view.getByText('Optional · Up to 5')).toBeTruthy();
+    expect(view.queryAllByLabelText(/^Remove reference photo [1-5]$/)).toHaveLength(0);
     expect(view.queryByTestId('vision-conversation-selection-print-0-sharp')).toBeNull();
 
     mockSession = null;

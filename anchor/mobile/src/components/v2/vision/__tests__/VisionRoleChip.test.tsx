@@ -33,9 +33,20 @@ describe('VisionRoleChip', () => {
 
     const targetHeight = StyleSheet.flatten(chip.props.style).minHeight + chip.props.hitSlop.top + chip.props.hitSlop.bottom;
     expect(targetHeight).toBeGreaterThanOrEqual(44);
+    expect(StyleSheet.flatten(chip.props.style).maxWidth).toBe('100%');
     fireEvent.press(chip);
     fireEvent.press(view.getByLabelText('Person'));
     expect(onChange).toHaveBeenCalledWith('identity');
+  });
+
+  it('delegates to a parent inline role editor when provided', () => {
+    const onOpenInlineEditor = jest.fn();
+    const view = render(<VisionRoleChip role="object" onChange={jest.fn()} onPress={onOpenInlineEditor} testID="inline-role" />);
+
+    fireEvent.press(view.getByTestId('inline-role'));
+
+    expect(onOpenInlineEditor).toHaveBeenCalledTimes(1);
+    expect(view.queryByTestId('inline-role-chooser')).toBeNull();
   });
 
   it('does not open its chooser when disabled', () => {

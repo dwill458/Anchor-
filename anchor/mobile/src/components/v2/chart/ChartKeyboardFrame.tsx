@@ -24,6 +24,8 @@ type Props = {
   footerStyle?: StyleProp<ViewStyle>;
   /** Extra space kept under the footer when the keyboard is closed. */
   restingBottom?: number;
+  /** A native modal may move its whole surface above the keyboard itself. */
+  externalKeyboard?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
@@ -47,6 +49,7 @@ export function ChartKeyboardFrame({
   contentContainerStyle,
   footerStyle,
   restingBottom = spacing[3],
+  externalKeyboard = false,
   style,
   testID,
 }: Props) {
@@ -78,7 +81,7 @@ export function ChartKeyboardFrame({
   }, []);
 
   const footerAnimated = useAnimatedStyle(() => ({
-    paddingBottom: Math.max(keyboard.height.value, insets.bottom) + restingBottom,
+    paddingBottom: externalKeyboard ? restingBottom : Math.max(keyboard.height.value, insets.bottom) + restingBottom,
   }));
 
   return (

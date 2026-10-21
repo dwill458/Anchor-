@@ -17,6 +17,9 @@ type Props = {
   accessibilityLabel: string;
   testID?: string;
   minHeight?: number;
+  /** Compact conversational drawer; text scrolls within its bounded input. */
+  compact?: boolean;
+  compactMaxHeight?: number;
   onFocus?: () => void;
   onBlur?: () => void;
   /** Lets the screen release the microphone before it submits. */
@@ -33,7 +36,7 @@ function recognitionAvailable(): boolean {
  * to type here. It adds words after what is already written, never starts creation, and the field stays
  * fully editable throughout. On a device without speech recognition the microphone is simply absent.
  */
-export function VisionSceneField({ value, onChangeText, maxChars, placeholder, accessibilityLabel, testID, minHeight = 124, onFocus, onBlur, handleRef, style }: Props) {
+export function VisionSceneField({ value, onChangeText, maxChars, placeholder, accessibilityLabel, testID, minHeight = 124, compact = false, compactMaxHeight = 100, onFocus, onBlur, handleRef, style }: Props) {
   const latest = useRef(value);
   latest.current = value;
   const [available] = useState(recognitionAvailable);
@@ -55,7 +58,7 @@ export function VisionSceneField({ value, onChangeText, maxChars, placeholder, a
           placeholderTextColor="rgba(23,23,23,0.42)"
           onFocus={onFocus}
           onBlur={onBlur}
-          style={[styles.input, { minHeight }, available && styles.inputWithMic]}
+          style={[styles.input, { minHeight }, available && styles.inputWithMic, compact && [styles.compactInput, { maxHeight: compactMaxHeight }]]}
           textAlignVertical="top"
           scrollEnabled
         />
@@ -90,6 +93,7 @@ const styles = StyleSheet.create({
   frameListening: { borderColor: VISION_GOLD, borderWidth: 1.5 },
   input: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, maxHeight: 200, padding: spacing[4] },
   inputWithMic: { paddingBottom: 56 },
+  compactInput: { fontSize: 17, lineHeight: 24, padding: 12, paddingRight: 56, paddingBottom: 12, maxHeight: 100 },
   mic: {
     position: 'absolute', right: spacing[2], bottom: spacing[2], width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default,

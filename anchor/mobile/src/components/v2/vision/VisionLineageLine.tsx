@@ -10,6 +10,7 @@ export interface VisionLineageLineProps {
   selectedRoundId: string | null;
   selectedCandidateId?: string | null;
   onViewCandidate: (candidateId: string) => void;
+  compact?: boolean;
   testID?: string;
 }
 
@@ -30,7 +31,7 @@ function candidateLabel(round: VisionConversationRound, candidateId: string | nu
 
 /** Displays the actual candidate ancestry for the viewed round. */
 export const VisionLineageLine = memo(function VisionLineageLine({
-  rounds, selectedRoundId, selectedCandidateId, onViewCandidate, testID = 'vision-lineage-line',
+  rounds, selectedRoundId, selectedCandidateId, onViewCandidate, compact = false, testID = 'vision-lineage-line',
 }: VisionLineageLineProps) {
   const { path, sourceRound, sourceCandidate, viewedRound } = useMemo(() => {
     const roundsById = new Map(rounds.map(round => [round.id, round]));
@@ -81,10 +82,10 @@ export const VisionLineageLine = memo(function VisionLineageLine({
   const pathLabel = path.map(entry => candidateLabel(entry.round, entry.candidateId)).join(' → ');
 
   return (
-    <View testID={testID} style={styles.root}>
-      <View style={styles.pathRow} accessibilityRole="text" accessibilityLabel={`Your path: ${pathLabel}`}>
+    <View testID={testID} style={[styles.root, compact && styles.compactRoot]}>
+      <View style={[styles.pathRow, compact && styles.compactPathRow]} accessibilityRole="text" accessibilityLabel={`Your path: ${pathLabel}`}>
         <Text style={styles.kicker}>YOUR PATH</Text>
-        <Text testID={`${testID}-path`} style={styles.path}>
+        <Text testID={`${testID}-path`} style={[styles.path, compact && styles.compactPath]}>
           {path.map((entry, index) => <Text key={entry.round.id} style={entry.round.id === selectedRoundId ? styles.current : undefined}>
             {index > 0 ? ' → ' : ''}{candidateLabel(entry.round, entry.candidateId)}
           </Text>)}
@@ -114,9 +115,12 @@ export const VisionLineageLine = memo(function VisionLineageLine({
 
 const styles = StyleSheet.create({
   root: { width: '100%', gap: 12 },
+  compactRoot: { gap: 8 },
   pathRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', columnGap: 6 },
+  compactPathRow: { flexWrap: 'nowrap', alignItems: 'flex-start', justifyContent: 'center', columnGap: 5 },
   kicker: { color: GOLD, fontFamily: typography.bodySemiBold, fontSize: 11, lineHeight: 16, letterSpacing: 1.3 },
   path: { color: '#C9C4D3', fontFamily: typography.body, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  compactPath: { flex: 1, flexShrink: 1, fontSize: 13, lineHeight: 19 },
   current: { color: PAPER, fontFamily: typography.bodySemiBold },
   source: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 9,
     borderRadius: 18, borderWidth: 1, borderColor: 'rgba(244, 237, 224, 0.22)', backgroundColor: 'rgba(244, 237, 224, 0.07)' },

@@ -30,7 +30,8 @@ describe('VisionAddSceneSheet', () => {
   it('keeps the five-slot reference gallery visible and accessible', () => {
     const view = renderSheet();
     expect(view.getByTestId('vision-add-scene-reference')).toBeTruthy();
-    expect(view.getByText('0 of 5 · Roles are optional')).toBeTruthy();
+    expect(view.getByText('Optional · Up to 5')).toBeTruthy();
+    expect(view.queryAllByLabelText(/^Remove reference photo [1-5]$/)).toHaveLength(0);
     expect(view.getByLabelText('Add reference photo')).toBeTruthy();
   });
 

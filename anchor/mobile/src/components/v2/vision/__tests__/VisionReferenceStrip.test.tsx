@@ -1,3 +1,4 @@
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { VisionReferenceStrip } from '../VisionReferenceStrip';
 import type { VisionReferenceAttachment } from '@/types/visionConversation';
@@ -33,7 +34,19 @@ describe('VisionReferenceStrip', () => {
     const onChange = jest.fn();
     const view = render(<VisionReferenceStrip references={[]} onChange={onChange} />);
 
+    expect(view.getByText('Add reference photos')).toBeTruthy();
+    expect(view.getByText('Optional · Up to 5')).toBeTruthy();
+    expect(view.getByText('Add photos from library or camera')).toBeTruthy();
+    expect(view.getByText('Include yourself, a place, a vehicle, or visual inspiration')).toBeTruthy();
+    const emptyTile = view.getByTestId('vision-reference-strip-add');
+    const emptyTileStyle = StyleSheet.flatten(typeof emptyTile.props.style === 'function'
+      ? emptyTile.props.style({ pressed: false })
+      : emptyTile.props.style);
+    expect(emptyTileStyle.width).toBe('100%');
+    expect(emptyTileStyle.minHeight).toBe(88);
+
     fireEvent.press(view.getByLabelText('Add reference photo'));
+    expect(view.getByLabelText('Take photo')).toBeTruthy();
     fireEvent.press(view.getByLabelText('Choose from library'));
 
     expect(mockPickVisionPhoto).toHaveBeenCalledWith('library', 0.6);
@@ -58,10 +71,52 @@ describe('VisionReferenceStrip', () => {
     ]));
   });
 
+  it('opens an inline role editor for the tapped photo and updates only that reference', () => {
+    const references = [reference('a', 'identity'), reference('b', 'place'), reference('c', 'object')];
+    const onChange = jest.fn();
+    const view = render(<VisionReferenceStrip references={references} onChange={onChange} />);
+
+    expect(view.queryByTestId('vision-reference-strip-role-editor')).toBeNull();
+    fireEvent.press(view.getByTestId('vision-reference-strip-role-1'));
+
+    expect(view.getByText('Photo 2 role:')).toBeTruthy();
+    expect(view.queryByTestId('vision-reference-strip-role-1-chooser')).toBeNull();
+    fireEvent.press(view.getByLabelText('Set photo 2 role to Inspiration'));
+
+    expect(onChange).toHaveBeenCalledWith([
+      references[0],
+      { ...references[1], role: 'inspiration' },
+      references[2],
+    ]);
+    expect(view.getByTestId('vision-reference-strip-role-editor')).toBeTruthy();
+  });
+
+  it('keeps the compact gallery role action on its existing choice sheet', () => {
+    const references = [reference('a', 'place')];
+    const onChange = jest.fn();
+    const view = render(<VisionReferenceStrip references={references} onChange={onChange} compact />);
+
+    fireEvent.press(view.getByTestId('vision-reference-strip-select-0'));
+    fireEvent.press(view.getByLabelText('Change role'));
+    fireEvent.press(view.getByLabelText('Object'));
+
+    expect(onChange).toHaveBeenCalledWith([{ ...references[0], role: 'object' }]);
+  });
+
   it('offers removal from a full-slot action and from the 44-point remove control', () => {
     const references = Array.from({ length: 5 }, (_, index) => reference(String(index)));
     const onChange = jest.fn();
     const view = render(<VisionReferenceStrip references={references} onChange={onChange} />);
+
+    const removeHit = view.getByTestId('vision-reference-strip-remove-0');
+    const hitStyle = StyleSheet.flatten(typeof removeHit.props.style === 'function'
+      ? removeHit.props.style({ pressed: false })
+      : removeHit.props.style);
+    const removeVisualStyle = StyleSheet.flatten(view.getByTestId('vision-reference-strip-remove-visual-0').props.style);
+    expect(hitStyle.width).toBe(44);
+    expect(hitStyle.height).toBe(44);
+    expect(removeVisualStyle.width).toBe(22);
+    expect(removeVisualStyle.height).toBe(22);
 
     fireEvent.press(view.getByLabelText('Place reference photo 1. Replace or remove'));
     fireEvent.press(view.getByLabelText('Remove photo'));

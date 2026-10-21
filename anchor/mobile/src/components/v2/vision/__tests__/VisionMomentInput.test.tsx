@@ -1,6 +1,6 @@
-import { TextInput } from 'react-native';
+import { Keyboard, StyleSheet, TextInput } from 'react-native';
 
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { VisionMomentInput } from '../VisionMomentInput';
 
 const mockUseAppearance = jest.fn();
@@ -61,10 +61,39 @@ describe('VisionMomentInput', () => {
     expect(getByText('You’ll choose what belongs in your Vision.')).toBeTruthy();
   });
 
-  it('renders the approved add-scene heading and subtitle', () => {
-    const { getByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
+  it('shows the saved Anchor artwork in the intention chip when available', () => {
+    const art = { svg: '<svg />', category: 'career', expression: null };
+    const { getByTestId, getByText } = render(<VisionMomentInput {...defaultProps} anchorArt={art} />);
+
+    expect(getByTestId('vision-moment-input-anchor-art')).toBeTruthy();
+    expect(getByText('I build what matters.')).toBeTruthy();
+  });
+
+  it('renders the approved add-scene heading, field label, and creation action without the oversized Anchor card', () => {
+    const { getByText, getByTestId, queryByTestId, queryByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled />);
     expect(getByText('What Else Do You See?')).toBeTruthy();
     expect(getByText('Imagine another moment from your future.')).toBeTruthy();
+    expect(getByText('Describe the moment you want to see')).toBeTruthy();
+    expect(getByText('Create My Scene')).toBeTruthy();
+    expect(queryByText('Create New Version')).toBeNull();
+    expect(queryByTestId('vision-moment-input-anchor')).toBeNull();
+    expect(getByTestId('vision-moment-input-references')).toBeTruthy();
+    expect(StyleSheet.flatten(getByText('Imagine another moment from your future.').props.style)).toEqual(expect.objectContaining({ fontSize: 14, alignSelf: 'stretch' }));
+    if (__DEV__) expect(getByTestId('dev-image-model-vision')).toBeTruthy();
+  });
+
+  it('uses the reference-specific footer when add-scene references are present', () => {
+    const refs = [{ id: 'a', uri: 'file:///a.jpg', mimeType: 'image/jpeg', role: 'place' as const }];
+    const { getByText, queryByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled references={refs} onChangeReferences={jest.fn()} />);
+    expect(getByText('Tap a photo to replace or remove it')).toBeTruthy();
+    expect(queryByText('You’ll choose what belongs in your Vision.')).toBeNull();
+  });
+
+  it('uses a single compact header row for back, kicker, and the development model control', () => {
+    const { getByLabelText, getByTestId, getByText } = render(<VisionMomentInput {...defaultProps} mode="add" startPhotoEnabled />);
+    expect(getByLabelText('Go back')).toBeTruthy();
+    expect(getByText('ADD TO YOUR VISION')).toBeTruthy();
+    if (__DEV__) expect(getByTestId('dev-image-model-vision')).toBeTruthy();
   });
 
   it('fills the description from a spark chip without submitting or focusing the field', () => {
@@ -126,6 +155,36 @@ describe('VisionMomentInput', () => {
     expect(getByText('0 references attached')).toBeTruthy();
     expect(getByLabelText('Add reference photo')).toBeTruthy();
     expect(queryByLabelText('The day it happens')).toBeNull();
+  });
+
+  it('expands the gallery and suggestions when Android hides the keyboard without blurring the field', () => {
+    const listeners = new Map<string, (...args: never[]) => void>();
+    const addListener = jest.spyOn(Keyboard, 'addListener').mockImplementation((event, listener) => {
+      listeners.set(event, listener as (...args: never[]) => void);
+      return { remove: jest.fn() };
+    });
+    const references = [{ id: 'place-1', uri: 'file:///place.jpg', mimeType: 'image/jpeg', role: 'place' as const }];
+    const view = render(
+      <VisionMomentInput {...defaultProps} startPhotoEnabled references={references} onChangeReferences={jest.fn()} />,
+    );
+    const input = view.getByTestId('vision-prompt-input');
+
+    fireEvent(input, 'focus');
+    expect(view.getByText('1 reference attached')).toBeTruthy();
+    expect(view.queryByText('Reference photos')).toBeNull();
+    expect(view.queryByText('Need a spark?')).toBeNull();
+
+    act(() => listeners.get('keyboardDidHide')?.());
+    expect(view.getByText('Reference photos')).toBeTruthy();
+    expect(view.getByText('Need a spark?')).toBeTruthy();
+    expect(view.queryByText('1 reference attached')).toBeNull();
+
+    act(() => listeners.get('keyboardDidShow')?.());
+    expect(view.getByText('1 reference attached')).toBeTruthy();
+    expect(view.queryByText('Reference photos')).toBeNull();
+
+    view.unmount();
+    addListener.mockRestore();
   });
 
   it('explains a blocked submit instead of failing silently', () => {

@@ -9,6 +9,8 @@ type Props = {
   onClose: () => void;
   children: React.ReactNode;
   reduceMotion?: boolean;
+  /** Ask the owner before completing a drag dismissal, so it can keep the sheet open. */
+  deferDragDismiss?: boolean;
   scrimColor?: string;
   scrimAccessibilityLabel?: string;
   testID?: string;
@@ -64,6 +66,7 @@ export function V2SheetModal({
   onClose,
   children,
   reduceMotion = false,
+  deferDragDismiss = false,
   scrimColor = 'rgba(23, 23, 20, 0.38)',
   scrimAccessibilityLabel = 'Close',
   testID,
@@ -149,6 +152,13 @@ export function V2SheetModal({
             translateY.value = withSpring(0, { ...AnchorMotion.spring.sheet, velocity: event.velocityY });
             return;
           }
+          if (deferDragDismiss) {
+            // The owner decides whether to close (or veto) after seeing this request.
+            // Keep the native modal present unless its controlled `visible` prop changes.
+            translateY.value = withSpring(0, { ...AnchorMotion.spring.sheet, velocity: event.velocityY });
+            runOnJS(onClose)();
+            return;
+          }
           dragDismissing.value = true;
           translateY.value = withSpring(
             sheetHeight.value + V2_SHEET_SKIRT,
@@ -160,7 +170,7 @@ export function V2SheetModal({
           );
           runOnJS(onClose)();
         }),
-    [dragDismissing, finishClose, onClose, sheetHeight, translateY],
+    [deferDragDismiss, dragDismissing, finishClose, onClose, sheetHeight, translateY],
   );
 
   const scrimStyle = useAnimatedStyle(() => ({ opacity: scrim.value }));

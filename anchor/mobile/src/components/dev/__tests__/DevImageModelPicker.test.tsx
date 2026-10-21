@@ -28,6 +28,16 @@ describe('developer image model picker', () => {
     dismiss.mockRestore();
   });
 
+  it('keeps the compact paper control small while exposing the selected model accessibly', () => {
+    const screen = render(<DevImageModelPicker purpose="vision" tone="paper" compact />);
+    const trigger = screen.getByLabelText('Dev model: Auto');
+    const style = StyleSheet.flatten(trigger.props.style);
+    expect(style.width).toBe(44);
+    expect(style.height).toBe(44);
+    fireEvent.press(trigger);
+    expect(screen.getByText('Compare image models')).toBeTruthy();
+  });
+
   it('returns to Auto and never exposes or sends a saved selection in production', () => {
     useDevImageModelStore.getState().select('vision', 'gemini-nano-banana-2.1');
     const screen = render(<DevImageModelPicker purpose="vision" />);

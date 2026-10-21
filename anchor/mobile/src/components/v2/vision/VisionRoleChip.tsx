@@ -23,12 +23,14 @@ const ROLE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
 type Props = {
   role: VisionReferenceRole;
   onChange: (role: VisionReferenceRole) => void;
+  /** Uses a parent-provided inline editor instead of this chip's default choice sheet. */
+  onPress?: () => void;
   disabled?: boolean;
   testID?: string;
 };
 
 /** A quiet label over a reference image; role is optional context for generation. */
-export function VisionRoleChip({ role, onChange, disabled = false, testID = 'vision-reference-role' }: Props) {
+export function VisionRoleChip({ role, onChange, onPress, disabled = false, testID = 'vision-reference-role' }: Props) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -39,7 +41,7 @@ export function VisionRoleChip({ role, onChange, disabled = false, testID = 'vis
         accessibilityHint="Choose how this photo should guide your scene"
         accessibilityState={{ disabled }}
         disabled={disabled}
-        onPress={() => setVisible(true)}
+        onPress={() => onPress ? onPress() : setVisible(true)}
         testID={testID}
         hitSlop={{ top: 9, bottom: 9, left: 2, right: 2 }}
         style={({ pressed }) => [styles.target, pressed && styles.pressed, disabled && styles.disabled]}
@@ -47,7 +49,7 @@ export function VisionRoleChip({ role, onChange, disabled = false, testID = 'vis
         <Text numberOfLines={1} style={styles.label}>{ROLE_LABELS[role]} <Text style={styles.chevron}>⌄</Text></Text>
       </Pressable>
       <VisionChoiceSheet
-        visible={visible}
+        visible={!onPress && visible}
         onClose={() => setVisible(false)}
         title="How should this photo help?"
         subtitle="Choose the role that best describes this reference."
@@ -65,14 +67,15 @@ const styles = StyleSheet.create({
   target: {
     minHeight: 26,
     minWidth: 44,
+    maxWidth: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 999,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     backgroundColor: 'rgba(14, 21, 28, 0.68)',
   },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.5 },
-  label: { color: colors.paper, fontFamily: typography.bodySemiBold, fontSize: 9, lineHeight: 12, textAlign: 'center' },
-  chevron: { color: VISION_GOLD, fontSize: 10 },
+  label: { color: colors.paper, fontFamily: typography.bodySemiBold, fontSize: 8, lineHeight: 10, textAlign: 'center' },
+  chevron: { color: VISION_GOLD, fontSize: 8 },
 });

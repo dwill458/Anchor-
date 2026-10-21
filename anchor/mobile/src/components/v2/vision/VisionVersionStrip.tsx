@@ -8,6 +8,7 @@ export interface VisionVersionStripProps {
   rounds: readonly VisionConversationRound[];
   selectedRoundId: string | null;
   onSelect: (roundId: string) => void;
+  compact?: boolean;
   testID?: string;
 }
 
@@ -18,7 +19,7 @@ const orderedRounds = (rounds: readonly VisionConversationRound[]) =>
 
 /** A compact, horizontally browsable index of saved rounds. */
 export const VisionVersionStrip = memo(function VisionVersionStrip({
-  rounds, selectedRoundId, onSelect, testID = 'vision-version-strip',
+  rounds, selectedRoundId, onSelect, compact = false, testID = 'vision-version-strip',
 }: VisionVersionStripProps) {
   const scrollRef = useRef<ScrollViewInstance | null>(null);
   const layouts = useRef(new Map<string, { x: number; width: number }>());
@@ -41,19 +42,19 @@ export const VisionVersionStrip = memo(function VisionVersionStrip({
   };
 
   return (
-    <View testID={testID} style={styles.root} onLayout={onViewportLayout}>
+    <View testID={testID} style={[styles.root, compact && styles.compactRoot]} onLayout={onViewportLayout}>
       <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.content} accessibilityRole="none">
+        contentContainerStyle={[styles.content, compact && styles.compactContent]} accessibilityRole="none">
         {orderedRounds(rounds).map((round, index) => {
           const selected = round.id === selectedRoundId;
           const label = visionRoundLabel(round.roundNumber);
           return (
-            <View key={round.id} style={styles.item} onLayout={event => {
+            <View key={round.id} style={[styles.item, compact && styles.compactItem]} onLayout={event => {
                 itemOffsets.current.set(round.id, event.nativeEvent.layout.x);
                 if (round.id === selectedRoundId) centerSelected();
               }}>
               {index > 0 ? <ChevronRight accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-                size={15} color={GOLD} strokeWidth={1.8} style={styles.arrow} /> : null}
+                size={compact ? 12 : 15} color={GOLD} strokeWidth={1.8} style={[styles.arrow, compact && styles.compactArrow]} /> : null}
               <Pressable
                 testID={`${testID}-round-${round.id}`}
                 accessibilityRole="button"
@@ -66,10 +67,15 @@ export const VisionVersionStrip = memo(function VisionVersionStrip({
                   if (round.id === selectedRoundId) centerSelected();
                 }}
                 hitSlop={4}
-                style={[styles.pill, selected && styles.selectedPill]}
+                style={[styles.pill, compact && styles.compactPill]}
               >
-                {selected ? <View accessible={false} style={styles.dot} /> : null}
-                <Text style={[styles.label, selected && styles.selectedLabel]}>{label}</Text>
+                {compact ? <View pointerEvents="none" style={[styles.compactVisual, selected && styles.compactSelectedVisual]}>
+                  {selected ? <View accessible={false} style={styles.dot} /> : null}
+                  <Text style={[styles.label, selected && styles.selectedLabel]}>{label}</Text>
+                </View> : <>
+                  {selected ? <View accessible={false} style={styles.dot} /> : null}
+                  <Text style={[styles.label, selected && styles.selectedLabel]}>{label}</Text>
+                </>}
               </Pressable>
             </View>
           );
@@ -81,11 +87,18 @@ export const VisionVersionStrip = memo(function VisionVersionStrip({
 
 const styles = StyleSheet.create({
   root: { width: '100%' },
+  compactRoot: { height: 44, justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(176,138,74,0.58)', borderRadius: 22 },
   content: { alignItems: 'center', paddingHorizontal: 8 },
+  compactContent: { minHeight: 44, alignItems: 'center', paddingHorizontal: 4 },
   item: { flexDirection: 'row', alignItems: 'center' },
+  compactItem: { minHeight: 44 },
   arrow: { marginHorizontal: 7 },
+  compactArrow: { marginHorizontal: 3 },
   pill: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     paddingHorizontal: 16, borderRadius: 22 },
+  compactPill: { minHeight: 44, paddingHorizontal: 3, borderRadius: 22 },
+  compactVisual: { height: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 11, borderRadius: 19 },
+  compactSelectedVisual: { backgroundColor: CREAM },
   selectedPill: { backgroundColor: CREAM },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: GOLD },
   label: { color: '#C9C4D3', fontFamily: typography.bodyMedium, fontSize: 15, lineHeight: 20 },

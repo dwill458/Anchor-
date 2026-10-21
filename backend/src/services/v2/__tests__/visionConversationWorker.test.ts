@@ -85,7 +85,7 @@ function makeJob(overrides: Record<string, unknown> = {}) {
     session: { status: 'ACTIVE', expiresAt: new Date(Date.now() + 86_400_000) },
     parentCandidateId: null,
     appearanceReferenceId: null,
-    startAssetId: 'board-dashboard-photo',
+    startAssetId: 'revenuecat-dashboard-photo',
     kind: 'SCENE',
     plan: twoShotPlan,
     references: [],
@@ -128,10 +128,10 @@ beforeEach(() => {
 });
 
 describe('VisionGenerationService conversation worker', () => {
-  it('creates a new editorial image without looking up board photos or reading image bytes', async () => {
+  it('creates an independent Bloomberg-style article after a RevenueCat dashboard without reading old image bytes', async () => {
     await arrange(makeJob({
       operation: 'CREATE',
-      description: 'An editorial interface showing a quiet reading nook',
+      description: 'A Bloomberg-style editorial article about Anchor reaching ten thousand users.',
       references: [],
     }));
 
@@ -145,9 +145,9 @@ describe('VisionGenerationService conversation worker', () => {
     for (const [request] of mockImageGenerate.mock.calls) {
       expect(request.operation).toBe('CREATE');
       expect(request.referenceImages).toBeUndefined();
-      expect(request.prompt).toContain('editorial interface');
+      expect(request.prompt).toContain('Bloomberg-style editorial article');
       expect(request.prompt).toContain('Create a NEW independent scene');
-      expect(request.prompt).not.toContain('board-dashboard-photo');
+      expect(request.prompt).not.toContain('revenuecat-dashboard-photo');
     }
   });
 

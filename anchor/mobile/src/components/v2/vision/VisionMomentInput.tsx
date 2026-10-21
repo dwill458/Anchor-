@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
-import { ActivityIndicator, Image, Keyboard, Pressable, StatusBar, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { ActivityIndicator, Image, Keyboard, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,9 +9,10 @@ import { visionCeremonyCopy as ceremonyCopy } from './ceremony/visionCeremonyCop
 import { v2Haptics } from '@/hooks/v2';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
+import { CircularAnchorRenderer } from '@/components/v2/anchor';
 import { AnchorMotion, colors as paperColors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import type { VisionReferenceAttachment } from '@/types/visionConversation';
-import { VisionIdentity, type VisionAnchorArt } from './VisionChrome';
+import type { VisionAnchorArt } from './VisionChrome';
 import { VisionChoiceSheet, type VisionChoiceAction } from './VisionChoiceSheet';
 import { AttentionWash, useAttention, useVisionContentMotion } from './VisionMotion';
 import { VisionReferenceStrip } from './VisionReferenceStrip';
@@ -88,7 +89,6 @@ export function VisionMomentInput({
   anchorIntention,
   anchorCategory,
   anchorArt,
-  anchorImageUrl,
   initialDescription = '',
   description: propDescription,
   onChangeDescription: propOnChangeDescription,
@@ -108,6 +108,7 @@ export function VisionMomentInput({
   textInputTestID,
 }: VisionMomentInputProps) {
   const insets = useSafeAreaInsets();
+  const { height: viewportHeight } = useWindowDimensions();
   const styles = paperStyles;
   const [internalDescription, setInternalDescription] = useState(propDescription ?? initialDescription);
   const descriptionRef = useRef(internalDescription);
@@ -161,6 +162,25 @@ export function VisionMomentInput({
   const fieldRef = useRef<VisionSceneFieldHandle>(null);
 
   const [inputFocused, setInputFocused] = useState(false);
+  const fieldFocused = useRef(false);
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (fieldFocused.current) setInputFocused(true);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => setInputFocused(false));
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+  const handleFieldFocus = () => {
+    fieldFocused.current = true;
+    setInputFocused(true);
+  };
+  const handleFieldBlur = () => {
+    fieldFocused.current = false;
+    setInputFocused(false);
+  };
   const isCreate = mode === 'create';
   const categoryColor = getCategoryColor(anchorCategory);
 
@@ -255,8 +275,9 @@ export function VisionMomentInput({
   const subtitle = exampleStart ? ceremonyCopy.makeItYoursSub : isCreate
     ? 'Bring a moment from your future to life.'
     : 'Imagine another moment from your future.';
-  const ctaLabel = isCreate ? 'Create My Scene' : 'Create New Version';
-  const ctaA11y = isCreate ? 'Continue to create your Vision' : 'Generate image';
+  const compactEmpty = viewportHeight < 820 && displayedReferences.length === 0 && !trimmed && !inputFocused && !exampleStart;
+  const ctaLabel = 'Create My Scene';
+  const ctaA11y = isCreate ? 'Continue to create your Vision' : 'Create this scene';
   const footnote = 'You’ll choose what belongs in your Vision.';
   const suggestionsVisible = !inputFocused && (trimmed.length === 0 || showSuggestions);
 
@@ -300,7 +321,12 @@ export function VisionMomentInput({
             <Text style={styles.textActionLabel}>Take a photo</Text>
           </Pressable>
         </View>
-      ) : <Text style={styles.footnote}>{footnote}</Text>}
+      ) : null}
+      {(!onAddPhotos || (mode === 'add' && displayedReferences.length > 0)) ? (
+        <Text style={[styles.footnote, mode === 'add' && displayedReferences.length > 0 && styles.referenceFootnote]}>
+          {mode === 'add' && displayedReferences.length > 0 ? 'Tap a photo to replace or remove it' : footnote}
+        </Text>
+      ) : null}
     </View>
   );
 
@@ -308,28 +334,42 @@ export function VisionMomentInput({
     <View testID={testID} style={styles.stage}>
       <StatusBar barStyle="dark-content" />
       <ChartKeyboardFrame
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + (ceremony ? 56 : spacing[2]) }]}
+        contentContainerStyle={[styles.content, compactEmpty && { gap: spacing[1] }, { paddingTop: insets.top + spacing[2] }]}
         footer={footer}
         footerStyle={styles.footerFrame}
         restingBottom={spacing[3]}
       >
-        <VisionBackButton onPress={handleBack} style={[styles.back, ceremony && { position: 'absolute', top: insets.top + 10, left: 18 }, { backgroundColor: 'transparent', borderColor: 'transparent' }]} color={colors.text.primary} />
+        <View style={styles.headerRow}>
+          {!exampleStart ? <View pointerEvents="none" style={styles.kickerSlot}><VisionKicker>{kicker}</VisionKicker></View> : null}
+          <View style={styles.backOverlay}><VisionBackButton onPress={handleBack} style={styles.back} color={colors.text.primary} /></View>
+          {__DEV__ ? <View style={styles.devModelOverlay}><DevImageModelPicker purpose="vision" disabled={loading} tone="paper" compact /></View> : null}
+        </View>
         <View style={styles.header}>
           {exampleStart ? <View testID="vision-example-thumb" style={styles.exampleThumb}><Image testID="vision-example-thumb-image" source={fromExample!.image} resizeMode="cover" style={styles.exampleThumbImage} accessible={false} /></View> : null}
-          {exampleStart ? null : <VisionKicker>{kicker}</VisionKicker>}
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           <Animated.Text key={subtitle} entering={content.entering} exiting={content.exiting} style={styles.subtitle}>{subtitle}</Animated.Text>
         </View>
 
-        {__DEV__ ? <DevImageModelPicker purpose="vision" disabled={loading} tone="paper" /> : null}
-        {!ceremony ? <View style={styles.anchorCard} testID={`${testID}-anchor`}>
-          <View style={[styles.accentBar, { backgroundColor: categoryColor }]} />
-          <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor size={58} tone="dark" />
+        {isCreate ? <View style={styles.intentionChip} testID={`${testID}-anchor`}>
+          {anchorArt?.svg || anchorArt?.imageUrl ? (
+            <CircularAnchorRenderer
+              svg={anchorArt.svg}
+              imageUrl={anchorArt.imageUrl ?? undefined}
+              category={anchorArt.category ?? anchorCategory}
+              expression={anchorArt.expression ?? undefined}
+              size={32}
+              appearance="paper"
+              accessibilityLabel="Anchor artwork"
+              testID={`${testID}-anchor-art`}
+            />
+          ) : null}
+          <Text numberOfLines={1} style={styles.intentionText}>{anchorIntention}</Text>
+          <View style={[styles.intentionDot, { backgroundColor: categoryColor }]} />
         </View> : null}
 
         {/* The body beneath the toggle cross-fades as one piece when the path changes: the old fades out, the new follows. Nothing here
             animates layout, so the field never trails its own text while it grows. */}
-        <Animated.View key={photoPath ? 'photo-body' : 'words-body'} entering={content.entering} exiting={content.exiting} style={styles.region}>
+        <Animated.View key={photoPath ? 'photo-body' : 'words-body'} entering={content.entering} exiting={content.exiting} style={[styles.region, compactEmpty && { gap: spacing[2] }]}>
           {startPhotoEnabled ? (
             <View>
               <AttentionWash level={inputAttention.level} color={VISION_GOLD} />
@@ -347,6 +387,7 @@ export function VisionMomentInput({
 
           <View>
             <AttentionWash level={inputAttention.level} color={VISION_GOLD} radius={radii.lg} />
+            {!inputFocused ? <Text style={styles.fieldLabel}>Describe the moment you want to see</Text> : null}
             <VisionSceneField
               handleRef={fieldRef}
               testID={textInputTestID ?? (isCreate ? 'vision-prompt-input' : 'vision-scene-input')}
@@ -355,12 +396,21 @@ export function VisionMomentInput({
               onChangeText={setDescription}
               maxChars={maxChars}
               placeholder={placeholderText}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
+              onFocus={handleFieldFocus}
+              onBlur={handleFieldBlur}
             />
           </View>
 
           {exampleStart ? <Text testID="vision-example-note" style={styles.exampleNote}>{ceremonyCopy.fromExample}</Text> : null}
+
+          <View style={styles.meter}>
+            <Text testID="vision-detail-hint" style={[styles.meterHint, !ceremony && !photoPath && level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
+              {photoPath
+                ? (trimmed.length > 0 && trimmed.length < minChars ? 'Add a little more, or clear it to continue with the photo alone.' : 'What changes · what stays · how it feels')
+                : hint ?? 'Where you are · what you’re doing · how it feels'}
+            </Text>
+            <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
+          </View>
 
           {!inputFocused ? (
             <View style={styles.suggestionGroup}>
@@ -388,15 +438,6 @@ export function VisionMomentInput({
               ) : null}
             </View>
           ) : null}
-
-          <View style={styles.meter}>
-            <Text testID="vision-detail-hint" style={[styles.meterHint, !ceremony && !photoPath && level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
-              {photoPath
-                ? (trimmed.length > 0 && trimmed.length < minChars ? 'Add a little more, or clear it to continue with the photo alone.' : 'What changes · what stays · how it feels')
-                : hint ?? 'Where you are · what you’re doing · how it feels'}
-            </Text>
-            <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
-          </View>
 
           {SHOW_APPEARANCE_REFERENCE_CARD && !inputFocused && !photoPath ? (
             <Animated.View key="reference-group" exiting={content.exiting} style={styles.referenceGroup}>
@@ -455,15 +496,18 @@ export function VisionMomentInput({
 const makeStyles = (colors: { canvas: string; surface: string; grouped: string; paper: string; text: { primary: string; secondary: string; tertiary: string }; border: { default: string; strong: string }; ink: { deep: string }; semantic: { error: string } }) => StyleSheet.create({
   stage: { flex: 1, backgroundColor: colors.canvas },
   content: { paddingHorizontal: spacing[4], paddingBottom: spacing[4], gap: spacing[3] },
-  back: { alignSelf: 'flex-start' },
+  headerRow: { minHeight: 44, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  back: { backgroundColor: 'transparent', borderColor: 'transparent' },
+  kickerSlot: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
+  backOverlay: { position: 'absolute', left: 0, top: 0, minWidth: 44, minHeight: 44, justifyContent: 'center' },
+  devModelOverlay: { position: 'absolute', right: 0, top: 0, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   header: { alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[2], marginBottom: spacing[1] },
   title: { alignSelf: 'stretch', fontFamily: VISION_SERIF, fontSize: 35, lineHeight: 39, letterSpacing: -0.7, textAlign: 'center', color: colors.text.primary },
-  subtitle: { fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 21, textAlign: 'center', color: colors.text.secondary, maxWidth: 300 },
-  anchorCard: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[3], paddingRight: spacing[4], paddingLeft: spacing[5],
-    borderRadius: radii.md, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default, overflow: 'hidden',
-  },
-  accentBar: { position: 'absolute', left: spacing[3], top: spacing[3], bottom: spacing[3], width: 3, borderRadius: 2 },
+  subtitle: { alignSelf: 'stretch', fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, textAlign: 'center', color: colors.text.secondary },
+  intentionChip: { minHeight: 40, alignSelf: 'center', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
+  intentionText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.primary, flexShrink: 1 },
+  intentionDot: { width: 7, height: 7, borderRadius: 4 },
+  fieldLabel: { fontFamily: 'Inter-SemiBold', fontSize: 14, lineHeight: 20, color: colors.text.primary, marginBottom: spacing[2] },
   pathToggle: { flexDirection: 'row', padding: 3, borderRadius: radii.pill, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
   pathPill: { position: 'absolute', left: 3, top: 3, bottom: 3, borderRadius: radii.pill, backgroundColor: colors.ink.deep },
   pathOption: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[2], borderRadius: radii.pill },
@@ -519,6 +563,7 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
   footerFrame: { backgroundColor: colors.canvas, paddingHorizontal: spacing[4], paddingTop: spacing[2] },
   footer: { gap: spacing[2] },
   footnote: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, textAlign: 'center', color: colors.text.secondary },
+  referenceFootnote: { textDecorationLine: 'underline' },
   textAction: { minHeight: 36, alignItems: 'center', justifyContent: 'center' },
   textActionLabel: { fontFamily: 'Inter-Regular', fontSize: 13, color: colors.text.secondary, textDecorationLine: 'underline' },
   disabled: { opacity: 0.45 },

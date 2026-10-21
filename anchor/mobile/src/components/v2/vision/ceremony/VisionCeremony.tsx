@@ -631,7 +631,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     if (beat === 'seal' || beat === 'pinned') return { x: (width - sealW) / 2 + (ownPhoto ? stackPosition * 5 : 0), y: sealY + stackPosition * (ownPhoto ? 5 : 0),
       width: sealW, height: sealW * 1.25 + 54, rotation: hero ? 0 : stackPosition % 2 ? 3 : -3, opacity: hero || (ownPhoto && stackPosition < 3) ? 1 : 0 };
     if (ownPhoto) return { x: (width - curateW) / 2, y: keepY, width: curateW, height: curateW * 1.25 + 54, rotation: 0, opacity: 1 };
-    if (refineCandidate) return { x: (width - 126) / 2, y: insets.top + 62, width: 126, height: 164, rotation: 0, opacity: index === refineCandidate.sortOrder ? 1 : 0 };
+    if (refineCandidate) return { x: (width - 126) / 2, y: insets.top + 38, width: 126, height: 164, rotation: 0, opacity: index === refineCandidate.sortOrder ? 1 : 0 };
     if (beat === 'choose' && displayedRound && choicePlacements[index]) return { ...choicePlacements[index], opacity: 1 };
     return { x: 24 + index * (twoW + 14), y: insets.top + usable * .33, width: twoW, height: twoW * 1.5,
       rotation: index === 0 ? -1.2 : 1.2, opacity: reading ? 0 : 1 };
@@ -800,7 +800,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       </> : null}
     </Animated.View> : null}
     {resumeVisible ? <View style={[styles.fill, { zIndex: 45, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <VisionResumeCard session={session} onContinue={() => continueSession()} onKeep={continueSession} onStartDifferent={() => { void startDifferent(); }} />
+      <VisionResumeCard session={session} anchorArt={anchorArt} onContinue={() => continueSession()} onKeep={continueSession} onStartDifferent={() => { void startDifferent(); }} />
       <Pressable accessibilityRole="button" accessibilityLabel={copy.back} onPress={onBack} style={[styles.back, { top: insets.top + 10 }]}><ArrowLeft size={20} color="#F4EDE0" /></Pressable>
     </View> : null}
     {beat === 'choose' && displayedRound && !refineCandidate ? <Animated.View key={`round-${displayedRound.id}`} entering={reduced ? undefined : FadeIn.duration(fade)} style={[styles.fill, { zIndex: 45 }]}>

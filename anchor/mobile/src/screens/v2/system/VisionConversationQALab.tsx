@@ -10,6 +10,8 @@ import { VisionPrint } from '@/components/v2/vision/ceremony/VisionPrint';
 import type { VisionGenerationCandidate } from '@/hooks/v2/vision';
 import type { VisionConversationRound, VisionConversationSession, VisionReferenceAttachment } from '@/types/visionConversation';
 import { colors, typography } from '@/theme/v2';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { VisionBackButton } from '@/components/v2/vision/VisionPaperChrome';
 
 type Identity = { anchorArt: any; anchorIntention: string; anchorCategory: string };
 type Props = { surface: string; identity: Identity; onClose: () => void };
@@ -67,7 +69,7 @@ function makeRound(id: string, roundNumber: number, candidateIds: string[], pare
 
 const rounds: VisionConversationRound[] = [
   makeRound('round-original', 0, ['original-a', 'original-b'], null, 'A slow morning at home with room to enjoy breakfast with my family.'),
-  makeRound('round-one', 1, ['version-1-a', 'version-1-b'], 'original-a', 'Keep the table, soften the morning light.'),
+  makeRound('round-one', 1, ['version-1-a', 'version-1-b'], 'original-b', 'Keep the table, soften the morning light.'),
   makeRound('round-two', 2, ['version-2-a', 'version-2-b'], 'version-1-a', 'Bring more natural light through the window.'),
   makeRound('round-three', 3, ['version-3-a', 'version-3-b'], 'version-2-b', 'Open the view while keeping the room calm and familiar.'),
 ];
@@ -77,6 +79,7 @@ const selectedSurface = (surface: string) => surface.toLowerCase();
 
 /** Dev-only fixture lab. It mounts real conversation components and keeps every action local. */
 export function VisionConversationQALab({ surface, identity, onClose }: Props) {
+  const insets = useSafeAreaInsets();
   const initial = selectedSurface(surface);
   const [activeSurface, setActiveSurface] = useState(initial);
   const [description, setDescription] = useState(initial === 'a2'
@@ -87,14 +90,14 @@ export function VisionConversationQALab({ surface, identity, onClose }: Props) {
         : initial === 'c1' ? 'Keep the room familiar and let the morning light feel warmer.'
           : initial === 'c2' ? 'Preserve the people and objects in these references, then soften the evening light.' : '');
   const [referencesState, setReferences] = useState<VisionReferenceAttachment[]>(
-    initial === 'a2' || initial === 'c1' ? referenceFixtures.slice(0, 3)
+    initial === 'a2' || initial === 'c1' || initial === 'c3' ? referenceFixtures.slice(0, 3)
       : initial === 'a3' || initial === 'c2' ? referenceFixtures : [],
   );
   const [selectedRoundId, setSelectedRoundId] = useState(() => initial === 'd1' || initial === 'c3' ? 'round-one' : initial === 'd2b' ? 'round-two' : initial === 'd-overflow' ? 'round-three' : 'round-original');
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(() => initial === 'c2' ? 'original-a' : initial === 'c3' ? 'version-1-a' : initial === 'd2b' ? 'version-2-b' : initial.startsWith('d') ? 'version-2-b' : null);
   const [refineSource, setRefineSource] = useState<{ candidateId: string; imageUrl: string; optionNumber: number; roundNumber: number } | null>(() => {
-    if (initial !== 'b1' && initial !== 'b2' && initial !== 'c3') return null;
-    const round = initial === 'b1' ? rounds[0] : initial === 'b2' ? rounds[2] : rounds[1];
+    if (initial !== 'c3') return null;
+    const round = rounds[1];
     const candidate = round.candidates[0];
     return { candidateId: candidate.id, imageUrl: candidate.imageUrl!, optionNumber: candidate.sortOrder + 1, roundNumber: round.roundNumber };
   });
@@ -110,12 +113,12 @@ export function VisionConversationQALab({ surface, identity, onClose }: Props) {
   const currentRound = useMemo(() => conversationRounds.find(round => round.id === selectedRoundId) ?? conversationRounds[0], [conversationRounds, selectedRoundId]);
   const session: VisionConversationSession = useMemo(() => ({
     id: 'qa-session', anchorId: 'qa-anchor', visionId: 'qa-vision', status: 'ACTIVE', description: sceneDescription,
-    draftPrompt: '', selectedCandidateId: 'version-3-a', viewedRoundId: 'round-original',
+    draftPrompt: '', selectedCandidateId: 'version-2-b', viewedRoundId: 'round-two',
     references: referenceFixtures.slice(0, 3).map(item => ({ assetId: item.assetId!, role: item.role, imageUrl: item.uri, label: item.label })),
-    rounds, expiresAt: '2026-10-22T00:00:00.000Z',
+    rounds: rounds.slice(0, 3), expiresAt: '2026-10-22T00:00:00.000Z',
   }), []);
 
-  if (activeSurface === 'conversation-add-sheet') return <View style={styles.addSheetStage}>
+  if (activeSurface === 'add-sheet') return <View style={styles.addSheetStage}>
     <VisionAddSceneSheet visible onClose={onClose} anchorIntention={identity.anchorIntention} restoreDraft={addSheetRestoreDraft}
       onSubmit={request => setNotice(`Saved locally: ${request.description}`)}
       onAddOwnPhoto={source => setNotice(`Photo picker action: ${source} (local QA only).`)}
@@ -135,21 +138,19 @@ export function VisionConversationQALab({ surface, identity, onClose }: Props) {
   }
 
   if (activeSurface === 'c1' || activeSurface === 'c2') return <View style={styles.refineStage}>
-    <View style={styles.singleSourcePrint}>
-      <VisionPrint uri={imageUri(2)} developing={false} revealed instant silent showCaption caption="Version 1 · Option 1"
+    <View style={[styles.singleSourcePrint, { top: insets.top + 38 }]}>
+      <VisionPrint uri={imageUri(activeSurface === 'c1' ? 1 : 2)} developing={false} revealed instant silent showCaption={false} caption=""
         pinned={false} testID="vision-conversation-qa-source-print" />
     </View>
-    <VisionRefineSheet visible source={{ candidateId: 'version-1-a', imageUrl: imageUri(2), optionNumber: 1, roundNumber: 1 }}
+    <VisionRefineSheet visible source={activeSurface === 'c1' ? { candidateId: 'original-b', imageUrl: imageUri(1), optionNumber: 2, roundNumber: 0 } : { candidateId: 'version-1-a', imageUrl: imageUri(2), optionNumber: 1, roundNumber: 1 }}
       references={referencesState} onChangeReferences={setReferences} initialPrompt={description} onChangePrompt={setDescription}
       onClose={onClose} onSubmit={instruction => { setNotice(`Refine instruction saved locally: ${instruction}`); return true; }} />
   </View>;
 
-  if (activeSurface === 'e1') return <View style={styles.resumeStage}>
-    <View style={styles.resumeMark}>
-      {identity.anchorArt ? <CircularAnchorRenderer {...identity.anchorArt} size={44} appearance="paper" testID="conversation-qa-resume-anchor" /> : null}
-    </View>
-    <VisionResumeCard session={session} onContinue={() => { setSelectedRoundId('round-two'); setActiveSurface('d2b'); }}
+  if (activeSurface === 'e1') return <View style={[styles.resumeStage, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <VisionResumeCard session={session} anchorArt={identity.anchorArt} onContinue={() => { setSelectedRoundId('round-two'); setActiveSurface('d2b'); }}
       onKeep={candidateId => setNotice(`Kept ${candidateId} in the local fixture.`)} onStartDifferent={() => { setDescription(''); setActiveSurface('a1'); }} />
+    <VisionBackButton onPress={onClose} color="#F4EDE0" style={{ position: 'absolute', left: 16, top: insets.top + 10 }} />
     {notice ? <Text style={styles.notice}>{notice}</Text> : null}
   </View>;
 
@@ -162,6 +163,7 @@ export function VisionConversationQALab({ surface, identity, onClose }: Props) {
   return <View style={styles.selectionStage}>
     <VisionConversationSelection
       round={round} rounds={conversationRounds} anchorArt={identity.anchorArt} selectedCandidateId={selectedForRound}
+      inspectCandidateId={activeSurface === 'b2' ? 'original-b' : null}
       onInspectClosed={() => setActiveSurface('c2')}
       onSelect={candidate => { setSelectedCandidateId(candidate.id); setNotice(`Selected ${candidate.id} in the local fixture.`); }}
       onRefine={candidate => {
@@ -186,7 +188,7 @@ const styles = StyleSheet.create({
   resumeStage: { flex: 1, backgroundColor: '#14162B', justifyContent: 'center' },
   resumeMark: { alignItems: 'center', paddingBottom: 10 },
   refineStage: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#14162B' },
-  singleSourcePrint: { width: 230, height: 280, padding: 8, paddingBottom: 32, backgroundColor: '#F4EDE0', borderRadius: 3 },
+  singleSourcePrint: { position: 'absolute', width: 126, height: 164, padding: 8, paddingBottom: 24, backgroundColor: '#F4EDE0', borderRadius: 3 },
   noticeButton: { position: 'absolute', left: 18, right: 18, bottom: 24, padding: 12, backgroundColor: '#14162B', borderRadius: 8 },
   notice: { color: colors.paper, ...typography.bodySM, textAlign: 'center' },
 });
