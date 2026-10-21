@@ -3,6 +3,7 @@ import { DeviceEventEmitter } from 'react-native';
 import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import type { BeatId } from '@/constants/v2/teachingCopy';
 import { getTeachingSeen, setTeachingSeen } from './teachingSeen';
+import { canStartCoachSequence, recordCoachSequence, resetTeachingSession } from './teachingSession';
 
 type Options = { screenId: string; accountId: string | null; eligible: BeatId[]; cap: number; blocked: boolean; isFocused: boolean };
 
@@ -12,7 +13,10 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
   const [ready, setReady] = useState(false);
   const [replay, setReplay] = useState(0);
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('replayAppTeaching', () => setReplay(value => value + 1));
+    const sub = DeviceEventEmitter.addListener('replayAppTeaching', () => {
+      resetTeachingSession();
+      setReplay(value => value + 1);
+    });
     return () => sub.remove();
   }, []);
   const decided = useRef(false);
@@ -45,23 +49,31 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
       if (cancelled) return;
       interaction = scheduleAfterInteractions(() => {
         if (cancelled || live.current.blocked || !live.current.isFocused || live.current.session !== session || decided.current) return;
-        decided.current = true;
         const next = candidates.filter((_, index) => !seen[index]).slice(0, cap);
+        if (next.length > 0 && next[0] !== 'vision.first' && !canStartCoachSequence(screenId)) {
+          return;
+        }
+        decided.current = true;
         batchRef.current = next;
         setBatch(next);
         setReady(true);
       });
     });
     return () => { cancelled = true; interaction?.cancel(); };
-  }, [accountId, blocked, cap, eligibleKey, isFocused, session, replay]);
+  }, [accountId, blocked, cap, eligibleKey, isFocused, session, replay, screenId]);
 
   const markShown = useCallback((beat?: BeatId) => {
     if (owner.current === session && live.current.session === session && live.current.isFocused && !live.current.blocked) {
       decided.current = true;
       batchRef.current = batch;
-      if (beat) setTeachingSeen(live.current.accountId, beat);
+      if (beat) {
+        setTeachingSeen(live.current.accountId, beat);
+        if (beat !== 'vision.first') {
+          recordCoachSequence(screenId);
+        }
+      }
     }
-  }, [session, batch]);
+  }, [session, batch, screenId]);
   const dismiss = useCallback((beatsToCommit?: BeatId[]) => {
     if (owner.current !== session || live.current.session !== session || !live.current.isFocused || live.current.blocked) return;
     // Presented beats are already marked by markShown; this commits the unpresented remainder.
