@@ -1,0 +1,1147 @@
+{
+  "date": "2026-10-20",
+  "scope": "Primary checkout generated native outputs and this task temporary artifacts only",
+  "pathsRemoved": 186,
+  "filesRemoved": 16274.0,
+  "logicalBytesRemoved": 16401762058.0,
+  "note": "Logical file sizes, not a measured free-volume delta. Source, compact QA evidence, global SDK/Gradle caches and other worktrees preserved.",
+  "targets": [
+    {
+      "path": "C:\\Users\\dwill\\.android\\avd\\VisionConversationQA20261020.ini",
+      "files": 1,
+      "logicalBytes": 85,
+      "removed": true
+    },
+    {
+      "path": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-vision-pg-harness-20261020",
+      "files": 311,
+      "logicalBytes": 35512050,
+      "removed": true
+    },
+    {
+      "path": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-vision-schema-index-20261020.prisma",
+      "files": 1,
+      "logicalBytes": 49999,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a1-375x667.xml",
+      "files": 1,
+      "logicalBytes": 51613,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a1-393x780.xml",
+      "files": 1,
+      "logicalBytes": 51625,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a1-393x852.xml",
+      "files": 1,
+      "logicalBytes": 51631,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a1-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 51636,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a2-375x667.xml",
+      "files": 1,
+      "logicalBytes": 59959,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a2-393x780.xml",
+      "files": 1,
+      "logicalBytes": 59972,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a2-393x852.xml",
+      "files": 1,
+      "logicalBytes": 59973,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a2-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 59978,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a3-375x667.xml",
+      "files": 1,
+      "logicalBytes": 64429,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a3-393x780.xml",
+      "files": 1,
+      "logicalBytes": 35260,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-a3-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 64443,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-add-sheet-393x852.xml",
+      "files": 1,
+      "logicalBytes": 38998,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-animation-harness-fixed.log",
+      "files": 1,
+      "logicalBytes": 266,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-avd",
+      "files": 28,
+      "logicalBytes": 6138733944,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-b1-375x667.xml",
+      "files": 1,
+      "logicalBytes": 82893,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-b1-393x852.xml",
+      "files": 1,
+      "logicalBytes": 83292,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-b1-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 81960,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-b2-393x852.xml",
+      "files": 1,
+      "logicalBytes": 23967,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-final-lint.log",
+      "files": 1,
+      "logicalBytes": 2279,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-final.json",
+      "files": 1,
+      "logicalBytes": 88878,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-final.log",
+      "files": 1,
+      "logicalBytes": 64667,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-last.json",
+      "files": 1,
+      "logicalBytes": 102321,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-last.log",
+      "files": 1,
+      "logicalBytes": 65092,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-lint-final.log",
+      "files": 1,
+      "logicalBytes": 4533,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-lint-fix.log",
+      "files": 1,
+      "logicalBytes": 932,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-release.json",
+      "files": 1,
+      "logicalBytes": 98649,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-release.log",
+      "files": 1,
+      "logicalBytes": 63127,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-tsc-final.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-tsc-last.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-tsc-verified.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-types.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-verified.json",
+      "files": 1,
+      "logicalBytes": 102276,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-backend-verified.log",
+      "files": 1,
+      "logicalBytes": 64513,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-baseline-backend-types.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-baseline-backend.json",
+      "files": 1,
+      "logicalBytes": 1892262,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-baseline-backend.log",
+      "files": 1,
+      "logicalBytes": 365185,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-baseline-mobile-types.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-baseline-mobile.json",
+      "files": 1,
+      "logicalBytes": 75506,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-baseline-mobile.log",
+      "files": 1,
+      "logicalBytes": 3819,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-c1-375x667.xml",
+      "files": 1,
+      "logicalBytes": 36413,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-c1-393x780.xml",
+      "files": 1,
+      "logicalBytes": 37175,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-c1-393x852.xml",
+      "files": 1,
+      "logicalBytes": 37196,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-c1-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 37235,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-c2-393x852.xml",
+      "files": 1,
+      "logicalBytes": 44607,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-c2-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 44669,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cancel-fallback.log",
+      "files": 1,
+      "logicalBytes": 26134,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cancel-lint.log",
+      "files": 1,
+      "logicalBytes": 1109,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-capture.ps1",
+      "files": 1,
+      "logicalBytes": 951,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-ceremony-baseline-fixed.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-ceremony-integration.json",
+      "files": 1,
+      "logicalBytes": 314452,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-ceremony-integration.log",
+      "files": 1,
+      "logicalBytes": 86686,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cmake-app-259.log",
+      "files": 1,
+      "logicalBytes": 151,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cmake-app.log",
+      "files": 1,
+      "logicalBytes": 780,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cmake-manual.log",
+      "files": 1,
+      "logicalBytes": 184,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cmake-path-240.log",
+      "files": 1,
+      "logicalBytes": 184,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cmake-path.log",
+      "files": 1,
+      "logicalBytes": 751,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-composition-flare-provider.log",
+      "files": 1,
+      "logicalBytes": 2131,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-composition-provider.log",
+      "files": 1,
+      "logicalBytes": 2661,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-contract-green.log",
+      "files": 1,
+      "logicalBytes": 877,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-contract-red.log",
+      "files": 1,
+      "logicalBytes": 2284,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-creationflow-final.log",
+      "files": 1,
+      "logicalBytes": 209,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-d1-393x852.xml",
+      "files": 1,
+      "logicalBytes": 88730,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-d2a-393x852.xml",
+      "files": 1,
+      "logicalBytes": 82340,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-d2b-393x780.xml",
+      "files": 1,
+      "logicalBytes": 86515,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-d2b-393x852.xml",
+      "files": 1,
+      "logicalBytes": 86525,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-d2b-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 85498,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-e1-375x667.xml",
+      "files": 1,
+      "logicalBytes": 35866,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-e1-393x780.xml",
+      "files": 1,
+      "logicalBytes": 35890,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-e1-393x852.xml",
+      "files": 1,
+      "logicalBytes": 35892,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-e1-480x1040.xml",
+      "files": 1,
+      "logicalBytes": 35903,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-2gb-error.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-2gb.log",
+      "files": 1,
+      "logicalBytes": 366376,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-error.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-final.err.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-final.log",
+      "files": 1,
+      "logicalBytes": 14337,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-last-error.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-last.log",
+      "files": 1,
+      "logicalBytes": 14438,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-singlecore-error.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator-singlecore.log",
+      "files": 1,
+      "logicalBytes": 378307,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-emulator.log",
+      "files": 1,
+      "logicalBytes": 10317,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-export-final.log",
+      "files": 1,
+      "logicalBytes": 35202,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-export.log",
+      "files": 1,
+      "logicalBytes": 35202,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-format.log",
+      "files": 1,
+      "logicalBytes": 618,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-foundation-tests.log",
+      "files": 1,
+      "logicalBytes": 16705,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-fresh-emulator-error.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-fresh-emulator.log",
+      "files": 1,
+      "logicalBytes": 365378,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-integrated-mobile.json",
+      "files": 1,
+      "logicalBytes": 350359,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-integrated-mobile.log",
+      "files": 1,
+      "logicalBytes": 88067,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-inventory.json",
+      "files": 1,
+      "logicalBytes": 4578,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-metro-final.log",
+      "files": 1,
+      "logicalBytes": 259918,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-metro-lan.log",
+      "files": 1,
+      "logicalBytes": 1321,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-metro-last.log",
+      "files": 1,
+      "logicalBytes": 41597,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-metro.log",
+      "files": 1,
+      "logicalBytes": 1228,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-migration-final.log",
+      "files": 1,
+      "logicalBytes": 665,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-migration-verification.log",
+      "files": 1,
+      "logicalBytes": 585,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-acceptance.json",
+      "files": 1,
+      "logicalBytes": 475350,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-acceptance.log",
+      "files": 1,
+      "logicalBytes": 31974,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-final.json",
+      "files": 1,
+      "logicalBytes": 446439,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-final.log",
+      "files": 1,
+      "logicalBytes": 6405,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-integration-latest.json",
+      "files": 1,
+      "logicalBytes": 63902,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-integration-latest.log",
+      "files": 1,
+      "logicalBytes": 4927,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-lint.log",
+      "files": 1,
+      "logicalBytes": 507,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-paths.txt",
+      "files": 1,
+      "logicalBytes": 2367,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-release.json",
+      "files": 1,
+      "logicalBytes": 636592,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-release.log",
+      "files": 1,
+      "logicalBytes": 143213,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-tsc-current.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-tsc-final.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-tsc-last.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-tsc-latest.log",
+      "files": 1,
+      "logicalBytes": 465,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-tsc-verified.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-types.log",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-verified.json",
+      "files": 1,
+      "logicalBytes": 436818,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-mobile-verified.log",
+      "files": 1,
+      "logicalBytes": 12664,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-app-manual-259.log",
+      "files": 1,
+      "logicalBytes": 24477,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-app-manual.log",
+      "files": 1,
+      "logicalBytes": 382,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-build-default.log",
+      "files": 1,
+      "logicalBytes": 170374,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-build-preconfigured.log",
+      "files": 1,
+      "logicalBytes": 84473,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-build-shortpaths.log",
+      "files": 1,
+      "logicalBytes": 89255,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-build.log",
+      "files": 1,
+      "logicalBytes": 32195,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-manual.log",
+      "files": 1,
+      "logicalBytes": 16650,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-native-package.log",
+      "files": 1,
+      "logicalBytes": 89587,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-prisma-verified.log",
+      "files": 1,
+      "logicalBytes": 138,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-provider-qa",
+      "files": 10,
+      "logicalBytes": 18352794,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-provider-qa.log",
+      "files": 1,
+      "logicalBytes": 2767,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-screen.png",
+      "files": 1,
+      "logicalBytes": 257004,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-seal-lint.log",
+      "files": 1,
+      "logicalBytes": 1036,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-seal-recovery.log",
+      "files": 1,
+      "logicalBytes": 1405,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-swipe.xml",
+      "files": 1,
+      "logicalBytes": 37198,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\.codex-vision-export",
+      "files": 512,
+      "logicalBytes": 192203814,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\android\\.gradle",
+      "files": 17,
+      "logicalBytes": 11331582,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\android\\.kotlin",
+      "files": 0,
+      "logicalBytes": 0,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\android\\app\\.cxx",
+      "files": 1981,
+      "logicalBytes": 1306052411,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\android\\app\\build",
+      "files": 1728,
+      "logicalBytes": 2740233961,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\android\\build",
+      "files": 4,
+      "logicalBytes": 170129,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@expo\\dom-webview\\android\\build",
+      "files": 203,
+      "logicalBytes": 1635782,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@expo\\log-box\\android\\build",
+      "files": 145,
+      "logicalBytes": 939207,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native-async-storage\\async-storage\\android\\build",
+      "files": 57,
+      "logicalBytes": 291824,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native-community\\datetimepicker\\android\\build",
+      "files": 181,
+      "logicalBytes": 1214262,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native-community\\slider\\android\\build",
+      "files": 54,
+      "logicalBytes": 278437,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native-firebase\\app\\android\\build",
+      "files": 48,
+      "logicalBytes": 403979,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native-firebase\\auth\\android\\build",
+      "files": 30,
+      "logicalBytes": 431467,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native-google-signin\\google-signin\\android\\build",
+      "files": 139,
+      "logicalBytes": 693272,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native\\gradle-plugin\\react-native-gradle-plugin\\build",
+      "files": 204,
+      "logicalBytes": 1473099,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native\\gradle-plugin\\settings-plugin\\build",
+      "files": 103,
+      "logicalBytes": 574963,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native\\gradle-plugin\\shared\\build",
+      "files": 100,
+      "logicalBytes": 558251,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@sentry\\react-native\\android\\.cxx",
+      "files": 41,
+      "logicalBytes": 625639,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@sentry\\react-native\\android\\build",
+      "files": 102,
+      "logicalBytes": 678001385,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@shopify\\react-native-skia\\android\\.cxx",
+      "files": 62,
+      "logicalBytes": 167629499,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@shopify\\react-native-skia\\android\\build",
+      "files": 1399,
+      "logicalBytes": 1302205727,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-constants\\android\\build",
+      "files": 134,
+      "logicalBytes": 872212,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-dev-client\\android\\build",
+      "files": 27,
+      "logicalBytes": 24542,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-dev-launcher\\android\\build",
+      "files": 579,
+      "logicalBytes": 10363355,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-dev-menu-interface\\android\\build",
+      "files": 21,
+      "logicalBytes": 7528,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-dev-menu\\android\\build",
+      "files": 414,
+      "logicalBytes": 10542307,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-eas-client\\android\\build",
+      "files": 130,
+      "logicalBytes": 658843,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-json-utils\\android\\build",
+      "files": 102,
+      "logicalBytes": 380787,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-manifests\\android\\build",
+      "files": 147,
+      "logicalBytes": 911171,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-modules-autolinking\\android\\expo-gradle-plugin\\expo-autolinking-plugin\\build",
+      "files": 133,
+      "logicalBytes": 865683,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-modules-autolinking\\android\\expo-gradle-plugin\\expo-autolinking-settings-plugin\\build",
+      "files": 139,
+      "logicalBytes": 917616,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-modules-core\\android\\.cxx",
+      "files": 129,
+      "logicalBytes": 89316381,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-modules-core\\android\\build",
+      "files": 1859,
+      "logicalBytes": 445315458,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-modules-core\\expo-module-gradle-plugin\\build",
+      "files": 153,
+      "logicalBytes": 959212,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-speech-recognition\\android\\build",
+      "files": 195,
+      "logicalBytes": 1972217,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-structured-headers\\android\\build",
+      "files": 42,
+      "logicalBytes": 283766,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-updates-interface\\android\\build",
+      "files": 128,
+      "logicalBytes": 609839,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-updates\\android\\.cxx",
+      "files": 57,
+      "logicalBytes": 1472506,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo-updates\\android\\build",
+      "files": 588,
+      "logicalBytes": 24279076,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\expo\\android\\build",
+      "files": 123,
+      "logicalBytes": 1446876,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-android-widget\\android\\build",
+      "files": 90,
+      "logicalBytes": 761420,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-gesture-handler\\android\\.cxx",
+      "files": 52,
+      "logicalBytes": 3156799,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-gesture-handler\\android\\build",
+      "files": 327,
+      "logicalBytes": 338853071,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-purchases\\android\\build",
+      "files": 112,
+      "logicalBytes": 643998,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\android\\.cxx",
+      "files": 272,
+      "logicalBytes": 641162958,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-reanimated\\android\\build",
+      "files": 569,
+      "logicalBytes": 1034366628,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-safe-area-context\\android\\build",
+      "files": 198,
+      "logicalBytes": 1192335,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-screens\\android\\.cxx",
+      "files": 48,
+      "logicalBytes": 9205191,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-screens\\android\\build",
+      "files": 864,
+      "logicalBytes": 259256099,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-svg\\android\\build",
+      "files": 335,
+      "logicalBytes": 3725862,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-view-shot\\android\\build",
+      "files": 57,
+      "logicalBytes": 297373,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-webview\\android\\build",
+      "files": 210,
+      "logicalBytes": 1725205,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\android\\.cxx",
+      "files": 106,
+      "logicalBytes": 91123157,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-native-worklets\\android\\build",
+      "files": 346,
+      "logicalBytes": 815275331,
+      "removed": true
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\backend\\.codex-vision-schema.patch",
+      "files": 1,
+      "logicalBytes": 0,
+      "removed": true
+    }
+  ],
+  "remaining": [
+    {
+      "path": "E:\\Projects\\Anchor\\.codex-vision-cleanup.ps1",
+      "files": 1,
+      "logicalBytes": 4331,
+      "removed": false
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native\\gradle-plugin\\.gradle",
+      "files": 6,
+      "logicalBytes": 166348,
+      "removed": false
+    },
+    {
+      "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native\\gradle-plugin\\.kotlin",
+      "files": 0,
+      "logicalBytes": 0,
+      "removed": false
+    }
+  ],
+  "finalCleanupRestriction": "Automatic approval review rejected removal of the three remaining paths: blocked by policy; no more detailed reason was returned. No bypass attempted."
+}

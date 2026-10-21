@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-20",
+  "mobile": {
+    "suitesPassed": 92,
+    "suitesFailed": 0,
+    "suitesSkipped": 0,
+    "testsPassed": 944,
+    "testsFailed": 0,
+    "testsSkipped": 0
+  },
+  "backend": {
+    "suitesPassed": 20,
+    "suitesFailed": 0,
+    "suitesSkipped": 1,
+    "testsPassed": 240,
+    "testsFailed": 0,
+    "testsSkipped": 2
+  },
+  "migration": {
+    "passed": 8,
+    "failed": 0
+  },
+  "notes": [
+    "Targeted suites only; unrelated user Chart changes excluded.",
+    "Two backend database integration tests require staging database."
+  ],
+  "typeScript": {
+    "mobile": "passed",
+    "backend": "passed"
+  },
+  "nativeDebug": {
+    "result": "BUILD SUCCESSFUL",
+    "abi": "x86_64",
+    "receipt": "native-build-receipt.json"
+  },
+  "visual": {
+    "independentScore": 9.3,
+    "scope": "Seven selected fixture states; viewport coverage varies per state",
+    "scorecard": "visual-scorecard.md"
+  },
+  "androidExport": {
+    "result": "passed",
+    "bundleBytes": 18185684,
+    "bundleSha256": "3783F2388D7AC02498A756576054676E43809D72EA54463B465AF8595524CA03"
+  },
+  "migrationChecks": [
+    "legacy rows survive with safe defaults",
+    "five ordered references persist independently of the source",
+    "database rejects a sixth slot, duplicate asset, and invalid role",
+    "exact older source lineage and round uniqueness are enforced",
+    "navigation and choosing an older option preserve newer candidates",
+    "source assets and candidates cannot be pruned while referenced",
+    "session retention cascades lineage while keeping the sealed board asset",
+    "account deletion still cascades through complete revision history"
+  ]
+}

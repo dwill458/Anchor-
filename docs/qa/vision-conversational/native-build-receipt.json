@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-20",
+  "platform": "Android",
+  "variant": "debug",
+  "abi": "x86_64",
+  "applicationId": "com.anchorintentions.app",
+  "expo": "58.0.14",
+  "reactNative": "0.88.0",
+  "apkBytes": 152760615,
+  "apkSha256": "66D64E2EBF1A3E829E34C556A8F27130637CCCC081E46A0CD29637FC2FAC70C0",
+  "result": "BUILD SUCCESSFUL",
+  "packagingElapsed": "4m 9s",
+  "tasks": 815,
+  "tasksExecuted": 110,
+  "tasksUpToDate": 705,
+  "note": "Windows generated CMake object-path workaround; see validation-commands.md. APK deleted after emulator QA at user request."
+}
