@@ -6,10 +6,13 @@ import { getOnboardingContext } from './OnboardingContextService';
 import { AppError } from '../../api/middleware/errorHandler';
 import { GeminiError, GeminiErrorType, GeminiImageService } from '../GeminiImageService';
 import { imageGenerationService, ImageProviderError, ImageProviderErrorType } from '../image';
-import { readPrivateImageAsset, resolveStorageKeyUrl, uploadImageAssetFromBuffer } from '../StorageService';
+import { readPrivateImageAsset, uploadImageAssetFromBuffer } from '../StorageService';
 import type { ImageReference } from '../image/types';
 import { readDevImagePlan, storeDevImagePlan, type DevImageModel } from '../image/devImageModels';
-import { selectWorldReferenceScenes, type WorldReferenceScene } from './visionWorldReferences';
+import { visionConversationService } from './VisionConversationService';
+import { conversationRoundInclude, serializeVisionRound } from './visionConversationContracts';
+import { buildVisionConversationPrompt } from './visionConversationPrompt';
+import type { VisionSceneGenerationInput, VisionOperation } from '../../domain/v2/vision';
 import { getMonetizationAccess } from '../MonetizationAccessService';
 import { visionService } from './VisionService';
 import { VISION_MAX_IMAGES, VISION_SCENE_DESCRIPTION_MAX } from '../../domain/v2/vision';
@@ -40,9 +43,14 @@ export class VisionGenerationService {
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     const job = await prisma.visionGeneration.findFirst({
       // The numbered sets are what the Vision screen resumes; a described scene is fetched by its own id.
-      where: { userId, anchorId, ...(jobId ? { id: jobId } : { kind: 'SET' }), vision: { status: 'ACTIVE' } },
+      where: {
+        userId,
+        anchorId,
+        ...(jobId ? { id: jobId } : { kind: 'SET' }),
+        vision: { status: 'ACTIVE' },
+      },
       orderBy: { createdAt: 'desc' },
-      include: { candidates: { orderBy: { sortOrder: 'asc' }, include: { asset: true } } },
+      include: conversationRoundInclude,
     });
     if (!job) return null;
     if (
@@ -61,31 +69,7 @@ export class VisionGenerationService {
       job.stage = 'interrupted';
       job.error = 'Generation was interrupted. You can retry.';
     }
-    return {
-      id: job.id,
-      kind: job.kind,
-      visionId: job.visionId,
-      anchorId: job.anchorId,
-      setNumber: job.setNumber,
-      retryCount: job.retryCount,
-      status: job.status,
-      stage: job.stage,
-      ...(readDevImagePlan(job.plan).devImageModel ? { devImageModel: readDevImagePlan(job.plan).devImageModel } : {}),
-      error: job.error,
-      candidates: await Promise.all(
-        job.candidates.map(async candidate => ({
-          id: candidate.id,
-          assetId: candidate.assetId,
-          role: candidate.role,
-          prompt: candidate.prompt,
-          sortOrder: candidate.sortOrder,
-          status: candidate.status,
-          imageUrl: candidate.asset?.storageKey
-            ? await resolveStorageKeyUrl(candidate.asset.storageKey)
-            : null,
-        }))
-      ),
-    };
+    return serializeVisionRound(job);
   }
 
   async start(
@@ -156,7 +140,9 @@ export class VisionGenerationService {
           setNumber,
           status: 'QUEUED',
           stage: 'planning',
-          ...(devImageModel ? { plan: storeDevImagePlan(null, devImageModel) as Prisma.InputJsonValue } : {}),
+          ...(devImageModel
+            ? { plan: storeDevImagePlan(null, devImageModel) as Prisma.InputJsonValue }
+            : {}),
           appearanceReferenceId: appearanceReferenceId ?? null,
         },
       });
@@ -193,8 +179,29 @@ export class VisionGenerationService {
     idempotencyKey: string,
     appearanceReferenceId?: string | null,
     startAssetId?: string | null,
-    devImageModel?: DevImageModel
+    devImageModel?: DevImageModel,
+    conversation?: Pick<
+      VisionSceneGenerationInput,
+      'operation' | 'sessionId' | 'parentCandidateId' | 'references'
+    >
   ) {
+    if (conversation) {
+      const accepted = await visionConversationService.start(userId, anchorId, {
+        sceneDescription,
+        idempotencyKey,
+        ...conversation,
+        devImageModel,
+        appearanceReferenceId,
+        startAssetId,
+      });
+      if (accepted.enqueue)
+        void this.run(
+          accepted.jobId,
+          accepted.anchor.intentionText,
+          accepted.anchor.category
+        ).catch(error => logger.error('[VisionGeneration] Scene job failed', error));
+      return this.latest(userId, anchorId, accepted.jobId);
+    }
     const access = await getMonetizationAccess(userId);
     if (!access.hasProAccess)
       throw new AppError('Vision generation requires access', 403, 'VISION_PREMIUM_REQUIRED');
@@ -205,12 +212,19 @@ export class VisionGenerationService {
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     const trimmed = sceneDescription.trim();
     if (trimmed.length < 6 || trimmed.length > VISION_SCENE_DESCRIPTION_MAX)
-      throw new AppError(`Describe the scene in 6 to ${VISION_SCENE_DESCRIPTION_MAX} characters`, 400, 'VALIDATION_ERROR');
+      throw new AppError(
+        `Describe the scene in 6 to ${VISION_SCENE_DESCRIPTION_MAX} characters`,
+        400,
+        'VALIDATION_ERROR'
+      );
 
     if (appearanceReferenceId)
       await visionAppearanceReferenceService.resolveForGeneration(userId, appearanceReferenceId);
     if (startAssetId) {
-      const owned = await prisma.asset.findFirst({ where: { id: startAssetId, userId }, select: { id: true } });
+      const owned = await prisma.asset.findFirst({
+        where: { id: startAssetId, userId },
+        select: { id: true },
+      });
       if (!owned) throw new AppError('Start photo not found', 400, 'INVALID_START_PHOTO');
     }
 
@@ -265,14 +279,21 @@ export class VisionGenerationService {
           stage: 'creating_images',
           appearanceReferenceId: appearanceReferenceId ?? null,
           startAssetId: startAssetId ?? null,
-          plan: storeDevImagePlan(buildVisionSceneVariantPlan(trimmed), devImageModel) as Prisma.InputJsonValue,
+          plan: storeDevImagePlan(
+            buildVisionSceneVariantPlan(trimmed),
+            devImageModel
+          ) as Prisma.InputJsonValue,
         },
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const replay = await this.latest(userId, anchorId, idempotencyKey);
         if (replay) return replay;
-        throw new AppError('Generation request conflicted. Try again.', 409, 'VISION_GENERATION_CONFLICT');
+        throw new AppError(
+          'Generation request conflicted. Try again.',
+          409,
+          'VISION_GENERATION_CONFLICT'
+        );
       }
       throw error;
     }
@@ -287,6 +308,24 @@ export class VisionGenerationService {
       where: { id: jobId, userId, anchorId, vision: { status: 'ACTIVE' } },
     });
     if (!job) throw new AppError('Generation not found', 404, 'VISION_GENERATION_NOT_FOUND');
+    if (
+      job.sessionId &&
+      !(await prisma.visionCreationSession.findFirst({
+        where: {
+          id: job.sessionId,
+          userId,
+          anchorId,
+          status: 'ACTIVE',
+          expiresAt: { gt: new Date() },
+        },
+        select: { id: true },
+      }))
+    )
+      throw new AppError(
+        'This scene session has ended. Start a different scene.',
+        409,
+        'VISION_SESSION_ENDED'
+      );
     if (job.status !== 'FAILED')
       throw new AppError('Generation is not ready to retry', 409, 'VISION_GENERATION_IN_PROGRESS');
     if (job.retryCount >= 2)
@@ -300,7 +339,12 @@ export class VisionGenerationService {
     });
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     const claimed = await prisma.visionGeneration.updateMany({
-      where: { id: job.id, status: 'FAILED', retryCount: job.retryCount },
+      where: {
+        id: job.id,
+        status: 'FAILED',
+        retryCount: job.retryCount,
+        ...(job.sessionId ? { session: { status: 'ACTIVE', expiresAt: { gt: new Date() } } } : {}),
+      },
       data: { status: 'QUEUED', stage: 'planning', error: null, retryCount: { increment: 1 } },
     });
     if (claimed.count === 1)
@@ -338,21 +382,36 @@ export class VisionGenerationService {
     reference?: { buffer: Buffer; mimeType: string } | null,
     userId?: string,
     world: ImageReference[] = [],
-    devImageModel?: DevImageModel
+    devImageModel?: DevImageModel,
+    operation?: VisionOperation,
+    generationRequestId?: string,
+    canProceed?: () => Promise<boolean>
   ): Promise<Buffer> {
-    const withWorld = (appearance?: { buffer: Buffer; mimeType: string } | null): ImageReference[] | undefined => {
+    const withWorld = (
+      appearance?: { buffer: Buffer; mimeType: string } | null
+    ): ImageReference[] | undefined => {
       const all: ImageReference[] = [
         ...world,
-        ...(appearance ? [{ buffer: appearance.buffer, mimeType: appearance.mimeType, role: 'appearance' as const }] : []),
+        ...(appearance
+          ? [
+              {
+                buffer: appearance.buffer,
+                mimeType: appearance.mimeType,
+                role: 'appearance' as const,
+              },
+            ]
+          : []),
       ];
       return all.length ? all : undefined;
     };
     const attempt = async (appearance?: { buffer: Buffer; mimeType: string } | null) => {
+      if (canProceed && !(await canProceed()))
+        throw new AppError('Scene session has ended.', 409, 'VISION_SESSION_ENDED');
       // If generateVisionScene is a Jest mock (e.g. in unit tests), respect the mock
       const isMock = Boolean(
         (provider.generateVisionScene as unknown as { _isMockFunction?: boolean })?._isMockFunction
       );
-      if (isMock && !devImageModel) {
+      if (isMock && !devImageModel && !operation) {
         try {
           return await provider.generateVisionScene(prompt, appearance ?? undefined);
         } catch (error) {
@@ -372,6 +431,8 @@ export class VisionGenerationService {
           referenceImages: withWorld(appearance),
           userId,
           devImageModel,
+          operation,
+          generationRequestId,
         });
         return result.images[0].buffer;
       } catch (error) {
@@ -383,12 +444,16 @@ export class VisionGenerationService {
         }
         logger.warn('[VisionGeneration] Multi-provider generation failed; retrying once', error);
         await new Promise(resolve => setTimeout(resolve, SCENE_RETRY_DELAY_MS));
+        if (canProceed && !(await canProceed()))
+          throw new AppError('Scene session has ended.', 409, 'VISION_SESSION_ENDED');
         const retryResult = await imageGenerationService.generate({
           type: 'vision',
           prompt,
           referenceImages: withWorld(appearance),
           userId,
           devImageModel,
+          operation,
+          generationRequestId,
         });
         return retryResult.images[0].buffer;
       }
@@ -398,7 +463,7 @@ export class VisionGenerationService {
     } catch (error) {
       if (error instanceof GeminiError && error.type === GeminiErrorType.INVALID_API_KEY)
         throw error;
-      if (!reference) throw error;
+      if (!reference || operation) throw error;
       // Appearance is optional. If the provider rejects the reference or its
       // likeness path, preserve the person's requested future as a POV /
       // identity-neutral scene rather than failing the complete Vision. The
@@ -411,37 +476,73 @@ export class VisionGenerationService {
     }
   }
 
-  /**
-   * The Vision's existing photographs, read for the image model. A scene whose image cannot be
-   * read is skipped: continuity is best effort, the new moment is never blocked by it.
-   */
-  private async loadWorldReferences(scenes: WorldReferenceScene[]): Promise<ImageReference[]> {
-    const chosen = selectWorldReferenceScenes(scenes);
+  /** Explicit gallery inputs and edit source are mandatory; never drop them on provider failure. */
+  private async loadConversationReferences(job: {
+    userId: string;
+    anchorId: string;
+    sessionId: string | null;
+    parentCandidateId: string | null;
+    references: Array<{ assetId: string; role: string; label: string | null }>;
+  }): Promise<ImageReference[]> {
+    const inputs: Array<{ assetId: string; role: ImageReference['role']; label?: string }> = [];
+    if (job.parentCandidateId) {
+      const parent = await prisma.visionGenerationCandidate.findFirst({
+        where: {
+          id: job.parentCandidateId,
+          status: 'SUCCEEDED',
+          asset: { userId: job.userId },
+          generation: { sessionId: job.sessionId, userId: job.userId, anchorId: job.anchorId },
+        },
+        select: { assetId: true },
+      });
+      if (!parent?.assetId)
+        throw new AppError(
+          'Source candidate is unavailable. Choose another saved option.',
+          400,
+          'INVALID_VISION_CANDIDATE'
+        );
+      inputs.push({ assetId: parent.assetId, role: 'edit_source' });
+    }
+    inputs.push(
+      ...job.references.map(ref => ({
+        assetId: ref.assetId,
+        role: ref.role as ImageReference['role'],
+        ...(ref.label ? { label: ref.label } : {}),
+      }))
+    );
     const loaded: ImageReference[] = [];
-    for (const scene of chosen) {
-      try {
-        const raw = await readPrivateImageAsset(scene.asset!.storageKey);
-        const buffer = await sharp(raw)
-          .rotate()
-          .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 85 })
-          .toBuffer();
-        loaded.push({ buffer, mimeType: 'image/jpeg', role: 'world' });
-      } catch (error) {
-        logger.warn('[VisionGeneration] A Vision photograph could not be read as a reference', {
-          sceneId: scene.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
+    for (const input of inputs) {
+      const asset = await prisma.asset.findFirst({
+        where: { id: input.assetId, userId: job.userId },
+        select: { storageKey: true },
+      });
+      if (!asset)
+        throw new AppError(
+          'Reference photo is unavailable. Choose it again.',
+          400,
+          'INVALID_VISION_REFERENCE'
+        );
+      const buffer = await sharp(await readPrivateImageAsset(asset.storageKey))
+        .rotate()
+        .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 88 })
+        .toBuffer();
+      loaded.push({ buffer, mimeType: 'image/jpeg', role: input.role, label: input.label });
     }
     return loaded;
   }
 
   /** The person's own photo of their real world today, read for the image model. Best effort: a missing photo never blocks the scene. */
-  private async loadStartReference(userId: string, assetId: string | null): Promise<ImageReference | null> {
+  private async loadStartReference(
+    userId: string,
+    assetId: string | null
+  ): Promise<ImageReference | null> {
     if (!assetId) return null;
     try {
-      const asset = await prisma.asset.findFirst({ where: { id: assetId, userId }, select: { storageKey: true } });
+      const asset = await prisma.asset.findFirst({
+        where: { id: assetId, userId },
+        select: { storageKey: true },
+      });
       if (!asset) return null;
       const buffer = await sharp(await readPrivateImageAsset(asset.storageKey))
         .rotate()
@@ -450,18 +551,32 @@ export class VisionGenerationService {
         .toBuffer();
       return { buffer, mimeType: 'image/jpeg', role: 'start' };
     } catch (error) {
-      logger.warn('[VisionGeneration] Start photo could not be read; generating from the description', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      logger.warn(
+        '[VisionGeneration] Start photo could not be read; generating from the description',
+        {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }
+      );
       return null;
     }
   }
 
   private async run(jobId: string, intention: string, category: string) {
-    const job = await prisma.visionGeneration.findUnique({ where: { id: jobId } });
+    const job = await prisma.visionGeneration.findUnique({
+      where: { id: jobId },
+      include: { session: true, references: { orderBy: { sortOrder: 'asc' } } },
+    });
     if (!job) return;
+    const sessionActive = (state: { session?: { status: string; expiresAt: Date } | null }) =>
+      !job.sessionId ||
+      Boolean(state.session?.status === 'ACTIVE' && state.session.expiresAt.getTime() > Date.now());
+    if (!sessionActive(job)) return;
     const claimed = await prisma.visionGeneration.updateMany({
-      where: { id: jobId, status: 'QUEUED' },
+      where: {
+        id: jobId,
+        status: 'QUEUED',
+        ...(job.sessionId ? { session: { status: 'ACTIVE', expiresAt: { gt: new Date() } } } : {}),
+      },
       data: { status: 'RUNNING', stage: 'planning' },
     });
     if (claimed.count !== 1) return;
@@ -482,42 +597,24 @@ export class VisionGenerationService {
       }
       const attempt = job.retryCount;
       const { scenes: savedPlan, devImageModel } = readDevImagePlan(job.plan);
-      // A described scene is shot in the context of the Vision it joins.
-      const boardContext =
-        job.kind === 'SCENE'
-          ? await prisma.vision.findUnique({
-              where: { id: job.visionId },
-              select: {
-                description: true,
-                scenes: {
-                  where: { isArchived: false },
-                  orderBy: { sortOrder: 'asc' },
-                  select: {
-                    id: true,
-                    prompt: true,
-                    sourceType: true,
-                    sortOrder: true,
-                    createdAt: true,
-                    asset: { select: { storageKey: true, mimeType: true } },
-                  },
-                },
-              },
-            })
-          : null;
-      // The Vision already exists as a world: its own photographs are attached to the request as
-      // images, ahead of any text. The first image of a Vision has no world yet, so nothing is attached.
-      const startReference = await this.loadStartReference(job.userId, job.startAssetId);
-      const worldReferences = [
-        ...(startReference ? [startReference] : []),
-        ...(boardContext ? await this.loadWorldReferences(boardContext.scenes) : []),
-      ];
-      const worldPhotoCount = worldReferences.length - (startReference ? 1 : 0);
+      // Board photos and first-scene descriptions are never implicit visual context.
+      const operation = job.sessionId ? (job.operation as VisionOperation) : undefined;
+      const startReference = operation
+        ? null
+        : await this.loadStartReference(job.userId, job.startAssetId);
+      const worldReferences = operation
+        ? await this.loadConversationReferences(job)
+        : startReference
+          ? [startReference]
+          : [];
       logger.info('[VisionGeneration] Generation references', {
         jobId,
         kind: job.kind,
         identityReferences: reference ? 1 : 0,
-        worldReferencesAvailable: boardContext?.scenes.length ?? 0,
-        worldReferencesAttached: worldPhotoCount,
+        operation: operation ?? 'legacy',
+        sessionId: job.sessionId,
+        explicitReferences: worldReferences.length,
+        worldReferencesAttached: 0,
         startPhoto: Boolean(startReference),
       });
       const onboarding = await getOnboardingContext(job.userId).catch(() => null);
@@ -553,10 +650,15 @@ export class VisionGenerationService {
       }
       const afterPlanning = await prisma.visionGeneration.findUnique({
         where: { id: jobId },
-        select: { status: true, retryCount: true },
+        select: {
+          status: true,
+          retryCount: true,
+          session: { select: { status: true, expiresAt: true } },
+        },
       });
       if (
         !afterPlanning ||
+        !sessionActive(afterPlanning) ||
         afterPlanning.retryCount !== attempt ||
         !['RUNNING', 'PARTIAL'].includes(afterPlanning.status)
       )
@@ -576,14 +678,21 @@ export class VisionGenerationService {
       const renderOne = async (i: number): Promise<void> => {
         const current = await prisma.visionGeneration.findUnique({
           where: { id: jobId },
-          select: { status: true, retryCount: true },
+          select: {
+            status: true,
+            retryCount: true,
+            session: { select: { status: true, expiresAt: true } },
+          },
         });
         if (
           !current ||
+          !sessionActive(current) ||
           current.retryCount !== attempt ||
           !['RUNNING', 'PARTIAL'].includes(current.status)
-        )
-          { aborted = true; return; }
+        ) {
+          aborted = true;
+          return;
+        }
         const prior = await prisma.visionGenerationCandidate.findUnique({
           where: { generationId_sortOrder: { generationId: jobId, sortOrder: i } },
         });
@@ -592,29 +701,64 @@ export class VisionGenerationService {
           return;
         }
         const scene = plan[i];
-        const prompt = buildVisionImagePrompt({
-          intention,
-          category,
-          description: boardContext ? (boardContext.description ?? '') : job.description,
-          isAddedScene: Boolean(boardContext),
-          scene,
-          plannedScenes: plan,
-          hasAppearanceReference: Boolean(reference),
-          worldReferenceCount: worldPhotoCount,
-          startPhotoAttached: Boolean(startReference),
-        });
+        const prompt = operation
+          ? buildVisionConversationPrompt(operation, job.description, intention, i)
+          : buildVisionImagePrompt({
+              intention,
+              category,
+              description: job.description,
+              isAddedScene: job.kind === 'SCENE',
+              scene,
+              plannedScenes: plan,
+              hasAppearanceReference: Boolean(reference),
+              worldReferenceCount: 0,
+              startPhotoAttached: Boolean(startReference),
+            });
         try {
-          const raw = await this.renderScene(provider, prompt, reference, job.userId, worldReferences, devImageModel);
+          const canProceed = async () => {
+            const state = await prisma.visionGeneration.findUnique({
+              where: { id: jobId },
+              select: {
+                status: true,
+                retryCount: true,
+                session: { select: { status: true, expiresAt: true } },
+              },
+            });
+            return Boolean(
+              state &&
+              sessionActive(state) &&
+              state.retryCount === attempt &&
+              ['RUNNING', 'PARTIAL'].includes(state.status)
+            );
+          };
+          const raw = await this.renderScene(
+            provider,
+            prompt,
+            reference,
+            job.userId,
+            worldReferences,
+            devImageModel,
+            operation,
+            `${jobId}-${i}-${attempt}`,
+            operation ? canProceed : undefined
+          );
           const afterProvider = await prisma.visionGeneration.findUnique({
             where: { id: jobId },
-            select: { status: true, retryCount: true },
+            select: {
+              status: true,
+              retryCount: true,
+              session: { select: { status: true, expiresAt: true } },
+            },
           });
           if (
             !afterProvider ||
+            !sessionActive(afterProvider) ||
             afterProvider.retryCount !== attempt ||
             !['RUNNING', 'PARTIAL'].includes(afterProvider.status)
-          )
-            { aborted = true; return; }
+          ) {
+            aborted = true;
+            return;
+          }
           const { data: image, info } = await sharp(raw)
             .rotate()
             .resize({

@@ -10,25 +10,26 @@ describe('selecting the Vision photographs that carry the world forward', () => 
   it('attaches only the person\'s own photographs, never generated board images', () => {
     const picked = selectWorldReferenceScenes([
       scene('gen-hero', 'AI_GENERATED', 0, 1), scene('mine', 'USER_UPLOAD', 1, 2), scene('gen-new', 'AI_GENERATED', 2, 9),
-    ]);
+    ], VISION_WORLD_REFERENCE_MAX, ['mine']);
     expect(picked.map(item => item.id)).toEqual(['mine']);
     expect(selectWorldReferenceScenes([scene('gym', 'AI_GENERATED', 0, 1), scene('gym2', 'AI_GENERATED', 1, 2)])).toEqual([]);
   });
 
   it('treats a camera photo as the person\'s own', () => {
-    expect(selectWorldReferenceScenes([scene('gen', 'AI_GENERATED', 0, 1), scene('cam', 'USER_CAMERA', 1, 2)]).map(item => item.id)).toEqual(['cam']);
+    expect(selectWorldReferenceScenes([scene('gen', 'AI_GENERATED', 0, 1), scene('cam', 'USER_CAMERA', 1, 2)], VISION_WORLD_REFERENCE_MAX, ['cam']).map(item => item.id)).toEqual(['cam']);
   });
 
   it('prefers the hero among personal photos, then the most recently added', () => {
     const picked = selectWorldReferenceScenes([
       scene('old', 'USER_UPLOAD', 3, 1), scene('hero', 'USER_UPLOAD', 0, 2), scene('new', 'USER_CAMERA', 4, 8),
-    ]);
+    ], VISION_WORLD_REFERENCE_MAX, ['old', 'hero', 'new']);
     expect(picked.map(item => item.id)).toEqual(['hero', 'new', 'old']);
   });
 
   it('caps the references and skips scenes whose image is gone', () => {
     const many = Array.from({ length: 8 }, (_, i) => scene(`s${i}`, 'USER_UPLOAD', i, i + 1));
-    expect(selectWorldReferenceScenes(many)).toHaveLength(VISION_WORLD_REFERENCE_MAX);
+    expect(selectWorldReferenceScenes(many)).toEqual([]);
+    expect(selectWorldReferenceScenes(many, VISION_WORLD_REFERENCE_MAX, many.map(item => item.id))).toHaveLength(VISION_WORLD_REFERENCE_MAX);
     expect(selectWorldReferenceScenes([scene('gone', 'USER_UPLOAD', 0, 1, false)])).toEqual([]);
   });
 

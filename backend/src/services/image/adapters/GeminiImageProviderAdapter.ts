@@ -62,7 +62,10 @@ export class GeminiImageProviderAdapter implements ImageProviderAdapter {
     costPerImage: number;
   } {
     if (request.devImageModel) {
-      return { modelId: request.devImageModel, costPerImage: request.devImageModel.includes('pro') ? 0.04 : 0.005 };
+      return {
+        modelId: request.devImageModel,
+        costPerImage: request.devImageModel.includes('pro') ? 0.04 : 0.005,
+      };
     }
     if (request.type === 'vision') {
       const modelId =
@@ -97,6 +100,18 @@ export class GeminiImageProviderAdapter implements ImageProviderAdapter {
     model: string;
     estimatedCost: number;
   }> {
+    if (
+      ['EDIT', 'VARIATE'].includes(request.operation ?? '') &&
+      !request.referenceImages?.some(ref => ref.role === 'edit_source')
+    ) {
+      throw new ImageProviderError(
+        this.name,
+        ImageProviderErrorType.INVALID_REQUEST,
+        'Choose an available source candidate before editing.',
+        false,
+        400
+      );
+    }
     const client = this.getClient();
     const { modelId, costPerImage } = this.resolveModel(request);
     const numberOfVariations = Math.max(1, request.numberOfVariations ?? 1);
@@ -144,7 +159,9 @@ export class GeminiImageProviderAdapter implements ImageProviderAdapter {
         } else {
           // Vision imagery: the Vision's own photographs (world) come first, then who is in them.
           const ordered = orderVisionReferences(request.referenceImages);
-          parts.push({ text: `${variationPrompt}\n\n${visionReferenceInstructions(ordered)}` });
+          parts.push({
+            text: `${variationPrompt}\n\n${visionReferenceInstructions(ordered, request.operation)}`,
+          });
           for (const refImg of ordered) {
             parts.push({
               inlineData: {

@@ -103,6 +103,18 @@ export class ImageGenerationService {
    * Enforces in-flight deduplication, timeout policy, retry limits, and controlled fallback.
    */
   async generate(request: GenerateImageRequest): Promise<ImageGenerationResult> {
+    if (
+      ['EDIT', 'VARIATE'].includes(request.operation ?? '') &&
+      !request.referenceImages?.some(ref => ref.role === 'edit_source')
+    ) {
+      throw new ImageProviderError(
+        'vision',
+        ImageProviderErrorType.INVALID_REQUEST,
+        'Choose an available source candidate before editing.',
+        false,
+        400
+      );
+    }
     const generationRequestId = request.generationRequestId || randomUUID();
     const requestWithId: GenerateImageRequest = { ...request, generationRequestId };
 

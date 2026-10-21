@@ -15,8 +15,11 @@ import {
   CreateVisionNoteSchema,
   UpdateVisionNoteSchema,
   UpdateVisionSceneCaptionSchema,
+  CreateVisionSessionSchema,
+  UpdateVisionSessionSchema,
 } from '../../../domain/v2/vision';
 import { visionGenerationService } from '../../../services/v2/VisionGenerationService';
+import { visionConversationService } from '../../../services/v2/VisionConversationService';
 import { visionAppearanceReferenceService } from '../../../services/v2/VisionAppearanceReferenceService';
 import { uploadImageAssetFromBuffer } from '../../../services/StorageService';
 import sharp from 'sharp';
@@ -37,34 +40,57 @@ const AppearanceReferenceParamsSchema = z.object({ referenceId: z.string().uuid(
 
 // Appearance media is a private, explicit-use input—not a Vision scene and
 // not a profile-photo mutation. Its signed preview is never persisted client-side.
-router.get('/vision/appearance-reference', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    res.json({ success: true, data: await visionAppearanceReferenceService.latest(await getAuthenticatedUserId(req)) });
-  } catch (error) { next(error); }
-});
+router.get(
+  '/vision/appearance-reference',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      res.json({
+        success: true,
+        data: await visionAppearanceReferenceService.latest(await getAuthenticatedUserId(req)),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.post(
   '/vision/appearance-reference',
   globalAiCeilingLimiter,
   visionAppearanceLimiter,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const input = validateBody(CreateVisionAppearanceReferenceSchema, req.body);
-    const reference = await visionAppearanceReferenceService.create(await getAuthenticatedUserId(req), input);
-    res.status(201).json({ success: true, data: reference });
-  } catch (error) { next(error); }
-});
+    try {
+      const input = validateBody(CreateVisionAppearanceReferenceSchema, req.body);
+      const reference = await visionAppearanceReferenceService.create(
+        await getAuthenticatedUserId(req),
+        input
+      );
+      res.status(201).json({ success: true, data: reference });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-router.delete('/vision/appearance-reference/:referenceId', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const params = AppearanceReferenceParamsSchema.safeParse(req.params);
-    if (!params.success) throw new AppError('Appearance reference is invalid', 400, 'INVALID_VISION_REFERENCE');
-    await visionAppearanceReferenceService.destroy(params.data.referenceId, await getAuthenticatedUserId(req));
-    res.json({ success: true, data: { success: true } });
-  } catch (error) { next(error); }
-});
+router.delete(
+  '/vision/appearance-reference/:referenceId',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const params = AppearanceReferenceParamsSchema.safeParse(req.params);
+      if (!params.success)
+        throw new AppError('Appearance reference is invalid', 400, 'INVALID_VISION_REFERENCE');
+      await visionAppearanceReferenceService.destroy(
+        params.data.referenceId,
+        await getAuthenticatedUserId(req)
+      );
+      res.json({ success: true, data: { success: true } });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-function validateBody<T>(schema: z.ZodSchema<T>, data: unknown): T {
+function validateBody<S extends z.ZodTypeAny>(schema: S, data: unknown): z.output<S> {
   const result = schema.safeParse(data);
   if (!result.success) {
     const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
@@ -127,12 +153,20 @@ router.post(
 // Vision Mutation endpoints
 // ─────────────────────────────────────────────────────────────
 
-router.get('/anchors/:anchorId/vision/generation', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = await getAuthenticatedUserId(req);
-    res.json({ success: true, data: await visionGenerationService.latest(userId, req.params.anchorId) });
-  } catch (error) { next(error); }
-});
+router.get(
+  '/anchors/:anchorId/vision/generation',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = await getAuthenticatedUserId(req);
+      res.json({
+        success: true,
+        data: await visionGenerationService.latest(userId, req.params.anchorId),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.post(
   '/anchors/:anchorId/vision/generation',
@@ -142,10 +176,24 @@ router.post(
     try {
       const userId = await getAuthenticatedUserId(req);
       const input = validateBody(StartVisionGenerationSchema, req.body);
-      if (input.devImageModel && !isAiDeveloper(req)) throw new AppError('Developer model selection requires a developer account.', 403, 'DEV_MODEL_FORBIDDEN');
-      const job = await visionGenerationService.start(userId, req.params.anchorId, input.description, input.idempotencyKey, input.appearanceReferenceId, input.devImageModel);
+      if (input.devImageModel && !isAiDeveloper(req))
+        throw new AppError(
+          'Developer model selection requires a developer account.',
+          403,
+          'DEV_MODEL_FORBIDDEN'
+        );
+      const job = await visionGenerationService.start(
+        userId,
+        req.params.anchorId,
+        input.description,
+        input.idempotencyKey,
+        input.appearanceReferenceId,
+        input.devImageModel
+      );
       res.status(202).json({ success: true, data: job });
-    } catch (error) { next(error); }
+    } catch (error) {
+      next(error);
+    }
   }
 );
 
@@ -158,19 +206,130 @@ router.post(
     try {
       const userId = await getAuthenticatedUserId(req);
       const input = validateBody(StartVisionSceneGenerationSchema, req.body);
-      if (input.devImageModel && !isAiDeveloper(req)) throw new AppError('Developer model selection requires a developer account.', 403, 'DEV_MODEL_FORBIDDEN');
-      const job = await visionGenerationService.startScene(userId, req.params.anchorId, input.sceneDescription, input.idempotencyKey, input.appearanceReferenceId, input.startAssetId, input.devImageModel);
+      if (input.devImageModel && !isAiDeveloper(req))
+        throw new AppError(
+          'Developer model selection requires a developer account.',
+          403,
+          'DEV_MODEL_FORBIDDEN'
+        );
+      const conversation =
+        input.operation || input.references || input.sessionId || input.parentCandidateId
+          ? {
+              operation: input.operation,
+              references: input.references,
+              sessionId: input.sessionId,
+              parentCandidateId: input.parentCandidateId,
+            }
+          : undefined;
+      const job = await visionGenerationService.startScene(
+        userId,
+        req.params.anchorId,
+        input.sceneDescription,
+        input.idempotencyKey,
+        input.appearanceReferenceId,
+        input.startAssetId,
+        input.devImageModel,
+        conversation
+      );
       res.status(202).json({ success: true, data: job });
-    } catch (error) { next(error); }
+    } catch (error) {
+      next(error);
+    }
   }
 );
 
-router.get('/anchors/:anchorId/vision/scene-generation/:jobId', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = await getAuthenticatedUserId(req);
-    res.json({ success: true, data: await visionGenerationService.latest(userId, req.params.anchorId, req.params.jobId) });
-  } catch (error) { next(error); }
+const SessionParamsSchema = z.object({
+  anchorId: z.string().min(1).max(200),
+  sessionId: z.string().uuid(),
 });
+router.get(
+  '/anchors/:anchorId/vision/creation-sessions',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      res.json({
+        success: true,
+        data: await visionConversationService.read(
+          await getAuthenticatedUserId(req),
+          req.params.anchorId
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+router.get(
+  '/anchors/:anchorId/vision/creation-sessions/:sessionId',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const params = validateBody(SessionParamsSchema, req.params);
+      res.json({
+        success: true,
+        data: await visionConversationService.read(
+          await getAuthenticatedUserId(req),
+          params.anchorId,
+          params.sessionId
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+router.post(
+  '/anchors/:anchorId/vision/creation-sessions',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const input = validateBody(CreateVisionSessionSchema, req.body);
+      res.status(201).json({
+        success: true,
+        data: await visionConversationService.create(
+          await getAuthenticatedUserId(req),
+          req.params.anchorId,
+          input.id,
+          input.description
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+router.patch(
+  '/anchors/:anchorId/vision/creation-sessions/:sessionId',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const params = validateBody(SessionParamsSchema, req.params);
+      const input = validateBody(UpdateVisionSessionSchema, req.body);
+      res.json({
+        success: true,
+        data: await visionConversationService.update(
+          await getAuthenticatedUserId(req),
+          params.anchorId,
+          params.sessionId,
+          input
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get(
+  '/anchors/:anchorId/vision/scene-generation/:jobId',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = await getAuthenticatedUserId(req);
+      res.json({
+        success: true,
+        data: await visionGenerationService.latest(userId, req.params.anchorId, req.params.jobId),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.post(
   '/anchors/:anchorId/vision/generation/:jobId/retry',
@@ -179,9 +338,15 @@ router.post(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userId = await getAuthenticatedUserId(req);
-      const job = await visionGenerationService.retry(userId, req.params.anchorId, req.params.jobId);
+      const job = await visionGenerationService.retry(
+        userId,
+        req.params.anchorId,
+        req.params.jobId
+      );
       res.status(202).json({ success: true, data: job });
-    } catch (error) { next(error); }
+    } catch (error) {
+      next(error);
+    }
   }
 );
 
@@ -219,46 +384,93 @@ router.delete('/visions/:visionId', async (req: AuthRequest, res: Response, next
 });
 
 // Note mutations return the updated Vision so clients can replace their read cache atomically.
-router.post('/anchors/:anchorId/vision/notes', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const input = validateBody(CreateVisionNoteSchema, req.body);
-    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
-    const vision = await visionService.createNote(await getAuthenticatedUserId(req), req.params.anchorId, input, timeZone);
-    res.status(201).json({ success: true, data: vision });
-  } catch (error) { next(error); }
-});
+router.post(
+  '/anchors/:anchorId/vision/notes',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const input = validateBody(CreateVisionNoteSchema, req.body);
+      const timeZone =
+        (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+      const vision = await visionService.createNote(
+        await getAuthenticatedUserId(req),
+        req.params.anchorId,
+        input,
+        timeZone
+      );
+      res.status(201).json({ success: true, data: vision });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-const VisionNoteParamsSchema = z.object({ visionId: z.string().uuid(), noteId: z.string().uuid() }).strict();
-router.patch('/visions/:visionId/notes/:noteId', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const params = VisionNoteParamsSchema.safeParse(req.params);
-    if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
-    const input = validateBody(UpdateVisionNoteSchema, req.body);
-    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
-    const vision = await visionService.updateNote(await getAuthenticatedUserId(req), params.data.visionId, params.data.noteId, input, timeZone);
-    res.json({ success: true, data: vision });
-  } catch (error) { next(error); }
-});
+const VisionNoteParamsSchema = z
+  .object({ visionId: z.string().uuid(), noteId: z.string().uuid() })
+  .strict();
+router.patch(
+  '/visions/:visionId/notes/:noteId',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const params = VisionNoteParamsSchema.safeParse(req.params);
+      if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
+      const input = validateBody(UpdateVisionNoteSchema, req.body);
+      const timeZone =
+        (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+      const vision = await visionService.updateNote(
+        await getAuthenticatedUserId(req),
+        params.data.visionId,
+        params.data.noteId,
+        input,
+        timeZone
+      );
+      res.json({ success: true, data: vision });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-router.delete('/visions/:visionId/notes/:noteId', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const params = VisionNoteParamsSchema.safeParse(req.params);
-    if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
-    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
-    const vision = await visionService.deleteNote(await getAuthenticatedUserId(req), params.data.visionId, params.data.noteId, timeZone);
-    res.json({ success: true, data: vision });
-  } catch (error) { next(error); }
-});
+router.delete(
+  '/visions/:visionId/notes/:noteId',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const params = VisionNoteParamsSchema.safeParse(req.params);
+      if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
+      const timeZone =
+        (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+      const vision = await visionService.deleteNote(
+        await getAuthenticatedUserId(req),
+        params.data.visionId,
+        params.data.noteId,
+        timeZone
+      );
+      res.json({ success: true, data: vision });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-router.post('/visions/:visionId/notes/:noteId/restore', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const params = VisionNoteParamsSchema.safeParse(req.params);
-    if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
-    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
-    const vision = await visionService.restoreNote(await getAuthenticatedUserId(req), params.data.visionId, params.data.noteId, timeZone);
-    res.json({ success: true, data: vision });
-  } catch (error) { next(error); }
-});
+router.post(
+  '/visions/:visionId/notes/:noteId/restore',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const params = VisionNoteParamsSchema.safeParse(req.params);
+      if (!params.success) throw new AppError('Vision note is invalid', 400, 'INVALID_VISION_NOTE');
+      const timeZone =
+        (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+      const vision = await visionService.restoreNote(
+        await getAuthenticatedUserId(req),
+        params.data.visionId,
+        params.data.noteId,
+        timeZone
+      );
+      res.json({ success: true, data: vision });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // ─────────────────────────────────────────────────────────────
 // Vision Scene endpoints
@@ -283,16 +495,32 @@ router.post(
   }
 );
 
-router.patch('/visions/:visionId/scenes/:sceneId', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const params = z.object({ visionId: z.string().uuid(), sceneId: z.string().uuid() }).strict().safeParse(req.params);
-    if (!params.success) throw new AppError('Vision image is invalid', 400, 'INVALID_VISION_SCENE');
-    const input = validateBody(UpdateVisionSceneCaptionSchema, req.body);
-    const timeZone = (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
-    const vision = await visionService.updateSceneCaption(await getAuthenticatedUserId(req), params.data.visionId, params.data.sceneId, input, timeZone);
-    res.json({ success: true, data: vision });
-  } catch (error) { next(error); }
-});
+router.patch(
+  '/visions/:visionId/scenes/:sceneId',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const params = z
+        .object({ visionId: z.string().uuid(), sceneId: z.string().uuid() })
+        .strict()
+        .safeParse(req.params);
+      if (!params.success)
+        throw new AppError('Vision image is invalid', 400, 'INVALID_VISION_SCENE');
+      const input = validateBody(UpdateVisionSceneCaptionSchema, req.body);
+      const timeZone =
+        (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
+      const vision = await visionService.updateSceneCaption(
+        await getAuthenticatedUserId(req),
+        params.data.visionId,
+        params.data.sceneId,
+        input,
+        timeZone
+      );
+      res.json({ success: true, data: vision });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.put(
   '/visions/:visionId/scenes/reorder',
@@ -460,17 +688,28 @@ router.post(
       const userId = await getAuthenticatedUserId(req);
       const input = validateBody(UploadAssetSchema.omit({ metadata: true }), req.body);
       const access = await getMonetizationAccess(userId);
-      if (!access.hasProAccess) throw new AppError('Vision generation requires access', 403, 'VISION_PREMIUM_REQUIRED');
+      if (!access.hasProAccess)
+        throw new AppError('Vision generation requires access', 403, 'VISION_PREMIUM_REQUIRED');
       const buffer = decodeBase64Image(input.base64Image, input.mimeType || 'image/png');
       try {
         const result = await expandPhotoToVision(buffer, new GeminiImageService());
         res.json({
           success: true,
-          data: { imageBase64: `data:image/jpeg;base64,${result.image.toString('base64')}`, mimeType: 'image/jpeg', width: result.width, height: result.height, aiExpanded: true },
+          data: {
+            imageBase64: `data:image/jpeg;base64,${result.image.toString('base64')}`,
+            mimeType: 'image/jpeg',
+            width: result.width,
+            height: result.height,
+            aiExpanded: true,
+          },
         });
       } catch (error) {
         if (error instanceof PhotoExpandError) {
-          throw new AppError(error.message, 422, error.code === 'UNREADABLE' ? 'VALIDATION_ERROR' : `VISION_PHOTO_EXPAND_${error.code}`);
+          throw new AppError(
+            error.message,
+            422,
+            error.code === 'UNREADABLE' ? 'VALIDATION_ERROR' : `VISION_PHOTO_EXPAND_${error.code}`
+          );
         }
         throw error;
       }

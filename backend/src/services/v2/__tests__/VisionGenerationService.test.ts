@@ -356,7 +356,7 @@ describe('VisionGenerationService', () => {
       expect(mockGenerateVisionScene).toHaveBeenCalledTimes(2);
       const prompt = mockGenerateVisionScene.mock.calls[0][0] as string;
       expect(prompt).toContain(JSON.stringify(sceneText));
-      expect(prompt).toContain('A calm, sunlit life by the water.');
+      expect(prompt).not.toContain('A calm, sunlit life by the water.');
       // Earlier scenes' prompts never leak into the new scene.
       expect(prompt).not.toContain('A quiet dock at dawn');
       expect(prompt).toContain('Do not borrow rooms, places, props, light or compositions from any other moment');
@@ -408,18 +408,18 @@ describe('VisionGenerationService', () => {
         }));
       });
 
-      it('attaches only the person\'s own photograph, never a generated board image', async () => {
+      it('never attaches an unrelated uploaded or generated board photograph to a new scene', async () => {
         await arrange([scene('g1', 'AI_GENERATED', 0, 'private/gen.jpg'), scene('own', 'USER_UPLOAD', 1, 'private/mine.jpg')]);
         expect(mockImageGenerate).toHaveBeenCalled();
         const request = mockImageGenerate.mock.calls[0][0];
         expect(request.type).toBe('vision');
-        expect(request.referenceImages.map((item: { role: string }) => item.role)).toEqual(['world']);
-        expect((readPrivateImageAsset as jest.Mock).mock.calls.map(call => call[0])).toEqual(['private/mine.jpg']);
-        expect(request.prompt).toMatch(/do not set the location of this scene/);
-        expect(request.prompt).toContain('I own a black 1987 Buick Regal.');
+        expect(request.referenceImages).toBeUndefined();
+        expect(readPrivateImageAsset).not.toHaveBeenCalled();
+        expect(request.prompt).not.toMatch(/own references/);
+        expect(request.prompt).not.toContain('I own a black 1987 Buick Regal.');
       });
 
-      it('sends the world and a separate appearance reference together, labelled apart', async () => {
+      it('sends only the explicitly approved appearance reference without board photos', async () => {
         const provider = { planVisionScenes: mockPlanVisionScenes, generateVisionScene: async () => Buffer.alloc(0) };
         (GeminiImageService as unknown as jest.Mock).mockImplementationOnce(() => provider);
         const { visionAppearanceReferenceService } = await import('../VisionAppearanceReferenceService');
@@ -442,7 +442,8 @@ describe('VisionGenerationService', () => {
 
         await (service as any).run('scene-job-1', 'I own a Regal', 'DESIRE');
 
-        expect(mockImageGenerate.mock.calls[0][0].referenceImages.map((item: { role: string }) => item.role)).toEqual(['world', 'appearance']);
+        expect(mockImageGenerate.mock.calls[0][0].referenceImages.map((item: { role: string }) => item.role)).toEqual(['appearance']);
+        expect(readPrivateImageAsset).not.toHaveBeenCalled();
       });
 
       it('attaches the start photo first, as role start, and keeps it out of the world count', async () => {

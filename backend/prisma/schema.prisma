@@ -935,6 +935,7 @@ model Vision {
   notes       VisionNote[]
   views       VisionView[]
   generations VisionGeneration[]
+  creationSessions VisionCreationSession[]
 
   @@index([userId, status])
   @@index([anchorId, status])
@@ -1055,7 +1056,15 @@ model VisionGeneration {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   candidates  VisionGenerationCandidate[]
+  operation   String @default("CREATE")
+  sessionId   String? @map("session_id")
+  session     VisionCreationSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roundNumber Int? @map("round_number")
+  parentCandidateId String? @map("parent_candidate_id")
+  parentCandidate VisionGenerationCandidate? @relation("VisionRevisionSource", fields: [parentCandidateId], references: [id], onDelete: Restrict)
+  references VisionGenerationReference[]
 
+  @@unique([sessionId, roundNumber])
   @@unique([visionId, kind, setNumber])
   @@index([userId, anchorId, createdAt])
   @@map("vision_generations")
@@ -1073,10 +1082,53 @@ model VisionGenerationCandidate {
   status       VisionGenerationCandidateStatus @default(PENDING)
   error        String? @db.Text
   createdAt    DateTime @default(now()) @map("created_at")
+  revisions VisionGeneration[] @relation("VisionRevisionSource")
+  selectedInSessions VisionCreationSession[] @relation("VisionSessionSelection")
 
   @@unique([generationId, sortOrder])
   @@index([assetId])
   @@map("vision_generation_candidates")
+}
+
+// One unfinished scene, whose rounds reuse the existing durable generation jobs.
+model VisionCreationSession {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  anchorId String @map("anchor_id")
+  visionId String @map("vision_id")
+  vision Vision @relation(fields: [visionId], references: [id], onDelete: Cascade)
+  status String @default("ACTIVE")
+  description String @db.Text
+  draftPrompt String @default("") @map("draft_prompt") @db.Text
+  // Unsubmitted reference selections; completed round references are normalized below.
+  draftReferences Json @default("[]") @map("draft_references")
+  selectedCandidateId String? @map("selected_candidate_id")
+  selectedCandidate VisionGenerationCandidate? @relation("VisionSessionSelection", fields: [selectedCandidateId], references: [id], onDelete: SetNull)
+  viewedRoundId String? @map("viewed_round_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  rounds VisionGeneration[]
+
+  @@index([userId, anchorId, status, updatedAt])
+  @@index([expiresAt, status])
+  @@map("vision_creation_sessions")
+}
+
+model VisionGenerationReference {
+  id String @id @default(uuid())
+  generationId String @map("generation_id")
+  generation VisionGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  assetId String @map("asset_id")
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  role String
+  label String? @db.VarChar(80)
+  sortOrder Int @map("sort_order")
+
+  @@unique([generationId, assetId])
+  @@unique([generationId, sortOrder])
+  @@index([assetId])
+  @@map("vision_generation_references")
 }
 
 model VisionView {
@@ -1102,6 +1154,7 @@ model Asset {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   visionCandidates VisionGenerationCandidate[]
   visionAppearanceReferences VisionAppearanceReference[]
+  visionGenerationReferences VisionGenerationReference[]
 
   storageKey    String   @map("storage_key")
   mimeType      String   @map("mime_type")

@@ -17,12 +17,16 @@ export function storeDevImagePlan(scenes: unknown, devImageModel?: DevImageModel
   return devImageModel ? { devImageModel, scenes } : scenes;
 }
 
-export function readDevImagePlan(value: unknown): { scenes: unknown; devImageModel?: DevImageModel } {
-  if (value && typeof value === 'object' && !Array.isArray(value) && 'devImageModel' in value && 'scenes' in value) {
-    const model = value.devImageModel;
+export function readDevImagePlan(value: unknown): {
+  scenes: unknown;
+  devImageModel?: DevImageModel;
+} {
+  if (value && typeof value === 'object' && !Array.isArray(value) && 'scenes' in value) {
+    const model = 'devImageModel' in value ? value.devImageModel : undefined;
     if (DEV_IMAGE_MODEL_IDS.some(id => id === model)) {
       return { scenes: value.scenes, devImageModel: model as DevImageModel };
     }
+    return { scenes: value.scenes };
   }
   return { scenes: value };
 }

@@ -15,10 +15,23 @@ export interface ImageReference {
   buffer: Buffer;
   mimeType: string;
   /** structure: Anchor geometry. appearance: who the person is. world: an image already in their Vision (the place, objects, wardrobe, light to continue). style: look only. */
-  role?: 'structure' | 'appearance' | 'world' | 'start' | 'style';
+  role?:
+    | 'structure'
+    | 'appearance'
+    | 'world'
+    | 'start'
+    | 'style'
+    | 'identity'
+    | 'place'
+    | 'object'
+    | 'inspiration'
+    | 'edit_source';
+  label?: string;
 }
 
 export interface GenerateImageRequest {
+  /** Vision intent, independent from the provider API endpoint used. */
+  operation?: 'CREATE' | 'EDIT' | 'COMPOSE' | 'VARIATE';
   /** Server-authorized comparison: pin one model and disable cross-provider fallback. */
   devImageModel?: DevImageModel;
   /** The purpose of generation: 'anchor' artwork or 'vision' imagery */

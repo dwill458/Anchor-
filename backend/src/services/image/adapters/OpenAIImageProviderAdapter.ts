@@ -41,11 +41,19 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
     estimatedCostPerImage: number;
   } {
     if (request.devImageModel) {
-      return { model: request.devImageModel, estimatedCostPerImage: request.devImageModel.includes('sunburst') ? 0.04 : 0.02 };
+      return {
+        model: request.devImageModel,
+        estimatedCostPerImage: request.devImageModel.includes('sunburst') ? 0.04 : 0.02,
+      };
     }
     if (request.type === 'vision') {
       // "Make it look like you": Sunburst is OpenAI's reference-preserving model.
-      const hasAppearance = (request.referenceImages ?? []).some(reference => reference.role === 'appearance');
+      const hasAppearance = (request.referenceImages ?? []).some(
+        reference =>
+          reference.role === 'appearance' ||
+          reference.role === 'identity' ||
+          reference.role === 'edit_source'
+      );
       if (hasAppearance) {
         const model = process.env.OPENAI_VISION_REFERENCE_MODEL?.trim() || 'gpt-image-2.5-sunburst';
         return { model, estimatedCostPerImage: 0.04 }; // TODO(pricing): confirm 2.5 per-image cost
@@ -89,6 +97,18 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
     model: string;
     estimatedCost: number;
   }> {
+    if (
+      ['EDIT', 'VARIATE'].includes(request.operation ?? '') &&
+      !request.referenceImages?.some(ref => ref.role === 'edit_source')
+    ) {
+      throw new ImageProviderError(
+        this.name,
+        ImageProviderErrorType.INVALID_REQUEST,
+        'Choose an available source candidate before editing.',
+        false,
+        400
+      );
+    }
     const apiKey = this.getApiKey();
     if (!apiKey) {
       throw new ImageProviderError(
@@ -130,7 +150,7 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
         if (request.type === 'anchor') {
           // Version-aware: legacy keeps its centered-emblem wrapper, Anchor 2.0 gets the edge-to-edge one.
           enhancedPrompt = buildReferenceImageWrapper('openAi', request.prompt, request.styleId);
-        } else {
+        } else if (!request.operation) {
           // Vision imagery: enforce mobile portrait safe area and anti-stock rules
           enhancedPrompt = `${request.prompt}\n\nCOMPOSITION & AUTHENTICITY REQUIREMENTS:
 - Composed vertically as a natural portrait photograph for a mobile phone screen.
@@ -144,24 +164,24 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
         // No response_format: GPT-Image models reject it and always return b64_json.
         // Both Anchor geometry and Vision photographs must reach the edits endpoint.
         // Text-to-image cannot preserve a sigil it has never seen.
-        const references = request.type === 'vision'
-          ? orderVisionReferences(request.referenceImages)
-          : request.referenceImages ?? [];
-        const referenceInstructions = request.type === 'vision'
-          ? visionReferenceInstructions(references)
-          : 'Image 1 is the exact Anchor geometry to preserve, not inspiration for a new symbol. Keep every stroke, endpoint, angle and intersection in the same relationship. Do not replace it with a literal anchor icon, add circles or nodes, or make it symmetrical. Change only its surface treatment and the surrounding style material field. The reference stroke colour and empty background are a diagram, not the final palette.';
+        const references =
+          request.type === 'vision'
+            ? orderVisionReferences(request.referenceImages)
+            : (request.referenceImages ?? []);
+        const referenceInstructions =
+          request.type === 'vision'
+            ? visionReferenceInstructions(references, request.operation)
+            : 'Image 1 is the exact Anchor geometry to preserve, not inspiration for a new symbol. Keep every stroke, endpoint, angle and intersection in the same relationship. Do not replace it with a literal anchor icon, add circles or nodes, or make it symmetrical. Change only its surface treatment and the surrounding style material field. The reference stroke colour and empty background are a diagram, not the final palette.';
         let response: Response;
         if (references.length > 0) {
           const form = new FormData();
           form.append('model', model);
-          form.append(
-            'prompt',
-            `${enhancedPrompt}\n\n${referenceInstructions}`
-          );
+          form.append('prompt', `${enhancedPrompt}\n\n${referenceInstructions}`);
           form.append('size', size);
           form.append('n', '1');
           references.forEach((reference, index) => {
-            const type = reference.mimeType || (request.type === 'anchor' ? 'image/png' : 'image/jpeg');
+            const type =
+              reference.mimeType || (request.type === 'anchor' ? 'image/png' : 'image/jpeg');
             const extension = type.split('/')[1] || 'jpg';
             form.append(
               'image[]',
