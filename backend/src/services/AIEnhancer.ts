@@ -223,6 +223,14 @@ const CONTROLNET_OVERRIDES: Partial<
   echo_chamber: { strength: 0.28 },
   solar_halo: { strength: 0.24 },
   velvet_ember: { strength: 0.26 },
+  solar_veil: { strength: 0.24 },
+  ink_bloom: { strength: 0.28 },
+  prism_fold: { strength: 0.28 },
+  ocean_current: { strength: 0.28 },
+  halo_drift: { strength: 0.24 },
+  harvest_gild: { conditioning_scale: 1.2, strength: 0.24 },
+  midnight_bloom: { strength: 0.26 },
+  winter_halo: { strength: 0.24 },
 };
 
 /**
@@ -571,7 +579,9 @@ export async function enhanceSigilWithControlNet(
       ] as const;
       const mockUrls = Array.from({ length: numVariations }, (_, i) => {
         const [backgroundColor, shapeColor] = mockPalette[i % mockPalette.length];
-        return `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-${i + 1}&backgroundColor=${backgroundColor}&shape1Color=${shapeColor}`;
+        // size=256 is the API's effective max for this endpoint — still far
+        // sharper than the 128px default it silently falls back to otherwise.
+        return `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-${i + 1}&backgroundColor=${backgroundColor}&shape1Color=${shapeColor}&size=256`;
       });
 
       // Mock structure scores (all passing in mock mode)

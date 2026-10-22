@@ -115,19 +115,24 @@ describe('ReflectionService', () => {
     mockPrisma.reflection.findFirst.mockResolvedValue(baseReflection);
     mockPrisma.reflection.updateMany.mockResolvedValue({ count: 1 });
     await reflectionService.delete('user-1', 'reflection-1');
+    // The schema's content checks require exactly one content column to stay
+    // populated and to match the prompt type, so a tombstone empties the text
+    // in place. Nulling both columns is rejected by PostgreSQL outright.
     expect(mockPrisma.reflection.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          body: null,
+          body: '',
           structuredContent: expect.anything(),
           deletedAt: expect.any(Date),
         }),
       })
     );
+    const [{ data }] = mockPrisma.reflection.updateMany.mock.calls[0];
+    expect(JSON.stringify(data)).not.toContain('A private note');
 
     mockPrisma.reflection.findUnique.mockResolvedValue({
       ...baseReflection,
-      body: null,
+      body: '',
       structuredContent: null,
       deletedAt: new Date(),
     });
@@ -140,7 +145,7 @@ describe('ReflectionService', () => {
       courseId: 'course-1',
     });
     expect(replay).toEqual(
-      expect.objectContaining({ body: null, structuredContent: null, deletedAt: expect.anything() })
+      expect.objectContaining({ body: '', structuredContent: null, deletedAt: expect.anything() })
     );
     expect(mockPrisma.reflection.create).not.toHaveBeenCalled();
   });

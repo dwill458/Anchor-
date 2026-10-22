@@ -244,7 +244,6 @@ export function isServerStoredAssetUrl(assetUrl: string | null | undefined): boo
     return false;
   }
 }
-
 export async function resolveStoredAssetUrl(
   assetUrl: string | null | undefined,
   expiresIn: number = 3600

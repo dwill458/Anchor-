@@ -1,6 +1,7 @@
 import {
   deriveBlockedReason,
   deriveWaypointState,
+  hasAvailablePrimaryAnchor,
   selectNextWaypoint,
   validateCourseInvariants,
 } from '../WaypointStateService';
@@ -57,11 +58,12 @@ describe('WaypointStateService', () => {
         availableAnchor
       )
     ).toBe('CANCELLED');
-    expect(deriveWaypointState(course, waypoint(), null, null)).toBe('BLOCKED');
+    // D10: no link record at all means "never anchored", not "blocked".
+    expect(deriveWaypointState(course, waypoint(), null, null)).toBe('CURRENT');
   });
 
   it('distinguishes the three blocked reasons', () => {
-    expect(deriveBlockedReason(null, null)).toBe('ANCHOR_UNLINKED');
+    expect(deriveBlockedReason(null, null)).toBeNull();
     expect(deriveBlockedReason({ ...availableLink, anchorId: null }, null)).toBe('ANCHOR_DELETED');
     expect(deriveBlockedReason(availableLink, null)).toBe('ANCHOR_RELEASED');
     expect(deriveBlockedReason(availableLink, { ...availableAnchor, isArchived: true })).toBe(
@@ -76,6 +78,50 @@ describe('WaypointStateService', () => {
     expect(deriveBlockedReason(releasedLink, null)).toBe('ANCHOR_RELEASED');
     expect(deriveWaypointState(course, waypoint(), releasedLink, null)).toBe('BLOCKED');
     expect(deriveBlockedReason(availableLink, availableAnchor)).toBeNull();
+  });
+
+  /**
+   * Decision D10 — docs/chart/PHASE_0_D10_DECISION.md.
+   *
+   * A current waypoint that has never had a primary Anchor link is CURRENT, not
+   * BLOCKED. `BLOCKED` is reserved for a link that existed and stopped working,
+   * which is the only situation any code path emits WAYPOINT_BLOCKED for.
+   */
+  describe('a current waypoint that was never anchored (D10)', () => {
+    it('is CURRENT, with no blocked reason', () => {
+      expect(deriveBlockedReason(null, null)).toBeNull();
+      expect(deriveWaypointState(course, waypoint(), null, null)).toBe('CURRENT');
+    });
+
+    it('is still distinguishable from an anchored waypoint', () => {
+      expect(hasAvailablePrimaryAnchor(null, null)).toBe(false);
+      expect(hasAvailablePrimaryAnchor(availableLink, availableAnchor)).toBe(true);
+    });
+
+    it('does not make a non-current unanchored waypoint anything but UPCOMING', () => {
+      expect(deriveWaypointState(course, waypoint({ id: 'waypoint-9' }), null, null)).toBe(
+        'UPCOMING'
+      );
+    });
+
+    it('still blocks a link that was explicitly unlinked or released', () => {
+      const unlinked = {
+        ...availableLink,
+        unlinkedAt: new Date('2026-08-02T12:00:00.000Z'),
+        anchorSnapshot: { releasedAtUnlink: false },
+      };
+      expect(deriveBlockedReason(unlinked, null)).toBe('ANCHOR_UNLINKED');
+      expect(deriveWaypointState(course, waypoint(), unlinked, null)).toBe('BLOCKED');
+    });
+  });
+
+  it('reports an unavailable Anchor as unusable even though it is not "not blocked"', () => {
+    // hasAvailablePrimaryAnchor is strictly stronger than "no blocked reason":
+    // both of these have no usable Anchor, but only one of them is BLOCKED.
+    expect(hasAvailablePrimaryAnchor({ ...availableLink, anchorId: null }, null)).toBe(false);
+    expect(deriveBlockedReason({ ...availableLink, anchorId: null }, null)).toBe('ANCHOR_DELETED');
+    expect(hasAvailablePrimaryAnchor(null, null)).toBe(false);
+    expect(deriveBlockedReason(null, null)).toBeNull();
   });
 
   it('selects the next nonterminal waypoint by sparse position', () => {

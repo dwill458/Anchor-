@@ -8,7 +8,11 @@
 import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import { logger } from '../utils/logger';
-import { buildStylePrompt, getStyleNegativePrompt } from './stylePromptLibrary';
+import {
+  buildStylePrompt,
+  getStyleNegativePrompt,
+  LITERAL_ANCHOR_EXCLUSION,
+} from './stylePromptLibrary';
 import { getStyleGenerationVersion } from './anchor2StyleLibrary';
 import { buildReferenceImageWrapper } from './referenceImageWrappers';
 import {
@@ -90,7 +94,6 @@ CRITICAL RULES:
 8. The result must read instantly as one unified standalone symbol when displayed inside a circle.
 
 Generate a high-quality IMAGE output based on the user's prompt and the reference sigil.`;
-
 export enum GeminiErrorType {
   RATE_LIMIT = 'RATE_LIMIT',
   SAFETY_FILTER = 'SAFETY_FILTER',
@@ -380,7 +383,7 @@ export class GeminiImageService {
     // 3. Generate variations in batches of 2 (paid plan — no free-tier rate limit concerns).
     //    Two concurrent calls per batch cuts wall-clock time roughly in half vs sequential.
     //    Each variation gets its own prompt with a distinct compositional stance so the
-    //    2 outputs are guaranteed to diverge visually within the same style.
+    //    outputs are guaranteed to diverge visually within the same style.
     const INTER_BATCH_DELAY_MS = 2500;
     const variations: ImageVariation[] = [];
     const BATCH_SIZE = 2;
@@ -1842,7 +1845,7 @@ Integration rules:
 
       const response = await this.client.models.generateImages({
         model: modelConfig.modelId,
-        prompt: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the Anchor design. Do not distort or warp the core shapes.`,
+        prompt: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the Anchor design. Do not distort or warp the core shapes.\n\n${LITERAL_ANCHOR_EXCLUSION}`,
         config: {
           // numberOfImages: SDK accepts this at runtime; type def gap in some versions
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment

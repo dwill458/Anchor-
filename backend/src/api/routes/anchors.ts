@@ -526,7 +526,7 @@ Classification guidance:
 Return the single best tier and lower confidence when the intention is genuinely ambiguous.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash-lite',
+        model: 'gemini-flash-latest',
         contents: [
           {
             role: 'user',
