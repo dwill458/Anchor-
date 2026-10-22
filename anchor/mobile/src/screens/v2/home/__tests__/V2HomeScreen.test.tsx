@@ -877,7 +877,7 @@ describe('first arrival skip target', () => {
 });
 
 describe('Active Hero Thread Strength glow', () => {
-  it('renders Thread Strength glow only on the centered active hero Anchor and disables it on neighboring carousel Anchors', () => {
+  it('mounts a Thread Strength glow on every carousel slot so neighbours are lit as they travel, with exactly one centred hero disc', () => {
     const anchors = [
       makeAnchor({ id: 'a', localId: 'a', intentionText: 'First intention', category: 'career', threadStrength: 26 }),
       makeAnchor({ id: 'b', localId: 'b', intentionText: 'Second intention', category: 'health', threadStrength: 80 }),
@@ -887,11 +887,12 @@ describe('Active Hero Thread Strength glow', () => {
 
     const view = renderHome();
 
-    // Even with 3 Anchors mounted in the carousel (centre + previous + next), only the active hero has a ThreadAura.
+    // Glows stay mounted on the whole track window, so a neighbour never mounts at the moment it arrives.
+    // Presence is carried by the carousel offset, not by mounting, so only the centred disc is lit at rest.
     const initialAuras = screen.getAllByTestId('thread-aura-home', { includeHiddenElements: true });
-    expect(initialAuras).toHaveLength(1);
+    expect(initialAuras.length).toBeGreaterThanOrEqual(3);
     const activeDisc = screen.getByTestId('v2-home-anchor-disc');
-    expect(activeDisc.findAll((node: ReactTestInstance) => node === initialAuras[0], { deep: true })).toHaveLength(1);
+    expect(activeDisc.findAll((node: ReactTestInstance) => initialAuras.includes(node), { deep: true })).toHaveLength(1);
 
     // Commit a carousel switch to Anchor 'b' (80% Thread Strength).
     act(() => {
@@ -917,12 +918,12 @@ describe('Active Hero Thread Strength glow', () => {
       );
     });
 
-    // Still only a single Thread Strength glow exists, belonging to the newly committed active hero.
+    // After the commit the same window is still mounted, and exactly one glow sits on the newly centred disc.
     const nextAuras = screen.getAllByTestId('thread-aura-home', { includeHiddenElements: true });
-    expect(nextAuras).toHaveLength(1);
+    expect(nextAuras.length).toBeGreaterThanOrEqual(3);
     expect(screen.getByTestId('v2-home-intention').props.children).toBe('Second intention');
     expect(
-      screen.getByTestId('v2-home-anchor-disc').findAll((node: ReactTestInstance) => node === nextAuras[0], { deep: true }),
+      screen.getByTestId('v2-home-anchor-disc').findAll((node: ReactTestInstance) => nextAuras.includes(node), { deep: true }),
     ).toHaveLength(1);
   });
 });

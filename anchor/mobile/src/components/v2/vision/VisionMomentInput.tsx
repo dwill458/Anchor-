@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DevImageModelPicker } from '@/components/dev/DevImageModelPicker';
-import { ActivityIndicator, Image, Keyboard, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { ActivityIndicator, Image, Keyboard, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { ChevronDown, ChevronRight, Plus, RefreshCw, Trash2, User as UserIcon } from 'lucide-react-native';
-import { visionCeremonyCopy as ceremonyCopy } from './ceremony/visionCeremonyCopy';
 import { v2Haptics } from '@/hooks/v2';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
@@ -27,8 +26,6 @@ export type { VisionStartPhoto };
 export interface VisionMomentInputProps {
   /** Uses the persistent ceremony ink stage and its top-center Anchor. */
   ceremony?: boolean;
-  /** Ceremony only: Describe began from an example print. Shows its thumbnail and the "Make it yours" copy. */
-  fromExample?: { image: ImageSourcePropType };
   mode: 'create' | 'add';
   anchorId: string;
   anchorIntention: string;
@@ -85,7 +82,6 @@ const REFERENCE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
 export function VisionMomentInput({
   mode,
   ceremony = false,
-  fromExample,
   anchorIntention,
   anchorCategory,
   anchorArt,
@@ -270,12 +266,11 @@ export function VisionMomentInput({
 
   const placeholderText = customPlaceholder ?? 'Describe the moment you want to see...';
   const kicker = isCreate ? 'CREATE YOUR VISION' : 'ADD TO YOUR VISION';
-  const exampleStart = ceremony && Boolean(fromExample) && !photoPath;
-  const title = exampleStart ? ceremonyCopy.makeItYours : isCreate ? 'Imagine Your First Scene' : 'What Else Do You See?';
-  const subtitle = exampleStart ? ceremonyCopy.makeItYoursSub : isCreate
+  const title = isCreate ? 'Imagine Your First Scene' : 'What Else Do You See?';
+  const subtitle = isCreate
     ? 'Bring a moment from your future to life.'
     : 'Imagine another moment from your future.';
-  const compactEmpty = viewportHeight < 820 && displayedReferences.length === 0 && !trimmed && !inputFocused && !exampleStart;
+  const compactEmpty = viewportHeight < 820 && displayedReferences.length === 0 && !trimmed && !inputFocused;
   const ctaLabel = 'Create My Scene';
   const ctaA11y = isCreate ? 'Continue to create your Vision' : 'Create this scene';
   const footnote = 'You’ll choose what belongs in your Vision.';
@@ -340,12 +335,11 @@ export function VisionMomentInput({
         restingBottom={spacing[3]}
       >
         <View style={styles.headerRow}>
-          {!exampleStart ? <View pointerEvents="none" style={styles.kickerSlot}><VisionKicker>{kicker}</VisionKicker></View> : null}
+          <View pointerEvents="none" style={styles.kickerSlot}><VisionKicker>{kicker}</VisionKicker></View>
           <View style={styles.backOverlay}><VisionBackButton onPress={handleBack} style={styles.back} color={colors.text.primary} /></View>
           {__DEV__ ? <View style={styles.devModelOverlay}><DevImageModelPicker purpose="vision" disabled={loading} tone="paper" compact /></View> : null}
         </View>
         <View style={styles.header}>
-          {exampleStart ? <View testID="vision-example-thumb" style={styles.exampleThumb}><Image testID="vision-example-thumb-image" source={fromExample!.image} resizeMode="cover" style={styles.exampleThumbImage} accessible={false} /></View> : null}
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           <Animated.Text key={subtitle} entering={content.entering} exiting={content.exiting} style={styles.subtitle}>{subtitle}</Animated.Text>
         </View>
@@ -400,8 +394,6 @@ export function VisionMomentInput({
               onBlur={handleFieldBlur}
             />
           </View>
-
-          {exampleStart ? <Text testID="vision-example-note" style={styles.exampleNote}>{ceremonyCopy.fromExample}</Text> : null}
 
           <View style={styles.meter}>
             <Text testID="vision-detail-hint" style={[styles.meterHint, !ceremony && !photoPath && level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
@@ -570,8 +562,4 @@ const makeStyles = (colors: { canvas: string; surface: string; grouped: string; 
 });
 
 const paperStyles = { ...makeStyles(paperColors),
-  exampleThumb: { width: 120, height: 150, padding: 6, paddingBottom: 22, borderRadius: 3, backgroundColor: '#F7F1E6', transform: [{ rotate: '-2deg' }],
-    shadowColor: '#000', shadowOpacity: 0.22, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
-  exampleThumbImage: { width: '100%' as const, height: '100%' as const, backgroundColor: colors.grouped },
-  exampleNote: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16, color: colors.text.secondary },
 };

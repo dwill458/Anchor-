@@ -73,7 +73,7 @@ export function predictSessionAnchorRect({
 }: { width: number; height: number; topInset: number; bottomInset: number; mode: Exclude<V2PracticeMode, 'release'> }): AnchorWindowRect {
   if (mode === 'focus' || mode === 'deep_prime') {
     // Mirrors V2FocusActiveScreen: centred in the field below the intention.
-    const geometry = resolveFocusSessionGeometry({ width, height, topInset, bottomInset });
+    const geometry = resolveFocusSessionGeometry({ width, height, topInset, bottomInset, mode });
     return {
       x: (width - geometry.anchorSize) / 2,
       y: geometry.centerY - geometry.anchorSize / 2,
@@ -89,14 +89,40 @@ export function predictSessionAnchorRect({
 
 /** Shared active Focus geometry for the screen and its pre-mount hero target. */
 export function resolveFocusSessionGeometry({
-  width, height, topInset, bottomInset,
-}: { width: number; height: number; topInset: number; bottomInset: number }): {
+  width, height, topInset, bottomInset, mode = 'focus',
+}: {
+  width: number;
+  height: number;
+  topInset: number;
+  bottomInset: number;
+  mode?: 'focus' | 'deep_prime';
+}): {
   anchorSize: number;
   fieldSize: number;
   centerY: number;
 } {
+  const isLandscape = width > height;
+  const isDeep = mode === 'deep_prime';
+  if (isLandscape) {
+    const safeTop = Math.max(topInset, 28);
+    const safeBottom = Math.max(bottomInset, 16);
+    // Deep Focus has no "FOCUS" header label, so text headroom is leaner.
+    const topReserved = safeTop + (isDeep ? 38 : 54);
+    const bottomReserved = safeBottom + (isDeep ? 10 : 16);
+    const availableHeight = Math.max(200, height - topReserved - bottomReserved);
+    // Deep Focus hero is made larger to fill even more of the screen.
+    const sizeRatio = isDeep ? 0.74 : 0.68;
+    const anchorSize = Math.round(Math.min(availableHeight * 0.96, height * sizeRatio, 360));
+    const fieldSize = anchorSize + Math.min(56, Math.max(40, Math.round(anchorSize * 0.16)));
+    // Anchor center is brought down below the top text so text clears notifications and has ample breathing room.
+    const centerY = Math.round(topReserved + (height - topReserved - safeBottom) * 0.5);
+    return { anchorSize, fieldSize, centerY };
+  }
   const usableHeight = Math.max(320, height - topInset - bottomInset);
-  const anchorSize = Math.round(Math.min(width * 0.79, usableHeight * 0.45, 356));
+  const anchorMultiplier = isDeep ? 0.84 : 0.79;
+  const heightMultiplier = isDeep ? 0.50 : 0.45;
+  const maxSize = isDeep ? 380 : 356;
+  const anchorSize = Math.round(Math.min(width * anchorMultiplier, usableHeight * heightMultiplier, maxSize));
   const fieldSize = anchorSize + Math.min(56, Math.max(40, Math.round(anchorSize * 0.16)));
   const centerY = height * 0.52 - Math.round(Math.min(26, Math.max(18, usableHeight * 0.03)));
   return { anchorSize, fieldSize, centerY };

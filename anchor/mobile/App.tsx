@@ -95,6 +95,7 @@ import { CreationFlowQADevHost } from './src/screens/create/flow/dev/CreationFlo
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 import { perfLog, startJsStallDetector, startPerfRenderReporter } from './src/utils/perfDiagnostics';
+import { initDevOrientation } from './src/utils/devOrientation';
 
 const isWeb = Platform.OS === 'web';
 // V2 remains opt-in. Staging preview APKs can exercise the release-mode V2 app,
@@ -316,6 +317,8 @@ export default function App() {
     'EBGaramond-Medium': EBGaramond_500Medium,
     'EBGaramond-SemiBold': EBGaramond_600SemiBold,
     'Allison-Regular': require('./node_modules/@expo-google-fonts/allison/400Regular/Allison_400Regular.ttf'),
+    // Polaroid captions: a sturdier hand than Allison, legible at 14-16pt.
+    'Caveat-SemiBold': require('./node_modules/@expo-google-fonts/caveat/600SemiBold/Caveat_600SemiBold.ttf'),
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
@@ -369,6 +372,13 @@ export default function App() {
   useEffect(() => {
     if (appIsReady) perfLog('app-ready', { msSinceAppStart: Date.now() - startupStartedAtRef.current });
   }, [appIsReady]);
+
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+    initDevOrientation();
+  }, []);
 
   useEffect(() => {
     if (!__DEV__) {

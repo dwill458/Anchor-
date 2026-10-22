@@ -1,6 +1,6 @@
 import type { ViewInstance } from 'react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { Alert, AppState, Keyboard, Platform, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { ArrowLeft } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
@@ -34,7 +34,6 @@ import { VisionPhotoStack } from './VisionPhotoStack';
 import { VisionHairline } from './VisionHairline';
 import { useVisionPicker, VisionPickerHolding } from './VisionPickerHolding';
 import { visionCelebrationTrace } from './visionCelebrationTrace';
-import { editDistancePct, type VisionExample } from './visionExamples';
 import { CEREMONY, ceremonyDuration } from './VisionDevelop';
 import { prefillVisionCaption, visionCeremonyCopy as copy } from './visionCeremonyCopy';
 import { useVisionCreationActions, photoVisionDescription, type CeremonyPhoto } from './useVisionCreationActions';
@@ -216,9 +215,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   // DEFERRED: replaced by VisionEntrance (Oct 2026). Ask no longer measures its copy and footer; the entrance lays itself out.
   // const [askCopyH, setAskCopyH] = useState(150), [askFooterH, setAskFooterH] = useState(190);
   const askCopyH = 150, askFooterH = 190;
-  const [fromExample, setFromExample] = useState<{ image: ImageSourcePropType } | null>(null);
   const [handedOff, setHandedOff] = useState(false);
-  const startedFromExample = useRef<{ category: AnchorCategory; index: number; moment: string; reported: boolean } | null>(null);
   // The open plays once per ceremony: the ref flips when the person first leaves Ask, so Back never replays it.
   const entrancePlayed = useRef(false), previousBeat = useRef<VisionCeremonyBeat | null>(null);
   const printRefs = useRef<Array<ViewInstance | null>>([]), anchorRef = useRef<ViewInstance>(null);
@@ -357,12 +354,6 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     if (!scopeReady || actions.starting || generationStarting.current || committedRef.current) return false;
     generationStarting.current = true;
     pendingGeneration.current = { text, refs: selectedReferences ?? (conversation ? references : undefined), options };
-    const fromExampleStart = startedFromExample.current;
-    if (fromExampleStart && !fromExampleStart.reported) {
-      fromExampleStart.reported = true;
-      AnalyticsService.track('vision_example_edited', { anchor_id: anchorId, category: fromExampleStart.category, index: fromExampleStart.index,
-        edit_distance_pct: editDistancePct(fromExampleStart.moment, text) });
-    }
     const fromChoose = beat === 'choose', priorDeveloped = developed;
     setResumeDismissed(true); setViewedRoundId(null); setViewedRoundSnapshot(null); setChoicePlacements({});
     setDescription(text); setPhotos([]); setActivePhotoId(null); setPhotoCaptions({}); setFailedImages(new Set()); setChosen(null); setDeveloped(new Set()); setRevealStarted(false); actions.setNotice(null);
@@ -662,15 +653,6 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
     setBeat('describe');
   };
-  const pickExample = (example: VisionExample, index: number) => {
-    startedFromExample.current = { category: resolveAnchorCategory(anchorCategory), index, moment: example.moment, reported: false };
-    setFromExample({ image: example.image }); setDescription(example.moment); startDescribe();
-  };
-  const leaveExample = () => {
-    // An untouched example is not the person's words; once they step back it should not linger as a prefill.
-    if (startedFromExample.current && descriptionRef.current === startedFromExample.current.moment) setDescription(props.initialDescription ?? '');
-    startedFromExample.current = null; setFromExample(null);
-  };
   const back = () => {
     if (committedRef.current) { if (beat === 'pinned') onBack(); return; }
     if (beat === 'choose' && displayedRound && displayedRound.roundNumber > 0) {
@@ -679,8 +661,8 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     }
     // Adding to an existing board never replays the entrance: Back from a request the Add sheet prepared, or from regenerating one image, returns to the board.
     const leavesToBoard = mode === 'add' && (props.autoStart || props.regenerating);
-    if (leavesToBoard && (beat === 'describe' || beat === 'develop' || beat === 'choose')) { leaveExample(); onBack(); return; }
-    if (beat === 'describe') { leaveExample(); setBeat('ask'); } else if (beat === 'seal') setBeat('keep');
+    if (leavesToBoard && (beat === 'describe' || beat === 'develop' || beat === 'choose')) { onBack(); return; }
+    if (beat === 'describe') { setBeat('ask'); } else if (beat === 'seal') setBeat('keep');
     else if (beat === 'keep' && !ownPhoto) { setChosen(null); setBeat('choose'); }
     else if (beat === 'develop' || beat === 'choose') setBeat('describe'); else onBack();
   };
@@ -736,7 +718,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     {beat === 'ask' && !resumeVisible ? <VisionEntrance key="entrance" mode={mode} anchorId={anchorId} category={resolveAnchorCategory(anchorCategory)} anchorArt={anchorArt}
       previewImageUrl={props.previewImageUrl} previewCaption={props.previewCaption?.trim() || anchorIntention} firstRun={!entrancePlayed.current} active={foreground}
       notice={actions.notice} anchorTarget={anchorPosition} onAnchorHandoff={() => setHandedOff(true)} onBack={back}
-      onWords={startDescribe} onPickExample={pickExample} onPickEmpty={startDescribe} canAddImage={props.canAddImage} /> : null}
+      onWords={startDescribe} canAddImage={props.canAddImage} /> : null}
     {committed ? <Animated.View pointerEvents="none" testID="vision-seal-stamp-line" style={[{ position: 'absolute', zIndex: 42, left: (width - sealW) / 2 + 10, top: sealY + sealW * 1.25 + 12, width: sealW - 20, height: 1, backgroundColor: '#B08A4A' }, sealLineStyle]} /> : null}
     <VisionPrintSlot placement={anchorPosition} nodeRef={anchorRef} testID="vision-ceremony-anchor">
       <Animated.View style={[styles.mark, stampStyle]}>
@@ -854,7 +836,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
         references={conversation ? references : undefined} onChangeReferences={changeReferences}
         onDraftChange={text => { descriptionRef.current = text; conversation?.saveDraft({ description: text }); }}
         onAddPhotos={source => { void pick(source); }} loading={!scopeReady || actions.starting} error={actions.notice ?? actions.generation.error}
-        ceremony fromExample={fromExample ?? undefined} testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
+        ceremony testID={mode === 'create' ? 'v2-vision-creation-flow-prompt' : 'v2-vision-add-scene'} textInputTestID={mode === 'add' ? 'vision-scene-input' : undefined} />
     </Animated.View> : null}
     {/* Only while a skippable scene is the active one: a tap lands the ceremony on its settled board. */}
     {celebrationSkippable ? <Pressable testID="vision-ceremony-skip" accessible accessibilityRole="button" accessibilityLabel="Skip"

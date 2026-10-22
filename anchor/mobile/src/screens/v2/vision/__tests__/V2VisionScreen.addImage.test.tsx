@@ -8,6 +8,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { ENTRANCE } from '@/components/v2/vision/ceremony/VisionEntrance';
+import { useVisionPresentationStore } from '@/stores/v2/visionPresentationStore';
 const mockNavigate = jest.fn();
 const mockSetOptions = jest.fn();
 const mockPreventRemove = jest.fn();
@@ -89,7 +90,13 @@ async function advance(ms: number) { await act(async () => { jest.advanceTimersB
 const ASK_READY = ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs + 50;
 // Add Image opens the compact composer sheet over the board; its actions hand off once the sheet has left.
 const SHEET_HANDOFF = 450;
-async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); fireEvent.press(view.getByLabelText('Add to Vision')); await advance(SHEET_HANDOFF); }
+/** Add asks where the image goes first; "Use the next free position" is the one-tap default. */
+function pressAdd(view: ReturnType<typeof render>) {
+  fireEvent.press(view.getByLabelText('Add to Vision'));
+  const next = view.queryByLabelText('Use the next free position');
+  if (next) fireEvent.press(next);
+}
+async function openAsk(view: ReturnType<typeof render>) { await view.findByTestId('vision-board'); pressAdd(view); await advance(SHEET_HANDOFF); }
 async function waitForGenerationReady(view: ReturnType<typeof render>) {
   await waitFor(() => expect(view.getByTestId('vision-scene-generate').props.accessibilityState?.disabled).toBe(false));
 }
@@ -113,6 +120,8 @@ async function seal(view: ReturnType<typeof render>, _hold = 1600) {
 }
 describe('V2VisionScreen ceremony additions', () => {
   beforeEach(() => {
+    // The arrangement is remembered per Vision on the device; every test starts from a board nobody has arranged.
+    useVisionPresentationStore.setState({ byVision: {} });
     jest.useFakeTimers(); jest.clearAllMocks(); mockVisionUuidSequence = 0; mockSecureValues.clear(); currentSession = null; resetV2VisionReadCache(); currentVision = visionWith(3);
     mockReadSecureValue.mockImplementation(async key => mockSecureValues.get(key) ?? null);
     mockWriteSecureValue.mockImplementation(async (key, value) => { mockSecureValues.set(key, value); });
@@ -168,7 +177,7 @@ describe('V2VisionScreen ceremony additions', () => {
     };
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     await view.findByTestId('vision-board');
-    fireEvent.press(view.getByLabelText('Add to Vision'));
+    pressAdd(view);
 
     await view.findByTestId('vision-resume-card');
     expect(view.getByText('Original · Version 1 · Version 2 saved')).toBeTruthy();
@@ -247,7 +256,7 @@ describe('V2VisionScreen ceremony additions', () => {
       (apiClient.delete as jest.Mock).mockImplementation(async () => {
         currentVision = { ...currentVision, scenes: currentVision.scenes.filter(item => item.id !== 'sc-1') }; return { data: { success: true } };
       });
-      const first = await view.findByLabelText('Vision image 1 of 3'); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+      const first = await view.findByLabelText('Vision image in position 1 of 8'); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
       fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
       await waitForGenerationReady(view);
       await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
@@ -414,7 +423,7 @@ describe('V2VisionScreen ceremony additions', () => {
       currentVision = { ...currentVision, scenes: currentVision.scenes.filter(item => item.id !== 'sc-1') }; return { data: { success: true } };
     });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
-    const first = await view.findByLabelText(`Vision image 1 of ${count}`); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    const first = await view.findByLabelText('Vision image in position 1 of 8'); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
     await waitForGenerationReady(view);
     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
@@ -473,7 +482,7 @@ describe('V2VisionScreen ceremony additions', () => {
     it('does not go Home when the person starts adding an image first', async () => {
       const view = await firstImageOnBoard();
       await advance(1000);
-      fireEvent.press(view.getByLabelText('Add to Vision'));
+      pressAdd(view);
       await advance(10000); expect(goHome()).toHaveLength(0);
     });
     it('a later image never navigates', async () => {

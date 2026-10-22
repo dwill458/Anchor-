@@ -1,6 +1,9 @@
 import React from 'react';
 import { act, render, fireEvent, screen } from '@testing-library/react-native';
 
+let mockTier: 'high' | 'medium' | 'low' = 'high';
+jest.mock('@/hooks/useAppPerformanceTier', () => ({ useAppPerformanceTier: () => mockTier }));
+
 const artworkRenders: string[] = [];
 jest.mock('@/components/v2', () => {
   const actual = jest.requireActual('@/components/v2');
@@ -247,5 +250,21 @@ describe('committing a switch', () => {
     fireEvent.press(screen.getByTestId('v2-home-carousel-next'));
     settle();
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('mount window by performance tier', () => {
+  afterEach(() => { mockTier = 'high'; });
+
+  it('mounts all five track slots on high tier, so the outer pair is staged for chained flicks', () => {
+    mockTier = 'high';
+    render(<V2HomeAnchorCarousel anchors={summaries(5, 0)} selectedIndex={0} onSelect={jest.fn()} />);
+    expect(artworkRenders).toHaveLength(5);
+  });
+
+  it('mounts only the visible three on low tier, dropping the off-screen outer pair', () => {
+    mockTier = 'low';
+    render(<V2HomeAnchorCarousel anchors={summaries(5, 0)} selectedIndex={0} onSelect={jest.fn()} />);
+    expect(artworkRenders).toHaveLength(3);
   });
 });

@@ -105,6 +105,7 @@ export function V2FocusActiveScreen({
 }: V2FocusActiveScreenProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const reduceMotion = useReduceMotionEnabled();
   const totalMs = durationSeconds * 1000;
   // The field is calculated from usable height, so short screens close gaps
@@ -174,7 +175,7 @@ export function V2FocusActiveScreen({
       interpolate(fieldTransition.value, [0, 1], [0.76, 1]) *
       interpolate(completionAnchorProgress.value, [0, 1], [1, 0.82]),
     transform: [
-      { translateY: focusGeometry.centerY - height * 0.52 },
+      { translateY: isLandscape ? focusGeometry.centerY - height * 0.5 : focusGeometry.centerY - height * 0.52 },
       {
         scale:
           interpolate(fieldTransition.value, [0, 1], [0.95, 1]) *
@@ -779,15 +780,34 @@ export function V2FocusActiveScreen({
         <Reanimated.View
           style={[
             styles.intentionRegion,
-            { paddingTop: Math.max(insets.top + 42, 66) },
+            isLandscape && styles.intentionRegionLandscape,
+            { paddingTop: isLandscape ? Math.max(insets.top + 10, 36) : Math.max(insets.top + 42, 66) },
             intentionReveal,
             resolvingContentStyle,
           ]}
         >
-          <Text style={styles.sessionIntention}>{anchor.intentionText}</Text>
+          {isLandscape && (
+            <Text style={[styles.topLabel, styles.topLabelLandscape]}>
+              FOCUS
+            </Text>
+          )}
+          <Text
+            style={[
+              styles.sessionIntention,
+              isLandscape && styles.sessionIntentionLandscape,
+            ]}
+          >
+            {anchor.intentionText}
+          </Text>
         </Reanimated.View>
 
-        <Reanimated.View style={[styles.anchorRegion, anchorEntranceStyle]}>
+        <Reanimated.View
+          style={[
+            styles.anchorRegion,
+            isLandscape && styles.anchorRegionLandscape,
+            anchorEntranceStyle,
+          ]}
+        >
           <Animated.View
             style={[
               styles.artworkShell,
@@ -850,18 +870,20 @@ export function V2FocusActiveScreen({
       </Reanimated.View>
 
       {/* Top Header Label */}
-      <Reanimated.View
-        style={[
-          styles.topHeader,
-          resolvingContentStyle,
-          labelReveal,
-          { paddingTop: Math.max(48, insets.top + 14) },
-        ]}
-      >
-        <Text style={styles.topLabel}>
-          FOCUS
-        </Text>
-      </Reanimated.View>
+      {!isLandscape && (
+        <Reanimated.View
+          style={[
+            styles.topHeader,
+            resolvingContentStyle,
+            labelReveal,
+            { paddingTop: Math.max(48, insets.top + 14) },
+          ]}
+        >
+          <Text style={styles.topLabel}>
+            FOCUS
+          </Text>
+        </Reanimated.View>
+      )}
 
       {/* Prepare State Bottom Action (Begin Session CTA) */}
       {stage === 'prepare' && (
@@ -1030,6 +1052,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing[6],
   },
+  intentionRegionLandscape: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  topLabelLandscape: {
+    marginBottom: 3,
+  },
   sessionIntention: {
     ...typography.headingMD,
     fontFamily: typography.display,
@@ -1040,6 +1073,11 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     textAlign: 'center',
   },
+  sessionIntentionLandscape: {
+    fontSize: 15.5,
+    lineHeight: 20,
+    maxWidth: 540,
+  },
   anchorRegion: {
     flex: 1,
     width: '100%',
@@ -1047,6 +1085,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: spacing[1],
     paddingBottom: spacing[3],
+  },
+  anchorRegionLandscape: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   focusFieldFrame: {
     alignItems: 'center',

@@ -1,20 +1,10 @@
 export type ThreadAuraVariant = 'home' | 'details';
-/** Aura layer edge as a multiple of the coin diameter; the bloom needs room to fall off unclipped. */
+/** Aura layer edge as a multiple of the coin diameter; the halo needs room to fall off unclipped. */
 export const THREAD_AURA_SPAN = 1.9;
 
-/** Phase A (Bloom, 0-180ms): radial expansion from the Anchor's edge to 1.15x the resting reach. */
-export const HOME_AURA_BLOOM_IN_MS = 180;
-/** Phase B (Settle, 180-600ms): smooth contraction over 420ms to the resting reach and intensity. */
+/** Duration of the Thread Strength tween (Home and Details). Carousel motion never uses time. */
 export const HOME_AURA_SETTLE_MS = 420;
-/** Total Home hero entrance duration across Phase A and Phase B (600ms). */
-export const HOME_AURA_ENTRANCE_TOTAL_MS = HOME_AURA_BLOOM_IN_MS + HOME_AURA_SETTLE_MS;
-/** Fast fade-out when the user swipes away from the active hero. */
-export const HOME_AURA_FADE_OUT_MS = 140;
 
-/** At this scale the aura layer is exactly the coin's diameter, so the bloom starts on the coin's circular edge. */
-export const HOME_AURA_INITIAL_SCALE = 1 / THREAD_AURA_SPAN;
-export const HOME_AURA_PEAK_SCALE = 1.15;
-export const HOME_AURA_REST_SCALE = 1;
 /** Home resting glow: ~15% below the original calibration at full strength (0.67 tuned, +15%, then +10%). */
 const HOME_AURA_INTENSITY = 0.847;
 
@@ -24,32 +14,53 @@ export function normalizeThreadStrength(value: number | null | undefined): numbe
 }
 
 /**
- * Strength-calibrated opacity and scale targets for the Home hero entrance bloom.
- * Zero (or unavailable) strength yields no glow at all: no resting opacity, no bloom, no scale travel.
- * Opacity is a pure function of strength with no floor, so low strengths stay understated.
+ * Strength-calibrated resting opacity for the Home hero. Zero (or unavailable) strength yields
+ * no glow at all. Opacity is a pure function of strength with no floor, so low strengths stay understated.
  */
-export function homeAuraEntranceTargets(threadStrength: number | null | undefined) {
+export function homeAuraRestingOpacity(threadStrength: number | null | undefined): number {
   'worklet';
   const s = normalizeThreadStrength(threadStrength);
-  if (s <= 0) {
-    return { initialOpacity: 0, peakOpacity: 0, restingOpacity: 0, initialScale: HOME_AURA_REST_SCALE, peakScale: HOME_AURA_REST_SCALE, restingScale: HOME_AURA_REST_SCALE };
-  }
-  const restingOpacity = Number((HOME_AURA_INTENSITY * Math.pow(s, 0.7)).toFixed(4));
-  const peakOpacity = Number(Math.min(1, restingOpacity * 1.15).toFixed(4));
+  return s <= 0 ? 0 : Number((HOME_AURA_INTENSITY * Math.pow(s, 0.7)).toFixed(4));
+}
+
+/**
+ * Carousel presence, as a function of centre distance in slot units (0 = centred, 1 = one slot away).
+ * Smoothstep, so the glow eases in and out with no kink at rest and no overshoot. Anything a full
+ * slot or more away is fully absent.
+ */
+export function carouselGlowWeight(distanceInSlots: number): number {
+  'worklet';
+  const x = Number.isFinite(distanceInSlots) ? Math.min(1, Math.abs(distanceInSlots)) : 1;
+  const t = 1 - x;
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * The thread-strength-driven parameters for the static (non-Skia) renderer. Every value is a
+ * smooth function of strength; the thickness of the rim is deliberately small so strength shows
+ * as light and reach, never as a thicker band.
+ */
+export function staticAuraLayers(threadStrength: number | null | undefined) {
+  'worklet';
+  const s = normalizeThreadStrength(threadStrength);
+  const g = Math.pow(s, 0.7);
   return {
-    initialOpacity: 0,
-    peakOpacity,
-    restingOpacity,
-    initialScale: HOME_AURA_INITIAL_SCALE,
-    peakScale: HOME_AURA_PEAK_SCALE,
-    restingScale: HOME_AURA_REST_SCALE,
+    /** Thin luminous rim, as a fraction of the coin diameter. About half the old fallback thickness at every strength. */
+    ringWidth: s > 0 ? 0.008 + 0.012 * s : 0,
+    /** Rim alpha; the outer falloff does the rest. */
+    ringOpacity: s > 0 ? 0.25 + 0.6 * g : 0,
+    /** How far the halo reaches beyond the rim, as a fraction of the coin radius. */
+    haloReach: s > 0 ? 0.12 + 0.36 * s : 0,
+    /** Halo alpha right at the rim. Rises with strength, so stronger Anchors radiate more. */
+    haloRimOpacity: s > 0 ? 0.55 + 0.35 * s : 0,
+    /** Halo alpha partway out. Keeps the falloff soft rather than a flat band. */
+    haloMidOpacity: s > 0 ? 0.18 + 0.22 * s : 0,
   };
 }
 
 /**
- * The aura is emitted from the coin's silhouette (the artwork disc), the way the reference
- * cards emit from their capsule edge. Distances are fractions of the disc radius. Every value is
- * a smooth function of strength; there are no level thresholds.
+ * The thread-strength-driven parameters for the Skia shader. Every value is a smooth function of
+ * strength; there are no level thresholds.
  */
 export function threadAuraParameters(strength: number, variant: ThreadAuraVariant) {
   'worklet';

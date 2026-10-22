@@ -93,7 +93,7 @@ export const MilestoneCelebrationScene: React.FC<MilestoneCelebrationSceneProps>
           {reducedMotion && !settled ? <>
             <Animated.View style={[StyleSheet.absoluteFill, reducedLockedStyle]}><MilestoneArtwork definitionId={spec.id} state="locked" size={ART_SIZE} /></Animated.View>
             <Animated.View style={reducedEarnedStyle}><MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} /></Animated.View>
-          </> : <MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} categoryColor={categoryColor} animated={!settled} progress={progress} reducedMotion={reducedMotion} />}
+          </> : <MilestoneArtwork definitionId={spec.id} state="earned" size={ART_SIZE} categoryColor={categoryColor} animated progress={progress} reducedMotion={reducedMotion} />}
         </Animated.View>
 
         <Animated.View style={[styles.copy, copyStyle]}>

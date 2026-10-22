@@ -110,7 +110,10 @@ export const VISION_ROTATION = {
 
 /** Caption faces, all reused from the existing Vision type system. */
 export const VISION_CAPTION_FONTS = {
-  handwritten: 'Allison-Regular',
+  /** Polaroid captions. Caveat SemiBold keeps the personal hand but holds up at 14-16pt, where Allison's hairline strokes vanish. */
+  handwritten: 'Caveat-SemiBold',
+  /** The thin script, for large display writing only (notes, board title). */
+  script: 'Allison-Regular',
   serif: 'EBGaramond-Regular',
   serifItalic: 'EBGaramond-Italic',
   sans: 'Inter-Regular',

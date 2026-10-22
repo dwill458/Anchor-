@@ -2,16 +2,12 @@ import {
   normalizeThreadStrength,
   threadAuraParameters,
   auraTransition,
-  homeAuraEntranceTargets,
+  homeAuraRestingOpacity,
   detailsAuraOpacity,
-  HOME_AURA_BLOOM_IN_MS,
+  carouselGlowWeight,
+  staticAuraLayers,
   HOME_AURA_SETTLE_MS,
-  HOME_AURA_ENTRANCE_TOTAL_MS,
-  HOME_AURA_FADE_OUT_MS,
-  HOME_AURA_INITIAL_SCALE,
-  HOME_AURA_PEAK_SCALE,
   THREAD_AURA_SPAN,
-  HOME_AURA_REST_SCALE,
 } from './threadAuraModel';
 
 const strengths = [0, 10, 25, 40, 50, 68, 75, 89, 95, 100];
@@ -31,7 +27,7 @@ describe('Thread aura presentation mapping', () => {
   });
   it('shares one shape between Home and Details, with Details 5% more pronounced', () => {
     expect(threadAuraParameters(0.95, 'home')).toEqual(threadAuraParameters(0.95, 'details'));
-    expect(detailsAuraOpacity(80)).toBeCloseTo(homeAuraEntranceTargets(80).restingOpacity * 1.05, 2);
+    expect(detailsAuraOpacity(80)).toBeCloseTo(homeAuraRestingOpacity(80) * 1.05, 2);
     expect(detailsAuraOpacity(0)).toBe(0);
   });
   it('rewards only a measured increase, settles first measurements, retreats quietly', () => {
@@ -44,35 +40,81 @@ describe('Thread aura presentation mapping', () => {
   });
   it('gives Home exactly zero glow at zero or unknown strength', () => {
     for (const value of [0, null, undefined, NaN]) {
-      const t = homeAuraEntranceTargets(value);
-      expect([t.initialOpacity, t.peakOpacity, t.restingOpacity]).toEqual([0, 0, 0]);
-      expect(t.peakScale).toBe(1);
-      expect(t.initialScale).toBe(1);
+      expect(homeAuraRestingOpacity(value)).toBe(0);
     }
     const p = threadAuraParameters(0, 'home');
     expect(Object.values(p).every(v => v === 0)).toBe(true);
   });
-  it('defines the 180ms bloom to 1.15x then 420ms settle, starting at the coin edge', () => {
-    expect(HOME_AURA_BLOOM_IN_MS).toBe(180);
+  it('calibrates resting opacity continuously, quieter at mid strength', () => {
+    const [one, low, mid, high, full] = [1, 26, 49, 80, 100].map(homeAuraRestingOpacity);
+    expect(one).toBeLessThan(0.05);
+    expect(one).toBeGreaterThan(0);
+    expect(low).toBeGreaterThan(one);
+    expect(mid).toBeGreaterThan(low);
+    expect(high).toBeGreaterThan(mid);
+    expect(full).toBeGreaterThan(high);
+    expect(full).toBeCloseTo(0.847, 2);
+    expect(mid).toBeLessThan(0.55);
     expect(HOME_AURA_SETTLE_MS).toBe(420);
-    expect(HOME_AURA_ENTRANCE_TOTAL_MS).toBe(600);
-    expect(HOME_AURA_FADE_OUT_MS).toBe(140);
-    // Layer diameter equals coin diameter at the initial scale.
-    expect(HOME_AURA_INITIAL_SCALE * THREAD_AURA_SPAN).toBeCloseTo(1);
-    expect(HOME_AURA_PEAK_SCALE).toBeCloseTo(1.15);
-    expect(HOME_AURA_REST_SCALE).toBe(1);
+    expect(THREAD_AURA_SPAN).toBeGreaterThan(1.5);
+  });
+});
 
-    const [one, low, mid, high, full] = [1, 26, 49, 80, 100].map(homeAuraEntranceTargets);
-    expect(one.restingOpacity).toBeLessThan(0.05);
-    expect(one.restingOpacity).toBeGreaterThan(0);
-    expect(low.restingOpacity).toBeGreaterThan(one.restingOpacity);
-    expect(mid.restingOpacity).toBeGreaterThan(low.restingOpacity);
-    expect(high.restingOpacity).toBeGreaterThan(mid.restingOpacity);
-    expect(full.restingOpacity).toBeGreaterThan(high.restingOpacity);
-    // ~33% quieter than the previous full-strength calibration (1.0), and 49% clearly below the old 0.75.
-    expect(full.restingOpacity).toBeCloseTo(0.847, 2);
-    expect(mid.restingOpacity).toBeLessThan(0.55);
-    expect(low.peakOpacity).toBeGreaterThan(low.restingOpacity);
-    expect(low.peakScale).toBe(1.15);
+describe('carousel glow weight', () => {
+  it('is full when centred and absent one slot away', () => {
+    expect(carouselGlowWeight(0)).toBe(1);
+    expect(carouselGlowWeight(1)).toBe(0);
+    expect(carouselGlowWeight(-1)).toBe(0);
+    expect(carouselGlowWeight(2.5)).toBe(0);
+  });
+  it('is symmetric in direction, so a swipe either way behaves the same', () => {
+    for (const d of [0.1, 0.25, 0.5, 0.8]) {
+      expect(carouselGlowWeight(d)).toBeCloseTo(carouselGlowWeight(-d), 10);
+    }
+  });
+  it('is half-strength at the midpoint between two Anchors and monotonic in between', () => {
+    expect(carouselGlowWeight(0.5)).toBeCloseTo(0.5, 10);
+    const samples = [0, 0.2, 0.4, 0.6, 0.8, 1].map(carouselGlowWeight);
+    samples.forEach((value, i) => { if (i) expect(value).toBeLessThanOrEqual(samples[i - 1]); });
+  });
+  it('hands over continuously: outgoing and incoming weights sum to one across the swipe', () => {
+    for (let t = 0; t <= 1; t += 0.05) {
+      // Outgoing centre at distance t, incoming neighbour at distance 1 - t.
+      expect(carouselGlowWeight(t) + carouselGlowWeight(1 - t)).toBeCloseTo(1, 10);
+    }
+  });
+  it('treats unknown distance as absent', () => {
+    expect(carouselGlowWeight(NaN)).toBe(0);
+  });
+});
+
+describe('static renderer layers', () => {
+  it('keeps the rim thin at every strength (about half the old fallback thickness)', () => {
+    for (const value of strengths) {
+      expect(staticAuraLayers(value).ringWidth).toBeLessThanOrEqual(0.02);
+    }
+  });
+  it('gives zero layers at zero or unknown strength', () => {
+    for (const value of [0, null, NaN]) {
+      const layers = staticAuraLayers(value);
+      expect(Object.values(layers).every(v => v === 0)).toBe(true);
+    }
+  });
+  it('grows reach and radiance with strength, but never the rim thickness beyond the cap', () => {
+    const low = staticAuraLayers(20);
+    const high = staticAuraLayers(100);
+    expect(high.haloReach).toBeGreaterThan(low.haloReach);
+    expect(high.haloRimOpacity).toBeGreaterThan(low.haloRimOpacity);
+    expect(high.haloMidOpacity).toBeGreaterThan(low.haloMidOpacity);
+    expect(high.ringOpacity).toBeGreaterThan(low.ringOpacity);
+    expect(high.ringWidth).toBeGreaterThan(low.ringWidth);
+    expect(high.ringWidth).toBeLessThanOrEqual(0.02);
+  });
+  it('keeps the halo alpha within a controlled range', () => {
+    for (const value of strengths.slice(1)) {
+      const layers = staticAuraLayers(value);
+      expect(layers.haloRimOpacity).toBeLessThanOrEqual(1);
+      expect(layers.haloRimOpacity).toBeGreaterThanOrEqual(layers.haloMidOpacity);
+    }
   });
 });

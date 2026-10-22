@@ -8,6 +8,7 @@ import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
 import { useNavigation, useRoute, UNSTABLE_usePreventRemove as usePreventRemove, type RouteProp } from '@react-navigation/native';
 import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
+import { useVisionPresentationStore } from '@/stores/v2/visionPresentationStore';
 import { VisionPhotoFit } from '@/components/v2/vision/VisionPhotoFitScreen';
 import { assessPhotoFit } from '@/components/v2/vision/visionPhotoFit';
 import { type AddSceneRequest } from '@/components/v2/vision/VisionAddSceneSheet';
@@ -118,8 +119,14 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [savedImages, setSavedImages] = useState<SavedVisionImage[]>([]);
   // The pin finds the new scene by id: signed URLs can differ between the save response and the refreshed read model.
   const [savedSceneId, setSavedSceneId] = useState<string | null>(null);
+  // The board position the person chose for the photograph being added; consumed by the add that follows.
+  const pendingSlot = useRef<number | null>(null);
   const recordSaved = (scenes: ReadonlyArray<{ id: string; assetId: string | null; resolvedImageUrl?: string | null }>, assetId?: string) => {
     const scene = assetId ? scenes.find(item => item.assetId === assetId) : undefined;
+    if (scene && model.vision?.id && pendingSlot.current !== null) {
+      useVisionPresentationStore.getState().placeScene(model.vision.id, scene.id, pendingSlot.current);
+      pendingSlot.current = null;
+    }
     setSavedSceneId(scene?.id ?? null);
     setSavedImages(scene?.resolvedImageUrl ? [{ sceneId: scene.id, url: scene.resolvedImageUrl }] : []);
     return scene?.resolvedImageUrl;
@@ -293,7 +300,10 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [addRequest, setAddRequest] = useState<AddSceneRequest | null>(null);
   // A request taken back from generation reopens the Add sheet with its words and photo intact.
   const [addDraft, setAddDraft] = useState<AddSceneRequest | null>(null);
-  const openAddScene = () => { setActionError(null); setAddSheetOpen(true); };
+  const openAddScene = (target?: { slot?: number }) => {
+    pendingSlot.current = typeof target?.slot === 'number' ? target.slot : null;
+    setActionError(null); setAddSheetOpen(true);
+  };
   const startAddScene = (request: AddSceneRequest) => {
     setActionError(null);
     setSavedImageUrl(null);
@@ -382,6 +392,9 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       const added = await model.addScene({ ...next, sortOrder: progress.sortOrder });
       if (!added) { setActionError('The new image could not be added to your Vision. Please try again.'); return false; }
       progress.added = true; progress.url = recordSaved(added.scenes, next.assetId);
+      // The new image takes the exact board position of the one it replaces.
+      const incoming = added.scenes.find(item => item.assetId === next.assetId);
+      if (incoming && model.vision?.id) useVisionPresentationStore.getState().inheritSlot(model.vision.id, sceneId, incoming.id);
     }
     if (!progress.removed) {
       if (!(await model.deleteScene(sceneId))) { setActionError('The new image was added, but the old one could not be removed.'); return false; }
@@ -394,6 +407,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   };
 
   const replaceWithOwnImage = async (sceneId: string) => {
+    pendingSlot.current = null;
     try {
       const assetId = await pickAndUploadOwnImage();
       if (assetId) await replaceScene(sceneId, { assetId, sourceType: 'USER_UPLOAD' });
@@ -404,6 +418,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
 
   /** Regenerating one image: the same two-moments choice, but the pick takes that image's place. */
   const openImageGeneration = (forSceneId: string) => {
+    pendingSlot.current = null;
     replacementTarget.current = model.tiles.find(tile => tile.sceneId === forSceneId) ?? null;
     replacementProgress.current.clear();
     setActionError(null);
@@ -547,6 +562,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       teachingBlocked={photoPickerOpen || model.loading || Boolean(arrival?.url)}
       teachingSceneId={savedSceneId ?? newestVisionScene(model.vision?.scenes ?? [])}
       testID={props.testID ?? 'v2-vision-screen'}
+      visionId={model.vision?.id}
+      onSyncPresentation={(sceneId, patch) => { void model.syncScenePresentation(sceneId, patch); }}
       anchorIntention={anchorIntention}
       anchorCategory={anchorCategory}
       anchorImageUrl={anchor?.enhancedImageUrl}

@@ -57,6 +57,9 @@ export const CREATION_SOUND_SOURCES = {
   onboardingSealed: require('../../assets/sounds/sk-onboarding-sealed.wav'),
   homeArrival: require('../../assets/sounds/sk-home-arrival.wav'),
   visionPin: require('../../assets/sounds/sk-vision-pin.wav'),
+  milestoneT1Quiet: require('../../assets/sounds/milestone-t1-quiet.mp3'),
+  milestoneT2Established: require('../../assets/sounds/milestone-t2-established.mp3'),
+  milestoneT3Major: require('../../assets/sounds/milestone-t3-major.mp3'),
 } as const;
 
 export type CreationPoolKey = keyof typeof CREATION_SOUND_SOURCES;

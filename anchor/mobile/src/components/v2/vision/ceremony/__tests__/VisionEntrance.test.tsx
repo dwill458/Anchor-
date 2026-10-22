@@ -1,20 +1,20 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
-import { ENTRANCE, VisionEntrance, entranceLayout, fanSlot, type VisionEntranceProps } from '../VisionEntrance';
+import { ENTRANCE, VisionEntrance, emergeRank, entranceLayout, fanSlot, type VisionEntranceProps } from '../VisionEntrance';
+import { VISION_ENTRANCE_EXAMPLES } from '../visionEntranceExamples';
 import { visionCeremonyCopy as copy } from '../visionCeremonyCopy';
 
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
 jest.mock('@/services/CreationSounds', () => ({ playCreationSound: jest.fn(() => ({ stop: jest.fn() })) }));
 let mockReduced = false;
+let mockTier = 'high';
 jest.mock('@/hooks/v2', () => ({ useV2ReduceMotion: () => mockReduced, v2Haptics: { selection: jest.fn() } }));
-let mockExamples: Array<{ image: { uri: string }; caption: string; moment: string }> = [];
-jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples'), visionExamplesFor: () => mockExamples }));
+jest.mock('@/hooks/useAppPerformanceTier', () => ({ useAppPerformanceTier: () => mockTier }));
 
-const example = (i: number) => ({ image: { uri: `file:///example-${i}.webp` }, caption: `Example ${i}`, moment: `Moment ${i}.` });
 const target = { x: 171, y: 66, width: 48, height: 48, opacity: 0 };
-const handlers = () => ({ onPickExample: jest.fn(), onPickEmpty: jest.fn(), onWords: jest.fn(), onBack: jest.fn(), onAnchorHandoff: jest.fn() });
+const handlers = () => ({ onWords: jest.fn(), onBack: jest.fn(), onAnchorHandoff: jest.fn() });
 function setup(overrides: Partial<VisionEntranceProps> = {}) {
   const fns = handlers();
   const props: VisionEntranceProps = { mode: 'create', anchorId: 'anchor', category: 'health', firstRun: true, anchorTarget: target, ...fns, ...overrides };
@@ -22,10 +22,14 @@ function setup(overrides: Partial<VisionEntranceProps> = {}) {
 }
 async function advance(ms: number) { await act(async () => { jest.advanceTimersByTime(ms); }); }
 const calls = (id: string) => (playCreationSound as jest.Mock).mock.calls.filter(([name]) => name === id);
-const OPEN_DONE = ENTRANCE.driftAt + 100;
+const OPEN_DONE = ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs + 100;
+/** The photograph of one print: the cover-mode image, not the frame art. */
+const byId = (view: ReturnType<typeof setup>, id: string) => view.getByTestId(id, { includeHiddenElements: true });
+const shown = (view: ReturnType<typeof setup>, text: string) => view.getByText(text, { includeHiddenElements: true });
+const photoOf = (view: ReturnType<typeof setup>, index: number) => byId(view, `vision-entrance-print-${index}`).findAll((node: any) => node.type === Image && node.props.resizeMode === 'cover')[0];
 
 describe('VisionEntrance', () => {
-  beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); mockReduced = false; mockExamples = [example(1), example(2), example(3)]; });
+  beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); mockReduced = false; mockTier = 'high'; });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); });
 
   it('first run opens with one anchor pulse and a tick per print, then hands the anchor off once', async () => {
@@ -49,6 +53,15 @@ describe('VisionEntrance', () => {
     await at(ENTRANCE.liftAt + ENTRANCE.liftMs + 1); expect(view.onAnchorHandoff).toHaveBeenCalledTimes(1);
     await at(ENTRANCE.liftAt + ENTRANCE.liftMs + ENTRANCE.handoffOverlapMs + 1); expect(view.queryByTestId('vision-entrance-anchor')).toBeNull();
   });
+  it('keeps each print inside the 300-450ms window and the stagger inside 80-130ms', () => {
+    expect(ENTRANCE.spawnMs).toBeGreaterThanOrEqual(300); expect(ENTRANCE.spawnMs).toBeLessThanOrEqual(450);
+    expect(ENTRANCE.spawnStagger).toBeGreaterThanOrEqual(80); expect(ENTRANCE.spawnStagger).toBeLessThanOrEqual(130);
+    expect(ENTRANCE.printFadeMs).toBeLessThanOrEqual(ENTRANCE.spawnMs);
+  });
+  it('brings the centre print out first and opens the fan to either side behind it', () => {
+    expect(emergeRank('center')).toBe(0); expect(emergeRank('left')).toBe(1); expect(emergeRank('right')).toBe(2);
+    expect(emergeRank('twoL')).toBeLessThan(emergeRank('twoR'));
+  });
   it('a later visit plays no open, no sound and no hand-off', async () => {
     const view = setup({ firstRun: false }); await advance(OPEN_DONE * 2);
     expect(view.queryByTestId('vision-entrance-anchor')).toBeNull(); expect(playCreationSound).not.toHaveBeenCalled(); expect(view.onAnchorHandoff).not.toHaveBeenCalled();
@@ -57,38 +70,49 @@ describe('VisionEntrance', () => {
   });
   it('Reduce Motion shows the final state at once, silently', async () => {
     mockReduced = true; const view = setup(); await advance(400);
-    expect(view.queryByTestId('vision-entrance-anchor')).toBeNull(); expect(view.getAllByText(copy.exampleLabel)).toHaveLength(3);
-    fireEvent.press(view.getByLabelText('Start from this example: Example 2'));
+    expect(view.queryByTestId('vision-entrance-anchor')).toBeNull();
+    for (const example of VISION_ENTRANCE_EXAMPLES) expect(shown(view, example.caption)).toBeTruthy();
     expect(calls('anchorPulse')).toHaveLength(0); expect(calls('formTick')).toHaveLength(0);
   });
-  it('reads as a headline, one call to action, a supporting line, a hint and the print labels, and nothing else', () => {
+  it('reads as a headline, one call to action, a supporting line and three captioned prints, and nothing else', () => {
     const view = setup({ firstRun: false });
-    for (const text of [copy.askCreate, copy.createVision, copy.startFrom, copy.hintCreate, 'Example 1', 'Example 2', 'Example 3']) expect(view.getByText(text)).toBeTruthy();
-    expect(view.getAllByText(copy.exampleLabel)).toHaveLength(3);
-    for (const gone of [copy.words, copy.ownPhoto, copy.camera, 'Add a note', copy.footnote, copy.suggestionLabel, copy.anotherMoment, copy.add, 'Health']) expect(view.queryByText(gone)).toBeNull();
+    for (const text of [copy.askCreate, copy.createVision, copy.startFrom]) expect(view.getByText(text)).toBeTruthy();
+    for (const text of ['I built this.', 'I actually did it.', 'This is my life.']) expect(shown(view, text)).toBeTruthy();
+    for (const gone of ['Tap one to start from it', copy.words, copy.ownPhoto, copy.camera, 'Add a note', copy.footnote, copy.suggestionLabel, copy.anotherMoment, copy.add, 'Health']) expect(view.queryByText(gone)).toBeNull();
   });
-  it('pins a bundled picture to its window, since it would otherwise keep its own pixel size', () => {
+  it('the example prints are purely decorative: no press handler, hidden from accessibility', () => {
     const view = setup({ firstRun: false });
-    expect(StyleSheet.flatten(view.getByTestId('vision-entrance-print-0-sharp').props.style)).toMatchObject({ width: '100%', height: '100%' });
+    expect(view.queryAllByLabelText(/Start from this example/)).toHaveLength(0);
+    for (let i = 0; i < 3; i += 1) {
+      const slot = byId(view, `vision-entrance-slot-${i}`);
+      expect(slot.findAll((node: any) => typeof node.props?.onPress === 'function' || typeof node.props?.onStartShouldSetResponder === 'function')).toHaveLength(0);
+      let node: any = byId(view, `vision-entrance-print-${i}`), hidden = false;
+      while (node) { if (node.props?.importantForAccessibility === 'no-hide-descendants' || node.props?.accessibilityElementsHidden) hidden = true; node = node.parent; }
+      expect(hidden).toBe(true);
+    }
   });
-  it('ignores taps until the controls have faded in', async () => {
-    const view = setup(); fireEvent.press(view.getByLabelText(copy.createVision)); fireEvent.press(view.getByLabelText('Start from this example: Example 1'));
-    expect(view.onWords).not.toHaveBeenCalled(); await advance(ENTRANCE.pickMs * 2); expect(view.onPickExample).not.toHaveBeenCalled();
-    await advance(ENTRANCE.ctaAt); fireEvent.press(view.getByLabelText(copy.createVision)); expect(view.onWords).toHaveBeenCalledTimes(1);
+  it('lays each photograph out at its own proportions inside the frame, never stretched', () => {
+    const view = setup({ firstRun: false });
+    VISION_ENTRANCE_EXAMPLES.forEach((example, index) => {
+      const style = StyleSheet.flatten(photoOf(view, index).props.style);
+      expect(style.width / style.height).toBeCloseTo(example.size.width / example.size.height, 2);
+    });
   });
-  it('tapping an example settles, then hands the right example and index over after 900ms', async () => {
-    const view = setup(); await advance(OPEN_DONE);
-    fireEvent.press(view.getByLabelText('Start from this example: Example 3'));
-    expect(calls('revealSettle')).toHaveLength(1);
-    expect(AnalyticsService.track).toHaveBeenCalledWith('vision_example_picked', { anchor_id: 'anchor', mode: 'create', category: 'health', index: 2 });
-    await advance(ENTRANCE.pickMs - 1); expect(view.onPickExample).not.toHaveBeenCalled();
-    await advance(2); expect(view.onPickExample).toHaveBeenCalledWith(mockExamples[2], 2); expect(view.onPickExample).toHaveBeenCalledTimes(1);
-    fireEvent.press(view.getByLabelText('Start from this example: Example 1')); await advance(ENTRANCE.pickMs + 50); expect(view.onPickExample).toHaveBeenCalledTimes(1);
+  it('anchors a portrait photograph near the top of its window so the head is kept', () => {
+    const view = setup({ firstRun: false });
+    const style = StyleSheet.flatten(photoOf(view, 1).props.style);
+    // The image is taller than its window, so it overflows downward; top is 0 or negative and never positive (no blank edge).
+    expect(style.top).toBeLessThanOrEqual(0);
+    expect(style.left).toBeCloseTo(0, 5);
   });
-  it('the call to action plays the tap cue and opens the composer, and Back still leaves', () => {
+  it('the call to action plays the tap cue and opens the composer, and Back still leaves', async () => {
     const view = setup({ firstRun: false });
     fireEvent.press(view.getByTestId('vision-entrance-cta')); expect(view.onWords).toHaveBeenCalledTimes(1); expect(calls('uiTap')).toHaveLength(1);
     fireEvent.press(view.getByLabelText(copy.back)); expect(view.onBack).toHaveBeenCalledTimes(1);
+  });
+  it('ignores a tap on the call to action until it has faded in', async () => {
+    const view = setup(); fireEvent.press(view.getByLabelText(copy.createVision)); expect(view.onWords).not.toHaveBeenCalled();
+    await advance(ENTRANCE.ctaAt); fireEvent.press(view.getByLabelText(copy.createVision)); expect(view.onWords).toHaveBeenCalledTimes(1);
   });
   it('keeps the fan clear of the one call to action on a short screen', () => {
     const footerTop = 667 - 34 - ENTRANCE.footerGap - ENTRANCE.footerHeight;
@@ -103,50 +127,34 @@ describe('VisionEntrance', () => {
     expect(view.onWords).not.toHaveBeenCalled();
     expect(view.getByText('This Vision is full. Remove an image to add another.')).toBeTruthy();
   });
-  it('shows a photo notice in place of the hint', () => {
+  it('shows a photo notice under the prints', () => {
     const view = setup({ firstRun: false, notice: 'Unable to open photo library.' });
-    expect(view.getByText('Unable to open photo library.')).toBeTruthy(); expect(view.queryByText(copy.hintCreate)).toBeNull();
+    expect(view.getByText('Unable to open photo library.')).toBeTruthy();
   });
 
   describe('add mode', () => {
     const add = (extra: Partial<VisionEntranceProps> = {}) => setup({ mode: 'add', firstRun: false, previewImageUrl: 'file:///latest.jpg', previewCaption: 'I am vibrant.', ...extra });
-    it('shows the latest print as Yours with its pin, an opaque What else? frame, and one example', () => {
+    it('shows the latest print with its pin, an opaque What else? frame, and one decorative example', () => {
       const view = add();
-      expect(view.getByText(copy.askAdd)).toBeTruthy(); expect(view.getByText(copy.yoursLabel)).toBeTruthy(); expect(view.getByText('I am vibrant.')).toBeTruthy();
-      expect(view.getByTestId('vision-entrance-pin')).toBeTruthy(); expect(view.getByText(copy.whatElse)).toBeTruthy();
-      expect(view.getAllByText(copy.exampleLabel)).toHaveLength(1); expect(view.getByText('Example 1')).toBeTruthy(); expect(view.getByText(copy.hintAdd)).toBeTruthy();
-      const center = view.getByTestId('vision-entrance-print-1');
-      expect(center).toBeTruthy(); expect(view.queryByTestId('vision-entrance-pick-0')).toBeNull();
-      const opaque = view.UNSAFE_getAllByType(require('react-native').View).some((node: any) => [].concat(node.props.style ?? []).flat(3).some((style: any) => style?.backgroundColor === '#1A1D36'));
-      expect(opaque).toBe(true);
+      expect(view.getByText(copy.askAdd)).toBeTruthy(); expect(shown(view, 'I am vibrant.')).toBeTruthy();
+      expect(byId(view, 'vision-entrance-pin')).toBeTruthy(); expect(shown(view, copy.whatElse)).toBeTruthy();
+      expect(shown(view, 'This is my life.')).toBeTruthy(); expect(view.queryByText('I built this.', { includeHiddenElements: true })).toBeNull();
     });
-    it('tapping the frame opens an empty Describe after the pick animation; Yours cannot be picked', async () => {
-      const view = add(); fireEvent.press(view.getByLabelText(copy.whatElse));
-      await advance(ENTRANCE.pickMs + 50); expect(view.onPickEmpty).toHaveBeenCalledTimes(1); expect(view.onPickExample).not.toHaveBeenCalled();
-    });
-    it('tapping the example works the same as in create', async () => {
-      const view = add(); fireEvent.press(view.getByLabelText('Start from this example: Example 1')); await advance(ENTRANCE.pickMs + 50);
-      expect(view.onPickExample).toHaveBeenCalledWith(mockExamples[0], 0);
+    it('nothing on the prints is tappable; the one call to action adds', () => {
+      const view = add();
+      expect(view.queryByLabelText(copy.whatElse, { includeHiddenElements: true })).toBeNull(); expect(view.queryAllByLabelText(/Start from this example/)).toHaveLength(0);
+      fireEvent.press(view.getByLabelText(copy.addScene)); expect(view.onWords).toHaveBeenCalledTimes(1);
     });
     it('with no latest print it uses the create layout under the add headline', () => {
       const view = add({ previewImageUrl: null });
-      expect(view.getByText(copy.askAdd)).toBeTruthy(); expect(view.getAllByText(copy.exampleLabel)).toHaveLength(3); expect(view.queryByText(copy.yoursLabel)).toBeNull();
-      expect(view.getByText(copy.hintCreate)).toBeTruthy();
+      expect(view.getByText(copy.askAdd)).toBeTruthy(); expect(shown(view, 'I actually did it.')).toBeTruthy(); expect(view.queryByText('I am vibrant.', { includeHiddenElements: true })).toBeNull();
     });
   });
 
-  describe('missing pictures', () => {
-    it('renders the empty frame, not the old suggestion, when there are no examples at all', async () => {
-      mockExamples = []; const view = setup({ firstRun: false });
-      expect(view.getByText(copy.whatSee)).toBeTruthy(); expect(view.queryByText(copy.exampleLabel)).toBeNull(); expect(view.queryByText(copy.suggestionLabel)).toBeNull(); expect(view.queryByText(copy.hintCreate)).toBeNull();
-      expect(AnalyticsService.track).toHaveBeenCalledWith('vision_entrance_viewed', expect.objectContaining({ examples_shown: 0 }));
-      fireEvent.press(view.getByLabelText(copy.whatSee)); await advance(ENTRANCE.pickMs + 50); expect(view.onPickEmpty).toHaveBeenCalledTimes(1);
-    });
-    it('shows one print centred and two prints side by side', () => {
-      mockExamples = [example(1)]; const one = setup({ firstRun: false });
-      expect(one.getAllByText(copy.exampleLabel)).toHaveLength(1); one.unmount();
-      mockExamples = [example(1), example(2)]; const two = setup({ firstRun: false });
-      expect(two.getAllByText(copy.exampleLabel)).toHaveLength(2);
+  describe('lower-performance devices', () => {
+    it('keeps the open and the prints but skips the idle drift', async () => {
+      mockTier = 'low'; const view = setup(); await advance(OPEN_DONE * 2);
+      expect(shown(view, 'I actually did it.')).toBeTruthy(); expect(view.onAnchorHandoff).toHaveBeenCalledTimes(1);
     });
   });
 });
@@ -162,9 +170,9 @@ describe('entranceLayout', () => {
     expect(frame.W).toBe(170); expect(frame.top).toBeGreaterThan(235); expect(frame.top).toBeLessThan(265);
     expect(frame.hintTop + 16 + 16).toBeLessThanOrEqual(frame.footerTop);
   });
-  it('shrinks the prints on a 667pt screen so the hint clears the first button by 16pt', () => {
+  it('keeps the hint clear of the first button by 16pt on a 667pt screen', () => {
     const frame = layout(375, 667, 20, 0);
-    expect(frame.W).toBeLessThan(165); expect(frame.hintTop + 16 + 16).toBeLessThanOrEqual(frame.footerTop);
+    expect(frame.W).toBeLessThanOrEqual(170); expect(frame.hintTop + 16 + 16).toBeLessThanOrEqual(frame.footerTop);
     expect(frame.top + frame.H * 0.9).toBeLessThan(frame.footerTop);
   });
   it('keeps full-size prints and clear spacing on a 932pt screen', () => {

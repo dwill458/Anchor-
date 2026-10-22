@@ -4,17 +4,12 @@ import { AppState, Image, type AppStateStatus } from 'react-native';
 import { ThreadAura, type ThreadAuraProps } from './ThreadAura';
 import { CircularAnchorRenderer } from './CircularAnchorRenderer';
 import {
-  homeAuraEntranceTargets,
   detailsAuraOpacity,
-  HOME_AURA_BLOOM_IN_MS,
+  homeAuraRestingOpacity,
   HOME_AURA_SETTLE_MS,
-  HOME_AURA_FADE_OUT_MS,
-  HOME_AURA_PEAK_SCALE,
-  HOME_AURA_REST_SCALE,
 } from './threadAuraModel';
 
 const mockTiming = jest.fn();
-const mockSequence = jest.fn();
 const mockCancelAnimation = jest.fn();
 
 jest.mock('react-native-reanimated', () => {
@@ -26,10 +21,6 @@ jest.mock('react-native-reanimated', () => {
     withTiming: (toValue: number, config?: unknown, callback?: unknown) => {
       mockTiming(toValue, config);
       return actual.withTiming(toValue, config, callback);
-    },
-    withSequence: (...animations: number[]) => {
-      mockSequence(animations);
-      return animations[animations.length - 1];
     },
     cancelAnimation: (sharedValue: unknown) => {
       mockCancelAnimation(sharedValue);
@@ -61,7 +52,6 @@ beforeEach(() => {
   mockTier = 'high';
   mockCanvas.mockClear();
   mockTiming.mockClear();
-  mockSequence.mockClear();
   mockCancelAnimation.mockClear();
   jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
 });
@@ -81,20 +71,27 @@ it('gates animation with foreground and visibility, removes AppState listener', 
   screen.unmount(); expect(remove).toHaveBeenCalled(); spy.mockRestore();
 });
 
-it('uses strength-correct native SVG fallback for reduced motion', () => {
-  mockTier = 'high';
+it('uses the static fallback for reduced motion, with a gradient halo and no blur filter', () => {
   const screen = render(<ThreadAura {...props} reducedMotion />);
   expect(mockCanvas).not.toHaveBeenCalled();
-  const before = screen.UNSAFE_getByType('FeGaussianBlur' as never).props.stdDeviation;
-  screen.rerender(<ThreadAura {...props} threadStrength={95} reducedMotion />);
-  expect(screen.UNSAFE_getByType('FeGaussianBlur' as never).props.stdDeviation).toBeGreaterThan(before);
+  expect(screen.UNSAFE_queryAllByType('FeGaussianBlur' as never)).toHaveLength(0);
+  expect(screen.UNSAFE_getByType('RadialGradient' as never)).toBeTruthy();
 });
 
-it('low tier renders the filter-free SVG fallback (no Gaussian blur)', () => {
+it('low tier renders the same filter-free gradient fallback (battery saver baseline)', () => {
   mockTier = 'low';
   const screen = render(<ThreadAura {...props} />);
   expect(mockCanvas).not.toHaveBeenCalled();
   expect(screen.UNSAFE_queryAllByType('FeGaussianBlur' as never)).toHaveLength(0);
+  expect(screen.UNSAFE_getByType('RadialGradient' as never)).toBeTruthy();
+});
+
+it('static rim stays thin: at most a few pixels, never a thick bead', () => {
+  mockTier = 'low';
+  const screen = render(<ThreadAura {...props} threadStrength={100} />);
+  const rim = screen.UNSAFE_getAllByType('Circle' as never).find(node => node.props.fill === 'none');
+  expect(rim).toBeTruthy();
+  expect(rim!.props.strokeWidth).toBeLessThanOrEqual(200 * 0.021);
 });
 
 it('keeps enhanced artwork URL, dimensions and cover treatment unchanged', () => {
@@ -106,131 +103,50 @@ it('keeps enhanced artwork URL, dimensions and cover treatment unchanged', () =>
   expect(image.props.style.width).toBe(192);
 });
 
-it('runs Phase A (0–220ms bloom to 1.25x) then Phase B (220–850ms settle) for 26% and 80% Thread Strength', () => {
-  const lowTargets = homeAuraEntranceTargets(26);
-  const highTargets = homeAuraEntranceTargets(80);
-  const lastActivatedRef = { current: null as string | null };
-
-  const screen = render(
-    <ThreadAura {...props} anchorId="low-anchor" threadStrength={26} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-
-  // Phase A (220ms) and Phase B (630ms) run for opacity and scale.
-  expect(mockSequence).toHaveBeenCalledTimes(2);
-  expect(mockTiming).toHaveBeenCalledWith(lowTargets.peakOpacity, expect.objectContaining({ duration: HOME_AURA_BLOOM_IN_MS }));
-  expect(mockTiming).toHaveBeenCalledWith(lowTargets.restingOpacity, expect.objectContaining({ duration: HOME_AURA_SETTLE_MS }));
-  expect(mockTiming).toHaveBeenCalledWith(HOME_AURA_PEAK_SCALE, expect.objectContaining({ duration: HOME_AURA_BLOOM_IN_MS }));
-  expect(mockTiming).toHaveBeenCalledWith(HOME_AURA_REST_SCALE, expect.objectContaining({ duration: HOME_AURA_SETTLE_MS }));
-  expect(lastActivatedRef.current).toBe('low-anchor');
-
+it('does not bloom when the hero changes: a re-render or a new Anchor never restarts the glow', () => {
+  const screen = render(<ThreadAura {...props} anchorId="anchor-1" threadStrength={50} />);
   mockTiming.mockClear();
-  mockSequence.mockClear();
 
-  // Switching to an 80% hero triggers a new bloom that settles into a stronger resting glow.
-  screen.rerender(
-    <ThreadAura {...props} anchorId="high-anchor" threadStrength={80} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).toHaveBeenCalledTimes(2);
-  expect(mockTiming).toHaveBeenCalledWith(highTargets.peakOpacity, expect.objectContaining({ duration: HOME_AURA_BLOOM_IN_MS }));
-  expect(mockTiming).toHaveBeenCalledWith(highTargets.restingOpacity, expect.objectContaining({ duration: HOME_AURA_SETTLE_MS }));
-  expect(highTargets.restingOpacity).toBeGreaterThan(lowTargets.restingOpacity);
-  expect(lastActivatedRef.current).toBe('high-anchor');
+  screen.rerender(<ThreadAura {...props} anchorId="anchor-2" threadStrength={50} heroActive />);
+  screen.rerender(<ThreadAura {...props} anchorId="anchor-1" threadStrength={50} active={false} heroActive={false} />);
+  screen.rerender(<ThreadAura {...props} anchorId="anchor-1" threadStrength={50} active heroActive />);
+  expect(mockTiming).not.toHaveBeenCalled();
 });
 
-it('does not re-trigger the bloom on unrelated rerenders, Thread Strength refreshes, or navigating away and back', () => {
-  const lastActivatedRef = { current: null as string | null };
-  const screen = render(
-    <ThreadAura {...props} anchorId="anchor-1" threadStrength={50} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).toHaveBeenCalledTimes(2);
-  mockSequence.mockClear();
+it('eases resting intensity on a Thread Strength refresh, and only then', () => {
+  const screen = render(<ThreadAura {...props} threadStrength={50} />);
   mockTiming.mockClear();
 
-  // Unrelated rerender with identical hero props: no bloom.
-  screen.rerender(
-    <ThreadAura {...props} anchorId="anchor-1" threadStrength={50} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).not.toHaveBeenCalled();
+  screen.rerender(<ThreadAura {...props} threadStrength={50} />);
+  expect(mockTiming).not.toHaveBeenCalled();
 
-  // Navigating away (`active: false` while `heroActive: true`) and back (`active: true`): no duplicate bloom.
-  screen.rerender(
-    <ThreadAura {...props} anchorId="anchor-1" threadStrength={50} active={false} heroActive lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  screen.rerender(
-    <ThreadAura {...props} anchorId="anchor-1" threadStrength={50} active heroActive lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).not.toHaveBeenCalled();
-
-  // Background Thread Strength refresh on the same active hero updates resting intensity smoothly without a bloom flash.
-  screen.rerender(
-    <ThreadAura {...props} anchorId="anchor-1" threadStrength={65} active heroActive lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).not.toHaveBeenCalled();
+  screen.rerender(<ThreadAura {...props} threadStrength={65} />);
   expect(mockTiming).toHaveBeenCalledWith(
-    homeAuraEntranceTargets(65).restingOpacity,
+    homeAuraRestingOpacity(65),
     expect.objectContaining({ duration: HOME_AURA_SETTLE_MS }),
   );
 });
 
-it('fades out quickly when a carousel swipe starts and cancels pending animations on rapid hero changes', () => {
-  const lastActivatedRef = { current: null as string | null };
-  const screen = render(
-    <ThreadAura {...props} anchorId="anchor-1" threadStrength={70} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  mockTiming.mockClear();
-  mockSequence.mockClear();
+it('renders the carousel-driven glow for neighbours that are not the centred hero', () => {
+  const offset = { value: 0 } as never;
+  render(<ThreadAura {...props} carouselSlot={1} carouselOffset={offset} carouselSpacing={120} heroActive={false} active={false} />);
+  expect(mockCanvas).toHaveBeenCalledWith(expect.objectContaining({ animate: false }));
+});
+
+it('cancels the strength tween on unmount', () => {
+  const screen = render(<ThreadAura {...props} />);
   mockCancelAnimation.mockClear();
-
-  // Swipe begins: heroActive becomes false -> quick 140ms fade-out to 0 opacity.
-  screen.rerender(
-    <ThreadAura {...props} anchorId="anchor-1" threadStrength={70} heroActive={false} active={false} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
+  screen.unmount();
   expect(mockCancelAnimation).toHaveBeenCalled();
-  expect(mockTiming).toHaveBeenCalledWith(0, expect.objectContaining({ duration: HOME_AURA_FADE_OUT_MS }));
-
-  // Next hero commits (`anchor-2` with `heroActive: true`) -> cancels fade and blooms new hero.
-  mockTiming.mockClear();
-  mockSequence.mockClear();
-  screen.rerender(
-    <ThreadAura {...props} anchorId="anchor-2" threadStrength={80} heroActive active lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).toHaveBeenCalledTimes(2);
-  expect(lastActivatedRef.current).toBe('anchor-2');
 });
 
-it('respects reduced-motion by bypassing the bloom and transitioning immediately to resting state', () => {
-  const lastActivatedRef = { current: null as string | null };
-  render(
-    <ThreadAura {...props} anchorId="anchor-rm" threadStrength={26} reducedMotion lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).not.toHaveBeenCalled();
-  expect(mockTiming).not.toHaveBeenCalled();
-  expect(lastActivatedRef.current).toBe('anchor-rm');
-});
-
-it('preserves existing Anchor Details glow behavior without running Home hero bloom', () => {
-  render(<ThreadAura {...props} variant="details" threadStrength={80} />);
-  expect(mockSequence).not.toHaveBeenCalled();
-});
-
-it.each([0, null])('never glows at %s strength: no bloom, no renderer, then blooms once real data arrives', value => {
-  const lastActivatedRef = { current: null as string | null };
-  const screen = render(
-    <ThreadAura {...props} anchorId="zero" threadStrength={value} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  expect(mockSequence).not.toHaveBeenCalled();
+it('never glows at zero or unknown strength: no renderer, and it lights once real data arrives', () => {
+  const screen = render(<ThreadAura {...props} anchorId="zero" threadStrength={null} />);
   expect(mockCanvas).not.toHaveBeenCalled();
-  expect(homeAuraEntranceTargets(value).restingOpacity).toBe(0);
+  expect(homeAuraRestingOpacity(null)).toBe(0);
 
-  screen.rerender(
-    <ThreadAura {...props} anchorId="zero" threadStrength={40} lastActivatedAnchorIdRef={lastActivatedRef} />,
-  );
-  if (value === null) {
-    // Unknown data was not consumed as an activation, so the full bloom plays on arrival.
-    expect(mockSequence).toHaveBeenCalledTimes(2);
-  } else {
-    expect(mockSequence).not.toHaveBeenCalled();
-  }
+  screen.rerender(<ThreadAura {...props} anchorId="zero" threadStrength={40} />);
+  expect(mockCanvas).toHaveBeenCalled();
 });
 
 it('Details shows no glow at zero or unknown strength and a 5% stronger glow than Home otherwise', () => {
@@ -241,5 +157,5 @@ it('Details shows no glow at zero or unknown strength and a 5% stronger glow tha
   zero.unmount();
   render(<ThreadAura {...props} variant="details" threadStrength={60} />);
   expect(mockCanvas).toHaveBeenCalled();
-  expect(detailsAuraOpacity(60)).toBeGreaterThan(homeAuraEntranceTargets(60).restingOpacity);
+  expect(detailsAuraOpacity(60)).toBeGreaterThan(homeAuraRestingOpacity(60));
 });

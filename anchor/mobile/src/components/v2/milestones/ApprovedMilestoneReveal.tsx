@@ -1,4 +1,5 @@
 import React, { useId, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, type GProps } from 'react-native-svg';
 import Animated, { Easing, useAnimatedProps, type SharedValue } from 'react-native-reanimated';
 import { APPROVED_MILESTONE_ASSETS, type SvgNode } from '@/milestones/approvedAssets';
@@ -78,6 +79,34 @@ function MotionNode({ node, children, steps, progress, duration, prefix }: {
   return <AnimatedG animatedProps={groupProps}><Component {...attrs} {...(draw ? { strokeDasharray: [draw.length!, draw.length!] } : {})} animatedProps={shapeProps}>{children}</Component></AnimatedG>;
 }
 
+/** Stop closest to the middle of a gradient: the representative solid used where gradients cannot resolve. */
+function gradientSolids(nodes: SvgNode[], out: Record<string, string> = {}) {
+  for (const node of nodes) {
+    if ((node.tag === 'radialGradient' || node.tag === 'linearGradient') && node.attrs.id) {
+      const stops = node.children.filter(c => c.tag === 'stop');
+      const mid = stops.reduce<SvgNode | undefined>((best, s) => !best || Math.abs(Number(s.attrs.offset) - 0.5) < Math.abs(Number(best.attrs.offset) - 0.5) ? s : best, undefined);
+      if (mid?.attrs.stopColor) out[node.attrs.id] = mid.attrs.stopColor;
+    }
+    gradientSolids(node.children, out);
+  }
+  return out;
+}
+
+/** Animated shapes never reference gradients (they render black inside the animated tree); the plate keeps its own. */
+function flattenGradients(node: SvgNode, solids: Record<string, string>): SvgNode {
+  const attrs = Object.fromEntries(Object.entries(node.attrs).map(([key, value]) => [key,
+    value.replace(/^url\(#([^)]*)\)$/, (match, id: string) => solids[id] ?? match)]));
+  return { ...node, attrs, children: node.children.map(child => flattenGradients(child, solids)) };
+}
+
+/** Plain, non-animated rendering for the stable plate layer. */
+function renderStatic(node: SvgNode, prefix: string, index = 0): React.ReactNode {
+  const Component = SVG_COMPONENTS[node.tag];
+  if (!Component) return null;
+  return React.createElement(Component, { ...namespaceSvgAttrs(node.attrs, prefix), key: `${node.attrs.id ?? node.tag}-${index}` },
+    ...node.children.map((child, i) => renderStatic(child, prefix, i)));
+}
+
 function Pulse({ progress, duration, step }: { progress: SharedValue<number>; duration: number; step: MotionStep }) {
   const animatedProps = useAnimatedProps(() => {
     const p = easing.outCubic(unit(progress.value * duration, step.start, step.dur!));
@@ -93,7 +122,17 @@ export function ApprovedMilestoneReveal({ definitionId, size, progress, reducedM
   const asset = APPROVED_MILESTONE_ASSETS[definitionId];
   const prefix = `reveal${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const plan = useMemo(() => asset ? { ...approvedMotion(asset.slug, asset.manifest.family as MotionFamily), duration: approvedMotionDuration(asset) } : undefined, [asset]);
-  if (!asset || !plan) return null;
+  const parts = useMemo(() => {
+    if (!asset) return undefined;
+    const kids = asset.earned.children;
+    const plateId = asset.manifest.layers.find(l => l.layer === 'plate')?.id;
+    const solids = gradientSolids(kids);
+    return {
+      plate: kids.filter(n => n.tag === 'defs' || (plateId !== undefined && n.attrs.id === plateId)),
+      animated: kids.filter(n => !plateId || n.attrs.id !== plateId).map(n => flattenGradients(n, solids)),
+    };
+  }, [asset]);
+  if (!asset || !plan || !parts) return null;
   if (reducedMotion) return <ApprovedMilestoneSvg definitionId={definitionId} state="earned" size={size} testID={testID} />;
   const render = (node: SvgNode, layer = '', siblings: SvgNode[] = []): React.ReactNode => {
     const Component = SVG_COMPONENTS[node.tag];
@@ -110,8 +149,13 @@ export function ApprovedMilestoneReveal({ definitionId, size, progress, reducedM
     return steps.length ? <MotionNode node={node} steps={steps} progress={progress} duration={plan.duration} prefix={prefix}>{children}</MotionNode>
       : <Component {...namespaceSvgAttrs(node.attrs, prefix)}>{children}</Component>;
   };
-  return <Svg width={size} height={size} viewBox="0 0 256 256" testID={testID ?? `approved-reveal-${definitionId}`}>
-    {asset.earned.children.map((node, i) => <React.Fragment key={node.attrs.id ?? i}>{render(node, '', asset.earned.children)}</React.Fragment>)}
-    {plan.steps.filter(s => s.op === 'pulse').map(s => <Pulse key={s.name} progress={progress} duration={plan.duration} step={s} />)}
-  </Svg>;
+  return <View style={{ width: size, height: size }}>
+    <Svg width={size} height={size} viewBox="0 0 256 256" style={StyleSheet.absoluteFill} pointerEvents="none">
+      {parts.plate.map((node, i) => renderStatic(node, `${prefix}plate`, i))}
+    </Svg>
+    <Svg width={size} height={size} viewBox="0 0 256 256" testID={testID ?? `approved-reveal-${definitionId}`}>
+      {parts.animated.map((node, i) => <React.Fragment key={node.attrs.id ?? i}>{render(node, '', parts.animated)}</React.Fragment>)}
+      {plan.steps.filter(s => s.op === 'pulse').map(s => <Pulse key={s.name} progress={progress} duration={plan.duration} step={s} />)}
+    </Svg>
+  </View>;
 }

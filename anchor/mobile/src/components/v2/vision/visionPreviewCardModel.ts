@@ -95,23 +95,81 @@ const PRINT_SLOTS: Record<1 | 2 | 3, VisionPrintSlot[]> = {
   ],
 };
 
-/** Slots for up to three prints; a count above three uses the three-print layout. */
-export function visionPrintSlots(printCount: number): VisionPrintSlot[] {
+/** Share of each side print that stays visible beside the featured print on Home (the featured print covers the rest). */
+export const HOME_SIDE_VISIBLE = 0.68;
+/** How much wider the featured print is than a side print on Home. */
+export const HOME_FEATURED_SCALE = 1.4;
+/** A side print's width as a fraction of the stage, before fitting. */
+const SIDE_WIDTH = 0.3;
+/** Clear space kept between the outermost rotated print and the card's content edge, in points. */
+export const HOME_STAGE_GUTTER = 8;
+
+/** Mount height of a print as a multiple of its width, at the card's window aspect. */
+const printHeightRatio = () => 3 * VISION_PHOTO.sidePadRatio + (1 - 2 * VISION_PHOTO.sidePadRatio) / VISION_PREVIEW_PRINT_ASPECT;
+
+/** Horizontal extent of a tilted print, as a fraction of the stage width: its box plus the corners the tilt swings out. */
+function tiltedHalfWidth(width: number, rotation: number): number {
+  const height = width * printHeightRatio();
+  const radians = Math.abs(rotation) * Math.PI / 180;
+  return (width * Math.cos(radians) + height * Math.sin(radians)) / 2;
+}
+
+/**
+ * Home's spread: positions computed from the card's own width instead of fixed fractions. The side prints are pushed
+ * out until `HOME_SIDE_VISIBLE` of each shows beside the featured print, and the whole group is then fitted inside the
+ * stage (less a gutter) by scaling every print together, so a narrow card shrinks the prints rather than clipping them
+ * or crowding the centre. The featured print stays the largest and in front.
+ */
+export function visionHomePrintSlots(printCount: number, stageWidth: number): VisionPrintSlot[] {
+  const count = Math.min(VISION_PREVIEW_PRINT_LIMIT, Math.max(0, Math.floor(printCount)));
+  if (count === 0) return [];
+  const gutter = Math.min(0.08, HOME_STAGE_GUTTER / Math.max(1, stageWidth));
+  if (count === 1) return [{ x: 0.22, y: 0.05, width: 0.56, rotation: -1.5, zIndex: 3 }];
+  const build = (scale: number): VisionPrintSlot[] => {
+    const s = SIDE_WIDTH * scale, f = s * HOME_FEATURED_SCALE, h = s * (1 - HOME_SIDE_VISIBLE);
+    const ratio = printHeightRatio(), fy = 0.03, dy = (f - s) * ratio / 2;
+    // Left to right: [left side], featured, right side. The side prints are `s - h` wide beyond the featured print.
+    const total = count === 3 ? f + 2 * (s - h) : f + (s - h);
+    const fx = count === 3 ? (1 - total) / 2 + (s - h) : (1 - total) / 2;
+    const featured: VisionPrintSlot = { x: fx, y: fy, width: f, rotation: -2, zIndex: 3 };
+    const right: VisionPrintSlot = { x: fx + f - h, y: fy + dy + f * ratio * 0.03, width: s, rotation: 3, zIndex: 1 };
+    if (count === 2) return [featured, right];
+    return [featured, { x: fx - (s - h), y: fy + dy + f * ratio * 0.04, width: s, rotation: -4, zIndex: 2 }, right];
+  };
+  let scale = 1, slots = build(scale);
+  for (let i = 0; i < 16; i += 1) {
+    const spans = slots.map(visionPrintSpan);
+    const overflow = Math.max(gutter - Math.min(...spans.map(span => span.left)), Math.max(...spans.map(span => span.right)) - (1 - gutter), 0);
+    if (overflow <= 0.0005) break;
+    scale *= Math.max(0.6, 1 - overflow);
+    slots = build(scale);
+  }
+  return slots;
+}
+
+/** Slots for up to three prints; a count above three uses the three-print layout. Given a stage width, Home's spread. */
+export function visionPrintSlots(printCount: number, stageWidth?: number): VisionPrintSlot[] {
+  if (stageWidth !== undefined) return visionHomePrintSlots(printCount, stageWidth);
   const count = Math.min(VISION_PREVIEW_PRINT_LIMIT, Math.max(0, Math.floor(printCount)));
   if (count === 0) return [];
   return PRINT_SLOTS[count as 1 | 2 | 3];
 }
 
-export function visionStageHeight(printCount: number): number {
+export function visionStageHeight(printCount: number, stageWidth?: number): number {
   // Match VisionPhotoArtifact's mount, including the rotated bottom edge. The
   // caption follows this stage in normal flow and must never sit under a print.
-  return Math.max(0, ...visionPrintSlots(printCount).map(slot => {
-    const height = slot.width * (3 * VISION_PHOTO.sidePadRatio
-      + (1 - 2 * VISION_PHOTO.sidePadRatio) / VISION_PREVIEW_PRINT_ASPECT);
+  return Math.max(0, ...visionPrintSlots(printCount, stageWidth).map(slot => {
+    const height = slot.width * printHeightRatio();
     const radians = slot.rotation * Math.PI / 180;
     const rotatedHeight = Math.abs(slot.width * Math.sin(radians)) + Math.abs(height * Math.cos(radians));
     return slot.y + height / 2 + rotatedHeight / 2;
   }));
+}
+
+/** A print's rotated horizontal extent, as fractions of the stage width. For layout checks. */
+export function visionPrintSpan(slot: VisionPrintSlot): { left: number; right: number } {
+  const centre = slot.x + slot.width / 2, half = tiltedHalfWidth(slot.width, slot.rotation);
+  return { left: centre - half, right: centre + half };
 }
 
 /** Collapses whitespace and case so a caption that repeats the intention is recognised. */

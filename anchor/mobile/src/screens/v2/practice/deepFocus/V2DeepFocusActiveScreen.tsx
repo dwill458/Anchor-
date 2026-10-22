@@ -38,7 +38,8 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const reduced = useReduceMotionEnabled();
-  const geometry = resolveFocusSessionGeometry({ width, height, topInset: insets.top, bottomInset: insets.bottom });
+  const isLandscape = width > height;
+  const geometry = resolveFocusSessionGeometry({ width, height, topInset: insets.top, bottomInset: insets.bottom, mode: 'deep_prime' });
   const place = useAnchorTransitionPlace('deepFocusSession', anchor.id, 'dark', { artSize: geometry.anchorSize, plainMark: true });
   useKeepAwake('deep-focus-session');
   // Practice normally permits the iOS edge swipe. An active Deep Focus session
@@ -242,15 +243,33 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
       onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'activate') reveal(); }}>
       <StatusBar barStyle="light-content" />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.black, darknessStyle]} />
-      {phase === 'arrive' && <Animated.View pointerEvents="none" style={[styles.copy, { top: insets.top + 54 }, guidanceStyle]}
+      {phase === 'arrive' && <Animated.View pointerEvents="none"
+        style={[styles.copy, { top: isLandscape ? Math.max(insets.top + 8, 34) : insets.top + 54 }, guidanceStyle]}
         accessibilityElementsHidden={phase !== 'arrive'} importantForAccessibility={phase === 'arrive' ? 'auto' : 'no-hide-descendants'}>
         <Text style={styles.guidance}>Settle your attention.</Text>
       </Animated.View>}
-      {(phase === 'hold' || phase === 'descend') && <Animated.View style={[styles.copy, { top: insets.top + 54, height: Math.max(52, geometry.centerY - geometry.fieldSize / 2 - insets.top - 68) }, intentionStyle]}
+      {(phase === 'hold' || phase === 'descend') && <Animated.View
+        style={[
+          styles.copy,
+          {
+            top: isLandscape ? Math.max(insets.top + 8, 34) : insets.top + 54,
+            height: isLandscape
+              ? Math.min(44, Math.max(26, geometry.centerY - geometry.anchorSize / 2 - Math.max(insets.top + 8, 34) - 4))
+              : Math.max(52, geometry.centerY - geometry.fieldSize / 2 - insets.top - 68),
+          },
+          intentionStyle,
+        ]}
         pointerEvents={phase === 'hold' || phase === 'descend' ? 'auto' : 'none'}
         accessibilityElementsHidden={phase !== 'hold'} importantForAccessibility={phase === 'hold' ? 'auto' : 'no-hide-descendants'}>
         <ScrollView contentContainerStyle={styles.intentionScroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.intention}>{anchor.intentionText}</Text>
+          <Text
+            style={[
+              styles.intention,
+              isLandscape && { maxWidth: Math.min(width - 64, 540), fontSize: 16.5, lineHeight: 22 },
+            ]}
+          >
+            {anchor.intentionText}
+          </Text>
         </ScrollView>
       </Animated.View>}
       <View ref={place.ref} collapsable={false} onLayout={place.onLayout} pointerEvents="none"

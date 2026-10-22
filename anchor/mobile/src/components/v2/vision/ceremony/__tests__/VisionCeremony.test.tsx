@@ -24,8 +24,7 @@ jest.mock('@/hooks/v2/vision/visionPhotoFitProcessing', () => ({
   requestPhotoExpansion: (...args: unknown[]) => mockExpand(...args),
   discardTemporaryPhoto: (...args: unknown[]) => mockDiscard(...args),
 }));
-let mockExamples: Array<{ image: { uri: string }; caption: string; moment: string }> = [];
-jest.mock('../visionExamples', () => ({ ...jest.requireActual('../visionExamples'), visionExamplesFor: () => mockExamples }));
+jest.mock('@/hooks/useAppPerformanceTier', () => ({ useAppPerformanceTier: () => 'high' }));
 
 let mockJob: any = null;
 let mockReduced = false;
@@ -83,7 +82,7 @@ async function seal(view: ReturnType<typeof setup>) {
 
 describe('Vision ceremony', () => {
   beforeEach(() => {
-    jest.useFakeTimers(); jest.clearAllMocks(); mockCeremonyRenders = 0; mockJob = null; mockReduced = false; mockError = null; mockErrorCode = null; mockExamples = [];
+    jest.useFakeTimers(); jest.clearAllMocks(); mockCeremonyRenders = 0; mockJob = null; mockReduced = false; mockError = null; mockErrorCode = null;
     useDevImageModelStore.setState({ anchor: null, vision: null });
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
     (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');
@@ -376,46 +375,26 @@ describe('Vision ceremony', () => {
     expect(taps()).toBe(1);
     fireEvent.press(view.getByTestId('vision-ceremony-keep')); expect(taps()).toBe(2);
   });
-  const example = (i: number) => ({ image: { uri: `file:///example-${i}.webp` }, caption: `Example ${i}`, moment: `Moment ${i}: I am standing in the light, and it is quiet.` });
   const anchorOpacity = (view: ReturnType<typeof setup>) => { const node = view.getByTestId('vision-ceremony-anchor'); return node.props.jestAnimatedStyle?.value?.opacity ?? StyleSheet.flatten(node.props.style).opacity; };
   const soundCalls = (id: string) => (playCreationSound as jest.Mock).mock.calls.filter(([name]) => name === id);
-  it('tapping an example opens Describe from that moment, and generation uses the typed text', async () => {
-    mockExamples = [example(1), example(2), example(3)]; mockJob = job(); const view = setup();
-    fireEvent.press(view.getByLabelText('Start from this example: Example 2')); await advance(ENTRANCE.pickMs + 50);
-    expect(view.getByText(copy.makeItYours)).toBeTruthy(); expect(view.getByText(copy.fromExample)).toBeTruthy(); expect(view.getByTestId('vision-example-thumb')).toBeTruthy();
-    // A bundled picture keeps its own pixel size unless the frame pins it, so it must not overflow the 120pt print.
-    expect(StyleSheet.flatten(view.getByTestId('vision-example-thumb-image').props.style)).toMatchObject({ width: '100%', height: '100%' });
-    expect(StyleSheet.flatten(view.getByTestId('vision-example-thumb').props.style)).toMatchObject({ width: 120 });
-    expect(view.queryByTestId('vision-path-words')).toBeNull();
-    expect(view.getByTestId('vision-prompt-input').props.value).toBe(example(2).moment);
-    fireEvent.changeText(view.getByTestId('vision-prompt-input'), `${example(2).moment} My own details.`);
-    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
-    expect(mockStart).toHaveBeenCalledWith(`${example(2).moment} My own details.`, null);
-    const edited = (AnalyticsService.track as jest.Mock).mock.calls.find(([name]) => name === 'vision_example_edited');
-    expect(edited[1]).toEqual(expect.objectContaining({ anchor_id: 'anchor', index: 1, category: 'custom' }));
-    expect(edited[1].edit_distance_pct).toBeGreaterThan(0); expect(edited[1].edit_distance_pct).toBeLessThan(50);
-  });
-  it('an untouched example reports an edit distance of 0', async () => {
-    mockExamples = [example(1)]; mockJob = job(); const view = setup();
-    fireEvent.press(view.getByLabelText('Start from this example: Example 1')); await advance(ENTRANCE.pickMs + 50);
-    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
-    expect(AnalyticsService.track).toHaveBeenCalledWith('vision_example_edited', { anchor_id: 'anchor', category: 'custom', index: 0, edit_distance_pct: 0 });
+  it('the entrance examples are decoration: nothing on a print starts Describe, and Create My Vision opens it empty', async () => {
+    mockJob = job(); const view = setup();
+    await advance(ENTRANCE.driftAt + 100);
+    expect(view.queryByLabelText(/Start from this example/)).toBeNull(); expect(view.queryByText(/Tap one to start from it/)).toBeNull();
+    expect(view.queryByTestId('vision-prompt-input')).toBeNull();
+    fireEvent.press(view.getByLabelText(copy.createVision));
+    expect(view.getByTestId('vision-prompt-input').props.value).toBe(base.initialDescription);
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('vision_example_picked', expect.anything());
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('vision_example_edited', expect.anything());
   });
   it('Back from Describe shows the entrance at rest without replaying the open', async () => {
-    mockExamples = [example(1), example(2), example(3)]; const view = setup();
+    const view = setup();
     expect(soundCalls('anchorPulse')).toHaveLength(1); expect(soundCalls('formTick')).toHaveLength(3);
     fireEvent.press(view.getByLabelText(copy.createVision)); await advance(2000);
     fireEvent.press(view.getByLabelText('Go back')); await advance(2000);
     expect(view.getByTestId('vision-entrance')).toBeTruthy(); expect(view.queryByTestId('vision-entrance-anchor')).toBeNull();
     expect(soundCalls('anchorPulse')).toHaveLength(1); expect(soundCalls('formTick')).toHaveLength(3);
     expect(anchorOpacity(view)).toBe(1);
-  });
-  it('backing out of an untouched example does not leave its moment as a prefill', async () => {
-    mockExamples = [example(1)]; const view = setup();
-    fireEvent.press(view.getByLabelText('Start from this example: Example 1')); await advance(ENTRANCE.pickMs + 50);
-    fireEvent.press(view.getByLabelText('Go back')); await advance(2000);
-    fireEvent.press(view.getByLabelText(copy.createVision));
-    expect(view.getByTestId('vision-prompt-input').props.value).toBe(base.initialDescription); expect(view.queryByText(copy.makeItYours)).toBeNull();
   });
   it('the persistent Anchor stays hidden during the open and appears when the lift lands', async () => {
     const view = setup({}, false);
@@ -514,7 +493,7 @@ describe('Smart Photo Fit', () => {
     const view = setup(); await pickOne(view);
     expect(view.getByText('Recommended')).toBeTruthy();
     await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); }); await advance(0);
-    expect(mockExpand).toHaveBeenCalledWith(expect.objectContaining({ uri: 'file:///wide.jpg', mimeType: 'image/jpeg' }), { width: 4000, height: 3000 });
+    expect(mockExpand).toHaveBeenCalledWith(expect.objectContaining({ uri: 'file:///wide.jpg', mimeType: 'image/jpeg' }), { width: 4000, height: 3000 }, expect.anything());
     expect(view.getByText('Preview Result')).toBeTruthy(); expect(view.getByText('Original')).toBeTruthy(); expect(view.getByText('AI expanded')).toBeTruthy();
     expect(view.queryByTestId('vision-ceremony-print-0-sharp')).toBeNull();
     fireEvent.press(view.getByTestId('vision-photo-fit-use-expanded')); await advance(0);
@@ -538,7 +517,7 @@ describe('Smart Photo Fit', () => {
     const view = setup(); await pickOne(view);
     await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); });
     expect(view.getByTestId('vision-photo-fit-expanding')).toBeTruthy();
-    fireEvent.press(view.getByTestId('vision-photo-fit-cancel-expand'));
+    fireEvent.press(view.getByTestId('vision-photo-fit-expanding-cancel'));
     expect(view.getByText('Make Your Photo Fit')).toBeTruthy();
     await act(async () => { finish({ ok: true, photo: { uri: 'file:///cache/vision-expanded-9.jpg', mimeType: 'image/jpeg' } }); });
     expect(mockDiscard).toHaveBeenCalledWith('file:///cache/vision-expanded-9.jpg');
@@ -550,8 +529,30 @@ describe('Smart Photo Fit', () => {
     mockExpand.mockResolvedValue({ ok: false, message: 'Expanding with AI is unavailable right now. You can keep or crop your original.' });
     const view = setup(); await pickOne(view);
     await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); }); await advance(0);
-    expect(view.getByText(/unavailable right now/)).toBeTruthy(); expect(view.getByLabelText('Keep original')).toBeTruthy();
+    expect(view.getByText(/unavailable right now/)).toBeTruthy(); expect(view.getByText(/original photo and your draft are safe/)).toBeTruthy();
+    expect(view.getByLabelText('Keep my original instead')).toBeTruthy(); expect(view.getByLabelText('Try again')).toBeTruthy();
     expect(view.queryByTestId('vision-ceremony-print-0-sharp')).toBeNull();
+    // Retry runs it again; a different option returns to the choices with the original intact.
+    mockExpand.mockResolvedValue({ ok: true, photo: { uri: 'file:///cache/vision-expanded-2.jpg', mimeType: 'image/jpeg' } });
+    await act(async () => { fireEvent.press(view.getByLabelText('Try again')); }); await advance(0);
+    expect(mockExpand).toHaveBeenCalledTimes(2); expect(view.getByText('Preview Result')).toBeTruthy();
+  });
+
+  it('cancelling aborts the request, and a cancelled result reports nothing', async () => {
+    mockPhotoSize = { width: 4000, height: 3000 };
+    let signal!: AbortSignal;
+    mockExpand.mockImplementation((_p: unknown, _s: unknown, s: AbortSignal) => { signal = s; return Promise.resolve({ ok: false, message: 'Stopped.', cancelled: true }); });
+    const view = setup(); await pickOne(view);
+    await act(async () => { fireEvent.press(view.getByTestId('vision-photo-fit-continue')); }); await advance(0);
+    expect(signal).toBeDefined(); expect(view.queryByText('Stopped.')).toBeNull();
+  });
+
+  it('recommends fitting on paper, not AI, for a screenshot', async () => {
+    mockPhotoSize = { width: 1170, height: 2532 };
+    mockPicker.mockResolvedValueOnce({ canceled: false, assets: [{ uri: 'file:///shot.png', mimeType: 'image/png', fileName: 'Screenshot_1.png' }] });
+    const view = setup(); await pressOwnPhotos(view); await advance(0);
+    expect(view.getByTestId('vision-photo-fit-text-note')).toBeTruthy(); expect(view.getByLabelText('Fit on paper')).toBeTruthy();
+    expect(view.getByText('Recommended')).toBeTruthy();
   });
 
   it('does not offer expansion when more than 60% of the frame would be invented', async () => {
@@ -655,7 +656,7 @@ describe('Unified composer and prepared requests', () => {
 
 describe('Vision celebration scene', () => {
   beforeEach(() => {
-    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = job(); mockReduced = false; mockError = null; mockErrorCode = null; mockExamples = [];
+    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = job(); mockReduced = false; mockError = null; mockErrorCode = null;
     useCelebrationStore.getState().reset();
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
     (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');
@@ -768,7 +769,7 @@ describe('Vision celebration scene', () => {
 
 describe('Vision double-fire guards', () => {
   beforeEach(() => {
-    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = job(); mockReduced = false; mockError = null; mockErrorCode = null; mockExamples = [];
+    jest.useFakeTimers(); jest.clearAllMocks(); mockJob = job(); mockReduced = false; mockError = null; mockErrorCode = null;
     useCelebrationStore.getState().reset();
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
     (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');

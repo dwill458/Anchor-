@@ -49,6 +49,10 @@ export interface VisionSceneReadModel {
   prompt: string | null;
   /** Absent on responses from servers predating scene captions. */
   caption?: string | null;
+  /** The board slot (0-7) this image sits in. Absent from servers predating slots; the client then places it. */
+  slotIndex?: number | null;
+  /** Where the image sits inside its print, 0..1 along each overflowing axis. Absent when never set. */
+  focal?: { x: number; y: number } | null;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;
@@ -75,6 +79,8 @@ export interface V2VisionTile {
   imageUrl: string | null;
   prompt: string | null;
   caption?: string | null;
+  slotIndex?: number | null;
+  focal?: { x: number; y: number } | null;
   sortOrder: number;
   isHero: boolean;
   sourceType?: VisionSceneSource;

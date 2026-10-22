@@ -82,3 +82,49 @@ export function photoFitExplanation(relation: PhotoRelation): string {
   if (relation === 'taller') return 'This photo is taller than your Vision frame. Choose how you’d like it to appear.';
   return 'This photo already fits your Vision frame.';
 }
+
+/** The neutral paper a photograph is fitted onto: the Vision's own cream, so the print reads as the original on a sheet. */
+export const VISION_FIT_PAPER = '#F4EEE2';
+/** Longest edge of a fitted-on-paper canvas, in pixels: sharp at any board size, small enough to stay out of memory trouble. */
+export const VISION_FIT_MAX_EDGE = 2880;
+
+export type FitCanvas = { canvas: Size; draw: { x: number; y: number; width: number; height: number } };
+
+/**
+ * The target-aspect canvas for fitting the whole photograph onto paper, and where the photograph is drawn on it. The
+ * photograph is never cropped and never stretched: it is scaled uniformly to fit, centred, and the rest is paper.
+ * The canvas is the smallest target-aspect rectangle holding the photograph at its own size, scaled down together if
+ * its longest edge would pass `maxEdge`.
+ */
+export function computeFitCanvas(size: Size, target = VISION_PHOTO_TARGET_ASPECT, maxEdge = VISION_FIT_MAX_EDGE): FitCanvas | null {
+  if (!valid(size)) return null;
+  const aspect = size.width / size.height;
+  let canvasWidth = aspect > target ? size.width : Math.round(size.height * target);
+  let canvasHeight = aspect > target ? Math.round(size.width / target) : size.height;
+  let k = 1;
+  const longest = Math.max(canvasWidth, canvasHeight);
+  if (longest > maxEdge) k = maxEdge / longest;
+  canvasWidth = Math.max(1, Math.round(canvasWidth * k));
+  canvasHeight = Math.max(1, Math.round(canvasHeight * k));
+  const width = Math.min(canvasWidth, Math.round(size.width * k));
+  const height = Math.min(canvasHeight, Math.round(size.height * k));
+  return { canvas: { width: canvasWidth, height: canvasHeight }, draw: { x: Math.round((canvasWidth - width) / 2), y: Math.round((canvasHeight - height) / 2), width, height } };
+}
+
+export type PhotoContentHint = { fileName?: string | null; mimeType?: string | null; size: Size };
+
+/**
+ * A cheap, local guess at whether a picture is mostly lettering (a screenshot, an infographic, a document). It reads only
+ * what the picker already knows: the file name, the file type and the shape. No pixels are read and nothing leaves the
+ * device. Image-generation models invent or garble text at the edges, so for these the paper fit is recommended.
+ * It only ever changes what is suggested; every choice stays available.
+ */
+export function looksTextHeavy({ fileName, mimeType, size }: PhotoContentHint): boolean {
+  if (fileName && /screen[\s_-]?shot|screen[\s_-]?(capture|grab|record)|infograph|\bscan\b|document|receipt|slide/i.test(fileName)) return true;
+  if (!valid(size)) return false;
+  const aspect = size.width / size.height;
+  // Phones save screenshots as PNG at the screen's own tall shape; camera photographs are JPEG or HEIC.
+  if (mimeType?.toLowerCase() === 'image/png' && aspect >= 0.38 && aspect <= 0.64) return true;
+  // Long scrolling captures, infographics and banners.
+  return aspect <= 0.36 || aspect >= 2.4;
+}

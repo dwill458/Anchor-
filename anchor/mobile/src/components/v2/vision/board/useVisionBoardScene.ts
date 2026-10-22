@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import {
-  BOARD_FRAME_KINDS, selectBoardLayout, selectDetailBoardLayout, toSceneRect,
+  BOARD_FRAME_KINDS, selectBoardLayout, selectDetailBoardLayout, selectSlotBoardLayout, toSceneRect,
   type BoardLayout, type SceneRect, type Size,
 } from './visionBoardLayouts';
 import { nextBoardRoster, type BoardRosterEntry } from './visionBoardReorder';
+import { orderFromMap } from './visionBoardSlots';
 
 /** A slot resolved for the UI thread: scene px plus its frame kind as an index into BOARD_FRAME_KINDS. */
 export type BoardSlotRect = SceneRect & { frame: number };
@@ -34,8 +35,12 @@ export function resolveBoardSlots(layout: BoardLayout, scene: Size): BoardSlotRe
  *
  * Photos are never re-mounted for a layout change: the composition changes
  * underneath them and each one travels to its new slot.
+ *
+ * With `slotBoard` (the Vision board), the composition is the fixed eight-slot arrangement and each photograph is in the
+ * slot it was given, so `order` has eight entries (`''` for an empty slot) and nothing is ever re-flowed.
  */
-export function useVisionBoardScene(tiles: readonly V2VisionTile[], scene: Size, initialCameraScale = 1, detail = false) {
+export function useVisionBoardScene(tiles: readonly V2VisionTile[], scene: Size, initialCameraScale = 1, detail = false,
+  slotBoard?: { map: readonly (string | null)[]; heightRatio: number }) {
   const [finishedExits, setFinishedExits] = useState<ReadonlySet<string>>(() => new Set());
   const rosterRef = useRef<BoardRosterEntry<V2VisionTile>[]>([]);
   const roster = useMemo(() => {
@@ -59,9 +64,11 @@ export function useVisionBoardScene(tiles: readonly V2VisionTile[], scene: Size,
     tiles.forEach(tile => seenRef.current!.add(tile.sceneId));
   }, [tiles]);
 
-  const layout = useMemo(() => detail ? selectDetailBoardLayout(tiles.length) : selectBoardLayout(tiles.length), [tiles.length, detail]);
+  const slotMap = slotBoard?.map, slotHeightRatio = slotBoard?.heightRatio;
+  const layout = useMemo(() => slotHeightRatio !== undefined ? selectSlotBoardLayout(slotHeightRatio)
+    : detail ? selectDetailBoardLayout(tiles.length) : selectBoardLayout(tiles.length), [tiles.length, detail, slotHeightRatio]);
   const slotRects = useMemo(() => resolveBoardSlots(layout, scene), [layout, scene]);
-  const order = useMemo(() => tiles.slice(0, layout.photos.length).map(tile => tile.sceneId), [layout.photos.length, tiles]);
+  const order = useMemo(() => slotMap ? orderFromMap(slotMap) : tiles.slice(0, layout.photos.length).map(tile => tile.sceneId), [layout.photos.length, tiles, slotMap]);
 
   const slots = useSharedValue<BoardSlotRect[]>(slotRects);
   const orderValue = useSharedValue<string[]>(order);

@@ -1,5 +1,7 @@
 package com.anchorintentions.app
 
+import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
 import android.os.Build
 import android.os.Bundle
 
@@ -21,6 +23,11 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+
+    val isDev = BuildConfig.DEBUG || (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    if (isDev) {
+      requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
   }
 
   /**

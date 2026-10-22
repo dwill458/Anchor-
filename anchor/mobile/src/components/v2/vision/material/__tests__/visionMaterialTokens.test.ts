@@ -52,7 +52,8 @@ describe('visionMaterialTokens', () => {
 
   it('reuses the registered Vision caption fonts', () => {
     expect(VISION_CAPTION_FONTS).toEqual({
-      handwritten: 'Allison-Regular',
+      handwritten: 'Caveat-SemiBold',
+      script: 'Allison-Regular',
       serif: 'EBGaramond-Regular',
       serifItalic: 'EBGaramond-Italic',
       sans: 'Inter-Regular',

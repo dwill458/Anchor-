@@ -1061,6 +1061,11 @@ model VisionScene {
 
   prompt      String?           @db.Text
   caption     String?           @db.VarChar(80)
+  /// Board slot 0-7. Null until the person (or the client) places the image.
+  slotIndex   Int?              @map("slot_index")
+  /// Where the image sits inside its print, 0..1 along each overflowing axis. Null means automatic.
+  focalX      Float?            @map("focal_x")
+  focalY      Float?            @map("focal_y")
   sortOrder   Int               @default(0) @map("sort_order")
   isArchived  Boolean           @default(false) @map("is_archived")
 

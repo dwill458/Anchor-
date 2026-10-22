@@ -41,6 +41,8 @@ export interface UseV2VisionResult {
   deleteNote: (noteId: string) => Promise<VisionReadModel | null>;
   restoreNote: (noteId: string) => Promise<VisionReadModel | null>;
   updateSceneCaption: (sceneId: string, caption: string | null) => Promise<VisionReadModel | null>;
+  /** Saves a photograph's board slot and framing to the server so they follow the person to other devices. Best effort: the device keeps its own copy. */
+  syncScenePresentation: (sceneId: string, patch: { slotIndex?: number | null; focal?: { x: number; y: number } | null }) => Promise<void>;
   uploadAsset: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
 }
 
@@ -565,6 +567,11 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     }
   }, [anchorId, commitVision, vision?.id]);
 
+  const syncScenePresentation = useCallback(async (sceneId: string, patch: { slotIndex?: number | null; focal?: { x: number; y: number } | null }): Promise<void> => {
+    if (!vision?.id) return;
+    try { await apiClient.patch(`/api/v2/visions/${encodeURIComponent(vision.id)}/scenes/${encodeURIComponent(sceneId)}`, patch); } catch { /* an older server, or offline: this device already has it */ }
+  }, [vision?.id]);
+
   const archiveVision = useCallback(async (): Promise<boolean> => {
     if (!vision?.id) return false;
     try {
@@ -639,6 +646,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     deleteNote,
     restoreNote,
     updateSceneCaption,
+    syncScenePresentation,
     uploadAsset,
   };
 }

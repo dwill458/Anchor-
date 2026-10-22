@@ -35,6 +35,10 @@ export const VOLUME: Record<CreationSoundKey | SoundKey, number> = {
   onboardingSealed: 0.6,
   homeArrival: 0.5,
   visionPin: 0.45,
+  // Locked milestone masters ship at -3 dBFS peak; played at unity, never re-levelled.
+  milestoneT1Quiet: 1,
+  milestoneT2Established: 1,
+  milestoneT3Major: 1,
   'forge-seal': 1,
   'letter-drop': 1,
   'prime-begin': 1,

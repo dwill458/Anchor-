@@ -120,6 +120,7 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
             width={width}
             onWidth={setMeasuredWidth}
             imageTestID={imageTestID}
+            spread={variant === 'home'}
           />
           <View testID={`${testID}-footer`} style={[styles.footer, variant === 'details' ? styles.detailsFooter : null, caption ? styles.footerWithCaption : null]}>
             {/* The vision text sits beside the round control, never under it. */}
@@ -157,13 +158,15 @@ export const VisionPreviewCard = memo(function VisionPreviewCard({
 });
 
 /** The torn-paper backdrop and the taped prints. Nothing is drawn for an empty Vision. */
-const PrintStage = memo(function PrintStage({ testID, photos, photoCount, width, onWidth, imageTestID }: {
+const PrintStage = memo(function PrintStage({ testID, photos, photoCount, width, onWidth, imageTestID, spread }: {
   testID: string; photos: ReturnType<typeof visionPreviewPhotos>; photoCount: number; width: number; onWidth: (width: number) => void; imageTestID?: string;
+  /** Home: print positions follow the stage width and the side prints are spread out beside the featured one. */
+  spread: boolean;
 }) {
   const prints = photos.slice(0, VISION_PREVIEW_PRINT_LIMIT);
   if (!prints.length) return null;
-  const slots = visionPrintSlots(prints.length);
-  const height = visionStageHeight(prints.length) * width;
+  const slots = visionPrintSlots(prints.length, spread ? width : undefined);
+  const height = visionStageHeight(prints.length, spread ? width : undefined) * width;
   return (
     <View testID={`${testID}-stage`} style={{ height }} onLayout={event => onWidth(Math.max(1, event.nativeEvent.layout.width))}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>

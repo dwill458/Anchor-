@@ -19,7 +19,8 @@ import { VISION_GOLD, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { VisionHeaderRow, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { detailBoardSizeForWidth } from './board/visionBoardLayouts';
-import { VisionBoard } from './board/VisionBoard';
+import { useVisionPresentation } from '@/hooks/v2/vision/useVisionPresentation';
+import { VisionBoard, type VisionBoardArrangement } from './board/VisionBoard';
 import { VisionPaperSurface } from './material/VisionPaperSurface';
 import { VisionPhotoCaptionEditor } from './board/VisionPhotoCaptionEditor';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
@@ -38,7 +39,12 @@ type Props = {
   justAdded?: 'create' | 'add';
   arrivingNoteId?: string;
   arrivingSceneId?: string | null;
-  onAddImage?: () => void;
+  /** Opens the add flow. With a target, the new image goes to that exact board position. */
+  onAddImage?: (target?: { slot: number }) => void;
+  /** The Vision's id. With it the board keeps each image in its own position and remembers how each is framed. */
+  visionId?: string | null;
+  /** Pushes a position or framing change to the server. */
+  onSyncPresentation?: (sceneId: string, patch: { slotIndex?: number | null; focal?: { x: number; y: number } | null }) => void;
   anchorIntention: string;
   anchorCategory?: string | null;
   anchorImageUrl?: string | null;
@@ -97,7 +103,7 @@ export function V2SavedVision({
   chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, onUpdateSceneCaption, tiles, notes = [], onNotePresentationChange, onNoteEdit, onNoteDelete, error, initialEdit = false,
   onBack, onShare, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
-  onAddPhoto, onAddGenerate, onAddImage, justAdded, arrivingSceneId, arrivingNoteId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
+  onAddPhoto, onAddGenerate, onAddImage, visionId, onSyncPresentation, justAdded, arrivingSceneId, arrivingNoteId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
 }: Props) {
   const canvasRef = useRef<ViewInstance>(null);
   const canvasCapture = useRef<(() => { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number }) | null>(null);
@@ -219,7 +225,25 @@ export function V2SavedVision({
     else setNotice('Vision could not be updated. Please try again.');
   };
 
+  // The saved arrangement: which of the board's eight positions each image sits in, and how each is framed.
+  const presentation = useVisionPresentation(visionId, boardTiles);
+  const arrangement = useMemo<VisionBoardArrangement | undefined>(() => visionId ? {
+    slotMap: presentation.slotMap,
+    focals: presentation.focals,
+    onArrange: map => {
+      presentation.commitSlotMap(map);
+      map.forEach((id, slot) => { if (id && presentation.slotMap[slot] !== id) onSyncPresentation?.(id, { slotIndex: slot }); });
+      // Home, Visualize and the share image read the saved order; keep it in the board's reading order.
+      reorderRef.current(map.filter((id): id is string => Boolean(id)));
+    },
+    onFocalChange: (sceneId, focal) => { presentation.setFocal(sceneId, focal); onSyncPresentation?.(sceneId, { focal }); },
+  } : undefined, [visionId, presentation.slotMap, presentation.focals, presentation.commitSlotMap, presentation.setFocal]);
+  const reorderRef = useRef<(sceneIds: string[]) => void>(() => undefined);
+
   const reorder = useCallback((sceneIds: string[]) => {
+    const full = [...sceneIds, ...boardTiles.map(tile => tile.sceneId).filter(id => !sceneIds.includes(id))];
+    // An arrangement that leaves the saved order as it is needs no round trip.
+    if (full.join('|') === boardTiles.map(tile => tile.sceneId).join('|')) { setNotice(null); return; }
     const previous = localOrder;
     setLocalOrder(sceneIds);
     setNotice(null);
@@ -229,6 +253,8 @@ export function V2SavedVision({
       setNotice('Image order could not be saved.');
     });
   }, [boardTiles, localOrder, onReorder]);
+
+  reorderRef.current = reorder;
 
   const remove = useCallback((sceneId: string) => {
     if (boardTiles.length <= 1) {
@@ -262,7 +288,7 @@ export function V2SavedVision({
     void onReplace(sceneId).finally(() => { setBusy(false); setReplaceTarget(null); });
   }, [boardTiles, onReplace, tiles]);
 
-  const addImage = useCallback(() => (onAddImage ?? onAddGenerate)(), [onAddImage, onAddGenerate]);
+  const addImage = useCallback((target?: { slot: number }) => (onAddImage ? onAddImage(target) : onAddGenerate()), [onAddImage, onAddGenerate]);
   // Add opens the existing Ask entrance so note entry sits alongside the image paths.
   const closeAddSheet = useCallback(() => setAddSheetOpen(false), []);
   const chooseAdd = useCallback((choice: VisionAddChoice) => {
@@ -342,6 +368,8 @@ export function V2SavedVision({
                   onRemove={remove}
                   onEditVision={() => setMode('edit')}
                   onReorder={reorder}
+                  arrangement={arrangement}
+                  onReplace={arrangement ? onReplace : undefined}
                   onAddImage={addImage}
                   onDragActive={setDragging}
                 /></View>

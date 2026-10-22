@@ -5,7 +5,8 @@ import Svg, { Circle, Defs, RadialGradient, Rect, Stop } from 'react-native-svg'
 import { ArrowLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CircularAnchorRenderer } from '@/components/v2/anchor';
-import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { useV2ReduceMotion } from '@/hooks/v2';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
 import type { AnchorCategory } from '@/types';
@@ -14,16 +15,23 @@ import { VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from '../VisionPaperCh
 import { CEREMONY, ceremonyDuration } from './VisionDevelop';
 import { VisionPrint, VisionPrintSlot, type PrintPlacement } from './VisionPrint';
 import { visionCeremonyCopy as copy } from './visionCeremonyCopy';
-import { visionExamplesFor, type VisionExample } from './visionExamples';
+import { VISION_ENTRANCE_EXAMPLES, type VisionEntranceExample } from './visionEntranceExamples';
+import { VisionEntrancePolaroid } from './VisionEntrancePolaroid';
 
-/** Every duration of the open, in ms from mount, in one place. */
+/**
+ * Every duration of the open, in ms from mount, in one place. The three prints each take `spawnMs` to settle into the
+ * fan, one `spawnStagger` after the last, and the Anchor's lift is what starts them.
+ */
 export const ENTRANCE = {
   anchorAt: 250, anchorMs: 1000, ringMs: 1100, liftAt: 1550, liftMs: 1000, ringFadeMs: 500,
-  spawnMs: 1050, spawnStagger: 120, printFadeMs: 500, tickAt: 2050, developAt: 2050, developStagger: 160, developMs: 2400,
-  headAt: 1900, headMs: 700, headRise: 10, ctaAt: 2150, ctaMs: 700, ctaRise: 14, hintAt: 2450, hintMs: 600, driftAt: 3600,
-  pickMs: 900, leaveMs: 300, handoffOverlapMs: 600,
-  anchorBig: 176, ringGap: 14, captionStrip: 52, spawnTy: -130, spawnScale: 0.28, footerGap: 34, footerHeight: 104,
+  spawnMs: 420, spawnStagger: 110, printFadeMs: 260, tickAt: 1550,
+  headAt: 1900, headMs: 700, headRise: 10, ctaAt: 2150, ctaMs: 700, ctaRise: 14, hintAt: 2450, hintMs: 600, driftAt: 3000,
+  leaveMs: 300, handoffOverlapMs: 600,
+  anchorBig: 176, ringGap: 14, spawnRise: 26, spawnScale: 0.94, footerGap: 34, footerHeight: 104,
+  /** Height of a print as a multiple of its width: the polaroid material's 600 x 720 art. */
+  printRatio: 1.2,
 } as const;
+
 const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 const TRANSFORM_ORIGIN = '50% 120%';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -40,6 +48,15 @@ export function fanSlot(position: FanPosition, width: number): FanSlot {
     case 'twoL': return { tx: -width * 0.3, ty: 8, rot: -6, scale: 0.94, z: 30, dropRot: -12, drift: side(-1, 7000) };
     case 'twoR': return { tx: width * 0.3, ty: 8, rot: 6, scale: 0.94, z: 31, dropRot: 12, drift: side(1, 8000) };
     default: return { tx: 0, ty: 0, rot: 0, scale: 1, z: 32, dropRot: 0, drift: { dx: 0, dy: -4, dr: 0.6, ms: 6000 } };
+  }
+}
+
+/** The order the prints come out in: the centre print first, then the fan opens to either side behind it. */
+export function emergeRank(position: FanPosition): number {
+  switch (position) {
+    case 'center': return 0;
+    case 'left': case 'twoL': return 1;
+    default: return 2;
   }
 }
 
@@ -62,9 +79,9 @@ export function entranceLayout({ width, anchorBottom, footerTop, positions }: { 
   let top = anchorBottom + 128;
   const HINT_H = 16, GAP = 16;
   const widest = Math.min(width * 0.44, 170);
-  let W = widest, H = W * 244 / 170, hintTop = 0;
+  let W = widest, H = W * ENTRANCE.printRatio, hintTop = 0;
   for (let w = Math.floor(widest); w >= 84; w -= 1) {
-    W = w; H = W * 244 / 170;
+    W = w; H = W * ENTRANCE.printRatio;
     hintTop = Math.max(...positions.map(position => printBottom(W, H, top, fanSlot(position, W)))) + GAP;
     if (hintTop + HINT_H + GAP <= footerTop) break;
   }
@@ -80,19 +97,22 @@ export function entranceLayout({ width, anchorBottom, footerTop, positions }: { 
 }
 
 type FanItem =
-  | { kind: 'example'; position: FanPosition; example: VisionExample; exampleIndex: number }
+  | { kind: 'example'; position: FanPosition; example: VisionEntranceExample }
   | { kind: 'yours'; position: FanPosition; uri: string; caption: string }
   | { kind: 'empty'; position: FanPosition; text: string };
 
-function fanItems(mode: 'create' | 'add', examples: VisionExample[], previewImageUrl: string | null | undefined, previewCaption: string): FanItem[] {
+const EXAMPLE_POSITIONS: readonly FanPosition[] = ['left', 'center', 'right'];
+
+/** Create: the three example prints. Add: the newest board print on the left, an empty frame, one example on the right. */
+function fanItems(mode: 'create' | 'add', previewImageUrl: string | null | undefined, previewCaption: string): FanItem[] {
   if (mode === 'add' && previewImageUrl) {
-    const items: FanItem[] = [{ kind: 'yours', position: 'left', uri: previewImageUrl, caption: previewCaption }, { kind: 'empty', position: 'center', text: copy.whatElse }];
-    if (examples[0]) items.push({ kind: 'example', position: 'right', example: examples[0], exampleIndex: 0 });
-    return items;
+    return [
+      { kind: 'yours', position: 'left', uri: previewImageUrl, caption: previewCaption },
+      { kind: 'empty', position: 'center', text: copy.whatElse },
+      { kind: 'example', position: 'right', example: VISION_ENTRANCE_EXAMPLES[2] },
+    ];
   }
-  if (!examples.length) return [{ kind: 'empty', position: 'center', text: copy.whatSee }];
-  const positions: FanPosition[] = examples.length === 1 ? ['center'] : examples.length === 2 ? ['twoL', 'twoR'] : ['left', 'center', 'right'];
-  return examples.map((example, exampleIndex) => ({ kind: 'example', position: positions[exampleIndex], example, exampleIndex }));
+  return VISION_ENTRANCE_EXAMPLES.map((example, index) => ({ kind: 'example', position: EXAMPLE_POSITIONS[index], example }));
 }
 
 export interface VisionEntranceProps {
@@ -107,10 +127,8 @@ export interface VisionEntranceProps {
   firstRun: boolean;
   /** The app is in the foreground. Drift and the open's sounds pause when it is not. */
   active?: boolean;
-  /** Why a photo could not be picked; replaces the hint while it is showing. */
+  /** Why a photo could not be picked; shown under the prints while it applies. */
   notice?: string | null;
-  onPickExample: (example: VisionExample, index: number) => void;
-  onPickEmpty: () => void;
   /** Opens the unified composer (photo, words or voice). */
   onWords: () => void;
   /** False at the existing per-Vision image limit. */
@@ -122,13 +140,13 @@ export interface VisionEntranceProps {
   onAnchorHandoff?: () => void;
 }
 
-/** Fades a block in on its own schedule, and out together with the rest when a print is picked. */
-function useReveal(open: boolean, delay: number, ms: number, rise: number, fadeMs: number, leave: { value: number }) {
+/** Fades a block in on its own schedule. */
+function useReveal(open: boolean, delay: number, ms: number, rise: number, fadeMs: number) {
   const shown = useSharedValue(0);
   useEffect(() => {
     shown.value = withDelay(open ? delay : 0, withTiming(1, { duration: open ? ms : fadeMs, easing: EASE }));
   }, []);
-  return useAnimatedStyle(() => ({ opacity: shown.value * (1 - leave.value), transform: [{ translateY: (1 - shown.value) * (open ? rise : 0) }] }));
+  return useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ translateY: (1 - shown.value) * (open ? rise : 0) }] }));
 }
 
 function Pin() {
@@ -139,58 +157,53 @@ function Pin() {
 
 interface FanPrintProps {
   item: FanItem; index: number; W: number; H: number; left: number; top: number;
-  open: boolean; fadeMs: number; reduced: boolean; active: boolean;
-  /** Index of the print the person picked, or null. */
-  picking: number | null; drifting: boolean; interactive: boolean; onPress: (index: number) => void;
+  open: boolean; fadeMs: number; active: boolean; drifting: boolean;
 }
 
-function FanPrint({ item, index, W, H, left, top, open, fadeMs, reduced, active, picking, drifting, interactive, onPress }: FanPrintProps) {
+/**
+ * One print of the fan. It is decoration only: it has no press handler and is hidden from accessibility. A single
+ * 0..1 progress drives it on the UI thread: it rises out from behind the centre print, opens to its tilt and fades in,
+ * all with transform and opacity, so nothing re-lays out while it moves.
+ */
+function FanPrint({ item, index, W, H, left, top, open, fadeMs, active, drifting }: FanPrintProps) {
   const slot = fanSlot(item.position, W);
+  const rank = emergeRank(item.position);
   const rest = useSharedValue<FanSlot>(slot);
-  const spawn = useSharedValue(open ? 0 : 1), shown = useSharedValue(0), pick = useSharedValue(0), pickRole = useSharedValue(0), drift = useSharedValue(0);
+  const spawn = useSharedValue(open ? 0 : 1), shown = useSharedValue(0), drift = useSharedValue(0);
   useEffect(() => { rest.value = slot; }, [slot.tx, slot.ty, slot.rot, slot.scale]);
   useEffect(() => {
-    const delay = open ? ENTRANCE.liftAt + ENTRANCE.spawnStagger * index : 0;
+    const delay = open ? ENTRANCE.liftAt + ENTRANCE.spawnStagger * rank : 0;
     if (open) spawn.value = withDelay(delay, withTiming(1, { duration: ENTRANCE.spawnMs, easing: EASE }));
-    shown.value = withDelay(delay, withTiming(1, { duration: open ? ENTRANCE.printFadeMs : fadeMs }));
+    shown.value = withDelay(delay, withTiming(1, { duration: open ? ENTRANCE.printFadeMs : fadeMs, easing: Easing.out(Easing.quad) }));
   }, []);
   useEffect(() => {
-    if (picking === null) return;
-    const ms = ceremonyDuration(ENTRANCE.pickMs, reduced);
-    pickRole.value = picking === index ? 1 : -1;
-    pick.value = withTiming(1, { duration: ms, easing: EASE });
-    if (picking !== index) shown.value = withTiming(0, { duration: ms });
-  }, [picking]);
-  useEffect(() => {
-    if (!drifting || !active || reduced) { cancelAnimation(drift); return; }
+    if (!drifting || !active) { cancelAnimation(drift); return; }
     drift.value = withRepeat(withTiming(1, { duration: slot.drift.ms / 2, easing: Easing.inOut(Easing.sin) }), -1, true);
     return () => cancelAnimation(drift);
-  }, [drifting, active, reduced]);
+  }, [drifting, active]);
   const style = useAnimatedStyle(() => {
-    const r = rest.value, k = spawn.value, q = pick.value, d = drift.value, role = pickRole.value;
-    const tx = r.tx * k + r.drift.dx * d, ty = ENTRANCE.spawnTy + (r.ty - ENTRANCE.spawnTy) * k + r.drift.dy * d;
-    const rot = r.rot * k + r.drift.dr * d, scale = ENTRANCE.spawnScale + (r.scale - ENTRANCE.spawnScale) * k;
-    const to = role === 1 ? { tx: 0, ty: -60, rot: 0, scale: 1.18 } : { tx: r.tx, ty: r.ty + 420, rot: r.rot + r.dropRot, scale: 0.8 };
-    const mix = role === 0 ? 0 : q;
-    return { opacity: shown.value, transform: [{ translateX: tx + (to.tx - tx) * mix }, { translateY: ty + (to.ty - ty) * mix },
-      { rotate: `${rot + (to.rot - rot) * mix}deg` }, { scale: scale + (to.scale - scale) * mix }] };
+    const r = rest.value, k = spawn.value, d = drift.value;
+    return { opacity: shown.value, transform: [
+      { translateX: r.tx * k + r.drift.dx * d },
+      { translateY: r.ty + ENTRANCE.spawnRise * (1 - k) + r.drift.dy * d },
+      { rotate: `${r.rot * k + r.drift.dr * d}deg` },
+      { scale: r.scale * (ENTRANCE.spawnScale + (1 - ENTRANCE.spawnScale) * k) },
+    ] };
   });
-  const z = picking === index ? 40 : slot.z;
   const caption = item.kind === 'example' ? item.example.caption : item.kind === 'yours' ? item.caption : '';
-  const pressable = item.kind !== 'yours';
-  const label = item.kind === 'empty' ? item.text : `Start from this example: ${caption}`;
-  return <VisionPrintSlot placement={{ x: left, y: top, width: W, height: H }} zIndex={z} testID={`vision-entrance-slot-${index}`}>
-    <Animated.View style={[styles.fill, { transformOrigin: TRANSFORM_ORIGIN }, style]}>
-      <VisionPrint testID={`vision-entrance-print-${index}`} developing={false} revealed active={active} pinned={false} silent
-        {...(item.kind === 'example' ? { source: item.example.image } : item.kind === 'yours' ? { uri: item.uri } : {})}
-        empty={item.kind === 'empty'} opaque={item.kind === 'empty'} showCaption={item.kind !== 'empty'} caption={caption}
-        label={item.kind === 'example' ? copy.exampleLabel : item.kind === 'yours' ? copy.yoursLabel : undefined}
-        captionStripPts={ENTRANCE.captionStrip} revealMs={ENTRANCE.developMs}
-        revealDelayMs={open ? ENTRANCE.developAt + ENTRANCE.developStagger * index : 0} instant={item.kind === 'yours' || !open} />
-      {item.kind === 'empty' ? <View pointerEvents="none" style={styles.emptyCenter}><Text style={styles.emptyText}>{item.text}</Text></View> : null}
+  return <VisionPrintSlot placement={{ x: left, y: top, width: W, height: H }} zIndex={slot.z} testID={`vision-entrance-slot-${index}`}>
+    <Animated.View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden
+      style={[styles.fill, { transformOrigin: TRANSFORM_ORIGIN }, style]}>
+      {item.kind === 'empty'
+        ? <>
+          <VisionPrint testID={`vision-entrance-print-${index}`} developing={false} revealed active={active} pinned={false} silent empty opaque showCaption={false} caption="" instant />
+          <View pointerEvents="none" style={styles.emptyCenter}><Text style={styles.emptyText}>{item.text}</Text></View>
+        </>
+        : <VisionEntrancePolaroid testID={`vision-entrance-print-${index}`} width={W} height={H} caption={caption}
+          {...(item.kind === 'example'
+            ? { source: item.example.image, sourceSize: item.example.size, frame: item.example.frame }
+            : { source: { uri: item.uri }, sourceSize: { width: 4, height: 5 }, frame: 'classic' as const })} />}
       {item.kind === 'yours' ? <Pin /> : null}
-      {pressable ? <Pressable testID={`vision-entrance-pick-${index}`} accessibilityRole="button" accessibilityLabel={label} disabled={!interactive || picking !== null}
-        onPress={() => onPress(index)} style={styles.fill} /> : null}
     </Animated.View>
   </VisionPrintSlot>;
 }
@@ -223,20 +236,20 @@ function OpeningAnchor({ anchorArt, target, width, height }: { anchorArt?: Visio
 }
 
 /**
- * The Ask beat: pictures first. The person's anchor opens the screen and lifts, three example prints for its
- * category fan out beneath it and develop, and tapping one starts Describe from that moment. A single call to
- * action opens the composer, where a photo, words or voice can all start the Vision.
+ * The Ask beat: pictures first. The person's anchor opens the screen and lifts, three example prints fan out
+ * beneath it, and one call to action opens the composer, where a photo, words or voice start the Vision. The prints
+ * only show what a finished Vision can hold: they cannot be tapped and start nothing.
  */
 export function VisionEntrance({ mode, anchorId, category, anchorArt, previewImageUrl, previewCaption, firstRun, active = true, notice,
-  onPickExample, onPickEmpty, onWords, canAddImage = true, onBack, anchorTarget, onAnchorHandoff }: VisionEntranceProps) {
+  onWords, canAddImage = true, onBack, anchorTarget, onAnchorHandoff }: VisionEntranceProps) {
   const { width, height } = useWindowDimensions(), insets = useSafeAreaInsets();
   const reduced = useV2ReduceMotion();
+  const tier = useAppPerformanceTier();
   const [open] = useState(() => firstRun && !reduced), [first] = useState(firstRun);
   const fadeMs = ceremonyDuration(CEREMONY.stageFadeMs, reduced);
   const [interactive, setInteractive] = useState(!open), [drifting, setDrifting] = useState(false);
-  const [picking, setPicking] = useState<number | null>(null), [anchorGone, setAnchorGone] = useState(!open);
-  const examples = useMemo(() => visionExamplesFor(category), [category]);
-  const items = useMemo(() => fanItems(mode, examples, previewImageUrl, previewCaption?.trim() || ''), [mode, examples, previewImageUrl, previewCaption]);
+  const [anchorGone, setAnchorGone] = useState(!open);
+  const items = useMemo(() => fanItems(mode, previewImageUrl, previewCaption?.trim() || ''), [mode, previewImageUrl, previewCaption]);
   const shown = items.filter(item => item.kind === 'example').length;
   const footerHeight = ENTRANCE.footerHeight;
   const footerTop = height - insets.bottom - ENTRANCE.footerGap - footerHeight;
@@ -248,35 +261,27 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
     const timer = setTimeout(() => { timers.current.delete(timer); callback(); }, ms);
     timers.current.add(timer);
   };
-  const leave = useSharedValue(0);
-  const headStyle = useReveal(open, ENTRANCE.headAt, ENTRANCE.headMs, ENTRANCE.headRise, fadeMs, leave);
-  const hintStyle = useReveal(open, ENTRANCE.hintAt, ENTRANCE.hintMs, 0, fadeMs, leave);
-  const ctaStyle = useReveal(open, ENTRANCE.ctaAt, ENTRANCE.ctaMs, ENTRANCE.ctaRise, fadeMs, leave);
+  // Drift is a slow idle sway: skipped for Reduce Motion (the open is skipped too) and on low-tier devices.
+  const mayDrift = !reduced && tier !== 'low';
+  const headStyle = useReveal(open, ENTRANCE.headAt, ENTRANCE.headMs, ENTRANCE.headRise, fadeMs);
+  const hintStyle = useReveal(open, ENTRANCE.hintAt, ENTRANCE.hintMs, 0, fadeMs);
+  const ctaStyle = useReveal(open, ENTRANCE.ctaAt, ENTRANCE.ctaMs, ENTRANCE.ctaRise, fadeMs);
 
   useEffect(() => {
-    AnalyticsService.track('vision_entrance_viewed', { anchor_id: anchorId, mode, category, examples_shown: mode === 'add' && previewImageUrl ? Math.min(1, shown) : shown, first_run: first });
-    if (!open) { later(() => { if (!stopped.current) setDrifting(true); }, fadeMs); return () => timers.current.forEach(clearTimeout); }
+    AnalyticsService.track('vision_entrance_viewed', { anchor_id: anchorId, mode, category, examples_shown: shown, first_run: first });
+    if (!open) { later(() => { if (!stopped.current && mayDrift) setDrifting(true); }, fadeMs); return () => timers.current.forEach(clearTimeout); }
     const sound = (id: 'anchorPulse' | 'formTick', volume: number) => { if (!stopped.current && activeRef.current) playCreationSound(id, volume); };
     later(() => sound('anchorPulse', 0.35), ENTRANCE.anchorAt);
-    items.forEach((_, i) => later(() => sound('formTick', 0.18), ENTRANCE.tickAt + ENTRANCE.spawnStagger * i));
+    items.forEach((item, i) => later(() => sound('formTick', 0.18), ENTRANCE.tickAt + ENTRANCE.spawnStagger * emergeRank(item.position)));
     later(() => setInteractive(true), ENTRANCE.ctaAt);
     later(() => { handoff.current?.(); later(() => setAnchorGone(true), ENTRANCE.handoffOverlapMs); }, ENTRANCE.liftAt + ENTRANCE.liftMs);
-    later(() => { if (!stopped.current) setDrifting(true); }, ENTRANCE.driftAt);
+    later(() => { if (!stopped.current && mayDrift) setDrifting(true); }, ENTRANCE.driftAt);
     return () => timers.current.forEach(clearTimeout);
   }, []);
 
   const stop = () => { stopped.current = true; setDrifting(false); };
-  const choosePrint = (index: number) => {
-    const item = items[index];
-    if (!interactive || picking !== null || !canAddImage || !item || item.kind === 'yours') return;
-    stop(); setPicking(index); void v2Haptics.selection(); playCreationSound('revealSettle');
-    if (item.kind === 'example') AnalyticsService.track('vision_example_picked', { anchor_id: anchorId, mode, category, index: item.exampleIndex });
-    leave.value = withTiming(1, { duration: ENTRANCE.leaveMs });
-    later(() => { if (item.kind === 'example') onPickExample(item.example, item.exampleIndex); else onPickEmpty(); }, ceremonyDuration(ENTRANCE.pickMs, reduced));
-  };
-  const press = (action: () => void, requiresImage = false) => () => { if (!interactive || picking !== null || (requiresImage && !canAddImage)) return; stop(); playCreationSound('uiTap'); action(); };
-  const hint = notice ?? (!canAddImage ? 'This Vision is full. Remove an image to add another.'
-    : shown ? (mode === 'add' && previewImageUrl ? copy.hintAdd : copy.hintCreate) : null);
+  const press = (action: () => void, requiresImage = false) => () => { if (!interactive || (requiresImage && !canAddImage)) return; stop(); playCreationSound('uiTap'); action(); };
+  const hint = notice ?? (!canAddImage ? 'This Vision is full. Remove an image to add another.' : null);
 
   return <Animated.View testID="vision-entrance" pointerEvents="box-none" exiting={FadeOut.duration(fadeMs)} style={styles.fill}>
     <Svg pointerEvents="none" width={width} height={height} style={styles.fill}><Defs><RadialGradient id="entrance-vignette" cx="50%" cy="42%" rx="80%" ry="55%" fx="50%" fy="42%">
@@ -288,10 +293,10 @@ export function VisionEntrance({ mode, anchorId, category, anchorArt, previewIma
       <Text accessibilityRole="header" numberOfLines={2} style={styles.title}>{mode === 'create' ? copy.askCreate : copy.askAdd}</Text>
     </Animated.View>
     {items.map((item, index) => <FanPrint key={`${item.kind}-${index}`} item={item} index={index} W={layout.W} H={layout.H} left={layout.left} top={layout.top}
-      open={open} fadeMs={fadeMs} reduced={reduced} active={active} picking={picking} drifting={drifting} interactive={interactive && canAddImage} onPress={choosePrint} />)}
+      open={open} fadeMs={fadeMs} active={active} drifting={drifting} />)}
     {hint ? <Animated.View pointerEvents="none" style={[styles.hintWrap, { top: layout.hintTop }, hintStyle]}>
       <Text accessibilityLiveRegion={notice ? 'polite' : undefined} style={[styles.hint, notice ? styles.notice : null]}>{hint}</Text></Animated.View> : null}
-    <Animated.View pointerEvents={interactive && picking === null ? 'box-none' : 'none'} style={[styles.footer, { bottom: insets.bottom + ENTRANCE.footerGap }, ctaStyle]}>
+    <Animated.View pointerEvents={interactive ? 'box-none' : 'none'} style={[styles.footer, { bottom: insets.bottom + ENTRANCE.footerGap }, ctaStyle]}>
       <Pressable testID="vision-entrance-cta" accessibilityRole="button" accessibilityLabel={mode === 'create' ? copy.createVision : copy.addScene}
         accessibilityState={{ disabled: !canAddImage }} disabled={!canAddImage} onPress={press(onWords, true)} style={[styles.button, !canAddImage && styles.disabled]}>
         <Text style={styles.buttonText}>{mode === 'create' ? copy.createVision : copy.addScene}</Text>

@@ -5,14 +5,14 @@ describe('useRequiredLocalHydrationGuard', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
-  it('keeps startup recoverable when required stores finish before ten seconds', () => {
+  it('keeps startup recoverable when required stores finish before the timeout', () => {
     const { result, rerender, unmount } = renderHook(
       ({ anchorsHydrated, firstRunHydrated }) =>
         useRequiredLocalHydrationGuard({ anchorsHydrated, firstRunHydrated }),
       { initialProps: { anchorsHydrated: false, firstRunHydrated: false } },
     );
 
-    act(() => jest.advanceTimersByTime(9000));
+    act(() => jest.advanceTimersByTime(REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS - 1000));
     expect(result.current).toBe(false);
 
     rerender({ anchorsHydrated: true, firstRunHydrated: true });
@@ -22,14 +22,14 @@ describe('useRequiredLocalHydrationGuard', () => {
     unmount();
   });
 
-  it('does not extend the remaining store deadline when the other store hydrates at nine seconds', () => {
+  it('does not extend the remaining store deadline when the other store hydrates one second early', () => {
     const { result, rerender, unmount } = renderHook(
       ({ anchorsHydrated, firstRunHydrated }) =>
         useRequiredLocalHydrationGuard({ anchorsHydrated, firstRunHydrated }),
       { initialProps: { anchorsHydrated: false, firstRunHydrated: false } },
     );
 
-    act(() => jest.advanceTimersByTime(9000));
+    act(() => jest.advanceTimersByTime(REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS - 1000));
     rerender({ anchorsHydrated: false, firstRunHydrated: true });
     expect(result.current).toBe(false);
 
@@ -42,7 +42,7 @@ describe('useRequiredLocalHydrationGuard', () => {
   });
 
   it.each(['anchorsHydrated', 'firstRunHydrated'] as const)(
-    'fails closed after ten seconds when %s stays unresolved',
+    'fails closed at the timeout when %s stays unresolved',
     (unresolvedStore) => {
       const hydration: { anchorsHydrated: boolean; firstRunHydrated: boolean } = {
         anchorsHydrated: true,
@@ -51,10 +51,10 @@ describe('useRequiredLocalHydrationGuard', () => {
       hydration[unresolvedStore] = false;
       const { result, unmount } = renderHook(() => useRequiredLocalHydrationGuard(hydration));
 
-      act(() => jest.advanceTimersByTime(9000));
+      act(() => jest.advanceTimersByTime(REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS - 1000));
       expect(result.current).toBe(false);
 
-      act(() => jest.advanceTimersByTime(1001));
+      act(() => jest.advanceTimersByTime(1000));
       expect(result.current).toBe(true);
       unmount();
     },

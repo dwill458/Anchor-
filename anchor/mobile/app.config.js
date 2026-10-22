@@ -1,7 +1,15 @@
 // SQLCipher is a native/runtime change. This cohort cannot receive runtime-2.0 OTAs.
 const staticConfig = require('./app.json').expo;
 module.exports = ({ config = staticConfig } = {}) => {
-  const base = config;
+  const isProductionCohort = process.env.ANCHOR_SQLCIPHER_OWNER_PILOT === '1' ||
+                             process.env.APP_ENV === 'production' ||
+                             process.env.EXPO_PUBLIC_APP_ENV === 'production' ||
+                             process.env.EAS_BUILD_PROFILE === 'production';
+  // Allow landscape in development and QA cohorts; keep portrait strictly locked in production.
+  const base = {
+    ...config,
+    orientation: isProductionCohort ? 'portrait' : 'default',
+  };
   // SDK 58 QA uses its own package/runtime and compiles SQLCipher. This test
   // identity is distinct from both public Anchor and the working SQLCipher QA app.
   if (process.env.ANCHOR_EXPO58_QA === '1') {

@@ -48,14 +48,14 @@ describe('MilestoneCelebrationScene', () => {
     expect(mockHaptic).toHaveBeenCalledTimes(1);
     expect(mockHaptic).toHaveBeenCalledWith('completion');
     expect(mockSound).toHaveBeenCalledTimes(1);
-    expect(mockSound).toHaveBeenCalledWith('bloom');
+    expect(mockSound).toHaveBeenCalledWith('milestoneT2Established');
   });
 
   it('uses the registry’s own haptic and sound per family', () => {
     render(<MilestoneCelebrationScene record={rec('commitment.practices.1')} mode="award" onContinue={jest.fn()} />);
     act(() => jest.advanceTimersByTime(2000));
     expect(mockHaptic).toHaveBeenCalledWith('confirmation');
-    expect(mockSound).toHaveBeenCalledWith('practiceComplete');
+    expect(mockSound).toHaveBeenCalledWith('milestoneT1Quiet');
   });
 
   it('still shows everything under Reduce Motion', () => {
@@ -109,12 +109,12 @@ describe('MilestoneCelebrationScene', () => {
     expect(view.getByTestId('milestone-artwork-earned')).toBeTruthy();
   });
 
-  it.each(['strength.building', 'commitment.practices.1', 'journey.goal', 'vision.first'])('holds exact static artwork after the finite %s reveal', definitionId => {
+  it.each(['strength.building', 'commitment.practices.1', 'journey.goal', 'vision.first'])('keeps one stable artwork tree mounted through the finite %s reveal', definitionId => {
     const view = render(<MilestoneCelebrationScene record={rec(definitionId)} mode="replay" onContinue={jest.fn()} />);
     expect(view.getByTestId(`approved-reveal-${definitionId}`)).toBeTruthy();
     act(() => jest.advanceTimersByTime(approvedMotionDuration(APPROVED_MILESTONE_ASSETS[definitionId])));
-    expect(view.queryByTestId(`approved-reveal-${definitionId}`)).toBeNull();
-    expect(view.getByTestId('milestone-artwork-earned')).toBeTruthy();
+    // No renderer swap at settle: the same animated tree stays mounted, holding its final values.
+    expect(view.getByTestId(`approved-reveal-${definitionId}`)).toBeTruthy();
     expect(view.queryByTestId('milestone-light-stream')).toBeNull();
   });
 

@@ -7,6 +7,7 @@ import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchor
 import type { V2HomeAnchorSummary } from '@/adapters/v2/home';
 import { v2Haptics } from '@/hooks/v2';
 import { AnchorMotion } from '@/theme/v2';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { VisualProfiler } from '@/utils/visualProfiler';
 
 export const HERO_ANCHOR_SIZE = 154;
@@ -27,6 +28,13 @@ export type CarouselSlot = -1 | 0 | 1;
 type TrackPosition = -2 | -1 | 0 | 1 | 2;
 /** Render order: the centre goes last so it sits above its neighbours. */
 const TRACK_POSITIONS: TrackPosition[] = [-2, 2, -1, 1, 0];
+/**
+ * Low tier mounts only the visible three. The outer pair sits more than one slot out, so it is never
+ * on screen at rest and is still beyond the edge mid-swipe. Dropping it saves two artwork and glow
+ * layers on constrained devices. Each Anchor mounts one step before it can be seen, so the artwork
+ * has room to decode before it reaches the edge.
+ */
+const LOW_TIER_TRACK_POSITIONS: TrackPosition[] = [-1, 1, 0];
 
 type Props = {
   anchors: V2HomeAnchorSummary[];
@@ -192,6 +200,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   // the slot centres (trackWidth / 2) stop matching the viewport centre and the
   // device edge stops being the crop. The window width is only the first-frame guess.
   const { width: windowWidth } = useWindowDimensions();
+  const trackPositions = useAppPerformanceTier() === 'low' ? LOW_TIER_TRACK_POSITIONS : TRACK_POSITIONS;
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
   const width = measuredWidth ?? windowWidth;
   const handleTrackLayout = useCallback((event: LayoutChangeEvent) => {
@@ -390,7 +399,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
         accessibilityRole={canSwitch ? 'adjustable' : undefined}
         accessibilityActions={accessibilityActions}
         onAccessibilityAction={handleAccessibilityAction}>
-        {TRACK_POSITIONS.map(trackPosition => {
+        {trackPositions.map(trackPosition => {
           if (trackPosition !== 0 && !canSwitch) return null;
           const virtualIndex = center + trackPosition;
           const itemIndex = dataIndex(virtualIndex, total);

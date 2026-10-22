@@ -31,7 +31,7 @@ describe('pickVisionPhoto', () => {
     picker.requestCameraPermissionsAsync.mockResolvedValue(granted);
     picker.launchCameraAsync.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///cam.jpg', mimeType: 'image/jpeg' }] } as never);
     const result = await pickVisionPhoto('camera');
-    expect(result).toEqual({ status: 'picked', photo: { uri: 'file:///cam.jpg', mimeType: 'image/jpeg', sourceType: 'USER_CAMERA' } });
+    expect(result).toEqual({ status: 'picked', photo: { uri: 'file:///cam.jpg', mimeType: 'image/jpeg', sourceType: 'USER_CAMERA', fileName: null } });
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled();
   });
 
@@ -39,7 +39,7 @@ describe('pickVisionPhoto', () => {
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue(granted);
     picker.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///pic.png', mimeType: 'image/png' }] } as never);
     const result = await pickVisionPhoto('library');
-    expect(result).toEqual({ status: 'picked', photo: { uri: 'file:///pic.png', mimeType: 'image/png', sourceType: 'USER_UPLOAD' } });
+    expect(result).toEqual({ status: 'picked', photo: { uri: 'file:///pic.png', mimeType: 'image/png', sourceType: 'USER_UPLOAD', fileName: null } });
     expect(picker.launchImageLibraryAsync).toHaveBeenCalledWith(expect.not.objectContaining({ allowsMultipleSelection: true }));
   });
 

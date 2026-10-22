@@ -5,10 +5,14 @@ import { v2Haptics } from '@/hooks/v2/haptics';
 import type { MilestoneSpec } from '@/milestones/registry';
 import { approvedMotionDuration, approvedReducedMotionDuration } from '@/milestones/approvedMotion';
 import { APPROVED_MILESTONE_ASSETS } from '@/milestones/approvedAssets';
+import { milestoneSoundKey } from '@/milestones/milestoneSounds';
 
 export const REVEAL_TIMING = { transition: 650, drawing: 1250, accent: 850, copy: 850 } as const;
 
-/** One UI-thread timeline, finite and cancellable. JS schedules only the single accent, never frames. */
+/**
+ * One UI-thread timeline, finite and cancellable. JS schedules only the single accent, never frames.
+ * Replay is user-initiated, so it plays the same tier sound as the earn moment.
+ */
 export function useMilestoneReveal(spec: MilestoneSpec | undefined, reducedMotion: boolean, transition: boolean) {
   const progress = useSharedValue(0);
   const atmosphere = useSharedValue(transition ? 0 : 1);
@@ -34,7 +38,8 @@ export function useMilestoneReveal(spec: MilestoneSpec | undefined, reducedMotio
       if (cued.current) return;
       cued.current = true;
       v2Haptics[spec.haptic]();
-      sound.current = playCreationSound(spec.sound) ?? null;
+      const key = milestoneSoundKey(spec.id);
+      sound.current = key ? playCreationSound(key) ?? null : null;
     };
     const timer = setTimeout(cue, reducedMotion ? 0 : delay + REVEAL_TIMING.accent);
     const settleTimer = setTimeout(() => setSettled(true), (reducedMotion ? 0 : delay) + duration);

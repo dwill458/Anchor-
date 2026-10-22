@@ -15,6 +15,8 @@ export interface VisionSceneReadModel {
   resolvedImageUrl: string | null;
   prompt: string | null;
   caption: string | null;
+  slotIndex?: number | null;
+  focal?: { x: number; y: number } | null;
   sortOrder: number;
   isArchived: boolean;
   createdAt: string;
@@ -178,9 +180,12 @@ export const UpdateVisionNoteSchema = z
 
 export const UpdateVisionSceneCaptionSchema = z
   .object({
-    caption: z.string().trim().max(80).nullable(),
+    caption: z.string().trim().max(80).nullable().optional(),
+    slotIndex: z.number().int().min(0).max(7).nullable().optional(),
+    focal: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict().nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine(input => input.caption !== undefined || input.slotIndex !== undefined || input.focal !== undefined, 'At least one field is required');
 
 export interface AssetReadModel {
   id: string;

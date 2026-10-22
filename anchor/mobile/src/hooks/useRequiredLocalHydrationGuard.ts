@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
-export const REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS = 10_000;
+// Dev builds run through Metro with debug logging and slower secure-storage reads,
+// so give them more headroom. Release builds keep the 10s limit.
+export const REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS = __DEV__ ? 60_000 : 10_000;
 
 interface RequiredLocalHydrationState {
   anchorsHydrated: boolean;

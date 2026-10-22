@@ -132,6 +132,8 @@ export class VisionService {
           resolvedImageUrl: resolvedImageUrl ?? null,
           prompt: scene.prompt,
           caption: scene.caption ?? null,
+          slotIndex: scene.slotIndex ?? null,
+          focal: scene.focalX != null && scene.focalY != null ? { x: scene.focalX, y: scene.focalY } : null,
           sortOrder: scene.sortOrder,
           isArchived: scene.isArchived,
           createdAt: scene.createdAt.toISOString(),
@@ -634,8 +636,11 @@ export class VisionService {
     if (!vision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
     const scene = await prisma.visionScene.findFirst({ where: { id: sceneId, visionId, userId, isArchived: false }, select: { id: true } });
     if (!scene) throw new AppError('Active Vision image not found', 404, 'SCENE_NOT_FOUND');
-    const caption = input.caption?.trim() || null;
-    await prisma.visionScene.updateMany({ where: { id: sceneId, visionId, userId, isArchived: false }, data: { caption } });
+    const data: { caption?: string | null; slotIndex?: number | null; focalX?: number | null; focalY?: number | null } = {};
+    if (input.caption !== undefined) data.caption = input.caption?.trim() || null;
+    if (input.slotIndex !== undefined) data.slotIndex = input.slotIndex;
+    if (input.focal !== undefined) { data.focalX = input.focal?.x ?? null; data.focalY = input.focal?.y ?? null; }
+    await prisma.visionScene.updateMany({ where: { id: sceneId, visionId, userId, isArchived: false }, data });
     const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
     if (!result) throw new AppError('Failed to load updated Vision image', 500, 'VISION_ERROR');
     return result;

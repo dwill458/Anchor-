@@ -16,11 +16,23 @@ import {
 import { settingsColors as v2Colors, settingsTypography as v2Typography } from './settingsTheme';
 import { SettingsRow } from './SettingsRow';
 import { SettingsSectionBlock } from './SettingsSectionBlock';
+import {
+  type DevOrientationMode,
+  getDevOrientationMode,
+  setDevOrientation,
+  subscribeDevOrientation,
+} from '@/utils/devOrientation';
 
 interface DeveloperToolsSectionProps {
   resetSettings?: () => Promise<void> | void;
   onResetOnboarding?: () => Promise<void> | void;
 }
+
+const DEV_ORIENTATION_OPTIONS: ReadonlyArray<{ value: DevOrientationMode; label: string }> = [
+  { value: 'sensor', label: 'Auto (Sensor)' },
+  { value: 'portrait', label: 'Portrait' },
+  { value: 'landscape', label: 'Landscape' },
+];
 
 const TIERS: ReadonlyArray<{
   value: 'pro' | 'trial' | 'expired' | 'free';
@@ -132,6 +144,23 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   const [showRecommendationTools, setShowRecommendationTools] = useState(false);
   const [showNotificationTools, setShowNotificationTools] = useState(false);
   const [showDebugTools, setShowDebugTools] = useState(false);
+  const [showOrientationTools, setShowOrientationTools] = useState(false);
+  const [devOrientation, setDevOrientationState] = useState<DevOrientationMode>(getDevOrientationMode);
+
+  React.useEffect(() => {
+    return subscribeDevOrientation(setDevOrientationState);
+  }, []);
+
+  const handleOrientationChange = async (mode: DevOrientationMode) => {
+    setDevOrientationState(mode);
+    const result = await setDevOrientation(mode);
+    if (result.ok) {
+      const label = mode === 'sensor' ? 'Auto-rotate (Sensor)' : mode === 'landscape' ? 'Landscape (Locked)' : 'Portrait (Locked)';
+      setDevStatusMessage(`Screen orientation set to ${label}.`);
+    } else {
+      setDevStatusMessage(result.message ?? 'Failed to change orientation.');
+    }
+  };
 
   const [isNotificationActionRunning, setIsNotificationActionRunning] = useState(false);
   const [devStatusMessage, setDevStatusMessage] = useState<string | null>(null);
@@ -326,6 +355,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
             setDeveloperDeleteWithoutBurnEnabled(false);
             setDebugLoggingEnabled(false);
             useSettingsStore.getState().setDevPerfTierOverride('auto');
+            void setDevOrientation('sensor');
             if (resetSettings) await resetSettings();
             setDevStatusMessage('All developer flags reset to defaults.');
           },
@@ -785,6 +815,47 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                   showDivider={false}
                 />
               </>
+            ) : null}
+          </SettingsSectionBlock>
+
+          {/* Section G: Screen Orientation (Dev Only) */}
+          <SettingsSectionBlock isDev style={styles.subBlock}>
+            {renderAccordionHeader(
+              'Orientation & Layout (Dev Only)',
+              `Mode: ${devOrientation === 'sensor' ? 'Auto (Sensor)' : devOrientation === 'landscape' ? 'Landscape' : 'Portrait'}`,
+              showOrientationTools,
+              () => setShowOrientationTools((c) => !c)
+            )}
+            {showOrientationTools ? (
+              <View style={styles.segmentRow}>
+                <View style={styles.perfTierHeader}>
+                  <Text style={styles.segmentTitle}>Screen Orientation Lock</Text>
+                  <Text style={styles.perfTierDetected}>
+                    Active: {devOrientation.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.segmentedControl}>
+                  {DEV_ORIENTATION_OPTIONS.map(({ value, label }) => {
+                    const selected = devOrientation === value;
+                    return (
+                      <Pressable
+                        key={value}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set orientation to ${label}`}
+                        onPress={() => void handleOrientationChange(value)}
+                        style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
+                      >
+                        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.perfTierHint}>
+                  Auto allows device tilt rotation. Landscape forces horizontal layout for QA. Dev builds only; production stays locked to portrait.
+                </Text>
+              </View>
             ) : null}
           </SettingsSectionBlock>
 

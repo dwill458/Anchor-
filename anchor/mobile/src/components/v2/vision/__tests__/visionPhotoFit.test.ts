@@ -101,3 +101,29 @@ describe('photoFitExplanation', () => {
     expect(photoFitExplanation('taller')).toMatch(/taller than your Vision frame/);
   });
 });
+
+import { computeFitCanvas, looksTextHeavy } from '../visionPhotoFit';
+
+describe('fit on paper', () => {
+  it.each([[4000, 3000], [3000, 4000], [1080, 1080], [800, 2400]])('holds the whole %ix%i photograph, never cropped or stretched, in a 9:16 canvas', (width, height) => {
+    const plan = computeFitCanvas({ width, height })!;
+    expect(plan.canvas.width / plan.canvas.height).toBeCloseTo(9 / 16, 2);
+    expect(plan.draw.width / plan.draw.height).toBeCloseTo(width / height, 2);
+    expect(plan.draw.x).toBeGreaterThanOrEqual(0); expect(plan.draw.y).toBeGreaterThanOrEqual(0);
+    expect(plan.draw.x + plan.draw.width).toBeLessThanOrEqual(plan.canvas.width + 1); expect(plan.draw.y + plan.draw.height).toBeLessThanOrEqual(plan.canvas.height + 1);
+    expect(Math.max(plan.canvas.width, plan.canvas.height)).toBeLessThanOrEqual(2880);
+  });
+  it('returns null for an unknown size', () => { expect(computeFitCanvas({ width: 0, height: 5 })).toBeNull(); });
+});
+
+describe('looksTextHeavy', () => {
+  it('recognises screenshots by name, by PNG at a phone-screen shape, and infographics by shape', () => {
+    expect(looksTextHeavy({ fileName: 'Screenshot_2026.png', size: { width: 1000, height: 1000 } })).toBe(true);
+    expect(looksTextHeavy({ mimeType: 'image/png', size: { width: 1170, height: 2532 } })).toBe(true);
+    expect(looksTextHeavy({ mimeType: 'image/jpeg', size: { width: 800, height: 3000 } })).toBe(true);
+  });
+  it('leaves ordinary photographs alone', () => {
+    expect(looksTextHeavy({ fileName: 'IMG_1234.jpg', mimeType: 'image/jpeg', size: { width: 4000, height: 3000 } })).toBe(false);
+    expect(looksTextHeavy({ mimeType: 'image/jpeg', size: { width: 3000, height: 4000 } })).toBe(false);
+  });
+});

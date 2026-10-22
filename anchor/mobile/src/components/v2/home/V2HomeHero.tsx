@@ -187,14 +187,15 @@ function useHeroEntrance(
   return { entrance, onImageLoad };
 }
 
-function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, lastActivatedAnchorIdRef, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
+function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
   slot: CarouselSlot;
   isSelectedCenterSlot: boolean;
   heroActive: boolean;
-  lastActivatedAnchorIdRef: { current: string | null };
+  /** False while the arrival scene owns the hero; the glow is then held at zero. */
+  glowEnabled: boolean;
   offset: SharedValue<number>;
   spacing: number;
   gutter: number;
@@ -353,21 +354,20 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
             <Animated.View style={tapScaleStyle}>
               <Animated.View ref={discRef} collapsable={false} testID={slot === 0 ? 'v2-home-anchor-disc' : undefined}>
                 <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper" traceLabel={slot === 0 ? 'home hero' : undefined}
-                  aura={
-                    isSelectedCenterSlot
-                      ? {
-                          anchorId: devStrength.nonce ? `${anchor.id}#dev${devStrength.nonce}` : anchor.id,
-                          threadStrength: __DEV__ && devStrength.value !== null ? devStrength.value : thread.value,
-                          variant: 'home',
-                          active: heroActive && auraActive && !transition.active,
-                          heroActive,
-                          lastActivatedAnchorIdRef,
-                          carouselOffset: offset,
-                          carouselSpacing: spacing,
-                          reducedMotion: reduceMotion,
-                        }
-                      : undefined
-                  }
+                  aura={{
+                    anchorId: devStrength.nonce ? `${anchor.id}#dev${devStrength.nonce}` : anchor.id,
+                    threadStrength: __DEV__ && devStrength.value !== null && isSelectedCenterSlot ? devStrength.value : thread.value,
+                    variant: 'home',
+                    // Every mounted slot carries a glow, so neighbours are already lit as they travel in.
+                    // Presence follows the carousel's live offset; `active` and `heroActive` only gate the centre's frame loop.
+                    active: heroActive && auraActive && !transition.active,
+                    heroActive,
+                    carouselSlot: slot,
+                    carouselOffset: offset,
+                    carouselSpacing: spacing,
+                    glowEnabled,
+                    reducedMotion: reduceMotion,
+                  }}
                   entrance={entranceState.entrance}
                   onImageLoad={slot === 0 ? entranceState.onImageLoad : undefined}
                   accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
@@ -438,7 +438,6 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
   // True from the moment the track rests on an Anchor until the next drag/tap begins. Unlike
   // the page-level motion flag it does not wait for the deferred selection commit, so the glow starts on the settle.
   const [carouselCentered, setCarouselCentered] = useState(true);
-  const lastActivatedAnchorIdRef = useRef<string | null>(null);
   const handleMotionChange = useCallback(
     (moving: boolean) => {
       onMotionChange?.(moving);
@@ -453,7 +452,7 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
   const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => {
     const heroActive = slot === 0 && carouselCentered && !arrivalActive;
     return (
-      <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} isSelectedCenterSlot={slot === 0} heroActive={heroActive} lastActivatedAnchorIdRef={lastActivatedAnchorIdRef} offset={offset} spacing={spacing} gutter={layout.gutter}
+      <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} isSelectedCenterSlot={slot === 0} heroActive={heroActive} glowEnabled={!arrivalActive} offset={offset} spacing={spacing} gutter={layout.gutter}
         anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
         thread={index === selectedIndex && thread ? thread : summary.thread} reduceMotion={Boolean(reduceMotion)} auraActive={auraActive}
         onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} />

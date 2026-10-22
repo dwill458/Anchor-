@@ -10,6 +10,8 @@ export type PickedVisionPhoto = {
   mimeType: string;
   /** Recorded on the board image so a photo taken now is told apart from one chosen. */
   sourceType: 'USER_UPLOAD' | 'USER_CAMERA';
+  /** The picker's file name; only used to recognise screenshots. */
+  fileName?: string | null;
 };
 
 export type VisionPhotoPick =
@@ -55,7 +57,7 @@ export async function pickVisionPhoto(source: VisionPhotoSource, quality = 0.85)
     if (result.canceled || !asset) return { status: 'cancelled' };
     const mimeType = mimeTypeOf(asset);
     if (!SUPPORTED.includes(mimeType)) return { status: 'error', message: 'Choose a JPEG, PNG, WebP, or GIF image.' };
-    return { status: 'picked', photo: { uri: asset.uri, mimeType, sourceType: source === 'camera' ? 'USER_CAMERA' : 'USER_UPLOAD' } };
+    return { status: 'picked', photo: { uri: asset.uri, mimeType, sourceType: source === 'camera' ? 'USER_CAMERA' : 'USER_UPLOAD', fileName: asset.fileName ?? null } };
   } catch (cause) {
     return {
       status: 'error',

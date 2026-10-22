@@ -217,6 +217,54 @@ export function selectDetailBoardLayout(imageCount: number): BoardLayout {
   };
 }
 
+/**
+ * Slot geometry. The board has eight stable positions, each always at the same place on the sheet: the eight-photo
+ * composition above. A photograph in slot `i` is drawn at `SLOT_PRINTS[i]` whatever else is on the board, so adding,
+ * removing or moving other photographs never shifts it. Tape belongs to a slot, and shows when that slot is filled.
+ */
+const SLOT_PRINTS: readonly PrintSpec[] = [HERO_4, RIGHT_FLANK, LEFT_FLANK, FOOT_8, RIGHT_LOW, LEFT_LOW, RIGHT_FAR, LEFT_FAR];
+const SLOT_TAPE: readonly TapeSpec[] = [[0, 0.5, 0.3, 2, 'cream'], [1, 0.5, 0.26, -4, 'kraft'], [3, 0.5, 0.26, 3, 'gold'], [6, 0.5, 0.26, -2, 'cream']];
+/** The Anchor's centre, in board widths from the top. Fixed, so it never moves as photographs come and go. */
+const SLOT_ANCHOR_Y_WIDTHS = 0.965;
+/** Empty paper under the lowest print or the Anchor, in board widths: room for the board title and the Add control. */
+const SLOT_BOARD_SLACK = 0.22;
+
+/** Lowest edge of a slot's print, in board widths from the top (before tilt). */
+export function slotPrintBottomWidths(slot: number): number {
+  const [, yWidths, width, frame] = SLOT_PRINTS[slot];
+  return yWidths + width / BOARD_FRAME_ASPECT[frame] / 2;
+}
+
+const SLOT_ANCHOR_BOTTOM_WIDTHS = SLOT_ANCHOR_Y_WIDTHS + (ANCHOR_WIDTH * VISION_BOARD_PAPER_MARK_SCALE) / 2;
+
+/**
+ * Board height as a multiple of its width. It follows the lowest occupied slot (and the Anchor), so a board of a few
+ * photographs is not a tall sheet of empty paper, and grows to show every position while the person is arranging.
+ * Height only moves the bottom edge: no print or Anchor changes place when it changes.
+ */
+export function slotBoardHeightRatio(highestOccupiedSlot: number, expanded = false): number {
+  const lowest = expanded
+    ? Math.max(...SLOT_PRINTS.map((_, slot) => slotPrintBottomWidths(slot)))
+    : Math.max(0, ...Array.from({ length: Math.min(SLOT_PRINTS.length, highestOccupiedSlot + 1) }, (_, slot) => slotPrintBottomWidths(slot)));
+  return Math.max(lowest, SLOT_ANCHOR_BOTTOM_WIDTHS) + SLOT_BOARD_SLACK;
+}
+
+/** The fixed eight-slot composition on a board of the given height ratio. `photos[i]` is slot `i`. */
+export function selectSlotBoardLayout(heightRatio: number): BoardLayout {
+  return {
+    count: SLOT_PRINTS.length,
+    photos: SLOT_PRINTS.map(([x, yWidths, width, frame, rotation], index) => ({
+      frame, x, y: yWidths / heightRatio, width, aspectRatio: BOARD_FRAME_ASPECT[frame], rotation, zIndex: 12 + index,
+    })),
+    card: { x: 0.5, y: SLOT_ANCHOR_Y_WIDTHS / heightRatio, width: ANCHOR_WIDTH, aspectRatio: BOARD_CARD_ASPECT, rotation: -2, zIndex: 40 },
+    decor: SLOT_TAPE.map(([photoIndex, offset, width, rotationDeg, tone]) => ({ kind: 'tape', photo: photoIndex, offset, width, rotation: rotationDeg, tone })),
+  };
+}
+
+export function slotBoardSizeForWidth(width: number, heightRatio: number): Size {
+  return { width, height: width * heightRatio };
+}
+
 /** Board size for a width when the board holds `count` photos, using each composition's own proportions. */
 export function detailBoardSizeForWidth(width: number, count: number): Size {
   return { width, height: width * BOARD_HEIGHT_RATIO[clampCount(count)] };

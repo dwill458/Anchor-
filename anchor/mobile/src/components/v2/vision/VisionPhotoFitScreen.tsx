@@ -2,14 +2,17 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { ActivityIndicator, Image, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { v2Haptics } from '@/hooks/v2';
-import { cropPhoto, discardTemporaryPhoto, requestPhotoExpansion, type ExpandResult, type FitPhoto } from '@/hooks/v2/vision/visionPhotoFitProcessing';
+import { cropPhoto, discardTemporaryPhoto, fitPhotoOnPaper, requestPhotoExpansion, type ExpandResult, type FitPhoto } from '@/hooks/v2/vision/visionPhotoFitProcessing';
+import { useV2ReduceMotion } from '@/hooks/v2';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { VisionPhotoExtending } from './VisionPhotoExtending';
 import { colors, radii, spacing } from '@/theme/v2';
 import { VisionBackButton, VisionInkPill, VISION_GOLD, VISION_SERIF } from './VisionPaperChrome';
-import { assessPhotoFit, computeCropRect, photoFitExplanation, VISION_PHOTO_TARGET_ASPECT } from './visionPhotoFit';
+import { assessPhotoFit, computeCropRect, looksTextHeavy, photoFitExplanation, VISION_PHOTO_TARGET_ASPECT } from './visionPhotoFit';
 import { createSingleFlight } from './visionSingleFlight';
 
-export type PhotoFitChoice = 'keep' | 'crop' | 'expand';
-type Step = 'choose' | 'crop' | 'expanding' | 'preview';
+export type PhotoFitChoice = 'keep' | 'crop' | 'expand' | 'fit';
+type Step = 'choose' | 'crop' | 'expanding' | 'preview' | 'error';
 
 type Props = {
   photo: FitPhoto;
@@ -44,7 +47,15 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const assessment = useMemo(() => assessPhotoFit(size), [size]);
   const [step, setStep] = useState<Step>('choose');
-  const [choice, setChoice] = useState<PhotoFitChoice>(assessment.canExpand ? 'expand' : 'crop');
+  // Screenshots and lettering are never offered AI edges first: a generated edge can invent or garble words.
+  const textHeavy = useMemo(() => looksTextHeavy({ fileName: photo.fileName, mimeType: photo.mimeType, size }), [photo.fileName, photo.mimeType, size]);
+  const [choice, setChoice] = useState<PhotoFitChoice>(textHeavy ? 'fit' : assessment.canExpand ? 'expand' : 'crop');
+  const reduced = useV2ReduceMotion();
+  const tier = useAppPerformanceTier();
+  const [slow, setSlow] = useState(false);
+  const [failure, setFailure] = useState<{ message: string; retry: 'expand' | 'fit' } | null>(null);
+  const [resultKind, setResultKind] = useState<'expand' | 'fit'>('expand');
+  const abort = useRef<AbortController | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [focal, setFocal] = useState({ x: 0.5, y: 0.5 });
   const [expanded, setExpanded] = useState<FitPhoto | null>(null);
@@ -53,6 +64,7 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
   const pending = useRef<string[]>([]);
   useEffect(() => () => {
     alive.current = false;
+    abort.current?.abort();
     flight.cancel();
     // Whatever was made and not chosen is removed.
     pending.current.forEach(uri => { void discardTemporaryPhoto(uri); });
@@ -62,27 +74,41 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
 
   const useOriginal = () => onConfirm({ photo, choice: 'keep' });
 
-  const runExpand = async () => {
+  /** Runs the AI extension or the paper fit. Either way the original and the draft are untouched until the person accepts. */
+  const run = async (kind: 'expand' | 'fit') => {
     setNotice(null);
+    setFailure(null);
+    setSlow(false);
+    setResultKind(kind);
     setStep('expanding');
+    const controller = new AbortController();
+    abort.current = controller;
+    const timer = setTimeout(() => { if (alive.current) setSlow(true); }, 15000);
     let produced: ExpandResult | null = null;
-    const outcome = await flight.run(async () => { produced = await requestPhotoExpansion(photo, size); return produced; });
+    const outcome = await flight.run(async () => {
+      produced = kind === 'expand' ? await requestPhotoExpansion(photo, size, controller.signal) : await fitPhotoOnPaper(photo);
+      return produced;
+    });
+    clearTimeout(timer);
+    abort.current = null;
     const result = produced as ExpandResult | null;
     // Cancelled, left, or unmounted before it came back: anything that was made is removed.
-    if (!alive.current || outcome.status !== 'done') { if (result?.ok) void discardTemporaryPhoto(result.photo.uri); return; }
+    if (!alive.current || outcome.status !== 'done' || controller.signal.aborted) { if (result?.ok) void discardTemporaryPhoto(result.photo.uri); return; }
     if (!result) return;
     if (!result.ok) {
-      setStep('choose');
-      setNotice(result.message);
-      if (result.premiumRequired) onPremiumRequired?.();
+      if (result.cancelled) return;
+      if (result.premiumRequired) { setStep('choose'); setNotice(result.message); onPremiumRequired?.(); return; }
+      setFailure({ message: result.message, retry: kind });
+      setStep('error');
       return;
     }
     pending.current.push(result.photo.uri);
     setExpanded(result.photo);
     setStep('preview');
   };
+  const runExpand = () => run('expand');
 
-  const cancelExpand = () => { flight.cancel(); setStep('choose'); };
+  const cancelExpand = () => { abort.current?.abort(); flight.cancel(); setSlow(false); setStep('choose'); };
 
   const rejectExpansion = () => {
     if (expanded) { void discardTemporaryPhoto(expanded.uri); pending.current = pending.current.filter(uri => uri !== expanded.uri); }
@@ -94,7 +120,7 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
   const acceptExpansion = () => {
     if (!expanded) return;
     pending.current = pending.current.filter(uri => uri !== expanded.uri); // kept: now owned by the caller
-    onConfirm({ photo: expanded, choice: 'expand' });
+    onConfirm({ photo: expanded, choice: resultKind });
   };
 
   const [cropping, setCropping] = useState(false);
@@ -115,6 +141,7 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
     v2Haptics.selection();
     if (choice === 'keep') useOriginal();
     else if (choice === 'crop') setStep('crop');
+    else if (choice === 'fit') void run('fit');
     else void runExpand();
   };
 
@@ -122,13 +149,15 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
     if (step === 'choose') onCancel();
     else if (step === 'preview') rejectExpansion();
     else if (step === 'expanding') cancelExpand();
+    else if (step === 'error') { setFailure(null); setStep('choose'); }
     else setStep('choose');
   };
 
   const options: ReadonlyArray<{ key: PhotoFitChoice; title: string; detail: string; badge?: string; preview: ReactElement }> = [
     { key: 'keep', title: 'Keep original', detail: 'Use your photo exactly as it is, framed on the board.', preview: <Frame uri={photo.uri} width={optionWidth} fit="contain" /> },
     { key: 'crop', title: 'Crop to fit', detail: 'Choose the framing yourself. No AI.', preview: <Frame uri={photo.uri} width={optionWidth} fit="cover" /> },
-    ...(assessment.canExpand ? [{ key: 'expand' as const, title: 'Expand with AI', detail: 'Extend the edges to fill the frame. Your photo stays as it is.', badge: 'Recommended',
+    { key: 'fit', title: 'Fit on paper', detail: 'Keep every word and edge. Your photo sits whole on a neutral background. No AI.', badge: textHeavy ? 'Recommended' : undefined, preview: <Frame uri={photo.uri} width={optionWidth} fit="contain" /> },
+    ...(assessment.canExpand ? [{ key: 'expand' as const, title: 'Expand with AI', detail: 'Extend the edges to fill the frame. Your photo stays as it is.', badge: textHeavy ? undefined : 'Recommended',
       preview: <Frame uri={photo.uri} width={optionWidth} fit="contain" bands /> }] : []),
   ];
 
@@ -159,8 +188,9 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
                 </Pressable>
               ))}
             </View>
+            {textHeavy ? <Text testID={`${testID}-text-note`} style={styles.sub}>This looks like a screenshot or has lettering. AI could change the words at the edges, so fitting it on paper is safest.</Text> : null}
             {notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
-            <VisionInkPill testID={`${testID}-continue`} label={choice === 'expand' ? 'Expand my photo' : 'Continue'} accessibilityLabel="Continue" onPress={proceed} />
+            <VisionInkPill testID={`${testID}-continue`} label={choice === 'expand' ? 'Expand my photo' : choice === 'fit' ? 'Fit on paper' : 'Continue'} accessibilityLabel="Continue" onPress={proceed} />
           </>
         ) : null}
 
@@ -169,13 +199,28 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
             onApply={() => { void applyCrop(); }} busy={cropping} notice={notice} testID={testID} />
         ) : null}
 
-        {step === 'expanding' ? (
+        {step === 'expanding' && resultKind === 'expand' ? (
+          <VisionPhotoExtending uri={photo.uri} size={size} maxWidth={windowWidth * 0.7} maxHeight={windowHeight * 0.5} onCancel={cancelExpand}
+            reducedMotion={reduced} lowPower={tier === 'low'} slow={slow} testID={`${testID}-expanding`} />
+        ) : null}
+        {step === 'expanding' && resultKind === 'fit' ? (
           <View style={styles.center} testID={`${testID}-expanding`}>
-            <Frame uri={photo.uri} width={Math.min(windowWidth * 0.5, 200)} fit="contain" bands />
-            <ActivityIndicator color={VISION_GOLD} style={{ marginTop: spacing[4] }} />
-            <Text accessibilityLiveRegion="polite" style={styles.sub}>Extending the edges of your photo…</Text>
-            <Pressable testID={`${testID}-cancel-expand`} accessibilityRole="button" accessibilityLabel="Cancel" onPress={cancelExpand} style={styles.link}>
-              <Text style={styles.linkText}>Cancel</Text>
+            <ActivityIndicator color={VISION_GOLD} />
+            <Text accessibilityLiveRegion="polite" style={styles.sub}>Fitting your photo on paper…</Text>
+          </View>
+        ) : null}
+
+        {step === 'error' && failure ? (
+          <View style={styles.center} testID={`${testID}-error`}>
+            <Text accessibilityRole="header" style={styles.title}>That didn’t work</Text>
+            <Text accessibilityLiveRegion="polite" style={styles.sub}>{failure.message}</Text>
+            <Text style={styles.sub}>Your original photo and your draft are safe.</Text>
+            <VisionInkPill testID={`${testID}-retry`} label="Try again" accessibilityLabel="Try again" onPress={() => { void run(failure.retry); }} />
+            <Pressable testID={`${testID}-error-different`} accessibilityRole="button" accessibilityLabel="Choose a different option" onPress={() => { setFailure(null); setStep('choose'); }} style={styles.link}>
+              <Text style={styles.linkText}>Choose a different option</Text>
+            </Pressable>
+            <Pressable testID={`${testID}-error-keep`} accessibilityRole="button" accessibilityLabel="Keep my original instead" onPress={useOriginal} style={styles.link}>
+              <Text style={styles.linkText}>Keep my original instead</Text>
             </Pressable>
           </View>
         ) : null}
@@ -183,7 +228,7 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
         {step === 'preview' && expanded ? (
           <>
             <Text accessibilityRole="header" style={styles.title}>Preview Result</Text>
-            <Text style={styles.sub}>The new edges were created by AI. Your original photo is unchanged.</Text>
+            <Text style={styles.sub}>{resultKind === 'expand' ? 'The new edges were created by AI. Your original photo is unchanged.' : 'Your whole photo sits on neutral paper. Nothing was added to it.'}</Text>
             <View style={styles.compare}>
               <View style={styles.compareItem}>
                 <Frame uri={photo.uri} width={Math.min(110, windowWidth * 0.28)} fit="contain" />
@@ -191,7 +236,7 @@ export function VisionPhotoFit({ photo, size, onConfirm, onCancel, onPremiumRequ
               </View>
               <View style={styles.compareItem} testID={`${testID}-expanded-preview`}>
                 <Frame uri={expanded.uri} width={Math.min(180, windowWidth * 0.46)} fit="cover" />
-                <Text style={styles.compareLabel}>AI expanded</Text>
+                <Text style={styles.compareLabel}>{resultKind === 'expand' ? 'AI expanded' : 'Fitted on paper'}</Text>
               </View>
             </View>
             <VisionInkPill testID={`${testID}-use-expanded`} label="Use This Version" accessibilityLabel="Use this version" onPress={acceptExpansion} />
