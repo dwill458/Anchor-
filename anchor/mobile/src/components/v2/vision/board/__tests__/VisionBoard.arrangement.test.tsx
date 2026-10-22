@@ -83,11 +83,12 @@ describe('slot positions', () => {
   });
 
   it('hands each print the tape of its slot and its own frame variant, wherever the other slots are filled', () => {
-    setup([null, 'a', null, 'b', null, null, 'c', null]);
-    expect(lastProps('a').tapes.map((t: any) => t.photo)).toEqual([1]);
+    setup([null, 'a', null, 'b', null, null, null, 'c']);
+    expect(lastProps('a').tapes).toEqual([]);                                   // slot 1 is a torn print: no tape
     expect(lastProps('b').tapes.map((t: any) => t.photo)).toEqual([3]);
-    expect(lastProps('c').tapes.map((t: any) => t.photo)).toEqual([6]);
-    expect(lastProps('a').frameVariant).toBe('rough-edge'); expect(lastProps('b').frameVariant).toBe('wide-bottom');
+    expect(lastProps('c').tapes.map((t: any) => t.photo)).toEqual([7]);
+    expect(lastProps('a').treatment).toBe('torn'); expect(lastProps('b').treatment).toBe('polaroid');
+    expect(lastProps('b').frameVariant).toBe('wide-bottom');
   });
 
   it('gives each print the on-screen size of the scene, so captions are sized in the points people see', () => {
@@ -145,20 +146,13 @@ describe('adding to a position', () => {
     fireEvent.press(view.getByLabelText('Add to Vision'));
     expect(props.onAddImage).toHaveBeenCalledWith(); expect(view.queryByText('Choose where it goes')).toBeNull();
   });
-  it('Arrange shows the empty positions quietly, and tapping one adds there', () => {
+  it('has no Arrange button: photos are rearranged by dragging, and empty positions only show while adding', () => {
     const { view, props } = setup(['a', 'b']);
-    expect(view.queryByTestId('vision-board-slot-2')).toBeNull();      // subtle, and only while editing
-    fireEvent.press(view.getByLabelText('Arrange photos'));
-    expect(view.getByText('Tap an empty spot to add a photo')).toBeTruthy();
+    expect(view.queryByLabelText('Arrange photos')).toBeNull();
+    expect(view.queryByTestId('vision-board-slot-2')).toBeNull();
+    fireEvent.press(view.getByLabelText('Add to Vision'));
     fireEvent.press(view.getByLabelText('Add a photo to position 3 of 8'));
     expect(props.onAddImage).toHaveBeenCalledWith({ slot: 2 });
-  });
-  it('Done leaves arranging and hides the indicators again', () => {
-    const { view } = setup(['a']);
-    fireEvent.press(view.getByLabelText('Arrange photos'));
-    expect(view.getByTestId('vision-board-slot-1')).toBeTruthy();
-    fireEvent.press(view.getByLabelText('Done arranging'));
-    expect(view.queryByTestId('vision-board-slot-1')).toBeNull();
   });
 });
 

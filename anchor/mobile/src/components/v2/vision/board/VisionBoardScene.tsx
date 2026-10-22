@@ -156,7 +156,8 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         return (
           <VisionBoardPhoto
             materialMode={materialMode}
-            frameVariant={index === 3 ? 'wide-bottom' : index === 2 ? 'torn-bottom' : index === 1 ? 'rough-edge' : 'classic'}
+            treatment={slotOrder && index >= 0 ? layout.photos[index]?.treatment : undefined}
+            frameVariant={index === 3 ? 'wide-bottom' : index === 7 ? 'torn-bottom' : slotOrder ? 'classic' : index === 2 ? 'torn-bottom' : index === 1 ? 'rough-edge' : 'classic'}
             key={tile.sceneId}
             testID={`vision-board-photo-${tile.sceneId}`}
             tapes={index >= 0 ? layout.decor.filter(tape => tape.photo === index) : []}

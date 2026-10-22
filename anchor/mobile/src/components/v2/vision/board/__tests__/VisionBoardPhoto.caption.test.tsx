@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { VisionBoardPhoto } from '../VisionBoardPhoto';
 import { planCaption } from '../visionCaptionLayout';
 
@@ -95,6 +95,31 @@ describe('caption readability on the Vision board', () => {
     expect(text.props.numberOfLines).toBe(1);
     expect(StyleSheet.flatten(text.props.style)).toMatchObject({ fontFamily: 'Allison-Regular', fontSize: 15 });
     expect(view.queryByTestId('photo-caption-paper')).toBeNull();
+  });
+});
+
+describe('torn and thin editorial prints', () => {
+  const rect = rectFor(0.43 * 374, 0.76);
+  it('carry a caption on a paper label in the same readable handwriting, and stay clean without one', () => {
+    const withCaption = mount('My baby at the gym', rect, { treatment: 'torn' });
+    expect(withCaption.getByTestId('photo-caption-label')).toBeTruthy();
+    expect(captionStyle(withCaption).fontFamily).toBe('Caveat-SemiBold');
+    expect(captionStyle(withCaption).fontSize * REST).toBeGreaterThanOrEqual(14 - 1e-6);
+    expect(withCaption.queryByTestId('photo-caption-paper')).toBeNull();
+    const bare = mount(undefined, rect, { treatment: 'print' });
+    expect(bare.queryByText('Add caption')).toBeNull(); expect(bare.queryByTestId('photo-caption-label')).toBeNull();
+  });
+  it('keeps the label editable', () => {
+    const onCaptionEdit = jest.fn();
+    const view = mount('Cole concert', rect, { treatment: 'print', onCaptionEdit });
+    fireEvent.press(view.getByTestId('vision-board-photo-p1-caption-edit'));
+    expect(onCaptionEdit).toHaveBeenCalledWith('p1');
+  });
+  it('keeps the whole photograph until the person sets a position, then covers the window from their focal point', () => {
+    mount('x', rect, { treatment: 'torn' });
+    expect(mockFocalFrame).toBeUndefined();
+    mount('x', rect, { treatment: 'torn', focal: { x: 0.4, y: 0.2 } });
+    expect(mockFocalFrame).toBeTruthy();
   });
 });
 

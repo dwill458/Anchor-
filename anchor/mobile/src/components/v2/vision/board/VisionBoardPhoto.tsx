@@ -20,7 +20,7 @@ import { VisionPolaroidFrame } from '../material/VisionPolaroidFrame';
 import { visionMaterials } from '@/assets/vision/materials/manifest';
 import type { VisionPolaroidVariant } from '@/assets/vision/materials/manifest';
 import { VISION_CAPTION_COLOR, VISION_CAPTION_FONTS, VISION_PHOTO, VISION_SHADOW, VISION_TAPE } from '../material/visionMaterialTokens';
-import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, type BoardTape } from './visionBoardLayouts';
+import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, type BoardTape, type BoardTreatment } from './visionBoardLayouts';
 import { boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { boardSlotAtPoint, swapBoardOrder } from './visionBoardReorder';
 import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
@@ -29,11 +29,19 @@ const W = BOARD_FRAME_WINDOW;
 /** Photographs fill their mount's aperture; the mount carries the border. */
 const BLEED = 0;
 const CAPTION_TOUCH_HEIGHT = 30;
+/** A thin editorial print's paper border, as a share of the print's width. */
+const PRINT_BORDER = 0.035;
+/** A paper-label caption's longest line, as a share of the print's width, and its inner padding in display points. */
+const LABEL_WIDTH_FRACTION = 0.78;
+const LABEL_PAD_X = 9;
+const LABEL_PAD_Y = 4;
 /** The polaroid art's aperture ends here, as a share of the print's height (0.70 on the wide-bottom variant). */
 const windowBottomFraction = (variant: VisionPolaroidVariant) => (variant === 'wide-bottom' ? 0.7 : 0.78);
 
 export type VisionBoardPhotoProps = {
   materialMode?: 'legacy' | 'photographic';
+  /** Photographic board only: how this print is made. Absent, a photographic print is a polaroid. */
+  treatment?: BoardTreatment;
   frameVariant?: VisionPolaroidVariant;
   caption?: string;
   /**
@@ -107,9 +115,12 @@ function PrintTape({ tape, width, testID, photographic = false }: { tape: BoardT
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, arriving = false, caption, displayScale, focal = null, repositioning = false, onFocalCommit, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onPhotoAssetError, onMove, onMoveRequest, onTeachingMotionChange,
-  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken, tapes = [], materialMode = 'legacy', frameVariant = 'classic',
+  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken, tapes = [], materialMode = 'legacy', frameVariant = 'classic', treatment: treatmentProp,
 }: VisionBoardPhotoProps) {
   const photographic = materialMode === 'photographic';
+  const treatment: BoardTreatment | 'legacy' = photographic ? treatmentProp ?? 'polaroid' : 'legacy';
+  const polaroid = treatment === 'polaroid';
+  const labelled = treatment === 'torn' || treatment === 'print';
   const arrival = useVisionImageArrival();
   const setPrint = arrival?.setPrints?.find(item => item.sceneId === sceneId);
   const setPhase = setPrint?.phase;
@@ -160,6 +171,12 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     });
   }, [displayUrl, failedUrl, imageFailed, imageUrl, onPhotoAssetReady, sceneId]);
   const imageRef = useRef<ViewInstance>(null);
+  // Polaroids always cover their window from a focal point. Torn and thin prints keep the whole photograph (blurred paper
+  // beside a portrait in a wide print) until the person sets a position, which they then own.
+  const coverFill = polaroid || treatment === 'legacy' || Boolean(focal) || repositioning;
+  // The photograph fades in once decoded, so opening the board never pops prints into place or flashes an empty frame.
+  const reveal = useSharedValue(reduceMotion || treatment === 'legacy' ? 1 : 0);
+  const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   // The flight lands only once this photograph has decoded. Landing on layout let the arrival
   // overlay dissolve over a frame that was still blank, which read as a cream flash.
   const decodedUrl = useRef<string | null>(null);
@@ -169,6 +186,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   };
   const handleDecoded = () => {
     decodedUrl.current = imageUrl ?? null;
+    reveal.value = reduceMotion ? 1 : withTiming(1, { duration: 220 });
     landImage();
   };
   // A photograph that decoded before the flight began lands at once; otherwise it lands when it decodes.
@@ -186,8 +204,9 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const focalX = useSharedValue(focal ? focal.x : -1);
   const focalY = useSharedValue(focal ? focal.y : -1);
   const photoAspect = useSharedValue(0);
-  const windowWidth = useDerivedValue(() => width.value * 0.88);
-  const windowHeight = useDerivedValue(() => height.value * (frameVariant === 'wide-bottom' ? 0.64 : 0.72));
+  const windowWidth = useDerivedValue(() => treatment === 'torn' ? width.value : treatment === 'print' ? width.value * (1 - 2 * PRINT_BORDER) : width.value * 0.88);
+  const windowHeight = useDerivedValue(() => treatment === 'torn' ? height.value
+    : treatment === 'print' ? height.value - 2 * PRINT_BORDER * width.value : height.value * (frameVariant === 'wide-bottom' ? 0.64 : 0.72));
   const focalFrame = useMemo<VisionFocalFrame>(() => ({ windowWidth, windowHeight, focalX, focalY, aspect: photoAspect }),
     [windowWidth, windowHeight, focalX, focalY, photoAspect]);
   useEffect(() => {
@@ -202,9 +221,23 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const editableCaption = interactive && Boolean(onCaptionEdit);
   const windowBottom = windowBottomFraction(frameVariant);
   const plan = useMemo(() => {
-    if (!boardMode || !initialRect) return null;
+    if (!boardMode || !initialRect || !polaroid) return null;
     return planCaption(captionText || (editableCaption ? 'Add caption' : ''), initialRect.width * displayScale!, initialRect.height * displayScale! * (1 - windowBottom));
-  }, [boardMode, initialRect?.width, initialRect?.height, displayScale, captionText, editableCaption, windowBottom]);
+  }, [boardMode, initialRect?.width, initialRect?.height, displayScale, captionText, editableCaption, windowBottom, polaroid]);
+  // Torn and thin prints carry their caption on a small paper label laid over the photograph's lower edge. The caption is
+  // optional there: a print without one stays a clean photograph, and the focus controls still open the caption.
+  const labelPlan = useMemo(() => {
+    if (!boardMode || !initialRect || !labelled || !captionText) return null;
+    const printWidth = initialRect.width * displayScale!;
+    const text = planCaption(captionText, printWidth * LABEL_WIDTH_FRACTION / 0.84, 1000);
+    return text ? { ...text, boxWidth: text.width + 2 * LABEL_PAD_X, boxHeight: text.textHeight + 2 * LABEL_PAD_Y } : null;
+  }, [boardMode, initialRect?.width, displayScale, captionText, labelled]);
+  const labelStyle = useAnimatedStyle(() => {
+    if (!labelPlan) return {};
+    const toS = toScene;
+    const boxW = labelPlan.boxWidth * toS, boxH = labelPlan.boxHeight * toS;
+    return { width: boxW, minHeight: boxH, left: Math.max(width.value * 0.05, 0), top: height.value - boxH * 0.62 };
+  });
   const toScene = boardMode ? 1 / displayScale! : 1;
   const extraScene = plan && captionText ? plan.extra * toScene : 0;
   const boardCaptionStyle = useAnimatedStyle(() => {
@@ -441,11 +474,16 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frameStyle = useAnimatedStyle(() => ({
     width: width.value,
     height: height.value,
-    backgroundColor: photographic ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
+    backgroundColor: polaroid ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
   }));
 
   const windowStyle = useAnimatedStyle(() => {
-    if (photographic) return { left: width.value * 0.06, top: height.value * 0.06, width: width.value * 0.88, height: height.value * (frameVariant === 'wide-bottom' ? 0.64 : 0.72) };
+    if (treatment === 'torn') return { left: 0, top: 0, width: width.value, height: height.value };
+    if (treatment === 'print') {
+      const inset = PRINT_BORDER * width.value;
+      return { left: inset, top: inset, width: width.value - 2 * inset, height: height.value - 2 * inset };
+    }
+    if (polaroid) return { left: width.value * 0.06, top: height.value * 0.06, width: width.value * 0.88, height: height.value * (frameVariant === 'wide-bottom' ? 0.64 : 0.72) };
     const total = landscape.value + portrait.value + square.value || 1;
     const blend = (key: 'left' | 'top' | 'right' | 'bottom') =>
       (W.landscape[key] * landscape.value + W.portrait[key] * portrait.value + W.square[key] * square.value) / total;
@@ -477,7 +515,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frame = (
     <Animated.View
       testID={testID}
-      style={[styles.photo, photographic && styles.materialPhoto, frameStyle]}
+      style={[styles.photo, polaroid && styles.materialPhoto, treatment === 'torn' && styles.tornPhoto, frameStyle]}
       accessible={interactive && !exiting}
       accessibilityRole={interactive ? 'imagebutton' : 'image'}
       accessibilityLabel={accessibilityLabel}
@@ -488,19 +526,19 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     >
       <Animated.View ref={imageRef} collapsable={false} style={[styles.window, windowStyle]}>
         {displayUrl && failedUrl !== displayUrl ? (
-          <VisionPhotograph source={{ uri: displayUrl }} displayAspect={displayAspect} uploaded={uploaded} fill focalFrame={boardMode ? focalFrame : undefined} onLoad={handleDecoded}
+          <Animated.View style={[styles.fill, revealStyle]}><VisionPhotograph source={{ uri: displayUrl }} displayAspect={displayAspect} uploaded={uploaded} fill={coverFill} focalFrame={coverFill && boardMode ? focalFrame : undefined} onLoad={handleDecoded}
             onAssetReady={() => onPhotoAssetReady?.(sceneId)}
             onError={() => { if (displayUrl !== imageUrl) setShownUrl(imageUrl ?? null); else { onPhotoAssetError?.(sceneId); setFailedUrl(displayUrl); } }}
-            accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
+            accessible={false} accessibilityIgnoresInvertColors style={styles.fill} /></Animated.View>
         ) : (
           <View style={styles.unavailable}><Text style={styles.unavailableText}>{interactive && imageFailed ? 'Image unavailable. Tap to retry.' : 'Image unavailable'}</Text></View>
         )}
         <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
         {/* The torn edges of the aperture take the mount's paper colour. */}
-        {!photographic ? <VisionImageEdge hero={hero} brush={detailEdges} color={VISION_PHOTO.mount} darken={edgeDarken} /> : null}
+        {treatment === 'legacy' || treatment === 'torn' ? <VisionImageEdge hero={hero} brush={detailEdges} color={VISION_PHOTO.mount} darken={edgeDarken} /> : null}
       </Animated.View>
-      {photographic && extraScene <= 0 ? <VisionPolaroidFrame variant={frameVariant} testID={`${testID}-material-frame`} /> : null}
-      {photographic && extraScene > 0 ? <>
+      {polaroid && extraScene <= 0 ? <VisionPolaroidFrame variant={frameVariant} testID={`${testID}-material-frame`} /> : null}
+      {polaroid && extraScene > 0 ? <>
         <Animated.View pointerEvents="none" style={[styles.frameSlice, { top: 0 }, frameTopStyle]}>
           <Animated.Image source={frameArt} resizeMode="stretch" fadeDuration={0} style={[styles.frameSliceImage, frameTopImageStyle]} />
         </Animated.View>
@@ -532,10 +570,24 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     </Animated.View>
   ) : null;
 
+  // Torn and thin prints: the caption is a small paper label across the photograph's lower edge.
+  const labelCaption = labelPlan ? (
+    <Animated.View pointerEvents={editableCaption ? 'box-none' : 'none'} testID={`${testID}-caption-label`} style={[styles.captionLabel, labelStyle, captionStyle]}>
+      {editableCaption ? (
+        <Pressable testID={`vision-board-photo-${sceneId}-caption-edit`} accessibilityRole="button" accessibilityLabel="Edit photo caption"
+          accessibilityHint="Opens the caption for this photo" onPress={() => onCaptionEdit?.(sceneId)} hitSlop={8} disabled={repositioning} style={styles.boardCaptionPressable}>
+          <Text testID={`${testID}-caption`} allowFontScaling={false} style={[styles.boardCaption, { fontSize: labelPlan.fontSize * toScene, lineHeight: labelPlan.lineHeight * toScene }]}>{captionText}</Text>
+        </Pressable>
+      ) : (
+        <Text testID={`${testID}-caption`} allowFontScaling={false} style={[styles.boardCaption, { fontSize: labelPlan.fontSize * toScene, lineHeight: labelPlan.lineHeight * toScene }]}>{captionText}</Text>
+      )}
+    </Animated.View>
+  ) : null;
+
   const body = (
     <Animated.View pointerEvents={exiting ? 'none' : 'auto'} style={[styles.container, containerStyle]}>
       {interactive ? <GestureDetector gesture={gesture}>{frame}</GestureDetector> : frame}
-      {boardMode ? boardCaption : interactive && onCaptionEdit ? (
+      {boardMode ? (labelled ? labelCaption : boardCaption) : interactive && onCaptionEdit ? (
         <Animated.View style={[styles.captionHitArea, captionPositionStyle, captionStyle]}>
           <Pressable testID={`vision-board-photo-${sceneId}-caption-edit`} accessibilityRole="button" accessibilityLabel="Edit photo caption"
             accessibilityHint="Opens the caption for this photo" onPress={() => onCaptionEdit(sceneId)} hitSlop={6} style={styles.captionPressable}>
@@ -558,6 +610,10 @@ const styles = StyleSheet.create({
   container: { position: 'absolute', overflow: 'visible' },
   photo: { position: 'absolute', left: 0, top: 0, borderRadius: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: VISION_PHOTO.mountEdge, ...VISION_SHADOW.ambient },
   materialPhoto: { borderWidth: 0, borderRadius: 0 },
+  // A torn-edge photograph has no printed border; its soft contact shadow follows the paper rather than a box.
+  tornPhoto: { borderWidth: 0, ...VISION_SHADOW.contact },
+  captionLabel: { position: 'absolute', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF7EC', borderRadius: 2,
+    transform: [{ rotate: '-1.5deg' }], zIndex: 3, ...VISION_SHADOW.contact },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
   window: { position: 'absolute', overflow: 'hidden', backgroundColor: colors.canvas },
   fill: { width: '100%', height: '100%' },

@@ -48,6 +48,12 @@ export const BOARD_FRAME_WINDOW: Record<BoardFrameKind, { left: number; top: num
 
 export const BOARD_CARD_ASPECT = 1;
 
+/**
+ * How a print is made. `torn` is a full-bleed photograph with torn paper edges, `print` a thin-bordered editorial print,
+ * and `polaroid` the captioned instant-photo frame. The mix is what keeps the board from reading as a uniform gallery.
+ */
+export type BoardTreatment = 'torn' | 'print' | 'polaroid';
+
 export type BoardSlot = {
   x: number;
   y: number;
@@ -56,6 +62,8 @@ export type BoardSlot = {
   rotation: number;
   zIndex: number;
   frame: BoardFrameKind;
+  /** Set on the Vision board's fixed slots; absent on count-based compositions. */
+  treatment?: BoardTreatment;
 };
 
 export type BoardCardSlot = Omit<BoardSlot, 'frame'>;
@@ -125,7 +133,7 @@ function clampCount(imageCount: number): number {
  * board's top, so a print keeps its place as the board grows taller), width (fraction of board width), frame kind
  * (which sets its aspect and photograph window) and tilt in degrees.
  */
-type PrintSpec = readonly [x: number, yWidths: number, width: number, frame: BoardFrameKind, rotation: number];
+type PrintSpec = readonly [x: number, yWidths: number, width: number, frame: BoardFrameKind, rotation: number, aspect?: number, treatment?: BoardTreatment];
 type TapeSpec = readonly [photo: number, offset: number, width: number, rotation: number, tone: VisionTapeTone];
 type Recipe = {
   photos: readonly PrintSpec[];
@@ -218,21 +226,37 @@ export function selectDetailBoardLayout(imageCount: number): BoardLayout {
 }
 
 /**
- * Slot geometry. The board has eight stable positions, each always at the same place on the sheet: the eight-photo
- * composition above. A photograph in slot `i` is drawn at `SLOT_PRINTS[i]` whatever else is on the board, so adding,
- * removing or moving other photographs never shifts it. Tape belongs to a slot, and shows when that slot is filled.
+ * Slot geometry. The board has eight stable positions, each always at the same place on the sheet. A photograph in slot
+ * `i` is drawn at `SLOT_PRINTS[i]` whatever else is on the board, so adding, removing or moving other photographs never
+ * shifts it. Tape belongs to a slot, and shows when that slot is filled.
+ *
+ * The composition is the original editorial collage: a dominant hero across the top, large prints that overlap it and
+ * one another, and a pyramid of smaller prints below, with the Anchor sitting over the seam between the first two
+ * rows. Positions are normalised to the board width, so it keeps its density on every screen. The mix of treatments
+ * (torn edge, thin print, polaroid) is fixed per slot, so the same board always looks the same.
  */
-const SLOT_PRINTS: readonly PrintSpec[] = [HERO_4, RIGHT_FLANK, LEFT_FLANK, FOOT_8, RIGHT_LOW, LEFT_LOW, RIGHT_FAR, LEFT_FAR];
-const SLOT_TAPE: readonly TapeSpec[] = [[0, 0.5, 0.3, 2, 'cream'], [1, 0.5, 0.26, -4, 'kraft'], [3, 0.5, 0.26, 3, 'gold'], [6, 0.5, 0.26, -2, 'cream']];
+const SLOT_PRINTS: readonly PrintSpec[] = [
+  [0.5, 0.37, 0.97, 'landscape', -0.8, VISION_HERO_ASPECT, 'torn'],
+  [0.24, 0.96, 0.43, 'portrait', -5, 0.76, 'torn'],
+  [0.75, 0.94, 0.48, 'square', 2.5, 1.15, 'print'],
+  [0.285, 1.47, 0.46, 'portrait', 3, 0.92, 'polaroid'],
+  [0.76, 1.42, 0.42, 'portrait', -3, 0.84, 'torn'],
+  [0.5, 1.75, 0.46, 'landscape', 2.5, 1.45, 'print'],
+  [0.245, 2.12, 0.43, 'portrait', -3, 0.84, 'torn'],
+  [0.755, 2.12, 0.43, 'portrait', 3, 0.95, 'polaroid'],
+];
+const SLOT_TAPE: readonly TapeSpec[] = [[3, 0.5, 0.26, 3, 'gold'], [7, 0.5, 0.26, -2, 'cream']];
 /** The Anchor's centre, in board widths from the top. Fixed, so it never moves as photographs come and go. */
 const SLOT_ANCHOR_Y_WIDTHS = 0.965;
 /** Empty paper under the lowest print or the Anchor, in board widths: room for the board title and the Add control. */
 const SLOT_BOARD_SLACK = 0.22;
 
+const printAspect = ([, , , frame, , aspect]: PrintSpec) => aspect ?? BOARD_FRAME_ASPECT[frame];
+
 /** Lowest edge of a slot's print, in board widths from the top (before tilt). */
 export function slotPrintBottomWidths(slot: number): number {
-  const [, yWidths, width, frame] = SLOT_PRINTS[slot];
-  return yWidths + width / BOARD_FRAME_ASPECT[frame] / 2;
+  const spec = SLOT_PRINTS[slot];
+  return spec[1] + spec[2] / printAspect(spec) / 2;
 }
 
 const SLOT_ANCHOR_BOTTOM_WIDTHS = SLOT_ANCHOR_Y_WIDTHS + (ANCHOR_WIDTH * VISION_BOARD_PAPER_MARK_SCALE) / 2;
@@ -253,8 +277,9 @@ export function slotBoardHeightRatio(highestOccupiedSlot: number, expanded = fal
 export function selectSlotBoardLayout(heightRatio: number): BoardLayout {
   return {
     count: SLOT_PRINTS.length,
-    photos: SLOT_PRINTS.map(([x, yWidths, width, frame, rotation], index) => ({
-      frame, x, y: yWidths / heightRatio, width, aspectRatio: BOARD_FRAME_ASPECT[frame], rotation, zIndex: 12 + index,
+    photos: SLOT_PRINTS.map((spec, index) => ({
+      frame: spec[3], x: spec[0], y: spec[1] / heightRatio, width: spec[2], aspectRatio: printAspect(spec), rotation: spec[4], zIndex: 12 + index,
+      treatment: spec[6] ?? 'polaroid',
     })),
     card: { x: 0.5, y: SLOT_ANCHOR_Y_WIDTHS / heightRatio, width: ANCHOR_WIDTH, aspectRatio: BOARD_CARD_ASPECT, rotation: -2, zIndex: 40 },
     decor: SLOT_TAPE.map(([photoIndex, offset, width, rotationDeg, tone]) => ({ kind: 'tape', photo: photoIndex, offset, width, rotation: rotationDeg, tone })),

@@ -2,7 +2,7 @@ import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { Check, Crop, LayoutGrid, Move, Pencil, Plus, RefreshCw, Replace, RotateCcw, Trash2, Type, X } from 'lucide-react-native';
+import { Check, Crop, Move, Pencil, Plus, RefreshCw, Replace, RotateCcw, Trash2, Type, X } from 'lucide-react-native';
 import { v2Haptics } from '@/hooks/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
@@ -374,15 +374,8 @@ export function VisionBoard({
         style={[styles.annotation, { top: captionTop, width: width * 0.22, fontSize: annotation.length > 40 ? 21 : 24 }]}>{annotation.trim()}</Text> : null}
       {!focus && !dragging && arrange.kind === 'off' && onAddImage ? (
         <View style={styles.chipRow} pointerEvents="box-none">
-          {arrangement ? (
-            <Pressable testID={`${testID}-arrange`} accessibilityRole="button" accessibilityLabel="Arrange photos"
-              onPress={() => setArrange({ kind: 'arrange' })} hitSlop={8} style={({ pressed }) => [styles.addChip, styles.chipInRow, pressed && styles.pressed]}>
-              <LayoutGrid size={14} color={colors.text.primary} />
-              <Text style={styles.addText}>Arrange</Text>
-            </Pressable>
-          ) : null}
           <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add to Vision"
-            onPress={arrangement ? requestAdd : () => onAddImage()} hitSlop={8} style={({ pressed }) => [styles.addChip, arrangement ? styles.chipInRow : null, pressed && styles.pressed]}>
+            onPress={arrangement ? requestAdd : () => onAddImage()} hitSlop={8} style={({ pressed }) => [styles.addChip, styles.chipInRow, pressed && styles.pressed]}>
             <Plus size={14} color={colors.text.primary} />
             <Text style={styles.addText}>Add</Text>
           </Pressable>
