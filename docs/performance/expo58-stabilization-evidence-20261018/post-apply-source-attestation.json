@@ -1,0 +1,15 @@
+{
+  "candidate": {
+    "checkedFiles": 2886,
+    "unexpectedDrift": [
+      "anchor/mobile/src/components/v2/chart/map/__tests__/__snapshots__/chartCloudTiles.test.ts.snap"
+    ],
+    "head": "5d9a6497996665eb28b4e3641531cac5a7b34546"
+  },
+  "upgrade": {
+    "checkedFiles": 2886,
+    "unexpectedDrift": [],
+    "head": "5d9a6497996665eb28b4e3641531cac5a7b34546"
+  },
+  "utc": "2026-10-19T02:25:07.435422+00:00"
+}

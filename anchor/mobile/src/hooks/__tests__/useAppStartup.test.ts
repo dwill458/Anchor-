@@ -6,6 +6,8 @@ const readyOptions = {
   fontsReady: true,
   settingsHydrated: true,
   authRestorationSettled: true,
+  firstRunHydrated: true,
+  anchorsHydrated: true,
   primeOnLaunchResolved: true,
 };
 
@@ -22,6 +24,16 @@ describe('useAppStartup', () => {
     expect(result.current.isReady).toBe(false);
     expect(result.current.status).toBe('pending');
   });
+
+  it.each(['firstRunHydrated', 'anchorsHydrated'] as const)(
+    'waits for %s before rendering the app shell',
+    (dependency) => {
+      const { result } = renderHook(() => useAppStartup({ ...readyOptions, [dependency]: false }));
+
+      expect(result.current.isReady).toBe(false);
+      expect(result.current.status).toBe('pending');
+    },
+  );
 
   it('does not wait for account data hydration after auth is settled', () => {
     const { result } = renderHook(() => useAppStartup(readyOptions));
@@ -55,6 +67,23 @@ describe('useAppStartup', () => {
     expect(result.current.timedOut).toBe(true);
     expect(result.current.outcome).toBe('fail_open');
   });
+
+  it.each(['firstRunHydrated', 'anchorsHydrated'] as const)(
+    'does not fail open after timeout while %s is unresolved',
+    (dependency) => {
+      jest.useFakeTimers();
+      const { result } = renderHook(() =>
+        useAppStartup({ ...readyOptions, fontsReady: false, [dependency]: false })
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(SPLASH_FAIL_OPEN_TIMEOUT_MS + 1);
+      });
+
+      expect(result.current.isReady).toBe(false);
+      expect(result.current.status).toBe('pending');
+    },
+  );
 
   it('keeps fatal startup failures blocked', () => {
     const { result } = renderHook(() =>

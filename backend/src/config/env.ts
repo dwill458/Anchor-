@@ -15,6 +15,8 @@ export interface EnvConfig {
   // Security
   ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
   COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
+  /** ISO cutoff for the one-time legacy trial migration bridge. */
+  MONETIZATION_MODEL_ACTIVATED_AT?: string;
   ENABLE_MERCH: boolean;
   ENABLE_VISUALIZE: boolean;
   ENABLE_CHART: boolean;
@@ -36,6 +38,21 @@ export interface EnvConfig {
 
   // AI Services
   REPLICATE_API_TOKEN?: string; // Optional - mock mode available
+  OPENAI_API_KEY?: string;
+  VISION_PRIMARY_PROVIDER?: 'openai' | 'gemini';
+  VISION_FALLBACK_PROVIDER?: 'openai' | 'gemini';
+  ANCHOR_PRIMARY_PROVIDER?: 'gemini' | 'openai';
+  ANCHOR_FALLBACK_PROVIDER?: 'openai' | 'gemini';
+  ANCHOR2_PRIMARY_PROVIDER?: 'openai' | 'gemini';
+  ANCHOR2_FALLBACK_PROVIDER?: 'gemini' | 'openai';
+  OPENAI_VISION_MODEL?: string;
+  OPENAI_ANCHOR_MODEL?: string;
+  OPENAI_FALLBACK_MODEL?: string;
+  GEMINI_VISION_MODEL?: string;
+  GEMINI_ANCHOR_MODEL?: string;
+  GEMINI_ANCHOR_PREMIUM_MODEL?: string;
+  VISION_AB_TEST_ENABLED?: boolean;
+  AI_DEV_ALLOWLIST?: string;
 
   // Storage (Cloudflare R2)
   CLOUDFLARE_ACCOUNT_ID?: string;
@@ -43,6 +60,7 @@ export interface EnvConfig {
   CLOUDFLARE_R2_SECRET_ACCESS_KEY?: string;
   CLOUDFLARE_R2_BUCKET_NAME?: string;
   CLOUDFLARE_R2_PUBLIC_DOMAIN?: string;
+  CLOUDFLARE_R2_PRIVATE_BUCKET_NAME?: string;
 
   // Merch
   PRINTFUL_API_KEY?: string;
@@ -200,6 +218,61 @@ export function validateEnv(): EnvConfig {
 
       // AI Services (optional - mock mode available)
       REPLICATE_API_TOKEN: validateString('REPLICATE_API_TOKEN', process.env.REPLICATE_API_TOKEN),
+      OPENAI_API_KEY: validateString('OPENAI_API_KEY', process.env.OPENAI_API_KEY),
+      VISION_PRIMARY_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'VISION_PRIMARY_PROVIDER',
+        process.env.VISION_PRIMARY_PROVIDER,
+        ['openai', 'gemini'],
+        'gemini'
+      ),
+      VISION_FALLBACK_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'VISION_FALLBACK_PROVIDER',
+        process.env.VISION_FALLBACK_PROVIDER,
+        ['openai', 'gemini'],
+        'openai'
+      ),
+      ANCHOR_PRIMARY_PROVIDER: validateEnum<'gemini' | 'openai'>(
+        'ANCHOR_PRIMARY_PROVIDER',
+        process.env.ANCHOR_PRIMARY_PROVIDER,
+        ['gemini', 'openai'],
+        'gemini'
+      ),
+      ANCHOR_FALLBACK_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'ANCHOR_FALLBACK_PROVIDER',
+        process.env.ANCHOR_FALLBACK_PROVIDER,
+        ['openai', 'gemini'],
+        'openai'
+      ),
+      ANCHOR2_PRIMARY_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'ANCHOR2_PRIMARY_PROVIDER',
+        process.env.ANCHOR2_PRIMARY_PROVIDER,
+        ['openai', 'gemini'],
+        'openai'
+      ),
+      ANCHOR2_FALLBACK_PROVIDER: validateEnum<'gemini' | 'openai'>(
+        'ANCHOR2_FALLBACK_PROVIDER',
+        process.env.ANCHOR2_FALLBACK_PROVIDER,
+        ['gemini', 'openai'],
+        'gemini'
+      ),
+      OPENAI_VISION_MODEL: validateString('OPENAI_VISION_MODEL', process.env.OPENAI_VISION_MODEL),
+      OPENAI_ANCHOR_MODEL: validateString('OPENAI_ANCHOR_MODEL', process.env.OPENAI_ANCHOR_MODEL),
+      OPENAI_FALLBACK_MODEL: validateString(
+        'OPENAI_FALLBACK_MODEL',
+        process.env.OPENAI_FALLBACK_MODEL
+      ),
+      GEMINI_VISION_MODEL: validateString('GEMINI_VISION_MODEL', process.env.GEMINI_VISION_MODEL),
+      GEMINI_ANCHOR_MODEL: validateString('GEMINI_ANCHOR_MODEL', process.env.GEMINI_ANCHOR_MODEL),
+      GEMINI_ANCHOR_PREMIUM_MODEL: validateString(
+        'GEMINI_ANCHOR_PREMIUM_MODEL',
+        process.env.GEMINI_ANCHOR_PREMIUM_MODEL
+      ),
+      VISION_AB_TEST_ENABLED: validateBoolean(
+        'VISION_AB_TEST_ENABLED',
+        process.env.VISION_AB_TEST_ENABLED,
+        false
+      ),
+      AI_DEV_ALLOWLIST: validateString('AI_DEV_ALLOWLIST', process.env.AI_DEV_ALLOWLIST),
 
       // Storage (optional - mock mode available)
       CLOUDFLARE_ACCOUNT_ID: validateString(
@@ -221,6 +294,10 @@ export function validateEnv(): EnvConfig {
       CLOUDFLARE_R2_PUBLIC_DOMAIN: validateString(
         'CLOUDFLARE_R2_PUBLIC_DOMAIN',
         process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN
+      ),
+      CLOUDFLARE_R2_PRIVATE_BUCKET_NAME: validateString(
+        'CLOUDFLARE_R2_PRIVATE_BUCKET_NAME',
+        process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME
       ),
 
       // Merch (optional until real Printful order creation is enabled)
@@ -278,6 +355,10 @@ export function validateEnv(): EnvConfig {
       COMPED_ACCESS_EMAILS: validateString(
         'COMPED_ACCESS_EMAILS',
         process.env.COMPED_ACCESS_EMAILS
+      ),
+      MONETIZATION_MODEL_ACTIVATED_AT: validateString(
+        'MONETIZATION_MODEL_ACTIVATED_AT',
+        process.env.MONETIZATION_MODEL_ACTIVATED_AT
       ),
       ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
       ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),

@@ -1,0 +1,57 @@
+{
+  "metric": "FrameCompleted minus IntendedVsync; Flags=0; deduplicate IntendedVsync to latest FrameCompleted",
+  "thresholds": {
+    "maxPercentOver16_7ms": 3.0,
+    "maxFramesOver32ms": 0
+  },
+  "runs": [
+    {
+      "name": "opening alpha-uniform before drawAsImage",
+      "device": "emulator-5554",
+      "wm": "786x1704",
+      "density": 320,
+      "fontScale": 1.0,
+      "windowUptimeSeconds": [
+        20937.831,
+        20945.031
+      ],
+      "coverageSeconds": 7.15,
+      "uniqueFrames": 370,
+      "over16_7ms": 333,
+      "over16_7_percent": 90.0,
+      "over32ms": 25,
+      "maxFrameMs": 105.119,
+      "medianFrameMs": 25.382,
+      "maxIntendedVsyncGapMs": 516.667,
+      "passes": false,
+      "raw": "alpha-full-clean-polls.txt",
+      "anchor": "alpha-full-clean-logcat.txt monotonic runner-start"
+    },
+    {
+      "name": "pre-change static intro idle",
+      "device": "emulator-5554",
+      "wm": "786x1704",
+      "density": 320,
+      "fontScale": 1.0,
+      "windowUptimeSeconds": [
+        21355.33,
+        21362.53
+      ],
+      "coverageSeconds": 7.183,
+      "uniqueFrames": 423,
+      "over16_7ms": 383,
+      "over16_7_percent": 90.544,
+      "over32ms": 23,
+      "maxFrameMs": 36.906,
+      "medianFrameMs": 20.283,
+      "maxIntendedVsyncGapMs": 50.0,
+      "passes": false,
+      "raw": "baseline-static-idle-polls.txt",
+      "anchor": "baseline-static-idle-markers.txt"
+    }
+  ],
+  "drawAsImageAttempt": {
+    "status": "invalid-no-rows",
+    "reason": "poll loop ended at uptime 21955.40s, just after runner-start at 21955.373s; no sequence interval rows"
+  }
+}

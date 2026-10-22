@@ -1,0 +1,6 @@
+ M src/constants/v2/paywallRoutes.ts
+ M src/screens/v2/anchors/V2AnchorDetailsScreen.tsx
+ M src/screens/v2/chart/V2ChartScreen.tsx
+ M src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx
+ M src/screens/v2/vision/V2VisionScreen.tsx
+ M src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx

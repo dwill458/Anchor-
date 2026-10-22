@@ -1,0 +1,12 @@
+{
+  "profile": 10,
+  "verifiedControlledBeforeInterruption": 17,
+  "historyCountBeforeAndAfterAbort": 38,
+  "foregroundAtDisconnect": "com.openai.chatgpt",
+  "behavior": "Focus paused on background; physical End Focus returned existing Practice hub with no completion record",
+  "driverLimitation": "Abort helper expected Home; source handleEndEarly calls onExit, which correctly returns Practice hub. Navigation reset to Home after abort only.",
+  "excludedFromControlledTimings": true,
+  "newControlledSamplesScheduled": 3,
+  "jsTimingWindow": "Restarted immediately before final three controlled sessions",
+  "attestedUtc": "2026-10-19T02:36:17.231390+00:00"
+}

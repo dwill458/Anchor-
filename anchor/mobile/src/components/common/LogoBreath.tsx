@@ -10,9 +10,10 @@
  * - Dissolve: 400-500ms (logo fades out, overlaps with next screen)
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, Easing, Image } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
 import { colors } from '@/theme';
 
 interface LogoBreathProps {
@@ -20,40 +21,29 @@ interface LogoBreathProps {
 }
 
 export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
-    const logoOpacity = useRef(new Animated.Value(0)).current;
-    const logoScale = useRef(new Animated.Value(0.96)).current;
+    const opacity = useSharedValue(0);
+    const scale = useSharedValue(0.96);
+    const logoStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [{ scale: scale.value }],
+    }));
 
     useEffect(() => {
-        // Entrance: 0-300ms (fade in + micro-scale)
-        Animated.parallel([
-            Animated.timing(logoOpacity, {
-                toValue: 1,
-                duration: 300,
-                easing: Easing.out(Easing.ease),
-                useNativeDriver: true,
-            }),
-            Animated.timing(logoScale, {
-                toValue: 1,
-                duration: 300,
-                easing: Easing.out(Easing.ease),
-                useNativeDriver: true,
-            }),
-        ]).start(() => {
-            // Hold: 100ms pause for stillness
-            setTimeout(() => {
-                // Dissolve: 100ms fade out
-                Animated.timing(logoOpacity, {
-                    toValue: 0,
-                    duration: 100,
-                    easing: Easing.linear,
-                    useNativeDriver: true,
-                }).start(() => {
-                    // Navigate to onboarding
-                    onComplete();
-                });
-            }, 100);
-        });
-    }, [logoOpacity, logoScale, onComplete]);
+        // Entrance: 0-300ms, hold: 300-400ms, dissolve: 400-500ms. The
+        // visual sequence stays on the UI thread; only navigation is timed in JS.
+        opacity.value = withSequence(
+            withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) }),
+            withDelay(100, withTiming(0, { duration: 100, easing: Easing.linear })),
+        );
+        scale.value = withSequence(
+            withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) }),
+            withDelay(100, withTiming(0.98, { duration: 100, easing: Easing.linear })),
+        );
+        const completeTimer = setTimeout(onComplete, 500);
+        return () => {
+            clearTimeout(completeTimer);
+        };
+    }, [onComplete, opacity, scale]);
 
     return (
         <View style={styles.container}>
@@ -71,17 +61,11 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
 
             {/* Logo mark */}
             <Animated.View
-                style={[
-                    styles.logoContainer,
-                    {
-                        opacity: logoOpacity,
-                        transform: [{ scale: logoScale }],
-                    },
-                ]}
+                style={[styles.logoContainer, logoStyle]}
             >
                 {/* Official Logo */}
                 <Image
-                    source={require('../../assets/images/anchor-gold.png')}
+                    source={require('../../assets/images/anchor-brand-mark-cream.png')}
                     style={styles.logoImage}
                     resizeMode="contain"
                 />

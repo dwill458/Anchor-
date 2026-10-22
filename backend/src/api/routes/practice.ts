@@ -21,6 +21,13 @@ import { validateVisualizationScene } from '../../services/VisualizationSceneSer
 import { requireVisualizeAccess } from '../../services/PracticeAccessService';
 import { courseEventService } from '../../services/CourseEventService';
 import { PRACTICE_ENTRY_SOURCES, type PracticeEntrySource } from '../../types/chart';
+import {
+  threadStrengthService,
+  type ThreadMovement,
+} from '../../services/v2/ThreadStrengthService';
+import { visionService } from '../../services/v2/VisionService';
+import { logger } from '../../utils/logger';
+import { milestoneService } from '../../services/v2/milestones/MilestoneService';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -257,6 +264,9 @@ function assertValidCompletedSession(input: NormalizedPracticeSessionInput): voi
   if (completedAt < startedAt || completedAt.getTime() > Date.now() + 5 * 60 * 1000) {
     throw new AppError('Invalid practice timestamps', 400, 'VALIDATION_ERROR');
   }
+  if (input.completedDurationSeconds < input.plannedDurationSeconds) {
+    throw new AppError('Session ended early and cannot be marked as completed', 400, 'VALIDATION_ERROR');
+  }
   if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
     throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
   }
@@ -340,7 +350,31 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       if (existing.userId !== user.id || !immutableSessionMatches(existing, input)) {
         throw new AppError('Session ID has already been used', 409, 'SESSION_ID_CONFLICT');
       }
-      res.json({ success: true, data: existing, idempotent: true });
+      let threadMovement: ThreadMovement | null = null;
+      if (existing.anchorId) {
+        try {
+          threadMovement = await threadStrengthService.calculateForPracticeSession({
+            userId: user.id,
+            sessionId: existing.id,
+            mode: 'authoritative',
+          });
+        } catch {
+          // ignore
+        }
+        // A replay may be the retry of a request that failed after saving: reconcile quietly.
+        void milestoneService.evaluateQuietly(user.id, existing.anchorId, { kind: 'practice', sourceEntityId: existing.id });
+      }
+      res.json({
+        success: true,
+        data: threadMovement
+          ? {
+              ...existing,
+              threadStrengthMovement: threadMovement,
+              threadStrength: threadMovement.afterStrength,
+            }
+          : existing,
+        idempotent: true,
+      });
       return;
     }
 
@@ -461,7 +495,58 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       }
       return session;
     });
-    res.status(201).json({ success: true, data: created, idempotent: false });
+    const isShadowOnly =
+      process.env.THREAD_V2_SHADOW === 'true' && process.env.THREAD_V2_AUTHORITY !== 'true';
+    const threadV2Authority = !isShadowOnly;
+    let threadMovement: ThreadMovement | null = null;
+    if (created.anchorId) {
+      try {
+        threadMovement = await threadStrengthService.calculateForPracticeSession({
+          userId: user.id,
+          sessionId: created.id,
+          mode: threadV2Authority ? 'authoritative' : 'shadow',
+        });
+      } catch (err) {
+        logger.error('Failed to calculate Thread V2 strength movement', err);
+      }
+    }
+
+    // Evaluation is recoverable and must not delay the confirmed normal completion.
+    const newMilestones: never[] = []; // Legacy response shape; presentation uses a separate reservation.
+    void milestoneService.evaluateQuietly(user.id, created.anchorId, { kind: 'practice', sourceEntityId: created.id });
+
+    if (created.anchorId && created.practiceMode === 'visualize') {
+      try {
+        const activeVision = await prisma.vision.findFirst({
+          where: { anchorId: created.anchorId, userId: user.id, status: 'ACTIVE' },
+          select: { id: true },
+        });
+        if (activeVision) {
+          const clientTimeZone = input.timeZone || 'UTC';
+          await visionService.recordVisionView(
+            user.id,
+            activeVision.id,
+            clientTimeZone,
+            new Date(created.completedAt)
+          );
+        }
+      } catch (err) {
+        logger.error('Failed to record vision view for visualize practice', err);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      data: threadV2Authority
+        ? {
+            ...created,
+            threadStrengthMovement: threadMovement,
+            threadStrength: threadMovement?.afterStrength,
+            newMilestones,
+          }
+        : { ...created, newMilestones },
+      idempotent: false,
+    });
   } catch (error) {
     if (error instanceof AppError) return next(error);
     return next(new AppError('Failed to record practice session', 500, 'PRACTICE_ERROR'));

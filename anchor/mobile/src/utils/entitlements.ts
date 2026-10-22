@@ -8,14 +8,11 @@
 import type { Anchor } from '@/types';
 import { isoWeekKey, type PrimingHistoryEntry } from './primingAnalytics';
 
-export const TRIAL_ANCHOR_LIMIT = 7;
 export const PAID_PRO_DAILY_ANCHOR_LIMIT = 10;
 export const FREE_WEEKLY_SESSION_LIMIT = 5;
-export const TRIAL_DURATION_DAYS = 7;
 
 export type EntitlementTier = 'free' | 'trial' | 'pro';
 export type AnchorCreationLimitReason =
-  | 'trial_anchor_cap_reached'
   | 'create_anchor_free_locked'
   | 'pro_daily_anchor_cap_reached'
   | null;
@@ -23,6 +20,7 @@ export type PracticeLimitReason = 'free_weekly_sessions_used' | 'premium_practic
 
 export interface Entitlements {
   tier: EntitlementTier;
+  entitlementReady: boolean;
   isPro: boolean;
   isPaidPro: boolean;
   isInTrial: boolean;
@@ -59,6 +57,8 @@ export interface EntitlementInput {
   isTrialActive: boolean;
   trialExpired?: boolean;
   trialStartDate?: Date | string | null;
+  freeAnchorConsumed?: boolean;
+  entitlementReady?: boolean;
   now?: Date;
 }
 
@@ -93,12 +93,6 @@ function toDate(value?: Date | string | null): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
 function isSameUtcDay(left: Date, right: Date): boolean {
   return (
     left.getUTCFullYear() === right.getUTCFullYear() &&
@@ -117,21 +111,6 @@ function countAnchorsCreatedToday(
   }, 0);
 }
 
-function countAnchorsCreatedDuringTrial(params: {
-  anchors: EntitlementInput['anchors'];
-  trialStartDate?: Date | string | null;
-}): number {
-  const trialStart = toDate(params.trialStartDate);
-  if (!trialStart) return 0;
-
-  const trialEnd = addDays(trialStart, TRIAL_DURATION_DAYS);
-  return (params.anchors ?? []).reduce((count, anchor) => {
-    const createdAt = toDate(anchor.createdAt);
-    if (!createdAt) return count;
-    return createdAt >= trialStart && createdAt < trialEnd ? count + 1 : count;
-  }, 0);
-}
-
 function countWeeklyPracticeSessions(
   primingHistory: PrimingHistoryEntry[] | undefined,
   now: Date
@@ -144,14 +123,6 @@ function countWeeklyPracticeSessions(
 
 export function getAnchorCreationLimitCopy(reason: AnchorCreationLimitReason): LimitCopy | null {
   switch (reason) {
-    case 'trial_anchor_cap_reached':
-      return {
-        title: "You've created your 7 trial anchors",
-        body:
-          'Anchor works best when each intention has space to breathe. Upgrade to Pro to keep creating new anchors and practicing without limits.',
-        cta: 'Unlock Anchor Pro',
-        secondary: 'Not now',
-      };
     case 'create_anchor_free_locked':
       return {
         title: 'Create more anchors with Pro',
@@ -204,15 +175,10 @@ export function computeEntitlements(input: EntitlementInput): Entitlements {
   const tier: EntitlementTier = isPaidPro ? 'pro' : isInTrial ? 'trial' : 'free';
 
   const anchorsCreatedToday = countAnchorsCreatedToday(input.anchors, now);
-  const anchorsCreatedDuringTrial = countAnchorsCreatedDuringTrial({
-    anchors: input.anchors,
-    trialStartDate: input.trialStartDate,
-  });
+  const anchorsCreatedDuringTrial = 0;
   const freeWeeklySessionsUsed = countWeeklyPracticeSessions(input.primingHistory, now);
 
-  const remainingTrialAnchors = isInTrial
-    ? Math.max(0, TRIAL_ANCHOR_LIMIT - anchorsCreatedDuringTrial)
-    : 0;
+  const remainingTrialAnchors = 0;
   const remainingDailyProAnchors = isPaidPro
     ? Math.max(0, PAID_PRO_DAILY_ANCHOR_LIMIT - anchorsCreatedToday)
     : 0;
@@ -220,26 +186,33 @@ export function computeEntitlements(input: EntitlementInput): Entitlements {
     ? Math.max(0, FREE_WEEKLY_SESSION_LIMIT - freeWeeklySessionsUsed)
     : Infinity;
 
+  const entitlementReady = input.entitlementReady !== false;
+  const freeAnchorConsumed = input.freeAnchorConsumed === true;
   const anchorCreationLimitReason: AnchorCreationLimitReason =
-    isPaidPro && remainingDailyProAnchors <= 0
+    !entitlementReady
+      ? null
+      : isPaidPro && remainingDailyProAnchors <= 0
       ? 'pro_daily_anchor_cap_reached'
-      : isInTrial && remainingTrialAnchors <= 0
-        ? 'trial_anchor_cap_reached'
-        : isFree
+      : isFree && freeAnchorConsumed
           ? 'create_anchor_free_locked'
           : null;
 
   const practiceLimitReason: PracticeLimitReason =
-    isFree && remainingWeeklyFreeSessions <= 0 ? 'free_weekly_sessions_used' : null;
+    !entitlementReady
+      ? null
+      : isFree && remainingWeeklyFreeSessions <= 0
+        ? 'free_weekly_sessions_used'
+        : null;
 
-  const canCreateAnchor = anchorCreationLimitReason == null;
-  const canStartPracticeSession = practiceLimitReason == null;
+  const canCreateAnchor = entitlementReady && anchorCreationLimitReason == null;
+  const canStartPracticeSession = entitlementReady && practiceLimitReason == null;
   const canUseUnlimitedSessions = isPaidPro || isInTrial;
   const canUseProPracticeModes = isPaidPro || isInTrial;
   const legacyFeatures = isFree ? FREE_FEATURES : PRO_FEATURES;
 
   return {
     tier,
+    entitlementReady,
     isPro: isPaidPro || isInTrial,
     isPaidPro,
     isInTrial,
@@ -256,7 +229,7 @@ export function computeEntitlements(input: EntitlementInput): Entitlements {
     remainingWeeklyFreeSessions,
     anchorCreationLimitReason,
     practiceLimitReason,
-    maxAnchors: isFree ? 0 : Infinity,
+    maxAnchors: isFree && freeAnchorConsumed ? 1 : Infinity,
     focusSessionsPerWeek: isFree ? FREE_WEEKLY_SESSION_LIMIT : Infinity,
     deepPrimeSessionsPerWeek: isFree ? FREE_WEEKLY_SESSION_LIMIT : Infinity,
     ...legacyFeatures,

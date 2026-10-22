@@ -1,3 +1,16 @@
+import 'react-native-gesture-handler/jestSetup';
+
+// Tests render gesture detectors without a GestureHandlerRootView; pass children through.
+jest.mock('react-native-gesture-handler', () => {
+  const actual = jest.requireActual('react-native-gesture-handler');
+  // RNGH scroll views wrap a GestureDetector internally; use the React Native ones under Jest.
+  const RN = jest.requireActual('react-native');
+  return { ...actual, GestureDetector: ({ children }: { children?: unknown }) => children, ScrollView: RN.ScrollView, FlatList: RN.FlatList };
+});
+// Reanimated 4 needs Worklets native runtimes; see mocks/reactNativeWorklets.ts.
+jest.mock('react-native-worklets', () => require('./mocks/reactNativeWorklets').default);
+// Reanimated 4 cannot load its native runtime under Jest; see mocks/reactNativeReanimated.ts.
+jest.mock('react-native-reanimated', () => require('./mocks/reactNativeReanimated').default);
 /**
  * Anchor App - Jest Setup
  *
@@ -17,6 +30,17 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 // Mock Expo modules
+jest.mock('expo-notifications/build/NotificationsHandlerModule.native', () => ({
+  __esModule: true,
+  default: {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    removeListener: jest.fn(),
+    removeAllListeners: jest.fn(),
+    emit: jest.fn(),
+    listenerCount: jest.fn(() => 0),
+  },
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
@@ -48,6 +72,19 @@ jest.mock('expo-blur', () => ({
   BlurView: 'BlurView',
 }));
 
+// Voice input is native-only: tests see a device without speech recognition unless they mock it themselves.
+jest.mock('expo-speech-recognition', () => ({
+  ExpoSpeechRecognitionModule: {
+    isRecognitionAvailable: jest.fn(() => false),
+    supportsOnDeviceRecognition: jest.fn(() => false),
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+    start: jest.fn(),
+    stop: jest.fn(),
+    abort: jest.fn(),
+  },
+  useSpeechRecognitionEvent: jest.fn(),
+}));
+
 jest.mock('expo-speech', () => ({
   speak: jest.fn(),
   stop: jest.fn(),
@@ -62,6 +99,7 @@ jest.mock('expo-audio', () => ({
     loop: false,
     pause: jest.fn(),
     play: jest.fn(),
+    release: jest.fn(),
     remove: jest.fn(),
     seekTo: jest.fn(() => Promise.resolve()),
     volume: 1,
@@ -87,6 +125,7 @@ jest.mock('expo-store-review', () => ({
 }));
 
 jest.mock('expo-media-library', () => ({
+  Asset: { create: jest.fn(() => Promise.resolve({ id: 'content://saved-image' })) },
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
@@ -114,10 +153,14 @@ const mockExpoFileSystem = {
   cacheDirectory: 'file:///cache/',
   documentDirectory: 'file:///documents/',
   readAsStringAsync: jest.fn(() => Promise.resolve('')),
+  writeAsStringAsync: jest.fn(() => Promise.resolve()),
   copyAsync: jest.fn(() => Promise.resolve()),
   makeDirectoryAsync: jest.fn(() => Promise.resolve()),
   deleteAsync: jest.fn(() => Promise.resolve()),
   getInfoAsync: jest.fn(() => Promise.resolve({ exists: false })),
+  readDirectoryAsync: jest.fn(() => Promise.resolve([])),
+  downloadAsync: jest.fn(() => Promise.reject(new Error('network disabled in tests'))),
+  moveAsync: jest.fn(() => Promise.resolve()),
   EncodingType: {
     Base64: 'base64',
   },
@@ -201,12 +244,48 @@ jest.mock('@shopify/react-native-skia', () => {
     Canvas: 'Canvas',
     Circle: 'Circle',
     Group: 'Group',
+    Image: 'SkiaImage',
+    Mask: 'Mask',
+    Path: 'Path',
+    Rect: 'Rect',
+    Blur: 'Blur',
+    LinearGradient: 'SkiaLinearGradient',
+    RadialGradient: 'SkiaRadialGradient',
+    // Decoded images resolve immediately so screens that wait on artwork can proceed.
+    useImage: jest.fn(() => ({ width: () => 1, height: () => 1 })),
+    vec: (x: number, y: number) => ({ x, y }),
     Line: 'Line',
     BlurMask: 'BlurMask',
     Picture: 'Picture',
     PaintStyle: { Fill: 'Fill', Stroke: 'Stroke' },
     TileMode: { Clamp: 'Clamp', Repeat: 'Repeat', Mirror: 'Mirror', Decal: 'Decal' },
+    // Chart map (treasure-map redesign) additions.
+    Shader: 'Shader',
+    ImageShader: 'ImageShader',
+    Paint: 'Paint',
+    Fill: 'Fill',
+    drawAsImage: jest.fn(async (): Promise<any> => ({ width: () => 1, height: () => 1 })),
+    FractalNoise: 'FractalNoise',
+    ColorMatrix: 'ColorMatrix',
+    DiscretePathEffect: 'DiscretePathEffect',
+    DashPathEffect: 'DashPathEffect',
+    FilterMode: { Nearest: 0, Linear: 1 },
+    MipmapMode: { None: 0, Nearest: 1, Linear: 2 },
+    ColorType: { Unknown: 0, Alpha_8: 1, RGB_565: 2, RGBA_8888: 4, BGRA_8888: 6 },
+    AlphaType: { Unknown: 0, Opaque: 1, Premul: 2, Unpremul: 3 },
     Skia: {
+      RuntimeEffect: { Make: jest.fn((): any => ({ __runtimeEffectStub: true })) },
+      Image: { MakeImage: jest.fn((): any => ({ width: () => 213, height: () => 295 })) },
+      Data: { fromBytes: jest.fn((): any => ({})) },
+      Path: {
+        MakeFromSVGString: jest.fn((): any => ({ __pathStub: true })),
+        // Paywall curve / route builders.
+        Make: jest.fn((): any => {
+          const path: any = { __pathStub: true };
+          for (const op of ['moveTo', 'lineTo', 'quadTo', 'cubicTo', 'close']) path[op] = jest.fn(() => path);
+          return path;
+        }),
+      },
       Paint: jest.fn(() => makePaint()),
       PictureRecorder: jest.fn(() => ({
         beginRecording: jest.fn(() => ({
@@ -281,6 +360,7 @@ jest.mock('react-native-svg', () => ({
   default: 'Svg',
   SvgXml: 'SvgXml',
   Svg: 'Svg',
+  Image: 'SvgImage',
   Circle: 'Circle',
   Ellipse: 'Ellipse',
   Path: 'Path',
@@ -289,10 +369,17 @@ jest.mock('react-native-svg', () => ({
   Polygon: 'Polygon',
   Polyline: 'Polyline',
   Rect: 'Rect',
+  Text: 'SvgText',
+  TSpan: 'TSpan',
   Defs: 'Defs',
+  Filter: 'Filter',
+  FeGaussianBlur: 'FeGaussianBlur',
+  FeColorMatrix: 'FeColorMatrix',
   Stop: 'Stop',
   LinearGradient: 'LinearGradient',
   RadialGradient: 'RadialGradient',
+  ClipPath: 'ClipPath',
+  Mask: 'Mask',
 }));
 
 jest.mock('react-native-webview', () => ({
@@ -414,3 +501,7 @@ jest.setTimeout(10000);
 // None of our tests assert on animated values, so animations being visual no-ops is fine.
 (global as any).requestAnimationFrame = jest.fn().mockReturnValue(0);
 (global as any).cancelAnimationFrame = jest.fn();
+
+// The Skia aura canvas drives a Reanimated frame callback that the JS-only test runtime cannot unregister.
+// Screens that render Anchors with an aura get a null canvas; ThreadAuraCanvas.test.tsx unmocks the real one.
+jest.mock('@/components/v2/anchor/ThreadAuraCanvas', () => ({ ThreadAuraCanvas: () => null }));

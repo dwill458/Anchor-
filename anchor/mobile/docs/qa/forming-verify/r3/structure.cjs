@@ -1,0 +1,16 @@
+const fs=require('fs'),path=require('path'),Module=require('module');
+const root=path.resolve(__dirname,'../../../..');const ts=require(path.join(root,'node_modules/typescript'));const sharp=require(path.join(root,'node_modules/sharp'));
+const resolve=Module._resolveFilename,load=Module._load;
+Module._load=function(n,...r){if(n==='@/utils/logger')return{logger:new Proxy({},{get:()=>()=>{}})};return load.call(this,n,...r);};
+Module._resolveFilename=function(n,p,...r){return resolve.call(this,n.startsWith('@/')?path.join(root,'src',n.slice(2)):n,p,...r);};
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,f);
+const flow=path.join(root,'src/screens/create/flow');
+const {fakeMeasure}=require(path.join(flow,'__tests__/recordingPainter.ts'));
+const {buildSceneContext}=require(path.join(flow,'sceneContext.ts'));
+const ctx=buildSceneContext({intentionText:'I am calm and focused under pressure',category:'desire',source:'typed',entry:'glide',mode:'first',reduceMotion:false,measure:fakeMeasure}).context;
+const S=1024;const all=ctx.hero.strokes.flat();const xs=all.map(p=>p.x),ys=all.map(p=>p.y);
+const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+const k=(S*0.7)/Math.max(maxx-minx,maxy-miny);const cx=(minx+maxx)/2,cy=(miny+maxy)/2;
+const pl=ctx.hero.strokes.map(s=>`<polyline points="${s.map(p=>`${S/2+(p.x-cx)*k},${S/2+(p.y-cy)*k}`).join(' ')}" fill="none" stroke="#111" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}"><rect width="100%" height="100%" fill="#fff"/>${pl}</svg>`;
+sharp(Buffer.from(svg)).png().toFile(path.join(__dirname,'structure.png')).then(()=>console.log('structure.png'));

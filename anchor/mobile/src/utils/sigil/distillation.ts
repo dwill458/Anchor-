@@ -158,6 +158,69 @@ export function distillIntention(intentionText: string): DistillationResult {
   return result;
 }
 
+/** Which reduction pass drops a character: 1 = vowel removal, 2 = duplicate removal. */
+export type DistillationRemovalStep = 1 | 2;
+
+export interface DistillationRenderCharacter {
+  /** Uppercased for display, matching the distilled letter it fades toward. */
+  char: string;
+  /** True for a first-occurrence consonant that survives into `finalLetters`. */
+  keep: boolean;
+  /** The pass that removes this character, or null when it survives. */
+  removalStep: DistillationRemovalStep | null;
+}
+
+export interface DistillationRenderWord {
+  chars: DistillationRenderCharacter[];
+}
+
+/**
+ * Break an intention into words and mark which characters survive distillation.
+ *
+ * Walks the same first-occurrence-consonant rule as {@link distillIntention}, in the
+ * same left-to-right order, so `chars.filter(c => c.keep)` flattened across every word
+ * always matches `distillIntention(intentionText).finalLetters` exactly. Kept separate
+ * from `distillIntention` because the reduction animation needs word grouping and
+ * per-character keep flags that the flat letter list cannot express. Characters are
+ * uppercased for display, matching the distilled letters they fade toward.
+ *
+ * Each character also carries the `removalStep` that drops it, so the animation can play
+ * the two reductions as separate passes instead of collapsing them into one fade.
+ *
+ * @example
+ * buildDistillationRenderWords("I lead")
+ * // [{ chars: [{ char: 'I', keep: false, removalStep: 1 }] },
+ * //  { chars: [{ char: 'L', keep: true, removalStep: null }, { char: 'E', keep: false, removalStep: 1 },
+ * //            { char: 'A', keep: false, removalStep: 1 }, { char: 'D', keep: true, removalStep: null }] }]
+ */
+export function buildDistillationRenderWords(intentionText: string): DistillationRenderWord[] {
+  const words = intentionText.trim().split(/\s+/).filter(Boolean);
+  const seen = new Set<number>();
+
+  return words.map((word) => ({
+    chars: Array.from(word).map((char): DistillationRenderCharacter => {
+      const upperCode = toUpperAlphaCode(char.charCodeAt(0));
+
+      if (upperCode == null) {
+        return { char, keep: false, removalStep: 1 };
+      }
+
+      const upperChar = String.fromCharCode(upperCode);
+
+      if (isVowelCode(upperCode)) {
+        return { char: upperChar, keep: false, removalStep: 1 };
+      }
+
+      if (seen.has(upperCode)) {
+        return { char: upperChar, keep: false, removalStep: 2 };
+      }
+
+      seen.add(upperCode);
+      return { char: upperChar, keep: true, removalStep: null };
+    }),
+  }));
+}
+
 /**
  * Get a human-readable summary of the distillation process
  *
@@ -183,7 +246,7 @@ export function getDistillationSummary(result: DistillationResult): string {
  * @param intentionText - The text to validate
  * @returns Object with isValid flag and optional error message
  */
-export function validateIntention(intentionText: string): {
+export function validateIntention(intentionText: string, maxLength: number = 100): {
   isValid: boolean;
   error?: string;
 } {
@@ -211,11 +274,11 @@ export function validateIntention(intentionText: string): {
     };
   }
 
-  // Check if too long (more than 100 characters)
-  if (intentionText.trim().length > 100) {
+  // Check if too long (defaults to 100 characters; V2 creation passes its own limit)
+  if (intentionText.trim().length > maxLength) {
     return {
       isValid: false,
-      error: 'Intention must be 100 characters or less',
+      error: `Intention must be ${maxLength} characters or less`,
     };
   }
 

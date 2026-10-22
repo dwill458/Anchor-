@@ -38,7 +38,7 @@ import {
 type SessionTab = 'focus' | 'prime' | 'visualize';
 type FocusDurationOption = 10 | 30 | 60 | 120;
 type PrimeDurationOption = 120 | 300 | 600 | 900 | 'custom';
-type VisualizeDurationOption = 60 | 180 | 300;
+type VisualizeDurationOption = 60 | 180 | 600;
 
 const FOCUS_DURATION_OPTIONS: Array<{ label: string; value: FocusDurationOption }> = [
   { label: '10s', value: 10 },
@@ -251,6 +251,13 @@ export const SessionDefaultsScreen: React.FC = () => {
   const [visualizeAudioDefaults, setVisualizeAudioDefaults] = useState<SessionAudioDefaults>(
     storedSessionAudioDefaults.visualize
   );
+
+  // Voice & Sound is one default shared by Focus, Deep Focus and Visualize.
+  const setGlobalAudioDefaults = (next: SessionAudioDefaults) => {
+    setFocusAudioDefaults(next);
+    setPrimeAudioDefaults(next);
+    setVisualizeAudioDefaults(next);
+  };
   const [isAddingPlace, setIsAddingPlace] = useState(false);
   const [placeStatus, setPlaceStatus] = useState<string | null>(null);
   const pillTranslate = useRef(
@@ -467,7 +474,7 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.section}>
                 <VoiceAndSoundControls
                   value={focusAudioDefaults}
-                  onChange={setFocusAudioDefaults}
+                  onChange={setGlobalAudioDefaults}
                   sessionType="focus"
                   durationSeconds={focusDuration}
                 />
@@ -516,7 +523,7 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.section}>
                 <VoiceAndSoundControls
                   value={primeAudioDefaults}
-                  onChange={setPrimeAudioDefaults}
+                  onChange={setGlobalAudioDefaults}
                   sessionType="deep_prime"
                   durationSeconds={resolvedPrimeDurationSeconds}
                 />
@@ -526,9 +533,9 @@ export const SessionDefaultsScreen: React.FC = () => {
             <>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Duration</Text>
-                <Text style={styles.sectionDescription}>Choose a 1, 3, or 5 minute visualization.</Text>
+                <Text style={styles.sectionDescription}>Choose a 1, 3, or 10 minute visualization.</Text>
                 <View style={styles.primeDurationGrid}>
-                  {([60, 180, 300] as const).map((duration) => (
+                  {([60, 180, 600] as const).map((duration) => (
                     <DurationButton
                       key={duration}
                       label={`${duration / 60} min`}
@@ -542,7 +549,7 @@ export const SessionDefaultsScreen: React.FC = () => {
               <View style={styles.section}>
                 <VoiceAndSoundControls
                   value={visualizeAudioDefaults}
-                  onChange={setVisualizeAudioDefaults}
+                  onChange={setGlobalAudioDefaults}
                   sessionType="visualize"
                   durationSeconds={visualizeDuration}
                 />

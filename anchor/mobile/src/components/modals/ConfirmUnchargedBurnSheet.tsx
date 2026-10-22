@@ -1,22 +1,9 @@
-/**
- * Anchor App - Confirm Uncharged Burn Bottom Sheet
- *
- * Warning for users attempting to burn/release an uncharged anchor.
- */
-
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
-import { colors, spacing, typography } from '@/theme';
-import { safeHaptics } from '@/utils/haptics';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT, V2Button } from '@/components/v2/primitives';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export interface ConfirmUnchargedBurnSheetProps {
   visible: boolean;
@@ -25,150 +12,148 @@ export interface ConfirmUnchargedBurnSheetProps {
   intentionText?: string;
 }
 
+/**
+ * Anchor 2.0 Confirm Uncharged Burn Sheet.
+ *
+ * Warning for users attempting to burn/release an uncharged anchor.
+ * Built with Anchor 2.0 design language and spring bottom sheet physics.
+ */
 export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps> = ({
   visible,
   onConfirm,
   onCancel,
   intentionText,
 }) => {
+  const reduceMotion = useV2ReduceMotion();
+
   const handleConfirm = (): void => {
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+    v2Haptics.destructiveCommit();
     onConfirm();
   };
 
   const handleCancel = (): void => {
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    v2Haptics.selection();
     onCancel();
   };
 
   return (
-    <Modal
+    <V2SheetModal
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancel}
-      accessibilityViewIsModal
+      onClose={onCancel}
+      reduceMotion={reduceMotion}
+      scrimAccessibilityLabel="Cancel release"
+      testID="confirm-uncharged-burn-sheet"
     >
-      <View style={styles.overlay}>
-        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <Pressable style={styles.pressableOverlay} onPress={onCancel}>
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.handle} />
+      <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal>
+        <V2SheetGrabZone>
+          <View style={styles.handle} />
+          <Text style={styles.eyebrow} accessibilityRole="none">
+            UNGROUNDED INTENTION
+          </Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            Release before priming?
+          </Text>
+        </V2SheetGrabZone>
 
-            <Text style={styles.title}>Unplanted Intention</Text>
-
-            {intentionText && (
-              <Text style={styles.intention} numberOfLines={2}>
-                "{intentionText}"
-              </Text>
-            )}
-
-            <Text style={styles.body}>
-              Your intention has not been implanted. Releasing this anchor now will disperse its energy before it has been grounded.
-              {"\n\n"}
-              Are you certain you wish to proceed with the ritual of release?
+        {intentionText ? (
+          <View style={styles.intentionCard}>
+            <Text style={styles.intention} numberOfLines={2}>
+              "{intentionText}"
             </Text>
+          </View>
+        ) : null}
 
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={handleConfirm}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.confirmButtonText}>Release Anyway</Text>
-              </TouchableOpacity>
+        <Text style={styles.body}>
+          This Anchor has not been primed or practiced with. Releasing it now disperses the intention before it has taken root in your daily rhythm.
+        </Text>
 
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleCancel}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.cancelButtonText}>Keep & Ground</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </View>
-    </Modal>
+        <View style={styles.actions}>
+          <V2Button
+            variant="destructive"
+            size="large"
+            onPress={handleConfirm}
+            accessibilityLabel="Release Anyway"
+            testID="confirm-uncharged-burn-confirm-btn"
+          >
+            Release Anyway
+          </V2Button>
+
+          <V2Button
+            variant="secondary"
+            size="large"
+            onPress={handleCancel}
+            accessibilityLabel="Keep Anchor"
+            testID="confirm-uncharged-burn-cancel-btn"
+          >
+            Keep & Practice
+          </V2Button>
+        </View>
+      </SafeAreaView>
+    </V2SheetModal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  pressableOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-  },
   sheet: {
-    backgroundColor: 'rgba(30, 30, 35, 0.95)',
-    borderRadius: 24,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.default,
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[4] + V2_SHEET_SKIRT,
+    marginBottom: -V2_SHEET_SKIRT,
+    flexShrink: 1,
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 10,
   },
   handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: spacing.lg,
+    width: 38,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: colors.border.default,
+    marginBottom: spacing[3],
+  },
+  eyebrow: {
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    letterSpacing: 0.8,
+    marginBottom: spacing[1],
   },
   title: {
-    fontSize: 22,
-    fontFamily: typography.fonts.headingBold,
-    color: colors.gold,
-    textAlign: 'center',
-    marginBottom: spacing.md,
+    ...typography.headingLG,
+    color: colors.text.primary,
+    letterSpacing: -0.4,
+  },
+  intentionCard: {
+    marginTop: spacing[3],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderRadius: radii.md,
+    backgroundColor: colors.grouped,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
   },
   intention: {
-    fontSize: 15,
-    fontFamily: typography.fonts.body,
-    color: colors.gold,
-    textAlign: 'center',
+    ...typography.bodyMD,
     fontStyle: 'italic',
-    marginBottom: spacing.md,
+    color: colors.text.primary,
   },
   body: {
-    fontSize: 15,
-    fontFamily: typography.fonts.body,
+    ...typography.bodyMD,
     color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginTop: spacing[3],
     lineHeight: 22,
   },
   actions: {
-    gap: 12,
-  },
-  confirmButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 80, 80, 0.4)',
-  },
-  confirmButtonText: {
-    fontSize: 14,
-    fontFamily: typography.fonts.bodyBold,
-    color: 'rgba(255, 120, 120, 0.9)',
-    textAlign: 'center',
-  },
-  cancelButton: {
-    backgroundColor: colors.gold,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    fontFamily: typography.fonts.bodyBold,
-    color: '#000',
-    textAlign: 'center',
+    marginTop: spacing[5],
+    gap: spacing[2],
   },
 });
+
+export default ConfirmUnchargedBurnSheet;

@@ -35,12 +35,12 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
   },
   defaultBlock: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderColor: 'rgba(212,175,55,0.15)',
+    backgroundColor: '#FBF9F4',
+    borderColor: '#D8D2C8',
   },
   devBlock: {
-    backgroundColor: 'rgba(74,222,128,0.04)',
-    borderColor: 'rgba(74,222,128,0.2)',
+    backgroundColor: 'rgba(4, 120, 87, 0.04)',
+    borderColor: 'rgba(4, 120, 87, 0.2)',
   },
   flatBlock: {
     marginHorizontal: 0,

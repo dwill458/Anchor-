@@ -1,0 +1,551 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand src/components/v2/vision src/screens/v2/vision src/hooks/v2/vision src/adapters/v2/vision
+
+FAIL src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (13.105 s)
+  ● V2VisionScreen ceremony additions › keeps a failed add sealed and retries without another upload or hold
+
+    Unable to find an element with testID: vision-ceremony-save-retry
+
+    <View />
+
+      103 |     });
+      104 |     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library'); await seal(view);
+    > 105 |     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
+          |                 ^
+      106 |     await act(async () => { fireEvent.press(view.getByTestId('vision-ceremony-save-retry')); }); await advance(200);
+      107 |     expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url === '/api/v2/assets/upload')).toHaveLength(1);
+      108 |     await advance(3500); await advance(1200); await advance(200);
+
+      at Object.getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:105:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › first own-photo creation remains mounted through Sealed and Pinned
+
+    Unable to find an element with text: Sealed.
+
+    <View>
+      <View
+        testID="v2-vision-screen"
+      >
+        <View>
+          <RCTScrollView>
+            <View>
+              <View>
+                <View>
+                  <View>
+                    <View
+                      accessibilityLabel="Go back"
+                      accessibilityRole="button"
+                      accessible={true}
+                    >
+                      <ArrowLeft />
+                    </View>
+                    <Text
+                      accessibilityRole="header"
+                    >
+                      Vision
+                    </Text>
+                    <View>
+                      <View
+                        accessibilityLabel="Vision options"
+                        accessibilityRole="button"
+                        accessible={true}
+                      >
+                        <MoreHorizontal />
+                      </View>
+                    </View>
+                  </View>
+                  <View
+                    testID="vision-intention-heading"
+                  >
+                    <View>
+                      <View />
+                      <Text>
+                        CAREER
+                      </Text>
+                    </View>
+                    <Text
+                      accessibilityRole="header"
+                    >
+                      I build what matters.
+                    </Text>
+                  </View>
+                </View>
+                <View>
+                  <View>
+                    <View
+                      testID="vision-board"
+                    >
+                      <View
+                        nativeID="370"
+                      >
+                        <View>
+                          <View
+                            accessibilityHint="Double tap to bring it forward. Actions can move it."
+                            accessibilityLabel="Vision image 1 of 1"
+                            accessibilityRole="imagebutton"
+                            accessible={true}
+                            importantForAccessibility="auto"
+                            nativeID="371"
+                            testID="vision-board-photo-sc-1"
+                          >
+                            <View
+                              nativeID="372"
+                            >
+                              <Image
+                                accessible={false}
+                              />
+                              <LinearGradient />
+                              <Svg
+                                accessible={false}
+                              >
+                                <Path />
+                                <Path />
+                                <Path />
+                                <Path />
+                              </Svg>
+                            </View>
+                          </View>
+                          <View
+                            nativeID="373"
+                          >
+                            <View
+                              accessibilityHint="Double tap to bring your Anchor forward and edit your Vision."
+                              accessibilityLabel="Your Anchor, Career. I build what matters."
+                              accessibilityRole="button"
+                              accessible={true}
+                            >
+                              <View
+                                nativeID="374"
+                              >
+                                <View
+                                  testID="vision-board-card-content"
+                                >
+                                  <View
+                                    testID="vision-board-card-mark-slot"
+                                  >
+                                    <View
+                                      accessibilityLabel="Career Anchor"
+                                      accessibilityRole="image"
+                                      accessible={true}
+                                    >
+                                      <View
+                                        accessible={false}
+                                        importantForAccessibility="no-hide-descendants"
+                                      >
+                                        <SvgXml />
+                                      </View>
+                                    </View>
+                                  </View>
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                      <Text
+                        testID="vision-board-annotation"
+                      >
+                        Studio
+                      </Text>
+                      <View
+                        accessibilityLabel="Add an image, 1 of 6"
+                        accessibilityRole="button"
+                        accessible={true}
+                        testID="vision-board-add"
+                      >
+                        <Plus />
+                        <Text>
+                          Add image
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <View>
+                <Text>
+                  My Vision
+                </Text>
+                <Text
+                  testID="vision-statement"
+                >
+                  I build what matters.
+                </Text>
+                <View
+                  accessibilityLabel="Begin Visualize"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  nativeID="375"
+                >
+                  <View
+                    nativeID="376"
+                  >
+                    <View>
+                      <Eye />
+                    </View>
+                    <Text>
+                      <Text>
+                        Begin Visualize
+                      </Text>
+                    </Text>
+                    <View>
+                      <ChevronRight />
+                    </View>
+                  </View>
+                </View>
+                <View
+                  accessibilityLabel="On your Chart: no route yet. Create a Chart."
+                  accessibilityRole="button"
+                  accessible={true}
+                  testID="vision-on-your-chart"
+                >
+                  <View
+                    testID="vision-chart-content"
+                  >
+                    <View>
+                      <Text>
+                        ON YOUR CHART
+                      </Text>
+                      <Text>
+                        Create a Chart
+                      </Text>
+                      <Text>
+                        Map the route to this Vision.
+                      </Text>
+                    </View>
+                    <ChevronRight
+                      testID="vision-chart-chevron"
+                    />
+                  </View>
+                  <View>
+                    <Image
+                      accessible={false}
+                      testID="vision-chart-illustration"
+                    />
+                    <LinearGradient />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </RCTScrollView>
+        </View>
+        <View
+          accessible={false}
+        />
+      </View>
+    </View>
+
+      119 |     const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByText("When it's true, what do you see?");
+      120 |     await ownPhoto(view, 'library'); await seal(view);
+    > 121 |     expect(view.getByText('Sealed.')).toBeTruthy(); expect(view.queryByTestId('vision-board')).toBeNull();
+          |                 ^
+      122 |     await advance(3500); await advance(1200); await advance(200); expect(view.getByTestId('vision-board')).toBeTruthy();
+      123 |   });
+      124 | });
+
+      at Object.getByText (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:121:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (9.512 s)
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/components/v2/vision/__tests__/VisionMomentInput.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+PASS src/components/v2/vision/__tests__/VisionImageArrival.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartLink.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/components/v2/vision/__tests__/visionIntroArt.test.ts
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChrome.test.tsx
+PASS src/hooks/v2/vision/__tests__/referenceFailure.test.ts
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartRoute.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/visionImageGeometry.test.ts
+PASS src/hooks/v2/vision/__tests__/useVisionGenerationAnalytics.test.tsx
+PASS src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/components/v2/vision/__tests__/visionGuidance.test.ts
+PASS src/components/v2/vision/__tests__/visionDetailText.test.ts
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/components/v2/vision/__tests__/visionTwoUp.test.ts
+PASS src/adapters/v2/vision/__tests__/visionAdapter.test.ts
+PASS src/adapters/v2/vision/__tests__/orderedVisionImages.test.ts
+
+Summary of all failing tests
+FAIL src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (13.105 s)
+  ● V2VisionScreen ceremony additions › keeps a failed add sealed and retries without another upload or hold
+
+    Unable to find an element with testID: vision-ceremony-save-retry
+
+    <View />
+
+      103 |     });
+      104 |     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view); await ownPhoto(view, 'library'); await seal(view);
+    > 105 |     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
+          |                 ^
+      106 |     await act(async () => { fireEvent.press(view.getByTestId('vision-ceremony-save-retry')); }); await advance(200);
+      107 |     expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url === '/api/v2/assets/upload')).toHaveLength(1);
+      108 |     await advance(3500); await advance(1200); await advance(200);
+
+      at Object.getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:105:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › first own-photo creation remains mounted through Sealed and Pinned
+
+    Unable to find an element with text: Sealed.
+
+    <View>
+      <View
+        testID="v2-vision-screen"
+      >
+        <View>
+          <RCTScrollView>
+            <View>
+              <View>
+                <View>
+                  <View>
+                    <View
+                      accessibilityLabel="Go back"
+                      accessibilityRole="button"
+                      accessible={true}
+                    >
+                      <ArrowLeft />
+                    </View>
+                    <Text
+                      accessibilityRole="header"
+                    >
+                      Vision
+                    </Text>
+                    <View>
+                      <View
+                        accessibilityLabel="Vision options"
+                        accessibilityRole="button"
+                        accessible={true}
+                      >
+                        <MoreHorizontal />
+                      </View>
+                    </View>
+                  </View>
+                  <View
+                    testID="vision-intention-heading"
+                  >
+                    <View>
+                      <View />
+                      <Text>
+                        CAREER
+                      </Text>
+                    </View>
+                    <Text
+                      accessibilityRole="header"
+                    >
+                      I build what matters.
+                    </Text>
+                  </View>
+                </View>
+                <View>
+                  <View>
+                    <View
+                      testID="vision-board"
+                    >
+                      <View
+                        nativeID="370"
+                      >
+                        <View>
+                          <View
+                            accessibilityHint="Double tap to bring it forward. Actions can move it."
+                            accessibilityLabel="Vision image 1 of 1"
+                            accessibilityRole="imagebutton"
+                            accessible={true}
+                            importantForAccessibility="auto"
+                            nativeID="371"
+                            testID="vision-board-photo-sc-1"
+                          >
+                            <View
+                              nativeID="372"
+                            >
+                              <Image
+                                accessible={false}
+                              />
+                              <LinearGradient />
+                              <Svg
+                                accessible={false}
+                              >
+                                <Path />
+                                <Path />
+                                <Path />
+                                <Path />
+                              </Svg>
+                            </View>
+                          </View>
+                          <View
+                            nativeID="373"
+                          >
+                            <View
+                              accessibilityHint="Double tap to bring your Anchor forward and edit your Vision."
+                              accessibilityLabel="Your Anchor, Career. I build what matters."
+                              accessibilityRole="button"
+                              accessible={true}
+                            >
+                              <View
+                                nativeID="374"
+                              >
+                                <View
+                                  testID="vision-board-card-content"
+                                >
+                                  <View
+                                    testID="vision-board-card-mark-slot"
+                                  >
+                                    <View
+                                      accessibilityLabel="Career Anchor"
+                                      accessibilityRole="image"
+                                      accessible={true}
+                                    >
+                                      <View
+                                        accessible={false}
+                                        importantForAccessibility="no-hide-descendants"
+                                      >
+                                        <SvgXml />
+                                      </View>
+                                    </View>
+                                  </View>
+                                </View>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                      <Text
+                        testID="vision-board-annotation"
+                      >
+                        Studio
+                      </Text>
+                      <View
+                        accessibilityLabel="Add an image, 1 of 6"
+                        accessibilityRole="button"
+                        accessible={true}
+                        testID="vision-board-add"
+                      >
+                        <Plus />
+                        <Text>
+                          Add image
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <View>
+                <Text>
+                  My Vision
+                </Text>
+                <Text
+                  testID="vision-statement"
+                >
+                  I build what matters.
+                </Text>
+                <View
+                  accessibilityLabel="Begin Visualize"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "busy": false,
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  nativeID="375"
+                >
+                  <View
+                    nativeID="376"
+                  >
+                    <View>
+                      <Eye />
+                    </View>
+                    <Text>
+                      <Text>
+                        Begin Visualize
+                      </Text>
+                    </Text>
+                    <View>
+                      <ChevronRight />
+                    </View>
+                  </View>
+                </View>
+                <View
+                  accessibilityLabel="On your Chart: no route yet. Create a Chart."
+                  accessibilityRole="button"
+                  accessible={true}
+                  testID="vision-on-your-chart"
+                >
+                  <View
+                    testID="vision-chart-content"
+                  >
+                    <View>
+                      <Text>
+                        ON YOUR CHART
+                      </Text>
+                      <Text>
+                        Create a Chart
+                      </Text>
+                      <Text>
+                        Map the route to this Vision.
+                      </Text>
+                    </View>
+                    <ChevronRight
+                      testID="vision-chart-chevron"
+                    />
+                  </View>
+                  <View>
+                    <Image
+                      accessible={false}
+                      testID="vision-chart-illustration"
+                    />
+                    <LinearGradient />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </RCTScrollView>
+        </View>
+        <View
+          accessible={false}
+        />
+      </View>
+    </View>
+
+      119 |     const view = render(<V2VisionScreen anchorId="anchor-1" />); await view.findByText("When it's true, what do you see?");
+      120 |     await ownPhoto(view, 'library'); await seal(view);
+    > 121 |     expect(view.getByText('Sealed.')).toBeTruthy(); expect(view.queryByTestId('vision-board')).toBeNull();
+          |                 ^
+      122 |     await advance(3500); await advance(1200); await advance(200); expect(view.getByTestId('vision-board')).toBeTruthy();
+      123 |   });
+      124 | });
+
+      at Object.getByText (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:121:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+
+Test Suites: 1 failed, 31 passed, 32 total
+Tests:       2 failed, 224 passed, 226 total
+Snapshots:   0 total
+Time:        42.76 s
+Ran all test suites matching /src\\components\\v2\\vision|src\\screens\\v2\\vision|src\\hooks\\v2\\vision|src\\adapters\\v2\\vision/i.

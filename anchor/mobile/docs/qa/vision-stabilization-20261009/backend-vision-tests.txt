@@ -1,0 +1,13 @@
+
+> anchor-backend@0.1.0 test
+> jest --runInBand src/services/v2/__tests__/VisionService.test.ts src/services/v2/__tests__/VisionCaptionPersistence.test.ts src/domain/v2/__tests__/visionCaption.test.ts
+
+PASS src/domain/v2/__tests__/visionCaption.test.ts (7.5 s)
+PASS src/services/v2/__tests__/VisionCaptionPersistence.test.ts
+PASS src/services/v2/__tests__/VisionService.test.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       26 passed, 26 total
+Snapshots:   0 total
+Time:        10.054 s, estimated 12 s
+Ran all test suites matching /src\\services\\v2\\__tests__\\VisionService.test.ts|src\\services\\v2\\__tests__\\VisionCaptionPersistence.test.ts|src\\domain\\v2\\__tests__\\visionCaption.test.ts/i.

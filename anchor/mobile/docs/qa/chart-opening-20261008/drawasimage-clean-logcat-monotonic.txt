@@ -1,0 +1,19 @@
+--------- beginning of main
+ 21936.663 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21936.719 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21936.799 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21936.858 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21936.951 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21937.143 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21937.520 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21937.624 29446 29518 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1
+ 21954.486 30629 30740 I ReactNativeJS: Running "main"
+ 21954.546 30629 30740 I ReactNativeJS: [chart-opening-qa] window=393x852 scale=2 fontScale=1
+ 21954.578 30629 30740 I ReactNativeJS: [chart-opening-qa] gesture-root-layout=393x852
+ 21954.647 30629 30740 I ReactNativeJS: [chart-opening-qa] window=393x852 scale=2 fontScale=1
+ 21954.736 30629 30740 I ReactNativeJS: [chart-intro-prep] flow-commit
+ 21954.809 30629 30740 I ReactNativeJS: [chart-intro-prep] screen-layout +139.5ms width=393.0
+ 21955.305 30629 30740 I ReactNativeJS: [chart-intro-prep] ready +481.8ms entry=+634.8ms seen=false art=true
+ 21955.372 30629 30740 I ReactNativeJS: [chart-intro-timing] opening-commit
+ 21955.373 30629 30740 I ReactNativeJS: [chart-intro-timing] runner-start +1.1ms mode=introFull
+ 21955.375 30629 30740 I ReactNativeJS: [chart-intro-timing] air-start +3.2ms

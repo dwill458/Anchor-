@@ -30,6 +30,7 @@ jest.mock('expo-apple-authentication', () => ({
   },
   AppleAuthenticationButtonStyle: {
     BLACK: 'BLACK',
+    WHITE: 'WHITE',
   },
 }));
 
@@ -85,7 +86,7 @@ describe('LoginScreen', () => {
       />
     );
 
-    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), '  USER@Example.COM  ');
+    fireEvent.changeText(screen.getByPlaceholderText('Email'), '  USER@Example.COM  ');
     fireEvent.press(screen.getByText('Forgot password?'));
 
     await waitFor(() => {
@@ -125,7 +126,7 @@ describe('LoginScreen', () => {
     );
   });
 
-  it('tracks TRIAL_STARTED when Apple sign-in creates a new account', async () => {
+  it('does not start a trial when Apple sign-in creates a new account', async () => {
     (AppleAuthentication.isAvailableAsync as jest.Mock).mockResolvedValueOnce(true);
     (AuthService.signInWithApple as jest.Mock).mockResolvedValue({
       user: { id: 'new-user' },
@@ -145,9 +146,13 @@ describe('LoginScreen', () => {
 
     await waitFor(() => {
       expect(trackSpy).toHaveBeenCalledWith(
-        AnalyticsEvents.TRIAL_STARTED,
+        AnalyticsEvents.SIGN_UP_COMPLETED,
         expect.objectContaining({ provider: 'apple' })
       );
     });
+    expect(trackSpy).not.toHaveBeenCalledWith(
+      AnalyticsEvents.TRIAL_STARTED,
+      expect.anything()
+    );
   });
 });

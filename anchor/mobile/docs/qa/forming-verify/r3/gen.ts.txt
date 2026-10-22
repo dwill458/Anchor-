@@ -1,0 +1,31 @@
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import * as path from 'path';
+const BE = path.resolve(__dirname, '../../../../../../backend');
+const { buildStylePrompt: buildNew } = require(BE + '/src/services/stylePromptLibrary');
+const { buildStylePrompt: buildOld } = require(__dirname + '/stylePromptLibrary.old.ts.txt');
+const { buildReferenceImageWrapper } = require(BE + '/src/services/referenceImageWrappers');
+const { GoogleGenAI } = require(BE + '/node_modules/@google/genai');
+// read only the Gemini key from the backend .env (never printed)
+const envTxt = readFileSync(BE + '/.env', 'utf8');
+const getEnv = (k: string) => (envTxt.match(new RegExp('^' + k + '=(.*)$', 'm')) || [])[1]?.trim().replace(/^["']|["']$/g, '');
+const apiKey = getEnv('GEMINI_API_KEY') || getEnv('GOOGLE_API_KEY');
+const MODEL = getEnv('GEMINI_FLASH_MODEL') || 'gemini-3.1-flash-image-preview';
+const client = new GoogleGenAI({ apiKey });
+const structure = readFileSync(__dirname + '/structure.png').toString('base64');
+const jobs: Array<[string, 'old' | 'new', number, string?, string?]> = JSON.parse(process.argv[3]);
+
+(async () => {
+  mkdirSync(__dirname + '/gen', { recursive: true });
+  await Promise.all(jobs.map(async ([id, which, idx, t2, c2]) => {
+    const text = t2 || 'I am calm and focused under pressure', cat = c2 || 'desire'; const tag = t2 ? '_' + t2.replace(/[^a-z]/gi, '').slice(0, 8) : '';
+    const prompt = (which === 'new' ? buildNew : buildOld)(text, id, idx, { category: cat });
+    const full = buildReferenceImageWrapper('nanoBanana', prompt, id);
+    try {
+      const r = await client.models.generateContent({ model: MODEL, contents: [{ role: 'user', parts: [{ text: full }, { inlineData: { mimeType: 'image/png', data: structure } }] }], config: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '1:1' } } });
+      const d = r.candidates?.flatMap((c: any) => c.content?.parts ?? []).find((p: any) => typeof p.inlineData?.data === 'string')?.inlineData?.data;
+      if (!d) { console.log('NOIMG', id, which, idx); return; }
+      writeFileSync(`${__dirname}/gen/${id}_${which}${tag}_form${idx + 1}.png`, Buffer.from(d, 'base64'));
+      console.log('ok', id, which, idx);
+    } catch (e: any) { console.log('ERR', id, which, idx, String(e?.message || e).slice(0, 160)); }
+  }));
+})();

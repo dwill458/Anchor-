@@ -312,7 +312,10 @@ export const MainTabNavigator: React.FC = () => {
       const milestoneId = useTeachingStore.getState().dequeueMilestone();
       if (!milestoneId) return;
       const content = TEACHINGS[milestoneId];
-      if (content) toast.success(content.copy);
+      if (content) {
+        toast.success(content.copy);
+        useTeachingStore.getState().recordShown(milestoneId, content.pattern, content.maxShows);
+      }
       clearDrainTimer();
       timerId = setTimeout(drain, 10000);
     };

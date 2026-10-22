@@ -47,6 +47,8 @@ const HAPTIC_POSITIONS: Partial<Record<VisualizePhaseId, number>> = {
 export function useVisualizeSessionEngine(params: {
   durationSeconds: VisualizationDurationSeconds;
   hapticsEnabled: boolean;
+  /** Cinematic callers own their two one-shot cues; legacy phase haptics remain the default. */
+  phaseHapticsEnabled?: boolean;
   onComplete: (timing: VisualizeSessionTiming) => Promise<void> | void;
   /** Injected only by deterministic tests. */
   clock?: () => number;
@@ -201,7 +203,7 @@ export function useVisualizeSessionEngine(params: {
   useEffect(() => {
     const target = HAPTIC_POSITIONS[phase.id];
     if (
-      !params.hapticsEnabled ||
+      !params.hapticsEnabled || params.phaseHapticsEnabled === false ||
       state !== 'running' ||
       target == null ||
       phaseProgress < target ||
@@ -210,7 +212,7 @@ export function useVisualizeSessionEngine(params: {
       return;
     triggeredHapticsRef.current.add(phase.id);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [params.hapticsEnabled, phase.id, phaseProgress, state]);
+  }, [params.hapticsEnabled, params.phaseHapticsEnabled, phase.id, phaseProgress, state]);
 
   useEffect(() => {
     if (

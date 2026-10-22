@@ -1,0 +1,12 @@
+{
+  "path": "E:\\Projects\\Anchor\\anchor\\mobile\\docs\\qa\\chart-opening-20261008\\lifetime-fix-current.bundle",
+  "bytes": 7410572,
+  "sha256": "66a7badc0f4e301094dba1a502a2bb1b1233cd06e5fc4a0dd044d24d5cb83fd0",
+  "probe": true,
+  "sequenceEnd": true,
+  "splitBase": true,
+  "splitInk": true,
+  "premount": true,
+  "fade": true,
+  "clock": true
+}

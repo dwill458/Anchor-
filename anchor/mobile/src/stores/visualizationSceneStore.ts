@@ -1,6 +1,8 @@
+import { privateJsonStorage, sqlCipherEnabled, resetSceneViewWithoutPersistence, readPersistedSceneOwner, mergeSceneDocuments } from '@/storage/sqlcipher/persistence';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { encryptedPersistStorage } from './encryptedPersistStorage';
+import { perfLog } from '@/utils/perfDiagnostics';
 import type { VisualizationScene } from '@/types/practice';
 
 /** Where a persisted batch came from. Decides whether it is provisional. */
@@ -24,6 +26,8 @@ export interface SceneUpgradeAttempt {
 }
 
 interface VisualizationSceneState {
+  storageRecoveryRequired: boolean;
+  ownerRestoring: boolean;
   ownerAccountId: string | null;
   scenes: Record<string, VisualizationScene>;
   /** Persisted since v1 so rotation costs nothing and works offline. */
@@ -64,10 +68,14 @@ export const normalizeSuggestionIndex = (
   return index < length ? index : 0;
 };
 
+let explicitSceneBinding = false;
+let sceneBindingGeneration = 0;
 export const useVisualizationSceneStore = create<VisualizationSceneState>()(
   persist(
     (set, get) => ({
       ownerAccountId: null,
+      storageRecoveryRequired: false,
+      ownerRestoring: false,
       scenes: {},
       suggestions: {},
       selectedSuggestionIndex: {},
@@ -75,9 +83,13 @@ export const useVisualizationSceneStore = create<VisualizationSceneState>()(
       upgradeAttempts: {},
       tombstonedAnchorIds: [],
       bindAccount: accountId => {
-        if (get().ownerAccountId === accountId) return;
-        set({
+        if (get().ownerAccountId === accountId && !get().storageRecoveryRequired) return;
+        explicitSceneBinding = true;
+        const generation = ++sceneBindingGeneration;
+        const reset = () => set({
           ownerAccountId: accountId,
+          storageRecoveryRequired: false,
+          ownerRestoring: sqlCipherEnabled(),
           scenes: {},
           suggestions: {},
           selectedSuggestionIndex: {},
@@ -85,13 +97,32 @@ export const useVisualizationSceneStore = create<VisualizationSceneState>()(
           upgradeAttempts: {},
           tombstonedAnchorIds: [],
         });
+        if (!sqlCipherEnabled()) { reset(); return; }
+        resetSceneViewWithoutPersistence(reset);
+        void readPersistedSceneOwner(accountId).then((saved) => {
+          if (generation !== sceneBindingGeneration || get().ownerAccountId !== accountId) return;
+          if (!saved) { resetSceneViewWithoutPersistence(() => set({ ownerRestoring: false })); return; }
+          const state = saved.state as Partial<VisualizationSceneState>;
+          if (state.ownerAccountId !== accountId) throw new Error('Scene owner mismatch requires recovery');
+          const live = get();
+          const tombstones = new Set([...(state.tombstonedAnchorIds ?? []), ...live.tombstonedAnchorIds]);
+          const restoredMap = <T,>(saved: Record<string, T> | undefined, current: Record<string, T>) => Object.fromEntries(Object.entries({ ...saved, ...current }).filter(([id]) => !tombstones.has(id)));
+          set({ ownerRestoring: false, storageRecoveryRequired: false, scenes: restoredMap(state.scenes, live.scenes), suggestions: restoredMap(state.suggestions, live.suggestions),
+            selectedSuggestionIndex: restoredMap(state.selectedSuggestionIndex, live.selectedSuggestionIndex),
+            batchSource: restoredMap(state.batchSource, live.batchSource), upgradeAttempts: restoredMap(state.upgradeAttempts, live.upgradeAttempts),
+            tombstonedAnchorIds: [...tombstones] });
+        }).catch(() => {
+          if (generation === sceneBindingGeneration && get().ownerAccountId === accountId) resetSceneViewWithoutPersistence(() => set({ ownerRestoring: false, storageRecoveryRequired: true }));
+        });
       },
       setScene: scene => {
+        if (get().ownerRestoring || get().storageRecoveryRequired) return;
         if (get().ownerAccountId !== scene.accountId) return;
         if (get().tombstonedAnchorIds.includes(scene.anchorId)) return;
         set(state => ({ scenes: { ...state.scenes, [scene.anchorId]: scene } }));
       },
       setSuggestions: (anchorId, suggestions, source) => {
+        if (get().ownerRestoring || get().storageRecoveryRequired) return;
         // A released anchor must not receive a late batch write.
         if (get().tombstonedAnchorIds.includes(anchorId)) return;
         set(state => ({
@@ -201,7 +232,15 @@ export const useVisualizationSceneStore = create<VisualizationSceneState>()(
     }),
     {
       name: 'anchor-visualization-scenes-v1',
-      storage: createJSONStorage(() => encryptedPersistStorage),
+      storage: privateJsonStorage(encryptedPersistStorage),
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<VisualizationSceneState>;
+        if (sqlCipherEnabled() && explicitSceneBinding && saved.ownerAccountId !== current.ownerAccountId) return current;
+        if (sqlCipherEnabled() && saved.ownerAccountId === current.ownerAccountId) {
+          return { ...current, ...mergeSceneDocuments({ state: saved }, { state: current }).state, storageRecoveryRequired: false, ownerRestoring: false };
+        }
+        return { ...current, ...saved, storageRecoveryRequired: false, ownerRestoring: false };
+      },
       version: 2,
       // v0 persisted scenes only, so every rotation after a restart cost a
       // provider request. v1 adds the batch and its position. v2 adds the
@@ -232,7 +271,8 @@ export const useVisualizationSceneStore = create<VisualizationSceneState>()(
       }),
       // Hydration can restore a batch/index pair that no longer agrees (e.g. a
       // partial write); clamp every index so rotation can never read undefined.
-      onRehydrateStorage: () => hydrated => {
+      onRehydrateStorage: () => (hydrated, error) => {
+        perfLog('store-hydration-finished', { store: 'visualizationScene', ok: !error, sceneCount: Object.keys(hydrated?.scenes ?? {}).length, hasState: Boolean(hydrated) });
         if (!hydrated) return;
         const repaired: Record<string, number> = {};
         for (const [anchorId, batch] of Object.entries(hydrated.suggestions ?? {})) {

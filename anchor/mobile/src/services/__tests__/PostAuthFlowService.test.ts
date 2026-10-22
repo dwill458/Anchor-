@@ -37,6 +37,47 @@ jest.mock('@/services/AuthHydrationService', () => ({
 import PostAuthFlowService from '../PostAuthFlowService';
 
 describe('PostAuthFlowService', () => {
+  it('preserves additions and edits made while same-account migration is in flight', async () => {
+    const user = createMockUser({ id: 'user-a' });
+    const oldAnchor = createMockAnchor({ id: 'local-a', userId: user.id });
+    useAnchorStore.getState().setAnchors([oldAnchor]);
+    mockLogIn.mockResolvedValue(undefined);
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: true });
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+    let resolveMigration!: (anchors: unknown[]) => void;
+    mockMigrateAnchors.mockImplementation(() => new Promise((resolve) => { resolveMigration = resolve; }));
+    const pending = PostAuthFlowService.run({ user, token: 'token-a', preserveCompletedOnboarding: false });
+    await new Promise((resolve) => setImmediate(resolve));
+    const edited = { ...oldAnchor, intentionText: 'SYNTHETIC NEW EDIT', updatedAt: new Date() };
+    const added = createMockAnchor({ id: 'local-new', userId: user.id });
+    useAnchorStore.getState().setAnchors([edited, added]);
+    resolveMigration([oldAnchor]);
+    await pending;
+    expect(useAnchorStore.getState().getAnchorById(oldAnchor.id)?.intentionText).toBe('SYNTHETIC NEW EDIT');
+    expect(useAnchorStore.getState().getAnchorById(added.id)).toBeDefined();
+  });
+
+  it('cannot commit A migration into B after the account changes in flight', async () => {
+    const userA = createMockUser({ id: 'user-a' });
+    const userB = createMockUser({ id: 'user-b' });
+    const anchorA = createMockAnchor({ id: 'local-a', userId: userA.id });
+    const anchorB = createMockAnchor({ id: 'local-b', userId: userB.id });
+    useAnchorStore.getState().setAnchors([anchorA]);
+    mockLogIn.mockResolvedValue(undefined);
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: true });
+    let resolveMigration!: (anchors: unknown[]) => void;
+    mockMigrateAnchors.mockImplementation(() => new Promise((resolve) => { resolveMigration = resolve; }));
+    const pending = PostAuthFlowService.run({ user: userA, token: 'token-a', preserveCompletedOnboarding: false });
+    const rejected = expect(pending).rejects.toThrow('Authentication context changed');
+    await new Promise((resolve) => setImmediate(resolve));
+    useAuthStore.getState().setSession(userB, 'token-b');
+    useAnchorStore.getState().setAnchors([anchorB]);
+    resolveMigration([anchorA]);
+    await rejected;
+    expect(useAnchorStore.getState().anchors).toEqual([anchorB]);
+    expect(mockHydrateAuthenticatedData).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     useAnchorStore.getState().clearAnchors();
@@ -65,7 +106,7 @@ describe('PostAuthFlowService', () => {
     mockFinalizePendingFirstAnchorDraft.mockResolvedValue(true);
   });
 
-  it('migrates all local anchors during post-auth setup', async () => {
+  it('migrates only the authenticated owners local anchors during post-auth setup', async () => {
     const trialStartedAt = new Date().toISOString();
     const user = createMockUser({
       id: 'user-123',
@@ -91,19 +132,20 @@ describe('PostAuthFlowService', () => {
     });
 
     expect(mockMigrateAnchors).toHaveBeenCalledTimes(1);
-    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('trial');
-    expect(useSubscriptionStore.getState().trialStartDate).toBe(trialStartedAt);
+    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('expired');
+    expect(useSubscriptionStore.getState().trialStartDate).toBeNull();
     expect(mockHydrateAuthenticatedData).toHaveBeenCalledWith({
       skipAnchorRefresh: false,
     });
     expect(mockMigrateAnchors).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({ id: 'local-anchor', userId: 'user-123' }),
-        expect.objectContaining({ id: 'foreign-anchor', userId: 'user-other' }),
       ]),
       'user-123'
     );
-    expect(useAnchorStore.getState().anchors).toHaveLength(2);
+    expect(useAnchorStore.getState().anchors).toHaveLength(1);
+    expect(useAnchorStore.getState().partitions['account:user-other'].anchors).toEqual([foreignAnchor]);
+    expect(mockMigrateAnchors.mock.calls[0][0]).not.toContainEqual(foreignAnchor);
     expect(useAuthStore.getState().user?.id).toBe('user-123');
   });
 
@@ -139,5 +181,81 @@ describe('PostAuthFlowService', () => {
     expect(mockHydrateAuthenticatedData).toHaveBeenNthCalledWith(2, {
       skipAnchorRefresh: false,
     });
+  });
+
+  it('rejects post-auth finalization with CREATE_ANCHOR_FREE_LOCKED if unentitled user already created an anchor', async () => {
+    const user = createMockUser({
+      id: 'locked-user',
+      totalAnchorsCreated: 1,
+      freeAnchorConsumed: true,
+    });
+    const localDraft = createMockAnchor({ id: 'temp-local-1', userId: 'guest' });
+
+    useAnchorStore.getState().setAnchors([localDraft]);
+    useAuthStore.setState({
+      pendingFirstAnchorDraft: {
+        tempAnchorId: 'temp-local-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: false,
+        createdAt: new Date('2026-05-18T08:00:00.000Z'),
+      },
+    } as any);
+
+    mockLogIn.mockResolvedValue({ hasActiveEntitlement: false });
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: false });
+    mockMigrateAnchors.mockResolvedValue([]);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+
+    await expect(
+      PostAuthFlowService.run({
+        user,
+        token: 'token-123',
+        preserveCompletedOnboarding: false,
+        launchTrialPurchase: false,
+      })
+    ).rejects.toThrow('CREATE_ANCHOR_FREE_LOCKED');
+
+    // Unconfirmed local drafts must NOT be migrated to backend sync
+    expect(mockMigrateAnchors).toHaveBeenCalledWith([], 'locked-user');
+    // Must NOT call finalize
+    expect(mockFinalizePendingFirstAnchorDraft).not.toHaveBeenCalled();
+    // But local anchor is preserved in memory for paywall finalization
+    expect(useAnchorStore.getState().anchors).toEqual([localDraft]);
+  });
+
+  it('allows comped and legacy-migration accounts to finalize a pending draft even when RevenueCat reports no active entitlement', async () => {
+    const compedUser = createMockUser({
+      id: 'comped-user',
+      isComped: true,
+      totalAnchorsCreated: 2,
+      freeAnchorConsumed: true,
+    });
+    const localDraft = createMockAnchor({ id: 'temp-comped-1', userId: 'guest' });
+
+    useAnchorStore.getState().setAnchors([localDraft]);
+    useAuthStore.setState({
+      pendingFirstAnchorDraft: {
+        tempAnchorId: 'temp-comped-1',
+        source: 'onboarding_first_anchor',
+        requiresAccountGate: false,
+        createdAt: new Date('2026-05-18T08:00:00.000Z'),
+      },
+    } as any);
+
+    mockLogIn.mockResolvedValue({ hasActiveEntitlement: false });
+    mockRefreshTrialStatus.mockResolvedValue({ hasActiveEntitlement: false });
+    mockMigrateAnchors.mockImplementation(async (anchors: unknown[]) => anchors);
+    mockHydrateAuthenticatedData.mockResolvedValue(undefined);
+    mockFinalizePendingFirstAnchorDraft.mockResolvedValue(true);
+
+    const result = await PostAuthFlowService.run({
+      user: compedUser,
+      token: 'token-comped',
+      preserveCompletedOnboarding: true,
+      launchTrialPurchase: false,
+    });
+
+    expect(result.hasActiveEntitlement).toBe(true);
+    expect(mockFinalizePendingFirstAnchorDraft).toHaveBeenCalledTimes(1);
   });
 });

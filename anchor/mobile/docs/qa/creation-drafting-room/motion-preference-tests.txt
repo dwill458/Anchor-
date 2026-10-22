@@ -1,0 +1,10 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --silent src/hooks/__tests__/useReduceMotionEnabled.test.ts
+
+PASS src/hooks/__tests__/useReduceMotionEnabled.test.ts
+
+Test Suites: 1 passed, 1 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        3.183 s

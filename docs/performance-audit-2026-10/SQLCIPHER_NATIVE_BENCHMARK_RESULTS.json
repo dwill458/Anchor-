@@ -1,0 +1,454 @@
+[
+  {
+    "event": "cold-init",
+    "ms": 512.8604999985546
+  },
+  {
+    "event": "cipher-configuration",
+    "version": {
+      "cipher_version": "4.7.0 community"
+    },
+    "journal": {
+      "journal_mode": "wal"
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  {
+    "event": "missing-key-rejected"
+  },
+  {
+    "event": "wrong-key-rejected"
+  },
+  {
+    "event": "ready-for-process-kill",
+    "checkpoint": "record-imported"
+  },
+  {
+    "event": "cold-init",
+    "ms": 280.2600999996066
+  },
+  {
+    "event": "cipher-configuration",
+    "version": {
+      "cipher_version": "4.7.0 community"
+    },
+    "journal": {
+      "journal_mode": "wal"
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  {
+    "event": "missing-key-rejected"
+  },
+  {
+    "event": "wrong-key-rejected"
+  },
+  {
+    "event": "process-kill-import-recovered",
+    "count": 72,
+    "sourcePreserved": true
+  },
+  {
+    "event": "old-initial-write",
+    "count": 0,
+    "ms": 74.19380000047386,
+    "chars": 96
+  },
+  {
+    "event": "old-read",
+    "count": 0,
+    "ms": 19.699500000104308,
+    "equal": true
+  },
+  {
+    "event": "new-initial-write",
+    "count": 0,
+    "ms": 41.6230999995023,
+    "chars": 96
+  },
+  {
+    "event": "new-reopened-read",
+    "count": 0,
+    "ms": 64.25809999927878,
+    "equal": true
+  },
+  {
+    "event": "old-initial-write",
+    "count": 1,
+    "ms": 293.27309999987483,
+    "chars": 10548
+  },
+  {
+    "event": "old-read",
+    "count": 1,
+    "ms": 89.21480000019073,
+    "equal": true
+  },
+  {
+    "event": "new-initial-write",
+    "count": 1,
+    "ms": 54.23970000073314,
+    "chars": 10548
+  },
+  {
+    "event": "new-reopened-read",
+    "count": 1,
+    "ms": 67.2787000015378,
+    "equal": true
+  },
+  {
+    "event": "old-initial-write",
+    "count": 10,
+    "ms": 2566.2620999999344,
+    "chars": 104625
+  },
+  {
+    "event": "old-read",
+    "count": 10,
+    "ms": 731.9205999989063,
+    "equal": true
+  },
+  {
+    "event": "new-initial-write",
+    "count": 10,
+    "ms": 96.91770000010729,
+    "chars": 104625
+  },
+  {
+    "event": "new-reopened-read",
+    "count": 10,
+    "ms": 75.50200000032783,
+    "equal": true
+  },
+  {
+    "event": "old-initial-write",
+    "count": 72,
+    "ms": 19703.44830000028,
+    "chars": 752835
+  },
+  {
+    "event": "old-read",
+    "count": 72,
+    "ms": 4533.266499999911,
+    "equal": true
+  },
+  {
+    "event": "new-initial-write",
+    "count": 72,
+    "ms": 415.0585999991745,
+    "chars": 752835
+  },
+  {
+    "event": "new-reopened-read",
+    "count": 72,
+    "ms": 222.66520000062883,
+    "equal": true
+  },
+  {
+    "event": "old-single-update",
+    "samples": 3,
+    "p50": 46416.313599999994,
+    "p95": 46525.623900000006,
+    "p99": 46525.623900000006
+  },
+  {
+    "event": "new-single-update",
+    "samples": 40,
+    "p50": 34.73909999988973,
+    "p95": 38.76589999906719,
+    "p99": 44.441400000825524
+  },
+  {
+    "event": "rapid-30",
+    "ms": 1006.0781000014395
+  },
+  {
+    "event": "account-A-reopened",
+    "count": 1,
+    "ms": 75.07990000024438
+  },
+  {
+    "event": "account-B-read",
+    "count": 1,
+    "ms": 3.798299999907613
+  },
+  {
+    "event": "practice-queue-write",
+    "samples": 30,
+    "p50": 39.43310000002384,
+    "p95": 49.61979999952018,
+    "p99": 55.39910000003874
+  },
+  {
+    "event": "old-initial-write",
+    "count": 256,
+    "ms": 121054.07920000143,
+    "chars": 2676867
+  },
+  {
+    "event": "old-read",
+    "count": 256,
+    "ms": 16595.248699998483,
+    "equal": true
+  },
+  {
+    "event": "new-initial-write",
+    "count": 256,
+    "ms": 1370.8978000003844,
+    "chars": 2676867
+  },
+  {
+    "event": "new-reopened-read",
+    "count": 256,
+    "ms": 402.4584999997169,
+    "equal": true
+  },
+  {
+    "event": "database-size",
+    "bytes": null,
+    "jsStallsOver100ms": 9
+  },
+  {
+    "event": "failed"
+  },
+  {
+    "event": "cold-init",
+    "ms": 2550.351800000295
+  },
+  {
+    "event": "cipher-configuration",
+    "version": {
+      "cipher_version": "4.7.0 community"
+    },
+    "journal": {
+      "journal_mode": "wal"
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  {
+    "event": "missing-key-rejected"
+  },
+  {
+    "event": "wrong-key-rejected"
+  },
+  {
+    "event": "missing-key-lifecycle-guard",
+    "nativeFileExists": true,
+    "generationPrevented": true,
+    "savedKeyUnchanged": true
+  },
+  {
+    "event": "native-update-restored",
+    "count": 72,
+    "largeCount": 256,
+    "sameSavedKey": true
+  },
+  {
+    "event": "physical-storage",
+    "databaseBytes": 5644288,
+    "secureStorePreferencesBytes": 8422256
+  },
+  {
+    "event": "ciphertext-header",
+    "sqlitePlaintextHeader": false
+  },
+  {
+    "event": "complete"
+  },
+  {
+    "event": "init-phase",
+    "phase": "file-existence",
+    "ms": 49.99879999831319
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 1919.212799999863
+  },
+  {
+    "event": "init-phase",
+    "phase": "native-open",
+    "ms": 34.14869999885559
+  },
+  {
+    "event": "init-phase",
+    "phase": "lifecycle-marker",
+    "ms": 163.1077000014484
+  },
+  {
+    "event": "cold-init",
+    "ms": 2434.7652000002563
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 14.910399999469519
+  },
+  {
+    "event": "cipher-configuration",
+    "version": {
+      "cipher_version": "4.7.0 community"
+    },
+    "journal": {
+      "journal_mode": "wal"
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  {
+    "event": "missing-key-rejected"
+  },
+  {
+    "event": "wrong-key-rejected"
+  },
+  {
+    "event": "init-phase",
+    "phase": "file-existence",
+    "ms": 1.6572999991476536
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 16.07719999924302
+  },
+  {
+    "event": "init-phase",
+    "phase": "file-existence",
+    "ms": 2.1618000008165836
+  },
+  {
+    "event": "missing-key-lifecycle-guard",
+    "nativeFileExists": true,
+    "generationPrevented": true,
+    "savedKeyUnchanged": true
+  },
+  {
+    "event": "missing-database-lifecycle-guard",
+    "recreationPrevented": true
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 22.919900000095367
+  },
+  {
+    "event": "native-update-restored",
+    "count": 72,
+    "largeCount": 256,
+    "sameSavedKey": true
+  },
+  {
+    "event": "physical-storage",
+    "databaseBytes": 5644288,
+    "secureStorePreferencesBytes": 8422604
+  },
+  {
+    "event": "ciphertext-header",
+    "sqlitePlaintextHeader": false
+  },
+  {
+    "event": "complete"
+  },
+  {
+    "event": "init-phase",
+    "phase": "file-existence",
+    "ms": 140.41789999976754
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 1632.4354999996722
+  },
+  {
+    "event": "init-phase",
+    "phase": "native-open",
+    "ms": 38.920399997383356
+  },
+  {
+    "event": "init-phase",
+    "phase": "lifecycle-marker",
+    "ms": 31.721700001507998
+  },
+  {
+    "event": "cold-init",
+    "ms": 2466.921700000763
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 17.21969999745488
+  },
+  {
+    "event": "cipher-configuration",
+    "version": {
+      "cipher_version": "4.7.0 community"
+    },
+    "journal": {
+      "journal_mode": "wal"
+    },
+    "synchronous": {
+      "synchronous": 2
+    }
+  },
+  {
+    "event": "missing-key-rejected"
+  },
+  {
+    "event": "wrong-key-rejected"
+  },
+  {
+    "event": "init-phase",
+    "phase": "file-existence",
+    "ms": 2.7243000008165836
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 17.88560000061989
+  },
+  {
+    "event": "init-phase",
+    "phase": "file-existence",
+    "ms": 4.443500000983477
+  },
+  {
+    "event": "missing-key-lifecycle-guard",
+    "nativeFileExists": true,
+    "generationPrevented": true,
+    "savedKeyUnchanged": true
+  },
+  {
+    "event": "missing-database-lifecycle-guard",
+    "recreationPrevented": true
+  },
+  {
+    "event": "init-phase",
+    "phase": "secure-key-read",
+    "ms": 20.491900000721216
+  },
+  {
+    "event": "native-update-restored",
+    "count": 72,
+    "largeCount": 256,
+    "sameSavedKey": true
+  },
+  {
+    "event": "physical-storage",
+    "databaseBytes": 5644288,
+    "secureStorePreferencesBytes": 8422604
+  },
+  {
+    "event": "ciphertext-header",
+    "sqlitePlaintextHeader": false
+  },
+  {
+    "event": "complete"
+  }
+]

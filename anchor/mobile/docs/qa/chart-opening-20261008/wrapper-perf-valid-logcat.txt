@@ -1,0 +1,3 @@
+--------- beginning of main
+ 28682.919 15098 15164 I ReactNativeJS: [chart-opening-qa] selected=perf at=28682919.0ms
+ 28683.848 15098 15164 I ReactNativeJS: [chart-intro-timing] runner-start mode=full uptime=28683847.9ms

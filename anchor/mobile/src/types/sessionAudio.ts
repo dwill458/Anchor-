@@ -1,4 +1,4 @@
-export type GuidanceVoice = "female" | "male" | "none";
+export type GuidanceVoice = "female" | "male" | "warm" | "soothing" | "none";
 export type BackgroundAudioMode = "ambient" | "off";
 export type SessionAudioSessionType = "focus" | "deep_prime" | "visualize";
 export type SessionAudioConfigurationSource = "default" | "session_override";
@@ -41,7 +41,13 @@ export const normalizeGuidanceVoice = (
   value: unknown,
   fallback: GuidanceVoice = "female",
 ): GuidanceVoice =>
-  value === "female" || value === "male" || value === "none" ? value : fallback;
+  value === "female" ||
+  value === "male" ||
+  value === "warm" ||
+  value === "soothing" ||
+  value === "none"
+    ? value
+    : fallback;
 
 export const normalizeBackgroundAudio = (
   value: unknown,
@@ -109,6 +115,8 @@ export const isSessionAudioDefaultsByType = (
   const isValidDefaults = (defaults: Record<string, unknown>) =>
     (defaults.guidanceVoice === "female" ||
       defaults.guidanceVoice === "male" ||
+      defaults.guidanceVoice === "warm" ||
+      defaults.guidanceVoice === "soothing" ||
       defaults.guidanceVoice === "none") &&
     (defaults.backgroundAudio === "ambient" ||
       defaults.backgroundAudio === "off");
@@ -245,31 +253,47 @@ export const sessionAudioConfigurationToDefaults = (
   backgroundAudio: configuration.backgroundAudio,
 });
 
+/**
+ * Experience-based names for the guidance voices. Grounded is Dominic (2.0 male),
+ * Serene is Lina (2.0 female), Warm is the 1.5 female voice, and Soothing is
+ * the 1.5 male voice.
+ */
+export const GUIDANCE_VOICE_LABELS: Record<GuidanceVoice, string> = {
+  male: "Grounded",
+  female: "Serene",
+  warm: "Warm",
+  soothing: "Soothing",
+  none: "No guidance",
+};
+
+export const GUIDANCE_VOICE_DESCRIPTIONS: Record<GuidanceVoice, string> = {
+  male: "Steady, measured, reassuring.",
+  female: "Gentle, warm, reflective.",
+  warm: "Warm, calm guidance.",
+  soothing: "Soothing, steady guidance.",
+  none: "No spoken instruction.",
+};
+
+export const BACKGROUND_AUDIO_LABELS: Record<BackgroundAudioMode, string> = {
+  ambient: "Ambient",
+  off: "Silence",
+};
+
 export const formatSessionAudioSummary = (
   configuration: SessionAudioDefaults,
-): string => {
-  const voiceLabel =
-    configuration.guidanceVoice === "none"
-      ? "No Voice"
-      : configuration.guidanceVoice === "female"
-        ? "Female Voice"
-        : "Male Voice";
-  const backgroundLabel =
-    configuration.backgroundAudio === "ambient" ? "Ambient" : "Silence";
-  return `${voiceLabel} · ${backgroundLabel}`;
-};
+): string =>
+  `${GUIDANCE_VOICE_LABELS[configuration.guidanceVoice]} · ${BACKGROUND_AUDIO_LABELS[configuration.backgroundAudio]}`;
 
 export const formatCompactSessionAudioSummary = (
   configuration: SessionAudioDefaults,
-): string => {
-  const voiceLabel =
-    configuration.guidanceVoice === "none"
-      ? "No Voice"
-      : configuration.guidanceVoice === "female"
-        ? "Female Voice"
-        : "Male Voice";
-  return `${voiceLabel} • ${configuration.backgroundAudio === "ambient" ? "Ambient" : "Silence"}`;
-};
+): string =>
+  `${GUIDANCE_VOICE_LABELS[configuration.guidanceVoice]} • ${BACKGROUND_AUDIO_LABELS[configuration.backgroundAudio]}`;
+
+export const isSessionAudioSilent = (
+  configuration: SessionAudioDefaults,
+): boolean =>
+  configuration.guidanceVoice === "none" &&
+  configuration.backgroundAudio === "off";
 
 export const legacyAudioModeToSessionAudioDefaults = (
   mode: LegacySessionAudioMode,

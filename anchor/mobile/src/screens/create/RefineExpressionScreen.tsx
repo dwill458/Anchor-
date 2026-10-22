@@ -1,3 +1,4 @@
+// DEFERRED: superseded by AnchorCreationFlow (no longer navigated to from creation).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,

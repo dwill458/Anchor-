@@ -1,0 +1,8 @@
+
+InputObject                                                          SideIndicator
+-----------                                                          -------------
+ M anchor/mobile/src/screens/v2/practice/V2PracticeSessionScreen.tsx =>
+ M anchor/mobile/src/services/PracticeCompletionService.ts           =>
+ M anchor/mobile/src/stores/encryptedPersistStorage.ts               =>
+?? anchor/mobile/src/utils/focusDebug.ts                             =>
+

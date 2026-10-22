@@ -1,5 +1,8 @@
 appId: com.anchor.mobile
 ---
+# Smoke test for the one-screen creation flow (intention -> style -> form -> choose -> seal).
+# NOTE: the sign-in prelude below is carried over unchanged and was already stale; the creation
+# steps after it are the rewrite.
 - launchApp
 - tapOn: "Sign In" # Assuming there's a sign in button
 - tapOn: "Email"
@@ -8,10 +11,30 @@ appId: com.anchor.mobile
 - inputText: "password123"
 - tapOn: "Submit"
 - tapOn: "Create Anchor"
-- tapOn: "Intention"
-- inputText: "My Maestro Test Intention"
-- tapOn: "Distill"
-- tapOn: "Generate"
-- tapOn: "Reveal"
-- tapOn: "Burn"
-- assertVisible: "Sanctuary" # or whatever the success screen is
+
+# Beat 1 - the cream Intention screen.
+- assertVisible: "Every Anchor starts"
+- tapOn:
+    text: "Your intention"
+- inputText: "I am fully present with my work"
+- tapOn: "Continue"
+
+# Beats 2-4 play on their own (distill, map, forget); Style opens when they finish.
+- extendedWaitUntil:
+    visible: "Choose a style, or let it form."
+    timeout: 30000
+
+# Beat 5 - leave it alone: the default style forms by itself when the countdown ends.
+# (To commit by hand instead, touch the screen and tap "Form it".)
+- extendedWaitUntil:
+    visible: "Applying your style…"
+    timeout: 15000
+
+# Beats 6-7 - the real generation wait, then the two Forms.
+- extendedWaitUntil:
+    visible: "FORM I"
+    timeout: 240000
+
+# Beat 8 - hold the anchor itself (the image centre) to seal. There is no separate button.
+- longPressOn:
+    point: "50%,47%"

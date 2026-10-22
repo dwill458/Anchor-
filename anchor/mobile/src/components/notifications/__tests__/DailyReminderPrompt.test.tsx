@@ -2,6 +2,20 @@ import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { DailyReminderPrompt } from '../DailyReminderPrompt';
 
+jest.mock('@react-native-community/datetimepicker', () => {
+  const React = require('react');
+  const { Pressable, Text } = require('react-native');
+
+  return {
+    __esModule: true,
+    default: ({ onChange, testID, value }: { onChange: (event: { type: string }, date: Date) => void; testID: string; value: Date }) => (
+      <Pressable testID={testID} onPress={() => onChange({ type: 'set' }, value)}>
+        <Text>Time picker</Text>
+      </Pressable>
+    ),
+  };
+});
+
 const mockMarkReminderPromptShown = jest.fn(() => Promise.resolve());
 const mockCompleteReminderPrompt = jest.fn(() => Promise.resolve());
 const mockSetDailyPrimeReminder = jest.fn(
@@ -71,6 +85,43 @@ describe('DailyReminderPrompt', () => {
     });
 
     expect(mockSetDailyPrimeReminder).toHaveBeenCalledWith('15:00', 'first_anchor');
+  });
+
+  it('opens a time picker when Custom is selected and schedules its value on confirmation', async () => {
+    const { getByLabelText, getByTestId, getByText } = render(
+      <DailyReminderPrompt visible variant="first_anchor" onDismiss={jest.fn()} />
+    );
+
+    await act(async () => {
+      fireEvent.press(getByLabelText('Choose a different reminder time'));
+    });
+    await act(async () => {
+      fireEvent.press(getByLabelText('Custom time'));
+    });
+
+    expect(getByTestId('custom-time-picker')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('Set Reminder'));
+    });
+
+    expect(mockSetDailyPrimeReminder).toHaveBeenCalledWith('08:00', 'first_anchor');
+  });
+
+  it('lets the fallback completion prompt reach the custom time picker', async () => {
+    const { getByLabelText, getByTestId, getByText } = render(
+      <DailyReminderPrompt visible variant="fallback" onDismiss={jest.fn()} />
+    );
+
+    await act(async () => {
+      fireEvent.press(getByLabelText('Choose a different reminder time'));
+    });
+    await act(async () => {
+      fireEvent.press(getByLabelText('Custom time'));
+    });
+
+    expect(getByTestId('custom-time-picker')).toBeTruthy();
+    expect(getByText('Set Reminder')).toBeTruthy();
   });
 
   it('dismisses without scheduling when the user taps Not Now', async () => {

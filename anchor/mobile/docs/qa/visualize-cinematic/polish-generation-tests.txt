@@ -1,0 +1,31 @@
+PASS src/services/v2/__tests__/visionScenePlanning.test.ts (13.101 s)
+  buildVisionScenePlannerPrompt
+    √ asks for varied moments, not eight renders of the description (3 ms)
+    √ names earlier scenes so another set is genuinely different (1 ms)
+    √ requires semantic concept coverage instead of cosmetic variations (1 ms)
+  parseVisionScenePlan
+    √ accepts a full, varied plan and keeps its direction fields (2 ms)
+    √ accepts plans wrapped in markdown json code blocks (1 ms)
+    √ rejects malformed, short or duplicated plans (1 ms)
+    √ drops an unknown framing rather than failing the plan
+    √ retains distinct semantic purposes and concept coverage
+  isStoredVisionScenePlan
+    √ replays plans saved before direction fields existed
+    √ accepts the two-shot plan of a described scene, but not an empty or oversized one (1 ms)
+  buildVisionImagePrompt
+    √ builds each image focused strictly on its planned scene and isolates against prompt contamination (1 ms)
+    √ isolates multi-concept prompt so scenes do not contaminate each other (1 ms)
+  Vision board photographs
+    √ plans individual photographs for a board, never a collage
+    √ asks the image model for one standalone photograph with no frame, board, tape or caption of its own (1 ms)
+  a described scene
+    √ is planned as two differently framed shots of the person's own words
+    √ joins the board without repeating it, and leaves generated sets untouched (1 ms)
+  fullscreen photographic quality constraints
+    √ preserves requested screens and realistic anatomy without invented achievements
+
+Test Suites: 1 passed, 1 total
+Tests:       17 passed, 17 total
+Snapshots:   0 total
+Time:        14.641 s
+Ran all test suites matching /src\\services\\v2\\__tests__\\visionScenePlanning.test.ts/i.

@@ -1,0 +1,19 @@
+{
+  "compiled": true,
+  "source": "production SkSL and mapping; existing traditional generator; CanvasKit CPU, not native device",
+  "strengths": [
+    0,
+    10,
+    25,
+    40,
+    50,
+    68,
+    75,
+    89,
+    95,
+    100
+  ],
+  "atlasMs": 422.4843000000001,
+  "tileSize": 352,
+  "atlasBytes": 2478080
+}

@@ -1,0 +1,1044 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --coverage --collectCoverageFrom=src/components/v2/vision/ceremony/*.{ts,tsx} src/components/v2/vision src/screens/v2/vision src/hooks/v2/vision src/adapters/v2/vision
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (19.835 s)
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (14.078 s)
+  ● Vision ceremony › records an added generated selection at Choose before persistence
+
+    Unable to find an element with testID: vision-generate
+
+    <View
+      testID="vision-ceremony"
+    >
+      <View
+        nativeID="388"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-1"
+      >
+        <View>
+          <View
+            testID="vision-ceremony-print-1"
+          >
+            <View
+              nativeID="389"
+            >
+              <Svg>
+                <Rect
+                  nativeID="390"
+                />
+                <Path />
+              </Svg>
+              <View
+                nativeID="391"
+              >
+                <Svg>
+                  <Defs>
+                    <RadialGradient>
+                      <Stop />
+                      <Stop />
+                    </RadialGradient>
+                  </Defs>
+                  <Rect />
+                </Svg>
+              </View>
+            </View>
+            <View
+              nativeID="392"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="393"
+              >
+                <View
+                  nativeID="394"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-1-sharp"
+                  />
+                  <View
+                    nativeID="395"
+                  >
+                    <Image
+                      accessible={false}
+                    />
+                  </View>
+                </View>
+                <View
+                  nativeID="396"
+                  testID="vision-ceremony-print-1-ink"
+                />
+              </View>
+              <View
+                nativeID="397"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="398"
+        testID="vision-ceremony-slot-0"
+      >
+        <View>
+          <View
+            testID="vision-ceremony-print-0"
+          >
+            <View
+              nativeID="399"
+            >
+              <Svg>
+                <Rect
+                  nativeID="400"
+                />
+                <Path />
+              </Svg>
+              <View
+                nativeID="401"
+              >
+                <Svg>
+                  <Defs>
+                    <RadialGradient>
+                      <Stop />
+                      <Stop />
+                    </RadialGradient>
+                  </Defs>
+                  <Rect />
+                </Svg>
+              </View>
+            </View>
+            <View
+              nativeID="402"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="403"
+              >
+                <View
+                  nativeID="404"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-0-sharp"
+                  />
+                  <View
+                    nativeID="405"
+                  >
+                    <Image
+                      accessible={false}
+                    />
+                  </View>
+                </View>
+                <View
+                  nativeID="406"
+                  testID="vision-ceremony-print-0-ink"
+                />
+              </View>
+              <View
+                nativeID="407"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="408"
+        testID="vision-ceremony-anchor"
+      >
+        <View
+          nativeID="409"
+        >
+          <View
+            nativeID="410"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="412"
+      >
+        <View
+          testID="v2-vision-add-scene"
+        >
+          <View
+            nativeID="413"
+          >
+            <RCTScrollView>
+              <View>
+                <View
+                  accessibilityLabel="Go back"
+                  accessibilityRole="button"
+                  accessible={true}
+                  nativeID="414"
+                >
+                  <ArrowLeft />
+                </View>
+                <View>
+                  <Text>
+                    ADD TO YOUR VISION
+                  </Text>
+                  <Text
+                    accessibilityRole="header"
+                  >
+                    Describe another moment from this future.
+                  </Text>
+                  <Text
+                    nativeID="415"
+                  >
+                    Describe another moment from this future.
+                  </Text>
+                </View>
+                <View
+                  accessibilityRole="tablist"
+                >
+                  <View
+                    nativeID="416"
+                  />
+                  <View
+                    accessibilityLabel="Start from a photo"
+                    accessibilityRole="tab"
+                    accessibilityState={
+                      {
+                        "selected": false,
+                      }
+                    }
+                    accessible={true}
+                    testID="vision-path-photo"
+                  >
+                    <Text
+                      nativeID="417"
+                    >
+                      Start from a photo
+                    </Text>
+                  </View>
+                  <View
+                    accessibilityLabel="Imagine from words"
+                    accessibilityRole="tab"
+                    accessibilityState={
+                      {
+                        "selected": true,
+                      }
+                    }
+                    accessible={true}
+                    testID="vision-path-words"
+                  >
+                    <Text
+                      nativeID="418"
+                    >
+                      Imagine from words
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  nativeID="419"
+                >
+                  <View
+                    nativeID="420"
+                  >
+                    <View
+                      nativeID="421"
+                      style={
+                        {
+                          "opacity": 0,
+                        }
+                      }
+                    />
+                    <TextInput
+                      accessibilityHint="Describe one ordinary moment from this future."
+                      accessibilityLabel="Describe the scene"
+                      placeholder="Describe the moment in detail..."
+                      testID="vision-scene-input"
+                      value="A studio full of finished work."
+                    />
+                  </View>
+                  <View>
+                    <Text
+                      testID="vision-detail-hint"
+                    >
+                      6 words · Add a little more detail for stronger images
+                    </Text>
+                    <Text>
+                      31
+                       / 
+                      400
+                    </Text>
+                  </View>
+                  <View>
+                    <View
+                      accessibilityLabel="Where are you?"
+                      accessibilityRole="button"
+                      accessibilityState={
+                        {
+                          "selected": false,
+                        }
+                      }
+                      accessible={true}
+                    >
+                      <MapPin />
+                      <Text>
+                        Where are you?
+                      </Text>
+                    </View>
+                    <View
+                      accessibilityLabel="What are you doing?"
+                      accessibilityRole="button"
+                      accessibilityState={
+                        {
+                          "selected": false,
+                        }
+                      }
+                      accessible={true}
+                    >
+                      <Sun />
+                      <Text>
+                        What are you doing?
+                      </Text>
+                    </View>
+                    <View
+                      accessibilityLabel="How does it feel?"
+                      accessibilityRole="button"
+                      accessibilityState={
+                        {
+                          "selected": false,
+                        }
+                      }
+                      accessible={true}
+                    >
+                      <Heart />
+                      <Text>
+                        How does it feel?
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    nativeID="422"
+                  >
+                    <View />
+                    <View
+                      accessibilityLabel="Make it look like you reference photo"
+                      accessibilityRole="button"
+                      accessible={true}
+                      testID="v2-vision-add-scene-reference-card"
+                    >
+                      <User />
+                      <View>
+                        <Text>
+                          Make it look like you
+                        </Text>
+                        <Text>
+                          Optional · Add photos of yourself for more personal images.
+                        </Text>
+                      </View>
+                      <View
+                        accessible={false}
+                      >
+                        <View>
+                          <User />
+                        </View>
+                        <View>
+                          <User />
+                        </View>
+                        <View>
+                          <User />
+                        </View>
+                        <View>
+                          <Plus />
+                        </View>
+                      </View>
+                      <ChevronRight />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </RCTScrollView>
+            <View
+              nativeID="423"
+            >
+              <View>
+                <View
+                  accessibilityLabel="Generate image"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="vision-scene-generate"
+                >
+                  <Text>
+                    Create my images
+                  </Text>
+                </View>
+                <Text>
+                  You’ll choose what belongs in your Vision.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      39 | async function choose(view: ReturnType<typeof setup>, index = 0) {
+      40 |   fireEvent.press(view.getByLabelText(copy.words));
+    > 41 |   await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+         |                                                ^
+      42 |   await develop(view, mockJob.candidates.length);
+      43 |   fireEvent.press(view.getByTestId(`scene-candidate-c${index}`));
+      44 | }
+
+      at getByTestId (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:41:48)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+      at callback (node_modules/@testing-library/react-native/src/act.ts:31:24)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:789:22)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:41:12
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+      at apply (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:39:22)
+      at Object.choose (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:144:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx (24.51 s)
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+PASS src/components/v2/vision/__tests__/VisionMomentInput.test.tsx
+PASS src/components/v2/vision/__tests__/VisionImageArrival.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/components/v2/vision/__tests__/visionIntroArt.test.ts
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartLink.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChrome.test.tsx
+PASS src/hooks/v2/vision/__tests__/referenceFailure.test.ts
+PASS src/components/v2/vision/__tests__/VisionChartRoute.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+PASS src/hooks/v2/vision/__tests__/useVisionGenerationAnalytics.test.tsx
+PASS src/components/v2/vision/__tests__/visionImageGeometry.test.ts
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/adapters/v2/vision/__tests__/visionAdapter.test.ts
+PASS src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+PASS src/components/v2/vision/__tests__/visionDetailText.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/adapters/v2/vision/__tests__/orderedVisionImages.test.ts
+PASS src/components/v2/vision/__tests__/visionGuidance.test.ts
+PASS src/components/v2/vision/__tests__/visionTwoUp.test.ts
+-----------------------------|---------|----------|---------|---------|-------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-----------------------------|---------|----------|---------|---------|-------------------
+All files                    |   91.83 |    84.54 |    93.1 |   97.31 |                   
+ VisionCeremony.tsx          |   92.24 |    86.63 |      95 |   98.13 | 190-192,317       
+ VisionDevelop.ts            |   91.66 |    76.19 |    87.5 |   93.33 | 28                
+ VisionPrint.tsx             |    95.2 |    85.54 |      90 |   97.29 | 122-123           
+ VisionSealHold.tsx          |   95.71 |    85.71 |   93.75 |     100 | 24,46,62          
+ useVisionCreationActions.ts |   82.41 |    72.85 |      90 |   94.11 | 37,57,70,89       
+ visionCeremonyCopy.ts       |     100 |      100 |     100 |     100 |                   
+-----------------------------|---------|----------|---------|---------|-------------------
+
+Summary of all failing tests
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (14.078 s)
+  ● Vision ceremony › records an added generated selection at Choose before persistence
+
+    Unable to find an element with testID: vision-generate
+
+    <View
+      testID="vision-ceremony"
+    >
+      <View
+        nativeID="388"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-1"
+      >
+        <View>
+          <View
+            testID="vision-ceremony-print-1"
+          >
+            <View
+              nativeID="389"
+            >
+              <Svg>
+                <Rect
+                  nativeID="390"
+                />
+                <Path />
+              </Svg>
+              <View
+                nativeID="391"
+              >
+                <Svg>
+                  <Defs>
+                    <RadialGradient>
+                      <Stop />
+                      <Stop />
+                    </RadialGradient>
+                  </Defs>
+                  <Rect />
+                </Svg>
+              </View>
+            </View>
+            <View
+              nativeID="392"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="393"
+              >
+                <View
+                  nativeID="394"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-1-sharp"
+                  />
+                  <View
+                    nativeID="395"
+                  >
+                    <Image
+                      accessible={false}
+                    />
+                  </View>
+                </View>
+                <View
+                  nativeID="396"
+                  testID="vision-ceremony-print-1-ink"
+                />
+              </View>
+              <View
+                nativeID="397"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="398"
+        testID="vision-ceremony-slot-0"
+      >
+        <View>
+          <View
+            testID="vision-ceremony-print-0"
+          >
+            <View
+              nativeID="399"
+            >
+              <Svg>
+                <Rect
+                  nativeID="400"
+                />
+                <Path />
+              </Svg>
+              <View
+                nativeID="401"
+              >
+                <Svg>
+                  <Defs>
+                    <RadialGradient>
+                      <Stop />
+                      <Stop />
+                    </RadialGradient>
+                  </Defs>
+                  <Rect />
+                </Svg>
+              </View>
+            </View>
+            <View
+              nativeID="402"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="403"
+              >
+                <View
+                  nativeID="404"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-0-sharp"
+                  />
+                  <View
+                    nativeID="405"
+                  >
+                    <Image
+                      accessible={false}
+                    />
+                  </View>
+                </View>
+                <View
+                  nativeID="406"
+                  testID="vision-ceremony-print-0-ink"
+                />
+              </View>
+              <View
+                nativeID="407"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="408"
+        testID="vision-ceremony-anchor"
+      >
+        <View
+          nativeID="409"
+        >
+          <View
+            nativeID="410"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="412"
+      >
+        <View
+          testID="v2-vision-add-scene"
+        >
+          <View
+            nativeID="413"
+          >
+            <RCTScrollView>
+              <View>
+                <View
+                  accessibilityLabel="Go back"
+                  accessibilityRole="button"
+                  accessible={true}
+                  nativeID="414"
+                >
+                  <ArrowLeft />
+                </View>
+                <View>
+                  <Text>
+                    ADD TO YOUR VISION
+                  </Text>
+                  <Text
+                    accessibilityRole="header"
+                  >
+                    Describe another moment from this future.
+                  </Text>
+                  <Text
+                    nativeID="415"
+                  >
+                    Describe another moment from this future.
+                  </Text>
+                </View>
+                <View
+                  accessibilityRole="tablist"
+                >
+                  <View
+                    nativeID="416"
+                  />
+                  <View
+                    accessibilityLabel="Start from a photo"
+                    accessibilityRole="tab"
+                    accessibilityState={
+                      {
+                        "selected": false,
+                      }
+                    }
+                    accessible={true}
+                    testID="vision-path-photo"
+                  >
+                    <Text
+                      nativeID="417"
+                    >
+                      Start from a photo
+                    </Text>
+                  </View>
+                  <View
+                    accessibilityLabel="Imagine from words"
+                    accessibilityRole="tab"
+                    accessibilityState={
+                      {
+                        "selected": true,
+                      }
+                    }
+                    accessible={true}
+                    testID="vision-path-words"
+                  >
+                    <Text
+                      nativeID="418"
+                    >
+                      Imagine from words
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  nativeID="419"
+                >
+                  <View
+                    nativeID="420"
+                  >
+                    <View
+                      nativeID="421"
+                      style={
+                        {
+                          "opacity": 0,
+                        }
+                      }
+                    />
+                    <TextInput
+                      accessibilityHint="Describe one ordinary moment from this future."
+                      accessibilityLabel="Describe the scene"
+                      placeholder="Describe the moment in detail..."
+                      testID="vision-scene-input"
+                      value="A studio full of finished work."
+                    />
+                  </View>
+                  <View>
+                    <Text
+                      testID="vision-detail-hint"
+                    >
+                      6 words · Add a little more detail for stronger images
+                    </Text>
+                    <Text>
+                      31
+                       / 
+                      400
+                    </Text>
+                  </View>
+                  <View>
+                    <View
+                      accessibilityLabel="Where are you?"
+                      accessibilityRole="button"
+                      accessibilityState={
+                        {
+                          "selected": false,
+                        }
+                      }
+                      accessible={true}
+                    >
+                      <MapPin />
+                      <Text>
+                        Where are you?
+                      </Text>
+                    </View>
+                    <View
+                      accessibilityLabel="What are you doing?"
+                      accessibilityRole="button"
+                      accessibilityState={
+                        {
+                          "selected": false,
+                        }
+                      }
+                      accessible={true}
+                    >
+                      <Sun />
+                      <Text>
+                        What are you doing?
+                      </Text>
+                    </View>
+                    <View
+                      accessibilityLabel="How does it feel?"
+                      accessibilityRole="button"
+                      accessibilityState={
+                        {
+                          "selected": false,
+                        }
+                      }
+                      accessible={true}
+                    >
+                      <Heart />
+                      <Text>
+                        How does it feel?
+                      </Text>
+                    </View>
+                  </View>
+                  <View
+                    nativeID="422"
+                  >
+                    <View />
+                    <View
+                      accessibilityLabel="Make it look like you reference photo"
+                      accessibilityRole="button"
+                      accessible={true}
+                      testID="v2-vision-add-scene-reference-card"
+                    >
+                      <User />
+                      <View>
+                        <Text>
+                          Make it look like you
+                        </Text>
+                        <Text>
+                          Optional · Add photos of yourself for more personal images.
+                        </Text>
+                      </View>
+                      <View
+                        accessible={false}
+                      >
+                        <View>
+                          <User />
+                        </View>
+                        <View>
+                          <User />
+                        </View>
+                        <View>
+                          <User />
+                        </View>
+                        <View>
+                          <Plus />
+                        </View>
+                      </View>
+                      <ChevronRight />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </RCTScrollView>
+            <View
+              nativeID="423"
+            >
+              <View>
+                <View
+                  accessibilityLabel="Generate image"
+                  accessibilityRole="button"
+                  accessibilityState={
+                    {
+                      "disabled": false,
+                    }
+                  }
+                  accessible={true}
+                  testID="vision-scene-generate"
+                >
+                  <Text>
+                    Create my images
+                  </Text>
+                </View>
+                <Text>
+                  You’ll choose what belongs in your Vision.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      39 | async function choose(view: ReturnType<typeof setup>, index = 0) {
+      40 |   fireEvent.press(view.getByLabelText(copy.words));
+    > 41 |   await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+         |                                                ^
+      42 |   await develop(view, mockJob.candidates.length);
+      43 |   fireEvent.press(view.getByTestId(`scene-candidate-c${index}`));
+      44 | }
+
+      at getByTestId (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:41:48)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+      at callback (node_modules/@testing-library/react-native/src/act.ts:31:24)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:789:22)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:41:12
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+      at apply (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:39:22)
+      at Object.choose (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:144:11)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+
+Test Suites: 1 failed, 31 passed, 32 total
+Tests:       1 failed, 234 passed, 235 total
+Snapshots:   0 total
+Time:        91.038 s
+Ran all test suites matching /src\\components\\v2\\vision|src\\screens\\v2\\vision|src\\hooks\\v2\\vision|src\\adapters\\v2\\vision/i.

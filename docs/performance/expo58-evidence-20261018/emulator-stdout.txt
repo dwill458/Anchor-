@@ -1,0 +1,124 @@
+INFO         | Android emulator version 37.1.11.0 (build_id 15917651) (CL:N/A)
+INFO         | Graphics backend: gfxstream
+INFO         | Found systemPath C:\Users\dwill\AppData\Local\Android\Sdk\system-images\android-36.1\google_apis_playstore\x86_64\
+INFO         | Guest usage of host flag 'VulkanVirtualQueue' will be ignored.
+INFO         | Increasing RAM size to 2560MB
+INFO         | IPv4 server found: 68.105.28.11
+INFO         | Ignore IPv6 address: e032:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: e032:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: e032:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: d038:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: d038:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: d038:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: e83e:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: e83e:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: e83e:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: d04f:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: d04f:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: d04f:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: f055:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: f055:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Ignore IPv6 address: f055:2f35:9e01:0:e032:2f35:9e01:0
+INFO         | Guest GLES Driver: Auto (ext controls)
+INFO         | emuglConfig_init: vulkan_mode_selected:lavapipe gles_mode_selected:swiftshader
+INFO         | Checking system compatibility:
+INFO         |   Checking: hasCompatibleHypervisor
+INFO         |      Ok: Hypervisor compatibility to run avd: `Expo58QA_API36_x86_64` are met
+INFO         |   Checking: hasSufficientSystem
+INFO         |      Ok: System requirements to run avd: `Expo58QA_API36_x86_64` are met
+INFO         |   Checking: hasSufficientHwGpu
+INFO         |      Ok: Hardware GPU compatibility checks are not required
+INFO         |   Checking: hasSufficientDiskSpace
+INFO         |      Ok: Disk space requirements to run avd: `Expo58QA_API36_x86_64` are met
+INFO         | Storing crashdata in: C:\Users\dwill\AppData\Local\Temp\\AndroidEmulator\emu-crash-37.1.11.db, detection is enabled for process: 26960
+INFO         | Initializing gfxstream backend
+INFO         | startOpenglesRendererImpl: gpu info
+INFO         | GPU #1
+  Make: 1002
+  Model: AMD Radeon RX 7700S
+  Device ID: 7480
+
+INFO         | Disabling implicit Vulkan layers to avoid compatibility issues. Set VK_LOADER_LAYERS_DISABLE manually to disable this behavior.
+INFO         | initIcdPaths: ICD set to 'lavapipe', using Lavapipe ICD
+INFO         | Setting ICD filenames for the loader = C:\Users\dwill\AppData\Local\Android\Sdk\emulator\lib64\vulkan\lvp_icd.json
+INFO         | SharedLibrary::open for [C:\Users\dwill\AppData\Local\Android\Sdk\emulator\qemu\windows-x86_64\lib64\vulkan\vulkan-1.dll]
+INFO         | SharedLibrary::open for [C:\Users\dwill\AppData\Local\Android\Sdk\emulator\lib64\vulkan\vulkan-1.dll]
+INFO         | Added library: C:\Users\dwill\AppData\Local\Android\Sdk\emulator\lib64\vulkan\vulkan-1.dll
+INFO         | Selecting Vulkan device: llvmpipe (LLVM 21.1.2, 256 bits), Version: 1.4.318
+INFO         | Using Vulkan externalMemoryMode: HostAllocation for VkEmulation
+INFO         | Initializing VkEmulation features:
+INFO         |     glInteropSupported: false
+INFO         |     useDeferredCommands: true
+INFO         |     createResourceWithRequirements: true
+INFO         |     useVulkanComposition: false
+INFO         |     useVulkanNativeSwapchain: false
+INFO         |     enable guestRenderDoc: false
+INFO         |     ASTC LDR emulation mode: Gpu
+INFO         |     enable ETC2 emulation: true
+INFO         |     enable Ycbcr emulation: false
+INFO         |     guestVulkanOnly: false
+INFO         |     useDedicatedAllocations: false
+INFO         |     guestVulkanMaxApiVersion: 1.3.0
+INFO         |     enableProtectedMemoryEmulation: false
+INFO         | Graphics Adapter Vendor Google (Google Inc.)
+INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (Google SwiftShader)
+INFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.0 SwiftShader 4.0.0.1)
+INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 
+INFO         | Graphics Device Extensions N/A
+INFO         | Disabling sparse binding feature support
+INFO         | Sending adb public key [QAAAALPyklmF85igTHz2RpbJNt9PE7zu+XMjMtmMqRZukiUwH109goVNogLSuBuohvQ0cIm3naxXRBp8X1iW90A+kdX7fPWpVGuaeAPSnfUNQGCNc3hLvEU1zRADXJm/Qeg8Wt7eMHAZKVlYioouFz1kCfc4zC2PWfWOMUAkGpwPpiNDd+DNyp3Mk71SXrhrsuKWqPjxsbRgyWXPh9RZ+Mh4hH4NflypxrHNjFpW6xD15zkmZWZQImKK3oaVcNpkJSSvcFxemH5DRa0Udsj6HFfB4DTMwHDX/3taaXzrgVSxK5+VyteIJv35JxLH4u1qbVTZaA2NIepyp1HgE5HleCxVa4Ajszbv7rbGVqk/tYaxtTTIOyCPIAVdkuQg0VrAPcH2RGgrJqlLJ4Y3qNeQnrKnV1NEll4XGPgsVrPIP1FiiL884vwR9jLFmomSOjsLjgnCA+GD1Hkg0l4tdc0u7xQ7fzmBRlmQ+mRjQV36F9yURM4mHJOCHMmVvvwj7sORv8L6n6w/dLhwPhxxy2g55gMJ5WSFlFQ5YE0TIt2g49sU6ixUiR9dq6uw1MQgWhYNsrgMgNiHQVO36aGKsFUkdBkzFy+5mO5dBF/L5wF/klKZDK3ZtXLWDI+NgtYiVS84Pjn4wMoxuKPqKj1++JMo9TdIPjPkTFEdJ81YKf6bDDfOobymmPormwEAAQA= @unknown]
+INFO         | Userspace boot properties:
+INFO         |   androidboot.boot_devices=pci0000:00/0000:00:03.0 pci0000:00/0000:00:06.0
+INFO         |   androidboot.dalvik.vm.heapsize=576m
+INFO         |   androidboot.debug.hwui.renderer=skiagl
+INFO         |   androidboot.hardware=ranchu
+INFO         |   androidboot.hardware.gltransport=pipe
+INFO         |   androidboot.hardware.vulkan=ranchu
+INFO         |   androidboot.logcat=*:V
+INFO         |   androidboot.opengles.version=196608
+INFO         |   androidboot.qemu=1
+INFO         |   androidboot.qemu.adb.pubkey=QAAAALPyklmF85igTHz2RpbJNt9PE7zu+XMjMtmMqRZukiUwH109goVNogLSuBuohvQ0cIm3naxXRBp8X1iW90A+kdX7fPWpVGuaeAPSnfUNQGCNc3hLvEU1zRADXJm/Qeg8Wt7eMHAZKVlYioouFz1kCfc4zC2PWfWOMUAkGpwPpiNDd+DNyp3Mk71SXrhrsuKWqPjxsbRgyWXPh9RZ+Mh4hH4NflypxrHNjFpW6xD15zkmZWZQImKK3oaVcNpkJSSvcFxemH5DRa0Udsj6HFfB4DTMwHDX/3taaXzrgVSxK5+VyteIJv35JxLH4u1qbVTZaA2NIepyp1HgE5HleCxVa4Ajszbv7rbGVqk/tYaxtTTIOyCPIAVdkuQg0VrAPcH2RGgrJqlLJ4Y3qNeQnrKnV1NEll4XGPgsVrPIP1FiiL884vwR9jLFmomSOjsLjgnCA+GD1Hkg0l4tdc0u7xQ7fzmBRlmQ+mRjQV36F9yURM4mHJOCHMmVvvwj7sORv8L6n6w/dLhwPhxxy2g55gMJ5WSFlFQ5YE0TIt2g49sU6ixUiR9dq6uw1MQgWhYNsrgMgNiHQVO36aGKsFUkdBkzFy+5mO5dBF/L5wF/klKZDK3ZtXLWDI+NgtYiVS84Pjn4wMoxuKPqKj1++JMo9TdIPjPkTFEdJ81YKf6bDDfOobymmPormwEAAQA= @unknown
+INFO         |   androidboot.qemu.avd_name=Expo58QA_API36_x86_64
+INFO         |   androidboot.qemu.camera_hq_edge_processing=0
+INFO         |   androidboot.qemu.camera_protocol_ver=1
+INFO         |   androidboot.qemu.cpuvulkan.version=4206592
+INFO         |   androidboot.qemu.gltransport.drawFlushInterval=800
+INFO         |   androidboot.qemu.gltransport.name=pipe
+INFO         |   androidboot.qemu.hwcodec.avcdec=2
+INFO         |   androidboot.qemu.hwcodec.hevcdec=2
+INFO         |   androidboot.qemu.hwcodec.vpxdec=2
+INFO         |   androidboot.qemu.settings.system.screen_off_timeout=2147483647
+INFO         |   androidboot.qemu.skin=1080x2424
+INFO         |   androidboot.qemu.virtiowifi=1
+INFO         |   androidboot.qemu.vsync=60
+INFO         |   androidboot.serialno=EMULATOR37X1X11X0
+INFO         |   androidboot.vbmeta.digest=8c6ff42bff8696120e63308883e0cfad21d048439d53af334ec09bf5eb680f47
+INFO         |   androidboot.vbmeta.hash_alg=sha256
+INFO         |   androidboot.vbmeta.size=6720
+INFO         |   androidboot.veritymode=enforcing
+WHPX on Windows 10.0.26300 detected.
+Windows Hypervisor Platform accelerator is operational
+INFO         | Monitoring duration of emulator setup.
+WARNING      | The emulator now requires a signed jwt token for gRPC access! Use the -grpc flag if you really want an open unprotected grpc port
+INFO         | Using security allow list from: C:\Users\dwill\AppData\Local\Android\Sdk\emulator\lib\emulator_access.json
+INFO         | The active JSON Web Key Sets can be found here: C:\Users\dwill\AppData\Local\Temp\avd\running\26960\jwks\89fa5d4c-e580-438d-8ffb-43c6da944b7d\active.jwk
+INFO         | Scanning C:\Users\dwill\AppData\Local\Temp\avd\running\26960\jwks\89fa5d4c-e580-438d-8ffb-43c6da944b7d for jwk keys.
+INFO         | Started GRPC server at 127.0.0.1:8554, security: Local, auth: +token
+INFO         | Advertising in: C:\Users\dwill\AppData\Local\Temp\avd\running\pid_26960.ini
+INFO         | Successfully initialized netsim WiFi
+INFO         | Activated packet streamer for bluetooth emulation
+INFO         | Activated packet streamer for uwb emulation
+INFO         | Setting display: 0 configuration to: 1080x2424, dpi: 420x420 
+INFO         | setDisplayActiveConfig: id:0, 1080x2424
+INFO         | emulatorSetupEnvironment: Environment scene is not required
+INFO         | Loading snapshot 'default_boot'...
+WARNING      | Device 'cache' does not have the requested snapshot 'default_boot'
+
+WARNING      | Failed to load snapshot 'default_boot'
+USER_INFO    | The emulator is performing a cold boot without a saved state because there's no snapshot and you have configured it not to save on exit.
+INFO         | Wait for emulator (pid 26960) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
+
+WARNING      | Not saving state: RAM not mapped as shared
+INFO         | Saving snapshot 'default_boot' using 5 ms
+INFO         | removeAll
+WARNING      | Netsim Wifi dns:///localhost:57907 is gone due to CANCELLED

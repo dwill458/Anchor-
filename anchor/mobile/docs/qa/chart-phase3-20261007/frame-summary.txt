@@ -1,0 +1,92 @@
+{
+  "drag-final-framestats": {
+    "frames": 398,
+    "seconds": 6.633,
+    "fps": 59.85,
+    "max_frame_ms": 35.36,
+    "max_vsync_gap_ms": 33.33,
+    "over_32ms": 6,
+    "over_50ms": 0
+  },
+  "drag-framestats": {
+    "frames": 119,
+    "seconds": 3.283,
+    "fps": 35.94,
+    "max_frame_ms": 119.76,
+    "max_vsync_gap_ms": 83.33,
+    "over_32ms": 93,
+    "over_50ms": 4
+  },
+  "idle-final-framestats": {
+    "frames": 606,
+    "seconds": 11.55,
+    "fps": 52.38,
+    "max_frame_ms": 86.32,
+    "max_vsync_gap_ms": 66.67,
+    "over_32ms": 193,
+    "over_50ms": 2
+  },
+  "idle-framestats": {
+    "frames": 120,
+    "seconds": 2.117,
+    "fps": 56.22,
+    "max_frame_ms": 89.28,
+    "max_vsync_gap_ms": 50.0,
+    "over_32ms": 16,
+    "over_50ms": 0
+  },
+  "idle-reboot-framestats": {
+    "frames": 670,
+    "seconds": 11.35,
+    "fps": 58.94,
+    "max_frame_ms": 67.53,
+    "max_vsync_gap_ms": 50.0,
+    "over_32ms": 18,
+    "over_50ms": 0
+  },
+  "idle-warm-framestats": {
+    "frames": 669,
+    "seconds": 11.15,
+    "fps": 59.91,
+    "max_frame_ms": 37.13,
+    "max_vsync_gap_ms": 33.33,
+    "over_32ms": 12,
+    "over_50ms": 0
+  },
+  "move-final-framestats": {
+    "frames": 221,
+    "seconds": 4.767,
+    "fps": 46.15,
+    "max_frame_ms": 101.06,
+    "max_vsync_gap_ms": 83.33,
+    "over_32ms": 120,
+    "over_50ms": 3
+  },
+  "move-reboot-framestats": {
+    "frames": 278,
+    "seconds": 4.65,
+    "fps": 59.57,
+    "max_frame_ms": 35.34,
+    "max_vsync_gap_ms": 33.33,
+    "over_32ms": 5,
+    "over_50ms": 0
+  },
+  "reach-final-framestats": {
+    "frames": 175,
+    "seconds": 5.567,
+    "fps": 31.26,
+    "max_frame_ms": 130.4,
+    "max_vsync_gap_ms": 116.67,
+    "over_32ms": 152,
+    "over_50ms": 11
+  },
+  "reach-reboot-framestats": {
+    "frames": 267,
+    "seconds": 4.583,
+    "fps": 58.04,
+    "max_frame_ms": 50.58,
+    "max_vsync_gap_ms": 50.0,
+    "over_32ms": 45,
+    "over_50ms": 0
+  }
+}

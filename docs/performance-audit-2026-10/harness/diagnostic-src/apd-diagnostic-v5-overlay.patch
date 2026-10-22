@@ -1,0 +1,755 @@
+diff --git a/src/utils/ReleaseStorageBenchmark.ts b/src/utils/ReleaseStorageBenchmark.ts
+--- a/src/utils/ReleaseStorageBenchmark.ts
++++ b/src/utils/ReleaseStorageBenchmark.ts
+@@ -12,11 +12,11 @@
+ import { useFirstRunStore } from '@/stores/v2/firstRunStore';
+ import { getAdapterDiagnosticCounters, perfDiag, resetAdapterDiagnosticCounters } from '@/utils/perfDiagnostics';
+ import { getInitialPerfFixtureUrl } from '@/utils/perfFixtureLinking';
++import { makePersistedFixture } from './SyntheticAnchorFixture';
+ 
+ const SYNTHETIC_MARKER_KEY = 'anchor:perf:fixture-marker-v1';
+ const SYNTHETIC_STORAGE_KEY = 'anchor:perf:synthetic-anchor-v1';
+ const CANONICAL_EMPTY_ANCHOR_STORAGE = '{"state":{"anchors":[],"totalPrimes":0,"primeStreak":0,"lastPrimedDate":null,"lastSyncedAt":null},"version":0}';
+-const TARGET_LARGE_CHARS = 719_217;
+ const FIXTURE_ACTION_URLS = new Map<string, 'seed-small' | 'seed-large' | 'measure-adapter'>([
+   ['anchor-perflab20261012://perf/seed-small', 'seed-small'],
+   ['anchor-perflab20261012://perf/seed-large', 'seed-large'],
+@@ -48,55 +48,6 @@
+   return typeof performance !== 'undefined' && typeof performance.now === 'function'
+     ? performance.now()
+     : Date.now();
+-}
+-
+-function makeAnchor(index: number) {
+-  const serial = String(index + 1).padStart(3, '0');
+-  return {
+-    id: `synthetic-anchor-${serial}`,
+-    localId: `synthetic-local-${serial}`,
+-    userId: 'synthetic-account',
+-    intentionText: `Synthetic intention fixture ${serial}; no real user writing.`,
+-    category: ['desire', 'health', 'career', 'creativity'][index % 4],
+-    distilledLetters: ['A', 'N', 'C'],
+-    baseSigilSvg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M${index % 40},10 L50,90 L${(index % 40) + 10},10 Z"/></svg>`,
+-    structureVariant: 'balanced',
+-    isCharged: index % 2 === 0,
+-    activationCount: index % 7,
+-    createdAt: '2026-01-01T00:00:00.000Z',
+-    updatedAt: '2026-01-02T00:00:00.000Z',
+-  };
+-}
+-
+-function makePersistedFixture(count: 1 | 72): { value: string; payloadChars: number } {
+-  const anchors = Array.from({ length: count }, (_, index) => makeAnchor(index));
+-  const persisted = {
+-    state: {
+-      anchors,
+-      totalPrimes: anchors.reduce((sum, anchor) => sum + anchor.activationCount, 0),
+-      primeStreak: 0,
+-      lastPrimedDate: null,
+-      lastSyncedAt: null,
+-      currentAnchorId: anchors[0]?.id,
+-    },
+-    version: 0,
+-  };
+-  let value = JSON.stringify(persisted);
+-  const targetChars = count === 1 ? 10_000 : TARGET_LARGE_CHARS;
+-  const delta = targetChars - value.length;
+-  if (delta < 0) throw new Error(`synthetic fixture exceeded calibrated size: ${value.length}`);
+-  const base = Math.floor(delta / count);
+-  let remainder = delta % count;
+-  for (const anchor of anchors) {
+-    const amount = base + (remainder-- > 0 ? 1 : 0);
+-    const closePath = anchor.baseSigilSvg.lastIndexOf('"/>');
+-    const syntheticGeometry = ' M50 50 L51 51'.repeat(Math.floor(amount / 14));
+-    const geometryRemainder = ' '.repeat(amount % 14);
+-    anchor.baseSigilSvg = `${anchor.baseSigilSvg.slice(0, closePath)}${syntheticGeometry}${geometryRemainder}${anchor.baseSigilSvg.slice(closePath)}`;
+-  }
+-  value = JSON.stringify(persisted);
+-  if (value.length !== targetChars) throw new Error('synthetic fixture size calibration failed');
+-  return { value, payloadChars: value.length };
+ }
+ 
+ async function seedCanonicalGuestStore(count: 1 | 72): Promise<void> {
+@@ -240,10 +191,6 @@
+     perfDiag('benchmark-skip', { reasonCode: 7 });
+     return;
+   }
+-  if (useAuthStore.getState().user != null) {
+-    perfDiag('benchmark-skip', { reasonCode: 1 }); // signed-in; synthetic seeding is forbidden.
+-    return;
+-  }
+   if (process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED !== 'true') {
+     perfDiag('benchmark-skip', { reasonCode: 4 }); // V2 Home is required for the release route.
+     return;
+@@ -253,6 +200,21 @@
+     initialUrl = await getInitialPerfFixtureUrl();
+   } catch {
+     perfDiag('benchmark-skip', { reasonCode: 8 });
++    return;
++  }
++  if (initialUrl === 'anchor-perflab20261012://perf/prepare-motion') {
++    const motionFixture = require('./ReleaseMotionFixture') as typeof import('./ReleaseMotionFixture');
++    await motionFixture.prepareReleaseMotionFixture(initialUrl);
++    return;
++  }
++  const startupFault = require('./startupFaultDiagnostic') as typeof import('./startupFaultDiagnostic');
++  if (startupFault.startupFaultActionForUrl(initialUrl)) {
++    const motionFixture = require('./ReleaseMotionFixture') as typeof import('./ReleaseMotionFixture');
++    await motionFixture.armReleaseStartupFault(initialUrl);
++    return;
++  }
++  if (useAuthStore.getState().user != null) {
++    perfDiag('benchmark-skip', { reasonCode: 1 }); // Existing storage actions remain signed-out only.
+     return;
+   }
+   let action: 'seed-small' | 'seed-large' | 'measure-adapter' | undefined;
+
+diff --git a/src/utils/perfDiagnostics.ts b/src/utils/perfDiagnostics.ts
+--- a/src/utils/perfDiagnostics.ts
++++ b/src/utils/perfDiagnostics.ts
+@@ -1,34 +1,14 @@
+-/** Temporary, dev-only probes for the Anchor mobile performance diagnosis. */
++/** Temporary diagnostics for the isolated Anchor performance build. */
++import { sanitizePerfDiagnostic } from './diagnosticEventSchema';
+ const startedAt = Date.now();
+ const renderCounts = new Map<string, number>();
+ const adapterCounters = { secureReadEventCount: 0, secureWriteEventCount: 0, nativeCallCount: 0, nativeFailureCount: 0, fallbackCount: 0 };
+ 
+-const diagnosticEvents = new Set([
+-  'secure-read', 'secure-write', 'storage-fallback', 'fixture-seed',
+-  'fixture-roundtrip', 'auth-adapter-control', 'benchmark-skip',
+-  'benchmark-complete', 'benchmark-error', 'app-ready', 'anchor-hydration', 'focus-await',
+-  'auth-adapter-write', 'js-loop-histogram',
+-]);
+-const diagnosticFields = new Set([
+-  'durationMs', 'payloadChars', 'chunkCount', 'previousChunkCount',
+-  'nativeCallCount', 'nativeFailureCount', 'fallbackCode', 'phaseCode',
+-  'anchorCount', 'hydratedCount', 'readParseDurationMs', 'verifyDurationMs',
+-  'writeDurationMs', 'combinedDurationMs', 'secureVerifyDurationMs',
+-  'authAdapterWriteDurationMs', 'authHelperSettlementDurationMs',
+-  'authControlMaxDurationMs', 'authControlMinDurationMs', 'authWriteControlDeltaMs',
+-  'authControlSettlementMaxDurationMs', 'trial', 'trials', 'maxDurationMs', 'minDurationMs',
+-  'reasonCode', 'okCode', 'fixtureCount', 'payloadCharCount', 'p50Ms',
+-  'p95Ms', 'maxMs', 'sampleCount', 'over50Count', 'appComponentMountElapsedMs',
+-  'secureReadEventCount', 'secureWriteEventCount', 'fallbackCount',
+-]);
+-
+ /** Fixed-name numeric-only release diagnostics for the isolated perf build. */
+ export function perfDiag(event: string, data: Record<string, number> = {}): void {
+-  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1' || !diagnosticEvents.has(event)) return;
+-  const numeric: Record<string, number> = {};
+-  for (const [key, value] of Object.entries(data)) {
+-    if (diagnosticFields.has(key) && Number.isFinite(value)) numeric[key] = value;
+-  }
++  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1') return;
++  const numeric = sanitizePerfDiagnostic(event, data);
++  if (!numeric) return;
+   if (event === 'secure-read') {
+     adapterCounters.secureReadEventCount += 1;
+     adapterCounters.nativeCallCount += numeric.nativeCallCount ?? 0;
+
+diff --git a/src/utils/ReleaseMotionFixture.ts b/src/utils/ReleaseMotionFixture.ts
+new file mode 100644
+index 0000000..2689935
+--- /dev/null
++++ b/src/utils/ReleaseMotionFixture.ts
+@@ -0,0 +1,247 @@
++import AsyncStorage from '@react-native-async-storage/async-storage';
++import auth from '@react-native-firebase/auth';
++import * as Application from 'expo-application';
++import { Image } from 'react-native';
++import { API_URL } from '@/config';
++import { useAuthStore } from '@/stores/authStore';
++import { useAnchorStore } from '@/stores/anchorStore';
++import { readSecureValue, writeSecureValue } from '@/stores/encryptedPersistStorage';
++import { primeVisionRead, peekV2Vision } from '@/hooks/v2/vision/useV2Vision';
++import { primeAnchorChart, peekAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
++import { chartPreviewCourses } from '@/components/chart/__fixtures__/chartPreviewStates';
++import type { ChartForAnchor } from '@/services/v2/chartV2Api';
++import type { VisionReadModel } from '@/adapters/v2/vision';
++import { perfDiag } from '@/utils/perfDiagnostics';
++import { validateCanonicalSynthetic72 } from './SyntheticAnchorFixture';
++import { STARTUP_FAULT_CONSUMED, STARTUP_FAULT_MARKER_KEY, startupFaultActionForUrl } from './startupFaultDiagnostic';
++
++export const PREPARE_MOTION_URL = 'anchor-perflab20261012://perf/prepare-motion';
++export const MOTION_ACCOUNT_ID = 'synthetic-account-c';
++const MOTION_PROJECT_ID = 'demo-anchor-perf';
++export const MOTION_ASSET_URLS = [
++  'http://127.0.0.1:39999/perf-assets/vision-future-desk.jpg',
++  'http://127.0.0.1:39999/perf-assets/vision-future-window.jpg',
++  'http://127.0.0.1:39999/perf-assets/vision-future-family.jpg',
++] as const;
++const MOTION_FIXTURE_ASSETS = [
++  require('@/assets/vision/vision-future-desk.jpg'),
++  require('@/assets/vision/vision-future-window.jpg'),
++  require('@/assets/vision/vision-future-family.jpg'),
++];
++
++type LocalAsset = { uri: string; width: number; height: number };
++const sharedMotionReadFixtures = require('./motion-read-fixtures.json') as {
++  vision: VisionReadModel;
++  chart: ChartForAnchor;
++};
++
++export function isExactPrepareMotionUrl(url: string | null): boolean {
++  return url === PREPARE_MOTION_URL;
++}
++
++export function buildMotionVision(anchorId: string, assets: LocalAsset[], timestamp = '2026-01-03T00:00:00.000Z'): VisionReadModel | null {
++  if (!/^synthetic-anchor-\d{3}$/.test(anchorId) || assets.length !== MOTION_ASSET_URLS.length || assets.some((asset, index) =>
++    !asset || asset.uri !== MOTION_ASSET_URLS[index] ||
++    !Number.isFinite(asset.width) || asset.width < 1280 || !Number.isFinite(asset.height) || asset.height < 720)) return null;
++  const value = JSON.parse(JSON.stringify(sharedMotionReadFixtures.vision)) as VisionReadModel;
++  const serialized = replaceLiteral(replaceLiteral(JSON.stringify(value), '__ANCHOR_ID__', anchorId), '2026-01-03T00:00:00.000Z', timestamp);
++  return JSON.parse(serialized) as VisionReadModel;
++}
++
++export function buildMotionChart(anchor: { id: string; intentionText: string; category: string }, timestamp = '2026-01-03T00:00:00.000Z'): ChartForAnchor | null {
++  const base = chartPreviewCourses.normal;
++  const idMatch = /^synthetic-anchor-(\d{3})$/.exec(anchor.id);
++  if (!base || !Array.isArray(base.moves) || !idMatch ||
++      anchor.intentionText !== `Synthetic intention fixture ${idMatch[1]}; no real user writing.`) return null;
++  const courseId = `motion-course-${anchor.id}`;
++  const chart = {
++    ...base,
++    id: courseId,
++    currentWaypointId: `motion-waypoint-1-${anchor.id}`,
++    currentMoveId: `motion-move-1-${anchor.id}`,
++    plottedAt: timestamp,
++    waypoints: base.waypoints.map((waypoint, index) => ({
++      ...waypoint,
++      id: `motion-waypoint-${index + 1}-${anchor.id}`,
++      courseId,
++      title: index === 0 ? 'First synthetic milestone' : `Synthetic waypoint ${index + 1}`,
++      reachedAt: null,
++      skippedAt: null,
++      cancelledAt: null,
++    })),
++    moves: base.moves.map((move, index) => ({
++      ...move,
++      id: `motion-move-${index + 1}-${anchor.id}`,
++      courseId,
++      waypointId: `motion-waypoint-1-${anchor.id}`,
++      title: 'Complete one synthetic practice action',
++      createdAt: timestamp,
++    })),
++  };
++  const value = { ...sharedMotionReadFixtures.chart, anchor: { ...sharedMotionReadFixtures.chart.anchor,
++    id: anchor.id, intentionText: anchor.intentionText, category: anchor.category }, chart };
++  return JSON.parse(replaceLiteral(replaceLiteral(replaceLiteral(replaceLiteral(JSON.stringify(value), '__ANCHOR_ID__', anchor.id),
++    '__INTENTION_TEXT__', anchor.intentionText), '__CATEGORY__', anchor.category),
++    '2026-01-03T00:00:00.000Z', timestamp)) as ChartForAnchor;
++}
++
++function replaceLiteral(value: string, search: string, replacement: string): string {
++  return value.split(search).join(replacement);
++}
++
++function asCanonicalRaw(store: ReturnType<typeof useAnchorStore.getState>): string {
++  return JSON.stringify({
++    state: {
++      anchors: store.anchors,
++      totalPrimes: store.totalPrimes,
++      primeStreak: store.primeStreak,
++      lastPrimedDate: store.lastPrimedDate,
++      lastSyncedAt: store.lastSyncedAt,
++      currentAnchorId: store.currentAnchorId,
++    },
++    version: 0,
++  });
++}
++
++async function waitForSecureValue(key: string, expected: string): Promise<boolean> {
++  for (let attempt = 0; attempt < 50; attempt++) {
++    if (await readSecureValue(key) === expected) return true;
++    await new Promise((resolve) => setTimeout(resolve, 100));
++  }
++  return false;
++}
++
++function sameNullableJson(current: unknown, expected: unknown): boolean {
++  return JSON.stringify(current) === JSON.stringify(expected);
++}
++
++type MotionFixtureContext =
++  | { ok: true; accountId: string; anchor: ReturnType<typeof useAnchorStore.getState>['anchors'][number] }
++  | { ok: false; reasonCode: number };
++
++/** All native, API, identity, and full-fixture checks shared by motion and startup arming. */
++async function validateMotionFixtureContext(): Promise<MotionFixtureContext> {
++  if (process.env.EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS !== '1' || process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED !== 'true') return { ok: false, reasonCode: 4 };
++  if (Application.applicationId !== 'com.anchorintentions.perflab20261012') return { ok: false, reasonCode: 6 };
++  if (API_URL !== 'http://127.0.0.1:39999') return { ok: false, reasonCode: 7 };
++
++  const firebase = auth();
++  const firebaseUser = firebase.currentUser;
++  if (firebase.app.options.projectId !== MOTION_PROJECT_ID || firebaseUser?.uid !== MOTION_ACCOUNT_ID) return { ok: false, reasonCode: 20 };
++  let claims: Record<string, unknown>;
++  try {
++    claims = (await firebaseUser.getIdTokenResult()).claims;
++  } catch {
++    return { ok: false, reasonCode: 20 };
++  }
++  const appUser = useAuthStore.getState().user;
++  if (claims.anchorPerfOnboarded !== true || claims.anchorPerfComped !== true ||
++      appUser?.id !== MOTION_ACCOUNT_ID || appUser.isComped !== true) return { ok: false, reasonCode: 20 };
++
++  // The app identity and authenticated demo account have passed before local
++  // data reads. Validate both encrypted bytes and hydrated in-memory records.
++  let secureVault: string | null;
++  try {
++    secureVault = await readSecureValue('anchor-vault-storage');
++  } catch {
++    return { ok: false, reasonCode: 21 };
++  }
++  const vaultValidation = validateCanonicalSynthetic72(secureVault);
++  const store = useAnchorStore.getState();
++  const hydratedValidation = validateCanonicalSynthetic72(asCanonicalRaw(store));
++  if (!store.persistedHydrated || !vaultValidation.ok || !hydratedValidation.ok || !vaultValidation.selectedSynthetic ||
++      !hydratedValidation.selectedSynthetic) return { ok: false, reasonCode: 21 };
++  try {
++    if (await AsyncStorage.getItem('anchor-vault-storage') !== null) return { ok: false, reasonCode: 21 };
++  } catch {
++    return { ok: false, reasonCode: 21 };
++  }
++
++  const anchorId = store.currentAnchorId;
++  const anchor = store.anchors.find((candidate) => candidate.id === anchorId);
++  if (!anchor || !/^synthetic-anchor-\d{3}$/.test(anchor.id) || anchor.userId !== 'synthetic-account') return { ok: false, reasonCode: 22 };
++  return { ok: true, accountId: appUser.id, anchor };
++}
++
++/** Exact-URL-only, local cache preparation. It never changes Anchor/auth state or calls a write API. */
++export async function prepareReleaseMotionFixture(url: string | null): Promise<void> {
++  const startedAt = Date.now();
++  const skip = (reasonCode: number) => perfDiag('benchmark-skip', { reasonCode, phaseCode: 2 });
++  if (!isExactPrepareMotionUrl(url)) { skip(url == null ? 10 : 11); return; }
++  const context = await validateMotionFixtureContext();
++  if (!context.ok) { skip(context.reasonCode); return; }
++  const { anchor, accountId } = context;
++
++  const assets = MOTION_FIXTURE_ASSETS.map((source, index) => {
++    const dimensions = Image.resolveAssetSource(source) as LocalAsset;
++    return { ...dimensions, uri: MOTION_ASSET_URLS[index] };
++  });
++  const vision = buildMotionVision(anchor.id, assets);
++  const chart = buildMotionChart(anchor);
++  if (!vision || vision.scenes.length !== 3 || !chart || chart.chart?.waypoints.length !== 5) { skip(23); return; }
++
++  const visionKey = `anchor:v2:vision-read:${encodeURIComponent(accountId)}:${encodeURIComponent(anchor.id)}`;
++  const chartKey = `anchor:v2:chart2:${encodeURIComponent(accountId)}:${encodeURIComponent(anchor.id)}`;
++  const expectedVision = JSON.stringify({ schemaVersion: 1, accountId, anchorId: anchor.id, value: vision });
++  const expectedChart = JSON.stringify(chart);
++  const existingVision = await readSecureValue(visionKey);
++  const existingChart = await readSecureValue(chartKey);
++  if ((existingVision !== null && existingVision !== expectedVision) ||
++      (existingChart !== null && existingChart !== expectedChart) ||
++      await AsyncStorage.getItem(visionKey) !== null || await AsyncStorage.getItem(chartKey) !== null ||
++      ((peekV2Vision(anchor.id, accountId) ?? undefined) !== undefined && !sameNullableJson(peekV2Vision(anchor.id, accountId), vision)) ||
++      (peekAnchorChart(anchor.id) !== null && !sameNullableJson(peekAnchorChart(anchor.id), chart))) {
++    skip(24);
++    return;
++  }
++
++  primeVisionRead(anchor.id, vision, accountId);
++  primeAnchorChart(anchor.id, chart);
++  const [visionPersisted, chartPersisted] = await Promise.all([
++    waitForSecureValue(visionKey, expectedVision),
++    waitForSecureValue(chartKey, expectedChart),
++  ]);
++  if (!visionPersisted || !chartPersisted || await AsyncStorage.getItem(visionKey) !== null || await AsyncStorage.getItem(chartKey) !== null) {
++    skip(25);
++    return;
++  }
++  perfDiag('motion-fixture-seed', {
++    phaseCode: 1,
++    okCode: 1,
++    durationMs: Date.now() - startedAt,
++    anchorCount: 72,
++    sceneCount: vision.scenes.length,
++    waypointCount: chart.chart?.waypoints.length ?? 0,
++    cacheCount: 2,
++  });
++}
++
++/** Exact arm URL + same full-72 identity gate; marker write is the sole durable mutation. */
++export async function armReleaseStartupFault(url: string | null): Promise<void> {
++  const action = startupFaultActionForUrl(url);
++  if (!action) return;
++  const startedAt = Date.now();
++  const context = await validateMotionFixtureContext();
++  if (!context.ok) {
++    perfDiag('startup-fault', { phaseCode: action.phaseCode, elapsedMs: Date.now() - startedAt, resultCode: 3 });
++    return;
++  }
++  try {
++    const existingMarker = await readSecureValue(STARTUP_FAULT_MARKER_KEY);
++    const plainMarker = await AsyncStorage.getItem(STARTUP_FAULT_MARKER_KEY);
++    if ((existingMarker !== null && existingMarker !== STARTUP_FAULT_CONSUMED) || plainMarker !== null) {
++      perfDiag('startup-fault', { phaseCode: action.phaseCode, elapsedMs: Date.now() - startedAt, resultCode: 3 });
++      return;
++    }
++    await writeSecureValue(STARTUP_FAULT_MARKER_KEY, action.marker);
++    const saved = await readSecureValue(STARTUP_FAULT_MARKER_KEY);
++    if (saved !== action.marker || await AsyncStorage.getItem(STARTUP_FAULT_MARKER_KEY) !== null) {
++      perfDiag('startup-fault', { phaseCode: action.phaseCode, elapsedMs: Date.now() - startedAt, resultCode: 3 });
++      return;
++    }
++  } catch {
++    perfDiag('startup-fault', { phaseCode: action.phaseCode, elapsedMs: Date.now() - startedAt, resultCode: 3 });
++    return;
++  }
++  perfDiag('startup-fault', { phaseCode: action.phaseCode, elapsedMs: Date.now() - startedAt, resultCode: 1 });
++}
+
+diff --git a/src/utils/SyntheticAnchorFixture.ts b/src/utils/SyntheticAnchorFixture.ts
+new file mode 100644
+index 0000000..5e8c8a4
+--- /dev/null
++++ b/src/utils/SyntheticAnchorFixture.ts
+@@ -0,0 +1,125 @@
++/** Canonical synthetic storage shape shared by the release adapter and motion probes. */
++export const SYNTHETIC_ANCHOR_COUNT = 72;
++export const SYNTHETIC_ANCHOR_OWNER_A = 'synthetic-account';
++const TARGET_LARGE_CHARS = 719_217;
++
++export function makeSyntheticAnchor(index: number) {
++  const serial = String(index + 1).padStart(3, '0');
++  return {
++    id: `synthetic-anchor-${serial}`,
++    localId: `synthetic-local-${serial}`,
++    userId: SYNTHETIC_ANCHOR_OWNER_A,
++    intentionText: `Synthetic intention fixture ${serial}; no real user writing.`,
++    category: ['desire', 'health', 'career', 'creativity'][index % 4],
++    distilledLetters: ['A', 'N', 'C'],
++    baseSigilSvg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M${index % 40},10 L50,90 L${(index % 40) + 10},10 Z"/></svg>`,
++    structureVariant: 'balanced',
++    isCharged: index % 2 === 0,
++    activationCount: index % 7,
++    createdAt: '2026-01-01T00:00:00.000Z',
++    updatedAt: '2026-01-02T00:00:00.000Z',
++  };
++}
++
++export function makePersistedFixture(count: 1 | 72): { value: string; payloadChars: number } {
++  const anchors = Array.from({ length: count }, (_, index) => makeSyntheticAnchor(index));
++  const persisted = {
++    state: {
++      anchors,
++      totalPrimes: anchors.reduce((sum, anchor) => sum + anchor.activationCount, 0),
++      primeStreak: 0,
++      lastPrimedDate: null as string | null,
++      lastSyncedAt: null as string | null,
++      currentAnchorId: anchors[0]?.id,
++    },
++    version: 0,
++  };
++  let value = JSON.stringify(persisted);
++  const targetChars = count === 1 ? 10_000 : TARGET_LARGE_CHARS;
++  const delta = targetChars - value.length;
++  if (delta < 0) throw new Error('synthetic fixture exceeds calibrated payload size');
++  const base = Math.floor(delta / count);
++  let remainder = delta % count;
++  for (const anchor of anchors) {
++    const amount = base + (remainder-- > 0 ? 1 : 0);
++    const closePath = anchor.baseSigilSvg.lastIndexOf('"/>');
++    const syntheticGeometry = ' M50 50 L51 51'.repeat(Math.floor(amount / 14));
++    const geometryRemainder = ' '.repeat(amount % 14);
++    anchor.baseSigilSvg = `${anchor.baseSigilSvg.slice(0, closePath)}${syntheticGeometry}${geometryRemainder}${anchor.baseSigilSvg.slice(closePath)}`;
++  }
++  value = JSON.stringify(persisted);
++  if (value.length !== targetChars) throw new Error('synthetic fixture size calibration failed');
++  return { value, payloadChars: value.length };
++}
++
++export interface CanonicalSynthetic72Result {
++  ok: boolean;
++  anchorCount: number;
++  selectedSynthetic: boolean;
++  primeState?: {
++    totalPrimes: number;
++    primeStreak: number;
++    lastPrimedDate: string | null;
++    lastSyncedAt: string | null;
++  };
++  currentAnchorId?: string;
++}
++
++function isIsoDate(value: unknown): value is string {
++  return typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
++}
++
++/**
++ * Full, read-only validation for the 72-record fixture. It accepts only the
++ * known runtime prime/sync counters and current selection to vary; all Anchor
++ * fields, order, IDs, SVG bytes, and Account A ownership remain canonical.
++ */
++export function validateCanonicalSynthetic72(raw: string | null): CanonicalSynthetic72Result {
++  const invalid: CanonicalSynthetic72Result = { ok: false, anchorCount: 0, selectedSynthetic: false };
++  if (typeof raw !== 'string') return invalid;
++  let actual: any;
++  let expected: any;
++  try {
++    actual = JSON.parse(raw);
++    expected = JSON.parse(makePersistedFixture(72).value);
++  } catch {
++    return invalid;
++  }
++  if (!actual || !sameKeys(actual, ['state', 'version']) || actual.version !== 0 || !actual.state || typeof actual.state !== 'object') return invalid;
++  const state = actual.state;
++  const expectedState = expected.state;
++  const allowedStateKeys = ['anchors', 'totalPrimes', 'primeStreak', 'lastPrimedDate', 'lastSyncedAt', 'currentAnchorId'];
++  if (!sameKeys(state, allowedStateKeys) || !Array.isArray(state.anchors) || state.anchors.length !== SYNTHETIC_ANCHOR_COUNT) return invalid;
++  if (!Number.isSafeInteger(state.primeStreak) || state.primeStreak < 0 || state.primeStreak > 36500) return invalid;
++  if (state.lastPrimedDate !== null && (typeof state.lastPrimedDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(state.lastPrimedDate) || !Number.isFinite(Date.parse(`${state.lastPrimedDate}T00:00:00.000Z`)))) return invalid;
++  if (state.lastSyncedAt !== null && !isIsoDate(state.lastSyncedAt)) return invalid;
++  if (typeof state.currentAnchorId !== 'string' || !/^synthetic-anchor-\d{3}$/.test(state.currentAnchorId)) return invalid;
++
++  for (let i = 0; i < SYNTHETIC_ANCHOR_COUNT; i++) {
++    const anchor = state.anchors[i];
++    const canonical = expectedState.anchors[i];
++    if (!anchor || anchor.userId !== SYNTHETIC_ANCHOR_OWNER_A || !sameKeys(anchor, Object.keys(canonical))) return invalid;
++    // Keep all fields byte-for-byte/primitive-for-primitive canonical. Focus
++    // may update the prime counters above; it must not mutate Anchor records.
++    if (JSON.stringify(anchor) !== JSON.stringify(canonical)) return invalid;
++  }
++  const totalPrimes = state.anchors.reduce((sum: number, anchor: any) => sum + anchor.activationCount, 0);
++  if (!Number.isSafeInteger(state.totalPrimes) || state.totalPrimes !== totalPrimes) return invalid;
++  return {
++    ok: true,
++    anchorCount: SYNTHETIC_ANCHOR_COUNT,
++    selectedSynthetic: state.anchors.some((anchor: any) => anchor.id === state.currentAnchorId),
++    primeState: {
++      totalPrimes: state.totalPrimes,
++      primeStreak: state.primeStreak,
++      lastPrimedDate: state.lastPrimedDate,
++      lastSyncedAt: state.lastSyncedAt,
++    },
++    currentAnchorId: state.currentAnchorId,
++  };
++}
++
++function sameKeys(value: Record<string, unknown>, expectedKeys: string[]): boolean {
++  return Boolean(value && typeof value === 'object' && !Array.isArray(value) &&
++    Object.keys(value).length === expectedKeys.length && expectedKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key)));
++}
+
+diff --git a/src/utils/startupFaultDiagnostic.ts b/src/utils/startupFaultDiagnostic.ts
+new file mode 100644
+index 0000000..b677157
+--- /dev/null
++++ b/src/utils/startupFaultDiagnostic.ts
+@@ -0,0 +1,78 @@
++/** Fixed, one-shot release-only startup-fault markers; never contain user data. */
++export const STARTUP_FAULT_MARKER_KEY = 'anchor:perf:startup-fault-v1';
++export const STARTUP_FAULT_CONSUMED = 'consumed';
++export const STARTUP_FAULT_ACTIONS = {
++  'anchor-perflab20261012://perf/arm-startup-anchor-12s': {
++    marker: 'anchor-12s',
++    phaseCode: 1,
++    delayMs: 12_000,
++  },
++  'anchor-perflab20261012://perf/arm-startup-auth-16s': {
++    marker: 'auth-16s',
++    phaseCode: 2,
++    delayMs: 16_000,
++  },
++  'anchor-perflab20261012://perf/arm-startup-auth-14s': {
++    marker: 'auth-14s',
++    phaseCode: 3,
++    delayMs: 14_000,
++  },
++} as const;
++
++export type StartupFaultAction = (typeof STARTUP_FAULT_ACTIONS)[keyof typeof STARTUP_FAULT_ACTIONS];
++export type StartupFaultMarker = StartupFaultAction['marker'];
++
++export function startupFaultActionForUrl(url: string | null): StartupFaultAction | null {
++  if (url === null) return null;
++  return Object.prototype.hasOwnProperty.call(STARTUP_FAULT_ACTIONS, url)
++    ? STARTUP_FAULT_ACTIONS[url as keyof typeof STARTUP_FAULT_ACTIONS]
++    : null;
++}
++
++export function startupFaultActionForMarker(marker: StartupFaultMarker): StartupFaultAction {
++  return Object.values(STARTUP_FAULT_ACTIONS).find((action) => action.marker === marker)!;
++}
++
++export function isStartupFaultMarker(value: unknown): value is StartupFaultMarker {
++  return value === 'anchor-12s' || value === 'auth-16s' || value === 'auth-14s';
++}
++
++export interface StartupFaultConsumptionOptions {
++  eligible(): Promise<boolean>;
++  readMarker(): Promise<string | null>;
++  markConsumed(): Promise<boolean>;
++  wait(ms: number): Promise<void>;
++  onEvent(phaseCode: number, elapsedMs: number, resultCode: 1 | 2 | 3): void;
++  now?(): number;
++}
++
++/** Eligibility is checked before marker access; durable consume always precedes the injected delay. */
++export async function consumeStartupFaultMarker(
++  expectedMarkerOrAction: StartupFaultMarker | StartupFaultAction,
++  options: StartupFaultConsumptionOptions,
++): Promise<boolean> {
++  const expected = typeof expectedMarkerOrAction === 'string'
++    ? (isStartupFaultMarker(expectedMarkerOrAction) ? startupFaultActionForMarker(expectedMarkerOrAction) : null)
++    : Object.values(STARTUP_FAULT_ACTIONS).find((action) =>
++      action.marker === expectedMarkerOrAction.marker && action.phaseCode === expectedMarkerOrAction.phaseCode &&
++      action.delayMs === expectedMarkerOrAction.delayMs) ?? null;
++  if (!expected) {
++    options.onEvent(typeof expectedMarkerOrAction === 'string' ? 0 : expectedMarkerOrAction.phaseCode, 0, 3);
++    return false;
++  }
++  const now = options.now ?? Date.now;
++  const startedAt = now();
++  const elapsed = () => Math.max(0, Math.round(now() - startedAt));
++  if (!await options.eligible()) {
++    options.onEvent(expected.phaseCode, elapsed(), 3);
++    return false;
++  }
++  if (await options.readMarker() !== expected.marker || !await options.markConsumed()) {
++    options.onEvent(expected.phaseCode, elapsed(), 3);
++    return false;
++  }
++  options.onEvent(expected.phaseCode, elapsed(), 1);
++  await options.wait(expected.delayMs);
++  options.onEvent(expected.phaseCode, elapsed(), 2);
++  return true;
++}
+
+diff --git a/src/utils/diagnosticEventSchema.ts b/src/utils/diagnosticEventSchema.ts
+new file mode 100644
+index 0000000..8c0658f
+--- /dev/null
++++ b/src/utils/diagnosticEventSchema.ts
+@@ -0,0 +1,32 @@
++/** Strict release-only perf event/field allowlist; values are numbers only. */
++export const DIAGNOSTIC_EVENTS = new Set([
++  'secure-read', 'secure-write', 'storage-fallback', 'fixture-seed',
++  'fixture-roundtrip', 'auth-adapter-control', 'benchmark-skip',
++  'benchmark-complete', 'benchmark-error', 'app-ready', 'anchor-hydration', 'focus-await',
++  'auth-adapter-write', 'js-loop-histogram', 'motion-fixture-seed', 'startup-fault',
++  'auth-emulator-route', 'startup-recovery',
++]);
++
++export const DIAGNOSTIC_NUMERIC_FIELDS = new Set([
++  'durationMs', 'elapsedMs', 'payloadChars', 'chunkCount', 'previousChunkCount',
++  'nativeCallCount', 'nativeFailureCount', 'fallbackCode', 'phaseCode', 'resultCode',
++  'anchorCount', 'hydratedCount', 'sceneCount', 'waypointCount', 'cacheCount',
++  'readParseDurationMs', 'verifyDurationMs', 'writeDurationMs', 'combinedDurationMs',
++  'secureVerifyDurationMs', 'authAdapterWriteDurationMs', 'authHelperSettlementDurationMs',
++  'authControlMaxDurationMs', 'authControlMinDurationMs', 'authWriteControlDeltaMs',
++  'authControlSettlementMaxDurationMs', 'trial', 'trials', 'maxDurationMs', 'minDurationMs',
++  'reasonCode', 'okCode', 'fixtureCount', 'payloadCharCount', 'p50Ms', 'p95Ms', 'maxMs',
++  'sampleCount', 'over50Count', 'appComponentMountElapsedMs', 'secureReadEventCount',
++  'secureWriteEventCount', 'fallbackCount',
++]);
++
++export function sanitizePerfDiagnostic(event: string, fields: Record<string, unknown>): Record<string, number> | null {
++  if (!DIAGNOSTIC_EVENTS.has(event)) return null;
++  const sanitized: Record<string, number> = {};
++  for (const [key, value] of Object.entries(fields)) {
++    if (DIAGNOSTIC_NUMERIC_FIELDS.has(key) && typeof value === 'number' && Number.isFinite(value)) {
++      sanitized[key] = value;
++    }
++  }
++  return sanitized;
++}
+
+diff --git a/src/utils/motion-read-fixtures.json b/src/utils/motion-read-fixtures.json
+new file mode 100644
+index 0000000..79ff74b
+--- /dev/null
++++ b/src/utils/motion-read-fixtures.json
+@@ -0,0 +1,89 @@
++{
++  "vision": {
++    "id": "motion-vision-__ANCHOR_ID__",
++    "anchorId": "__ANCHOR_ID__",
++    "title": "Synthetic motion board",
++    "description": "Local diagnostic fixture; no user writing.",
++    "status": "ACTIVE",
++    "scenes": [
++      {
++        "id": "motion-scene-1-__ANCHOR_ID__",
++        "visionId": "motion-vision-__ANCHOR_ID__",
++        "sourceType": "USER_UPLOAD",
++        "assetId": "motion-local-asset-1",
++        "resolvedImageUrl": "http://127.0.0.1:39999/perf-assets/vision-future-desk.jpg",
++        "prompt": null,
++        "caption": null,
++        "sortOrder": 0,
++        "isArchived": false,
++        "createdAt": "2026-01-03T00:00:00.000Z",
++        "updatedAt": "2026-01-03T00:00:00.000Z"
++      },
++      {
++        "id": "motion-scene-2-__ANCHOR_ID__",
++        "visionId": "motion-vision-__ANCHOR_ID__",
++        "sourceType": "USER_UPLOAD",
++        "assetId": "motion-local-asset-2",
++        "resolvedImageUrl": "http://127.0.0.1:39999/perf-assets/vision-future-window.jpg",
++        "prompt": null,
++        "caption": null,
++        "sortOrder": 1,
++        "isArchived": false,
++        "createdAt": "2026-01-03T00:00:00.000Z",
++        "updatedAt": "2026-01-03T00:00:00.000Z"
++      },
++      {
++        "id": "motion-scene-3-__ANCHOR_ID__",
++        "visionId": "motion-vision-__ANCHOR_ID__",
++        "sourceType": "USER_UPLOAD",
++        "assetId": "motion-local-asset-3",
++        "resolvedImageUrl": "http://127.0.0.1:39999/perf-assets/vision-future-family.jpg",
++        "prompt": null,
++        "caption": null,
++        "sortOrder": 2,
++        "isArchived": false,
++        "createdAt": "2026-01-03T00:00:00.000Z",
++        "updatedAt": "2026-01-03T00:00:00.000Z"
++      }
++    ],
++    "notes": [],
++    "seenToday": true,
++    "createdAt": "2026-01-03T00:00:00.000Z",
++    "updatedAt": "2026-01-03T00:00:00.000Z"
++  },
++  "chart": {
++    "anchor": {
++      "id": "__ANCHOR_ID__",
++      "intentionText": "__INTENTION_TEXT__",
++      "category": "__CATEGORY__",
++      "enhancedImageUrl": null,
++      "released": false
++    },
++    "chart": {
++      "id": "motion-course-__ANCHOR_ID__",
++      "destinationText": "Reach 1,000",
++      "status": "ACTIVE",
++      "version": 1,
++      "currentWaypointId": "motion-waypoint-1-__ANCHOR_ID__",
++      "currentMoveId": "motion-move-1-__ANCHOR_ID__",
++      "waypointCount": 5,
++      "reachedCount": 0,
++      "plottedAt": "2026-01-03T00:00:00.000Z",
++      "completedAt": null,
++      "archivedAt": null,
++      "destinationAnchorLink": null,
++      "waypoints": [
++        { "id": "motion-waypoint-1-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 0, "title": "First synthetic milestone", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": 254, "target": 1000 }, "state": "CURRENT", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
++        { "id": "motion-waypoint-2-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 1, "title": "Synthetic waypoint 2", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
++        { "id": "motion-waypoint-3-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 2, "title": "Synthetic waypoint 3", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
++        { "id": "motion-waypoint-4-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 3, "title": "Synthetic waypoint 4", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
++        { "id": "motion-waypoint-5-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 4, "title": "Synthetic waypoint 5", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null }
++      ],
++      "moves": [
++        { "id": "motion-move-1-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "waypointId": "motion-waypoint-1-__ANCHOR_ID__", "title": "Complete one synthetic practice action", "rationale": null, "source": "USER", "status": "ACTIVE", "position": 0, "isCurrent": true, "completedAt": null, "createdAt": "2026-01-03T00:00:00.000Z" }
++      ]
++    },
++    "history": [],
++    "stats": { "completedMoveCount": 0, "practiceCount": 0 }
++  }
++}

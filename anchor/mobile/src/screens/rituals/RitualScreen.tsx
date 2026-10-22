@@ -1,3 +1,4 @@
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 /**
  * Anchor App - Ritual Screen
  *
@@ -18,7 +19,6 @@ import {
   Dimensions,
   AccessibilityInfo,
   Platform,
-  InteractionManager,
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -359,7 +359,7 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = scheduleAfterInteractions(() => {
       navigation.goBack();
       requestAnimationFrame(() => {
         AnalyticsService.track('free_weekly_sessions_used', {
@@ -379,7 +379,7 @@ export const RitualScreen: React.FC = () => {
   }, [isAnchorMissing, navigateToPaywall, navigation, primeSessionAccess.deep.isAllowed]);
 
   useEffect(() => {
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = scheduleAfterInteractions(() => {
       setIsReady(true);
     });
     return () => task.cancel();
@@ -1089,7 +1089,7 @@ export const RitualScreen: React.FC = () => {
 
   const handleSkipPostPrimeTrace = useCallback(() => {
     setShowPostPrimeTrace(false);
-    InteractionManager.runAfterInteractions(() => {
+    scheduleAfterInteractions(() => {
       setShowCompletion(true);
     });
   }, []);
@@ -1134,7 +1134,7 @@ export const RitualScreen: React.FC = () => {
       });
     }
 
-    InteractionManager.runAfterInteractions(() => {
+    scheduleAfterInteractions(() => {
       setShowCompletion(true);
     });
   }, [
@@ -2769,7 +2769,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deepBackgroundLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   deepOrbOne: {
     position: 'absolute',
@@ -2811,14 +2811,14 @@ const styles = StyleSheet.create({
     shadowRadius: 60,
   },
   deepEmbersLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     pointerEvents: 'none',
   },
   deepEmberDot: {
     position: 'absolute',
   },
   deepPhaseFlash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(200,88,26,0.12)',
   },
   deepPhaseTrackWrap: {
@@ -3070,7 +3070,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   deepSigilEtchLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3318,7 +3318,7 @@ const styles = StyleSheet.create({
   },
 
   arriveContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,

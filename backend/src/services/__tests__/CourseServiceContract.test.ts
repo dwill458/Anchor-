@@ -183,6 +183,15 @@ describe('Course and Waypoint response shapes', () => {
         'destinationAnchorLink',
         'observations',
         'waypoints',
+        'actualStartingPoint',
+        'anchorId',
+        'complexity',
+        'currentMoveId',
+        'moves',
+        'routeScope',
+        'routeStartPosition',
+        'startingContext',
+        'visionId',
       ].sort(),
     );
     // No `needsRepair` on a healthy course.
@@ -207,6 +216,11 @@ describe('Course and Waypoint response shapes', () => {
           'skippedAt',
           'cancelledAt',
           'anchorLink',
+          'completionCriteria',
+          'kind',
+          'metric',
+          'progressMode',
+          'requirements',
         ].sort(),
       );
     }

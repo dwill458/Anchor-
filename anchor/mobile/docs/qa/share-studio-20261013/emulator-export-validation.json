@@ -1,0 +1,26 @@
+[
+  {
+    "background": "scrapbook",
+    "width": 1080,
+    "height": 1920,
+    "backgroundEdgeRMSE": 0
+  },
+  {
+    "background": "soft_focus",
+    "width": 1080,
+    "height": 1920,
+    "backgroundEdgeRMSE": 0
+  },
+  {
+    "background": "midnight",
+    "width": 1080,
+    "height": 1920,
+    "backgroundEdgeRMSE": 0
+  },
+  {
+    "background": "editorial",
+    "width": 1080,
+    "height": 1920,
+    "backgroundEdgeRMSE": 0
+  }
+]

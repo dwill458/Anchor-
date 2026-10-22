@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon --exec ts-node --transpile-only src/index.ts",
     "postinstall": "prisma generate",
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-assets.js",
     "prisma:recover-known-failures": "node scripts/recover-known-prisma-failure.js",
     "start": "npm run prisma:recover-known-failures && prisma migrate deploy && node dist/index.js",
     "prisma:generate": "prisma generate",

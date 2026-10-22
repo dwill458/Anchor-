@@ -1,0 +1,1 @@
+(() => {const qa=globalThis.__anchorStabilizationQA;qa.guard();return {traces:qa.traces,verifiedCycles:qa.verifiedCycles,dbEvents:qa.dbEvents,dbObservationStarted:qa.dbObservationStarted,jsTiming:qa.jsTiming,profile:10,dev:__DEV__};})()

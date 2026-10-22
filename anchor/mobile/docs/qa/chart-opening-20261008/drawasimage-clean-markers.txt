@@ -1,0 +1,4 @@
+launchWall=2026-10-08T06:58:51.4671542Z
+endUptime=21955.40 115067.79
+device=emulator-5554 wm=786x1704 density=320 fontScale=1.0
+route=direct ChartCreationFlow initialPhase introFull, no QA clock/screenrecord

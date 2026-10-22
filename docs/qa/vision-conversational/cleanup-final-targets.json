@@ -1,0 +1,20 @@
+[
+  {
+    "path": "E:\\Projects\\Anchor\\.codex-vision-cleanup.ps1",
+    "files": 1,
+    "logicalBytes": 4331,
+    "removed": false
+  },
+  {
+    "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native\\gradle-plugin\\.gradle",
+    "files": 6,
+    "logicalBytes": 166348,
+    "removed": false
+  },
+  {
+    "path": "E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@react-native\\gradle-plugin\\.kotlin",
+    "files": 0,
+    "logicalBytes": 0,
+    "removed": false
+  }
+]

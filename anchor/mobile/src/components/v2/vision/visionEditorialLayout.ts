@@ -1,0 +1,463 @@
+import { visionImageRetained } from './visionImageGeometry';
+
+export type VisionEditorialVariant = 'home' | 'details';
+
+/** Read-only subset of existing Vision tiles; no new persisted media contract. */
+export type VisionEditorialTile = {
+  id: string;
+  imageUrl?: string | null;
+  caption?: string | null;
+  sortOrder?: number;
+  isHero?: boolean;
+};
+
+export type VisionEditorialImage = {
+  tile: VisionEditorialTile;
+  imageUrl: string;
+  sourceIndex: number;
+};
+
+/** Top-left geometry normalized against the preview's stable canvas. */
+export type VisionEditorialPhotoSlot = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+};
+
+export type VisionEditorialNoteSlot = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+};
+
+export type VisionEditorialLayoutConfig = {
+  /** Measured preview canvas dimensions in layout points. */
+  width: number;
+  height: number;
+  /** Fraction of the smaller adjacent print width used for overlap. */
+  desiredOverlap?: number;
+  /** Normalized clear margin around the outside of the collage. */
+  safeMargin?: number;
+  /** Roomy density reduces vertical overlap; dense callers also set desiredOverlap. */
+  density?: 'roomy' | 'balanced' | 'dense';
+};
+
+type EditorialCompositionPreset = 'hero' | 'pair' | 'collage';
+
+function compositionPreset(count: number): EditorialCompositionPreset {
+  return count === 1 ? 'hero' : count === 2 ? 'pair' : 'collage';
+}
+
+function knownAspect(aspect?: number): number {
+  return aspect !== undefined && Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+}
+
+/** Physical proportions before fitting: portraits sit at shoulders; wide prints stack at edges. */
+function editorialPair(aspects: readonly number[], canvasAspect = 1): VisionEditorialPhotoSlot[] {
+  const firstAspect = knownAspect(aspects[0]);
+  const secondAspect = knownAspect(aspects[1]);
+  // Balance visible area across unlike orientations, with a slightly smaller supporting print.
+  const secondWidth = .9 * Math.sqrt(secondAspect / firstAspect);
+  const firstHeight = 1 / firstAspect;
+  const secondHeight = secondWidth / secondAspect;
+  const stacked = Math.min(firstAspect, secondAspect) >= 1.25;
+  return [
+    { x: 0, y: 0, width: 1, height: firstHeight * canvasAspect, rotation: -2, zIndex: 1 },
+    { x: stacked ? .15 : 1 - .1 * Math.min(1, secondWidth),
+      y: (stacked ? firstHeight - .1 * Math.min(firstHeight, secondHeight)
+        : Math.max(firstHeight * .13, (firstHeight - secondHeight) * .45)) * canvasAspect,
+      width: secondWidth, height: secondHeight * canvasAspect, rotation: 2.4, zIndex: 2 },
+  ];
+}
+
+/** Low counts adapt the canvas to the prints; larger collages retain their existing surface sizing. */
+export function getEditorialPreviewHeight(
+  variant: VisionEditorialVariant, width: number, count: number, sourceAspects: readonly number[] = [],
+): number {
+  const preset = compositionPreset(count);
+  if (preset === 'collage') return width * (variant === 'home' ? .68 : .62);
+  let ratio = .96 / knownAspect(sourceAspects[0]);
+  if (preset === 'pair') {
+    const bounds = editorialPair(sourceAspects).map(slot => rotatedSlotBounds(slot, 1));
+    ratio = (Math.max(...bounds.map(bound => bound.bottom)) - Math.min(...bounds.map(bound => bound.top))) /
+      (Math.max(...bounds.map(bound => bound.right)) - Math.min(...bounds.map(bound => bound.left)));
+    if (variant === 'details') ratio *= .96;
+  }
+  return width * Math.min(variant === 'home' ? 1.12 : 1.06, Math.max(.32, ratio));
+}
+
+/** Only remove recognized authentication fields, preserving proxy IDs and image transforms. */
+export function editorialImageIdentity(imageUrl: string): string {
+  if (!/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  const question = imageUrl.indexOf('?');
+  if (question < 0) return imageUrl;
+  const hash = imageUrl.indexOf('#', question);
+  const fragment = hash < 0 ? '' : imageUrl.slice(hash);
+  const query = imageUrl.slice(question + 1, hash < 0 ? undefined : hash);
+  const cloudFrontSigned = /(?:^|&)key-pair-id=/i.test(query);
+  const supabaseSigned = /\/storage\/v1\/object\/sign\//i.test(imageUrl.slice(0, question));
+  const retained = query.split('&').filter(parameter => {
+    const key = parameter.split('=')[0].toLowerCase();
+    return !/^x-(amz|goog)-/.test(key)
+      && !(cloudFrontSigned && /^(signature|expires|key-pair-id|policy)$/.test(key))
+      && !(supabaseSigned && key === 'token');
+  });
+  return imageUrl.slice(0, question) + (retained.length ? `?${retained.join('&')}` : '') + fragment;
+}
+
+/** Input already carries the canonical board order. Never mutate or reshuffle it. */
+export function selectEditorialImages(
+  tiles: readonly VisionEditorialTile[],
+  variant: VisionEditorialVariant,
+  featuredTileId?: string,
+): VisionEditorialImage[] {
+  const renderable = tiles.flatMap((tile, sourceIndex) => {
+    const imageUrl = tile.imageUrl?.trim();
+    return imageUrl ? [{ tile, imageUrl, sourceIndex }] : [];
+  });
+  const featured = renderable.find(item => item.tile.id === featuredTileId);
+  const ordered = featured ? [featured, ...renderable.filter(item => item !== featured)] : renderable;
+  const seen = new Set<string>();
+  return ordered.filter(item => {
+    // Tile identity represents a photograph on this board. Different tiles may
+    // intentionally use the same asset, so URL equality must not hide a print.
+    if (seen.has(item.tile.id)) return false;
+    seen.add(item.tile.id);
+    return true;
+  });
+}
+
+function rotatedSlotBounds(slot: VisionEditorialPhotoSlot, canvasAspect: number) {
+  const radians = Math.abs(slot.rotation) * Math.PI / 180;
+  const width = Math.abs(slot.width * Math.cos(radians)) + Math.abs((slot.height / canvasAspect) * Math.sin(radians));
+  const height = (Math.abs((slot.height / canvasAspect) * Math.cos(radians)) + Math.abs(slot.width * Math.sin(radians))) * canvasAspect;
+  const centerX = slot.x + slot.width / 2;
+  const centerY = slot.y + slot.height / 2;
+  return { left: centerX - width / 2, right: centerX + width / 2, top: centerY - height / 2, bottom: centerY + height / 2 };
+}
+
+function fitSlotsInBox(
+  slots: readonly VisionEditorialPhotoSlot[],
+  leftBound: number,
+  rightBound: number,
+  topBound: number,
+  bottomBound: number,
+  canvasAspect: number,
+): VisionEditorialPhotoSlot[] {
+  if (!slots.length) return [];
+  const bounds = slots.map(slot => rotatedSlotBounds(slot, canvasAspect));
+  const minX = Math.min(...bounds.map(bound => bound.left));
+  const maxX = Math.max(...bounds.map(bound => bound.right));
+  const minY = Math.min(...bounds.map(bound => bound.top));
+  const maxY = Math.max(...bounds.map(bound => bound.bottom));
+  const usableX = Math.max(0.001, rightBound - leftBound);
+  const usableY = Math.max(0.001, bottomBound - topBound);
+  const scale = Math.min(1, usableX / (maxX - minX), usableY / (maxY - minY));
+  const offsetX = leftBound + (usableX - (maxX - minX) * scale) / 2 - minX * scale;
+  const offsetY = topBound + (usableY - (maxY - minY) * scale) / 2 - minY * scale;
+  return slots.map(slot => ({
+    ...slot,
+    x: slot.x * scale + offsetX,
+    y: slot.y * scale + offsetY,
+    width: slot.width * scale,
+    height: slot.height * scale,
+  }));
+}
+
+function fitRotatedSlots(
+  slots: readonly VisionEditorialPhotoSlot[],
+  safeMargin: number,
+  canvasAspect: number,
+): VisionEditorialPhotoSlot[] {
+  return fitSlotsInBox(slots, safeMargin, 1 - safeMargin, safeMargin, 1 - safeMargin, canvasAspect);
+}
+
+/** Three overlapping Polaroids: flanking taped prints with a dominant central hero. */
+function editorialTrio(
+  aspects: readonly number[],
+  canvasAspect: number,
+  margin: number,
+): VisionEditorialPhotoSlot[] {
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / 3;
+  const order = [1, 0, 2];
+  const baseHeights = [0.95, 1.12, 0.94];
+  const rotations = [-1.4, -3.8, 3.4];
+  const zIndices = [3, 1, 2];
+  const prints = order.map((sourceIndex, column) => {
+    const aspect = aspects[sourceIndex];
+    const clamped = Math.min(1.8, Math.max(0.55, aspect));
+    const h = baseHeights[column] * Math.pow(clamped, -0.28);
+    return { sourceIndex, w: h * aspect, h };
+  });
+  const t = Math.max(0, Math.min(1, (avgAspect - 0.68) / (1.5 - 0.68)));
+  const overlap = 0.24 + 0.16 * t;
+  const maxH = Math.max(...prints.map(print => print.h));
+  const stagger = maxH * (0.06 + 0.22 * t);
+  const candidate: VisionEditorialPhotoSlot[] = [];
+  let left = 0;
+  prints.forEach((print, column) => {
+    const yPhysical = column === 1
+      ? 0
+      : (maxH - print.h) * (column === 0 ? 0.50 : 0.38) + (column === 0 ? stagger : stagger * 0.65);
+    candidate[print.sourceIndex] = {
+      x: left,
+      y: yPhysical * canvasAspect,
+      width: print.w,
+      height: print.h * canvasAspect,
+      rotation: rotations[print.sourceIndex],
+      zIndex: zIndices[print.sourceIndex],
+    };
+    if (column < 2) {
+      left += print.w - Math.min(print.w, prints[column + 1].w) * overlap;
+    }
+  });
+  return fitSlotsInBox(
+    candidate,
+    Math.max(margin, 0.08),
+    Math.min(1 - margin, 0.84),
+    Math.max(margin, 0.10),
+    Math.min(1 - margin, 0.89),
+    canvasAspect,
+  );
+}
+
+/** Four interlocking Polaroids spread across the canvas in a two-tier wave. */
+function editorialQuartet(
+  aspects: readonly number[],
+  canvasAspect: number,
+  margin: number,
+): VisionEditorialPhotoSlot[] {
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / 4;
+  const order = [1, 0, 2, 3];
+  const baseHeights = [0.96, 1.06, 0.98, 0.95];
+  const rotations = [-2.2, -3.5, 2.2, 3.2];
+  const zIndices = [4, 2, 3, 1];
+  const prints = order.map((sourceIndex, column) => {
+    const aspect = aspects[sourceIndex];
+    const clamped = Math.min(1.8, Math.max(0.55, aspect));
+    const h = baseHeights[column] * Math.pow(clamped, -0.30);
+    return { sourceIndex, w: h * aspect, h };
+  });
+  const t = Math.max(0, Math.min(1, (avgAspect - 0.68) / (1.5 - 0.68)));
+  const overlap = 0.25 + 0.28 * t;
+  const maxH = Math.max(...prints.map(print => print.h));
+  const tierDrop = maxH * (0.28 + 0.46 * t);
+  const candidate: VisionEditorialPhotoSlot[] = [];
+  let left = 0;
+  prints.forEach((print, column) => {
+    const isLower = column % 2 === 0;
+    const yPhysical = (maxH - print.h) * 0.30 + (isLower ? tierDrop : column === 3 ? tierDrop * 0.10 : 0);
+    candidate[print.sourceIndex] = {
+      x: left,
+      y: yPhysical * canvasAspect,
+      width: print.w,
+      height: print.h * canvasAspect,
+      rotation: rotations[print.sourceIndex],
+      zIndex: zIndices[print.sourceIndex],
+    };
+    if (column < 3) {
+      left += print.w - Math.min(print.w, prints[column + 1].w) * overlap;
+    }
+  });
+  return fitSlotsInBox(
+    candidate,
+    Math.max(margin, 0.06),
+    Math.min(1 - margin, 0.85),
+    Math.max(margin, 0.09),
+    Math.min(1 - margin, 0.89),
+    canvasAspect,
+  );
+}
+
+/** Five interlocking Polaroids spread across the canvas in a two-tier wave. */
+function editorialQuintet(
+  aspects: readonly number[],
+  canvasAspect: number,
+  margin: number,
+): VisionEditorialPhotoSlot[] {
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / 5;
+  const order = [1, 3, 0, 4, 2];
+  const baseHeights = [0.94, 0.96, 1.08, 0.96, 0.94];
+  const rotations = [-3.0, 2.2, -1.2, -2.5, 3.2];
+  const zIndices = [2, 4, 5, 4, 3];
+  const prints = order.map((sourceIndex, column) => {
+    const aspect = aspects[sourceIndex];
+    const clamped = Math.min(1.8, Math.max(0.55, aspect));
+    const h = baseHeights[column] * Math.pow(clamped, -0.30);
+    return { sourceIndex, w: h * aspect, h };
+  });
+  const t = Math.max(0, Math.min(1, (avgAspect - 0.68) / (1.5 - 0.68)));
+  const overlap = 0.28 + 0.24 * t;
+  const maxH = Math.max(...prints.map(print => print.h));
+  const tierDrop = maxH * (0.34 + 0.40 * t);
+  const candidate: VisionEditorialPhotoSlot[] = [];
+  let left = 0;
+  prints.forEach((print, column) => {
+    const isLower = column === 1 || column === 3;
+    const yPhysical = (maxH - print.h) * 0.30 + (isLower ? tierDrop : 0);
+    candidate[print.sourceIndex] = {
+      x: left,
+      y: yPhysical * canvasAspect,
+      width: print.w,
+      height: print.h * canvasAspect,
+      rotation: rotations[print.sourceIndex],
+      zIndex: zIndices[print.sourceIndex],
+    };
+    if (column < 4) {
+      left += print.w - Math.min(print.w, prints[column + 1].w) * overlap;
+    }
+  });
+  return fitSlotsInBox(
+    candidate,
+    Math.max(margin, 0.05),
+    Math.min(1 - margin, 0.88),
+    Math.max(margin, 0.07),
+    Math.min(1 - margin, 0.91),
+    canvasAspect,
+  );
+}
+
+/**
+ * Deterministic, count-adaptive scrapbook packing for compact previews.
+ * Fits connected rows of measured-aspect prints, evaluates count-adaptive
+ * candidates and reserves rotated safe bounds. Every photograph keeps a slot.
+ */
+export function getEditorialPhotoSlots(
+  variant: VisionEditorialVariant,
+  count: number,
+  sourceAspects: readonly number[] = [],
+  canvas: VisionEditorialLayoutConfig = { width: 1, height: variant === 'home' ? 0.68 : 0.62 },
+): VisionEditorialPhotoSlot[] {
+  const photoCount = Math.max(0, Math.floor(count));
+  if (!photoCount) return [];
+  const width = Math.max(0.001, canvas.width);
+  const height = Math.max(0.001, canvas.height);
+  const canvasAspect = width / height;
+  const margin = Math.min(0.12, Math.max(0.025, canvas.safeMargin ?? (variant === 'home' ? 0.045 : 0.035)));
+  const preset = compositionPreset(photoCount);
+  if (preset === 'hero') {
+    const aspect = knownAspect(sourceAspects[0]);
+    const printHeight = Math.min(height * .9, width * .9 / aspect);
+    const w = printHeight * aspect / width;
+    const h = printHeight / height;
+    return fitRotatedSlots([{ x: (1 - w) / 2, y: (1 - h) / 2, width: w, height: h, rotation: -.8, zIndex: 1 }], margin, canvasAspect);
+  }
+  if (preset === 'pair') return fitRotatedSlots(editorialPair(sourceAspects, canvasAspect), margin, canvasAspect);
+  const overlap = Math.min(0.48, Math.max(0.08, canvas.desiredOverlap ?? 0.44));
+  const aspects = Array.from({ length: photoCount }, (_, i) =>
+    Number.isFinite(sourceAspects[i]) && sourceAspects[i] > 0 ? sourceAspects[i] : 1.5);
+  if (photoCount === 3) {
+    return editorialTrio(aspects, canvasAspect, margin);
+  }
+  if (photoCount === 4) {
+    return editorialQuartet(aspects, canvasAspect, margin);
+  }
+  if (photoCount === 5) {
+    return editorialQuintet(aspects, canvasAspect, margin);
+  }
+  // Portrait collections need a tall central print with supporting photographs
+  // tucked around it, rather than row justification shrinking every portrait.
+  // Work in physical canvas coordinates and fit the complete rotated bounds.
+  if (photoCount === 6 && aspects.reduce((sum, aspect) => sum + aspect, 0) / photoCount < 1.25) {
+    const centersX = [.47, .19, .77, .19, .46, .74];
+    const tops = [.04, .05, .07, .49, .46, .50];
+    const heights = [.75, .65, .64, .47, .50, .49];
+    const rotations = [-3, -4, 5, -6, -5, 3];
+    const layers = [4, 2, 3, 5, 7, 6];
+    const prints = aspects.map((aspect, i) => {
+      const physicalHeight = Math.min(heights[i] / canvasAspect, (i === 0 ? .38 : .37) / aspect);
+      const w = physicalHeight * aspect;
+      const h = physicalHeight * canvasAspect;
+      return { x: centersX[i] - w / 2, y: tops[i],
+        width: w, height: h, rotation: rotations[i], zIndex: layers[i] };
+    });
+    return fitRotatedSlots(prints, margin, canvasAspect);
+  }
+  // Pack actual aspect-fitted prints, never empty bounding cells. Evaluate row
+  // counts in physical coordinates; wide sources prefer fewer, taller rows,
+  // portrait collections prefer more prints across each row.
+  let best: VisionEditorialPhotoSlot[] = [];
+  let bestArea = -1;
+  const avgAspect = aspects.reduce((sum, aspect) => sum + aspect, 0) / photoCount;
+  const minRows = photoCount > 3 && photoCount <= 8 ? (avgAspect < 1.1 ? 2 : Math.ceil(photoCount / 3)) : 1;
+  for (let rows = minRows; rows <= Math.min(photoCount, Math.ceil(Math.sqrt(photoCount)) + 1); rows += 1) {
+    const candidate: VisionEditorialPhotoSlot[] = [];
+    let index = 0;
+    let top = 0;
+    let previousHeight = 0;
+    for (let row = 0; row < rows; row += 1) {
+      const columns = Math.floor(photoCount / rows) + (row < photoCount % rows ? 1 : 0);
+      const prints = Array.from({ length: columns }, (_, column) => {
+        const sourceColumn = columns === 3 && row === 0 ? [1, 0, 2][column] : column;
+        const i = index + sourceColumn;
+        const h = photoCount === 1 ? 1 : columns === 3 && column === 1 ? 1.4 : 1;
+        return { width: h * aspects[i], height: h, sourceIndex: i };
+      });
+      const rowWidth = prints.reduce((sum, print, column) => sum + print.width -
+        (column ? Math.min(print.width, prints[column - 1].width) * overlap : 0), 0);
+      // Justify each connected row before stacking it. The alternating offset
+      // crosses seams; prints overlap frames rather than occupying two islands.
+      // A partial last row keeps the preceding print height rather than
+      // inflating two photos and shrinking every other row to accommodate it.
+      const rowScale = Math.min(1 / rowWidth, previousHeight > 0 && columns < Math.ceil(photoCount / rows) ? previousHeight / 1.4 : Infinity);
+      const rowHeight = Math.max(...prints.map(print => print.height * rowScale));
+      if (row) top += previousHeight * (canvas.density === 'roomy' ? 0.92 : photoCount > 6 ? 0.70 : photoCount >= 4 ? 0.76 : 0.84);
+      let left = (1 - rowWidth * rowScale) / 2 + (row % 2 ? 0.018 : -0.018);
+      prints.forEach((print, column) => {
+        const w = print.width * rowScale;
+        const h = print.height * rowScale;
+        candidate[print.sourceIndex] = { x: left, y: top + (rowHeight - h) * (column % 2 ? 0.35 : 0.15),
+          width: w, height: h * canvasAspect,
+          rotation: [-1.2, 1.1, -0.65, 1.45, -1.5, 0.7][print.sourceIndex % 6], zIndex: row * photoCount + (row % 2 === 0 && column === Math.floor(columns / 2) ? columns + 1 : column + 1) };
+        // Convert the physical vertical coordinate to canvas-normalized space.
+        candidate[print.sourceIndex].y *= canvasAspect;
+        left += w - (column < prints.length - 1 ? Math.min(w, prints[column + 1].width * rowScale) * overlap : 0);
+      });
+      index += columns;
+      previousHeight = rowHeight;
+    }
+    const fitted = fitRotatedSlots(candidate, margin, canvasAspect);
+    // Largest average print area wins, with a floor on the smallest print so
+    // extreme aspect mixes cannot sacrifice one photograph for the hero.
+    const areas = fitted.map(slot => slot.width * slot.height);
+    const score = areas.reduce((sum, area) => sum + area, 0) * 0.7 + Math.min(...areas) * photoCount * 0.3;
+    if (score > bestArea) { bestArea = score; best = fitted; }
+  }
+  return best;
+}
+
+/** Styled notes occupy a small, deterministic layer within the photo collage. */
+export function getEditorialNoteSlots(
+  variant: VisionEditorialVariant,
+  count: number,
+  photoCount: number,
+): VisionEditorialNoteSlot[] {
+  const shown = Math.min(variant === 'home' ? 1 : 2, Math.max(0, Math.floor(count)));
+  if (!shown) return [];
+  if (photoCount <= 0) {
+    return variant === 'home'
+      ? [{ x: 0.28, y: 0.26, width: 0.44, height: 0.47, rotation: -2, zIndex: 12 }]
+      : [
+        { x: 0.04, y: 0.31, width: 0.36, height: 0.38, rotation: -2, zIndex: 12 },
+        ...(shown > 1 ? [{ x: 0.60, y: 0.30, width: 0.36, height: 0.38, rotation: 1.5, zIndex: 13 }] : []),
+      ];
+  }
+  return variant === 'home'
+    ? [{ x: 0.77, y: 0.28, width: 0.195, height: 0.34, rotation: 4, zIndex: 40 }]
+    : [
+      { x: 0.78, y: 0.12, width: 0.19, height: 0.34, rotation: -4, zIndex: 40 },
+      ...(shown > 1 ? [{ x: 0.04, y: 0.63, width: 0.20, height: 0.32, rotation: -3, zIndex: 41 }] : []),
+    ];
+}
+
+/** Unknown subject/dimensions keep the whole photo; no implied face detection. */
+export function editorialImageFit(sourceAspect: number, frameAspect: number): 'cover' | 'contain' {
+  if (!Number.isFinite(sourceAspect) || sourceAspect <= 0 || !Number.isFinite(frameAspect) || frameAspect <= 0) return 'contain';
+  return visionImageRetained(sourceAspect, frameAspect) >= 0.9 ? 'cover' : 'contain';
+}

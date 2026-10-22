@@ -1,0 +1,212 @@
+{
+  "fixture": true,
+  "startingPoint": "Limited resources, no investments, little spare money; I can spend 15 minutes today reviewing my accounts. No current net worth number is known.",
+  "destination": "Reach $111,000 net worth",
+  "results": [
+    {
+      "status": "proposal",
+      "proposal": {
+        "proposalId": "5f9d720c-c1ff-49ae-9134-b7deb5a49f2c",
+        "kind": "CREATE",
+        "anchorId": "3d260f70-64d4-4e21-bd67-266f533c94df",
+        "courseId": null,
+        "baseCourseVersion": null,
+        "destination": "Reach $111,000 net worth",
+        "routeScope": "NEXT_STRETCH",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "kind": "MILESTONE",
+            "title": "Account balances mapped",
+            "clientKey": "f47037ff-c65a-4a9f-926b-9c0fd17ed7a6",
+            "rationale": "Knowing the exact baseline across available accounts anchors all subsequent planning.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "checklist",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Check checking account balance",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Check savings account balance",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Review any outstanding debt balances",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "List every available bank account and current balance without opening new accounts."
+          },
+          {
+            "kind": "MILESTONE",
+            "title": "Essential monthly costs established",
+            "clientKey": "4c4cc4c2-1679-43fc-82ea-b6318cfa1ede",
+            "rationale": "Clear visibility into fixed expenses isolates what is actually available.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [],
+            "metricBaseline": null,
+            "completionCriteria": "Calculate total essential monthly living expenses from recent records."
+          },
+          {
+            "kind": "MILESTONE",
+            "title": "Affordable contribution identified",
+            "clientKey": "fe1ba079-2ab1-48c8-a35a-40e176edf76c",
+            "rationale": "A sustainable contribution relies strictly on known surplus rather than assumptions.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [],
+            "metricBaseline": null,
+            "completionCriteria": "Determine a specific, repeatable weekly or monthly amount that fits current reality."
+          },
+          {
+            "kind": "MILESTONE",
+            "title": "First deliberate allocation executed",
+            "clientKey": "d9f9741a-d826-48fd-84da-89a49a93eb3d",
+            "rationale": "Moving from planning to consistent action builds the required habit.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [],
+            "metricBaseline": null,
+            "completionCriteria": "Complete one planned transfer or debt payment using the identified affordable contribution."
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Review checking and savings balances",
+          "rationale": "Spending fifteen minutes reviewing current accounts establishes the baseline reality needed for the first waypoint."
+        },
+        "guidance": "Start by mapping what exists right now without assuming any external funding or new accounts.",
+        "generation": {
+          "source": "ai",
+          "fallbackUsed": true,
+          "needsNaming": false
+        },
+        "createdAt": "2026-10-09T06:55:31.086Z",
+        "expiresAt": "2026-10-10T06:55:31.086Z"
+      }
+    },
+    {
+      "status": "proposal",
+      "proposal": {
+        "proposalId": "39a1a78e-2098-4966-9b91-28bf3a907ac8",
+        "kind": "ADJUST",
+        "anchorId": "3d260f70-64d4-4e21-bd67-266f533c94df",
+        "courseId": null,
+        "baseCourseVersion": null,
+        "destination": "Reach $111,000 net worth",
+        "routeScope": "DESTINATION",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "kind": "MILESTONE",
+            "title": "Identify one accessible account balance",
+            "clientKey": "3c39610c-9e3f-431e-a9ee-9df17329fe36",
+            "rationale": "Starting with one account reduces effort and fits limited time today",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Access at least one existing bank account",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "List the current balance of one accessible bank account without opening new accounts"
+          },
+          {
+            "kind": "MILESTONE",
+            "title": "Essential monthly costs established",
+            "clientKey": "c57cc735-c7b8-4a0c-9191-56c297ce13fb",
+            "rationale": "Knowing essential expenses helps plan affordable contributions",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Identify recent expense records",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Calculate total essential monthly expenses",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "Calculate total essential monthly living expenses from recent records"
+          },
+          {
+            "kind": "MILESTONE",
+            "title": "Affordable contribution identified",
+            "clientKey": "47b0dc7d-72a0-43f6-b507-e921577b52b9",
+            "rationale": "Determining a manageable contribution amount fits current financial reality",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Review income and expenses",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Decide on a sustainable contribution amount",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "Determine a specific, repeatable weekly or monthly amount that fits current reality"
+          },
+          {
+            "kind": "MILESTONE",
+            "title": "First deliberate allocation executed",
+            "clientKey": "47c67f8e-07f9-4377-a0a9-29b232da6046",
+            "rationale": "Executing one planned transfer or payment starts the saving or debt reduction habit",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Have identified affordable contribution",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Have access to transfer or payment method",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "Complete one planned transfer or debt payment using the identified affordable contribution"
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Check the balance of one accessible bank account today",
+          "rationale": "This small step fits your 15-minute review time and starts your net worth tracking"
+        },
+        "guidance": "Begin by focusing on one account balance today to reduce overwhelm and build momentum toward your net worth goal.",
+        "generation": {
+          "source": "ai",
+          "fallbackUsed": false,
+          "needsNaming": false
+        },
+        "createdAt": "2026-10-09T06:55:37.024Z",
+        "expiresAt": "2026-10-10T06:55:37.024Z"
+      }
+    }
+  ]
+}

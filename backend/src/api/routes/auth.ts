@@ -15,6 +15,9 @@ import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
 import { getChartFeatureFlags } from '../../config/chartFlags';
+import { hasLegacyMigrationAccess } from '../../services/MonetizationAccessService';
+import { getTrialState, type TrialState } from '../../services/v2/TrialLifecycleService';
+import { OnboardingContextSchema } from '../../services/v2/OnboardingContextService';
 import { getChartCapabilities } from '../../services/ChartCapabilityService';
 
 const router = Router();
@@ -62,8 +65,6 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-
 function serializeUser(user: {
   id: string;
   email: string;
@@ -73,6 +74,8 @@ function serializeUser(user: {
   isComped: boolean;
   subscriptionStatus: string;
   totalAnchorsCreated: number;
+  freeAnchorConsumed?: boolean;
+  legacyMigrationAccess?: boolean;
   totalActivations: number;
   currentStreak: number;
   longestStreak: number;
@@ -90,6 +93,8 @@ function serializeUser(user: {
   isComped: boolean;
   subscriptionStatus: string;
   totalAnchorsCreated: number;
+  freeAnchorConsumed: boolean;
+  legacyMigrationAccess: boolean;
   totalActivations: number;
   currentStreak: number;
   longestStreak: number;
@@ -97,12 +102,13 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
-  trialStartedAt: Date;
+  trialStartedAt: Date | null;
   isTrialExpired: boolean;
+  trialState: TrialState;
 } {
-  // Anchor the trial on trialStartedAt (resettable per-account), falling back to
-  // createdAt for records written before the column existed.
-  const trialAnchor = user.trialStartedAt ?? user.createdAt;
+  // Legacy timestamps continue to be reported unchanged, but new accounts
+  // remain explicitly NOT_STARTED until the V2 activation endpoint is used.
+  const trialState = getTrialState(user.trialStartedAt);
   return {
     id: user.id,
     email: user.email,
@@ -112,6 +118,8 @@ function serializeUser(user: {
     isComped: user.isComped,
     subscriptionStatus: user.subscriptionStatus,
     totalAnchorsCreated: user.totalAnchorsCreated,
+    freeAnchorConsumed: user.totalAnchorsCreated >= 1,
+    legacyMigrationAccess: hasLegacyMigrationAccess(user),
     totalActivations: user.totalActivations,
     currentStreak: user.currentStreak,
     longestStreak: user.longestStreak,
@@ -119,8 +127,9 @@ function serializeUser(user: {
     stabilizeStreakDays: user.stabilizeStreakDays,
     lastStabilizeAt: user.lastStabilizeAt,
     createdAt: user.createdAt,
-    trialStartedAt: trialAnchor,
-    isTrialExpired: Date.now() >= trialAnchor.getTime() + TRIAL_DURATION_MS,
+    trialStartedAt: user.trialStartedAt ?? null,
+    isTrialExpired: trialState === 'EXPIRED',
+    trialState,
   };
 }
 
@@ -178,7 +187,7 @@ function isUniqueEmailConflict(error: unknown): error is Prisma.PrismaClientKnow
   );
 }
 
-type GuidanceVoice = 'female' | 'male' | 'none';
+type GuidanceVoice = 'female' | 'male' | 'warm' | 'soothing' | 'none';
 type BackgroundAudioMode = 'ambient' | 'off';
 type SessionAudioDefaultsPayload = {
   focus: {
@@ -209,6 +218,7 @@ function buildSettingsUpsertData(settings: {
   sessionAudioDefaults?: SessionAudioDefaultsPayload;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
+  useProfilePhotoForVision?: boolean;
 }): {
   notificationsEnabled?: boolean;
   dailyReminderTime?: string;
@@ -223,6 +233,7 @@ function buildSettingsUpsertData(settings: {
   sessionAudioDefaults?: Prisma.InputJsonValue;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
+  useProfilePhotoForVision?: boolean;
 } {
   const {
     notificationsEnabled,
@@ -238,6 +249,7 @@ function buildSettingsUpsertData(settings: {
     sessionAudioDefaults,
     hapticIntensity,
     vaultViewType,
+    useProfilePhotoForVision,
   } = settings;
 
   return {
@@ -254,6 +266,7 @@ function buildSettingsUpsertData(settings: {
     ...(sessionAudioDefaults !== undefined && { sessionAudioDefaults }),
     ...(hapticIntensity !== undefined && { hapticIntensity }),
     ...(vaultViewType && { vaultViewType }),
+    ...(useProfilePhotoForVision !== undefined && { useProfilePhotoForVision }),
   };
 }
 
@@ -272,7 +285,7 @@ const UpdateProfileSchema = z.object({
 
 const SessionAudioDefaultsSchema = z
   .object({
-    guidanceVoice: z.enum(['female', 'male', 'none']),
+    guidanceVoice: z.enum(['female', 'male', 'warm', 'soothing', 'none']),
     backgroundAudio: z.enum(['ambient', 'off']),
   })
   .strict();
@@ -297,11 +310,12 @@ const UpdateSettingsSchema = z.object({
   focusSessionDuration: z.number().min(10).max(120).optional(),
   focusSessionAudio: z.enum(['silent', 'ambient']).optional(),
   primeSessionDuration: z.number().min(120).max(7200).optional(),
-  visualizeSessionDuration: z.union([z.literal(60), z.literal(180), z.literal(300)]).optional(),
+  visualizeSessionDuration: z.union([z.literal(60), z.literal(180), z.literal(300), z.literal(600)]).optional(),
   primeSessionAudio: z.enum(['silent', 'ambient']).optional(),
   sessionAudioDefaults: SessionAudioDefaultsByTypeSchema.optional(),
   hapticIntensity: z.number().min(1).max(5).optional(),
   vaultViewType: z.enum(['grid', 'list']).optional(),
+  useProfilePhotoForVision: z.boolean().optional(),
 });
 
 const PushTokensSchema = z.object({
@@ -955,6 +969,33 @@ router.put(
   }
 );
 
+/** Personalization is recorded only after the authenticated account owns its first Anchor. */
+router.put('/onboarding-context', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    const context = validate(OnboardingContextSchema, req.body);
+    const user = await prisma.user.findUnique({ where: { authUid: req.user.uid }, select: { id: true } });
+    if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
+    const anchor = await prisma.anchor.findFirst({ where: { userId: user.id, isArchived: false }, select: { id: true } });
+    if (!anchor) throw new AppError('Create your first Anchor before saving onboarding.', 409, 'FIRST_ANCHOR_REQUIRED');
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardingContext: context as Prisma.InputJsonValue, hasCompletedOnboarding: true },
+      select: { onboardingContext: true, hasCompletedOnboarding: true },
+    });
+    res.json({ success: true, data: updated });
+  } catch (error) { next(error); }
+});
+
+router.get('/onboarding-context', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    const user = await prisma.user.findUnique({ where: { authUid: req.user.uid }, select: { onboardingContext: true } });
+    if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
+    res.json({ success: true, data: user.onboardingContext });
+  } catch (error) { next(error); }
+});
+
 /**
  * PUT /api/auth/settings
  *
@@ -970,7 +1011,7 @@ router.put(
  * - focusSessionDuration: Number in seconds (optional)
  * - focusSessionAudio: 'silent' | 'ambient' (optional)
  * - primeSessionDuration: Number in seconds (optional)
- * - visualizeSessionDuration: 60, 180, or 300 seconds (optional)
+ * - visualizeSessionDuration: 60, 180, 300 (legacy) or 600 seconds (optional)
  * - primeSessionAudio: 'silent' | 'ambient' (optional)
  * - sessionAudioDefaults: validated Voice & Sound defaults for Focus, Deep Prime, and Visualize (optional)
  * - hapticIntensity: Number 1-5 (optional)
@@ -1000,6 +1041,7 @@ router.put(
         sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
+        useProfilePhotoForVision,
       } = validate(UpdateSettingsSchema, req.body);
 
       const settingsData = buildSettingsUpsertData({
@@ -1016,6 +1058,7 @@ router.put(
         sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
+        useProfilePhotoForVision,
       });
 
       const settings = await prisma.$transaction(async tx => {
@@ -1123,27 +1166,49 @@ router.put(
         throw new AppError('No fields to update', 400, 'VALIDATION_ERROR');
       }
 
-      const query = Prisma.sql`
-        UPDATE users
-        SET ${Prisma.join(assignments, ', ')}
-        WHERE id = ${user.id}
-        RETURNING notification_state, notifications_enabled, expo_push_token, fcm_token, apns_token
-      `;
+      const updated = await prisma.$transaction(async (tx) => {
+        if (pushTokens) {
+          // Disassociate non-null device tokens from any other user to prevent cross-account push contamination
+          if (pushTokens.expoPushToken) {
+            await tx.$executeRaw(
+              Prisma.sql`UPDATE users SET expo_push_token = NULL WHERE expo_push_token = ${pushTokens.expoPushToken} AND id <> ${user.id}`
+            );
+          }
+          if (pushTokens.fcmToken) {
+            await tx.$executeRaw(
+              Prisma.sql`UPDATE users SET fcm_token = NULL WHERE fcm_token = ${pushTokens.fcmToken} AND id <> ${user.id}`
+            );
+          }
+          if (pushTokens.apnsToken) {
+            await tx.$executeRaw(
+              Prisma.sql`UPDATE users SET apns_token = NULL WHERE apns_token = ${pushTokens.apnsToken} AND id <> ${user.id}`
+            );
+          }
+        }
 
-      const rows = await prisma.$queryRaw<
-        Array<{
-          notification_state: Prisma.JsonValue | null;
-          notifications_enabled: boolean;
-          expo_push_token: string | null;
-          fcm_token: string | null;
-          apns_token: string | null;
-        }>
-      >(query);
+        const query = Prisma.sql`
+          UPDATE users
+          SET ${Prisma.join(assignments, ', ')}
+          WHERE id = ${user.id}
+          RETURNING notification_state, notifications_enabled, expo_push_token, fcm_token, apns_token
+        `;
 
-      const updated = rows[0];
-      if (!updated) {
-        throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-      }
+        const rows = await tx.$queryRaw<
+          Array<{
+            notification_state: Prisma.JsonValue | null;
+            notifications_enabled: boolean;
+            expo_push_token: string | null;
+            fcm_token: string | null;
+            apns_token: string | null;
+          }>
+        >(query);
+
+        const row = rows[0];
+        if (!row) {
+          throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+        }
+        return row;
+      });
 
       res.json({
         success: true,
@@ -1158,6 +1223,10 @@ router.put(
     } catch (error) {
       if (error instanceof AppError) {
         next(error);
+        return;
+      }
+      if ((error as any)?.code === 'P2002' || (error as any)?.code === '23505') {
+        next(new AppError('Push token conflict detected', 409, 'TOKEN_CONFLICT'));
         return;
       }
       next(new AppError('Failed to sync notification state', 500, 'UPDATE_ERROR'));

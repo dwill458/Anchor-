@@ -1,15 +1,12 @@
 /**
- * TrialSignUpScreen — Account creation gate between first prime and Sanctuary.
+ * TrialSignUpScreen — Legacy account creation gate retained for old routes.
  *
  * Flow: FirstPrimeCompleteScreen (tap) → here → Vault (Sanctuary)
  *
- * Three exits:
- *  1. Start Free Trial  — signs up then navigates to Vault
- *  2. Skip              — navigates directly to Vault
- *  3. Sign In           — navigates to Login (which lands in Vault on success)
+ * Create an account or sign in before entering the Sanctuary.
  */
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -99,10 +96,6 @@ export const TrialSignUpScreen: React.FC = () => {
     ).start();
   }, [fadeAnim, slideAnim, glowAnim]);
 
-  const goToVault = useCallback(() => {
-    navigation.replace('Vault');
-  }, [navigation]);
-
   const handleSignUp = async () => {
     if (!email.trim()) {
       setError('Please enter your email address');
@@ -183,15 +176,15 @@ export const TrialSignUpScreen: React.FC = () => {
               <View style={[styles.corner, styles.cornerBR]} />
 
               <View style={styles.trialBadge}>
-                <Text style={styles.trialBadgeText}>7-DAY FREE TRIAL</Text>
+                <Text style={styles.trialBadgeText}>SAVE YOUR PROGRESS</Text>
               </View>
 
               <Text style={styles.headline}>
-                All access.{'\n'}Free for a week.
+                Keep your Anchor.{'\n'}Continue with an account.
               </Text>
               <Text style={styles.subheadline}>
-                Save your anchor and sync your practice across devices.
-                {'\n'}No payment today. Subscribe only if you want to continue after the 7-day trial.
+                Save your Anchor and sync your practice across devices.
+                {'\n'}A 7-day trial is offered later when you choose a Pro plan.
               </Text>
             </View>
 
@@ -259,22 +252,13 @@ export const TrialSignUpScreen: React.FC = () => {
               {loading ? (
                 <ActivityIndicator color={colors.navy} />
               ) : (
-                <Text style={styles.ctaText}>START FREE TRIAL</Text>
+                <Text style={styles.ctaText}>CREATE ACCOUNT</Text>
               )}
             </TouchableOpacity>
 
             <Text style={styles.legalText}>
               No payment required today. If you subscribe later, pricing will be shown before purchase.
             </Text>
-
-            {/* Skip */}
-            <TouchableOpacity
-              style={styles.skipBtn}
-              onPress={goToVault}
-              hitSlop={{ top: 14, bottom: 14, left: 20, right: 20 }}
-            >
-              <Text style={styles.skipText}>Continue without an account →</Text>
-            </TouchableOpacity>
 
           </Animated.View>
         </ScrollView>

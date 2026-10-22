@@ -140,6 +140,7 @@ export const ChargeSetupScreen: React.FC = () => {
 
   const chargeSetupTeaching = useTeachingGate({
     screenId: 'charge_setup',
+    visitKey: anchorId,
     candidateIds: ['charge_setup_first_time_v1'],
   });
 

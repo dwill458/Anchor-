@@ -5,6 +5,29 @@ import {
   type VisualLanguageDNA,
 } from '../types';
 
+import {
+  getAnchor2StyleDefinition,
+  type Anchor2PaletteLane,
+  type Anchor2StyleDefinition,
+} from './anchor2StyleLibrary';
+import {
+  ANCHOR2_ADAPTIVE_CONTRAST_RULE,
+  ANCHOR2_LEGIBILITY_FIELD,
+  ANCHOR2_MATERIAL_TRUTH,
+  ANCHOR2_NEGATIVE_ADDITIONS,
+  ANCHOR2_PRESENTATION_CONTRACT,
+  ANCHOR2_REMOVED_GLOBAL_NEGATIVE_TERMS,
+  ANCHOR2_TEXTURE_DEFAULT,
+  ANCHOR2_VARIATION_MODEL,
+} from './anchor2Contract';
+
+export {
+  getAnchor2StyleDefinition,
+  getStyleGenerationVersion,
+  isAnchor2StyleId,
+} from './anchor2StyleLibrary';
+
+/** Legacy (Anchor 1.5) catalog only. Anchor 2.0 IDs live in anchor2StyleLibrary.ts. */
 export const VALID_AI_STYLES = AI_STYLE_IDS;
 export type { AIStyle, StyleLifecycleStatus, VisualLanguageDNA };
 
@@ -61,6 +84,8 @@ export type AnchorStyleDefinition = StylePromptDefinition;
 export interface BuildStylePromptOptions {
   category?: string;
   categoryColor?: string;
+  /** Stable per-anchor/generation input used to vary Anchor 2.0 prompt choices across renders. */
+  variationKey?: string;
   recentRenders?: {
     usedStyles?: string[];
     usedStyleFamilies?: string[];
@@ -88,7 +113,7 @@ export interface IntentionSignal {
 // ============================================================================
 
 export const GLOBAL_NEGATIVE_PROMPT =
-  'text, words, letters, phrases, captions, numbers, numerals, readable characters, fake writing, runes, invented alphabets, inscriptions, labels, readable diagrams, currency symbols, dollar sign, coins, cash, banknotes, credit cards, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, body, literal scene, literal intention illustration, literal object explanation, literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, maritime imagery, harbor, ship, boat, generic mystical poster, generic occult poster, repetitive mandala, repetitive concentric-circle framing, generic sacred emblem, default glowing halo, stock fantasy glow, astrology wheel, zodiac poster, occult seal, distorted geometry, altered structure, altered shape, warped lines, broken Anchor, melted Anchor, obscured Anchor, broken sigil, melted sigil, blurry, muddy detail, low quality, random artifacts, overcrowded ornament';
+  'text, words, letters, phrases, captions, numbers, numerals, readable characters, fake writing, runes, invented alphabets, inscriptions, labels, readable diagrams, currency symbols, dollar sign, coins, cash, banknotes, credit cards, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, body, literal scene, literal intention illustration, literal object explanation, literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, maritime imagery, harbor, ship, boat, generic mystical poster, generic occult poster, repetitive mandala, repetitive concentric-circle framing, generic sacred emblem, talisman, amulet, ceremonial border, medallion frame, added ring around the Anchor, borders, frames, boxes, rectangles, square containers, rectangular containers, framing devices, plaques, cards, slabs, stone tablets, pedestals, windows, canvases, enclosing shapes, four-sided enclosures, bounding boxes, mats, shadowbox enclosures, mounting board, presentation plates, rectangular borders around the symbol, small glyph inside large composition, default glowing halo, stock fantasy glow, astrology wheel, zodiac poster, occult seal, distorted geometry, altered structure, altered shape, warped lines, broken Anchor, melted Anchor, obscured Anchor, broken sigil, melted sigil, blurry, muddy detail, low quality, random artifacts, overcrowded ornament';
 
 export const LITERAL_ANCHOR_EXCLUSION = `
 LITERAL SUBJECT EXCLUSION — ABSOLUTE:
@@ -142,7 +167,25 @@ export const STYLE_EXTRA_NEGATIVES: Partial<Record<AIStyle, string>> = {
   original: 'glow, shading, gradient fills, distressed textures, app icon, mystical badge',
 };
 
+/**
+ * Anchor 2.0 negative prompt: the legacy global negative minus the terms that would forbid the
+ * surfaces and textures 2.0 styles require, plus the 2.0 legibility additions and the style's own.
+ */
+function buildAnchor2NegativePrompt(def: Anchor2StyleDefinition): string {
+  const removed = new Set(ANCHOR2_REMOVED_GLOBAL_NEGATIVE_TERMS);
+  const globalTokens = GLOBAL_NEGATIVE_PROMPT.split(',')
+    .map(token => token.trim())
+    .filter(token => token && !removed.has(token));
+  const additions = [...ANCHOR2_NEGATIVE_ADDITIONS, ...(def.visualLanguage.negativePromptAdditions ?? [])];
+  return Array.from(new Set([...globalTokens, ...additions])).join(', ');
+}
+
 export function getStyleNegativePrompt(style: string): string {
+  const anchor2Style = getAnchor2StyleDefinition(style);
+  if (anchor2Style) {
+    return buildAnchor2NegativePrompt(anchor2Style);
+  }
+
   const styleKey = normalizeStyleId(style);
   const extraLegacy = Object.prototype.hasOwnProperty.call(STYLE_EXTRA_NEGATIVES, styleKey)
     ? STYLE_EXTRA_NEGATIVES[styleKey as AIStyle]
@@ -397,18 +440,18 @@ export function deriveIntentionSignal(intention: string): IntentionSignal {
 // ============================================================================
 
 export const CATEGORY_PALETTE_MAP: Record<string, { name: string; hex: string; desc: string }> = {
-  desire: { name: 'Desire', hex: '#D94F8A', desc: 'Rose / Crimson (#D94F8A) — magnetic warmth, emotional velocity' },
-  health: { name: 'Health', hex: '#2FA879', desc: 'Emerald / Forest Green (#2FA879) — vital equilibrium, cellular calm' },
+  desire: { name: 'Desire', hex: '#C23B72', desc: 'Rose / Crimson (#C23B72) — magnetic warmth, emotional velocity' },
+  health: { name: 'Health', hex: '#238A65', desc: 'Emerald / Forest Green (#238A65) — vital equilibrium, cellular calm' },
   career: { name: 'Career', hex: '#3157D8', desc: 'Cobalt / Royal Blue (#3157D8) — structural clarity, professional focus' },
-  relationships: { name: 'Relationships', hex: '#E56F7A', desc: 'Coral Rose / Blush (#E56F7A) — intimate resonance, connective warmth' },
-  creativity: { name: 'Creativity', hex: '#F28A2E', desc: 'Tangerine / Warm Amber (#F28A2E) — expressive vitality, innovative spark' },
+  relationships: { name: 'Relationships', hex: '#E17D69', desc: 'Coral Rose / Blush (#E17D69) — intimate resonance, connective warmth' },
+  creativity: { name: 'Creativity', hex: '#E58A27', desc: 'Tangerine / Warm Amber (#E58A27) — expressive vitality, innovative spark' },
   spirituality: { name: 'Spirituality', hex: '#7657D9', desc: 'Deep Violet / Amethyst (#7657D9) — contemplative depth, sacred quiet' },
-  abundance: { name: 'Abundance', hex: '#B6A32A', desc: 'Warm Gold / Olive Ochre (#B6A32A) — fertile radiance, earned grounding' },
-  family: { name: 'Family', hex: '#C86B45', desc: 'Terracotta / Warm Ochre (#C86B45) — ancestral rooting, sheltering warmth' },
-  learning: { name: 'Learning', hex: '#198C9C', desc: 'Deep Teal / Sea Pine (#198C9C) — analytical lucidity, quiet intellect' },
-  adventure: { name: 'Adventure', hex: '#2D9FC8', desc: 'Cerulean / Ocean Blue (#2D9FC8) — horizon expansiveness, forward motion' },
+  abundance: { name: 'Abundance', hex: '#A48B25', desc: 'Warm Gold / Olive Ochre (#A48B25) — fertile radiance, earned grounding' },
+  family: { name: 'Family', hex: '#A96743', desc: 'Terracotta / Warm Ochre (#A96743) — ancestral rooting, sheltering warmth' },
+  learning: { name: 'Learning', hex: '#168C98', desc: 'Deep Teal / Sea Pine (#168C98) — analytical lucidity, quiet intellect' },
+  adventure: { name: 'Adventure', hex: '#329BC9', desc: 'Cerulean / Ocean Blue (#329BC9) — horizon expansiveness, forward motion' },
   focus: { name: 'Focus', hex: '#62666D', desc: 'Slate Gray / Cool Graphite (#62666D) — measured stillness, disciplined reduction' },
-  custom: { name: 'Custom', hex: '#E85D32', desc: 'Vermilion / Coral (#E85D32) — personal resonance, distinct signature' },
+  custom: { name: 'Custom', hex: '#C64D40', desc: 'Vermilion / Coral (#C64D40) — personal resonance, distinct signature' },
 };
 
 export function getCategoryColorInfo(category?: string | null): { name: string; color: string; behavior: string } {
@@ -472,10 +515,10 @@ export const COMPOSITION_VARIANTS: Record<string, string[]> = {
     'Edge-to-edge material resonance that cradles the Anchor without competing with its primary lines.',
   ],
   OBJECT_PRESENTATION: [
-    'Present the Anchor as a physical artifact, relic, or crafted plate resting in shallow dimensional space.',
-    'Physical specimen staging with realistic directional raking light and tangible surface depth.',
-    'Editorial gallery framing with quiet museum-grade mounting and natural material drop shadow.',
-    'Shallow tactile depth that presents the Anchor as an authentic handmade or architectural object.',
+    'Present the Anchor itself as a standalone sculptural mark carved or cast in physical material, filling 75-85% of the frame without any substrate plaque, plate, or mounting card.',
+    'Physical mark staging with realistic directional raking light directly on the Anchor geometry and strokes.',
+    'Editorial studio lighting on the standalone symbol with deep material texture directly on the linework and empty boundless field.',
+    'Tactile dimensional depth on the Anchor geometry itself, standing entirely free with no enclosing borders or tablet boundaries.',
   ],
   CENTRED_AXIS: [
     'Concentric light layers and orbital atmosphere balanced evenly along the central vertical axis.',
@@ -664,52 +707,11 @@ function buildRecentRendersBlock(recent?: BuildStylePromptOptions['recentRenders
   return lines.join('\n');
 }
 
-// ============================================================================
-// Master Runtime Prompt Builder (Anchor 2.0)
-// ============================================================================
-
-export function buildStylePrompt(
-  intention: string,
-  styleId: string,
-  variationIndex: number = 0,
-  optionsOrCategory?: BuildStylePromptOptions | string
-): string {
-  const style = getStylePromptDefinition(styleId);
-  const dna = normalizeVisualLanguage(style);
-  const signal = deriveIntentionSignal(intention);
-  const cleanIntention = normalizeIntention(intention) || 'personal intention';
-  const safeVariationIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
-
-  const options: BuildStylePromptOptions =
-    typeof optionsOrCategory === 'string'
-      ? { category: optionsOrCategory }
-      : optionsOrCategory || {};
-
-  const categoryInfo = getCategoryColorInfo(options.category);
-
-  const familyKey = normalizeCompositionFamilyKey(style.compositionFamily);
-  const compositionNotes = COMPOSITION_VARIANTS[familyKey] || COMPOSITION_VARIANTS['CENTRED_STILLPOINT'];
-  const compositionVariant =
-    compositionNotes[positiveModulo(safeVariationIndex, compositionNotes.length)];
-
-  const accentPool = style.accentMotifs.length > 0 ? style.accentMotifs : dna.motifVocabulary;
-  const accentMotif = pickStable(
-    accentPool,
-    `${style.id}:${cleanIntention}:${safeVariationIndex}:accent`
-  );
-
-  const maxMotifs = dna.maxSupportingMotifs ?? 3;
-  const recentBlock = buildRecentRendersBlock(options.recentRenders);
-
-  return `ANCHOR IDENTITY
---------------------------------------------------
-This Anchor embodies the intention "${cleanIntention}".
-
-The attached reference image contains the canonical Anchor geometry derived from the user’s intention.
-
-The Anchor geometry is the identity of the piece.
-
-STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY
+/**
+ * Structural-preservation text shared by the legacy and Anchor 2.0 prompt builders. Extracted verbatim
+ * from the legacy template: legacy output must stay byte-identical (guarded by fixtures).
+ */
+export const STRUCTURAL_PRESERVATION_BLOCK = `STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY
 --------------------------------------------------
 Preserve every primary line, circle, node, intersection, angle, and structural relationship exactly as shown.
 
@@ -748,7 +750,6 @@ Styling may affect only:
 - material
 - atmosphere
 - lighting
-- framing
 - color
 - density
 - texture
@@ -758,7 +759,82 @@ Styling may affect only:
 - supporting ornament
 - non-Anchor visual elements
 
-If the selected style uses a physical medium, the Anchor may appear painted, engraved, printed, gilded, carved, drawn, etched, illuminated, embedded, or projected, but the geometry must remain unchanged.
+If the selected style uses a physical medium, the Anchor may appear painted, engraved, printed, gilded, carved, drawn, etched, illuminated, embedded, or projected, but the geometry must remain unchanged.`;
+
+// ============================================================================
+// Legacy Master Runtime Prompt Builder (Anchor 1.5 styles; transparent/standalone artwork contract)
+// ============================================================================
+
+export function buildStylePrompt(
+  intention: string,
+  styleId: string,
+  variationIndex: number = 0,
+  optionsOrCategory?: BuildStylePromptOptions | string
+): string {
+  // Anchor 2.0 styles use their own contract; the version is resolved from the registry by ID.
+  const anchor2Style = getAnchor2StyleDefinition(styleId);
+  if (anchor2Style) {
+    return buildAnchor2StylePrompt(anchor2Style, intention, variationIndex, optionsOrCategory);
+  }
+
+  const style = getStylePromptDefinition(styleId);
+  const dna = normalizeVisualLanguage(style);
+  const signal = deriveIntentionSignal(intention);
+  const cleanIntention = normalizeIntention(intention) || 'personal intention';
+  const safeVariationIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
+
+  const options: BuildStylePromptOptions =
+    typeof optionsOrCategory === 'string'
+      ? { category: optionsOrCategory }
+      : optionsOrCategory || {};
+
+  const categoryInfo = getCategoryColorInfo(options.category);
+
+  const familyKey = normalizeCompositionFamilyKey(style.compositionFamily);
+  const compositionNotes = COMPOSITION_VARIANTS[familyKey] || COMPOSITION_VARIANTS['CENTRED_STILLPOINT'];
+  const compositionVariant =
+    compositionNotes[positiveModulo(safeVariationIndex, compositionNotes.length)];
+
+  const accentPool = style.accentMotifs.length > 0 ? style.accentMotifs : dna.motifVocabulary;
+  const accentMotif = pickStable(
+    accentPool,
+    `${style.id}:${cleanIntention}:${safeVariationIndex}:accent`
+  );
+
+  const maxMotifs = dna.maxSupportingMotifs ?? 3;
+  const recentBlock = buildRecentRendersBlock(options.recentRenders);
+
+  return `ANCHOR IDENTITY
+--------------------------------------------------
+This Anchor embodies the intention "${cleanIntention}".
+
+The attached reference image contains the canonical Anchor geometry derived from the user’s intention.
+
+The Anchor geometry is the identity of the piece.
+
+PERSONAL MARK OF INTENT
+--------------------------------------------------
+The finished piece is the owner's personal mark of intent: closer to a private emblem, a maker's mark, a notebook stamp, or an athletic insignia than to a magical seal, talisman, or amulet.
+
+- The Anchor geometry is the hero. Give it clear presence and room to breathe.
+- Do not enclose it in added rings, borders, medallions, cartouches, or ceremonial frames. If the geometry itself contains a perimeter, preserve that perimeter exactly and add no other.
+- Keep it individual and handmade, with the character of this specific geometry. It must not become a corporate logo, an icon-set glyph, or an alphabet monogram.
+- Surrounding style belongs to the material and the field around the mark, never to decorative framing added around it.
+
+STANDALONE ANCHOR ARTWORK REQUIREMENT
+--------------------------------------------------
+Generate a SINGLE standalone abstract geometric Anchor derived from the supplied Anchor structure.
+- The Anchor must occupy approximately 75–85% of the available canvas width and height.
+- Composition should radiate outward and make intentional use of the full canvas.
+- Preserve comfortable negative space around the outer edge so strokes are never clipped.
+- DO NOT generate borders, frames, boxes, rectangles, square containers, plaques, cards, windows, canvases, or enclosing shapes around the Anchor.
+- DO NOT place a small glyph in the center of a larger decorative composition.
+- DO NOT generate a background as part of the Anchor. Prefer transparent-background Anchor artwork so presentation/background treatment remains controlled by the app.
+- The result should read instantly as one unified symbol when displayed inside a circle.
+- Organic curves, intersections, diagonals, arcs, and structural geometry are allowed. Large rectangular framing devices are strictly forbidden.
+- Important: A rectangle may only survive when it is a small, clearly integral component of the distilled Anchor geometry. A dominant four-sided enclosure around the symbol is ALWAYS INVALID.
+
+${STRUCTURAL_PRESERVATION_BLOCK}
 
 VISUAL LANGUAGE CONTRACT
 --------------------------------------------------
@@ -1129,12 +1205,256 @@ Enhancements may appear:
 - behind
 - beneath
 - within the material field
-- in framing
 - in atmosphere
 - in surface treatment
 - in peripheral composition
 
-Never alter the core geometry.`;
+Never alter the core geometry.
+Never add rectangular frames, boxes, plaques, or enclosing containers around the Anchor.`;
+}
+
+// ============================================================================
+// Anchor 2.0 Prompt Builder
+//
+// Additive: only reached for styles the registry marks generationVersion 'anchor2'. It composes the
+// shared structural-preservation block with the 2.0 presentation, contrast and legibility blocks and
+// never reuses the legacy master prompt body (which mandates artwork without a field).
+// ============================================================================
+
+const ANCHOR2_PERIPHERAL_PLACEMENTS = [
+  'let richer material detail gather toward the lower-left and upper-right perimeter',
+  'let richer material detail gather along the upper and left perimeter',
+  'let richer material detail gather along the lower and right perimeter',
+  'let richer material detail gather in the outer corners and thin out toward the middle',
+  'let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet',
+];
+
+function capitalizeFirst(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Deterministic palette-lane choice for a render. Same seed inputs always give the same lane. */
+export function selectAnchor2PaletteLane(
+  def: Anchor2StyleDefinition,
+  intention: string,
+  variationIndex: number,
+  category?: string,
+  variationKey?: string
+): Anchor2PaletteLane {
+  const cleanIntention = normalizeIntention(intention) || 'personal intention';
+  const safeIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
+  // The index is an offset, not part of the hash: Form I and Form II share a starting point and
+  // then step apart, so they can never land on the same lane.
+  const seed = `${def.id}:${cleanIntention}:${(category || '').trim().toLowerCase()}:${variationKey || ''}:lane`;
+  const staggered = pickStaggered(def.paletteLanes, seed, safeIndex);
+  if (safeIndex % 2 === 0) return staggered;
+
+  // Form II is the odd one of its pair: put it on the opposite FIELD VALUE from Form I (light vs
+  // dark; a mixed Form I gets any extreme) so the two read apart at thumbnail size, not only by hue.
+  const partner = pickStaggered(def.paletteLanes, seed, safeIndex - 1);
+  const contrasting = (lane: Anchor2PaletteLane) =>
+    partner.fieldValue === 'mixed' ? lane.fieldValue !== 'mixed' : lane.fieldValue !== partner.fieldValue && lane.fieldValue !== 'mixed';
+  for (let step = 0; step < def.paletteLanes.length; step += 1) {
+    const lane = pickStaggered(def.paletteLanes, seed, safeIndex + step);
+    if (contrasting(lane)) return lane;
+  }
+  // No opposite extreme in this style's lanes: at least a different value than Form I.
+  for (let step = 0; step < def.paletteLanes.length; step += 1) {
+    const lane = pickStaggered(def.paletteLanes, seed, safeIndex + step);
+    if (lane.fieldValue !== partner.fieldValue) return lane;
+  }
+  return staggered;
+}
+
+/**
+ * The composition of one render, set by which of the pair it is. The two Forms of a request are
+ * shown side by side, so they are pushed apart in density, field energy and detail character too —
+ * never in the Anchor's geometry, scale or position, which stay exactly as supplied.
+ */
+const ANCHOR2_FORM_COMPOSITIONS = [
+  'GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible',
+  'OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness',
+];
+
+export function selectAnchor2FormComposition(variationIndex: number): string {
+  const safeIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
+  return ANCHOR2_FORM_COMPOSITIONS[positiveModulo(safeIndex, ANCHOR2_FORM_COMPOSITIONS.length)];
+}
+
+/** The explicit structure-colour instruction for a lane (adaptive Anchor contrast). */
+export function buildAnchor2StructureColorInstruction(lane: Anchor2PaletteLane): string {
+  const anchorValue = lane.anchorValue.toUpperCase();
+  if (lane.fieldValue === 'mixed') {
+    const behindValue = lane.anchorValue === 'dark' ? 'LIGHT' : 'DARK';
+    return `Field value: MIXED (${lane.field}).
+Render the Anchor structure in a ${anchorValue} tone: ${lane.anchorTone}.
+Because the field varies in value, create a calm, low-contrast ${behindValue} tonal zone behind the geometry so the structure reads continuously everywhere it runs. Keep strong value variation and richer detail toward the perimeter.`;
+  }
+  const fieldValue = lane.fieldValue.toUpperCase();
+  return `Field value: ${fieldValue} (${lane.field}).
+The field behind the Anchor is predominantly ${lane.fieldValue}, so render the Anchor structure in a ${anchorValue} tone: ${lane.anchorTone}.`;
+}
+
+export function buildAnchor2StylePrompt(
+  style: Anchor2StyleDefinition,
+  intention: string,
+  variationIndex: number = 0,
+  optionsOrCategory?: BuildStylePromptOptions | string
+): string {
+  const dna = style.visualLanguage;
+  const signal = deriveIntentionSignal(intention);
+  const cleanIntention = normalizeIntention(intention) || 'personal intention';
+  const safeVariationIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
+  const options: BuildStylePromptOptions =
+    typeof optionsOrCategory === 'string' ? { category: optionsOrCategory } : optionsOrCategory || {};
+  const categoryInfo = getCategoryColorInfo(options.category);
+
+  const variationKey = options.variationKey?.trim() || '';
+  const lane = selectAnchor2PaletteLane(
+    style,
+    intention,
+    safeVariationIndex,
+    options.category,
+    variationKey
+  );
+  // Staggered, never independently hashed: the two Forms of one request must differ in material
+  // subtype, motif and placement as well as palette lane, or choosing between them is a fake choice.
+  const seedBase = `${style.id}:${cleanIntention}:${variationKey}`;
+  const materialVariant = pickStaggered(style.materialVariants, `${seedBase}:material`, safeVariationIndex);
+  const peripheralPlacement = pickStaggered(
+    ANCHOR2_PERIPHERAL_PLACEMENTS,
+    `${seedBase}:placement`,
+    safeVariationIndex
+  );
+  const nativeMotif = pickStaggered(style.styleNativeMotifs, `${seedBase}:motif`, safeVariationIndex);
+
+  const sections: string[] = [
+    `ANCHOR IDENTITY
+--------------------------------------------------
+This Anchor embodies the intention "${cleanIntention}".
+
+The attached reference image is a geometry reference only: it defines the canonical Anchor lines and their relationships. Preserve that geometry exactly, but do not copy the reference stroke colour, empty surround, or visual treatment. The selected style is art direction for the complete artwork, not a literal instruction to reproduce the reference image.
+
+The Anchor geometry is the identity of the piece.
+
+The finished piece is the owner's personal mark of intent: individual and handmade in character, never a corporate logo, an icon-set glyph, an alphabet monogram, or a magical seal.`,
+
+    ANCHOR2_PRESENTATION_CONTRACT,
+
+    STRUCTURAL_PRESERVATION_BLOCK,
+
+    `${ANCHOR2_ADAPTIVE_CONTRAST_RULE}
+
+STRUCTURE COLOUR FOR THIS RENDER (${lane.label})
+${buildAnchor2StructureColorInstruction(lane)}`,
+
+    ANCHOR2_LEGIBILITY_FIELD,
+
+    `STYLE
+--------------------------------------------------
+STYLE MATERIAL WORLD:
+${style.materialName}
+
+STYLE FAMILY:
+${style.styleFamily}
+
+CORE ART WORLD:
+${dna.coreArtWorld}
+
+The selected style is a complete material world, not a filter, a texture overlay or a background swap.
+
+LOCKED CORE — what makes this style recognizably itself:
+${formatList(style.lockedCore)}
+
+ALLOWED VARIATION — what may differ between renders:
+${formatList(style.allowedVariation)}
+
+PROHIBITED DRIFT — what would collapse this style into another or into generic AI art:
+${formatList(style.prohibitedDrift)}
+
+STYLE DNA
+PRIMARY MEDIUM: ${dna.primaryMedium}
+SUBSTRATE: ${dna.substrate}
+MATERIAL BEHAVIOR: ${style.materialBehavior}
+TEXTURE LOGIC: ${dna.textureLogic}
+LIGHT BEHAVIOR: ${dna.lightBehavior}
+EDGE BEHAVIOR: ${dna.edgeBehavior}
+DEPTH LOGIC: ${dna.depthLogic}
+ORNAMENT SYSTEM: ${dna.ornamentSystem}
+STYLE SHOULD FEEL LIKE: ${dna.shouldFeelLike}
+STYLE MUST NOT FEEL LIKE: ${dna.mustNotFeelLike}
+
+ANCHOR RENDERING — how the structure is physically made (geometry stays exactly as supplied):
+${style.anchorRendering}
+
+STYLE-SPECIFIC LEGIBILITY:
+${style.legibilityRule}`,
+
+    ANCHOR2_TEXTURE_DEFAULT,
+
+    ANCHOR2_MATERIAL_TRUTH,
+
+    `CROSS-STYLE SEPARATION
+--------------------------------------------------
+${formatList(dna.crossStyleAvoidances)}
+
+Do not import signature traits from unrelated styles.`,
+
+    ANCHOR2_VARIATION_MODEL,
+
+    `VARIATION FOR THIS RENDER
+--------------------------------------------------
+Palette lane: ${lane.label} — ${lane.field}
+Material subtype: ${materialVariant}
+Style-native motif to favour: ${nativeMotif}
+Peripheral placement: ${peripheralPlacement}
+Composition: ${selectAnchor2FormComposition(safeVariationIndex)}
+This render is one of two options shown side by side: make it unmistakably different from its sibling at thumbnail size, in field value, density and detail character. Keep the locked style identity and the Anchor geometry untouched.`,
+
+    `CATEGORY SIGNAL — SECONDARY TO STYLE
+--------------------------------------------------
+CATEGORY: ${categoryInfo.name}
+CATEGORY COLOR: ${categoryInfo.color}
+
+${capitalizeFirst(style.categoryInfluence)}.
+
+Category may influence palette expression, density, rhythm, energy, treatment, material concentration, peripheral composition and visual pressure. It must not replace the locked style identity, and it must not force a colour onto the Anchor when contrast suffers.`,
+
+    `INTENTION SIGNAL LAYER — NON-LITERAL
+--------------------------------------------------
+Translate "${cleanIntention}" into visual behavior rather than literal illustration. The intention acts like emotional physics on the field.
+
+Directional behavior: ${signal.directionalBehavior}
+Density behavior: ${signal.densityBehavior}
+Focal emphasis: ${signal.focalBehavior}
+Palette behavior: ${signal.paletteBehavior}
+Atmospheric rhythm: ${signal.rhythmBehavior}
+Visual tension: ${signal.visualTension || 'balanced tension with calm core'}
+Spatial pressure: ${signal.spatialPressure || 'open surrounding field'}
+Intention-responsive motif (abstract, peripheral, secondary): ${signal.motif}
+
+Apply this signal to the perimeter, tonal pressure and rhythm of the field. Wherever it speaks of a centre, inner concentration or convergence, express it as calm restraint and tonal weight, never as added detail, texture or marks within the Anchor footprint.
+
+Do not directly illustrate the intention. Avoid obvious literal symbolism such as money for abundance, hearts for relationships, planes for adventure, dumbbells for health, briefcases for career, or books for learning, unless the style transforms it beyond recognition.`,
+
+    `COLLECTION DIFFERENTIATION
+--------------------------------------------------
+${buildRecentRendersBlock(options.recentRenders)}
+
+If this data is available, prefer meaningful visual distance from recent Anchors.`,
+
+    `REFERENCE IMAGE RULE
+--------------------------------------------------
+The attached image is a visual reference for exact Anchor geometry only, not a colour, palette, texture, composition or background reference. Preserve its lines, circles, intersections, angles, nodes and geometric relationships. Treat the chosen style as flexible art direction: express its material identity in a fresh palette and composition instead of copying a reference look. The style field may appear around, behind and beneath the structure, in surface treatment and in peripheral composition, but never by altering the core geometry. Never add frames, cards, plaques or enclosing containers around the Anchor.`,
+
+    `PALETTE LANE AUTHORITY — FINAL COLOUR DIRECTION
+--------------------------------------------------
+Required lane: ${lane.label}
+Required field palette: ${lane.field}
+This selected colorway overrides any default, example or locked color-temperature wording earlier in the style description. Those earlier colors describe familiar material examples; they do not limit this render. Preserve the material, visual grammar, texture and motifs, but use the selected hue family visibly across broad areas of the field. Do not revert to the style's familiar palette or reduce the selected colors to tiny accents. Keep the field value and Anchor contrast specified above.`,
+  ];
+
+  return sections.join('\n\n');
 }
 
 // ============================================================================
@@ -1177,7 +1497,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Drafting linen tooth, graphite dusting along construction rails',
       depthLogic: 'Layered orthographic planes fading before the Anchor structure',
       ornamentSystem: 'Calibration ticks, survey marks, datum references (all non-readable)',
-      framingLogic: 'Measured drafting margins with faint border datum lines',
+      framingLogic: 'Measured drafting margins with no enclosing rectangular border or box',
       signatureTraits: ['Blueprint grid logic', 'Silver calibration marks', 'Graphite guide rails'],
       shouldFeelLike: 'An archival architectural masterplan drafted by a master geometer',
       mustNotFeelLike: 'Mystical mandala, occult circle, glowing sci-fi HUD',
@@ -1575,7 +1895,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleNativeMotif: 'black-glass reflections, graphite polish, and low reflective shadow',
     defaultDensity: 'sparse',
     promptStyleBlock:
-      'Polished obsidian, graphite, silver edge light, and smoke gray reflection. The Anchor remains exact while glossy highlights, black glass depth, and lower-weighted reflection make the image feel protected and grounded. Avoid color noise, soft painterly treatment, or flat monochrome poster styling.',
+      'Polished obsidian, graphite, silver edge light, and smoke gray reflection directly on the standalone Anchor lines. The Anchor occupies 75-85% of the canvas while glossy highlights and black glass depth make the symbol feel protected and grounded. Standalone geometry only, no square tablet, plaque, or rectangular slab.',
     negativePrompt: getStyleNegativePrompt('obsidian_mono'),
     accentMotifs: [
       'a low horizontal reflection shelf beneath the field',
@@ -1585,7 +1905,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     visualLanguage: {
       coreArtWorld: 'Volcanic glass, polished obsidian stone, graphite luster, light on deep shadow',
       primaryMedium: 'Polished obsidian stone and graphite carving',
-      substrate: 'Honed black volcanic glass tablet with micro-beveled facets',
+      substrate: 'Honed black volcanic glass material geometry with micro-beveled facets directly on the Anchor lines and intersections',
       edgeBehavior: 'Sharp conchoidal fracture edges, crisp specular glints',
       lineBehavior: 'Subtle etched relief or precision silver edge-catches on black ground',
       spatialBehavior: 'Lower-weighted anchored mass, deep tonal absorption',
@@ -1593,9 +1913,9 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Mirror-polished stone planes, matte graphite zones, volcanic micro-texture',
       depthLogic: 'Black-on-black depth separation through variable gloss and reflection',
       ornamentSystem: 'Low reflective shadow shelves, faint graphite calibration lines',
-      framingLogic: 'Deep stone tablet boundaries with low-weighted shadows',
+      framingLogic: 'Pure obsidian material geometry radiating outward into boundless space, no rectangular stone tablet or enclosing borders',
       signatureTraits: ['Polished black glass reflections', 'Conchoidal fractures', 'Low-weighted anchor mass'],
-      shouldFeelLike: 'A sacred monolith of volcanic glass carved by ancient precision tools',
+      shouldFeelLike: 'A sacred monolithic mark of volcanic glass carved by precision tools, standing free with no enclosing plaque or tablet',
       mustNotFeelLike: 'Flat grayscale vector, sci-fi metallic armor, plastic phone case',
       crossStyleAvoidances: ['Obsidian Mono must not inherit soft painterly treatment or bright color noise'],
       paletteBehavior: 'Black glass, graphite, smoke gray, cold silver specular highlight',
@@ -2316,7 +2636,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Heavy cardstock grain, clean paper edges, matte non-reflective fiber',
       depthLogic: '3 to 5 discrete physical paper layers stepping toward the viewer',
       ornamentSystem: 'Layered contour cutouts, negative space apertures, paper bevels',
-      framingLogic: 'Shadowbox enclosure with clean paper borders',
+      framingLogic: 'Layered dimensional relief with no enclosing shadowbox frame or rectangular border',
       signatureTraits: ['Scalpel-cut paper edges', 'Tangible directional cast shadows', 'Layered dimensional relief'],
       shouldFeelLike: 'A handmade museum-grade paper relief sculpture lit by soft studio raking light',
       mustNotFeelLike: 'Flat digital vector, painterly smudge, glossy plastic, 3D clay',
@@ -2428,7 +2748,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Screen mesh texture (150-mesh weave visible under scrutiny), matte ink body',
       depthLogic: 'Discrete flat color passes layered in physical print sequence',
       ornamentSystem: 'Flat color blocks, registration crosses, graphic perimeter fields',
-      framingLogic: 'Traditional poster margins with clean border matte',
+      framingLogic: 'Generous open margins with no enclosing border or rectangular matte',
       signatureTraits: ['Flat opaque ink deposit', 'Screen mesh texture', 'Bold high-contrast graphics'],
       shouldFeelLike: 'A limited-edition serigraph poster hand-pulled in a master print shop',
       mustNotFeelLike: 'Smooth digital vector, 3D render, watercolor wash, glowing neon',
@@ -2484,7 +2804,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Biting roller texture, wiping rag striations, rich ink plate tone',
       depthLogic: 'Ghost impressions and varied ink film thicknesses',
       ornamentSystem: 'Plate tone variations, wiping marks, roller passes',
-      framingLogic: 'Visible plate indentation (platemark) pressed into heavy rag paper',
+      framingLogic: 'Open paper field with no visible rectangular plate impression or border',
       signatureTraits: ['Plate tone and wiping striations', 'Unique impression texture', 'Embossed platemark'],
       shouldFeelLike: 'A singular, irreplaceable monoprint impression pulled from an etched plate',
       mustNotFeelLike: 'Repetitive pattern, digital wallpaper, clean vector, corporate illustration',
@@ -2652,7 +2972,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Limestone porosity, chisel tool marks, mineral veining',
       depthLogic: 'Shallow bas-relief plane (5mm depth) integrated into solid stone wall',
       ornamentSystem: 'Architectural moldings, shallow carved margins, mineral fossils',
-      framingLogic: 'Recessed stone panel border with weathered bevel',
+      framingLogic: 'Carved stone relief mark standing free with no recessed rectangular panel or border',
       signatureTraits: ['Chiseled bas-relief depth', 'Raking stone shadow', 'Limestone mineral texture'],
       shouldFeelLike: 'An ancient architectural bas-relief carving preserved in a temple wall',
       mustNotFeelLike: 'CGI video game rock, 3D foam prop, plastic casting, magical glowing ruin',
@@ -2708,7 +3028,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Smooth glass glaze, subtle craquelure (ice crackle), kaolin clay purity',
       depthLogic: 'Underglaze depth beneath a layer of clear vitreous glass',
       ornamentSystem: 'Fine celadon crackle patterns, iron-spot glaze flecks, subtle rim luster',
-      framingLogic: 'Organic ceramic rim or tile perimeter with rounded glazed edge',
+      framingLogic: 'Porcelain ceramic mark with smooth glazed edges, standing free without tile perimeter or box',
       signatureTraits: ['Vitreous glaze luster', 'Delicate craquelure network', 'Cobalt underglaze purity'],
       shouldFeelLike: 'An imperial Song Dynasty white porcelain vessel with subtle ice crackle glaze',
       mustNotFeelLike: 'Cheap plastic plate, glossy kitchen tile, cartoon pottery, 3D ceramic render',
@@ -2764,7 +3084,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Granular verdigris crust, acid-etched pitting, brushed copper grain',
       depthLogic: 'Layers of turquoise copper carbonate blooming over deep reddish bronze base',
       ornamentSystem: 'Oxidation tide lines, mineral bloom crusts, etched calibration traces',
-      framingLogic: 'Weathered copper plate edges with concentrated oxidation corners',
+      framingLogic: 'Weathered copper patina mark standing free without rectangular plate edges',
       signatureTraits: ['Turquoise-teal verdigris patina', 'Raw copper metallic warmth', 'Mineral oxidation crust'],
       shouldFeelLike: 'A century-old copper dome plate weathered by sea air and rain',
       mustNotFeelLike: 'Gold leaf duplicate, flat green vector, digital camouflage, fantasy slime',
@@ -2820,7 +3140,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Matte map vellum, micro geodetic point grids, smooth line tension',
       depthLogic: 'Terraced stepped elevation layers creating non-literal 3D landscape rhythm',
       ornamentSystem: 'Index contour weight variations, spot elevation markers, datum lines',
-      framingLogic: 'Geodetic survey frame with subtle edge coordinate ticks',
+      framingLogic: 'Topographic contour field without geodetic box frame or border ticks',
       signatureTraits: ['Flowing elevation contour fields', 'Geodetic line discipline', 'Abstract terrain rhythm'],
       shouldFeelLike: 'A master geodetic survey map depicting abstract mathematical landscapes',
       mustNotFeelLike: 'Readable hiking map, GPS screen, fingerprint graphic, zebra stripes',
@@ -2876,7 +3196,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Copperplate line bite, faint age foxing spots, organic cellular grain',
       depthLogic: 'Layered botanical linework receding behind the primary structure',
       ornamentSystem: 'Abstract leaf venation patterns, seed pod cross-sections, cellular grids',
-      framingLogic: 'Archival herbarium plate border with faint ruled margin',
+      framingLogic: 'Botanical mark standing free without archival ruled plate border',
       signatureTraits: ['Copperplate botanical linework', 'Cellular venation patterns', 'Archival herbarium paper'],
       shouldFeelLike: 'An archival plate from a master 18th-century botanical compendium',
       mustNotFeelLike: 'Clip-art flowers, cartoon leaves, tattoo flash, wallpaper floral print',
@@ -2932,7 +3252,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Polished agate banding, druzy quartz crystal texture, mineral inclusions',
       depthLogic: 'Translucent mineral strata receding inward into crystalline cavity',
       ornamentSystem: 'Concentric mineral bands, micro crystalline druzy fields, strata lines',
-      framingLogic: 'Rough volcanic rock crust framing polished interior geode',
+      framingLogic: 'Crystalline mineral growth radiating outward without rectangular rock crust frame',
       signatureTraits: ['Agate-like concentric mineral bands', 'Subsurface crystal glow', 'Geological strata'],
       shouldFeelLike: 'A polished cross-section slice of a rare natural agate or malachite geode',
       mustNotFeelLike: 'Tie-dye swirl, psychedelic fractal, digital fluid simulation, cheap resin pour',
@@ -3156,7 +3476,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Torn fibrous paper edges, aged book cloth, halftone photo texture fragments',
       depthLogic: 'Physical paper overlap steps creating 1-2mm archival collage depth',
       ornamentSystem: 'Non-readable catalog grid fragments, paper tape strips, specimen mounts',
-      framingLogic: 'Archival mounting board border with mounting corners',
+      framingLogic: 'Archival mark composition without mounting board border or mounting corners',
       signatureTraits: ['Hand-torn paper edges', 'Tactile paper montage', 'Archival catalog materiality'],
       shouldFeelLike: 'An archival museum collage board assembled from rare historical ephemera',
       mustNotFeelLike: 'Digital Photoshop collage, chaotic scrapbooking, pop art cutout, magazine faces',
@@ -3289,6 +3609,14 @@ function containsKeyword(value: string, keyword: string): boolean {
 
 function pickStable<T>(options: T[], seed: string): T {
   return options[hashString(seed) % options.length];
+}
+
+/**
+ * Like `pickStable`, but `offset` steps through the options from the seed's own starting point, so
+ * consecutive offsets are guaranteed to differ whenever there is more than one option.
+ */
+function pickStaggered<T>(options: T[], seed: string, offset: number): T {
+  return options[positiveModulo(hashString(seed) + offset, options.length)];
 }
 
 function positiveModulo(value: number, divisor: number): number {

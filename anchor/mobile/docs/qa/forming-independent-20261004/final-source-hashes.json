@@ -1,0 +1,25 @@
+{
+  "capturedAt": "2026-10-04T06:35:48.0446391Z",
+  "files": [
+    {
+      "path": "anchor/mobile/src/screens/create/flow/scenes/FormScene.ts",
+      "sha256": "FA48F588F46ED053B680C316C428EE42FF8F8DB5954804C51807FC0E36E566D0"
+    },
+    {
+      "path": "anchor/mobile/src/screens/create/flow/scenes/DistillScene.ts",
+      "sha256": "F16757382D1C14ACF6E566CD7B8B575FE04CE82B7AF283824C57EC0E069461BA"
+    },
+    {
+      "path": "anchor/mobile/src/screens/create/flow/AnchorCreationFlowScreen.tsx",
+      "sha256": "C143192795F09843D1D22CF43132348FD9F1727C8F0A84308EFD87DE972102E2"
+    },
+    {
+      "path": "anchor/mobile/src/screens/create/flow/scenes/styleStrokes.ts",
+      "sha256": "C4367C4766A18A8737EB3A3BD17EAAEB85D490053FA652E32A69D3D914C0526E"
+    },
+    {
+      "path": "anchor/mobile/src/screens/create/flow/components/StyleScene.tsx",
+      "sha256": "0304AD27751C369A07ACAA8B863BB11FAB592F3836B025B4D9901E0A9D69C77D"
+    }
+  ]
+}

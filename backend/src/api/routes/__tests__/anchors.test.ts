@@ -90,6 +90,7 @@ const MOCK_DB_USER = {
   subscriptionStatus: 'free',
   isComped: false,
   trialStartedAt: new Date(),
+  totalAnchorsCreated: 0,
 };
 
 const MOCK_ANCHOR = {
@@ -178,6 +179,19 @@ describe('POST /api/anchors', () => {
     expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
   });
 
+  it('never starts the trial when an Anchor is created', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
+
+    expect(res.status).toBe(201);
+    for (const [args] of (mockPrisma.user.update as jest.Mock).mock.calls) {
+      expect(args.data).not.toHaveProperty('trialStartedAt');
+    }
+  });
+
   it('returns 400 when intentionText is missing', async () => {
     const res = await request(buildApp())
       .post('/api/anchors')
@@ -220,10 +234,10 @@ describe('POST /api/anchors', () => {
     expect(res.body.error.code).toBe('USER_NOT_FOUND');
   });
 
-  it('returns 403 when an expired Free user creates an anchor', async () => {
+  it('returns 403 when a Free user attempts a second Anchor', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
-      trialStartedAt: new Date('2026-01-01T00:00:00.000Z'),
+      totalAnchorsCreated: 1,
     });
 
     const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
@@ -233,21 +247,25 @@ describe('POST /api/anchors', () => {
     expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
   });
 
-  it('returns 403 when a trial user has created 7 trial anchors', async () => {
+  it('does not apply the retired trial anchor cap to the first Free Anchor', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(7);
+    (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
 
     const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe('TRIAL_ANCHOR_CAP_REACHED');
-    expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
   });
 
   it('returns 429 when a paid Pro user has created 10 anchors today', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
       subscriptionStatus: 'pro',
+    });
+    mockGetRevenueCatAccess.mockResolvedValue({
+      isActive: true,
+      productIdentifier: 'anchor_pro_monthly',
     });
     (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(10);
 
@@ -570,6 +588,41 @@ describe('PUT /api/anchors/:id', () => {
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('ANCHOR_NOT_FOUND');
   });
+
+  it('merges a kept expression into classifierMeta without dropping classification data', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue({
+      classifierMeta: { confidenceScore: 0.9, v2Expression: 'original' },
+    });
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.anchor.findUnique as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+
+    const res = await request(buildApp()).put('/api/anchors/anchor-1').send({ expression: 'foil' });
+
+    expect(res.status).toBe(200);
+    const update = (mockPrisma.anchor.updateMany as jest.Mock).mock.calls.at(-1)[0];
+    expect(update.where).toEqual({ id: 'anchor-1', userId: MOCK_DB_USER.id });
+    expect(update.data.classifierMeta).toEqual({ confidenceScore: 0.9, v2Expression: 'foil' });
+    // Appearance only: no structure field is written.
+    expect(update.data.reinforcedSigilSvg).toBeUndefined();
+    expect(update.data.structureVariant).toBeUndefined();
+  });
+
+  it('rejects an expression outside the known vocabulary', async () => {
+    const res = await request(buildApp()).put('/api/anchors/anchor-1').send({ expression: 'nebula' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('returns 404 for an expression update on an Anchor the user does not own', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const res = await request(buildApp()).put('/api/anchors/someone-else').send({ expression: 'ink' });
+
+    expect(res.status).toBe(404);
+    expect(mockPrisma.anchor.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'someone-else', userId: MOCK_DB_USER.id } }));
+  });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -863,6 +916,33 @@ describe('POST /api/anchors/:id/activate', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('POST /api/anchors/:id/burn', () => {
+  const originalDestructiveReleaseSetting = process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE;
+
+  beforeEach(() => {
+    process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE = 'true';
+  });
+
+  afterAll(() => {
+    if (originalDestructiveReleaseSetting === undefined) {
+      delete process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE;
+    } else {
+      process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE = originalDestructiveReleaseSetting;
+    }
+  });
+
+  it('quarantines destructive release by default and never enters the delete transaction', async () => {
+    process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE = 'false';
+    const res = await request(buildApp()).post('/api/anchors/anchor-1/burn');
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatchObject({
+      code: 'DESTRUCTIVE_RELEASE_DISABLED',
+      message: 'Legacy destructive release is disabled.',
+    });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.anchor.delete).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when auth middleware does not attach a user', async () => {
     mockedAuthMiddleware.mockImplementation((_req: any, res: any) => {
       res.status(401).json({

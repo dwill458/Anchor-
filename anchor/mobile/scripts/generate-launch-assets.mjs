@@ -19,7 +19,7 @@
  *       set; the system draws a circular plate behind the icon, and anything
  *       wider than that pokes out of the plate as a hard-edged square.
  *
- * Usage: node scripts/generate-launch-assets.mjs
+ * Usage: node scripts/generate-launch-assets.mjs [--splash-only]
  */
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -31,8 +31,11 @@ const mobileRoot = path.resolve(here, '..');
 const assets = path.join(mobileRoot, 'assets');
 const res = path.join(mobileRoot, 'android/app/src/main/res');
 
-/** Splash window + splash icon plate colour. Must match `splashscreen_background`. */
-const SPLASH_BACKGROUND = '#0F1419';
+/**
+ * Splash window + splash icon plate colour. Must match `splashscreen_background` and the
+ * in-app splash (`SPLASH_BACKGROUND_COLOR`): cream paper, the 2.0 icon's own ground.
+ */
+const SPLASH_BACKGROUND = '#F4EDE0';
 
 /**
  * Fraction of the 108dp canvas the full-colour artwork covers. Slightly wider
@@ -41,14 +44,21 @@ const SPLASH_BACKGROUND = '#0F1419';
  * comfortably inside the mask.
  */
 const ADAPTIVE_ART_SCALE = 0.72;
+const LAUNCH_ICON_SOURCE = 'anchor-icon-v2.png';
+const ADAPTIVE_FOREGROUND_OUTPUT = 'anchor-adaptive-foreground-v4.png';
+const MONOCHROME_OUTPUT = 'anchor-monochrome-v2.png';
 /** 66dp of the 108dp canvas — survives circular masks, used for the themed layer. */
 const ADAPTIVE_SAFE_ZONE = 66 / 108;
-/** Fraction of the master artwork's width taken up by the decorative gold frame. */
-const FRAME_INSET = 0.166;
 
-/** Splash canvas is 288dp; art is 160dp so it fits inside the system icon plate. */
+/**
+ * Splash canvas is 288dp. The art is the sigil's full canvas at the in-app splash width
+ * (`SPLASH_MARK_WIDTH`), carrying only the gold star, so the star lands where the in-app
+ * splash draws the rest of the mark around it. Its ink is transparent, so nothing visible
+ * reaches the edge of the system icon plate.
+ */
 const SPLASH_CANVAS_DP = 288;
-const SPLASH_ICON_DP = 160;
+const SPLASH_ICON_DP = 150;
+const SPLASH_STAR_SOURCE = 'splash-star.png';
 
 const MIPMAP_DENSITIES = [
   ['mdpi', 108],
@@ -99,36 +109,18 @@ async function fitInside(input, size, fraction) {
     .toBuffer();
 }
 
-/** Circular alpha mask of the given size, as a greyscale PNG. */
-function circleMask(size) {
-  const r = size / 2;
-  const svg = `<svg width="${size}" height="${size}"><circle cx="${r}" cy="${r}" r="${r}" fill="#fff"/></svg>`;
-  return Buffer.from(svg);
-}
-
-/** Crops the master artwork to the region inside its decorative gold frame. */
-async function innerArtwork() {
-  const src = path.join(assets, 'anchor-adaptive-foreground-v2.png');
-  const { width } = await sharp(src).metadata();
-  const inset = Math.round(width * FRAME_INSET);
-  return sharp(src)
-    .extract({ left: inset, top: inset, width: width - inset * 2, height: width - inset * 2 })
-    .png()
-    .toBuffer();
+/** Returns the current runtime-2.0 master icon artwork. */
+async function launchIconArtwork() {
+  return sharp(path.join(assets, LAUNCH_ICON_SOURCE)).png().toBuffer();
 }
 
 /**
- * The full-colour adaptive foreground.
- *
- * The master artwork is a poster: a gold frame around the head/brain mark,
- * filling ~70% of the canvas. That frame is wider than the 72dp viewport, so
- * launchers were slicing through it — and at any size a square frame either
- * gets cut or leaves gold slivers where it grazes the mask. Drop the frame and
- * use the artwork inside it, which reads cleanly under circle and squircle
- * masks alike.
+ * The full-colour adaptive foreground. The source is fitted to the adaptive
+ * icon viewport so the rounded artwork remains intact under circle and
+ * squircle launcher masks.
  */
 async function buildForeground() {
-  return fitInside(await innerArtwork(), 1024, ADAPTIVE_ART_SCALE);
+  return fitInside(await launchIconArtwork(), 1024, ADAPTIVE_ART_SCALE);
 }
 
 /**
@@ -141,22 +133,25 @@ async function buildForeground() {
  * same mark, and fit it to the safe zone.
  */
 async function buildMonochrome() {
-  // The frame is cropped off here too: flattened to a silhouette it would
-  // become a solid white border and swamp the mark.
-  const inner = await innerArtwork();
+  const inner = await launchIconArtwork();
 
-  // Luminance ramp rather than a hard threshold, so edges stay anti-aliased.
-  // Maps luma 90 -> fully transparent, 130 -> fully opaque.
+  // Invert the luminance ramp so the dark anchor strokes become opaque while
+  // the cream paper and gold star stay transparent. The ramp keeps edges
+  // anti-aliased instead of producing a hard threshold.
   const LO = 90;
   const HI = 130;
   const slope = 255 / (HI - LO);
-  const alpha = await sharp(inner)
+  const darkMask = await sharp(inner)
+    .removeAlpha()
     .greyscale()
-    // The cream neck fades into the purple background, so the raw ramp speckles
-    // along that edge. A touch of blur first keeps the silhouette edge clean.
     .blur(2)
-    .linear(slope, -LO * slope)
-    .toColourspace('b-w')
+    .linear(-slope, HI * slope)
+    .png()
+    .toBuffer();
+  const sourceAlpha = await sharp(inner).ensureAlpha().extractChannel(3).png().toBuffer();
+  const alpha = await sharp(darkMask)
+    .composite([{ input: sourceAlpha, blend: 'multiply' }])
+    .extractChannel(0)
     .png()
     .toBuffer();
 
@@ -171,22 +166,9 @@ async function buildMonochrome() {
   return fitInside(await trimToAlpha(glyph), 1024, ADAPTIVE_SAFE_ZONE);
 }
 
-/**
- * The splash icon.
- *
- * The master anchor artwork is an opaque square. Rendered at 200dp on the
- * 288dp splash canvas it overflowed the system's circular icon plate, so the
- * plate showed up as a ring around a hard-edged square — the "two icons" that
- * users were seeing. Mask it to a circle so the art and the plate coincide.
- */
+/** The splash icon: the gold star alone, on the sigil's transparent canvas. */
 async function buildSplashLogo() {
-  const src = path.join(assets, 'anchor-gold.png');
-  const size = 1024;
-  const square = await sharp(src).resize(size, size, { fit: 'cover' }).png().toBuffer();
-  return sharp(square)
-    .composite([{ input: circleMask(size), blend: 'dest-in' }])
-    .png()
-    .toBuffer();
+  return sharp(path.join(assets, SPLASH_STAR_SOURCE)).png().toBuffer();
 }
 
 async function writeMipmaps(name, master) {
@@ -204,7 +186,8 @@ async function writeSplashDrawables(master) {
   for (const [density, scale] of DRAWABLE_DENSITIES) {
     const canvas = Math.round(SPLASH_CANVAS_DP * scale);
     const icon = Math.round(SPLASH_ICON_DP * scale);
-    const scaled = await sharp(master).resize(icon, icon).png().toBuffer();
+    // Width-fitted: the star canvas is taller than it is wide and must not be squashed.
+    const scaled = await sharp(master).resize({ width: icon }).png().toBuffer();
     const png = await sharp({
       create: { width: canvas, height: canvas, channels: 4, background: SPLASH_BACKGROUND },
     })
@@ -219,14 +202,19 @@ async function writeSplashDrawables(master) {
 }
 
 async function main() {
+  if (process.argv.includes('--splash-only')) {
+    await writeSplashDrawables(await buildSplashLogo());
+    console.log('Splash assets regenerated.');
+    return;
+  }
+
   const foreground = await buildForeground();
   const monochrome = await buildMonochrome();
   const splash = await buildSplashLogo();
 
   // Master artwork, consumed by app.json so `expo prebuild` reproduces this.
-  await fs.writeFile(path.join(assets, 'anchor-adaptive-foreground-v3.png'), foreground);
-  await fs.writeFile(path.join(assets, 'anchor-monochrome.png'), monochrome);
-  await fs.writeFile(path.join(assets, 'anchor-splash-logo.png'), splash);
+  await fs.writeFile(path.join(assets, ADAPTIVE_FOREGROUND_OUTPUT), foreground);
+  await fs.writeFile(path.join(assets, MONOCHROME_OUTPUT), monochrome);
 
   // Checked-in native resources, which is what actually ships.
   await writeMipmaps('ic_launcher_foreground', foreground);

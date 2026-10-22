@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import { useCourseStore } from '@/stores/courseStore';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { AnchorSelectorSheet } from '@/screens/practice/components/AnchorSelectorSheet';
 import type { Anchor } from '@/types';
@@ -36,8 +36,8 @@ export const CourseEditorScreen: React.FC = () => {
   const route = useRoute<EditorRoute>();
   const store = useCourseStore();
   const activeAnchors = useAnchorStore((state) => state.getActiveAnchors());
-  const subscriptionStatus = useAuthStore((state) => state.user?.subscriptionStatus ?? 'free');
-  const { navigateToVault } = useTabNavigation();
+  const { entitlementReady, hasActiveEntitlement } = useTrialStatus();
+  const { navigateToVault, navigateToPaywall } = useTabNavigation();
   const course = store.activeCourse?.id === route.params.courseId ? store.activeCourse : null;
   const [destinationText, setDestinationText] = useState('');
   const [selector, setSelector] = useState<{ role: CourseAnchorRole; waypointId?: string } | null>(null);
@@ -223,8 +223,11 @@ export const CourseEditorScreen: React.FC = () => {
         {course.status === 'DRAFT' && course.waypoints.length > 0 ? (
           <ChartButton label="Publish Course" onPress={() => void store.publishCourse(course.id, course.version)} disabled={store.readOnly} />
         ) : null}
-        {subscriptionStatus === 'free' ? (
-          <ChartButton label="Create a New Anchor" secondary onPress={() => Alert.alert('Anchor creation unavailable', 'Link an existing Anchor first, or upgrade to create a new one.')} />
+        {!entitlementReady || !hasActiveEntitlement ? (
+          <ChartButton label="Create a New Anchor" secondary onPress={() => {
+            if (!entitlementReady) return;
+            navigateToPaywall({ source: 'gated_feature', preferredPlanId: 'annual' });
+          }} />
         ) : (
           <ChartButton label="Create a New Anchor" secondary onPress={() => navigateToVault('CreateAnchor')} />
         )}

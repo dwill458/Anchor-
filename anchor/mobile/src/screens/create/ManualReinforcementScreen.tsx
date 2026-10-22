@@ -934,16 +934,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   modalRoot: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 100,
     elevation: 100,
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(20, 20, 30, 0.95)',
   },
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,

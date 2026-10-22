@@ -136,6 +136,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const performanceTier = usePerformanceTier();
   const controlsHint = useTeachingGate({
     screenId: 'visualize_session',
+    visitKey: anchorId,
     candidateIds: ['visualize_controls_hint'],
   });
 
@@ -844,7 +845,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.35,
   },
   completionLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

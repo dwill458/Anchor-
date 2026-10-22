@@ -1,0 +1,15 @@
+velvet-ember   dt 0.25 strong(>60) px min/median: 0 539 | mean|d| min/median: 0.000 0.608 || 
+porcelain      dt 0.25 strong(>60) px min/median: 0 410 | mean|d| min/median: 0.000 0.613 || 
+prism-flow     dt 0.25 strong(>60) px min/median: 0 1 | mean|d| min/median: 0.000 0.279 || 
+joybrush       dt 0.25 strong(>60) px min/median: 0 549 | mean|d| min/median: 0.000 0.692 || 
+deep-cosmos    dt 0.25 strong(>60) px min/median: 0 37 | mean|d| min/median: 0.000 0.272 || 
+woven          dt 0.25 strong(>60) px min/median: 0 49 | mean|d| min/median: 0.000 0.397 || 
+paper          dt 0.25 strong(>60) px min/median: 0 0 | mean|d| min/median: 0.000 0.169 || 
+mineral-wash   dt 0.25 strong(>60) px min/median: 0 457 | mean|d| min/median: 0.000 0.522 || 
+graphic        dt 0.25 strong(>60) px min/median: 0 543 | mean|d| min/median: 0.000 0.768 || 
+plush          dt 0.25 strong(>60) px min/median: 0 0 | mean|d| min/median: 0.000 0.190 || 
+herbarium      dt 0.25 strong(>60) px min/median: 0 475 | mean|d| min/median: 0.000 0.604 || 
+alloy          dt 0.25 strong(>60) px min/median: 0 0 | mean|d| min/median: 0.000 0.241 || 
+gilt           dt 0.25 strong(>60) px min/median: 0 551 | mean|d| min/median: 0.000 0.558 || 
+flash          dt 0.25 strong(>60) px min/median: 0 0 | mean|d| min/median: 0.000 0.135 || 
+buff           dt 0.25 strong(>60) px min/median: 0 0 | mean|d| min/median: 0.000 0.256 || 

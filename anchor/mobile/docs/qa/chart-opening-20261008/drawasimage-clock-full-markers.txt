@@ -1,0 +1,4 @@
+wallStart=2026-10-08T06:56:04.7082541Z
+uptimeBeforeRecord=21771.25 114494.88
+uptimeBeforeTap=21772.09 114498.93
+uptimeAfterRecord=21785.54 114517.63

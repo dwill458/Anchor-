@@ -24,7 +24,7 @@ export type ReduceMotionPreference = 'system' | 'on' | 'off';
 export type LastSessionDurationByMode = {
   focus: number;
   deep_prime: number;
-  visualize: 60 | 180 | 300;
+  visualize: 60 | 180 | 600;
 };
 
 export interface DefaultChargeSetting {
@@ -56,9 +56,10 @@ const clampFocusSessionDuration = (value: number): number =>
 const clampPrimeSessionDuration = (value: number): number =>
   clampNumber(value, 120, 7200);
 
-const clampVisualizeSessionDuration = (value: unknown): 60 | 180 | 300 => {
+/** 300s was the retired five-minute length; it has no guided track, so it resolves to three minutes. */
+const clampVisualizeSessionDuration = (value: unknown): 60 | 180 | 600 => {
   const numeric = Number(value);
-  if (numeric === 60 || numeric === 300) return numeric;
+  if (numeric === 60 || numeric === 600) return numeric;
   return 180;
 };
 
@@ -181,7 +182,7 @@ const deriveFocusSessionAudio = (persistedState: any): SessionAudioMode =>
   );
 
 const deriveDailyPracticeGoal = (persistedState: any): number =>
-  clampNumber(persistedState?.dailyPracticeGoal ?? 3, 1, 20);
+  clampNumber(persistedState?.dailyPracticeGoal ?? 1, 1, 20);
 
 const deriveDefaultChargeFromPrimeSession = (
   currentCharge: DefaultChargeSetting,
@@ -385,7 +386,7 @@ export interface SettingsState {
   /** @deprecated Migration mirror only; active consumers use sessionAudioDefaults. */
   focusSessionAudio: SessionAudioMode;
   primeSessionDuration: number;
-  visualizeSessionDuration: 60 | 180 | 300;
+  visualizeSessionDuration: 60 | 180 | 600;
   lastSessionDurationByMode: LastSessionDurationByMode;
   lastSessionDurationOwnerUserId: string | null;
   /** @deprecated Migration mirror only; active consumers use sessionAudioDefaults. */
@@ -540,8 +541,8 @@ const DEFAULT_SETTINGS = {
   sessionAudioDefaultsOwnerInitialized: false,
   sessionAudioDefaultsUpdatedAt: null as string | null,
   openDailyAnchorAutomatically: false,
-  dailyPracticeGoal: 3,
-  dailyPracticeGoalPreset: 'three' as DailyPracticeGoalPreset,
+  dailyPracticeGoal: 1,
+  dailyPracticeGoalPreset: 'once' as DailyPracticeGoalPreset,
   threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
   restDays: [] as number[],
   restDayPolicy: 'build' as RestDayPolicy,
@@ -570,7 +571,7 @@ const DEFAULT_SETTINGS = {
   analyticsEnabled: true,
   traceDefaultEnabled: true,
   traceSkipStreak: 0,
-  guideMode: true,
+  guideMode: false,
   devPerfTierOverride: 'auto' as PerformanceTierOverride,
 };
 
@@ -813,10 +814,13 @@ export const useSettingsStore = create<SettingsState>()(
       setDailyPracticeGoal: (goal) => {
         triggerHaptic();
         const nextGoal = Math.max(1, Math.min(20, goal));
-        set({
+        set((state) => ({
           dailyPracticeGoal: nextGoal,
-          dailyPracticeGoalPreset: normalizeDailyPracticeGoalPreset(undefined, nextGoal),
-        });
+          dailyPracticeGoalPreset:
+            state.dailyPracticeGoalPreset === 'custom'
+              ? 'custom'
+              : normalizeDailyPracticeGoalPreset(state.dailyPracticeGoalPreset, nextGoal),
+        }));
       },
 
       setDailyPracticeGoalPreset: (preset) => {
@@ -1219,6 +1223,7 @@ export const useSettingsStore = create<SettingsState>()(
         hapticIntensity: state.hapticIntensity,
         soundEffectsEnabled: state.soundEffectsEnabled,
         mantraAudioByDefault: state.mantraAudioByDefault,
+        weeklySummaryEnabled: state.weeklySummaryEnabled,
         weeklySummaryDay: state.weeklySummaryDay,
         weeklySummaryTime: state.weeklySummaryTime,
         developerModeEnabled: state.developerModeEnabled,

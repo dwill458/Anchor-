@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
 import * as SecureStore from 'expo-secure-store';
 import {
   encryptedPersistStorage,
   readSecureValue,
   writeSecureValue,
 } from './encryptedPersistStorage';
+import { perfLog } from '@/utils/perfDiagnostics';
 import type {
   Anchor,
   ApiResponse,
@@ -15,7 +17,7 @@ import type {
   ProfileData,
   User,
 } from '@/types';
-import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
+import { apiClient, fetchCompleteProfile, ApiClientError, type AccountBoundRequestConfig } from '@/services/ApiClient';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
@@ -28,11 +30,12 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { purgeChartCacheForAccount, useCourseStore } from '@/stores/courseStore';
 import { useNavigationResumeStore } from '@/stores/navigationResumeStore';
+import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -119,56 +122,67 @@ const CACHED_USER_KEY = 'anchor:cached_user';
 const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
 const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
 
-const createClearedPendingFirstAnchorState = () => ({
-  shouldRedirectToCreation: false,
-  pendingForgeIntent: null,
-  pendingForgeResumeTarget: null,
-  pendingFirstAnchorDraft: null,
-  pendingFirstAnchorMutations: [] as PendingFirstAnchorMutation[],
-  isFinalizingPendingFirstAnchor: false,
-  pendingFirstAnchorError: null,
-});
+let inFlightFinalizePendingFirstAnchor: {
+  userId: string;
+  draftId: string;
+  accountRevision: number;
+  token: string | null;
+  promise: Promise<boolean> | null;
+} | null = null;
+
+const createClearedPendingFirstAnchorState = () => {
+  inFlightFinalizePendingFirstAnchor = null;
+  return {
+    shouldRedirectToCreation: false,
+    pendingForgeIntent: null,
+    pendingForgeResumeTarget: null,
+    pendingFirstAnchorDraft: null,
+    pendingFirstAnchorMutations: [] as PendingFirstAnchorMutation[],
+    isFinalizingPendingFirstAnchor: false,
+    pendingFirstAnchorError: null,
+  };
+};
+
+function pendingAccountHandoff(state: AuthState, nextUserId: string | null): Partial<AuthState> {
+  const previousUserId = state.user?.id ?? null;
+  if (previousUserId === nextUserId) return {};
+  const saved = { ...state.pendingFirstAnchorAccounts };
+  if (state.pendingFirstAnchorDraft) saved[previousUserId ?? 'guest'] = {
+    draft: state.pendingFirstAnchorDraft, mutations: state.pendingFirstAnchorMutations,
+  };
+  else if (previousUserId) delete saved[previousUserId];
+  let incoming = nextUserId ? saved[nextUserId] : undefined;
+  const boundGuestOwner = saved.guest && (saved.guest.draft.ownerUserId ??
+    useAnchorStore.getState().guestTransfers[saved.guest.draft.tempAnchorId]);
+  if (!previousUserId && nextUserId && saved.guest &&
+    (!boundGuestOwner || boundGuestOwner === nextUserId)) {
+    incoming = { ...saved.guest, draft: { ...saved.guest.draft, ownerUserId: nextUserId } };
+    saved[nextUserId] = incoming;
+    delete saved.guest;
+  }
+  return { ...createClearedPendingFirstAnchorState(), pendingFirstAnchorAccounts: saved,
+    pendingFirstAnchorDraft: incoming?.draft ?? null, pendingFirstAnchorMutations: incoming?.mutations ?? [] };
+}
 
 function applyUserToSubscriptionStore(user: User | null): void {
   const subscription = useSubscriptionStore.getState();
-  subscription.setRemoteCompedAccess(user?.isComped === true);
-
-  // Seed the account-bound trial clock synchronously whenever a user is set, so
-  // it is in place before RevenueCat's async logIn() resolves and reads it.
-  // Without this, on a fresh install (AsyncStorage empty → status defaults to
-  // 'expired') with a restored Firebase session, RevenueCat can confirm "no
-  // entitlement" before the trial start date is known, briefly gating an
-  // in-trial user behind the paywall.
-  //
-  // trialStartedAt is the server-authoritative trial anchor (resettable per
-  // account); we trust it as the source of truth and let it replace any stale
-  // local clock — this is what allows a backend reset to reach existing beta
-  // devices. createdAt is the fallback for backends predating the column.
-  const trialAnchor = user?.trialStartedAt ?? user?.createdAt;
-  if (trialAnchor) {
-    subscription.applyServerTrial(trialAnchor, user?.isTrialExpired);
+  if (!user) {
+    subscription.resetForAccount();
   }
+  subscription.setRemoteCompedAccess(user?.isComped === true);
+  subscription.setLegacyMigrationAccess?.(user?.legacyMigrationAccess === true);
 
-  // Mirror trial/conversion state into analytics (PostHog) so the funnel can be
-  // measured without RevenueCat. The backend remains the source of truth — this
-  // is read-only reporting that refreshes whenever the user record changes
-  // (login, profile fetch, rehydrate). Sign-out (user === null) resets identity.
+  // RevenueCat owns billing access. Profile updates only bind comped access and
+  // report the server projection; legacy trial dates never grant client access.
   if (!user) {
     AnalyticsService.reset();
     return;
   }
 
-  const trialStartIso = trialAnchor
-    ? (trialAnchor instanceof Date ? trialAnchor.toISOString() : new Date(trialAnchor).toISOString())
-    : undefined;
-
   AnalyticsService.identify(user.id, {
     subscriptionStatus: user.subscriptionStatus,
-    trial_started_at: trialStartIso,
-    trial_expired: user.isTrialExpired === true,
-    trial_days_remaining: trialStartIso ? computeDaysRemaining(trialStartIso) : 0,
     is_comped: user.isComped === true,
-    converted: user.subscriptionStatus.startsWith('pro'),
+    converted: false,
     totalAnchorsCreated: user.totalAnchorsCreated,
     currentStreak: user.currentStreak,
   });
@@ -207,37 +221,51 @@ async function readLegacyAuthStorage(name: string): Promise<string | null> {
   }
 }
 
+const authWriteCounts = new Map<string, number>();
 const encryptedAuthStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
+    const startedAt = Date.now();
     try {
       const secureValue = await readSecureValue(name);
       if (secureValue != null) {
+        perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: secureValue.length });
         return secureValue;
       }
 
-      return await readLegacyAuthStorage(name);
+      const legacyValue = await readLegacyAuthStorage(name);
+      perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: legacyValue?.length ?? 0, source: legacyValue ? 'legacy-migration' : 'empty' });
+      return legacyValue;
     } catch (error) {
       logger.error('Failed to read auth storage data:', error);
-      return await readLegacyAuthStorage(name);
+      const legacyValue = await readLegacyAuthStorage(name);
+      perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: legacyValue?.length ?? 0, source: 'legacy-fallback' });
+      return legacyValue;
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
+    const count = (authWriteCounts.get(name) ?? 0) + 1;
+    authWriteCounts.set(name, count);
+    const startedAt = Date.now();
+    perfLog('persist-setItem', { key: name, count, payloadChars: value.length, chunks: Math.max(1, Math.ceil(value.length / 1800)) });
     try {
       await writeSecureValue(name, value);
       await AsyncStorage.removeItem(name);
       await Promise.all(
         LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
       );
+      perfLog('persist-setItem-settled', { key: name, count, ms: Date.now() - startedAt, payloadChars: value.length });
     } catch (error) {
       logger.error('Failed to save auth storage data:', error);
       throw error;
     }
   },
   removeItem: async (name: string): Promise<void> => {
+    const startedAt = Date.now();
     await encryptedPersistStorage.removeItem(name);
     await Promise.all(
       LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
     );
+    perfLog('persist-removeItem', { key: name, ms: Date.now() - startedAt });
   },
 };
 
@@ -329,6 +357,8 @@ function isMockAuthToken(token: string | null | undefined): boolean {
  * Authentication state interface
  */
 interface AuthState {
+  /** Process-local fence for async work; never persisted. */
+  accountRevision: number;
   // State
   user: User | null;
   token: string | null;
@@ -342,6 +372,7 @@ interface AuthState {
   pendingForgeResumeTarget: string | null;
   pendingFirstAnchorDraft: PendingFirstAnchorDraft | null;
   pendingFirstAnchorMutations: PendingFirstAnchorMutation[];
+  pendingFirstAnchorAccounts: Record<string, { draft: PendingFirstAnchorDraft; mutations: PendingFirstAnchorMutation[] }>;
   isFinalizingPendingFirstAnchor: boolean;
   pendingFirstAnchorError: string | null;
 
@@ -378,7 +409,7 @@ interface AuthState {
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
   setOfflineMode: (offline: boolean) => void;
   setIsGuest: (value: boolean) => void;
-  signOut: () => Promise<void>;
+  signOut: (shouldContinue?: () => boolean) => Promise<void>;
 
   // NEW: Profile actions
   fetchProfile: () => Promise<void>;
@@ -407,6 +438,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       // Initial state
+      accountRevision: 0,
       user: null,
       token: null,
       isAuthenticated: false,
@@ -419,6 +451,7 @@ export const useAuthStore = create<AuthState>()(
       pendingForgeResumeTarget: null,
       pendingFirstAnchorDraft: null,
       pendingFirstAnchorMutations: [],
+      pendingFirstAnchorAccounts: {},
       isFinalizingPendingFirstAnchor: false,
       pendingFirstAnchorError: null,
 
@@ -431,9 +464,26 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       setUser: (user) => {
-        if (get().user?.id !== (user?.id ?? null)) {
-          useCourseStore.getState().bindAccount(user?.id ?? null);
+        const previousUserId = get().user?.id ?? null;
+        const nextUserId = user?.id ?? null;
+        const pendingHandoff = pendingAccountHandoff(get(), nextUserId);
+        const isSwitchingAuthenticatedAccounts = Boolean(
+          previousUserId && nextUserId && previousUserId !== nextUserId,
+        );
+        if (isSwitchingAuthenticatedAccounts || (!user && previousUserId)) {
+          useTeachingStore.getState().reset();
         }
+        if (previousUserId !== nextUserId) {
+          if (sqlCipherEnabled()) useSessionStore.getState().reset();
+          inFlightFinalizePendingFirstAnchor = null;
+          useCourseStore.getState().bindAccount(nextUserId);
+          useSubscriptionStore.getState().resetForAccount();
+          if (isSwitchingAuthenticatedAccounts || (previousUserId && !nextUserId)) {
+            useTeachingStore.getState().reset();
+          }
+        }
+        useAnchorStore.getState().bindAccount(nextUserId,
+          nextUserId ? (previousUserId === nextUserId ? get().pendingFirstAnchorDraft : pendingHandoff.pendingFirstAnchorDraft)?.tempAnchorId : undefined);
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
@@ -451,10 +501,12 @@ export const useAuthStore = create<AuthState>()(
               }
               : null,
             isAuthenticated: !!user,
+            accountRevision: state.accountRevision + (previousUserId !== nextUserId ? 1 : 0),
             hasCompletedOnboarding,
             // This prompt belongs to the account's first Anchor, not the device.
             // A new account must never inherit another account's "seen" state.
             wallpaperPromptSeen: isSameAccount ? state.wallpaperPromptSeen : false,
+            ...pendingHandoff,
           };
         });
       },
@@ -465,9 +517,25 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) => {
-        if (get().user?.id !== user.id) {
-          useCourseStore.getState().bindAccount(user.id);
+        const previousUserId = get().user?.id ?? null;
+        const pendingHandoff = pendingAccountHandoff(get(), user.id);
+        const isSwitchingAuthenticatedAccounts = Boolean(
+          previousUserId && previousUserId !== user.id,
+        );
+        if (isSwitchingAuthenticatedAccounts) {
+          useTeachingStore.getState().reset();
         }
+        if (previousUserId !== user.id) {
+          if (sqlCipherEnabled()) useSessionStore.getState().reset();
+          inFlightFinalizePendingFirstAnchor = null;
+          useCourseStore.getState().bindAccount(user.id);
+          useSubscriptionStore.getState().resetForAccount();
+          if (isSwitchingAuthenticatedAccounts) {
+            useTeachingStore.getState().reset();
+          }
+        }
+        useAnchorStore.getState().bindAccount(user.id,
+          (pendingHandoff.pendingFirstAnchorDraft ?? (previousUserId === user.id ? get().pendingFirstAnchorDraft : null))?.tempAnchorId);
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
@@ -481,12 +549,14 @@ export const useAuthStore = create<AuthState>()(
               isComped: user.isComped === true,
             },
             token,
+            accountRevision: state.accountRevision + (previousUserId !== user.id || state.token !== token ? 1 : 0),
             isAuthenticated: true,
             hasCompletedOnboarding,
             isLoading: false,
             // Keep the prompt state for a returning account, but reset it when
             // authentication establishes a different account on this device.
             wallpaperPromptSeen: isSameAccount ? state.wallpaperPromptSeen : false,
+            ...pendingHandoff,
           };
         });
       },
@@ -575,11 +645,13 @@ export const useAuthStore = create<AuthState>()(
           pendingForgeResumeTarget: null,
         }),
 
-      setPendingFirstAnchorDraft: (pendingFirstAnchorDraft) =>
-        set({
-          pendingFirstAnchorDraft,
-          pendingFirstAnchorError: null,
-        }),
+      setPendingFirstAnchorDraft: (pendingFirstAnchorDraft) => {
+        if (get().pendingFirstAnchorDraft?.tempAnchorId !== pendingFirstAnchorDraft?.tempAnchorId) {
+          inFlightFinalizePendingFirstAnchor = null;
+          set({ isFinalizingPendingFirstAnchor: false });
+        }
+        set({ pendingFirstAnchorDraft, pendingFirstAnchorError: null });
+      },
 
       enqueuePendingFirstAnchorMutation: (mutation) =>
         set((state) => ({
@@ -608,6 +680,7 @@ export const useAuthStore = create<AuthState>()(
       // NEW: Fetch profile with 5-minute cache TTL
       fetchProfile: async () => {
         try {
+          const requestedUserId = get().user?.id ?? null;
           const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
           const { profileLastFetched } = get();
           const now = Date.now();
@@ -618,6 +691,9 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
+          // A slow response from account A must not overwrite the active
+          // account B after a switch or sign-out.
+          if ((get().user?.id ?? null) !== requestedUserId) return;
           applyUserToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           useProfileStore.getState().syncFromUser(profileData.user);
@@ -652,7 +728,6 @@ export const useAuthStore = create<AuthState>()(
         const {
           pendingFirstAnchorDraft,
           pendingFirstAnchorMutations,
-          isFinalizingPendingFirstAnchor,
           user,
         } = get();
 
@@ -660,34 +735,272 @@ export const useAuthStore = create<AuthState>()(
           return true;
         }
 
-        if (isFinalizingPendingFirstAnchor) {
-          return false;
+        if (!user?.id) return false;
+        const initiatingUserId = user.id;
+        const existingOperation = inFlightFinalizePendingFirstAnchor;
+        if (existingOperation?.userId === initiatingUserId &&
+            existingOperation.accountRevision === get().accountRevision &&
+            existingOperation.token === get().token &&
+            existingOperation.draftId === pendingFirstAnchorDraft.tempAnchorId) {
+          return existingOperation.promise ?? false;
         }
+        const operation = { userId: initiatingUserId, draftId: pendingFirstAnchorDraft.tempAnchorId,
+          accountRevision: get().accountRevision,
+          token: get().token,
+          promise: null as Promise<boolean> | null };
+        inFlightFinalizePendingFirstAnchor = operation;
+        const initiatingToken = get().token;
+        const isCurrentOperation = () =>
+          inFlightFinalizePendingFirstAnchor === operation &&
+          get().accountRevision === operation.accountRevision &&
+          get().user?.id === initiatingUserId && get().token === initiatingToken &&
+          get().pendingFirstAnchorDraft?.tempAnchorId === operation.draftId;
+        const requestConfig: AccountBoundRequestConfig = {
+          anchorAuthGuard: isCurrentOperation, anchorAuthToken: initiatingToken ?? undefined,
+        };
+        // Stable across retries/restarts; the real backend scopes replay by owner.
+        const createIdempotencyKey = `${initiatingUserId}:first-anchor:${operation.draftId}`;
 
-        set({
-          isFinalizingPendingFirstAnchor: true,
-          pendingFirstAnchorError: null,
-        });
+        const runFinalize = async (): Promise<boolean> => {
+          if (!isCurrentOperation()) return false;
+          set({
+            isFinalizingPendingFirstAnchor: true,
+            pendingFirstAnchorError: null,
+          });
 
-        try {
-          const anchorStore = useAnchorStore.getState();
-          const localAnchor = anchorStore.getAnchorById(pendingFirstAnchorDraft.tempAnchorId);
-          const relevantMutations = pendingFirstAnchorMutations.filter(
-            (mutation) => mutation.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
-          );
+          try {
+            const anchorStore = useAnchorStore.getState();
+            const localAnchor =
+              anchorStore.getAnchorById(pendingFirstAnchorDraft.tempAnchorId) ??
+              (pendingFirstAnchorDraft.backendAnchorId
+                ? anchorStore.getAnchorById(pendingFirstAnchorDraft.backendAnchorId)
+                : undefined);
+            const relevantMutations = pendingFirstAnchorMutations.filter(
+              (mutation) => mutation.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
+            );
 
-          if (!localAnchor) {
-            throw new Error('Your first anchor draft could not be found.');
-          }
-
-          const idToken = await AuthService.getIdToken();
-
-          // Mock auth cannot reach the real backend. Clear the gate and keep the
-          // locally created anchor so development and tests remain usable.
-          if (isMockAuthToken(idToken)) {
-            if (user?.id && localAnchor.userId !== user.id) {
-              anchorStore.updateAnchor(localAnchor.id, { userId: user.id });
+            if (!localAnchor) {
+              throw new Error('Your first anchor draft could not be found.');
             }
+            if (localAnchor.userId !== initiatingUserId &&
+                !['guest', 'guest-user', 'user-local', 'local-user'].includes(localAnchor.userId)) {
+              throw new Error('Your first anchor draft belongs to another account.');
+            }
+
+            const subscriptionState = useSubscriptionStore.getState();
+            const hasEntitlementAccess =
+              subscriptionState.hasActiveEntitlement ||
+              subscriptionState.remoteCompedAccess ||
+              subscriptionState.legacyMigrationAccess ||
+              user?.isComped === true ||
+              user?.legacyMigrationAccess === true ||
+              Boolean(user?.subscriptionStatus && user.subscriptionStatus !== 'free');
+            const isLockedFreeUser =
+              !hasEntitlementAccess &&
+              Boolean(user?.freeAnchorConsumed || (user?.totalAnchorsCreated ?? 0) >= 1);
+            if (isLockedFreeUser && !pendingFirstAnchorDraft.createAttempted && !pendingFirstAnchorDraft.backendAnchorId) {
+              set({
+                isFinalizingPendingFirstAnchor: false,
+                pendingFirstAnchorError: 'CREATE_ANCHOR_FREE_LOCKED',
+              });
+              return false;
+            }
+
+            const idToken = await AuthService.getIdToken();
+            if (!isCurrentOperation()) return false;
+            if (!idToken) throw new Error('Sign in again to save your first anchor.');
+            requestConfig.anchorAuthToken = initiatingToken ?? idToken;
+            if (createIdempotencyKey.length > 200) throw new Error('First anchor reference is too long.');
+
+            // Mock auth cannot reach the real backend. Clear the gate and keep the
+            // locally created anchor so development and tests remain usable.
+            if (isMockAuthToken(idToken)) {
+              if (user?.id && localAnchor.userId !== user.id) {
+                useAnchorStore.getState().updateAnchor(localAnchor.id, { userId: user.id });
+              }
+              await useAnchorStore.getState().flushPersistence();
+              if (!isCurrentOperation()) return false;
+
+              set((state) => ({
+                pendingFirstAnchorDraft: null,
+                pendingFirstAnchorMutations: [],
+                isFinalizingPendingFirstAnchor: false,
+                pendingFirstAnchorError: null,
+                user: state.user
+                  ? {
+                    ...state.user,
+                    totalAnchorsCreated: state.user.totalAnchorsCreated + 1,
+                  }
+                  : state.user,
+                profileData: state.profileData
+                  ? {
+                    ...state.profileData,
+                    user: {
+                      ...state.profileData.user,
+                      totalAnchorsCreated: state.profileData.user.totalAnchorsCreated + 1,
+                    },
+                  }
+                  : state.profileData,
+              }));
+
+              return true;
+            }
+
+            const persistPendingDraftProgress = (updates: Partial<PendingFirstAnchorDraft>) => {
+              set((state) => ({
+                pendingFirstAnchorDraft:
+                  state.pendingFirstAnchorDraft?.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
+                    ? {
+                      ...state.pendingFirstAnchorDraft,
+                      ...updates,
+                    }
+                    : state.pendingFirstAnchorDraft,
+              }));
+            };
+
+            let backendAnchorId = pendingFirstAnchorDraft.backendAnchorId;
+            let nextPendingMutationIndex = pendingFirstAnchorDraft.nextPendingMutationIndex ?? 0;
+            let finalizedAnchor = normalizeAnchor(
+              backendAnchorId
+                ? ({
+                  ...localAnchor,
+                  id: backendAnchorId,
+                  localId: localAnchor.localId ?? pendingFirstAnchorDraft.tempAnchorId,
+                  userId: user?.id ?? localAnchor.userId,
+                } as Anchor)
+                : localAnchor
+            );
+
+            if (!backendAnchorId) {
+              persistPendingDraftProgress({ createAttempted: true });
+              const createResponse = await apiClient.post<ApiResponse<Anchor>>(
+                '/api/anchors',
+                { ...buildAnchorCreatePayload(localAnchor), idempotencyKey: createIdempotencyKey },
+                requestConfig
+              );
+              if (!isCurrentOperation()) return false;
+
+              if (!createResponse.data?.success || !createResponse.data.data?.id) {
+                throw new Error('We could not save your first anchor yet.');
+              }
+
+              backendAnchorId = createResponse.data.data.id;
+              nextPendingMutationIndex = getNextPendingMutationIndex(relevantMutations, 0);
+              finalizedAnchor = mergeServerAnchor(localAnchor, {
+                ...createResponse.data.data,
+                id: backendAnchorId,
+                localId:
+                  createResponse.data.data.localId ??
+                  localAnchor.localId ??
+                  pendingFirstAnchorDraft.tempAnchorId,
+                userId: createResponse.data.data.userId ?? user?.id ?? localAnchor.userId,
+              } as Partial<Anchor>);
+              useAnchorStore.getState().applySyncedAnchor(pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor);
+              await useAnchorStore.getState().flushPersistence();
+              if (!isCurrentOperation()) return false;
+
+              persistPendingDraftProgress({
+                backendAnchorId,
+                nextPendingMutationIndex,
+              });
+            }
+
+            for (let index = nextPendingMutationIndex; index < relevantMutations.length; index += 1) {
+              if (!isCurrentOperation()) return false;
+              const mutation = relevantMutations[index];
+
+              if (mutation.type === 'create_anchor') {
+                nextPendingMutationIndex = index + 1;
+                persistPendingDraftProgress({ nextPendingMutationIndex });
+                continue;
+              }
+
+              if (mutation.type === 'charge_anchor') {
+                const chargeResponse = await apiClient.post<ApiResponse<Anchor>>(
+                  `/api/anchors/${finalizedAnchor.id}/charge`,
+                  {
+                    chargeType: mutation.chargeType,
+                    durationSeconds: mutation.durationSeconds,
+                    idempotencyKey: mutation.idempotencyKey ?? `${createIdempotencyKey}:${index}` ,
+                  },
+                  requestConfig
+                );
+                if (!isCurrentOperation()) return false;
+
+                if (!chargeResponse.data?.success || !chargeResponse.data.data) {
+                  throw new Error('Your first anchor was created, but priming did not sync.');
+                }
+
+                finalizedAnchor = mergeServerAnchor(finalizedAnchor, chargeResponse.data.data as Partial<Anchor>);
+                finalizedAnchor = mergeServerAnchor(
+                  finalizedAnchor,
+                  buildRecoveredChargeState(finalizedAnchor, new Date())
+                );
+                useAnchorStore.getState().applySyncedAnchor(pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor);
+                await useAnchorStore.getState().flushPersistence();
+                if (!isCurrentOperation()) return false;
+                nextPendingMutationIndex = index + 1;
+                persistPendingDraftProgress({ nextPendingMutationIndex });
+                continue;
+              }
+
+              if (mutation.type === 'activate_anchor') {
+                const activationResponse = await apiClient.post<ApiResponse<Anchor>>(
+                  `/api/anchors/${finalizedAnchor.id}/activate`,
+                  {
+                    activationType: mutation.activationType,
+                    durationSeconds: mutation.durationSeconds,
+                    idempotencyKey: mutation.idempotencyKey ?? `${createIdempotencyKey}:${index}` ,
+                  },
+                  requestConfig
+                );
+                if (!isCurrentOperation()) return false;
+
+                if (!activationResponse.data?.success || !activationResponse.data.data) {
+                  throw new Error('Your first anchor was created, but the prime session did not sync.');
+                }
+
+                finalizedAnchor = mergeServerAnchor(
+                  finalizedAnchor,
+                  activationResponse.data.data as Partial<Anchor>
+                );
+                useAnchorStore.getState().applySyncedAnchor(pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor);
+                await useAnchorStore.getState().flushPersistence();
+                if (!isCurrentOperation()) return false;
+                nextPendingMutationIndex = index + 1;
+                persistPendingDraftProgress({ nextPendingMutationIndex });
+              }
+            }
+
+            if (!isCurrentOperation()) return false;
+
+            const latestAnchorStore = useAnchorStore.getState();
+            const existingMatch = latestAnchorStore.anchors.some((anchor) =>
+              matchesPendingDraftAnchor(anchor, pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor.id)
+            );
+            let insertedFinalized = false;
+            const nextAnchors = existingMatch
+              ? latestAnchorStore.anchors.flatMap((anchor) => {
+                if (!matchesPendingDraftAnchor(anchor, pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor.id)) {
+                  return [anchor];
+                }
+                if (insertedFinalized) {
+                  return [];
+                }
+                insertedFinalized = true;
+                return [finalizedAnchor];
+              })
+              : [finalizedAnchor, ...latestAnchorStore.anchors];
+            latestAnchorStore.setAnchors(nextAnchors);
+
+            if (
+              latestAnchorStore.currentAnchorId === pendingFirstAnchorDraft.tempAnchorId ||
+              latestAnchorStore.currentAnchorId === finalizedAnchor.id
+            ) {
+              latestAnchorStore.setCurrentAnchor(finalizedAnchor.id);
+            }
+            await useAnchorStore.getState().flushPersistence();
+            if (!isCurrentOperation()) return false;
 
             set((state) => ({
               pendingFirstAnchorDraft: null,
@@ -712,166 +1025,34 @@ export const useAuthStore = create<AuthState>()(
             }));
 
             return true;
-          }
+          } catch (error) {
+            if (!isCurrentOperation()) return false;
+            const isFreeLocked =
+              (error instanceof ApiClientError && (error.code === 'CREATE_ANCHOR_FREE_LOCKED' || error.status === 403)) ||
+              (error instanceof Error && (error.message.includes('CREATE_ANCHOR_FREE_LOCKED') || error.message.includes('Create more anchors with Pro')));
+            const message = isFreeLocked
+              ? 'CREATE_ANCHOR_FREE_LOCKED'
+              : error instanceof Error
+                ? error.message
+                : 'We could not finish saving your first anchor.';
 
-          const persistPendingDraftProgress = (updates: Partial<PendingFirstAnchorDraft>) => {
-            set((state) => ({
-              pendingFirstAnchorDraft:
-                state.pendingFirstAnchorDraft?.tempAnchorId === pendingFirstAnchorDraft.tempAnchorId
-                  ? {
-                    ...state.pendingFirstAnchorDraft,
-                    ...updates,
-                  }
-                  : state.pendingFirstAnchorDraft,
-            }));
-          };
-
-          let backendAnchorId = pendingFirstAnchorDraft.backendAnchorId;
-          let nextPendingMutationIndex = pendingFirstAnchorDraft.nextPendingMutationIndex ?? 0;
-          let finalizedAnchor = normalizeAnchor(
-            backendAnchorId
-              ? ({
-                ...localAnchor,
-                id: backendAnchorId,
-              } as Anchor)
-              : localAnchor
-          );
-
-          if (!backendAnchorId) {
-            const createResponse = await apiClient.post<ApiResponse<Anchor>>(
-              '/api/anchors',
-              buildAnchorCreatePayload(localAnchor)
-            );
-
-            if (!createResponse.data?.success || !createResponse.data.data?.id) {
-              throw new Error('We could not save your first anchor yet.');
-            }
-
-            backendAnchorId = createResponse.data.data.id;
-            nextPendingMutationIndex = getNextPendingMutationIndex(relevantMutations, 0);
-            finalizedAnchor = mergeServerAnchor(localAnchor, {
-              ...createResponse.data.data,
-              id: backendAnchorId,
-            } as Partial<Anchor>);
-
-            persistPendingDraftProgress({
-              backendAnchorId,
-              nextPendingMutationIndex,
+            logger.warn('Failed to finalize first anchor draft', error);
+            set({
+              isFinalizingPendingFirstAnchor: false,
+              pendingFirstAnchorError: message,
             });
-          }
-
-          for (let index = nextPendingMutationIndex; index < relevantMutations.length; index += 1) {
-            const mutation = relevantMutations[index];
-
-            if (mutation.type === 'create_anchor') {
-              nextPendingMutationIndex = index + 1;
-              persistPendingDraftProgress({ nextPendingMutationIndex });
-              continue;
-            }
-
-            if (mutation.type === 'charge_anchor') {
-              const chargeResponse = await apiClient.post<ApiResponse<Anchor>>(
-                `/api/anchors/${finalizedAnchor.id}/charge`,
-                {
-                  chargeType: mutation.chargeType,
-                  durationSeconds: mutation.durationSeconds,
-                  ...(mutation.idempotencyKey
-                    ? { idempotencyKey: mutation.idempotencyKey }
-                    : {}),
-                }
-              );
-
-              if (!chargeResponse.data?.success || !chargeResponse.data.data) {
-                throw new Error('Your first anchor was created, but priming did not sync.');
-              }
-
-              finalizedAnchor = mergeServerAnchor(finalizedAnchor, chargeResponse.data.data as Partial<Anchor>);
-              finalizedAnchor = mergeServerAnchor(
-                finalizedAnchor,
-                buildRecoveredChargeState(finalizedAnchor, new Date())
-              );
-              nextPendingMutationIndex = index + 1;
-              persistPendingDraftProgress({ nextPendingMutationIndex });
-              continue;
-            }
-
-            if (mutation.type === 'activate_anchor') {
-              const activationResponse = await apiClient.post<ApiResponse<Anchor>>(
-                `/api/anchors/${finalizedAnchor.id}/activate`,
-                {
-                  activationType: mutation.activationType,
-                  durationSeconds: mutation.durationSeconds,
-                  ...(mutation.idempotencyKey
-                    ? { idempotencyKey: mutation.idempotencyKey }
-                    : {}),
-                }
-              );
-
-              if (!activationResponse.data?.success || !activationResponse.data.data) {
-                throw new Error('Your first anchor was created, but the prime session did not sync.');
-              }
-
-              finalizedAnchor = mergeServerAnchor(
-                finalizedAnchor,
-                activationResponse.data.data as Partial<Anchor>
-              );
-              nextPendingMutationIndex = index + 1;
-              persistPendingDraftProgress({ nextPendingMutationIndex });
+            return false;
+          } finally {
+            if (inFlightFinalizePendingFirstAnchor === operation) {
+              inFlightFinalizePendingFirstAnchor = null;
+              set({ isFinalizingPendingFirstAnchor: false });
             }
           }
+        };
 
-          const existingMatch = anchorStore.anchors.some((anchor) =>
-            matchesPendingDraftAnchor(anchor, pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor.id)
-          );
-          const nextAnchors = existingMatch
-            ? anchorStore.anchors.map((anchor) =>
-              matchesPendingDraftAnchor(anchor, pendingFirstAnchorDraft.tempAnchorId, finalizedAnchor.id)
-                ? finalizedAnchor
-                : anchor
-            )
-            : [finalizedAnchor, ...anchorStore.anchors];
-          anchorStore.setAnchors(nextAnchors);
-
-          if (anchorStore.currentAnchorId === pendingFirstAnchorDraft.tempAnchorId) {
-            anchorStore.setCurrentAnchor(finalizedAnchor.id);
-          }
-
-          set((state) => ({
-            pendingFirstAnchorDraft: null,
-            pendingFirstAnchorMutations: [],
-            isFinalizingPendingFirstAnchor: false,
-            pendingFirstAnchorError: null,
-            user: state.user
-              ? {
-                ...state.user,
-                totalAnchorsCreated: state.user.totalAnchorsCreated + 1,
-              }
-              : state.user,
-            profileData: state.profileData
-              ? {
-                ...state.profileData,
-                user: {
-                  ...state.profileData.user,
-                  totalAnchorsCreated: state.profileData.user.totalAnchorsCreated + 1,
-                },
-              }
-              : state.profileData,
-          }));
-
-          return true;
-        } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'We could not finish saving your first anchor.';
-
-          logger.warn('Failed to finalize first anchor draft', error);
-          set({
-            isFinalizingPendingFirstAnchor: false,
-            pendingFirstAnchorError: message,
-          });
-          return false;
-        }
+        // Install the promise before publishing finalizing state (subscribers may re-enter).
+        operation.promise = Promise.resolve().then(runFinalize);
+        return operation.promise;
       },
 
       computeStreak: () => {
@@ -986,7 +1167,8 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: async () => {
+      signOut: async (shouldContinue) => {
+        if (shouldContinue && !shouldContinue()) return;
         const userId = get().user?.id;
         if (userId) {
           const profileState = useProfileStore.getState();
@@ -1026,6 +1208,7 @@ export const useAuthStore = create<AuthState>()(
             ]);
           } catch (error) {
             logger.warn('Failed to preserve local user state before sign out', error);
+            throw error;
           }
         }
 
@@ -1033,12 +1216,16 @@ export const useAuthStore = create<AuthState>()(
         // while the previous account's snapshots were being saved, the stale
         // sign-out must not clear the new account's stores or presenter.
         const currentUserId = get().user?.id;
-        if (currentUserId && currentUserId !== userId) {
+        if (
+          (currentUserId && currentUserId !== userId) ||
+          (shouldContinue && !shouldContinue())
+        ) {
           return;
         }
 
         applyUserToSubscriptionStore(null);
-        useAnchorStore.getState().clearAnchors();
+        useAnchorStore.getState().bindAccount(null);
+        useAnchorStore.getState().hideActiveAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
         useVisualizationSceneStore.getState().clearActiveAccount();
@@ -1047,9 +1234,15 @@ export const useAuthStore = create<AuthState>()(
         useCourseStore.getState().clearAccount(userId);
         useNavigationResumeStore.getState().setTarget(null);
         useNavigationResumeStore.getState().setChartDeepLink(null);
+        try {
+          useFirstRunStore.getState().reset();
+        } catch {
+          // Ignore if store not yet initialized
+        }
         set({
           user: null,
           token: null,
+          accountRevision: get().accountRevision + 1,
           isAuthenticated: false,
           hasCompletedOnboarding: false,
           isOfflineMode: false,
@@ -1058,15 +1251,16 @@ export const useAuthStore = create<AuthState>()(
           profileLastFetched: null,
           wallpaperPromptSeen: false,
           ...createClearedPendingFirstAnchorState(),
+          ...pendingAccountHandoff(get(), null),
         });
         // Intentionally preserved: local trial cache is device-level/offline UX state.
         // Do not clear anchor-subscription-override-storage on account sign-out.
         void Promise.all([
           clearNotificationSession(),
           ...(userId ? [purgeChartCacheForAccount(userId)] : []),
-          encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
           encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
           encryptedPersistStorage.removeItem(CACHED_USER_KEY),
+          encryptedPersistStorage.removeItem('anchor:v2:first-run'),
           AsyncStorage.removeItem(RECOVERY_DUMP_MARKER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_VAULT_KEY),
         ]).catch((error) => {
@@ -1077,11 +1271,18 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'anchor-auth-storage',
       storage: createJSONStorage(() => encryptedAuthStorage),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
+        perfLog('store-hydration-finished', { store: 'auth', ok: !error, hasState: Boolean(state) });
         if (state) {
+          useAnchorStore.getState().bindAccount(state.user?.id ?? null, state.pendingFirstAnchorDraft?.tempAnchorId);
           applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
+          // Not logged in: restart onboarding, unless the person chose to keep their Anchor on this
+          // device at the save step. They finished onboarding as a guest and must not replay it.
+          if (!state.user?.id && !(state.isGuest && state.hasCompletedOnboarding)) {
+            state.hasCompletedOnboarding = false;
+          }
           // Recompute streak immediately after store hydrates from disk
           state.computeStreak();
         }
@@ -1097,6 +1298,7 @@ export const useAuthStore = create<AuthState>()(
         anchorCount: state.anchorCount,
         pendingFirstAnchorDraft: state.pendingFirstAnchorDraft,
         pendingFirstAnchorMutations: state.pendingFirstAnchorMutations,
+        pendingFirstAnchorAccounts: state.pendingFirstAnchorAccounts,
         profileData: state.profileData,
         profileLastFetched: state.profileLastFetched,
         wallpaperPromptSeen: state.wallpaperPromptSeen,

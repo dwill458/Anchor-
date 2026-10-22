@@ -1,18 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { GlassCard } from '@/components/common';
-import { colors, spacing, typography } from '@/theme';
+import { Check } from 'lucide-react-native';
+import { V2Button, V2TimePicker } from '@/components/v2/primitives';
+import { v2Haptics } from '@/hooks/v2';
+import { colors, radii, spacing, typography } from '@/theme/v2';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 
@@ -44,6 +41,13 @@ const TIME_OPTIONS: ReminderTimeOption[] = [
 
 const DEFAULT_REMINDER_TIME = '08:00';
 
+const dateForReminderTime = (time: string): Date => {
+  const [hour, minute] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  return date;
+};
+
 const COPY: Record<ReminderPromptVariant, {
   title: string;
   body: string;
@@ -67,12 +71,6 @@ const COPY: Record<ReminderPromptVariant, {
 const SUCCESS_COPY =
   'Daily reminder set. Anchor will give you one quiet nudge when it’s time to prime.';
 
-const formatHourLabel = (hour: number): string => {
-  const period = hour < 12 ? 'AM' : 'PM';
-  const normalized = hour % 12 === 0 ? 12 : hour % 12;
-  return `${normalized}:00 ${period}`;
-};
-
 export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
   visible,
   variant,
@@ -86,6 +84,7 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
 
   const [step, setStep] = useState<Step>('intro');
   const [isBusy, setIsBusy] = useState(false);
+  const [customTime, setCustomTime] = useState(() => dateForReminderTime(DEFAULT_REMINDER_TIME));
   const copy = COPY[variant];
 
   // Announce the prompt once when it becomes visible (also records shown-at).
@@ -93,6 +92,7 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
     if (visible) {
       setStep('intro');
       setIsBusy(false);
+      setCustomTime(dateForReminderTime(DEFAULT_REMINDER_TIME));
       void markReminderPromptShown(variant);
     }
   }, [visible, variant, markReminderPromptShown]);
@@ -114,7 +114,7 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
   }, [isBusy, setDailyPrimeReminder, variant, completeReminderPrompt, onDismiss]);
 
   const handlePrimary = useCallback(() => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    v2Haptics.selection();
     AnalyticsService.track(AnalyticsEvents.NOTIFICATION_SET_DAILY_REMINDER_TAPPED, {
       source: variant,
     });
@@ -122,12 +122,24 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
   }, [variant, handleSchedule]);
 
   const handleChooseDifferentTime = useCallback(() => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    v2Haptics.selection();
     setStep('time');
   }, []);
 
+  const handleChooseCustomTime = useCallback(() => {
+    v2Haptics.selection();
+    setCustomTime(dateForReminderTime(DEFAULT_REMINDER_TIME));
+    setStep('custom');
+  }, []);
+
+  const handleCustomTimeConfirm = useCallback(() => {
+    const hours = String(customTime.getHours()).padStart(2, '0');
+    const minutes = String(customTime.getMinutes()).padStart(2, '0');
+    void handleSchedule(`${hours}:${minutes}`);
+  }, [customTime, handleSchedule]);
+
   const handleSecondary = useCallback(() => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    v2Haptics.selection();
     AnalyticsService.track(AnalyticsEvents.NOTIFICATION_NOT_NOW_TAPPED, {
       source: variant,
     });
@@ -136,12 +148,10 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
   }, [variant, completeReminderPrompt, onDismiss]);
 
   const handleDone = useCallback(() => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    v2Haptics.confirmation();
     void completeReminderPrompt(variant);
     onDismiss();
   }, [variant, completeReminderPrompt, onDismiss]);
-
-  const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, hour) => hour), []);
 
   return (
     <Modal
@@ -152,58 +162,44 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
       onRequestClose={step === 'intro' ? handleSecondary : undefined}
     >
       <View style={styles.overlay}>
-        <GlassCard style={styles.card} contentStyle={styles.cardContent}>
-          <View style={styles.accentLine} />
-
+        <View style={styles.card}>
           {step === 'intro' && (
             <>
               <Text style={styles.eyebrow}>DAILY PRIME REMINDER</Text>
               <Text style={styles.title}>{copy.title}</Text>
               <Text style={styles.body}>{copy.body}</Text>
 
-              <TouchableOpacity
-                onPress={handlePrimary}
-                activeOpacity={0.9}
-                disabled={isBusy}
-                style={styles.primaryButton}
-                accessibilityRole="button"
-                accessibilityLabel={copy.primary}
-              >
-                <LinearGradient
-                  colors={[colors.gold, '#B8941F']}
-                  style={styles.primaryGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+              <View style={styles.actions}>
+                <V2Button
+                  size="large"
+                  variant="primary"
+                  loading={isBusy}
+                  disabled={isBusy}
+                  onPress={handlePrimary}
+                  accessibilityLabel={copy.primary}
                 >
-                  {isBusy ? (
-                    <ActivityIndicator color={colors.charcoal} size="small" />
-                  ) : (
-                    <Text style={styles.primaryText}>{copy.primary}</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+                  {copy.primary}
+                </V2Button>
 
-              {variant === 'first_anchor' ? (
-                <TouchableOpacity
+                <Pressable
                   onPress={handleChooseDifferentTime}
-                  activeOpacity={0.7}
                   style={styles.changeTimeButton}
                   accessibilityRole="button"
                   accessibilityLabel="Choose a different reminder time"
                 >
                   <Text style={styles.changeTimeText}>Choose a different time</Text>
-                </TouchableOpacity>
-              ) : null}
+                </Pressable>
 
-              <TouchableOpacity
-                onPress={handleSecondary}
-                activeOpacity={0.7}
-                style={styles.secondaryButton}
-                accessibilityRole="button"
-                accessibilityLabel={copy.secondary}
-              >
-                <Text style={styles.secondaryText}>{copy.secondary}</Text>
-              </TouchableOpacity>
+                <V2Button
+                  size="medium"
+                  variant="secondary"
+                  disabled={isBusy}
+                  onPress={handleSecondary}
+                  accessibilityLabel={copy.secondary}
+                >
+                  {copy.secondary}
+                </V2Button>
+              </View>
             </>
           )}
 
@@ -217,114 +213,106 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
 
               <View style={styles.optionsWrap}>
                 {TIME_OPTIONS.map((option) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={option.time}
                     onPress={() => void handleSchedule(option.time)}
-                    activeOpacity={0.85}
                     disabled={isBusy}
-                    style={styles.timeOption}
+                    style={({ pressed }) => [
+                      styles.timeOption,
+                      pressed && styles.timeOptionPressed,
+                    ]}
                     accessibilityRole="button"
                     accessibilityLabel={`${option.label}, ${option.hint}`}
                   >
                     <Text style={styles.timeOptionLabel}>{option.label}</Text>
                     <Text style={styles.timeOptionHint}>{option.hint}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
-                <TouchableOpacity
-                  onPress={() => setStep('custom')}
-                  activeOpacity={0.85}
+                <Pressable
+                  onPress={handleChooseCustomTime}
                   disabled={isBusy}
-                  style={styles.timeOption}
+                  style={({ pressed }) => [
+                    styles.timeOption,
+                    pressed && styles.timeOptionPressed,
+                  ]}
                   accessibilityRole="button"
                   accessibilityLabel="Custom time"
                 >
                   <Text style={styles.timeOptionLabel}>Custom</Text>
-                  <Text style={styles.timeOptionHint}>Pick an hour</Text>
-                </TouchableOpacity>
+                  <Text style={styles.timeOptionHint}>Pick a time</Text>
+                </Pressable>
               </View>
 
-              {isBusy ? (
-                <ActivityIndicator color={colors.gold} size="small" style={styles.busySpinner} />
-              ) : (
-                <TouchableOpacity
+              <View style={styles.timeSecondaryActions}>
+                <V2Button
+                  size="medium"
+                  variant="secondary"
+                  loading={isBusy}
                   onPress={handleSecondary}
-                  activeOpacity={0.7}
-                  style={styles.secondaryButton}
-                  accessibilityRole="button"
                   accessibilityLabel={copy.secondary}
                 >
-                  <Text style={styles.secondaryText}>{copy.secondary}</Text>
-                </TouchableOpacity>
-              )}
+                  {copy.secondary}
+                </V2Button>
+              </View>
             </>
           )}
 
           {step === 'custom' && (
             <>
               <Text style={styles.eyebrow}>CUSTOM TIME</Text>
-              <Text style={styles.title}>Choose your hour</Text>
-              <ScrollView
-                style={styles.hourList}
-                contentContainerStyle={styles.hourListContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {hourOptions.map((hour) => (
-                  <TouchableOpacity
-                    key={hour}
-                    onPress={() => void handleSchedule(`${String(hour).padStart(2, '0')}:00`)}
-                    activeOpacity={0.85}
-                    disabled={isBusy}
-                    style={styles.hourOption}
-                    accessibilityRole="button"
-                    accessibilityLabel={formatHourLabel(hour)}
-                  >
-                    <Text style={styles.hourOptionText}>{formatHourLabel(hour)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-              {isBusy ? (
-                <ActivityIndicator color={colors.gold} size="small" style={styles.busySpinner} />
-              ) : (
-                <TouchableOpacity
+              <Text style={styles.title}>Choose your time</Text>
+              <Text style={styles.body}>Set the hour and minutes that fit your practice.</Text>
+
+              <V2TimePicker
+                testID="custom-time-picker"
+                value={customTime}
+                onChange={setCustomTime}
+              />
+
+              <View style={styles.customActions}>
+                <V2Button
+                  size="large"
+                  variant="primary"
+                  loading={isBusy}
+                  onPress={handleCustomTimeConfirm}
+                  accessibilityLabel="Set custom reminder time"
+                >
+                  Set Reminder
+                </V2Button>
+                <V2Button
+                  size="medium"
+                  variant="secondary"
+                  disabled={isBusy}
                   onPress={() => setStep('time')}
-                  activeOpacity={0.7}
-                  style={styles.secondaryButton}
-                  accessibilityRole="button"
                   accessibilityLabel="Back"
                 >
-                  <Text style={styles.secondaryText}>Back</Text>
-                </TouchableOpacity>
-              )}
+                  Back
+                </V2Button>
+              </View>
             </>
           )}
 
           {step === 'success' && (
             <>
               <View style={styles.successBadge}>
-                <Text style={styles.successCheck}>✓</Text>
+                <Check size={28} color={colors.semantic.success} strokeWidth={2.5} />
               </View>
               <Text style={styles.title}>Reminder set</Text>
               <Text style={styles.body}>{SUCCESS_COPY}</Text>
 
-              <TouchableOpacity
-                onPress={handleDone}
-                activeOpacity={0.9}
-                style={styles.primaryButton}
-                accessibilityRole="button"
-                accessibilityLabel="Done"
-              >
-                <LinearGradient
-                  colors={[colors.gold, '#B8941F']}
-                  style={styles.primaryGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+              <View style={styles.successActions}>
+                <V2Button
+                  size="large"
+                  variant="primary"
+                  onPress={handleDone}
+                  accessibilityLabel="Done"
                 >
-                  <Text style={styles.primaryText}>Done</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  Done
+                </V2Button>
+              </View>
             </>
           )}
-        </GlassCard>
+        </View>
       </View>
     </Modal>
   );
@@ -333,170 +321,116 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(8, 12, 16, 0.82)',
+    backgroundColor: 'rgba(23, 23, 20, 0.48)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing[5],
   },
   card: {
     width: '100%',
     maxWidth: 380,
-    borderRadius: 22,
-  },
-  cardContent: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[6],
+    paddingBottom: spacing[6],
     alignItems: 'center',
-  },
-  accentLine: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: 'rgba(212, 175, 55, 0.4)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
   eyebrow: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 10,
-    letterSpacing: 2,
-    color: 'rgba(212, 175, 55, 0.55)',
-    textTransform: 'uppercase',
-    marginBottom: spacing.md,
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    letterSpacing: 1.2,
+    marginBottom: spacing[2],
     textAlign: 'center',
   },
   title: {
-    ...typography.h3,
-    color: colors.bone,
+    ...typography.headingLG,
+    color: colors.text.primary,
     textAlign: 'center',
-    letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    letterSpacing: -0.3,
+    marginBottom: spacing[2],
   },
   body: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 17,
-    lineHeight: 25,
-    color: 'rgba(245, 245, 220, 0.72)',
+    ...typography.bodyMD,
+    color: colors.text.secondary,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    lineHeight: 22,
+    marginBottom: spacing[5],
   },
-  primaryButton: {
+  actions: {
     width: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  primaryGradient: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-  },
-  primaryText: {
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.charcoal,
-    letterSpacing: 0.5,
-  },
-  secondaryButton: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  secondaryText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 14,
-    color: 'rgba(192, 192, 192, 0.7)',
-    letterSpacing: 0.5,
+    gap: spacing[2],
   },
   changeTimeButton: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing[2],
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   changeTimeText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 14,
-    color: 'rgba(212, 175, 55, 0.82)',
+    ...typography.labelMD,
+    color: colors.text.primary,
     textDecorationLine: 'underline',
   },
   optionsWrap: {
     width: '100%',
-    gap: spacing.sm,
+    gap: spacing[2],
   },
   timeOption: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 14,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.22)',
-    backgroundColor: 'rgba(212, 175, 55, 0.05)',
-    paddingVertical: 15,
-    paddingHorizontal: 18,
+    borderColor: colors.border.default,
+    backgroundColor: colors.grouped,
+    minHeight: 52,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  timeOptionPressed: {
+    backgroundColor: colors.border.subtle,
   },
   timeOptionLabel: {
-    fontFamily: typography.fonts.bodyBold,
-    fontSize: 16,
-    color: colors.bone,
-    letterSpacing: 0.3,
+    ...typography.bodyLG,
+    fontWeight: '600',
+    color: colors.text.primary,
   },
   timeOptionHint: {
-    fontFamily: typography.fonts.body,
-    fontSize: 13,
-    color: 'rgba(212, 175, 55, 0.65)',
-    letterSpacing: 0.3,
+    ...typography.bodySM,
+    color: colors.text.secondary,
   },
-  hourList: {
+  timeSecondaryActions: {
     width: '100%',
-    maxHeight: 260,
-    marginBottom: spacing.sm,
+    marginTop: spacing[4],
   },
-  hourListContent: {
-    paddingVertical: spacing.xs,
-  },
-  hourOption: {
+  customActions: {
     width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.14)',
-    backgroundColor: 'rgba(212, 175, 55, 0.03)',
-    paddingVertical: 13,
-    paddingHorizontal: 18,
-    marginBottom: spacing.xs,
-    alignItems: 'center',
-  },
-  hourOptionText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 15,
-    color: colors.bone,
-    letterSpacing: 0.5,
-  },
-  busySpinner: {
-    marginTop: spacing.lg,
+    marginTop: spacing[4],
+    gap: spacing[2],
   },
   successBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 1.5,
-    borderColor: 'rgba(212, 175, 55, 0.5)',
-    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    borderColor: colors.semantic.success,
+    backgroundColor: '#287D5712',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[4],
   },
-  successCheck: {
-    fontSize: 26,
-    color: colors.gold,
-    fontWeight: '400',
+  successActions: {
+    width: '100%',
+    marginTop: spacing[2],
   },
 });
 

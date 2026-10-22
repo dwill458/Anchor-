@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="commitment_first_practice" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="First Practice (Commitment) earned">
+  <title>First Practice (Commitment) earned</title>
+  <desc>Anchor milestone emblem. Provisional design slug: commitment_first_practice. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="commitment_first_practice-orb" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F8E2A8"/><stop offset="0.38" stop-color="#DDB35F"/>
+      <stop offset="0.78" stop-color="#B08A46"/><stop offset="1" stop-color="#7E5E28"/>
+    </radialGradient>
+    <radialGradient id="commitment_first_practice-plate" cx="36%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#FFFBF0"/><stop offset="0.6" stop-color="#F7F0DE"/><stop offset="1" stop-color="#EBE3CF"/>
+    </radialGradient>
+    <linearGradient id="commitment_first_practice-metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2D08A"/><stop offset="0.5" stop-color="#D9B263"/><stop offset="1" stop-color="#A98245"/>
+    </linearGradient>
+  </defs>
+  <g id="commitment_first_practice__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#commitment_first_practice-plate)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CDBE96" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFF6DC" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B08A50" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#F0DFB4" stroke-width="0.7"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#B39561" stroke-width="1.2"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FEEED2" stroke-width="0.6"/>
+  </g>
+  <g id="commitment_first_practice__structure">
+    <circle id="commitment_first_practice__structure-ring-outer" cx="128" cy="128" r="90" fill="none" stroke="#A07C3E" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+    <line id="commitment_first_practice__structure-tick-01" x1="160.15" y1="50.39" x2="162.44" y2="44.85" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__structure-tick-02" x1="205.61" y1="95.85" x2="211.15" y2="93.56" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__structure-tick-03" x1="205.61" y1="160.15" x2="211.15" y2="162.44" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__structure-tick-04" x1="160.15" y1="205.61" x2="162.44" y2="211.15" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__structure-tick-05" x1="95.85" y1="205.61" x2="93.56" y2="211.15" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__structure-tick-06" x1="50.39" y1="160.15" x2="44.85" y2="162.44" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__structure-tick-07" x1="50.39" y1="95.85" x2="44.85" y2="93.56" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__structure-tick-08" x1="95.85" y1="50.39" x2="93.56" y2="44.85" fill="none" stroke="#A07C3E" stroke-width="1.2" stroke-linecap="butt" stroke-linejoin="round"/>
+    <circle id="commitment_first_practice__structure-ring-core" cx="128" cy="128" r="24" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_first_practice__emblem">
+    <path id="commitment_first_practice__emblem-mark-01" d="M128 114L122.28 98.55L128 48L133.72 98.55Z" fill="url(#commitment_first_practice-metal)" stroke="#13222C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__emblem-mark-02" d="M137.9 118.1L143.1 106.83L171.84 84.16L149.17 112.9Z" fill="#FBF6E8" stroke="#13222C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__emblem-mark-03" d="M142 128L157.45 122.28L208 128L157.45 133.72Z" fill="url(#commitment_first_practice-metal)" stroke="#13222C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__emblem-mark-04" d="M137.9 137.9L149.17 143.1L171.84 171.84L143.1 149.17Z" fill="#FBF6E8" stroke="#13222C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__emblem-mark-05" d="M128 142L133.72 157.45L128 208L122.28 157.45Z" fill="url(#commitment_first_practice-metal)" stroke="#13222C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__emblem-mark-06" d="M118.1 137.9L112.9 149.17L84.16 171.84L106.83 143.1Z" fill="#FBF6E8" stroke="#13222C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__emblem-mark-07" d="M114 128L98.55 133.72L48 128L98.55 122.28Z" fill="url(#commitment_first_practice-metal)" stroke="#13222C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__emblem-mark-08" d="M118.1 118.1L106.83 112.9L84.16 84.16L112.9 106.83Z" fill="#FBF6E8" stroke="#13222C" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_first_practice__engraving">
+    <line id="commitment_first_practice__engraving-facet-01" x1="128" y1="114" x2="128" y2="48" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__engraving-facet-02" x1="137.9" y1="118.1" x2="171.84" y2="84.16" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__engraving-facet-03" x1="142" y1="128" x2="208" y2="128" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__engraving-facet-04" x1="137.9" y1="137.9" x2="171.84" y2="171.84" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__engraving-facet-05" x1="128" y1="142" x2="128" y2="208" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__engraving-facet-06" x1="118.1" y1="137.9" x2="84.16" y2="171.84" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__engraving-facet-07" x1="114" y1="128" x2="48" y2="128" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_first_practice__engraving-facet-08" x1="118.1" y1="118.1" x2="84.16" y2="84.16" fill="none" stroke="#13222C" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_first_practice__highlight">
+    <path id="commitment_first_practice__highlight-arc-01" d="M134.56 92.6A36 36 0 0 1 148.39 98.33" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__highlight-arc-02" d="M163.4 134.56A36 36 0 0 1 157.67 148.39" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__highlight-arc-03" d="M121.44 163.4A36 36 0 0 1 107.61 157.67" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="commitment_first_practice__highlight-arc-04" d="M92.6 121.44A36 36 0 0 1 98.33 107.61" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_first_practice__accent">
+    <g id="commitment_first_practice__accent-orb">
+      <circle cx="128" cy="128" r="6" fill="url(#commitment_first_practice-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="126.08" cy="125.84" r="1.56" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+  </g>
+</svg>

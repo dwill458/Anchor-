@@ -1,0 +1,51 @@
+FAIL src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+  ● useV2VisionGeneration › unwraps a persisted generation job after starting
+
+    expect(received).not.toHaveProperty(path)
+
+    Expected path: not "appearanceReferenceId"
+
+    Received value: null
+
+      34 |     expect(result.current.job?.id).toBe('job-1');
+      35 |     expect(result.current.job?.status).toBe('COMPLETE');
+    > 36 |     expect((apiClient.post as jest.Mock).mock.calls[0][1]).not.toHaveProperty('appearanceReferenceId');
+         |                                                                ^
+      37 |   });
+      38 |
+      39 |   it('includes a reference only when one is selected', async () => {
+
+      at Object.toHaveProperty (src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx:36:64)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+  ● useV2VisionSceneGeneration › starts a described scene on its own endpoint, never on the numbered sets
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 1
+
+      Object {
+    +   "appearanceReferenceId": null,
+        "idempotencyKey": StringMatching /^[A-Za-z0-9-]{12,100}$/,
+        "sceneDescription": "Working from a beach house",
+      }
+
+      30 |     const [path, body] = (apiClient.post as jest.Mock).mock.calls[0];
+      31 |     expect(path).toBe('/api/v2/anchors/anchor-1/vision/scene-generation');
+    > 32 |     expect(body).toEqual({ sceneDescription: 'Working from a beach house', idempotencyKey: expect.stringMatching(/^[A-Za-z0-9-]{12,100}$/) });
+         |                  ^
+      33 |     expect(result.current.job?.id).toBe('scene-job-1');
+      34 |     // Nothing is fetched until a job exists: there is no set to resume.
+      35 |     expect(apiClient.get).not.toHaveBeenCalled();
+
+      at Object.toEqual (src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx:32:18)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+Test Suites: 2 failed, 2 total
+Tests:       2 failed, 11 passed, 13 total
+Snapshots:   0 total
+Time:        5.284 s

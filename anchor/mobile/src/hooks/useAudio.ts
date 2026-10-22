@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { SoundPool } from '@/services/audio/SoundPool';
+import { setAudioSessionMode } from '@/services/audio/AudioSession';
+import { SOUND_FILES, type SoundKey } from '@/services/audio/soundSources';
 
-const SOUND_FILES = {
-  'forge-seal': require('../assets/sounds/forge-seal.wav'),
-  'letter-drop': require('../assets/sounds/letter-drop.wav'),
-  'prime-begin': require('../assets/sounds/prime-begin.wav'),
-  'prime-complete': require('../assets/sounds/prime-complete.wav'),
-  'haptic-tone': require('../assets/sounds/haptic-tone.wav'),
-  'ui-select': require('../assets/sounds/ui-select.wav'),
-} as const;
-
-export type SoundKey = keyof typeof SOUND_FILES;
+// DEFERRED: forge-seal and letter-drop are replaced by the Phase 2 kit assets.
+// DEFERRED: haptic-tone remains the Seal-hold loop until its Phase 2 replacement arrives.
+export { SOUND_FILES, type SoundKey } from '@/services/audio/soundSources';
 type ManagedAudioPlayerOptions = {
   loop?: boolean;
   onFinish?: () => void;
@@ -23,10 +19,14 @@ export type ManagedAudioPlayer = {
   play: () => void;
   setVolume: (volume: number) => void;
   stop: () => void;
+  /** Playback pitch follows rate; no speech pitch correction. */
+  setRate: (rate: number) => void;
 };
 
 export function useAudio() {
   const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
+  const enabledRef = useRef(soundEffectsEnabled);
+  enabledRef.current = soundEffectsEnabled;
   const activePlayersRef = useRef<Set<AudioPlayer>>(new Set());
 
   const cleanupPlayer = useCallback((player: AudioPlayer, subscription?: { remove: () => void }) => {
@@ -44,6 +44,7 @@ export function useAudio() {
 
     try {
       player.remove();
+      player.release?.();
     } catch {
       // Fail silently - audio is non-critical.
     }
@@ -59,13 +60,7 @@ export function useAudio() {
   }, [cleanupPlayer]);
 
   useEffect(() => {
-    void setAudioModeAsync({
-      playsInSilentMode: true,
-      interruptionMode: 'mixWithOthers',
-      shouldPlayInBackground: false,
-      allowsRecording: false,
-      shouldRouteThroughEarpiece: false,
-    }).catch(() => {
+    void setAudioSessionMode('effects').catch(() => {
       // Fail silently - audio is non-critical.
     });
 
@@ -83,7 +78,7 @@ export function useAudio() {
       key: SoundKey,
       { loop = false, onFinish, volume = 1 }: ManagedAudioPlayerOptions = {}
     ): ManagedAudioPlayer | null => {
-      if (!soundEffectsEnabled) {
+      if (!enabledRef.current) {
         return null;
       }
 
@@ -128,6 +123,16 @@ export function useAudio() {
               player.volume = Math.max(0, Math.min(1, value));
             }
           },
+          setRate: (rate: number) => {
+            if (!didCleanUp) {
+              try {
+                player.shouldCorrectPitch = false;
+                player.setPlaybackRate(Math.max(0.5, Math.min(2, rate)));
+              } catch {
+                // Pitch support is best-effort; audio must never interrupt the gesture.
+              }
+            }
+          },
           stop: cleanup,
         };
       } catch {
@@ -140,6 +145,11 @@ export function useAudio() {
 
   const playSound = useCallback(
     (key: SoundKey, volume: number = 1, loop: boolean = false) => {
+      if (!enabledRef.current) return null;
+      if (!loop) {
+        const pooled = SoundPool.play(key, { volume });
+        return pooled ? { stop: pooled.stop } : null;
+      }
       const player = createManagedPlayer(key, { loop, volume });
       if (!player) {
         return null;

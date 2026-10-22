@@ -76,6 +76,22 @@ export interface Anchor {
   releasedAt?: Date;
   archivedAt?: Date;
 
+  /**
+   * Local only, never sent to the server. Set on the SUCCESSOR of an evolve: the released Anchor it
+   * continues from. Written once, when that release completes (see anchorStore.linkEvolvedFrom),
+   * and carried forward across every sync/merge by id or localId.
+   */
+  evolvedFrom?: { anchorId: string; intention: string };
+
+  /** Local encrypted recovery evidence; never a server sync acknowledgement. */
+  localReconciliation?: {
+    observedServerUpdatedAt?: string;
+    observedLocalFingerprint?: string;
+    pendingLocalMutation?: boolean;
+    pendingFields?: (keyof Anchor)[];
+    recoveryCopy?: Omit<Anchor, 'localReconciliation'>;
+  };
+
   // ───────────────────────────────────────────────────
   // TIMESTAMPS
   // ───────────────────────────────────────────────────
@@ -200,6 +216,10 @@ export interface User {
   settings?: UserSettings | null;
   subscriptionStatus: SubscriptionStatus;
   totalAnchorsCreated: number;
+  /** Server-authoritative lifetime Free Anchor allowance state. */
+  freeAnchorConsumed?: boolean;
+  /** Backend-computed, migration-only legacy trial compatibility access. */
+  legacyMigrationAccess?: boolean;
   totalActivations: number;
   currentStreak: number;
   longestStreak: number;
@@ -227,11 +247,15 @@ export interface AuthScreenParams {
 }
 
 export interface PendingFirstAnchorDraft {
+  /** Stable owner bound on the explicitly authorized guest handoff. */
+  ownerUserId?: string;
   tempAnchorId: string;
   source: 'onboarding_first_anchor';
   requiresAccountGate: boolean;
   createdAt: Date;
   backendAnchorId?: string;
+  /** A retry may replay this draft's stable server key even after its free slot was consumed. */
+  createAttempted?: boolean;
   nextPendingMutationIndex?: number;
 }
 
@@ -284,6 +308,8 @@ export interface UserSettings {
   sessionAudioDefaults?: SessionAudioDefaultsByType;
   hapticIntensity: number; // 1-5 scale
   vaultViewType: 'grid' | 'list';
+  /** Explicit consent gate for profile-photo use in future Vision generations. */
+  useProfilePhotoForVision?: boolean;
   updatedAt: Date;
 }
 
@@ -466,10 +492,27 @@ export interface EnhancementMetadata {
 }
 
 /**
- * AI style options (ControlNet-based style transfer)
- * Updated to reflect validated styles from spike phase
+ * AI style options (ControlNet-based style transfer / Anchor 2.0 full-field generation)
  */
 export type AIStyle =
+  // Anchor 2.0 styles
+  | 'velvet_ember_v2'
+  | 'porcelain_v2'
+  | 'prism_flow_v2'
+  | 'joybrush_v2'
+  | 'deep_cosmos_v2'
+  | 'woven_v2'
+  | 'paper_v2'
+  | 'clay_v2'
+  | 'mineral_wash_v2'
+  | 'graphic_v2'
+  | 'plush_v2'
+  | 'herbarium_v2'
+  | 'alloy_v2'
+  | 'gilt_v2'
+  | 'flash_v2'
+  | 'buff_v2'
+  // Legacy Anchor 1.5 styles (kept for backward compatibility with saved anchors)
   | 'architectural_trace'
   | 'lunar_etch'
   | 'resonance_rings'
@@ -495,7 +538,6 @@ export type PaywallSource =
   | 'post_trial'
   | 'gated_feature'
   | 'create_anchor_free_locked'
-  | 'trial_anchor_cap_reached'
   | 'free_weekly_sessions_used'
   | 'premium_practice_locked';
 
@@ -614,7 +656,28 @@ export type RootStackParamList = {
     | undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
-  FirstAnchorCreation: undefined;
+  FirstAnchorCreation: { initialIntention?: string; evolve?: { fromAnchorId: string } } | undefined;
+  /** One-screen creation flow: distil → map → forget → style → form → choose → seal. */
+  AnchorCreationFlow: {
+    fromOnboarding?: boolean;
+    /** Onboarding's chosen area, so the Intention chrome the flow fades from matches what was shown. */
+    focusAreaId?: import('@/constants/v2/focusAreas').FocusAreaId;
+    intentionText: string;
+    category: AnchorCategory;
+    distilledLetters: string[];
+    source: 'typed' | 'drawn';
+    entry: 'glide' | 'fade';
+    fieldFrame?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      fontSize: number;
+      lineHeight: number;
+    };
+    /** Evolve: creation was opened from a Release screen and returns there when the Anchor is sealed. */
+    evolve?: { fromAnchorId: string };
+  };
   Login: AuthScreenParams | undefined;
   SignUp: AuthScreenParams | undefined;
 

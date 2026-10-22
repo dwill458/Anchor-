@@ -116,6 +116,40 @@ export interface VisualLanguageDNA {
 }
 
 /**
+ * Anchor 2.0 generation styles. Deliberately NOT part of AI_STYLE_IDS: that list is the frozen
+ * legacy (Anchor 1.5) catalog and keeps its transparent/standalone artwork contract. These IDs
+ * resolve to definitions in services/anchor2StyleLibrary.ts, the only place their behavior lives.
+ */
+export const ANCHOR2_STYLE_IDS = [
+  'velvet_ember_v2',
+  'prism_flow_v2',
+  'deep_cosmos_v2',
+  'joybrush_v2',
+  'porcelain_v2',
+  'woven_v2',
+  'paper_v2',
+  'clay_v2',
+  'graphic_v2',
+  'plush_v2',
+  'herbarium_v2',
+  'alloy_v2',
+  'gilt_v2',
+  'flash_v2',
+  'buff_v2',
+] as const;
+
+export type Anchor2StyleId = (typeof ANCHOR2_STYLE_IDS)[number];
+
+/** Which generation contract a style uses. Always resolved server-side from the registry. */
+export type StyleGenerationVersion = 'legacy' | 'anchor2';
+
+/** Product-picker availability for Anchor 2.0 styles. Never gates generation. */
+export type StyleAvailability = 'forward' | 'rotation';
+
+/** Any style ID the generation pipeline can render. */
+export type GenerationStyleId = AIStyle | Anchor2StyleId;
+
+/**
  * Legacy AI styles (deprecated, kept for backward compatibility)
  */
 export type LegacyAIStyle = 'grimoire' | 'minimal' | 'geometric' | 'organic' | 'celestial';

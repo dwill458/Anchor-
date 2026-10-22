@@ -1,0 +1,219 @@
+{
+  "fixture": true,
+  "startingPoint": "Limited resources, no investments, little spare money; I can spend 15 minutes today reviewing my accounts. No current net worth number is known.",
+  "destination": "Reach $111,000 net worth",
+  "results": [
+    {
+      "status": "proposal",
+      "proposal": {
+        "proposalId": "574db6d2-c450-4da2-a37d-37f6582de3db",
+        "kind": "CREATE",
+        "anchorId": "9350d4c9-c39d-4789-8d53-00a1603cc49d",
+        "courseId": null,
+        "baseCourseVersion": null,
+        "destination": "Reach $111,000 net worth",
+        "routeScope": "NEXT_STRETCH",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "kind": "MILESTONE",
+            "title": "Account baseline established",
+            "clientKey": "cde2462c-2615-4722-80ec-ef47f43b9f5f",
+            "rationale": "Clear visibility into current balances and fixed commitments forms the foundation.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Check bank account balances",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "List all fixed monthly expenses",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Document existing debt totals",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "All accounts reviewed and current totals documented."
+          },
+          {
+            "kind": "METRIC",
+            "title": "Positive monthly margin created",
+            "clientKey": "0a2384d0-ecc7-43cc-a1f1-abc9fa6f05dc",
+            "rationale": "Consistent positive cash flow is required to accumulate assets over time.",
+            "metricLabel": "dollars saved per month",
+            "metricTarget": 100,
+            "progressMode": "numeric",
+            "requirements": [],
+            "metricBaseline": 0,
+            "completionCriteria": "Expenses reduced or income adjusted to consistently retain $100 monthly."
+          },
+          {
+            "kind": "METRIC",
+            "title": "Initial emergency buffer formed",
+            "clientKey": "ba8ff552-819b-4342-8353-1b34768b69f8",
+            "rationale": "An accessible reserve prevents minor emergencies from derailing financial stability.",
+            "metricLabel": "dollars in reserve",
+            "metricTarget": 500,
+            "progressMode": "numeric",
+            "requirements": [],
+            "metricBaseline": 0,
+            "completionCriteria": "Five hundred dollars held separately for unexpected costs."
+          },
+          {
+            "kind": "CAPABILITY",
+            "title": "First investment vehicle opened",
+            "clientKey": "c36621af-86fc-4647-8bd0-6ed2bef1341e",
+            "rationale": "Capital must be placed in instruments capable of compound growth.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "moves",
+            "requirements": [],
+            "metricBaseline": null,
+            "completionCriteria": "Account opened and configured for automatic transfers."
+          },
+          {
+            "kind": "METRIC",
+            "title": "Portfolio reaches five thousand dollars",
+            "clientKey": "1386ec37-c936-4029-b278-d2e1896e1071",
+            "rationale": "Crossing initial asset thresholds builds momentum toward larger targets.",
+            "metricLabel": "dollars",
+            "metricTarget": 5000,
+            "progressMode": "numeric",
+            "requirements": [],
+            "metricBaseline": 0,
+            "completionCriteria": "Total net assets reach $5,000."
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Review account balances for 15 minutes",
+          "rationale": "Looking directly at current accounts initiates the baseline review without financial risk."
+        },
+        "guidance": "Reviewing accounts establishes the baseline needed to understand your starting point.",
+        "generation": {
+          "source": "ai",
+          "fallbackUsed": true,
+          "needsNaming": false
+        },
+        "createdAt": "2026-10-09T06:51:14.060Z",
+        "expiresAt": "2026-10-10T06:51:14.060Z"
+      }
+    },
+    {
+      "status": "proposal",
+      "proposal": {
+        "proposalId": "9482957d-5088-4fb1-8054-bf25c3d9ad0f",
+        "kind": "ADJUST",
+        "anchorId": "9350d4c9-c39d-4789-8d53-00a1603cc49d",
+        "courseId": null,
+        "baseCourseVersion": null,
+        "destination": "Reach $111,000 net worth",
+        "routeScope": "NEXT_STRETCH",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "kind": "MILESTONE",
+            "title": "Account snapshot written down",
+            "clientKey": "3e7e3df9-9983-4f0f-a67b-f0e6e3f457fb",
+            "rationale": "Writing down all balances and debts provides a clear baseline without needing setup steps.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "List every checking and savings account balance",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "List total outstanding debt balances",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "A complete list of current account balances and total debts is recorded on paper or screen."
+          },
+          {
+            "kind": "METRIC",
+            "title": "Small monthly surplus identified",
+            "clientKey": "d111ae1a-fa30-4dd9-beb6-50fdc46949dd",
+            "rationale": "Finding even a modest gap between income and expenses creates room to save.",
+            "metricLabel": "dollars saved per month",
+            "metricTarget": 25,
+            "progressMode": "numeric",
+            "requirements": [],
+            "metricBaseline": 0,
+            "completionCriteria": "Monthly expenses are tracked and a consistent surplus of at least twenty five dollars is mapped out."
+          },
+          {
+            "kind": "METRIC",
+            "title": "Initial cash buffer gathered",
+            "clientKey": "3e1ca107-7ef3-48fb-a3fc-0e83285d9e48",
+            "rationale": "A small reserve protects against immediate shocks before moving to investments.",
+            "metricLabel": "dollars in reserve",
+            "metricTarget": 100,
+            "progressMode": "numeric",
+            "requirements": [],
+            "metricBaseline": 0,
+            "completionCriteria": "One hundred dollars is set aside in a separate place designated for unexpected expenses."
+          },
+          {
+            "kind": "MILESTONE",
+            "title": "Basic savings account opened",
+            "clientKey": "c67a48c8-2bbe-4f06-af21-7f833a85faf4",
+            "rationale": "Establishing a dedicated account separates everyday spending from growth funds.",
+            "metricLabel": null,
+            "metricTarget": null,
+            "progressMode": "completion",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Select a no-fee account option",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Complete the application process",
+                "completed": false
+              }
+            ],
+            "metricBaseline": null,
+            "completionCriteria": "A separate savings vehicle is active and ready for transfers."
+          },
+          {
+            "kind": "METRIC",
+            "title": "Portfolio reaches one thousand dollars",
+            "clientKey": "0708d57c-2e4f-4da4-9cfd-37f472028bb2",
+            "rationale": "Reaching four figures establishes the first major compounding milestone.",
+            "metricLabel": "dollars",
+            "metricTarget": 1000,
+            "progressMode": "numeric",
+            "requirements": [],
+            "metricBaseline": 0,
+            "completionCriteria": "Total combined balances in savings and growth accounts total one thousand dollars."
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Spend fifteen minutes writing down all current account balances and debt totals",
+          "rationale": "This uses your allocated time today to map out reality without needing any initial financial resources."
+        },
+        "guidance": "Starting with a simple written snapshot removes the pressure of large financial targets and works within your available time.",
+        "generation": {
+          "source": "ai",
+          "fallbackUsed": true,
+          "needsNaming": false
+        },
+        "createdAt": "2026-10-09T06:51:24.911Z",
+        "expiresAt": "2026-10-10T06:51:24.911Z"
+      }
+    }
+  ]
+}

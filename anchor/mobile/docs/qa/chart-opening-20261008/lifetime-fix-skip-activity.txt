@@ -1,0 +1,2 @@
+    topResumedActivity=ActivityRecord{226346202 u0 com.anchorintentions.app/.MainActivity t92}
+  ResumedActivity: ActivityRecord{226346202 u0 com.anchorintentions.app/.MainActivity t92}

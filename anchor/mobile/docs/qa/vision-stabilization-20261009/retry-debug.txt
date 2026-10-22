@@ -1,0 +1,385 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --no-watchman --runTestsByPath src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx --testNamePattern=retries a failed generated
+
+  console.log
+    RETRY_DEBUG [
+      {
+        uri: 'file:///generated-1.jpg',
+        retry: 0,
+        revealed: false,
+        active: true
+      },
+      {
+        uri: 'file:///generated-0.jpg',
+        retry: 1,
+        revealed: false,
+        active: true
+      }
+    ] {
+      busy: undefined,
+      checked: undefined,
+      disabled: true,
+      expanded: undefined,
+      selected: undefined
+    }
+
+      at Object.log (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:294:13)
+
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (7.233 s)
+  Vision ceremony
+    × retries a failed generated image URL and lets the user choose it after reload (1641 ms)
+    ○ skipped create starts at Ask with all three paths and launches nothing
+    ○ skipped add starts at Ask with all three paths and launches nothing
+    ○ skipped words enters the existing Describe screen with words selected and preserves edited input
+    ○ skipped a PARTIAL job develops only its real image and never reveals a missing slot
+    ○ skipped Choose is one tap, Keep edits the caption, and Seal saves once with that caption
+    ○ skipped personal-photo completion uses Complete Vision and starts sealing on that tap
+    ○ skipped finalizes an AI Vision when a terminal job has only one usable generated image
+    ○ skipped retains and develops every selected personal photo (1)
+    ○ skipped retains and develops every selected personal photo (2)
+    ○ skipped retains and develops every selected personal photo (4)
+    ○ skipped retains and develops every selected personal photo (7)
+    ○ skipped retains and develops every selected personal photo (8)
+    ○ skipped edits and persists the caption with the photo currently in front, preserving every selected image
+    ○ skipped replaces a failed photo in place and keeps the other selected images
+    ○ skipped See both again and neither retain the description without saving
+    ○ skipped failed save stays sealed; retry repeats the save without another hold
+    ○ skipped retrying a partial failure keeps the already developed candidate selectable
+    ○ skipped own-photo multi-select stays local until Seal and saves the set in picker order
+    ○ skipped own-photo retry reuses uploaded assets after a failed save
+    ○ skipped regenerate enters Describe, then follows Develop, Choose, Keep and Seal
+    ○ skipped records an added generated selection at Choose before persistence
+    ○ skipped resumeGeneration consumes the saved request once and enters Develop
+    ○ skipped all decorative durations collapse to 200ms or less while hold remains 1600ms
+    ○ skipped approved copy contains no forbidden vocabulary and prefill never exceeds 80 characters
+    ○ skipped add mode accepts the existing six-character scene minimum
+    ○ skipped photo-based generation with no written description saves the same valid draft at Seal
+    ○ skipped one loaded candidate remains choosable when the other cannot load
+    ○ skipped retry retains development readiness for a partial image reused by the server
+    ○ skipped create starts once across Describe re-entry and Add source follows the selected path
+    ○ skipped plays the bed only during the Develop wait and stops it at the first reveal
+    ○ skipped stops the bed when the app backgrounds
+    ○ skipped Ask buttons and Keep play the tap cue
+    ○ skipped tapping an example opens Describe from that moment, and generation uses the typed text
+    ○ skipped an untouched example reports an edit distance of 0
+    ○ skipped Back from Describe shows the entrance at rest without replaying the open
+    ○ skipped backing out of an untouched example does not leave its moment as a prefill
+    ○ skipped the persistent Anchor stays hidden during the open and appears when the lift lands
+    ○ skipped Reduce Motion skips the open and shows the persistent Anchor at once
+    ○ skipped hides the Anchor mark on Describe and brings it back on Develop
+    ○ skipped Keep has no reframe gesture and no reframe hint
+    ○ skipped hides "Neither" after a generation-limit error and stays on the developed pair
+    ○ skipped catches an active transition between mounting and subscribing to AppState
+  Vision celebration scene
+    ○ skipped the first-image completion tap starts the L4 scene on the shortened timeline
+    ○ skipped a later image completion tap starts the L2 scene immediately
+    ○ skipped completion fires one Heavy haptic after the print movement and no Medium haptic
+    ○ skipped the short seal scene is not skippable and lands the print on the board once
+    ○ skipped a pending save remains visible until completion without a skip affordance
+    ○ skipped Reduce Motion resolves to a short L2 scene that is not skippable; the seal cue and Heavy haptic still fire
+    ○ skipped a higher scene that preempts a later-image seal lands it on the settled board
+    ○ skipped a seal deferred behind a higher scene still saves, and leaves the queue at its hand-off
+    ○ skipped holds the completed-board handoff while backgrounded and exposes Back after resume
+  Vision double-fire guards
+    ○ skipped the own-photo develop opens once: a background-to-foreground cycle does not replay the cue, the haptic or the status
+    ○ skipped the own-photo develop still runs its status cues once each when the app never leaves
+    ○ skipped a new photo opens the develop again
+    ○ skipped two quick taps on a candidate choose once: one cue, one haptic, one event
+    ○ skipped choosing works again when Choose is entered again
+
+  ● Vision ceremony › retries a failed generated image URL and lets the user choose it after reload
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View
+      testID="vision-ceremony"
+    >
+      <View
+        nativeID="0"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-1"
+      >
+        <View
+          nativeID="1"
+        >
+          <View
+            testID="vision-ceremony-print-1"
+          >
+            <View
+              nativeID="2"
+            >
+              <Svg>
+                <Rect
+                  nativeID="3"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="4"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="5"
+              >
+                <View
+                  nativeID="6"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-1-sharp"
+                  />
+                </View>
+                <View
+                  nativeID="8"
+                  testID="vision-ceremony-print-1-ink"
+                />
+              </View>
+              <View
+                nativeID="9"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View
+            accessibilityLabel="Choose image 2"
+            accessibilityRole="imagebutton"
+            accessibilityState={
+              {
+                "disabled": false,
+              }
+            }
+            accessible={true}
+            testID="scene-candidate-c1"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="10"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-0"
+      >
+        <View
+          nativeID="11"
+        >
+          <View
+            testID="vision-ceremony-print-0"
+          >
+            <View
+              nativeID="12"
+            >
+              <Svg>
+                <Rect
+                  nativeID="13"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="14"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="15"
+              >
+                <View
+                  nativeID="16"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-0-sharp"
+                  />
+                  <View
+                    nativeID="60"
+                  >
+                    <Image
+                      accessible={false}
+                    />
+                  </View>
+                </View>
+                <View
+                  nativeID="18"
+                  testID="vision-ceremony-print-0-ink"
+                />
+              </View>
+              <View
+                nativeID="19"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+          <View
+            accessibilityLabel="Choose image 1"
+            accessibilityRole="imagebutton"
+            accessibilityState={
+              {
+                "disabled": true,
+              }
+            }
+            accessible={true}
+            testID="scene-candidate-c0"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="34"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-anchor"
+      >
+        <View
+          nativeID="35"
+        >
+          <View
+            nativeID="36"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="59"
+      >
+        <View
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          accessible={true}
+        >
+          <ArrowLeft />
+        </View>
+        <View>
+          <Text>
+            Your vision
+          </Text>
+          <Text
+            accessibilityRole="header"
+          >
+            Tap the one that feels right.
+          </Text>
+        </View>
+        <View />
+        <View>
+          <View
+            accessibilityLabel="Neither feels right, try again"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <Text>
+              Neither feels right, try again
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      296 |     expect(view.getByTestId('scene-candidate-c0')).toBeTruthy();
+      297 |     fireEvent.press(view.getByTestId('scene-candidate-c0'));
+    > 298 |     expect(view.getByTestId('vision-ceremony-keep')).toBeTruthy();
+          |                 ^
+      299 |   });
+      300 |   it('create starts once across Describe re-entry and Add source follows the selected path', async () => {
+      301 |     const view = setup(); fireEvent.press(view.getByLabelText(copy.words)); fireEvent.press(view.getByLabelText('Go back')); fireEvent.press(view.getByLabelText(copy.words));
+
+      at Object.getByTestId (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:298:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 56 skipped, 57 total
+Snapshots:   0 total
+Time:        7.359 s, estimated 75 s
+Ran all test suites within paths "src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx".

@@ -1,0 +1,23 @@
+[
+  {
+    "fixture": "vision-future-desk.jpg",
+    "width": 1920,
+    "height": 1280,
+    "aspect": 1.5,
+    "exif_orientation": null
+  },
+  {
+    "fixture": "vision-future-window-wide.jpg",
+    "width": 1600,
+    "height": 893,
+    "aspect": 1.7917133258678613,
+    "exif_orientation": null
+  },
+  {
+    "fixture": "vision-future-family.jpg",
+    "width": 1920,
+    "height": 1280,
+    "aspect": 1.5,
+    "exif_orientation": null
+  }
+]

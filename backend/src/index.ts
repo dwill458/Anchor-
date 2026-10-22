@@ -8,9 +8,11 @@ import express, { Application, Request, Response } from 'express';
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import { optionalAuthMiddleware, AuthRequest } from './api/middleware/auth';
+import { isAiDeveloper } from './api/middleware/aiRateLimit';
 import authRoutes from './api/routes/auth';
 import usersRoutes from './api/routes/users';
 import anchorRoutes from './api/routes/anchors';
@@ -24,6 +26,7 @@ import billingRoutes from './api/routes/billing';
 import courseRoutes from './api/routes/courses';
 import coursePlanRoutes from './api/routes/coursePlans';
 import reflectionRoutes from './api/routes/reflections';
+import v2Routes, { v2BillingRoutes, v2ThreadRoutes } from './api/routes/v2';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { scrubSentryEvent } from './utils/sentryPrivacy';
@@ -128,7 +131,7 @@ app.use(
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Timezone'],
   })
 );
 
@@ -137,22 +140,36 @@ app.use(
 // body limit than the global parser. Registered first so it consumes the body
 // before the 1mb parser below — body-parser skips once req._body is set.
 app.use('/api/users', express.json({ limit: '8mb' }));
+// Vision uploads enforce a 5 MB decoded-image limit in visionRoutes. Allow
+// enough room for base64 expansion and JSON framing before that route-level
+// validation runs.
+app.use('/api/v2/assets/upload', express.json({ limit: '8mb' }));
+// Ask Chart photos are base64 JSON too (the app sends a resized JPEG; the route enforces 6 MB decoded).
+app.use('/api/v2/anchors/:anchorId/chart/ask/photo', express.json({ limit: '8mb' }));
+// Identity reference photos are base64 JSON as well (5 MB decoded cap in VisionAppearanceReferenceService).
+// Without this they fall under the 1mb parser below and every real photograph is refused with a 413.
+app.use('/api/v2/vision/appearance-reference', express.json({ limit: '8mb' }));
 
 // Limit request body size to prevent memory exhaustion attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
+// Resolve authentication token optionally before global rate limiting so
+// authenticated requests can be identified and developers elevated.
+app.use('/api/', optionalAuthMiddleware);
+
 // Global rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: (req: Request) => (env.NODE_ENV === 'development' || isAiDeveloper(req) ? 10_000 : 100),
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: {
       code: 'TOO_MANY_REQUESTS',
-      message: 'Too many requests from this IP, please try again after 15 minutes',
+      message: 'Too many requests, please try again after 15 minutes',
     },
   },
 });
@@ -217,6 +234,12 @@ app.use('/api/auth', authRoutes);
 
 // Billing access is confirmed server-side against RevenueCat after store purchase.
 app.use('/api/billing', billingRoutes);
+
+// Anchor 2.0 contracts remain explicitly versioned; no legacy client changes
+// behavior merely because this namespace is present.
+app.use('/api/v2/billing', v2BillingRoutes);
+app.use('/api/v2/thread', v2ThreadRoutes);
+app.use('/api/v2', v2Routes);
 
 // User routes
 app.use('/api/users', usersRoutes);

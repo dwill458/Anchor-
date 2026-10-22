@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Anchor — Draw your structure</title>
+  <!--
+    ANCHOR / DRAW YOUR STRUCTURE
+    Assumptions: this standalone prototype receives its source letters from the
+    canonical Letter Distillation flow via window.ANCHOR_DRAWN_DATA or ?letters=.
+    It intentionally does not derive/recompute them. The drawing workspace keeps
+    one neutral pen, one guides toggle, history controls, and a clear action.
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@10..48,75..100,400..700&family=Figtree:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --page: #F4F1E9;
+      --ink: #171717;
+      --secondary: #716F69;
+      --tertiary: #9A9790;
+      --divider: #DEDAD1;
+      --surface: #ECE8DF;
+      --paper: #FBF9F4;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Figtree, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button { font: inherit; }
+    .workspace {
+      width: min(100%, 560px);
+      min-height: 100dvh;
+      margin: 0 auto;
+      padding: max(12px, env(safe-area-inset-top)) 22px max(18px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .header {
+      height: 56px;
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .icon-button, .tool-icon, .guides-button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      min-width: 44px;
+      min-height: 44px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 120ms ease, opacity 120ms ease, color 120ms ease;
+    }
+    .icon-button:active, .tool-icon:not(:disabled):active, .guides-button:active { background: rgba(23, 23, 23, .07); }
+    .header-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -.015em;
+      text-align: center;
+    }
+    .header-spacer { width: 44px; height: 44px; }
+    svg { display: block; }
+    .source {
+      margin: 0 0 9px;
+    }
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--secondary);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .105em;
+      text-transform: uppercase;
+    }
+    .letters {
+      margin: 0;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-size: clamp(24px, 6.4vw, 29px);
+      font-weight: 500;
+      letter-spacing: .18em;
+      line-height: 1.08;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .instruction {
+      margin: 0 0 17px;
+      color: var(--secondary);
+      font-size: 14px;
+      line-height: 1.36;
+      letter-spacing: -.006em;
+      text-wrap: pretty;
+    }
+    .canvas-wrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 300px;
+      height: clamp(330px, 55dvh, 570px);
+      border: 1px solid var(--divider);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--paper);
+      touch-action: none;
+    }
+    .canvas-wrap:focus-within { border-color: #aaa59a; }
+    .canvas-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .guides { opacity: 1; transition: opacity 150ms ease; pointer-events: none; }
+    .guides.is-hidden { opacity: 0; }
+    .grid-line { stroke: #716f69; stroke-width: 1; opacity: .085; }
+    .guide-circle { fill: none; stroke: #716f69; stroke-width: 1.1; stroke-dasharray: 2.2 4.4; opacity: .25; }
+    .center-point { fill: #716f69; opacity: .62; }
+    .stroke { fill: none; stroke: var(--ink); stroke-width: 4.25; stroke-linecap: round; stroke-linejoin: round; }
+    .toolbar {
+      height: 56px;
+      margin: 8px 0 17px;
+      padding: 0 0 0 2px;
+      border-bottom: 1px solid var(--divider);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tools-right { display: flex; align-items: center; gap: 1px; }
+    .guides-button {
+      min-width: auto;
+      padding: 0 11px;
+      gap: 7px;
+      color: var(--secondary);
+      font-size: 14px;
+      font-weight: 600;
+      justify-content: flex-start;
+    }
+    .guides-button[aria-pressed="true"] { color: var(--ink); }
+    .guide-state { width: 7px; height: 7px; border-radius: 50%; background: var(--tertiary); }
+    .guides-button[aria-pressed="true"] .guide-state { background: var(--ink); }
+    .tool-icon { color: var(--secondary); }
+    .tool-icon.clear { min-width: 56px; padding: 0 9px; font-size: 14px; font-weight: 600; }
+    .tool-icon:disabled { cursor: default; color: var(--tertiary); opacity: .58; }
+    .use-button {
+      width: 100%;
+      min-height: 56px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--ink);
+      color: var(--paper);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -.01em;
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease, opacity 150ms ease, transform 90ms ease;
+    }
+    .use-button:active:not(:disabled) { transform: scale(.99); }
+    .use-button:disabled { color: #aaa79f; background: #d9d5cc; cursor: default; }
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(23, 23, 23, .23);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 210ms ease;
+      z-index: 4;
+    }
+    .bottom-sheet {
+      position: fixed;
+      z-index: 5;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      margin: auto;
+      width: min(100%, 560px);
+      padding: 10px 22px max(20px, env(safe-area-inset-bottom));
+      border-radius: 26px 26px 0 0;
+      background: var(--paper);
+      transform: translateY(110%);
+      transition: transform 225ms cubic-bezier(.2,.8,.2,1);
+      z-index: 5;
+    }
+    .sheet-backdrop.is-open { opacity: 1; pointer-events: auto; }
+    .bottom-sheet.is-open { transform: translateY(0); }
+    .handle { width: 36px; height: 4px; border-radius: 999px; background: #ccc7bc; margin: 0 auto 23px; }
+    .sheet-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .sheet-title { margin: 0; font-size: 21px; line-height: 1.15; font-weight: 600; letter-spacing: -.04em; }
+    .sheet-copy { margin: 13px 0 25px; color: var(--secondary); font-size: 15px; line-height: 1.48; text-wrap: pretty; }
+    .sheet-close { margin-top: -9px; }
+    .sheet-action-row { display: flex; gap: 10px; }
+    .sheet-action {
+      min-height: 50px; border-radius: 13px; padding: 0 17px; border: 0; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    .sheet-action.secondary { background: var(--surface); color: var(--ink); }
+    .sheet-action.primary { flex: 1; background: var(--ink); color: var(--paper); }
+    .toast {
+      position: fixed; left: 50%; bottom: 84px; transform: translate(-50%, 12px); z-index: 9;
+      color: var(--paper); background: var(--ink); border-radius: 10px; padding: 10px 13px;
+      font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity 150ms ease, transform 150ms ease;
+      white-space: nowrap;
+    }
+    .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+    @media (max-height: 720px) {
+      .workspace { padding-top: max(7px, env(safe-area-inset-top)); }
+      .header { height: 51px; margin-bottom: 9px; }
+      .source { margin-bottom: 7px; }
+      .instruction { margin-bottom: 10px; }
+      .canvas-wrap { height: 43dvh; min-height: 260px; }
+      .toolbar { margin: 5px 0 10px; height: 50px; }
+      .use-button { min-height: 52px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="workspace" id="workspace" aria-label="Draw your structure workspace">
+    <header class="header">
+      <button class="icon-button" id="backButton" type="button" aria-label="Back" title="Back">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+      </button>
+      <h1 class="header-title">Draw your structure</h1>
+      <button class="icon-button" id="infoButton" type="button" aria-label="Info" title="Info">
+        <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.75"/><path d="M12 10.7v5.1M12 7.75h.01"/></svg>
+      </button>
+    </header>
+
+    <section class="source" aria-labelledby="source-label">
+      <p class="eyebrow" id="source-label">Source letters</p>
+      <p class="letters" id="sourceLetters">F N S H W T R</p>
+    </section>
+    <p class="instruction">Combine, overlap, or simplify these letters into a form that feels right.</p>
+
+    <section class="canvas-wrap" id="canvas" tabindex="0" role="application" aria-label="Drawing canvas" aria-description="Draw your structure using the source letters shown above.">
+      <svg class="canvas-svg" id="drawingSvg" aria-hidden="true">
+        <g class="guides" id="guideLayer">
+          <line class="grid-line" x1="12.5%" y1="0" x2="12.5%" y2="100%"/><line class="grid-line" x1="25%" y1="0" x2="25%" y2="100%"/><line class="grid-line" x1="37.5%" y1="0" x2="37.5%" y2="100%"/><line class="grid-line" x1="50%" y1="0" x2="50%" y2="100%"/><line class="grid-line" x1="62.5%" y1="0" x2="62.5%" y2="100%"/><line class="grid-line" x1="75%" y1="0" x2="75%" y2="100%"/><line class="grid-line" x1="87.5%" y1="0" x2="87.5%" y2="100%"/>
+          <line class="grid-line" x1="0" y1="12.5%" x2="100%" y2="12.5%"/><line class="grid-line" x1="0" y1="25%" x2="100%" y2="25%"/><line class="grid-line" x1="0" y1="37.5%" x2="100%" y2="37.5%"/><line class="grid-line" x1="0" y1="50%" x2="100%" y2="50%"/><line class="grid-line" x1="0" y1="62.5%" x2="100%" y2="62.5%"/><line class="grid-line" x1="0" y1="75%" x2="100%" y2="75%"/><line class="grid-line" x1="0" y1="87.5%" x2="100%" y2="87.5%"/>
+          <circle class="guide-circle" cx="50%" cy="50%" r="34%"/><circle class="center-point" cx="50%" cy="50%" r="2.3"/>
+        </g>
+        <g id="strokeLayer"></g>
+        <path id="activeStroke" class="stroke" d=""></path>
+      </svg>
+    </section>
+
+    <nav class="toolbar" aria-label="Drawing controls">
+      <button class="guides-button" id="guidesButton" type="button" aria-label="Guides on" aria-pressed="true"><span class="guide-state" aria-hidden="true"></span>Guides</button>
+      <div class="tools-right">
+        <button class="tool-icon" id="undoButton" type="button" aria-label="Undo" title="Undo" disabled>
+          <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 8 5 12l4 4"/><path d="M5 12h9a5 5 0 0 1 0 10h-1"/></svg>
+        </button>
+        <button class="tool-icon" id="redoButton" type="button" aria-label="Redo" title="Redo" disabled>
+          <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 8 4 4-4 4"/><path d="M19 12h-9a5 5 0 0 0 0 10h1"/></svg>
+        </button>
+        <button class="tool-icon clear" id="clearButton" type="button" aria-label="Clear drawing" disabled>Clear</button>
+      </div>
+    </nav>
+    <button class="use-button" id="useButton" type="button" aria-label="Use this structure" disabled>Use this structure</button>
+  </main>
+
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <aside class="bottom-sheet" id="infoSheet" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawing-sheet-title" tabindex="-1">
+    <div class="handle"></div>
+    <div class="sheet-top">
+      <h2 class="sheet-title" id="drawing-sheet-title">Drawing your structure</h2>
+      <button class="icon-button sheet-close" id="closeInfo" type="button" aria-label="Close">
+        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6.7 6.7 10.6 10.6M17.3 6.7 6.7 17.3"/></svg>
+      </button>
+    </div>
+    <p class="sheet-copy">Start with the source letters. You can overlap, rotate, simplify, or combine their shapes. You do not need to draw every letter literally.</p>
+  </aside>
+
+  <script>
+    (() => {
+      const SVG_NS = 'http://www.w3.org/2000/svg';
+      const workspace = document.getElementById('workspace');
+      const canvas = document.getElementById('canvas');
+      const drawingSvg = document.getElementById('drawingSvg');
+      const strokeLayer = document.getElementById('strokeLayer');
+      const activeStroke = document.getElementById('activeStroke');
+      const guideLayer = document.getElementById('guideLayer');
+      const guidesButton = document.getElementById('guidesButton');
+      const undoButton = document.getElementById('undoButton');
+      const redoButton = document.getElementById('redoButton');
+      const clearButton = document.getElementById('clearButton');
+      const useButton = document.getElementById('useButton');
+      const sourceLetters = document.getElementById('sourceLetters');
+      const backdrop = document.getElementById('sheetBackdrop');
+      const infoSheet = document.getElementById('infoSheet');
+      let strokes = [];
+      let undoStack = [];
+      let redoStack = [];
+      let activePoints = [];
+      let drawing = false;
+      let guidesOn = true;
+      let sheetOpener = null;
+
+      // Canonical inputs are passed through untouched. Defaults only make this prototype viewable alone.
+      const params = new URLSearchParams(location.search);
+      const canonicalDraft = window.ANCHOR_DRAWN_DATA || {};
+      const supplied = canonicalDraft.distilledLetters;
+      const letters = supplied || params.get('letters') || 'F N S H W T R';
+      sourceLetters.textContent = Array.isArray(letters) ? letters.join(' ') : String(letters).replace(/[,|]/g, ' ');
+      // The standalone fallback is intentionally isolated. Production must always provide the active creation-draft identity.
+      const draftId = canonicalDraft.draftId || canonicalDraft.creationDraftId || params.get('draft') || 'standalone-preview';
+      const storageKey = `anchor-drawn-structure-v1:${encodeURIComponent(draftId)}`;
+
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey));
+        if (Array.isArray(saved?.strokes)) strokes = saved.strokes;
+        if (Array.isArray(saved?.undoStack)) undoStack = saved.undoStack;
+        if (Array.isArray(saved?.redoStack)) redoStack = saved.redoStack;
+        if (typeof saved?.guidesOn === 'boolean') guidesOn = saved.guidesOn;
+      } catch (_) { /* a drawing remains available for this session even if persistence is unavailable */ }
+
+      const pointToPath = points => points.length ? 'M ' + points.map(p => `${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' L ') : '';
+      const clone = value => JSON.parse(JSON.stringify(value));
+      const persist = () => localStorage.setItem(storageKey, JSON.stringify({ strokes, undoStack, redoStack, guidesOn }));
+      const commit = nextStrokes => {
+        undoStack.push(clone(strokes));
+        strokes = nextStrokes;
+        redoStack = [];
+        persist();
+        render();
+      };
+      const render = () => {
+        strokeLayer.replaceChildren();
+        strokes.forEach(points => {
+          const path = document.createElementNS(SVG_NS, 'path');
+          path.setAttribute('class', 'stroke');
+          path.setAttribute('d', pointToPath(points));
+          strokeLayer.appendChild(path);
+        });
+        activeStroke.setAttribute('d', pointToPath(activePoints));
+        undoButton.disabled = undoStack.length === 0;
+        redoButton.disabled = redoStack.length === 0;
+        clearButton.disabled = strokes.length === 0;
+        useButton.disabled = strokes.length === 0;
+        guideLayer.classList.toggle('is-hidden', !guidesOn);
+        guidesButton.setAttribute('aria-pressed', String(guidesOn));
+        guidesButton.setAttribute('aria-label', guidesOn ? 'Guides on' : 'Guides off');
+      };
+      const relativePoint = event => {
+        const rect = canvas.getBoundingClientRect();
+        return { x: ((event.clientX - rect.left) / rect.width) * 100, y: ((event.clientY - rect.top) / rect.height) * 100 };
+      };
+      const addPoint = event => {
+        const point = relativePoint(event);
+        const previous = activePoints[activePoints.length - 1];
+        if (!previous || Math.hypot(point.x - previous.x, point.y - previous.y) > .35) activePoints.push(point);
+        render();
+      };
+      canvas.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        drawing = true; activePoints = []; canvas.setPointerCapture(event.pointerId); addPoint(event); event.preventDefault();
+      });
+      canvas.addEventListener('pointermove', event => { if (drawing) { addPoint(event); event.preventDefault(); } });
+      const finishStroke = event => {
+        if (!drawing) return;
+        drawing = false;
+        if (activePoints.length === 1) { const p = activePoints[0]; activePoints.push({ x: p.x + .05, y: p.y + .05 }); }
+        if (activePoints.length > 1) commit([...strokes, activePoints]);
+        activePoints = []; render();
+        if (event.pointerId !== undefined && canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+      };
+      canvas.addEventListener('pointerup', finishStroke);
+      canvas.addEventListener('pointercancel', finishStroke);
+      guidesButton.addEventListener('click', () => { guidesOn = !guidesOn; persist(); render(); });
+      undoButton.addEventListener('click', () => {
+        if (!undoStack.length) return;
+        redoStack.push(clone(strokes));
+        strokes = undoStack.pop();
+        persist(); render();
+      });
+      redoButton.addEventListener('click', () => {
+        if (!redoStack.length) return;
+        undoStack.push(clone(strokes));
+        strokes = redoStack.pop();
+        persist(); render();
+      });
+      const openSheet = (sheet, opener) => {
+        sheetOpener = opener;
+        workspace.inert = true;
+        backdrop.classList.add('is-open');
+        sheet.classList.add('is-open');
+        sheet.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => sheet.focus());
+      };
+      const closeSheets = () => {
+        infoSheet.classList.remove('is-open');
+        infoSheet.setAttribute('aria-hidden', 'true');
+        backdrop.classList.remove('is-open');
+        workspace.inert = false;
+        const opener = sheetOpener;
+        sheetOpener = null;
+        if (opener) requestAnimationFrame(() => opener.focus());
+      };
+      const infoButton = document.getElementById('infoButton');
+      infoButton.addEventListener('click', () => openSheet(infoSheet, infoButton));
+      document.getElementById('closeInfo').addEventListener('click', closeSheets);
+      backdrop.addEventListener('click', closeSheets);
+      document.addEventListener('keydown', event => { if (event.key === 'Escape' && infoSheet.classList.contains('is-open')) closeSheets(); });
+      clearButton.addEventListener('click', () => { if (strokes.length) commit([]); });
+      document.getElementById('backButton').addEventListener('click', () => { window.dispatchEvent(new CustomEvent('anchor:back-to-choose-structure', { detail: { strokes } })); if (history.length > 1) history.back(); });
+      useButton.addEventListener('click', () => {
+        if (!strokes.length) return;
+        window.dispatchEvent(new CustomEvent('anchor:use-structure', {
+          detail: {
+            structure: 'drawn',
+            draftId,
+            sourceLetters: sourceLetters.textContent,
+            strokeGeometry: clone(strokes),
+            category: canonicalDraft.category,
+            context: canonicalDraft.context,
+          }
+        }));
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>

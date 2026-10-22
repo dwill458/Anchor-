@@ -1,0 +1,5 @@
+captures/
+generated/
+__pycache__/
+auth-emulator/firebase-debug.log
+auth-emulator/*-debug.log

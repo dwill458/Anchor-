@@ -1,0 +1,1 @@
+(() => {const qa=globalThis.__anchorStabilizationQA;qa.guard();return qa.interruption;})()

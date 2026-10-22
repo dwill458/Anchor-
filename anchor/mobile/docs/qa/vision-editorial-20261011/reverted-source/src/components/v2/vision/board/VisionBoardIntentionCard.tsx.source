@@ -1,0 +1,171 @@
+import { memo, useEffect, useMemo, useRef } from 'react';
+import { Pressable, StyleSheet, View, type LayoutRectangle } from 'react-native';
+import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
+import { useVisionImageArrival } from '../VisionImageArrival';
+
+import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import type { AnchorExpression } from '@/constants/v2/creation';
+import { VISION_SEAL_DIAMETER_SCALE, type SceneRect } from './visionBoardLayouts';
+import { boardRecomposeEasing, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
+
+export type VisionBoardCardArt = { svg: string; imageUrl?: string | null; category?: string | null; expression?: AnchorExpression | null };
+
+/** Recolors visible SVG paints while preserving transparent fills, definitions and geometry. */
+export function visionSealSvg(svg: string, color = '#F4EDE0') {
+  const shapeTags = new Set(['path', 'line', 'polyline', 'polygon', 'circle', 'ellipse', 'rect']);
+  const isTransparent = (paint: string) => {
+    const value = paint.trim();
+    return /^(?:none|transparent)$/i.test(value) || /^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/i.test(value) ||
+      (value.length === 5 && /^#[\da-f]{4}$/i.test(value) && value.endsWith('0')) ||
+      (value.length === 9 && /^#[\da-f]{8}$/i.test(value) && value.endsWith('00'));
+  };
+  const recolor = (tag: string) => {
+    const name = tag.match(/^<\s*([\w:-]+)/)?.[1]?.toLowerCase();
+    let updated = tag.replace(/((?:stroke|fill|stop-color|color)\s*=\s*)(["'])(.*?)\2/gi, (attribute, prefix: string, quote: string, paint: string) =>
+      isTransparent(paint) || /^url\(/i.test(paint.trim()) ? attribute : `${prefix}${quote}${color}${quote}`)
+      .replace(/(\bstyle\s*=\s*)(["'])(.*?)\2/gi, (attribute, prefix: string, quote: string, style: string) => {
+        const updated = style.replace(/(^|;)\s*(stroke|fill|stop-color|color)\s*:\s*([^;]+)/gi, (declaration, separator: string, property: string, paint: string) =>
+          isTransparent(paint) || /^url\(/i.test(paint.trim()) ? declaration : `${separator}${property}: ${color}`);
+        return `${prefix}${quote}${updated}${quote}`;
+      });
+    // SVG's implicit black fill disappears against the dark seal. Give only
+    // visible shapes without local or inherited fill an explicit cream fill.
+    if (name && shapeTags.has(name) && !inheritedFill && !/\bfill\s*=/.test(updated) && !/\bfill\s*:/.test(updated)) {
+      updated = updated.replace(/\s*\/?>$/, ending => ` fill="${color}"${ending}`);
+    }
+    return updated;
+  };
+  const fillContext: boolean[] = [];
+  let inheritedFill = false;
+  return svg.replace(/<defs\b[\s\S]*?<\/defs\s*>|<mask\b[\s\S]*?<\/mask\s*>|<clipPath\b[\s\S]*?<\/clipPath\s*>|<[^>]+>/gi, fragment => {
+    if (/^<(?:defs|mask|clipPath)\b/i.test(fragment)) return fragment;
+    const name = fragment.match(/^<\s*([\w:-]+)/)?.[1]?.toLowerCase() ?? fragment.match(/^<\/\s*([\w:-]+)/)?.[1]?.toLowerCase();
+    if (fragment.startsWith('</')) {
+      if (name === 'g' || name === 'svg') inheritedFill = fillContext.pop() ?? false;
+      return fragment;
+    }
+    const parentFill = inheritedFill;
+    const hasLocalFill = /\bfill\s*=/.test(fragment) || /\bfill\s*:/.test(fragment);
+    const output = recolor(fragment);
+    if ((name === 'svg' || name === 'g') && !/\/\s*>$/.test(fragment)) {
+      fillContext.push(parentFill);
+      inheritedFill = parentFill || hasLocalFill;
+    }
+    return output;
+  });
+}
+
+type Props = {
+  rect: SceneRect;
+  intention: string;
+  category?: string | null;
+  art?: VisionBoardCardArt | null;
+  reduceMotion: boolean;
+  staticLayout?: boolean;
+  onPress?: () => void;
+  anchorTestID?: string;
+  /** `paper` draws the dark ink seal; `bare` leaves the strokes free on the card. */
+  markAppearance?: 'bare' | 'paper';
+  /** A cinematic compositor can own the same mark without duplicating it. */
+  hideMark?: boolean;
+  onMarkLayout?: (rect: LayoutRectangle) => void;
+  /** Optional independent layers for the cinematic return; ordinary boards default to fully visible. */
+  paperOpacity?: SharedValue<number>;
+  pinOpacity?: SharedValue<number>;
+  onTeachingMotionChange?: (sceneId: string, moving: boolean) => void;
+};
+
+/** The persisted Anchor SVG connects the photographs without repeating the intention. */
+export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
+  rect, intention, category, art, reduceMotion, onPress, anchorTestID, markAppearance = 'bare', hideMark = false, onMarkLayout,
+  paperOpacity, pinOpacity, onTeachingMotionChange, staticLayout = false,
+}: Props) {
+  const arrival = useVisionImageArrival();
+  const markSlot = useRef<View>(null);
+  // When a chosen image arrives with the person's Anchor, tell it where the board holds the mark.
+  const landAnchor = () => {
+    if (!arrival?.anchorInFlight) return;
+    markSlot.current?.measureInWindow?.((x, y, width, height) => arrival.landAnchor({ x, y, width, height }));
+  };
+  useEffect(landAnchor, [arrival?.anchorInFlight]); // eslint-disable-line react-hooks/exhaustive-deps
+  const contentLayout = useRef<LayoutRectangle | null>(null);
+  const markLayout = useRef<LayoutRectangle | null>(null);
+  const reportMark = () => {
+    const content = contentLayout.current;
+    const mark = markLayout.current;
+    if (content && mark) onMarkLayout?.({ x: content.x + mark.x, y: content.y + mark.y, width: mark.width, height: mark.height });
+  };
+  const x = useSharedValue(rect.x);
+  const y = useSharedValue(rect.y);
+  const width = useSharedValue(rect.width);
+  const height = useSharedValue(rect.height);
+  const rotation = useSharedValue(rect.rotation);
+  useAnimatedReaction(() => Boolean(onTeachingMotionChange) && (
+    Math.abs(x.value - rect.x) > 0.1 || Math.abs(y.value - rect.y) > 0.1 ||
+    Math.abs(width.value - rect.width) > 0.1 || Math.abs(height.value - rect.height) > 0.1 || Math.abs(rotation.value - rect.rotation) > 0.05
+  ), (moving, previous) => { if (onTeachingMotionChange && moving !== previous) runOnJS(onTeachingMotionChange)('anchor-card', moving); }, [rect, onTeachingMotionChange]);
+  useEffect(() => () => onTeachingMotionChange?.('anchor-card', false), [onTeachingMotionChange]);
+  useEffect(() => {
+    const config = staticLayout ? { duration: 0 } : reduceMotion
+      ? { duration: MOTION.reduced.recomposeMs }
+      : { duration: MOTION.recompose.moveMs, easing: boardRecomposeEasing };
+    x.value = boardTiming(rect.x, config);
+    y.value = boardTiming(rect.y, config);
+    width.value = boardTiming(rect.width, config);
+    height.value = boardTiming(rect.height, config);
+    rotation.value = boardTiming(rect.rotation, config);
+  }, [height, rect, reduceMotion, rotation, width, x, y, staticLayout]);
+
+  const style = useAnimatedStyle(() => ({
+    left: x.value,
+    top: y.value,
+    width: width.value,
+    height: height.value,
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+  const paperStyle = useAnimatedStyle(() => ({ opacity: arrival?.setActive ? 0 : paperOpacity?.value ?? 1 }));
+
+  // Type is laid out for the target size; the card's own motion is small.
+  const seal = markAppearance === 'paper';
+  // Detail and export use a 30% larger ink seal at the photo intersection.
+  // Bare marks keep the compact cinematic overview geometry.
+  const markSize = seal ? rect.width * VISION_SEAL_DIAMETER_SCALE : rect.width * 0.86;
+  const sealSvg = useMemo(() => seal && art?.svg && !art.imageUrl && !art.expression
+    ? visionSealSvg(art.svg) : art?.svg, [art?.svg, art?.imageUrl, art?.expression, seal]);
+  const label = `Your Anchor, ${categoryLabel(category)}. ${intention}`;
+  const content = <Animated.View style={[styles.fill, paperStyle]}>
+    <View testID="vision-board-card-content" style={styles.content} pointerEvents="none"
+      onLayout={onMarkLayout ? event => { contentLayout.current = event.nativeEvent.layout; reportMark(); } : undefined}>
+      <View ref={markSlot} collapsable={false} testID="vision-board-card-mark-slot" style={{ width: markSize, height: markSize }}
+        onLayout={event => {
+          if (onMarkLayout) { markLayout.current = event.nativeEvent.layout; reportMark(); }
+          landAnchor();
+        }}>
+        {!hideMark && sealSvg ? <CircularAnchorRenderer testID={anchorTestID} svg={sealSvg} imageUrl={art?.imageUrl}
+          expression={art?.expression} category={art?.category ?? category} appearance={seal ? 'dark' : 'bare'}
+          size={markSize} style={seal ? styles.seal : undefined} accessibilityLabel={`${categoryLabel(category)} Anchor`} /> : null}
+      </View>
+    </View>
+  </Animated.View>;
+
+  return (
+    <Animated.View style={[styles.card, style]}>
+      {onPress ? (
+        <Pressable style={styles.fill} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
+          accessibilityHint="Double tap to bring your Anchor forward and edit your Vision.">
+          {content}
+        </Pressable>
+      ) : (
+        <View style={styles.fill} accessible accessibilityRole="image" accessibilityLabel={label}>{content}</View>
+      )}
+    </Animated.View>
+  );
+});
+
+const styles = StyleSheet.create({
+  card: { position: 'absolute', zIndex: 40 },
+  fill: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
+  seal: { backgroundColor: '#171717', borderWidth: 2, borderColor: '#B69A65', shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+  content: { position: 'absolute', left: '7%', right: '7%', top: '7%', bottom: '7%', alignItems: 'center', justifyContent: 'center' },
+});

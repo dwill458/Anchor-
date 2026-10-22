@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import type { ScrollViewInstance, TextInputInstance } from 'react-native';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     View,
     Text,
@@ -8,25 +10,26 @@ import {
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    Animated,
-    Dimensions,
-    Easing,
-    AccessibilityInfo,
     Alert,
     Keyboard,
+    Pressable,
+    useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/types';
+import { RootStackParamList, type AnchorCategory } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
 import { detectCategoryFromText } from '@/utils/categoryDetection';
-import { colors, spacing, typography } from '@/theme';
-import { ZenBackground, UndertoneLine } from '@/components/common';
+import { colors } from '@/theme/colors';
+import { focusAreaById, focusAreaForCategory } from '@/constants/v2/focusAreas';
+import { ArrowLeft } from 'lucide-react-native';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { warmUpBackend } from '@/services/backendWarmup';
+import { playCreationSound } from '@/services/CreationSounds';
 import { TEACHINGS } from '@/constants/teaching';
 import { useIntentionValidation } from '@/hooks/useIntentionValidation';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -34,41 +37,95 @@ import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
-
-const { height } = Dimensions.get('window');
+import { computeFlowLayout } from './flow/flowLayout';
+import { intentFontSize } from './flow/geometry';
+import { useIntentionHandoffStore } from './flow/intentionHandoff';
+import {
+    ContinueButtonFace,
+    DrawLinkFace,
+    INTENTION_FONTS,
+    INTENTION_SIDE_PADDING,
+    IntentionFieldLabel,
+    IntentionHeader,
+    IntentionRule,
+    RulesLine,
+    StaticHints,
+} from './components/IntentionChrome';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
+type CreationSource = 'typed' | 'drawn';
 
-export default function IntentionInputScreen() {
+// DECISION D3: the maximum stays 100 (the mockup's /140 is not used).
+const MAX_CHARS = 100;
+// DECISION D9: a typed intention needs at least two different consonants to make a line.
+const MIN_CONSONANTS = 2;
+
+const CONSONANT_MESSAGE = 'Use at least two different consonants.';
+const SHORT_MESSAGE = 'Write a little more.';
+
+const PLACEHOLDER_POOL = [
+    'Stay focused during training',
+    'Respond calmly under pressure',
+    'Be present with my family',
+    'Trust my decisions',
+    'Listen before reacting',
+];
+
+export interface IntentionInputScreenProps {
+    fromOnboarding?: boolean;
+    chosenCategory?: AnchorCategory;
+    onBack?: () => void;
+}
+
+/** Evolve opens this screen from a Release screen: the old intention is the starting text, and the marker rides on to creation. */
+type EvolveRouteParams = { initialIntention?: string; evolve?: { fromAnchorId: string } } | undefined;
+
+export default function IntentionInputScreen({ fromOnboarding = false, chosenCategory, onBack }: IntentionInputScreenProps = {}) {
     const navigation = useNavigation<NavigationProp>();
+    const routeParams = (useRoute() as { params?: EvolveRouteParams } | undefined)?.params;
+    const evolve = routeParams?.evolve;
+    // Editable: the user can reword it before continuing. Never longer than the field allows.
+    const initialIntention = evolve && typeof routeParams?.initialIntention === 'string'
+        ? routeParams.initialIntention.slice(0, MAX_CHARS)
+        : '';
     const insets = useSafeAreaInsets();
-    const { recordShown } = useTeachingStore();
+    const { width, height } = useWindowDimensions();
+    const recordShown = useTeachingStore((s) => s.recordShown);
 
-    const scrollViewRef = useRef<ScrollView>(null);
-    const textInputRef = useRef<TextInput>(null);
+    const scrollViewRef = useRef<ScrollViewInstance>(null);
+    const textInputRef = useRef<TextInputInstance>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
+    // The one onboarding answer frames the field: its own placeholder and tip, in place on the
+    // first frame. "Something else" arrives with no category and takes the open copy.
+    const area = useMemo(
+        () => (fromOnboarding ? focusAreaForCategory(chosenCategory) ?? focusAreaById('something_else') : undefined),
+        [chosenCategory, fromOnboarding],
+    );
+    // Constraint feedback waits for Continue: it is never shown while the words are being written.
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [isFocused, setIsFocused] = useState(false);
-    const [delayedCanSubmit, setDelayedCanSubmit] = useState(false);
+    const [rulesOpen, setRulesOpen] = useState(false);
+    // Once Continue has been pressed the words belong to the flow's canvas, and the button must
+    // not grey out while it fades behind them.
+    const [launching, setLaunching] = useState(false);
+    const glyphsOwnedByFlow = useIntentionHandoffStore((state) => state.glyphsOwnedByFlow);
     const intentionValidation = useIntentionValidation(intention);
     const entitlements = useEntitlements();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const anchorCount = useAnchorStore((state) => state.anchors.length);
     const updateFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.updateDraft);
-    const initializedFromDraftRef = useRef(false);
+    const launchedForwardRef = useRef(false);
+    // Synchronous re-entry guard: two quick Continue taps must start one creation, not two.
+    const startingRef = useRef(false);
+    // Set while a gate (paywall) is open so coming back keeps what was typed.
+    const returningFromGateRef = useRef(false);
 
-    // Teaching: Undertone state
+    // Teaching: whisper state (Guide Mode)
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
-    const undertoneOpacity = useRef(new Animated.Value(0)).current;
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const firstTimeShownRef = useRef(false);
     const hesitationShownRef = useRef(false);
-
-    // Reduced motion
-    const [reduceMotion, setReduceMotion] = useState(false);
-
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const focusAnim = useRef(new Animated.Value(0)).current;
 
     // Teaching gate — evaluated once per render cycle; gates enforce lifetime limits
     const firstTimeTeaching = useTeachingGate({
@@ -91,123 +148,80 @@ export default function IntentionInputScreen() {
             trigger: content?.trigger ?? 'first_time',
             guide_mode: true,
         });
-        // Respect reduced motion preference
-        if (reduceMotion) {
-            undertoneOpacity.setValue(1);
-        } else {
-            Animated.timing(undertoneOpacity, {
-                toValue: 1,
-                duration: 400,
-                useNativeDriver: true,
-            }).start();
-        }
     };
 
-    const PLACEHOLDER_POOL = [
-        "Stay focused during training",
-        "Respond calmly under pressure",
-        "Be present with my family",
-        "Trust my decisions",
-        "Listen before reacting"
-    ];
-
-    // Entrance animation + random placeholder
     useEffect(() => {
+        if (area) return;
         const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
         setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
-
-        Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 800,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-    }, []);
+    }, [area]);
 
     useFocusEffect(
         React.useCallback(() => {
-            if (!initializedFromDraftRef.current) {
-                setIntention(useFirstAnchorFlowStore.getState().draft?.originalIntention ?? '');
-                initializedFromDraftRef.current = true;
+            const returningFromChild = launchedForwardRef.current;
+            const returningFromGate = returningFromGateRef.current;
+            launchedForwardRef.current = false;
+            returningFromGateRef.current = false;
+            startingRef.current = false;
+            setLaunching(false);
+
+            // Fresh entry or absence of an active in-flight draft always resets the intention text.
+            if (!returningFromGate && (!returningFromChild || !useFirstAnchorFlowStore.getState().draft)) {
+                setIntention(initialIntention);
+                setSubmitError(null);
+                useFirstAnchorFlowStore.getState().clearDraft();
             }
-            setDelayedCanSubmit(false);
             setIsFocused(false);
             setUndertoneText(null);
 
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
-            undertoneOpacity.setValue(0);
-            focusAnim.setValue(0);
-
             return () => {
                 if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
             };
-        }, [focusAnim, idleTimerRef, undertoneOpacity])
+        }, [idleTimerRef, initialIntention])
     );
+
+    // Reset draft and intention when leaving this screen
+    useEffect(() => {
+        const unsubscribe = navigation.addListener?.('beforeRemove', () => {
+            if (!launchedForwardRef.current) {
+                setIntention('');
+                setSubmitError(null);
+                useFirstAnchorFlowStore.getState().clearDraft();
+            }
+        });
+        return () => {
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, [navigation]);
 
     // Cleanup idle timer on unmount
     useEffect(() => () => {
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     }, []);
 
-    // Check reduced motion accessibility setting on mount
-    useEffect(() => {
-        AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotion(v));
-    }, []);
-
-    // Subtle focus glow animation
-    useEffect(() => {
-        Animated.timing(focusAnim, {
-            toValue: isFocused ? 1 : 0,
-            duration: 400,
-            easing: isFocused ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
-            useNativeDriver: false,
-        }).start();
-    }, [isFocused]);
-
-    const maxChars = 100;
-
-    // 300ms delay before enabling CTA
-    useEffect(() => {
-        if (intentionValidation.canSubmit) {
-            const timer = setTimeout(() => setDelayedCanSubmit(true), 300);
-            return () => clearTimeout(timer);
-        } else {
-            setDelayedCanSubmit(false);
-        }
-    }, [intentionValidation.canSubmit]);
+    // DECISION D9: Continue (typed) needs two different consonants after distillation.
+    const consonantCount = useMemo(() => distillIntention(intention).finalLetters.length, [intention]);
+    const hasEnoughConsonants = consonantCount >= MIN_CONSONANTS;
+    // Continue is available as soon as there is something to check; the check runs on the tap.
+    const canContinue = intention.trim().length >= 1;
 
     const handleFocus = () => {
         setIsFocused(true);
-        // First-time undertone: show after 1.2s of focus with no keystrokes
+        // First-time undertone: show after 3.5s of focus with no keystrokes
         if (firstTimeTeaching && !firstTimeShownRef.current) {
             idleTimerRef.current = setTimeout(() => {
                 if (firstTimeTeaching && !firstTimeShownRef.current) {
                     firstTimeShownRef.current = true;
                     showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
                 }
-            }, 1200);
+            }, 3500);
         }
-        // Scroll to end of ScrollView to make sure text box is visible above the keyboard
         setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 150);
     };
-
-    const restoreLayoutAfterKeyboard = React.useCallback(() => {
-        textInputRef.current?.blur();
-        setIsFocused(false);
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-
-        requestAnimationFrame(() => {
-            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-        });
-    }, []);
-
-    useEffect(() => {
-        const subscription = Keyboard.addListener('keyboardDidHide', restoreLayoutAfterKeyboard);
-        return () => subscription.remove();
-    }, [restoreLayoutAfterKeyboard]);
 
     const handleBlur = () => {
         setIsFocused(false);
@@ -215,180 +229,280 @@ export default function IntentionInputScreen() {
     };
 
     const handleIntentionChange = (text: string) => {
-        if (text.length <= maxChars) {
+        if (text.length <= MAX_CHARS) {
             setIntention(text);
+            setSubmitError(null);
 
             // Reset idle timer on every keystroke
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
-            // Dismiss first-time timer (user is typing, no longer idle)
-            // Schedule hesitation hint after 8s idle (only if user has typed something)
+            // Schedule hesitation hint after 14s idle (only if user has typed something)
             if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
                 idleTimerRef.current = setTimeout(() => {
                     if (hesitationTeaching && !hesitationShownRef.current) {
                         hesitationShownRef.current = true;
                         showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
                     }
-                }, 8000);
+                }, 14000);
             }
-
         }
     };
 
-    const handleContinue = () => {
-        if (delayedCanSubmit) {
-            const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
-            if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
-                const reason = entitlements.anchorCreationLimitReason;
-                if (!reason) return;
+    // The field's glyph metrics, scaled with the flow's own factor so the words keep their exact
+    // size as they glide into the flow.
+    const flowScale = useMemo(() => computeFlowLayout(width, height).scale, [width, height]);
+    const designFontSize = intentFontSize(intention.length);
+    const fieldFontSize = Math.round(designFontSize * flowScale * 100) / 100;
+    const fieldLineHeight = Math.round(Math.round(designFontSize * 1.3) * flowScale * 100) / 100;
 
-                AnalyticsService.track(reason, {
-                    source: 'first_anchor_creation',
-                    anchors_created_today: entitlements.anchorsCreatedToday,
-                    anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
-                    tier: entitlements.tier,
-                });
+    const startCreation = (source: CreationSource) => {
+        const canStart =
+            intention.trim().length >= 1;
+        if (!canStart || startingRef.current) return;
 
-                if (reason === 'pro_daily_anchor_cap_reached') {
-                    const copy = getAnchorCreationLimitCopy(reason);
-                    Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
-                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
-                    ]);
-                    return;
-                }
+        if (source === 'typed') {
+            const problem = !hasEnoughConsonants
+                ? CONSONANT_MESSAGE
+                : intentionValidation.detection.isGibberish
+                  ? intentionValidation.guidanceText
+                  : !intentionValidation.canSubmit
+                    ? SHORT_MESSAGE
+                    : null;
+            if (problem) {
+                setSubmitError(problem);
+                return;
+            }
+        }
+        playCreationSound('uiTap');
 
-                navigation.navigate('Paywall', {
-                    source: reason,
-                    preferredPlanId: 'annual',
-                });
+        const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
+        // Evolve creates a second Anchor, so it is a paid path: the same gate as any other new Anchor
+        // applies here (a free user sees the paywall at Continue, before any artwork is generated).
+        if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
+            const reason = entitlements.anchorCreationLimitReason;
+            if (!reason) return;
+
+            AnalyticsService.track(reason, {
+                source: 'first_anchor_creation',
+                anchors_created_today: entitlements.anchorsCreatedToday,
+                anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+                tier: entitlements.tier,
+            });
+
+            if (reason === 'pro_daily_anchor_cap_reached') {
+                const copy = getAnchorCreationLimitCopy(reason);
+                Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+                    { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                ]);
                 return;
             }
 
-            const distillation = distillIntention(intention);
-            const category = detectCategoryFromText(intention);
-            updateFirstAnchorDraft({
-                originalIntention: intention,
-                distilledLetters: distillation.finalLetters,
-                generationStatus: 'idle',
+            returningFromGateRef.current = true;
+            navigation.navigate('Paywall', {
+                source: reason,
+                preferredPlanId: 'annual',
             });
-            navigation.navigate('LetterDistillation', {
-                intentionText: intention,
-                category,
-                distilledLetters: distillation.finalLetters,
+            return;
+        }
+
+        startingRef.current = true;
+        const distillation = distillIntention(intention);
+        const category = chosenCategory ?? detectCategoryFromText(intention);
+        updateFirstAnchorDraft({
+            originalIntention: intention,
+            distilledLetters: distillation.finalLetters,
+            generationStatus: 'idle',
+        });
+
+        // Free latency: wake the backend now rather than when the style is chosen.
+        warmUpBackend();
+
+        const baseParams = {
+            intentionText: intention,
+            category,
+            distilledLetters: distillation.finalLetters,
+            source,
+            ...(fromOnboarding ? { fromOnboarding: true } : {}),
+            ...(evolve ? { evolve } : {}),
+        } as const;
+
+        // DEFERRED: the old creation path, superseded by AnchorCreationFlow (still registered):
+        // navigation.navigate('LetterDistillation', {
+        //     intentionText: intention,
+        //     category,
+        //     distilledLetters: distillation.finalLetters,
+        // });
+        const go = (fieldFrame?: { x: number; y: number; width: number; height: number }) => {
+            Keyboard.dismiss();
+            launchedForwardRef.current = true;
+            setLaunching(true);
+            navigation.navigate('AnchorCreationFlow', {
+                ...baseParams,
+                entry: fieldFrame ? 'glide' : 'fade',
+                ...(area ? { focusAreaId: area.id } : {}),
+                ...(fieldFrame
+                    ? {
+                          fieldFrame: {
+                              ...fieldFrame,
+                              fontSize: fieldFontSize,
+                              lineHeight: fieldLineHeight,
+                          },
+                      }
+                    : {}),
             });
+        };
+
+        // Measure the field so the words can glide from exactly where they were typed. If the
+        // measurement is unavailable or stalls, fall back to the centred fade — never block.
+        let started = false;
+        const begin = (fieldFrame?: { x: number; y: number; width: number; height: number }) => {
+            if (started) return;
+            started = true;
+            clearTimeout(measureFallback);
+            go(fieldFrame);
+        };
+        const measureFallback = setTimeout(() => begin(), 150);
+        const input = textInputRef.current;
+        if (input && typeof input.measureInWindow === 'function') {
+            input.measureInWindow((x, y, w, h) => begin({ x, y, width: w, height: h }));
+        } else {
+            begin();
         }
     };
 
-    const inputBorderColor = focusAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.4)']
-    });
+    const hintText = undertoneText;
 
     return (
         <View style={styles.container}>
-            <StatusBar style="light" />
-            <ZenBackground />
+            <StatusBar style="dark" />
 
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + spacing.sm : 0}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
                     style={styles.keyboardView}
                 >
                     <ScrollView
                         ref={scrollViewRef}
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
-                        contentInsetAdjustmentBehavior="always"
                         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {/* Title Section */}
-                        <Animated.View style={[
-                            styles.titleSection,
-                            isFocused && styles.titleSectionFocused,
-                            { opacity: fadeAnim }
-                        ]}>
-                            <Text style={[styles.title, isFocused && styles.titleFocused]}>
-                                What are you anchoring right now?
-                            </Text>
-                            {!isFocused && (
-                                <Text style={styles.subtitle}>
-                                    Write a short, clear intention.{'\n'}One sentence is enough.
+                        {onBack || navigation.canGoBack() ? (
+                            <TouchableOpacity
+                                onPress={() => {
+                                    launchedForwardRef.current = false;
+                                    setIntention('');
+                                    setSubmitError(null);
+                                    useFirstAnchorFlowStore.getState().clearDraft();
+                                    if (onBack) onBack();
+                                    else navigation.goBack();
+                                }}
+                                accessibilityRole="button"
+                                accessibilityLabel="Go back"
+                                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                                style={styles.backButton}
+                            >
+                                <ArrowLeft size={22} color={colors.creation.ink} strokeWidth={2} />
+                            </TouchableOpacity>
+                        ) : null}
+                        <IntentionHeader />
+
+                        <View style={styles.fieldBlock}>
+                            <IntentionFieldLabel count={intention.length} max={MAX_CHARS} />
+                            <TextInput
+                                ref={textInputRef}
+                                style={[
+                                    styles.textInput,
+                                    { fontSize: fieldFontSize, lineHeight: fieldLineHeight },
+                                    glyphsOwnedByFlow && styles.textInputHidden,
+                                ]}
+                                value={intention}
+                                onChangeText={handleIntentionChange}
+                                onFocus={handleFocus}
+                                onBlur={handleBlur}
+                                placeholder={area ? area.placeholder : placeholder}
+                                placeholderTextColor={colors.creation.placeholder}
+                                multiline
+                                scrollEnabled={false}
+                                maxLength={MAX_CHARS}
+                                autoCapitalize="sentences"
+                                autoCorrect
+                                returnKeyType="none"
+                                blurOnSubmit={false}
+                                enablesReturnKeyAutomatically={false}
+                                selectionColor={colors.creation.ink}
+                                underlineColorAndroid="transparent"
+                                accessibilityLabel="Your intention"
+                            />
+                            <IntentionRule />
+
+                            {submitError ? (
+                                <Text style={styles.consonantHint} accessibilityLiveRegion="polite">{submitError}</Text>
+                            ) : null}
+
+                            {hintText ? (
+                                <Text style={styles.guidance} accessibilityLiveRegion="polite">
+                                    {hintText}
                                 </Text>
-                            )}
-                        </Animated.View>
-
-                        {/* Intention Input */}
-                        <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
-                            <Animated.View style={[styles.inputContainer, { borderColor: inputBorderColor }]}>
-                                <TextInput
-                                    ref={textInputRef}
-                                    style={styles.textInput}
-                                    value={intention}
-                                    onChangeText={handleIntentionChange}
-                                    onFocus={handleFocus}
-                                    onBlur={handleBlur}
-                                    placeholder={placeholder}
-                                    placeholderTextColor={'rgba(192, 192, 192, 0.4)'}
-                                    multiline
-                                    maxLength={maxChars}
-                                    autoCapitalize="sentences"
-                                    autoCorrect={true}
-                                    returnKeyType="none"
-                                    blurOnSubmit={false}
-                                    enablesReturnKeyAutomatically={false}
-                                    selectionColor={colors.gold}
-                                    accessibilityLabel="What are you anchoring right now?"
-                                />
-                            </Animated.View>
-
-                            {/* Reassurance Micro-copy */}
-                            <Text style={styles.microCopy}>
-                                You can refine or release this later.
-                            </Text>
-
-                            {/* Undertone (Pattern 1) — prioritized display: guidance > teaching > default */}
-                            {intentionValidation.guidanceText ? (
-                                <View style={styles.undertoneRow}>
-                                    <UndertoneLine text={intentionValidation.guidanceText} variant="emphasis" />
-                                </View>
-                            ) : undertoneText ? (
-                                <Animated.View style={[styles.undertoneRow, { opacity: undertoneOpacity }]}>
-                                    <UndertoneLine text={undertoneText} variant="default" />
-                                </Animated.View>
                             ) : (
-                                <View style={styles.undertoneRow}>
-                                    <UndertoneLine text="Short. Present. Felt." variant="default" />
-                                </View>
+                                <StaticHints tip={area?.tip} />
                             )}
-                        </Animated.View>
-
+                        </View>
                     </ScrollView>
 
-                    {/* Continue Button */}
-                    <Animated.View style={[styles.continueContainer, { opacity: fadeAnim }]}>
+                    <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                        <RulesLine
+                            trailing={
+                                <Pressable
+                                    onPress={() => setRulesOpen((open) => !open)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="About the three rules"
+                                    // DEFERRED: 10 pt hit slop gave the 17 pt glyph only a 37 pt target.
+                                    hitSlop={14}
+                                    style={styles.info}
+                                >
+                                    <Text style={styles.infoGlyph}>i</Text>
+                                </Pressable>
+                            }
+                        />
+
+                        {rulesOpen ? (
+                            <View style={styles.rulesSheet}>
+                                <Text style={styles.rulesSheetTitle}>Short. Present. Felt.</Text>
+                                <Text style={styles.rulesSheetBody}>
+                                    {TEACHINGS.intention_input_first_time_v1.copy}
+                                </Text>
+                                <Text style={styles.rulesSheetBody}>
+                                    {TEACHINGS.intention_input_hesitation_v1.copy}
+                                </Text>
+                            </View>
+                        ) : null}
+
                         <TouchableOpacity
-                            onPress={handleContinue}
-                            activeOpacity={0.8}
-                            disabled={!delayedCanSubmit}
-                            style={[
-                                styles.continueButton,
-                                !delayedCanSubmit && styles.continueButtonDisabled
-                            ]}
+                            onPress={() => startCreation('typed')}
+                            activeOpacity={0.85}
+                            disabled={!canContinue}
+                            style={styles.cta}
                             accessibilityRole="button"
                             accessibilityLabel="Continue"
-                            accessibilityState={{ disabled: !delayedCanSubmit }}
+                            accessibilityState={{ disabled: !canContinue }}
                         >
-                            <Text style={[
-                                styles.continueText,
-                                !delayedCanSubmit && styles.continueTextDisabled
-                            ]}>
-                                Continue
-                            </Text>
+                            <ContinueButtonFace enabled={canContinue || launching} />
                         </TouchableOpacity>
-                    </Animated.View>
+
+                        <TouchableOpacity
+                            onPress={() => startCreation('drawn')}
+                            disabled={intention.trim().length < 1}
+                            accessibilityRole="button"
+                            accessibilityLabel="Or draw it yourself"
+                            accessibilityState={{ disabled: intention.trim().length < 1 }}
+                        >
+                            <DrawLinkFace enabled={intention.trim().length >= 1} />
+                        </TouchableOpacity>
+                    </View>
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
@@ -398,108 +512,94 @@ export default function IntentionInputScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.navy,
+        backgroundColor: colors.creation.cream,
     },
     safeArea: {
         flex: 1,
     },
     keyboardView: {
         flex: 1,
-        justifyContent: 'space-between',
     },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
         flexGrow: 1,
-        paddingHorizontal: spacing.xl,
-        paddingBottom: spacing.lg,  // 24px — breathing room above CTA when keyboard open
+        paddingHorizontal: INTENTION_SIDE_PADDING,
+        paddingTop: 32,
+        paddingBottom: 24,
     },
-    titleSection: {
-        paddingTop: height * 0.15,
-        paddingBottom: spacing.xl,
+    backButton: {
+        marginBottom: 16,
+        alignSelf: 'flex-start',
     },
-    titleSectionFocused: {
-        paddingTop: Platform.OS === 'ios' ? spacing.md : spacing.sm,
-        paddingBottom: spacing.sm,
-    },
-    title: {
-        ...typography.heading,
-        fontSize: 34,
-        lineHeight: 44,
-        color: colors.gold,
-        marginBottom: spacing.lg,
-        letterSpacing: 0.3,
-    },
-    titleFocused: {
-        fontSize: 22,
-        lineHeight: 28,
-        marginBottom: spacing.xs,
-    },
-    subtitle: {
-        ...typography.body,
-        fontSize: 17,
-        lineHeight: 28,
-        color: colors.text.secondary,
-        opacity: 0.85,
-    },
-    section: {
-        marginBottom: spacing.xl,
-    },
-    inputContainer: {
-        borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.15)',
-        backgroundColor: 'rgba(26, 26, 29, 0.3)',
-        padding: spacing.lg,
-        minHeight: 140,
+    fieldBlock: {
+        marginTop: 28,
     },
     textInput: {
-        ...typography.body,
-        fontSize: 17,
-        color: colors.text.primary,
-        lineHeight: 28,
-        minHeight: 90,
-        paddingTop: spacing.xs,
-        paddingBottom: spacing.xs,
+        fontFamily: INTENTION_FONTS.serif,
+        color: colors.creation.ink,
+        minHeight: 80,
+        marginTop: 14,
+        padding: 0,
         paddingHorizontal: 0,
         textAlignVertical: 'top',
+        includeFontPadding: false,
     },
-    microCopy: {
-        ...typography.body,
+    // The flow's canvas is drawing these glyphs now; keep the field (and its caret) invisible.
+    textInputHidden: { color: 'transparent' },
+    consonantHint: {
+        fontFamily: INTENTION_FONTS.sans,
         fontSize: 13,
-        color: colors.text.tertiary,
-        marginTop: spacing.lg,
-        letterSpacing: 0.3,
-        opacity: 0.7,
-        textAlign: 'left',
+        color: colors.creation.muted,
+        marginTop: 12,
     },
-    undertoneRow: {
-        marginTop: spacing.sm,  // 8px
-    },
-    continueContainer: {
-        paddingHorizontal: spacing.xl,
-        paddingBottom: spacing.xxl,
-        paddingTop: spacing.md,
-    },
-    continueButton: {
-        backgroundColor: colors.gold,
-        alignItems: 'center',
-        borderRadius: 8,
-        paddingVertical: spacing.md + 2,
-        paddingHorizontal: spacing.lg,
-    },
-    continueButtonDisabled: {
-        backgroundColor: 'rgba(192, 192, 192, 0.15)',
-        opacity: 0.5,
-    },
-    continueText: {
-        ...typography.heading,
+    guidance: {
+        fontFamily: INTENTION_FONTS.serifItalic,
         fontSize: 17,
-        color: colors.navy,
-        letterSpacing: 0.5,
-        fontWeight: '600',
+        lineHeight: 24,
+        color: colors.creation.muted,
+        marginTop: 20,
     },
-    continueTextDisabled: {
-        color: 'rgba(255, 255, 255, 0.3)',
+    bottom: {
+        paddingHorizontal: INTENTION_SIDE_PADDING,
+        paddingTop: 12,
+        gap: 12,
+    },
+    cta: {
+        marginTop: 2,
+    },
+    info: {
+        width: 17,
+        height: 17,
+        borderRadius: 8.5,
+        borderWidth: 1.2,
+        borderColor: colors.creation.muted,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    infoGlyph: {
+        fontFamily: INTENTION_FONTS.sansBold,
+        fontSize: 10,
+        color: colors.creation.muted,
+        lineHeight: 12,
+    },
+    rulesSheet: {
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.creation.hairline,
+        borderRadius: 14,
+        padding: 14,
+        gap: 6,
+    },
+    rulesSheetTitle: {
+        fontFamily: INTENTION_FONTS.serif,
+        fontSize: 18,
+        color: colors.creation.ink,
+    },
+    rulesSheetBody: {
+        fontFamily: INTENTION_FONTS.sans,
+        fontSize: 14,
+        lineHeight: 20,
+        color: colors.creation.muted,
     },
 });

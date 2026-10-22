@@ -1,0 +1,17 @@
+{
+  "capturedAt": "2026-10-04T06:34:16.339Z",
+  "files": [
+    {
+      "path": "src/screens/create/flow/scenes/FormScene.ts",
+      "sha256": "fa48f588f46ed053b680c316c428ee42ff8f8db5954804c51807fc0e36e566d0"
+    },
+    {
+      "path": "src/screens/create/flow/scenes/styleStrokes.ts",
+      "sha256": "c4367c4766a18a8737eb3a3bd17eaaeb85d490053fa652e32a69d3d914c0526e"
+    },
+    {
+      "path": "src/screens/create/flow/components/StyleScene.tsx",
+      "sha256": "0304ad27751c369a07acaa8b863bb11fab592f3836b025b4d9901e0a9d69c77d"
+    }
+  ]
+}

@@ -1,9 +1,7 @@
 import { Platform, Share } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import {
-  exportAnchorArtwork,
-} from '../AnchorArtworkExportService';
+import { exportAnchorArtwork, savePngToPhotoLibrary } from '../AnchorArtworkExportService';
 
 describe('AnchorArtworkExportService', () => {
   const captureArtwork = jest.fn(async () => 'file:///tmp/anchor.png');
@@ -25,7 +23,7 @@ describe('AnchorArtworkExportService', () => {
     setPlatform('ios', '17.0');
     captureArtwork.mockResolvedValue('file:///tmp/anchor.png');
     (MediaLibrary.requestPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
-    (MediaLibrary.saveToLibraryAsync as jest.Mock).mockResolvedValue(undefined);
+    (MediaLibrary.Asset.create as jest.Mock).mockResolvedValue({ id: 'content://saved-image' });
     (FileSystem.makeDirectoryAsync as jest.Mock).mockResolvedValue(undefined);
     (FileSystem.copyAsync as jest.Mock).mockResolvedValue(undefined);
     jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
@@ -74,7 +72,7 @@ describe('AnchorArtworkExportService', () => {
       from: 'file:///tmp/anchor.png',
       to: 'file:///cache/anchor-exports/sacred-loop-wallpaper-1710000000000.png',
     });
-    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith(
+    expect(MediaLibrary.Asset.create).toHaveBeenCalledWith(
       'file:///cache/anchor-exports/sacred-loop-wallpaper-1710000000000.png'
     );
     expect(result).toEqual({
@@ -82,6 +80,21 @@ describe('AnchorArtworkExportService', () => {
       localUri: 'file:///tmp/anchor.png',
       mode: 'download',
     });
+  });
+
+  it('requests write permission on Android 10, where scoped MediaStore writes are not available', async () => {
+    setPlatform('android', 29);
+
+    await exportAnchorArtwork({
+      anchor: { anchorName: 'Sacred Loop', intentionText: 'I return to the practice.' },
+      mode: 'download',
+      captureArtwork,
+    });
+
+    expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(true);
+    expect(MediaLibrary.Asset.create).toHaveBeenCalledWith(
+      'file:///cache/anchor-exports/sacred-loop-wallpaper-1710000000000.png'
+    );
   });
 
   it('requests add-only permission before saving on ios', async () => {
@@ -97,9 +110,18 @@ describe('AnchorArtworkExportService', () => {
     });
 
     expect(MediaLibrary.requestPermissionsAsync).toHaveBeenCalledWith(true);
-    expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalledWith(
+    expect(MediaLibrary.Asset.create).toHaveBeenCalledWith(
       'file:///cache/anchor-exports/sacred-loop-wallpaper-1710000000000.png'
     );
+  });
+
+  it('saves a share export with the Expo 58 Asset API', async () => {
+    await savePngToPhotoLibrary('file:///tmp/vision-card.png', 'anchor-vision-1080x1920.png');
+
+    expect(MediaLibrary.Asset.create).toHaveBeenCalledWith(
+      'file:///cache/anchor-exports/anchor-vision-1080x1920-1710000000000.png'
+    );
+    expect(MediaLibrary.saveToLibraryAsync).not.toHaveBeenCalled();
   });
 
   it('surfaces a permission error when photo access is denied', async () => {

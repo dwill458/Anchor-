@@ -29,7 +29,7 @@ jest.mock('@/utils/sigil/traditional-generator', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
-    const Reanimated = require('react-native-reanimated/mock');
+    const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
     Reanimated.default.call = () => {};
     return Reanimated;
 });

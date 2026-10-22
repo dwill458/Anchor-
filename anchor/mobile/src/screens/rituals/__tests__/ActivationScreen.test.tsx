@@ -39,6 +39,7 @@ const mockAmbientPlayer = createMockManagedPlayer();
 const mockGuidance60StartPlayer = createMockManagedPlayer();
 const mockGuidance60MiddlePlayer = createMockManagedPlayer();
 const mockGuidance60EndPlayer = createMockManagedPlayer();
+const mockFocusMix60Player = createMockManagedPlayer();
 const mockGuidance120OpeningPlayer = createMockManagedPlayer();
 const mockGuidance120GroundingPlayer = createMockManagedPlayer();
 const mockGuidance120DeepeningPlayer = createMockManagedPlayer();
@@ -72,7 +73,7 @@ jest.mock('@react-navigation/native', () => {
 
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
-  const Reanimated = require('react-native-reanimated/mock');
+  const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
   Reanimated.default.call = () => { };
   Reanimated.useFrameCallback = jest.fn();
   Reanimated.default.Value = class {
@@ -111,6 +112,12 @@ jest.mock('@/stores/settingsStore');
 jest.mock('@/stores/sessionStore');
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/utils/scheduleAfterInteractions', () => ({
+  scheduleAfterInteractions: (callback: () => void) => {
+    callback();
+    return { cancel: jest.fn() };
+  },
+}));
 jest.mock('@/hooks/useAudio', () => ({
   useAudio: () => ({
     createManagedPlayer: mockCreateManagedPlayer,
@@ -196,6 +203,7 @@ describe('ActivationScreen', () => {
       if (normalizedKey === 'focus-session-120s-grounding') return mockGuidance120GroundingPlayer;
       if (normalizedKey === 'focus-session-120s-deepening') return mockGuidance120DeepeningPlayer;
       if (normalizedKey === 'focus-session-120s-closing') return mockGuidance120ClosingPlayer;
+      if (normalizedKey === 'focus-60s-mix') return mockFocusMix60Player;
       if (normalizedKey === 'focus-session-60s-start') return mockGuidance60StartPlayer;
       if (normalizedKey === 'focus-session-60s-middle') return mockGuidance60MiddlePlayer;
       if (normalizedKey === 'focus-session-60s-end') return mockGuidance60EndPlayer;
@@ -218,6 +226,10 @@ describe('ActivationScreen', () => {
     mockGuidance60EndPlayer.play.mockReset();
     mockGuidance60EndPlayer.setVolume.mockReset();
     mockGuidance60EndPlayer.stop.mockReset();
+    mockFocusMix60Player.pause.mockReset();
+    mockFocusMix60Player.play.mockReset();
+    mockFocusMix60Player.setVolume.mockReset();
+    mockFocusMix60Player.stop.mockReset();
     mockGuidance120OpeningPlayer.pause.mockReset();
     mockGuidance120OpeningPlayer.play.mockReset();
     mockGuidance120OpeningPlayer.setVolume.mockReset();
@@ -455,11 +467,8 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('focus-session-pause')).toBeTruthy());
   });
 
-  it('plays the 60-second focus start, middle, and end cues at scheduled points', async () => {
+  it('plays the finished 60-second focus mix once, with no second ambient layer', async () => {
     const navigation = require('@react-navigation/native');
-    const now = 1_700_000_100_000;
-    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
-
     navigation.useRoute.mockReturnValue({
       params: {
         anchorId: TEST_ANCHOR_UUID,
@@ -483,43 +492,16 @@ describe('ActivationScreen', () => {
     const { unmount } = render(<ActivationScreen />);
 
     expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-      'focus-session-60s-start',
+      'focus-60s-mix',
       expect.objectContaining({
+        volume: 1,
         onFinish: expect.any(Function),
       })
     );
-    expect(mockGuidance60StartPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 28_000);
-    await sleep(350);
-
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'focus-session-60s-middle',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockGuidance60StartPlayer.stop).toHaveBeenCalled();
-    expect(mockGuidance60MiddlePlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 54_500);
-    await sleep(350);
-
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'focus-session-60s-end',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockGuidance60MiddlePlayer.stop).toHaveBeenCalled();
-    expect(mockGuidance60EndPlayer.play).toHaveBeenCalledTimes(1);
-
+    expect(mockFocusMix60Player.play).toHaveBeenCalledTimes(1);
+    expect(mockCreateManagedPlayer).not.toHaveBeenCalledWith('focus-session-ambient', expect.anything());
+    expect(mockCreateManagedPlayer).not.toHaveBeenCalledWith('focus-session-60s-middle', expect.anything());
     unmount();
-    dateNowSpy.mockRestore();
   });
 
   it('plays loudness-matched male Focus guidance without substituting female audio', () => {
@@ -540,13 +522,12 @@ describe('ActivationScreen', () => {
     const { unmount } = render(<ActivationScreen />);
 
     expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-      'focus-session-60s-start-male',
+      'focus-60s-mix-male',
       expect.objectContaining({
-        volume: 0.447,
+        volume: 1,
         onFinish: expect.any(Function),
       })
     );
-    expect(mockGuidance60StartPlayer.play).toHaveBeenCalledTimes(1);
     unmount();
   });
 
@@ -557,15 +538,15 @@ describe('ActivationScreen', () => {
       params: {
         anchorId: TEST_ANCHOR_UUID,
         activationType: 'visual',
-        durationOverride: 60,
+        durationOverride: 90,
       },
     });
     mockSettingsState({
       focusSessionAudio: 'ambient',
-      focusSessionDuration: 60,
+      focusSessionDuration: 90,
     });
     (useSettingsStore as any).getState = jest.fn(() => ({
-      focusSessionDuration: 60,
+      focusSessionDuration: 90,
       focusSessionAudio: 'ambient',
       arrivePhaseEnabled: false,
       reduceIntentionVisibility: false,
@@ -839,15 +820,15 @@ describe('ActivationScreen', () => {
       params: {
         anchorId: TEST_ANCHOR_UUID,
         activationType: 'visual',
-        durationOverride: 60,
+        durationOverride: 90,
       },
     });
     mockSettingsState({
       focusSessionAudio: 'ambient',
-      focusSessionDuration: 60,
+      focusSessionDuration: 90,
     });
     (useSettingsStore as any).getState = jest.fn(() => ({
-      focusSessionDuration: 60,
+      focusSessionDuration: 90,
       focusSessionAudio: 'ambient',
       arrivePhaseEnabled: false,
       reduceIntentionVisibility: false,

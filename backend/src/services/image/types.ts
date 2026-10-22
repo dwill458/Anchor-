@@ -1,0 +1,143 @@
+/**
+ * Provider-agnostic Image Generation Types
+ *
+ * Defines the unified interfaces for multi-provider image generation across
+ * Anchor artwork and Vision imagery.
+ */
+
+import type { DevImageModel } from './devImageModels';
+
+export type ImageGenerationPurpose = 'anchor' | 'vision';
+
+export type QualityTier = 'draft' | 'premium' | 'pro_upgrade';
+
+export interface ImageReference {
+  buffer: Buffer;
+  mimeType: string;
+  /** structure: Anchor geometry. appearance: who the person is. world: an image already in their Vision (the place, objects, wardrobe, light to continue). style: look only. */
+  role?:
+    | 'structure'
+    | 'appearance'
+    | 'world'
+    | 'start'
+    | 'style'
+    | 'identity'
+    | 'place'
+    | 'object'
+    | 'inspiration'
+    | 'edit_source';
+  label?: string;
+}
+
+export interface GenerateImageRequest {
+  /** Vision intent, independent from the provider API endpoint used. */
+  operation?: 'CREATE' | 'EDIT' | 'COMPOSE' | 'VARIATE';
+  /** Server-authorized comparison: pin one model and disable cross-provider fallback. */
+  devImageModel?: DevImageModel;
+  /** The purpose of generation: 'anchor' artwork or 'vision' imagery */
+  type: ImageGenerationPurpose;
+  /** Primary generation prompt */
+  prompt: string;
+  /** Optional negative prompt (used where supported) */
+  negativePrompt?: string;
+  /** Optional reference images (e.g. Anchor structure SVG/PNG or Vision appearance reference) */
+  referenceImages?: ImageReference[];
+  /** Quality tier requested */
+  quality?: QualityTier;
+  /** Aspect ratio: '1:1' for Anchor artwork, '9:16' for Vision */
+  aspectRatio?: '1:1' | '9:16' | string;
+  /** Number of variations requested (default: 1) */
+  numberOfVariations?: number;
+  /** Explicit dimensions in pixels if known */
+  width?: number;
+  height?: number;
+  /** Unique generation request identifier for distributed tracing and deduplication */
+  generationRequestId?: string;
+  /** Internal job lifecycle guard, checked before starting another provider call. */
+  shouldContinue?: () => Promise<boolean>;
+  /** User ID for logging and deterministic A/B testing */
+  userId?: string;
+  /** Generation attempt number (1 for initial, 2+ for regeneration) */
+  generationAttempt?: number;
+  /** Category context (e.g. 'career', 'health', 'wealth') */
+  category?: string;
+  /**
+   * Anchor style ID this prompt was built for. Adapters resolve the generation contract
+   * (legacy vs Anchor 2.0) from the style registry by this ID; it is never a client flag.
+   */
+  styleId?: string;
+  /** Arbitrary domain metadata to attach to telemetry */
+  metadata?: Record<string, unknown>;
+}
+
+export interface GeneratedImageVariation {
+  buffer: Buffer;
+  base64?: string;
+  mimeType: string;
+  seed?: number;
+  variationIndex: number;
+}
+
+export interface ProviderAttemptRecord {
+  attemptNumber: number;
+  provider: string;
+  model: string;
+  startedAt: Date;
+  completedAt: Date;
+  latencyMs: number;
+  success: boolean;
+  error?: string;
+  failureReason?: string;
+}
+
+export interface ImageGenerationResult {
+  images: GeneratedImageVariation[];
+  provider: string;
+  model: string;
+  totalTimeSeconds: number;
+  costUSD: number;
+  attempts: ProviderAttemptRecord[];
+  fallbackUsed: boolean;
+  sourceProvider?: string;
+  generationRequestId: string;
+  metadata?: Record<string, unknown>;
+}
+
+export enum ImageProviderErrorType {
+  RATE_LIMIT = 'RATE_LIMIT',
+  SAFETY_FILTER = 'SAFETY_FILTER',
+  AUTHENTICATION = 'AUTHENTICATION',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  TIMEOUT = 'TIMEOUT',
+  INVALID_REQUEST = 'INVALID_REQUEST',
+  SERVER_ERROR = 'SERVER_ERROR',
+  INVALID_RESPONSE = 'INVALID_RESPONSE',
+  UNKNOWN = 'UNKNOWN',
+}
+
+export class ImageProviderError extends Error {
+  constructor(
+    public readonly provider: string,
+    public readonly type: ImageProviderErrorType,
+    message: string,
+    public readonly retryable: boolean = false,
+    public readonly statusCode?: number,
+    public readonly retryAfterMs?: number
+  ) {
+    super(`[${provider}] ${message}`);
+    this.name = 'ImageProviderError';
+  }
+}
+
+export interface ImageProviderAdapter {
+  readonly name: string;
+  isAvailable(): boolean;
+  generate(
+    request: GenerateImageRequest,
+    attemptNumber: number
+  ): Promise<{
+    images: GeneratedImageVariation[];
+    model: string;
+    estimatedCost: number;
+  }>;
+}

@@ -1,0 +1,402 @@
+import { randomUUID } from 'crypto';
+import { prisma } from '../../lib/prisma';
+import { AppError } from '../../api/middleware/errorHandler';
+import { visionService } from './VisionService';
+import { threadStrengthService } from './ThreadStrengthService';
+import {
+  RecommendationContextResponse,
+  RecommendationSignal,
+  DestinationReachedSignal,
+  WaypointReachedSignal,
+  IntentionCompletedSignal,
+  RecommendationEvaluation,
+  RecommendationThreadContext,
+} from '../../domain/v2/recommendation';
+
+function stablePart(value: string): string {
+  return encodeURIComponent(value);
+}
+
+type RecommendationTiming = (stage: string, durationMs: number) => void;
+
+async function timed<T>(stage: string, work: () => Promise<T>, onTiming?: RecommendationTiming): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await work();
+  } finally {
+    onTiming?.(stage, performance.now() - startedAt);
+  }
+}
+
+export function buildCourseSignalKey(params: {
+  userId: string;
+  courseEventId: string;
+  courseId: string;
+  waypointId?: string | null;
+  signalType: 'destination_reached' | 'waypoint_reached';
+}): string {
+  return [
+    `user=${stablePart(params.userId)}`,
+    `course=${stablePart(params.courseId)}`,
+    `event=${stablePart(params.courseEventId)}`,
+    `waypointPresent=${params.waypointId == null ? '0' : '1'}`,
+    `waypoint=${params.waypointId == null ? '' : stablePart(params.waypointId)}`,
+    `type=${stablePart(params.signalType)}`,
+  ].join('&');
+}
+
+export function buildIntentionSignalKey(userId: string, anchorId: string): string {
+  return `user=${stablePart(userId)}&anchor=${stablePart(anchorId)}&type=intention_completed`;
+}
+
+export class RecommendationService {
+  /**
+   * Evaluates the recommended today projection for an Anchor without consuming any signals.
+   */
+  async getRecommendationContext(
+    userId: string,
+    anchorId: string,
+    clientTimeZone: string = 'UTC',
+    delta7d: number | null = null,
+    onTiming?: RecommendationTiming,
+  ): Promise<RecommendationContextResponse> {
+    const anchor = await timed('anchor-lookup', () => prisma.anchor.findFirst({
+      where: { id: anchorId, userId, isArchived: false },
+      select: {
+        id: true,
+        intentionText: true,
+        category: true,
+        intentionCompletedAt: true,
+        createdAt: true,
+      },
+    }), onTiming);
+
+    if (!anchor) {
+      throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+    }
+
+    // These reads are independent after the Anchor owner check. Run them
+    // together so Today latency is bounded by the slowest dependency, not the
+    // sum of completion signal, Vision, and Thread Strength work.
+    const [completionSignal, vision, threadContext] = await Promise.all([
+      timed('completion-signal', () => this.getPendingCompletionSignal(userId, anchor), onTiming),
+      timed('vision-context', () => visionService.getAnchorVision(userId, anchorId, clientTimeZone), onTiming),
+      delta7d !== null
+        ? Promise.resolve<RecommendationThreadContext>({
+            delta7d,
+            delta7dStatus: 'AVAILABLE',
+            status: 'AVAILABLE',
+          })
+        : timed('thread-strength', async () => {
+            try {
+              const threadState = await threadStrengthService.getAnchorThreadState(
+                userId,
+                anchorId,
+                new Date(),
+                clientTimeZone,
+              );
+              return {
+                strength: threadState.strength ?? undefined,
+                delta7d: threadState.delta7d,
+                delta7dStatus: 'AVAILABLE',
+                status: 'AVAILABLE',
+              } satisfies RecommendationThreadContext;
+            } catch {
+              return {
+                delta7d: null,
+                delta7dStatus: 'UNAVAILABLE',
+                status: 'UNAVAILABLE',
+                blockerReason: 'THREAD_STRENGTH_UNAVAILABLE',
+              } satisfies RecommendationThreadContext;
+            }
+          }, onTiming),
+    ]);
+    const visionContext = {
+      exists: Boolean(vision && vision.status === 'ACTIVE'),
+      seenToday: Boolean(vision && vision.status === 'ACTIVE' && vision.seenToday),
+      visionId: vision?.id ?? null,
+    };
+
+    // 4. First-match-wins evaluation
+    const recommendation = this.evaluateFirstMatchRecommendation(
+      completionSignal,
+      visionContext,
+      threadContext.delta7d,
+      anchor.id
+    );
+
+    return {
+      anchorId: anchor.id,
+      completionSignal,
+      vision: {
+        exists: visionContext.exists,
+        seenToday: visionContext.seenToday,
+        visionId: visionContext.visionId,
+      },
+      thread: threadContext,
+      recommendation,
+    };
+  }
+
+  /**
+   * Finds the highest priority pending (unacknowledged) completion signal.
+   * All completion signal types are the same highest-priority context and
+   * resolve to Release; destination is selected before waypoint before
+   * intention when multiple pending completion signals coexist.
+   */
+  private async getPendingCompletionSignal(
+    userId: string,
+    anchor: {
+      id: string;
+      intentionText: string;
+      intentionCompletedAt: Date | null;
+      createdAt: Date;
+    }
+  ): Promise<RecommendationSignal | null> {
+    // Acknowledgements and linked-course events are independent after the
+    // account/Anchor ownership check, so start both reads together.
+    const [acks, links] = await Promise.all([
+      prisma.recommendationSignalAck.findMany({
+        where: { userId },
+        select: { signalKey: true },
+      }),
+      prisma.courseAnchorLink.findMany({
+        where: {
+          userId,
+          anchorId: anchor.id,
+          unlinkedAt: null,
+        },
+        include: {
+          course: {
+            include: {
+              events: {
+                where: {
+                  eventType: { in: ['COURSE_COMPLETED', 'WAYPOINT_REACHED'] },
+                },
+                orderBy: { occurredAt: 'desc' },
+                include: {
+                  waypoint: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+    const ackSet = new Set(acks.map(a => a.signalKey));
+
+    let destinationSignal: DestinationReachedSignal | null = null;
+    let waypointSignal: WaypointReachedSignal | null = null;
+
+    for (const link of links) {
+      for (const event of link.course.events) {
+        // Skip events that occurred before the anchor was linked to this course
+        if (event.occurredAt < link.linkedAt) {
+          continue;
+        }
+
+        const signalType =
+          event.eventType === 'COURSE_COMPLETED' ? 'destination_reached' : 'waypoint_reached';
+        const signalKey = buildCourseSignalKey({
+          userId,
+          courseEventId: event.id,
+          courseId: link.courseId,
+          waypointId: event.waypointId,
+          signalType,
+        });
+        if (ackSet.has(signalKey)) {
+          continue;
+        }
+
+        if (event.eventType === 'COURSE_COMPLETED' && !destinationSignal) {
+          destinationSignal = {
+            id: signalKey,
+            type: 'destination_reached',
+            courseId: link.courseId,
+            destinationTitle: link.course.destinationText,
+            occurredAt: event.occurredAt.toISOString(),
+          };
+        } else if (event.eventType === 'WAYPOINT_REACHED' && !waypointSignal) {
+          // Verify snapshot waypointTitle or waypoint relation
+          const snapshot = event.snapshot as Record<string, unknown> | null;
+          const title =
+            (snapshot?.waypointTitle as string) || event.waypoint?.title || 'Waypoint reached';
+
+          waypointSignal = {
+            id: signalKey,
+            type: 'waypoint_reached',
+            courseId: link.courseId,
+            waypointId: event.waypointId || '',
+            waypointTitle: title,
+            occurredAt: event.occurredAt.toISOString(),
+          };
+        }
+      }
+    }
+
+    if (destinationSignal) {
+      return destinationSignal;
+    }
+
+    if (waypointSignal) {
+      return waypointSignal;
+    }
+
+    // Check intention_completed signal
+    if (anchor.intentionCompletedAt) {
+      const intentionSignalKey = buildIntentionSignalKey(userId, anchor.id);
+      if (!ackSet.has(intentionSignalKey)) {
+        const intentionSignal: IntentionCompletedSignal = {
+          id: intentionSignalKey,
+          type: 'intention_completed',
+          anchorId: anchor.id,
+          intentionText: anchor.intentionText,
+          occurredAt: anchor.intentionCompletedAt.toISOString(),
+        };
+        return intentionSignal;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Evaluates recommendation for an Anchor:
+   * 1. Completed Chart arc (destination reached) -> Release
+   * 2. delta7d < 0 -> Deep Prime (decaying thread)
+   * 3. Vision exists -> 35% Visualize / 33% Deep Prime / 32% Focus
+   * 4. No Vision -> 50% Deep Prime / 50% Focus
+   */
+  evaluateFirstMatchRecommendation(
+    completionSignal: RecommendationSignal | null,
+    vision: { exists: boolean; seenToday: boolean },
+    delta7d: number | null,
+    anchorId?: string
+  ): RecommendationEvaluation {
+    if (completionSignal?.type === 'destination_reached') {
+      return {
+        action: 'Release',
+        reason: completionSignal.type,
+      };
+    }
+
+    if (delta7d !== null && delta7d < 0) {
+      return {
+        action: 'Deep Prime',
+        reason: 'thread_decay',
+      };
+    }
+
+    let hashScore = 0;
+    if (anchorId) {
+      for (let i = 0; i < anchorId.length; i++) {
+        hashScore = (hashScore * 31 + anchorId.charCodeAt(i)) | 0;
+      }
+      hashScore = Math.abs(hashScore);
+    }
+
+    const roll = hashScore % 100;
+
+    if (vision.exists) {
+      // 35% Visualize, 33% Deep Prime, 32% Focus
+      if (roll < 35) {
+        return {
+          action: 'Visualize',
+          reason: vision.seenToday ? 'vision_scene' : 'unseen_vision',
+        };
+      }
+      if (roll < 68) {
+        return {
+          action: 'Deep Prime',
+          reason: 'deep_reinforcement',
+        };
+      }
+      return {
+        action: 'Focus',
+        reason: 'daily_focus',
+      };
+    }
+
+    // No Vision: 50% Deep Prime, 50% Focus
+    if (roll < 50) {
+      return {
+        action: 'Deep Prime',
+        reason: 'deep_reinforcement',
+      };
+    }
+
+    return {
+      action: 'Focus',
+      reason: 'daily_focus',
+    };
+  }
+
+  /**
+   * Acknowledges/consumes a recommendation signal so it does not reappear.
+   */
+  async acknowledgeSignal(
+    userId: string,
+    signalKey: string,
+    signalType: string = 'signal'
+  ): Promise<{ success: boolean; signalKey: string; acknowledgedAt: string }> {
+    const existing = await prisma.recommendationSignalAck.findUnique({
+      where: {
+        userId_signalKey: {
+          userId,
+          signalKey,
+        },
+      },
+    });
+
+    if (existing) {
+      return {
+        success: true,
+        signalKey: existing.signalKey,
+        acknowledgedAt: existing.acknowledgedAt.toISOString(),
+      };
+    }
+
+    let created: { signalKey: string; acknowledgedAt: Date };
+    try {
+      created = await prisma.recommendationSignalAck.create({
+        data: {
+          id: randomUUID(),
+          userId,
+          signalKey,
+          signalType,
+        },
+      });
+    } catch (error) {
+      // A concurrent duplicate ACK is a successful idempotent replay, not a
+      // user-visible failure. The unique constraint is the final arbiter.
+      if ((error as { code?: string }).code !== 'P2002') {
+        throw error;
+      }
+
+      const concurrent = await prisma.recommendationSignalAck.findUnique({
+        where: {
+          userId_signalKey: {
+            userId,
+            signalKey,
+          },
+        },
+      });
+      if (!concurrent) {
+        throw error;
+      }
+      return {
+        success: true,
+        signalKey: concurrent.signalKey,
+        acknowledgedAt: concurrent.acknowledgedAt.toISOString(),
+      };
+    }
+
+    return {
+      success: true,
+      signalKey: created.signalKey,
+      acknowledgedAt: created.acknowledgedAt.toISOString(),
+    };
+  }
+}
+
+export const recommendationService = new RecommendationService();

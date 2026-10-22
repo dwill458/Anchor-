@@ -332,4 +332,127 @@ describe('GeminiImageService', () => {
       expect(prompt).toContain('upward lift or outward expansion');
     });
   });
+
+  describe('Anchor 2.0 vs 1.5 provider routing', () => {
+    let service: GeminiImageService;
+
+    beforeEach(() => {
+      service = new GeminiImageService();
+      process.env.GEMINI_API_KEY = 'test-gemini-key';
+      process.env.OPENAI_API_KEY = 'test-openai-key';
+    });
+
+    afterEach(() => {
+      delete process.env.GEMINI_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      delete process.env.ANCHOR2_PRIMARY_PROVIDER;
+    });
+
+    it('routes Anchor 2.0 styles to OpenAI as primary provider', async () => {
+      const openAiSpy = jest
+        .spyOn(service as any, 'generateVariationWithOpenAI')
+        .mockResolvedValue({ base64: 'openai_b64', seed: 123, variationIndex: 1 });
+      const nanoBananaSpy = jest.spyOn(service as any, 'generateVariationWithNanoBanana');
+
+      const result = await (service as any).generateVariation(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        { modelId: 'gemini-3.1-flash-image-preview', useNanoBanana: true },
+        0,
+        'woven_v2'
+      );
+
+      expect(openAiSpy).toHaveBeenCalledWith(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        expect.anything(),
+        'woven_v2',
+        1
+      );
+      expect(nanoBananaSpy).not.toHaveBeenCalled();
+      expect(result.base64).toBe('openai_b64');
+    });
+
+    it('falls back to Gemini (Nano Banana) backup when OpenAI fails for Anchor 2.0 styles', async () => {
+      const openAiSpy = jest
+        .spyOn(service as any, 'generateVariationWithOpenAI')
+        .mockRejectedValue(new Error('OpenAI rate limit 429'));
+      const nanoBananaSpy = jest
+        .spyOn(service as any, 'generateVariationWithNanoBanana')
+        .mockResolvedValue({ base64: 'gemini_backup_b64', seed: 456, variationIndex: 1 });
+
+      const result = await (service as any).generateVariation(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        { modelId: 'gemini-3.1-flash-image-preview', useNanoBanana: true },
+        0,
+        'velvet_ember_v2'
+      );
+
+      expect(openAiSpy).toHaveBeenCalledTimes(1);
+      expect(nanoBananaSpy).toHaveBeenCalledWith(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        expect.anything(),
+        0,
+        'velvet_ember_v2'
+      );
+      expect(result.base64).toBe('gemini_backup_b64');
+    });
+
+    it('leaves Anchor 1.5 styles on Gemini as primary provider', async () => {
+      const openAiSpy = jest.spyOn(service as any, 'generateVariationWithOpenAI');
+      const nanoBananaSpy = jest
+        .spyOn(service as any, 'generateVariationWithNanoBanana')
+        .mockResolvedValue({ base64: 'gemini_15_b64', seed: 789, variationIndex: 1 });
+
+      const result = await (service as any).generateVariation(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        { modelId: 'gemini-3.1-flash-image-preview', useNanoBanana: true },
+        0,
+        'watercolor'
+      );
+
+      expect(nanoBananaSpy).toHaveBeenCalledTimes(1);
+      expect(openAiSpy).not.toHaveBeenCalled();
+      expect(result.base64).toBe('gemini_15_b64');
+    });
+
+    it('falls back to OpenAI when Gemini fails for Anchor 1.5 styles', async () => {
+      const nanoBananaSpy = jest
+        .spyOn(service as any, 'generateVariationWithNanoBanana')
+        .mockRejectedValue(
+          new GeminiError(GeminiErrorType.NETWORK_ERROR, 'Network error', true)
+        );
+      const openAiSpy = jest
+        .spyOn(service as any, 'generateVariationWithOpenAI')
+        .mockResolvedValue({ base64: 'openai_15_fallback_b64', seed: 101, variationIndex: 1 });
+
+      const result = await (service as any).generateVariation(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        { modelId: 'gemini-3.1-flash-image-preview', useNanoBanana: true },
+        0,
+        'watercolor'
+      );
+
+      expect(nanoBananaSpy).toHaveBeenCalledTimes(1);
+      expect(openAiSpy).toHaveBeenCalledWith(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        expect.anything(),
+        'watercolor',
+        2
+      );
+      expect(result.base64).toBe('openai_15_fallback_b64');
+    });
+  });
 });

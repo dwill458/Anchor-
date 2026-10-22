@@ -1,0 +1,65 @@
+/**
+ * UI-F's presentation contract. Recommendation ordering belongs to the server;
+ * this file intentionally contains no recommendation evaluator.
+ */
+export const V2_PRACTICE_MODES = ['focus', 'deep_prime', 'visualize', 'release'] as const;
+export type V2PracticeMode = (typeof V2_PRACTICE_MODES)[number];
+
+export type V2PracticeModeDefinition = {
+  mode: V2PracticeMode;
+  title: string;
+  purpose: string;
+  duration: string;
+  accent: string;
+  premium: boolean;
+};
+
+import { practiceColors } from '@/theme/v2/practiceColors';
+
+/**
+ * `deep_prime` (and the server's `'Deep Prime'` recommendation action) are
+ * stable internal identifiers: persisted session records, analytics, API
+ * contracts and asset names all use them. Users only ever see the `title`,
+ * which is "Deep Focus" - read every user-facing mode name from here.
+ */
+export const V2_PRACTICE_MODE_DEFINITIONS: readonly V2PracticeModeDefinition[] = [
+  { mode: 'focus', title: 'Focus', purpose: 'Return to your Anchor with one clear breath.', duration: '10 sec · 30 sec · 60 sec', accent: practiceColors.focus, premium: false },
+  { mode: 'deep_prime', title: 'Deep Focus', purpose: 'A longer, guided session with your Anchor.', duration: '2 min · 5 min · 10 min', accent: practiceColors.deepPrime, premium: true },
+  { mode: 'visualize', title: 'Visualize', purpose: 'Rehearse the future held in your Vision.', duration: '1 min · 3 min · 10 min', accent: practiceColors.visualize, premium: true },
+  { mode: 'release', title: 'Release', purpose: 'Close an intention when its work is complete.', duration: 'When ready', accent: practiceColors.release, premium: false },
+];
+
+export const V2_PRACTICE_MODE_BY_ID: Readonly<Record<V2PracticeMode, V2PracticeModeDefinition>> =
+  Object.fromEntries(V2_PRACTICE_MODE_DEFINITIONS.map((definition) => [definition.mode, definition])) as Record<V2PracticeMode, V2PracticeModeDefinition>;
+
+export const V2_PRACTICE_DURATIONS: Readonly<Record<Exclude<V2PracticeMode, 'release'>, readonly number[]>> = {
+  focus: [10, 30, 60],
+  deep_prime: [120, 300, 600],
+  visualize: [60, 180, 600],
+};
+
+export type V2RecommendationAction = 'Focus' | 'Deep Prime' | 'Visualize' | 'Release';
+
+export const V2_RECOMMENDATION_ACTION_TO_MODE: Readonly<Record<V2RecommendationAction, V2PracticeMode>> = {
+  Focus: 'focus',
+  'Deep Prime': 'deep_prime',
+  Visualize: 'visualize',
+  Release: 'release',
+};
+
+export const V2_RECOMMENDATION_WHY: Readonly<Record<V2PracticeMode, string>> = {
+  release: 'Reached a meaningful milestone',
+  visualize: 'Reconnect with your Vision today',
+  deep_prime: 'A longer session to go deeper.',
+  focus: 'Daily reinforcement for your Anchor',
+};
+
+/** User-facing name for a practice mode id. Never render the id itself. */
+export function v2PracticeModeTitle(mode: V2PracticeMode): string {
+  return V2_PRACTICE_MODE_BY_ID[mode].title;
+}
+
+export function v2PracticeDurationLabel(seconds: number): string {
+  if (seconds < 60) return `${seconds} sec`;
+  return `${seconds / 60} min`;
+}

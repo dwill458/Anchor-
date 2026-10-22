@@ -1,0 +1,72 @@
+{
+  "teaching-final-tests.json": {
+    "numTotalTestSuites": 27,
+    "numPassedTestSuites": 27,
+    "numFailedTestSuites": 0,
+    "numTotalTests": 256,
+    "numPassedTests": 256,
+    "numFailedTests": 0,
+    "success": true,
+    "snapshots": {
+      "matched": 0,
+      "unmatched": 0,
+      "total": 0
+    }
+  },
+  "teaching-details-final-tests.json": {
+    "numTotalTestSuites": 2,
+    "numPassedTestSuites": 2,
+    "numFailedTestSuites": 0,
+    "numTotalTests": 48,
+    "numPassedTests": 48,
+    "numFailedTests": 0,
+    "success": true,
+    "snapshots": {
+      "matched": 0,
+      "unmatched": 0,
+      "total": 0
+    }
+  },
+  "teaching-baseline-tests.json": {
+    "numTotalTestSuites": 2,
+    "numPassedTestSuites": 1,
+    "numFailedTestSuites": 1,
+    "numTotalTests": 82,
+    "numPassedTests": 72,
+    "numFailedTests": 10,
+    "success": false,
+    "snapshots": {
+      "matched": 5,
+      "unmatched": 10,
+      "total": 15
+    }
+  },
+  "teaching-baseline-photo-tests.json": {
+    "numTotalTestSuites": 1,
+    "numPassedTestSuites": 1,
+    "numFailedTestSuites": 0,
+    "numTotalTests": 8,
+    "numPassedTests": 8,
+    "numFailedTests": 0,
+    "success": true,
+    "snapshots": {
+      "matched": 0,
+      "unmatched": 0,
+      "total": 0
+    }
+  },
+  "teaching-after-baseline-tests.json": {
+    "numTotalTestSuites": 3,
+    "numPassedTestSuites": 2,
+    "numFailedTestSuites": 1,
+    "numTotalTests": 90,
+    "numPassedTests": 80,
+    "numFailedTests": 10,
+    "success": false,
+    "snapshots": {
+      "matched": 5,
+      "unmatched": 10,
+      "total": 15
+    }
+  }
+}

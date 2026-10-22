@@ -257,11 +257,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   paletteWash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.72,
   },
   selectedWash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(212, 175, 55, 0.08)',
   },
   preview: {

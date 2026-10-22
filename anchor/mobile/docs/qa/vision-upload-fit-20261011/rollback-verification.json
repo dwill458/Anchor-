@@ -1,0 +1,130 @@
+[
+  {
+    "path": "src/components/share/__tests__/VisionExportTemplate.test.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/share/templates/VisionExportTemplate.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/share/visionBoardExportFrame.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/V2SavedVision.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/VisionEditorialPreview.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/VisionImageEdge.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/VisionIntentionHeading.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/__tests__/VisionEditorialPreview.test.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/__tests__/VisionImageEdge.test.tsx",
+    "redesign_only_file_removed": true
+  },
+  {
+    "path": "src/components/v2/vision/__tests__/VisionIntentionHeading.native.test.tsx",
+    "redesign_only_file_removed": true
+  },
+  {
+    "path": "src/components/v2/vision/__tests__/VisionIntentionHeading.test.ts",
+    "redesign_only_file_removed": true
+  },
+  {
+    "path": "src/components/v2/vision/__tests__/visionEditorialLayout.test.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/__tests__/visionPhotoDimensions.test.tsx",
+    "redesign_only_file_removed": true
+  },
+  {
+    "path": "src/components/v2/vision/board/VisionBoard.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/VisionBoardIntentionCard.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/VisionBoardPhoto.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/VisionBoardScene.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/__tests__/VisionBoard.test.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/__tests__/visionCanvas.test.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/__tests__/visionSealPlacement.test.ts",
+    "redesign_only_file_removed": true
+  },
+  {
+    "path": "src/components/v2/vision/board/useVisionBoardScene.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/visionBoardLayouts.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/board/visionSealPlacement.ts",
+    "redesign_only_file_removed": true
+  },
+  {
+    "path": "src/components/v2/vision/visionEditorialLayout.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/components/v2/vision/visionPhotoDimensions.ts",
+    "redesign_only_file_removed": true
+  },
+  {
+    "path": "src/screens/v2/practice/visualize/V2CinematicSessionScreen.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/screens/v2/practice/visualize/V2VisualizePrepareScreen.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx",
+    "original_restored": true
+  },
+  {
+    "path": "src/screens/v2/practice/visualize/__tests__/visualizePhotoFrame.test.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/screens/v2/practice/visualize/visualizePhotoFrame.ts",
+    "original_restored": true
+  },
+  {
+    "path": "src/screens/v2/system/VisionVisualQADevHost.tsx",
+    "original_restored": true
+  }
+]

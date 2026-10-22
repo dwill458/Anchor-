@@ -1,0 +1,13 @@
+--------- beginning of main
+ 25809.925 11480 11480 I ChartOpeningQA: LIFETIME_REC_PRE
+ 25810.908 11487 11487 I ChartOpeningQA: LIFETIME_REC_POST
+ 25811.342 11351 11422 I ReactNativeJS: [chart-opening-qa] selected=full at=25811341.7ms
+ 25811.507 11351 11422 I ReactNativeJS: [chart-opening-qa] isolated-clock-v1; sibling overlay owns clock state
+ 25813.989 11351 11422 I ReactNativeJS: [chart-intro-timing] runner-start mode=introFull
+ 25819.130 11351 11422 I ReactNativeJS: [chart-intro-probe] at=5100 contour=1.000 tone=1.000 land=0.000 base=true
+ 25820.390 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6350 contour=1.000 tone=1.000 land=0.000 base=true
+ 25820.563 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6490 contour=1.000 tone=1.000 land=0.000 base=true
+ 25820.638 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6600 contour=1.000 tone=1.000 land=0.000 base=true
+ 25820.863 11351 11422 I ReactNativeJS: [chart-intro-probe] at=6800 contour=1.000 tone=1.000 land=0.071 base=true
+ 25821.499 11351 11422 I ReactNativeJS: [chart-intro-timing] sequence-end
+ 25825.139 12525 12525 I ChartOpeningQA: LIFETIME_REC_END

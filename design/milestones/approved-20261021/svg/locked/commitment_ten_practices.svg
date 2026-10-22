@@ -1,0 +1,243 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="commitment_ten_practices" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Ten Practices (Commitment) locked">
+  <title>Ten Practices (Commitment) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: commitment_ten_practices. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="commitment_ten_practices-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="commitment_ten_practices-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="commitment_ten_practices__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#commitment_ten_practices-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="commitment_ten_practices__art" transform="translate(128 128) scale(0.973) translate(-128 -128)">
+  <g id="commitment_ten_practices__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="128" r="94" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <circle cx="128" cy="128" r="27" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="128" r="94" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <circle cx="128" cy="128" r="27" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <circle id="commitment_ten_practices__structure-ring-outer" cx="128" cy="128" r="94" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+    <circle id="commitment_ten_practices__structure-ring-core" cx="128" cy="128" r="27" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_ten_practices__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <g>
+        <path d="M128 94L122.34 72.29L128 44Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M128 94L128 44L133.66 72.29Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M147.98 100.49L156.17 79.6L177.37 60.04Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M147.98 100.49L177.37 60.04L165.33 86.25Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M160.34 117.49L179.24 105.4L207.89 102.04Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M160.34 117.49L207.89 102.04L182.74 116.17Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M160.34 138.51L182.74 139.83L207.89 153.96Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M160.34 138.51L207.89 153.96L179.24 150.6Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M147.98 155.51L165.33 169.75L177.37 195.96Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M147.98 155.51L177.37 195.96L156.17 176.4Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M128 162L133.66 183.71L128 212Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M128 162L128 212L122.34 183.71Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M108.02 155.51L99.83 176.4L78.63 195.96Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M108.02 155.51L78.63 195.96L90.67 169.75Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M95.66 138.51L76.76 150.6L48.11 153.96Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M95.66 138.51L48.11 153.96L73.26 139.83Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M95.66 117.49L73.26 116.17L48.11 102.04Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M95.66 117.49L48.11 102.04L76.76 105.4Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M108.02 100.49L90.67 86.25L78.63 60.04Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M108.02 100.49L78.63 60.04L99.83 79.6Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <g>
+        <path d="M128 94L122.34 72.29L128 44Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M128 94L128 44L133.66 72.29Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M147.98 100.49L156.17 79.6L177.37 60.04Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M147.98 100.49L177.37 60.04L165.33 86.25Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M160.34 117.49L179.24 105.4L207.89 102.04Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M160.34 117.49L207.89 102.04L182.74 116.17Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M160.34 138.51L182.74 139.83L207.89 153.96Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M160.34 138.51L207.89 153.96L179.24 150.6Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M147.98 155.51L165.33 169.75L177.37 195.96Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M147.98 155.51L177.37 195.96L156.17 176.4Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M128 162L133.66 183.71L128 212Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M128 162L128 212L122.34 183.71Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M108.02 155.51L99.83 176.4L78.63 195.96Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M108.02 155.51L78.63 195.96L90.67 169.75Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M95.66 138.51L76.76 150.6L48.11 153.96Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M95.66 138.51L48.11 153.96L73.26 139.83Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M95.66 117.49L73.26 116.17L48.11 102.04Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M95.66 117.49L48.11 102.04L76.76 105.4Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <g>
+        <path d="M108.02 100.49L90.67 86.25L78.63 60.04Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M108.02 100.49L78.63 60.04L99.83 79.6Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-01">
+      <path d="M128 94L122.34 72.29L128 44Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 94L128 44L133.66 72.29Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-02">
+      <path d="M147.98 100.49L156.17 79.6L177.37 60.04Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M147.98 100.49L177.37 60.04L165.33 86.25Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-03">
+      <path d="M160.34 117.49L179.24 105.4L207.89 102.04Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M160.34 117.49L207.89 102.04L182.74 116.17Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-04">
+      <path d="M160.34 138.51L182.74 139.83L207.89 153.96Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M160.34 138.51L207.89 153.96L179.24 150.6Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-05">
+      <path d="M147.98 155.51L165.33 169.75L177.37 195.96Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M147.98 155.51L177.37 195.96L156.17 176.4Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-06">
+      <path d="M128 162L133.66 183.71L128 212Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 162L128 212L122.34 183.71Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-07">
+      <path d="M108.02 155.51L99.83 176.4L78.63 195.96Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M108.02 155.51L78.63 195.96L90.67 169.75Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-08">
+      <path d="M95.66 138.51L76.76 150.6L48.11 153.96Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M95.66 138.51L48.11 153.96L73.26 139.83Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-09">
+      <path d="M95.66 117.49L73.26 116.17L48.11 102.04Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M95.66 117.49L48.11 102.04L76.76 105.4Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="commitment_ten_practices__emblem-mark-10">
+      <path d="M108.02 100.49L90.67 86.25L78.63 60.04Z" fill="#8C867A" stroke="#8C867A" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M108.02 100.49L78.63 60.04L99.83 79.6Z" fill="#A8A295" stroke="#A8A295" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+  <g id="commitment_ten_practices__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="149.63" cy="61.43" r="1.9" fill="#FFFFFF"/>
+      <circle cx="184.63" cy="86.86" r="1.9" fill="#FFFFFF"/>
+      <circle cx="198" cy="128" r="1.9" fill="#FFFFFF"/>
+      <circle cx="184.63" cy="169.14" r="1.9" fill="#FFFFFF"/>
+      <circle cx="149.63" cy="194.57" r="1.9" fill="#FFFFFF"/>
+      <circle cx="106.37" cy="194.57" r="1.9" fill="#FFFFFF"/>
+      <circle cx="71.37" cy="169.14" r="1.9" fill="#FFFFFF"/>
+      <circle cx="58" cy="128" r="1.9" fill="#FFFFFF"/>
+      <circle cx="71.37" cy="86.86" r="1.9" fill="#FFFFFF"/>
+      <circle cx="106.37" cy="61.43" r="1.9" fill="#FFFFFF"/>
+      <circle cx="128" cy="128" r="44" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="149.63" cy="61.43" r="1.9" fill="#B7B0A0"/>
+      <circle cx="184.63" cy="86.86" r="1.9" fill="#B7B0A0"/>
+      <circle cx="198" cy="128" r="1.9" fill="#B7B0A0"/>
+      <circle cx="184.63" cy="169.14" r="1.9" fill="#B7B0A0"/>
+      <circle cx="149.63" cy="194.57" r="1.9" fill="#B7B0A0"/>
+      <circle cx="106.37" cy="194.57" r="1.9" fill="#B7B0A0"/>
+      <circle cx="71.37" cy="169.14" r="1.9" fill="#B7B0A0"/>
+      <circle cx="58" cy="128" r="1.9" fill="#B7B0A0"/>
+      <circle cx="71.37" cy="86.86" r="1.9" fill="#B7B0A0"/>
+      <circle cx="106.37" cy="61.43" r="1.9" fill="#B7B0A0"/>
+      <circle cx="128" cy="128" r="44" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+    </g>
+    <circle id="commitment_ten_practices__engraving-dot-01" cx="149.63" cy="61.43" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-02" cx="184.63" cy="86.86" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-03" cx="198" cy="128" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-04" cx="184.63" cy="169.14" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-05" cx="149.63" cy="194.57" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-06" cx="106.37" cy="194.57" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-07" cx="71.37" cy="169.14" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-08" cx="58" cy="128" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-09" cx="71.37" cy="86.86" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-dot-10" cx="106.37" cy="61.43" r="1.9" fill="#8C867A"/>
+    <circle id="commitment_ten_practices__engraving-ring-fine" cx="128" cy="128" r="44" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+  </g>
+  <g id="commitment_ten_practices__highlight"/>
+  <g id="commitment_ten_practices__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="152.72" cy="51.92" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="192.72" cy="80.98" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="208" cy="128" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="192.72" cy="175.02" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="152.72" cy="204.08" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="103.28" cy="204.08" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="63.28" cy="175.02" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="48" cy="128" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="63.28" cy="80.98" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="103.28" cy="51.92" r="3.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="11" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="152.72" cy="51.92" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="192.72" cy="80.98" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="208" cy="128" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="192.72" cy="175.02" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="152.72" cy="204.08" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="103.28" cy="204.08" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="63.28" cy="175.02" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="48" cy="128" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="63.28" cy="80.98" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="103.28" cy="51.92" r="3.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="11" fill="#B7B0A0"/>
+    </g>
+    <circle id="commitment_ten_practices__accent-bead-01" cx="152.72" cy="51.92" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-02" cx="192.72" cy="80.98" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-03" cx="208" cy="128" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-04" cx="192.72" cy="175.02" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-05" cx="152.72" cy="204.08" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-06" cx="103.28" cy="204.08" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-07" cx="63.28" cy="175.02" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-08" cx="48" cy="128" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-09" cx="63.28" cy="80.98" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_ten_practices__accent-bead-10" cx="103.28" cy="51.92" r="3.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="commitment_ten_practices__accent-orb">
+      <circle cx="128" cy="128" r="11" fill="url(#commitment_ten_practices-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="124.48" cy="124.04" r="2.86" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+  </g>
+</svg>

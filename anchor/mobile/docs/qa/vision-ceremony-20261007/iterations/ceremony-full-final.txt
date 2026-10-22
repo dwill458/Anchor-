@@ -1,0 +1,3177 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --silent
+
+FAIL src/screens/settings/__tests__/SettingsScreen.test.tsx (8.18 s)
+  ● SettingsScreen › opens the hidden audio log from a long press on the version
+
+    Unable to find an element with testID: settings-open-audio-log
+
+    <View>
+      <SafeAreaView>
+        <View>
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <Svg>
+              <Path />
+            </Svg>
+          </View>
+          <Text>
+            Profile & Settings
+          </Text>
+          <View />
+        </View>
+        <RCTScrollView>
+          <View>
+            <View>
+              <View>
+                <View
+                  accessibilityLabel="Edit Profile photo"
+                  accessibilityRole="button"
+                  accessible={true}
+                >
+                  <Text>
+                    M
+                  </Text>
+                </View>
+                <View>
+                  <Text>
+                    Mara Vale
+                  </Text>
+                  <View>
+                    <Text>
+                      Member since May 2026
+                    </Text>
+                    <View>
+                      <Text>
+                        FREE
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <View>
+                <View>
+                  <Text>
+                    0
+                  </Text>
+                  <Text>
+                    Anchors
+                  </Text>
+                </View>
+                <View>
+                  <Text>
+                    0
+                  </Text>
+                  <Text>
+                    Sessions
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View />
+            <Text>
+              Account
+            </Text>
+            <View
+              accessibilityLabel="Edit profile"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Edit profile"
+            >
+              <View>
+                <Svg>
+                  <Path />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Edit profile
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Subscription"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Subscription"
+            >
+              <View>
+                <Svg>
+                  <Circle />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Subscription
+                </Text>
+              </View>
+              <Text>
+                Free
+              </Text>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <Text>
+              Preferences
+            </Text>
+            <View
+              accessibilityLabel="Practice"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Practice"
+            >
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Practice
+                </Text>
+                <Text>
+                  Defaults, daily goals, and behavior
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Notifications & reminders"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Notifications & reminders"
+            >
+              <View>
+                <Svg>
+                  <Path />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Notifications & reminders
+                </Text>
+                <Text>
+                  Daily reminder, consistency alerts, and recap
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="App experience"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-App experience"
+            >
+              <View>
+                <Svg>
+                  <Line />
+                  <Circle />
+                  <Line />
+                  <Circle />
+                  <Line />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  App experience
+                </Text>
+                <Text>
+                  Haptics, sound, motion, and tips
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Use profile photo for Vision"
+              accessibilityRole="switch"
+              accessibilityState={
+                {
+                  "checked": false,
+                  "disabled": true,
+                }
+              }
+              accessible={true}
+              testID="settings-toggle-vision-profile-photo"
+            >
+              <View>
+                <Text>
+                  Use profile photo for Vision
+                </Text>
+                <Text>
+                  Add a profile photo to make it available as an appearance reference.
+                </Text>
+              </View>
+              <View
+                accessibilityState={
+                  {
+                    "disabled": true,
+                  }
+                }
+                accessible={false}
+              >
+                <View />
+              </View>
+            </View>
+            <Text>
+              More
+            </Text>
+            <View
+              accessibilityLabel="Account & data"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Account & data"
+            >
+              <View>
+                <Svg>
+                  <Rect />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Account & data
+                </Text>
+                <Text>
+                  Email, purchases, and export
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Privacy & support"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Privacy & support"
+            >
+              <View>
+                <Svg>
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Privacy & support
+                </Text>
+                <Text>
+                  Analytics, support, and legal
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View>
+              <Text>
+                Developer
+              </Text>
+              <View
+                accessibilityLabel="Developer Tools"
+                accessibilityRole="button"
+                accessible={true}
+                testID="settings-row-Developer Tools"
+              >
+                <View>
+                  <Svg>
+                    <Rect />
+                    <Path />
+                  </Svg>
+                </View>
+                <View>
+                  <View>
+                    <Text>
+                      Developer Tools
+                    </Text>
+                    <View>
+                      <Text>
+                        DEV ONLY
+                      </Text>
+                    </View>
+                  </View>
+                  <Text>
+                    Internal testing controls & simulator
+                  </Text>
+                </View>
+                <Svg>
+                  <Path />
+                </Svg>
+              </View>
+            </View>
+            <View>
+              <View
+                accessibilityLabel="Sign out"
+                accessibilityRole="button"
+                accessible={true}
+                testID="settings-row-Sign Out"
+              >
+                <Text>
+                  Sign out
+                </Text>
+              </View>
+              <Text>
+                Version 1.0.0
+              </Text>
+            </View>
+          </View>
+        </RCTScrollView>
+      </SafeAreaView>
+    </View>
+
+      297 |
+      298 |     expect(screen.queryByText('Audio log')).toBeNull();
+    > 299 |     fireEvent(screen.getByTestId('settings-open-audio-log'), 'longPress');
+          |                      ^
+      300 |
+      301 |     expect(screen.getByText('Audio log')).toBeTruthy();
+      302 |     expect(screen.getByText('Share')).toBeTruthy();
+
+      at Object.getByTestId (src/screens/settings/__tests__/SettingsScreen.test.tsx:299:22)
+
+FAIL src/components/chart/__tests__/ChartPreview.test.tsx (6.285 s)
+  ● hero ChartPreview › renders and snapshots empty, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots empty, and delegates presses 1`
+
+    - Snapshot  - 2
+    + Received  + 3
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots normal, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots normal, and delegates presses 1`
+
+    - Snapshot  - 6
+    + Received  + 7
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -416,13 +417,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots regressed, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots regressed, and delegates presses 1`
+
+    - Snapshot  - 6
+    + Received  + 7
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -416,13 +417,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots reached, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots reached, and delegates presses 1`
+
+    - Snapshot  - 6
+    + Received  + 7
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -416,13 +417,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots complete, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots complete, and delegates presses 1`
+
+    - Snapshot  - 14
+    + Received  + 15
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -407,12 +408,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    -                     "top": 248.21423312057163,
+    +                     "left": 72.14043712500994,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-1"
+    @@ -533,12 +534,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 135.74563965575743,
+    -                     "top": 202.87587204371914,
+    +                     "left": 110.43041762360188,
+    +                     "top": 228.4971127826488,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-2"
+    @@ -659,12 +660,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 180.62793642665952,
+    -                     "top": 154.15505143606396,
+    +                     "left": 147.9560666037031,
+    +                     "top": 190.44102461767216,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-3"
+    @@ -785,12 +786,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 230.79737327147745,
+    -                     "top": 110.75379557256646,
+    +                     "left": 185.92399367325112,
+    +                     "top": 152.18243374588639,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-4"
+    @@ -912,12 +913,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 48,
+    -                     "left": 251.68075237363877,
+    -                     "top": 47.36152004964963,
+    +                     "left": 223.88731853198013,
+    +                     "top": 114.96714313807502,
+                          "width": 48,
+                        },
+                      ]
+                    }
+                    testID="chart-map-summit"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots empty, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots empty, and delegates presses 1`
+
+    - Snapshot  - 3
+    + Received  + 4
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -132.40638847564406,
+    +           "top": -158.02762921457366,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots normal, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots normal, and delegates presses 1`
+
+    - Snapshot  - 7
+    + Received  + 8
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -240.93104915405883,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -418,13 +419,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots regressed, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots regressed, and delegates presses 1`
+
+    - Snapshot  - 7
+    + Received  + 8
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -240.93104915405883,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -418,13 +419,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots reached, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots reached, and delegates presses 1`
+
+    - Snapshot  - 7
+    + Received  + 8
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -240.93104915405883,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -418,13 +419,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots complete, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots complete, and delegates presses 1`
+
+    - Snapshot  - 15
+    + Received  + 16
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -40.28431200449134,
+    +           "top": -81.71295017781125,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -409,12 +410,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    -                     "top": 248.21423312057163,
+    +                     "left": 72.14043712500994,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-1"
+    @@ -535,12 +536,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 135.74563965575743,
+    -                     "top": 202.87587204371914,
+    +                     "left": 110.43041762360188,
+    +                     "top": 228.4971127826488,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-2"
+    @@ -661,12 +662,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 180.62793642665952,
+    -                     "top": 154.15505143606396,
+    +                     "left": 147.9560666037031,
+    +                     "top": 190.44102461767216,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-3"
+    @@ -787,12 +788,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 230.79737327147745,
+    -                     "top": 110.75379557256646,
+    +                     "left": 185.92399367325112,
+    +                     "top": 152.18243374588639,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-4"
+    @@ -914,12 +915,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 48,
+    -                     "left": 251.68075237363877,
+    -                     "top": 47.36152004964963,
+    +                     "left": 223.88731853198013,
+    +                     "top": 114.96714313807502,
+                          "width": 48,
+                        },
+                      ]
+                    }
+                    testID="chart-map-summit"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+ › 10 snapshots failed.
+FAIL src/services/__tests__/AuthHydrationService.test.ts
+  ● AuthHydrationService › preserves unsynced local temp anchors during authenticated hydration
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: ArrayContaining [ObjectContaining {"id": "server-anchor-1"}, ObjectContaining {"id": "anchor-1779092632674"}]
+    Received: [{"activationCount": 0, "archivedAt": undefined, "baseSigilSvg": "<svg></svg>", "category": "career", "chargedAt": undefined, "createdAt": 2024-01-15T00:00:00.000Z, "distilledLetters": ["B", "L", "D", "M", "Y", "C", "R", "R", "N", "T", …], "firstChargedAt": undefined, "id": "server-anchor-1", "ignitedAt": undefined, "intentionText": "Build my career in tech", "isCharged": false, "lastActivatedAt": undefined, "releasedAt": undefined, "structureVariant": "balanced", "updatedAt": 2026-05-18T08:10:00.000Z, "userId": "test-user-123"}]
+
+      152 |     await AuthHydrationService.hydrateAuthenticatedData();
+      153 |
+    > 154 |     expect(useAnchorStore.getState().anchors).toEqual(
+          |                                               ^
+      155 |       expect.arrayContaining([
+      156 |         expect.objectContaining({ id: 'server-anchor-1' }),
+      157 |         expect.objectContaining({ id: 'anchor-1779092632674' }),
+
+      at Object.toEqual (src/services/__tests__/AuthHydrationService.test.ts:154:47)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● AuthHydrationService › keeps local progress when anchor hydration fails after login
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 5
+    + Received  + 1
+
+    - Array [
+    -   ObjectContaining {
+    -     "id": "anchor-local-only",
+    -   },
+    - ]
+    + Array []
+
+      606 |       expect.objectContaining({ id: user.id }),
+      607 |     );
+    > 608 |     expect(useAnchorStore.getState().anchors).toEqual([
+          |                                               ^
+      609 |       expect.objectContaining({ id: 'anchor-local-only' }),
+      610 |     ]);
+      611 |     expect(useSettingsStore.getState().focusSessionMode).toBe('deep');
+
+      at Object.toEqual (src/services/__tests__/AuthHydrationService.test.ts:608:47)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/adapters/v2/home/__tests__/isolation.test.ts
+  ● UI-D isolation › does not touch backend, central V2 navigation, or legacy theme
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "E:\\Projects\\Anchor\\anchor\\mobile\\src\\screens\\v2\\home\\dailyShell.tsx",
+    + ]
+
+      43 |     const forbidden = /from ['"]@\/(navigation\/v2\/(routes|types|AnchorV2Navigator)|theme\/colors|theme\/typography)['"]/;
+      44 |     const offenders = uiDFiles.filter((file) => forbidden.test(readFileSync(file, 'utf8')));
+    > 45 |     expect(offenders).toEqual([]);
+         |                       ^
+      46 |   });
+      47 |
+      48 |   it('is never imported by production (non-v2) screens or navigation', () => {
+
+      at Object.toEqual (src/adapters/v2/home/__tests__/isolation.test.ts:45:23)
+
+PASS src/screens/rituals/__tests__/ActivationScreen.test.tsx (52.506 s)
+PASS src/screens/v2/practice/deepFocus/__tests__/V2DeepFocusActiveScreen.test.tsx (40.209 s)
+PASS src/components/v2/chart/panel/__tests__/ChartActiveView.test.tsx (17.122 s)
+PASS src/components/v2/creation/__tests__/V2CreationFlow.test.tsx (23.786 s)
+PASS src/screens/v2/onboarding/__tests__/V2FirstRunFlow.test.tsx (20.374 s)
+PASS src/screens/v2/practice/__tests__/V2PracticeScreen.test.tsx (22.529 s)
+PASS src/screens/v2/practice/__tests__/V2PracticeSessionScreen.test.tsx (17.04 s)
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (6.554 s)
+PASS src/screens/v2/home/__tests__/V2HomeScreen.test.tsx (11.792 s)
+PASS src/screens/v2/practice/__tests__/V2FocusActiveScreen.test.tsx (11.35 s)
+PASS src/screens/chart/components/__tests__/RouteSegment.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (13.779 s)
+PASS src/components/v2/chart/map/__tests__/ChartMapWeather.test.tsx (8.302 s)
+PASS src/screens/rituals/__tests__/RitualScreen.test.tsx (8.101 s)
+PASS src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx (7.63 s)
+PASS src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx (6.861 s)
+PASS src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx
+PASS src/screens/v2/release/__tests__/V2ReleaseScreen.test.tsx
+PASS src/screens/v2/practice/__tests__/V2PracticeAnchorTransition.test.tsx
+PASS src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx
+PASS src/screens/v2/practice/__tests__/V2VisualizeThreadCompletion.test.tsx
+PASS src/screens/practice/__tests__/PracticeScreen.test.tsx
+PASS src/components/v2/chart/panel/__tests__/ChartActiveViewReveal.test.tsx
+PASS src/navigation/v2/__tests__/AnchorV2Navigator.test.tsx
+PASS src/components/v2/chart/panel/__tests__/ChartWaypointContent.test.tsx
+PASS src/screens/vault/__tests__/VaultScreen.test.tsx
+PASS src/components/v2/chart/map/__tests__/chartCreationWeather.test.tsx
+PASS src/components/v2/primitives/__tests__/V2SheetModal.test.tsx
+PASS src/screens/v2/progress/__tests__/V2ProgressScreen.test.tsx
+PASS src/screens/v2/chart/__tests__/V2ChartAdjustScreen.test.tsx
+PASS src/screens/rituals/hooks/__tests__/useDeepPrimeSessionAudio.test.ts
+PASS src/components/v2/chart/map/__tests__/chartFogField.test.ts
+PASS src/screens/v2/paywall/__tests__/V2PaywallScreen.motion.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/screens/vault/__tests__/AnchorDetailScreen.test.tsx
+PASS src/screens/v2/home/__tests__/homeRenderBudget.test.tsx
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/components/practice/__tests__/SessionConfiguration.test.tsx
+PASS src/services/__tests__/VoicePreviewService.test.ts
+PASS src/navigation/v2/__tests__/AnchorV2Navigator.lifecycle.test.tsx
+PASS src/services/__tests__/ReflectionService.test.ts
+PASS src/screens/v2/practice/__tests__/V2FocusCompleteScreen.test.tsx
+PASS src/screens/v2/onboarding/__tests__/V2SealedSaveScreen.test.tsx
+PASS src/components/settings/__tests__/VoiceAndSoundControls.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionReadiness.test.tsx
+PASS src/navigation/v2/__tests__/creationHandoff.test.ts
+PASS src/services/__tests__/SessionAudioManifest.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx
+PASS src/screens/visualize/__tests__/useVisualizeSessionAudio.test.ts
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/hooks/v2/chart/__tests__/chartLastOpened.test.ts
+PASS src/screens/v2/auth/__tests__/V2AuthScreen.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionLifecycle.test.tsx
+PASS src/screens/v2/practice/__tests__/visualizeEntryConvergence.test.tsx
+PASS src/components/settings/__tests__/SessionAudioOverrideSheet.test.tsx
+PASS src/screens/v2/anchors/__tests__/V2AnchorLibraryScreen.test.tsx
+PASS src/screens/paywall/__tests__/PaywallScreen.test.tsx
+PASS src/screens/rituals/__tests__/ChargeSetupScreen.test.tsx
+PASS src/screens/dev/__tests__/ChartPreviewDevScreen.test.tsx
+PASS src/screens/create/flow/__tests__/formWait.test.tsx
+PASS src/screens/create/__tests__/StructureForgeScreen.test.tsx
+PASS src/screens/v2/weeklyInsight/__tests__/V2WeeklyInsightScreen.test.tsx
+PASS src/screens/create/__tests__/MantraCreationScreen.test.tsx
+PASS src/screens/v2/weeklyInsight/__tests__/V2WeeklyInsightScreen.motion.test.tsx
+PASS src/screens/create/__tests__/IntentionInputScreen.test.tsx
+PASS src/screens/v2/anchors/__tests__/V2AnchorLibraryScreen.motion.test.tsx
+PASS src/screens/rituals/components/__tests__/DurationSelectionStep.test.tsx
+PASS src/stores/__tests__/authStore.test.ts
+PASS src/components/v2/chart/__tests__/chartLogic.test.ts
+PASS src/hooks/v2/paywall/__tests__/useV2Paywall.test.tsx
+PASS src/navigation/__tests__/MainTabNavigator.test.tsx
+PASS src/screens/chart/components/__tests__/DestinationMarker.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/screens/v2/practice/__tests__/V2FocusPrepScreen.test.tsx
+PASS src/screens/v2/chart/__tests__/V2ChartJourneyScreen.test.tsx
+PASS src/components/v2/vision/__tests__/VisionMomentInput.test.tsx
+PASS src/components/v2/home/__tests__/V2HomeAnchorCarousel.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/visualizeVisionPlan.test.ts
+PASS src/components/v2/creation/__tests__/distillLandingRate.test.ts
+PASS src/screens/settings/__tests__/SettingsSubscreens.test.tsx
+PASS src/screens/profile/__tests__/ProfileScreen.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+PASS src/components/v2/chart/map/__tests__/chartMapResources.test.tsx
+PASS src/components/v2/chart/map/__tests__/ChartMap.test.tsx
+PASS src/screens/rituals/__tests__/ConfirmBurnScreen.test.tsx
+PASS src/components/v2/practice/__tests__/V2PracticeComponents.test.tsx
+PASS src/components/v2/creation/__tests__/SealMedallion.test.tsx
+PASS src/components/v2/motion/__tests__/press.render.test.tsx
+PASS src/services/__tests__/AuthService.test.ts
+PASS src/navigation/v2/__tests__/homeDetailsCoverage.test.tsx
+PASS src/components/v2/chart/__tests__/ChartPassC.test.tsx
+PASS src/components/__tests__/ExportAnchorSheet.test.tsx
+PASS src/components/v2/chart/map/__tests__/chartMapSequences.test.ts
+PASS src/screens/auth/__tests__/AuthGateScreen.test.tsx
+PASS src/services/__tests__/reviewPromptService.test.ts
+PASS src/components/v2/chart/__tests__/ChartJourneyWorld.test.tsx
+PASS src/screens/create/flow/__tests__/sealClock.test.tsx
+PASS src/navigation/v2/__tests__/anchorTransition.test.tsx
+PASS src/hooks/v2/chart/__tests__/chartHighWater.test.ts
+PASS src/components/v2/chart/__tests__/ChartWorldPreview.test.tsx
+PASS src/components/v2/creation/__tests__/draftingTone.test.ts
+PASS src/screens/practice/components/__tests__/ModePortalTile.test.tsx
+PASS src/components/v2/chart/map/__tests__/chartMapRoughRoute.test.tsx
+PASS src/components/v2/thread/__tests__/ThreadStrength.test.tsx
+PASS src/components/v2/anchors/__tests__/V2AnchorGalleryGrid.test.tsx
+PASS src/components/v2/chart/map/__tests__/chartMapContrast.test.tsx
+PASS src/screens/rituals/__tests__/BurningRitualScreen.test.tsx
+PASS src/components/v2/vision/__tests__/VisionImageArrival.test.tsx
+PASS src/navigation/v2/__tests__/anchorHeroGeometry.test.ts
+PASS src/stores/__tests__/anchorStore.test.ts
+PASS src/adapters/v2/home/__tests__/homeSelection.test.ts
+PASS src/theme/v2/__tests__/tokens.test.ts
+PASS src/screens/create/flow/__tests__/chooseStyleLabel.test.tsx
+PASS src/hooks/v2/chart/__tests__/useAnchorChart.test.ts
+PASS src/services/__tests__/ApiClient.test.ts
+PASS src/screens/rituals/components/__tests__/CompletionModal.test.tsx
+PASS src/components/v2/__tests__/primitives.test.tsx
+PASS src/screens/auth/__tests__/SaveProgressScreen.test.tsx
+PASS src/components/v2/home/__tests__/V2HomeBrandMark.test.tsx
+PASS src/adapters/v2/practice/__tests__/recommendationCache.test.ts
+PASS src/screens/practice/components/__tests__/AnchorSelectorSheet.test.tsx
+PASS src/screens/create/__tests__/WallpaperPromptScreen.test.tsx
+PASS src/screens/create/__tests__/ReturningIntentionScreen.test.tsx
+PASS src/screens/auth/__tests__/LoginScreen.test.tsx
+PASS src/components/notifications/__tests__/DailyReminderPrompt.test.tsx
+PASS src/services/__tests__/SessionAudioPreferencesService.test.ts
+PASS src/components/__tests__/PracticeInfoModal.test.tsx
+PASS src/services/__tests__/SyncService.test.ts
+PASS src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx
+PASS src/stores/v2/__tests__/firstRunStore.test.ts
+PASS src/hooks/v2/chart/__tests__/useAnchorChartSetCurrentMove.test.ts
+PASS src/hooks/v2/paywall/__tests__/useV2AnchorCreationGate.test.ts
+PASS src/screens/create/flow/__tests__/nodeTone.test.ts
+PASS src/screens/chart/components/__tests__/WaypointNode.test.tsx
+PASS src/components/v2/chart/panel/__tests__/ChartMapHeader.test.tsx
+PASS src/components/v2/home/__tests__/homeArrival.test.tsx
+PASS src/services/notifications/__tests__/notificationRules.test.ts
+PASS src/hooks/__tests__/useProgressionData.test.ts
+PASS src/components/v2/anchor/__tests__/anchorRendering.test.tsx
+PASS src/screens/create/__tests__/AIGeneratingScreen.test.tsx
+PASS src/utils/sigil/abstract-symbol-generator.test.ts
+PASS src/screens/chart/components/__tests__/CourseMap.test.tsx
+PASS src/adapters/v2/home/__tests__/creationToday.test.ts
+PASS src/screens/rituals/components/__tests__/BreathingAnimation.test.tsx
+PASS src/components/v2/motion/__tests__/Shimmer.test.tsx
+PASS src/screens/rituals/components/__tests__/DefaultChargeDisplay.test.tsx
+PASS src/hooks/v2/progress/__tests__/useV2Progress.test.ts
+PASS src/services/__tests__/PostAuthFlowService.test.ts
+PASS src/components/v2/home/__tests__/homeResponsiveGeometry.test.ts
+PASS src/components/__tests__/EditProfileSheet.test.tsx
+PASS src/hooks/v2/chart/__tests__/useAnchorCourseLog.test.ts
+PASS src/services/__tests__/VisualizationSceneService.test.ts
+PASS src/hooks/__tests__/useWeeklyStats.test.ts
+PASS src/screens/create/__tests__/EnhancementChoiceScreen.test.tsx
+PASS src/screens/v2/home/__tests__/homeElasticScroll.test.ts
+PASS src/screens/create/flow/__tests__/scenes.test.ts
+PASS src/components/v2/paywall/twoStep/__tests__/PaywallPreviewTiles.test.tsx
+PASS src/components/v2/motion/__tests__/Reveal.test.tsx
+PASS src/components/v2/primitives/__tests__/V2SegmentedControl.test.tsx
+PASS src/screens/vault/utils/__tests__/anchorStateHelpers.test.ts
+PASS src/services/v2/__tests__/creationPersistence.test.ts
+PASS src/components/v2/creation/__tests__/creationMotion.test.ts
+PASS src/hooks/v2/anchors/__tests__/useV2AnchorLibrary.test.ts
+PASS src/services/__tests__/UserLocalStateService.test.ts
+PASS src/components/v2/anchor/__tests__/CircularAnchorEntrance.test.tsx
+PASS src/stores/__tests__/reflectionDraftStore.test.ts
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/hooks/v2/release/__tests__/useReleaseHold.test.ts
+PASS src/components/v2/thread/__tests__/HandDrawnThreadLine.test.tsx
+PASS src/widgets/__tests__/widgetDataBridge.test.ts
+PASS src/screens/create/__tests__/AnchorRevealScreen.test.tsx
+PASS src/components/v2/chart/__tests__/ChartReachBeat.test.tsx
+PASS src/hooks/__tests__/useThreadHistory.test.ts
+PASS src/components/v2/creation/__tests__/distillationMotion.test.ts
+PASS src/screens/create/__tests__/LetterDistillationScreen.test.tsx
+PASS src/services/__tests__/visualizeAudioManifest.test.ts
+PASS src/components/v2/motion/__tests__/ContentSwap.test.tsx
+PASS src/components/v2/__tests__/V2DissolvedArtwork.test.tsx
+PASS src/components/v2/home/__tests__/V2HomeRecentActivitySection.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+PASS src/screens/visualize/__tests__/visualizeAudioState.test.ts
+PASS src/components/v2/feedback/__tests__/V2Feedback.test.tsx
+PASS src/services/notifications/__tests__/chartNotifications.test.ts
+PASS src/screens/rituals/components/__tests__/ModeSelectionStep.test.tsx
+PASS src/components/__tests__/ErrorBoundary.test.tsx
+PASS src/screens/profile/DailyPracticeGoalScreen.test.tsx
+PASS src/components/v2/chart/__tests__/ChartRevealHandoff.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/components/v2/release/__tests__/releaseFire.test.ts
+PASS src/components/v2/threadEvents/__tests__/V2ThreadEventDetailSheet.test.tsx
+PASS src/components/v2/chart/map/__tests__/chartRhythm.test.ts
+PASS src/components/v2/motion/__tests__/entrance.test.ts
+PASS src/components/v2/primitives/__tests__/V2ListRow.test.tsx
+PASS src/services/__tests__/NotificationService.test.ts
+PASS src/components/v2/vision/__tests__/VisionChartLink.test.tsx
+PASS src/components/v2/motion/__tests__/press.test.ts
+PASS src/components/v2/release/__tests__/releaseBurn.test.ts
+PASS src/services/__tests__/DailyGoalNudgeService.test.ts
+PASS src/components/v2/home/__tests__/V2HomeCreamSplice.test.tsx
+PASS src/services/__tests__/PracticeCompletionService.test.ts
+PASS src/hooks/v2/release/__tests__/useV2Release.test.ts
+PASS src/components/__tests__/ToastProvider.test.tsx
+PASS src/components/__tests__/Toast.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChrome.test.tsx
+PASS src/hooks/__tests__/useReduceMotionEnabled.test.ts
+PASS src/components/v2/vision/__tests__/visionIntroArt.test.ts
+PASS src/stores/__tests__/sessionStore.test.ts
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/services/__tests__/BackendAnchorService.test.ts
+PASS src/components/v2/chart/map/__tests__/useChartSequencer.test.tsx
+PASS src/components/__tests__/LoadingSpinner.test.tsx
+PASS src/utils/sigil/drawnGeometry.test.ts
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/screens/chart/components/__tests__/MiniRoute.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/cinematicPhotoMotion.test.ts
+PASS src/components/common/__tests__/PremiumAnchorGlow.test.tsx
+PASS src/hooks/__tests__/useChartPreview.test.tsx
+PASS src/components/v2/practice/__tests__/V2PracticeArtwork.test.tsx
+PASS src/hooks/__tests__/useTrialStatus.test.ts
+PASS src/hooks/v2/threadEvents/__tests__/useV2ThreadEventQueue.test.tsx
+PASS src/components/__tests__/TrialCountdownBanner.test.tsx
+PASS src/stores/__tests__/anchorStoreSyncInvalidation.test.ts
+PASS src/components/v2/chart/map/__tests__/chartMapGeometry.test.ts
+PASS src/services/__tests__/RevenueCatService.test.ts
+PASS src/adapters/v2/release/__tests__/releaseApiAdapter.test.ts
+PASS src/stores/__tests__/subscriptionStore.test.ts
+PASS src/screens/create/flow/__tests__/stylePolish.test.tsx
+PASS src/components/splash/__tests__/AnimatedSplashScreen.test.tsx
+PASS src/hooks/__tests__/useNotificationController.test.ts
+PASS src/hooks/v2/vision/__tests__/referenceFailure.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicAssets.test.tsx
+PASS src/utils/__tests__/useTeachingGate.test.tsx
+PASS src/screens/visualize/__tests__/useVisualizeSessionEngine.test.ts
+PASS src/adapters/v2/threadEvents/__tests__/threadEventAdapter.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicSessionMotion.test.ts
+PASS src/components/v2/chart/map/__tests__/chartCloudTiles.test.ts
+PASS src/screens/v2/practice/deepFocus/__tests__/useDeepFocusSession.test.ts
+PASS src/components/v2/chart/map/__tests__/ChartScallop.test.tsx
+PASS src/components/transitions/__tests__/SwipeableTabContainer.test.tsx
+PASS src/screens/vault/components/__tests__/AnchorArtworkThumbnail.test.tsx
+PASS src/hooks/v2/release/__tests__/useReleaseBurnFeel.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/visualizeGuidedPlan.test.ts
+PASS src/stores/__tests__/courseStore.test.ts
+PASS src/components/v2/chart/__tests__/chartJourneyGeometry.test.ts
+PASS src/screens/v2/practice/deepFocus/__tests__/deepFocusTimeline.test.ts
+PASS src/services/v2/__tests__/trialReminder.test.ts
+PASS src/components/v2/chart/map/__tests__/chartMapShaders.test.ts
+PASS src/adapters/v2/progress/__tests__/progressAdapter.test.ts
+PASS src/screens/v2/practice/deepFocus/__tests__/completionCue.test.ts
+PASS src/utils/sigil/conversion.performance.test.ts
+PASS src/utils/__tests__/visualizationSchedule.test.ts
+PASS src/utils/sigil/distillation.test.ts
+PASS src/utils/__tests__/privacyHelpers.test.ts
+PASS src/components/v2/chart/__tests__/chartEnvironment.test.ts
+PASS src/utils/__tests__/layout.test.ts
+PASS src/stores/__tests__/courseLogStore.test.ts
+PASS src/components/share/__tests__/shareEnvironments.test.ts
+PASS src/services/audio/__tests__/practiceCompletionCue.test.ts
+PASS src/components/v2/creation/__tests__/sealGeometry.test.ts
+PASS src/utils/__tests__/practiceProgress.test.ts
+PASS src/screens/create/flow/__tests__/choosePager.test.ts
+PASS src/utils/__tests__/avatarUtils.test.ts
+PASS src/services/__tests__/CreationSounds.phase2.test.ts
+PASS src/hooks/v2/home/__tests__/useHomePrewarm.test.ts
+PASS src/screens/create/flow/__tests__/useCreationTimeline.test.ts
+PASS src/hooks/__tests__/usePerformanceTier.test.ts
+PASS src/stores/__tests__/locationPrimingStore.test.ts
+PASS src/adapters/v2/progress/__tests__/progressCourseLog.test.ts
+PASS src/screens/rituals/components/__tests__/burnRitualWebViewHtml.test.ts
+PASS src/screens/chart/components/__tests__/courseMapLayout.test.ts
+PASS src/services/__tests__/AnalyticsService.test.ts
+PASS src/adapters/v2/home/__tests__/adapters.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts
+PASS src/utils/__tests__/categoryDetection.test.ts
+PASS src/utils/sigil/sharpTurns.test.ts
+PASS src/utils/sigil/traditional-generator.test.ts
+PASS src/screens/chart/components/__tests__/useCourseMapAnimation.test.ts
+PASS src/services/v2/__tests__/onboardingAnalytics.test.ts
+PASS src/services/__tests__/AnchorArtworkExportService.test.ts
+PASS src/adapters/v2/chart/__tests__/chartV2Model.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/useGuidedPlayback.test.ts
+PASS src/components/v2/vision/__tests__/VisionChartRoute.test.tsx
+PASS src/components/v2/chart/__tests__/useChartSound.test.ts
+PASS src/services/__tests__/FrictionAnalytics.test.ts
+PASS src/services/__tests__/StorageService.test.ts
+PASS src/screens/create/flow/__tests__/formProgress.test.ts
+PASS src/components/v2/chart/__tests__/useChartJourneyCamera.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+PASS src/screens/create/flow/__tests__/styleStep.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/signatureMotion.test.ts
+PASS src/stores/v2/__tests__/creationStore.test.ts
+PASS src/components/share/__tests__/shareExport.test.ts
+PASS src/components/v2/chart/map/__tests__/chartSequence.test.ts
+PASS src/types/__tests__/sessionAudio.test.ts
+PASS src/services/notifications/__tests__/notificationTemplates.test.ts
+PASS src/utils/__tests__/haptics.test.ts
+PASS src/components/v2/anchors/__tests__/anchorDetailsSheetLayout.test.ts
+PASS src/adapters/v2/paywall/__tests__/trialState.test.ts
+PASS src/adapters/v2/home/__tests__/homeProgress.test.ts
+PASS src/components/reflection/__tests__/reflectionPrompts.test.ts
+PASS src/components/reflection/__tests__/reflectionPrivacy.test.ts
+PASS src/config/__tests__/index.test.ts
+PASS src/screens/create/constants/__tests__/refineStyles.test.ts
+PASS src/widgets/android/__tests__/AnchorLargeWidget.test.tsx
+PASS src/utils/sigil/getSigilGeometry.test.ts
+PASS src/utils/__tests__/postPrimeTraceEligibility.test.ts
+PASS src/hooks/__tests__/useAppStartup.test.ts
+PASS src/theme/v2/__tests__/responsive.test.ts
+PASS src/stores/__tests__/settingsStoreSessionAudio.test.ts
+PASS src/components/v2/chart/__tests__/chartSpatialGeometry.test.ts
+PASS src/utils/__tests__/notificationFormatting.test.ts
+PASS src/components/v2/progress/__tests__/progressVocabulary.test.ts
+PASS src/adapters/v2/paywall/__tests__/anchorCreationGate.test.ts
+PASS src/stores/__tests__/visualizationSceneStore.test.ts
+PASS src/screens/create/flow/__tests__/creationStyles.test.ts
+PASS src/components/v2/home/__tests__/homeHeroPresence.test.ts
+PASS src/adapters/v2/weeklyInsight/__tests__/weeklyInsightSelector.test.ts
+PASS src/navigation/__tests__/firstAnchorGate.test.ts
+PASS src/screens/v2/onboarding/__tests__/screen2Timeline.test.ts
+PASS src/utils/__tests__/streakHelpers.test.ts
+PASS src/components/v2/creation/__tests__/intentionGuidance.test.ts
+PASS src/components/v2/home/__tests__/homeCategoryArt.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicGeometry.test.ts
+PASS src/adapters/v2/threadEvents/__tests__/receiptStore.test.ts
+PASS src/services/audio/__tests__/SoundPool.test.ts
+PASS src/screens/create/flow/__tests__/formSounds.test.ts
+PASS src/utils/sigil/letterVectors.test.ts
+PASS src/constants/__tests__/traceHints.test.ts
+PASS src/widgets/android/__tests__/AnchorSmallWidget.test.tsx
+PASS src/services/notifications/__tests__/notificationDiagnostics.test.ts
+PASS src/navigation/v2/__tests__/releaseNavigation.test.ts
+PASS src/services/__tests__/devOnboardingService.test.ts
+PASS src/utils/__tests__/profileGreeting.test.ts
+PASS src/adapters/v2/weeklyInsight/__tests__/weeklyInsightFactsBuilder.test.ts
+PASS src/utils/__tests__/practiceMetrics.test.ts
+PASS src/adapters/v2/release/__tests__/releaseConsequences.test.ts
+PASS src/adapters/v2/home/__tests__/nextPractice.test.ts
+PASS src/stores/__tests__/storageClassification.test.ts
+PASS src/navigation/__tests__/practiceEntry.test.ts
+PASS src/adapters/v2/paywall/__tests__/revenueCatPricing.test.ts
+PASS src/services/__tests__/passwordResetActionCodeSettings.test.ts
+PASS src/services/__tests__/NotificationSessionService.test.ts
+PASS src/adapters/v2/weeklyInsight/__tests__/weeklyReviewWindow.test.ts
+PASS src/adapters/v2/paywall/__tests__/trialActivation.test.ts
+PASS src/utils/__tests__/streak.test.ts
+PASS src/screens/visualize/__tests__/visualizeSessionConfig.test.ts
+PASS src/utils/__tests__/intentionPatterns.test.ts
+PASS src/utils/__tests__/anchorPriming.test.ts
+PASS src/utils/sigil/index.test.ts
+PASS src/screens/visualize/__tests__/visualizePresentation.test.ts
+PASS src/components/v2/threadEvents/__tests__/livingColor.test.ts
+PASS src/screens/chart/components/__tests__/courseMapGeometry.test.ts
+PASS src/components/v2/practice/__tests__/practiceSetupLayout.test.ts
+PASS src/adapters/v2/home/__tests__/homeChartState.test.ts
+PASS src/navigation/__tests__/chartDeepLinks.test.ts
+PASS src/config/__tests__/v2FeatureFlag.test.ts
+PASS src/screens/v2/onboarding/__tests__/focusAreaLayout.test.ts
+PASS src/screens/create/flow/__tests__/sealSqueeze.test.ts
+PASS src/components/v2/chart/__tests__/chartJourneySession.test.ts
+PASS src/services/__tests__/AnchorSyncService.test.ts
+PASS src/components/v2/chart/map/__tests__/chartProgress.test.ts
+PASS src/utils/__tests__/weeklyInsight.test.ts
+PASS src/utils/__tests__/entitlements.test.ts
+PASS src/utils/__tests__/locationPriming.test.ts
+PASS src/screens/create/flow/__tests__/sealPayoff.test.ts
+PASS src/components/v2/creation/__tests__/generationPerformance.test.ts
+PASS src/services/__tests__/NotificationSyncService.test.ts
+PASS src/screens/create/flow/__tests__/formCraft.test.ts
+PASS src/utils/__tests__/onboardingProgress.test.ts
+PASS src/screens/chart/__tests__/courseLogPresentation.test.ts
+PASS src/services/__tests__/BiometricService.test.ts
+PASS src/services/audio/__tests__/sfxLog.test.ts
+PASS src/screens/rituals/utils/__tests__/deepBreath.test.ts
+PASS src/hooks/v2/vision/__tests__/useVisionGenerationAnalytics.test.tsx
+PASS src/components/v2/primitives/__tests__/segmentedGeometry.test.ts
+PASS src/navigation/__tests__/rootNavigationState.test.ts
+PASS src/adapters/v2/home/__tests__/recentActivityAdapter.test.ts
+PASS src/utils/__tests__/premiumAccess.test.ts
+PASS src/components/v2/home/__tests__/homeHeroLayout.test.ts
+PASS src/utils/__tests__/weeklyReviewWindow.test.ts
+PASS src/utils/__tests__/logger.test.ts
+PASS src/utils/__tests__/primeSessionAccess.test.ts
+PASS src/utils/__tests__/hash.test.ts
+PASS src/types/__tests__/chartFlags.test.ts
+PASS src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+PASS src/services/audio/__tests__/AudioSession.test.ts
+PASS src/services/__tests__/NotificationState.test.ts
+PASS src/services/__tests__/NotificationPriority.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/enhancedAnchorMask.test.ts
+PASS src/adapters/v2/vision/__tests__/orderedVisionImages.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/adapters/v2/vision/__tests__/visionAdapter.test.ts
+PASS src/components/v2/vision/__tests__/visionImageGeometry.test.ts
+PASS src/components/v2/vision/__tests__/visionGuidance.test.ts
+PASS src/components/v2/vision/__tests__/visionTwoUp.test.ts
+PASS src/components/v2/vision/__tests__/visionDetailText.test.ts
+
+Summary of all failing tests
+FAIL src/screens/settings/__tests__/SettingsScreen.test.tsx (8.18 s)
+  ● SettingsScreen › opens the hidden audio log from a long press on the version
+
+    Unable to find an element with testID: settings-open-audio-log
+
+    <View>
+      <SafeAreaView>
+        <View>
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <Svg>
+              <Path />
+            </Svg>
+          </View>
+          <Text>
+            Profile & Settings
+          </Text>
+          <View />
+        </View>
+        <RCTScrollView>
+          <View>
+            <View>
+              <View>
+                <View
+                  accessibilityLabel="Edit Profile photo"
+                  accessibilityRole="button"
+                  accessible={true}
+                >
+                  <Text>
+                    M
+                  </Text>
+                </View>
+                <View>
+                  <Text>
+                    Mara Vale
+                  </Text>
+                  <View>
+                    <Text>
+                      Member since May 2026
+                    </Text>
+                    <View>
+                      <Text>
+                        FREE
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              <View>
+                <View>
+                  <Text>
+                    0
+                  </Text>
+                  <Text>
+                    Anchors
+                  </Text>
+                </View>
+                <View>
+                  <Text>
+                    0
+                  </Text>
+                  <Text>
+                    Sessions
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View />
+            <Text>
+              Account
+            </Text>
+            <View
+              accessibilityLabel="Edit profile"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Edit profile"
+            >
+              <View>
+                <Svg>
+                  <Path />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Edit profile
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Subscription"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Subscription"
+            >
+              <View>
+                <Svg>
+                  <Circle />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Subscription
+                </Text>
+              </View>
+              <Text>
+                Free
+              </Text>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <Text>
+              Preferences
+            </Text>
+            <View
+              accessibilityLabel="Practice"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Practice"
+            >
+              <View>
+                <Svg>
+                  <Circle />
+                  <Circle />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Practice
+                </Text>
+                <Text>
+                  Defaults, daily goals, and behavior
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Notifications & reminders"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Notifications & reminders"
+            >
+              <View>
+                <Svg>
+                  <Path />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Notifications & reminders
+                </Text>
+                <Text>
+                  Daily reminder, consistency alerts, and recap
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="App experience"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-App experience"
+            >
+              <View>
+                <Svg>
+                  <Line />
+                  <Circle />
+                  <Line />
+                  <Circle />
+                  <Line />
+                  <Circle />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  App experience
+                </Text>
+                <Text>
+                  Haptics, sound, motion, and tips
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Use profile photo for Vision"
+              accessibilityRole="switch"
+              accessibilityState={
+                {
+                  "checked": false,
+                  "disabled": true,
+                }
+              }
+              accessible={true}
+              testID="settings-toggle-vision-profile-photo"
+            >
+              <View>
+                <Text>
+                  Use profile photo for Vision
+                </Text>
+                <Text>
+                  Add a profile photo to make it available as an appearance reference.
+                </Text>
+              </View>
+              <View
+                accessibilityState={
+                  {
+                    "disabled": true,
+                  }
+                }
+                accessible={false}
+              >
+                <View />
+              </View>
+            </View>
+            <Text>
+              More
+            </Text>
+            <View
+              accessibilityLabel="Account & data"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Account & data"
+            >
+              <View>
+                <Svg>
+                  <Rect />
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Account & data
+                </Text>
+                <Text>
+                  Email, purchases, and export
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View
+              accessibilityLabel="Privacy & support"
+              accessibilityRole="button"
+              accessibilityState={
+                {
+                  "disabled": false,
+                }
+              }
+              accessible={true}
+              testID="settings-row-Privacy & support"
+            >
+              <View>
+                <Svg>
+                  <Path />
+                </Svg>
+              </View>
+              <View>
+                <Text>
+                  Privacy & support
+                </Text>
+                <Text>
+                  Analytics, support, and legal
+                </Text>
+              </View>
+              <Svg>
+                <Path />
+              </Svg>
+            </View>
+            <View>
+              <Text>
+                Developer
+              </Text>
+              <View
+                accessibilityLabel="Developer Tools"
+                accessibilityRole="button"
+                accessible={true}
+                testID="settings-row-Developer Tools"
+              >
+                <View>
+                  <Svg>
+                    <Rect />
+                    <Path />
+                  </Svg>
+                </View>
+                <View>
+                  <View>
+                    <Text>
+                      Developer Tools
+                    </Text>
+                    <View>
+                      <Text>
+                        DEV ONLY
+                      </Text>
+                    </View>
+                  </View>
+                  <Text>
+                    Internal testing controls & simulator
+                  </Text>
+                </View>
+                <Svg>
+                  <Path />
+                </Svg>
+              </View>
+            </View>
+            <View>
+              <View
+                accessibilityLabel="Sign out"
+                accessibilityRole="button"
+                accessible={true}
+                testID="settings-row-Sign Out"
+              >
+                <Text>
+                  Sign out
+                </Text>
+              </View>
+              <Text>
+                Version 1.0.0
+              </Text>
+            </View>
+          </View>
+        </RCTScrollView>
+      </SafeAreaView>
+    </View>
+
+      297 |
+      298 |     expect(screen.queryByText('Audio log')).toBeNull();
+    > 299 |     fireEvent(screen.getByTestId('settings-open-audio-log'), 'longPress');
+          |                      ^
+      300 |
+      301 |     expect(screen.getByText('Audio log')).toBeTruthy();
+      302 |     expect(screen.getByText('Share')).toBeTruthy();
+
+      at Object.getByTestId (src/screens/settings/__tests__/SettingsScreen.test.tsx:299:22)
+
+FAIL src/components/chart/__tests__/ChartPreview.test.tsx (6.285 s)
+  ● hero ChartPreview › renders and snapshots empty, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots empty, and delegates presses 1`
+
+    - Snapshot  - 2
+    + Received  + 3
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots normal, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots normal, and delegates presses 1`
+
+    - Snapshot  - 6
+    + Received  + 7
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -416,13 +417,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots regressed, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots regressed, and delegates presses 1`
+
+    - Snapshot  - 6
+    + Received  + 7
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -416,13 +417,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots reached, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots reached, and delegates presses 1`
+
+    - Snapshot  - 6
+    + Received  + 7
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -416,13 +417,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● hero ChartPreview › renders and snapshots complete, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `hero ChartPreview renders and snapshots complete, and delegates presses 1`
+
+    - Snapshot  - 14
+    + Received  + 15
+
+    @@ -97,11 +97,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -123,14 +123,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -281,12 +282,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -407,12 +408,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    -                     "top": 248.21423312057163,
+    +                     "left": 72.14043712500994,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-1"
+    @@ -533,12 +534,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 135.74563965575743,
+    -                     "top": 202.87587204371914,
+    +                     "left": 110.43041762360188,
+    +                     "top": 228.4971127826488,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-2"
+    @@ -659,12 +660,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 180.62793642665952,
+    -                     "top": 154.15505143606396,
+    +                     "left": 147.9560666037031,
+    +                     "top": 190.44102461767216,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-3"
+    @@ -785,12 +786,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 230.79737327147745,
+    -                     "top": 110.75379557256646,
+    +                     "left": 185.92399367325112,
+    +                     "top": 152.18243374588639,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-4"
+    @@ -912,12 +913,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 48,
+    -                     "left": 251.68075237363877,
+    -                     "top": 47.36152004964963,
+    +                     "left": 223.88731853198013,
+    +                     "top": 114.96714313807502,
+                          "width": 48,
+                        },
+                      ]
+                    }
+                    testID="chart-map-summit"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots empty, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots empty, and delegates presses 1`
+
+    - Snapshot  - 3
+    + Received  + 4
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -132.40638847564406,
+    +           "top": -158.02762921457366,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots normal, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots normal, and delegates presses 1`
+
+    - Snapshot  - 7
+    + Received  + 8
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -240.93104915405883,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -418,13 +419,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots regressed, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots regressed, and delegates presses 1`
+
+    - Snapshot  - 7
+    + Received  + 8
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -240.93104915405883,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -418,13 +419,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots reached, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots reached, and delegates presses 1`
+
+    - Snapshot  - 7
+    + Received  + 8
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -230.2197243900132,
+    +           "top": -240.93104915405883,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -418,13 +419,13 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    +                     "left": 72.14043712500994,
+                          "opacity": 0.4,
+    -                     "top": 248.21423312057163,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-ghost"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+  ● card ChartPreview › renders and snapshots complete, and delegates presses
+
+    expect(received).toMatchSnapshot()
+
+    Snapshot name: `card ChartPreview renders and snapshots complete, and delegates presses 1`
+
+    - Snapshot  - 15
+    + Received  + 16
+
+    @@ -69,11 +69,11 @@
+        >
+          <View
+            style={
+              {
+                "position": "absolute",
+    -           "top": -40.28431200449134,
+    +           "top": -81.71295017781125,
+              }
+            }
+            testID="chart-preview-map-offset"
+          >
+            <View
+    @@ -99,11 +99,11 @@
+                  }
+                }
+                jestAnimatedStyle={
+                  {
+                    "value": {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  }
+                }
+                jestInlineStyle={
+                  [
+    @@ -125,14 +125,15 @@
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+    -                 "opacity": 1,
+    +                 "opacity": 0,
+                    },
+                  ]
+                }
+    +           testID="chart-preview-etched-map-layers"
+              >
+                <View
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no-hide-descendants"
+                  pointerEvents="none"
+    @@ -283,12 +284,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 47.362391874783526,
+    -                     "top": 300.68920795808833,
+    +                     "left": 41.09189267172197,
+    +                     "top": 311.40053272213396,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-0"
+    @@ -409,12 +410,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 87.9560245488661,
+    -                     "top": 248.21423312057163,
+    +                     "left": 72.14043712500994,
+    +                     "top": 267.1980464817971,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-1"
+    @@ -535,12 +536,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 135.74563965575743,
+    -                     "top": 202.87587204371914,
+    +                     "left": 110.43041762360188,
+    +                     "top": 228.4971127826488,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-2"
+    @@ -661,12 +662,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 180.62793642665952,
+    -                     "top": 154.15505143606396,
+    +                     "left": 147.9560666037031,
+    +                     "top": 190.44102461767216,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-3"
+    @@ -787,12 +788,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 39.06103286384976,
+    -                     "left": 230.79737327147745,
+    -                     "top": 110.75379557256646,
+    +                     "left": 185.92399367325112,
+    +                     "top": 152.18243374588639,
+                          "width": 39.06103286384976,
+                        },
+                      ]
+                    }
+                    testID="chart-map-marker-4"
+    @@ -914,12 +915,12 @@
+                          "justifyContent": "center",
+                          "position": "absolute",
+                        },
+                        {
+                          "height": 48,
+    -                     "left": 251.68075237363877,
+    -                     "top": 47.36152004964963,
+    +                     "left": 223.88731853198013,
+    +                     "top": 114.96714313807502,
+                          "width": 48,
+                        },
+                      ]
+                    }
+                    testID="chart-map-summit"
+
+      39 |     const onPress = jest.fn();
+      40 |     const tree = render(<ChartPreview variant={variant} anchorId="a" onPress={onPress} />);
+    > 41 |     expect(tree.toJSON()).toMatchSnapshot();
+         |                           ^
+      42 |     expect(useChartPreview).toHaveBeenCalledWith('a');
+      43 |     expect(tree.getAllByRole('button')).toHaveLength(1);
+      44 |     fireEvent.press(tree.getByTestId('chart-preview'));
+
+      at toMatchSnapshot (src/components/chart/__tests__/ChartPreview.test.tsx:41:27)
+
+FAIL src/services/__tests__/AuthHydrationService.test.ts
+  ● AuthHydrationService › preserves unsynced local temp anchors during authenticated hydration
+
+    expect(received).toEqual(expected) // deep equality
+
+    Expected: ArrayContaining [ObjectContaining {"id": "server-anchor-1"}, ObjectContaining {"id": "anchor-1779092632674"}]
+    Received: [{"activationCount": 0, "archivedAt": undefined, "baseSigilSvg": "<svg></svg>", "category": "career", "chargedAt": undefined, "createdAt": 2024-01-15T00:00:00.000Z, "distilledLetters": ["B", "L", "D", "M", "Y", "C", "R", "R", "N", "T", …], "firstChargedAt": undefined, "id": "server-anchor-1", "ignitedAt": undefined, "intentionText": "Build my career in tech", "isCharged": false, "lastActivatedAt": undefined, "releasedAt": undefined, "structureVariant": "balanced", "updatedAt": 2026-05-18T08:10:00.000Z, "userId": "test-user-123"}]
+
+      152 |     await AuthHydrationService.hydrateAuthenticatedData();
+      153 |
+    > 154 |     expect(useAnchorStore.getState().anchors).toEqual(
+          |                                               ^
+      155 |       expect.arrayContaining([
+      156 |         expect.objectContaining({ id: 'server-anchor-1' }),
+      157 |         expect.objectContaining({ id: 'anchor-1779092632674' }),
+
+      at Object.toEqual (src/services/__tests__/AuthHydrationService.test.ts:154:47)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● AuthHydrationService › keeps local progress when anchor hydration fails after login
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 5
+    + Received  + 1
+
+    - Array [
+    -   ObjectContaining {
+    -     "id": "anchor-local-only",
+    -   },
+    - ]
+    + Array []
+
+      606 |       expect.objectContaining({ id: user.id }),
+      607 |     );
+    > 608 |     expect(useAnchorStore.getState().anchors).toEqual([
+          |                                               ^
+      609 |       expect.objectContaining({ id: 'anchor-local-only' }),
+      610 |     ]);
+      611 |     expect(useSettingsStore.getState().focusSessionMode).toBe('deep');
+
+      at Object.toEqual (src/services/__tests__/AuthHydrationService.test.ts:608:47)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/adapters/v2/home/__tests__/isolation.test.ts
+  ● UI-D isolation › does not touch backend, central V2 navigation, or legacy theme
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "E:\\Projects\\Anchor\\anchor\\mobile\\src\\screens\\v2\\home\\dailyShell.tsx",
+    + ]
+
+      43 |     const forbidden = /from ['"]@\/(navigation\/v2\/(routes|types|AnchorV2Navigator)|theme\/colors|theme\/typography)['"]/;
+      44 |     const offenders = uiDFiles.filter((file) => forbidden.test(readFileSync(file, 'utf8')));
+    > 45 |     expect(offenders).toEqual([]);
+         |                       ^
+      46 |   });
+      47 |
+      48 |   it('is never imported by production (non-v2) screens or navigation', () => {
+
+      at Object.toEqual (src/adapters/v2/home/__tests__/isolation.test.ts:45:23)
+
+
+Snapshot Summary
+ › 10 snapshots failed from 1 test suite. Inspect your code changes or run `npm test -- -u` to update them.
+
+Test Suites: 4 failed, 398 passed, 402 total
+Tests:       14 failed, 1 skipped, 3721 passed, 3736 total
+Snapshots:   10 failed, 6 passed, 16 total
+Time:        525.442 s, estimated 577 s

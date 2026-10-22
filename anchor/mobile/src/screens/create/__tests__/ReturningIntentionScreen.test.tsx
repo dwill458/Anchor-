@@ -23,6 +23,7 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
+      user: { id: 'user-1', totalAnchorsCreated: 1, freeAnchorConsumed: true },
       isAuthenticated: mockIsAuthenticated,
       pendingForgeIntent: mockPendingForgeIntent,
       setPendingForgeIntent: mockSetPendingForgeIntent,
@@ -44,6 +45,7 @@ jest.mock('@/hooks/useTrialStatus', () => ({
     isSubscribed: mockHasActiveEntitlement,
     trialExpired: !mockHasActiveEntitlement,
     hasActiveEntitlement: mockHasActiveEntitlement,
+    entitlementReady: true,
   }),
 }));
 

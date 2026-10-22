@@ -144,7 +144,7 @@ jest.mock('react-native-svg', () => {
 });
 
 jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
+  const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
   Reanimated.default.call = () => {};
   return Reanimated;
 });
@@ -264,7 +264,7 @@ describe('ChargeSetupScreen', () => {
     render(<ChargeSetupScreen />);
 
     expect(await screen.findByText('PLACE PRESET')).toBeTruthy();
-    expect(screen.getByText('Gym · 5 min · No Voice • Silence')).toBeTruthy();
+    expect(screen.getByText('Gym · 5 min · No guidance • Silence')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Begin Priming'));
 

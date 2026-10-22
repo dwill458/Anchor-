@@ -23,6 +23,7 @@ jest.mock('express-rate-limit', () => jest.fn(() => (_req: any, _res: any, next:
 // Prisma mock — provide jest.fn() for every method used in auth routes
 const mockPrisma = {
   $queryRaw: jest.fn(),
+  $executeRaw: jest.fn().mockResolvedValue(0),
   $transaction: jest.fn(),
   user: {
     findUnique: jest.fn(),
@@ -37,6 +38,7 @@ const mockPrisma = {
   },
   anchor: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
   },
   activation: {
     findMany: jest.fn(),
@@ -166,11 +168,65 @@ beforeEach(() => {
   });
 });
 
+describe('authenticated onboarding context', () => {
+  const answers = {
+    focusCategory: 'career',
+    desiredChange: 'More freedom',
+    lifeChanges: ['What I do every day'],
+    primaryNeed: 'Staying consistent',
+  };
+
+  it('saves answers and completes onboarding only after the account owns an Anchor', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.user.update.mockResolvedValue({ onboardingContext: answers, hasCompletedOnboarding: true });
+    const response = await request(buildApp()).put('/api/auth/onboarding-context').send(answers);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({ onboardingContext: answers, hasCompletedOnboarding: true });
+    expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'db-user-1', isArchived: false } }));
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'db-user-1' }, data: { onboardingContext: answers, hasCompletedOnboarding: true } }));
+  });
+
+  it('refuses to mark onboarding complete before first Anchor persistence', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
+    mockPrisma.anchor.findFirst.mockResolvedValue(null);
+    const response = await request(buildApp()).put('/api/auth/onboarding-context').send(answers);
+    expect(response.status).toBe(409);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('returns only the authenticated account’s saved answers', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ onboardingContext: answers });
+    const response = await request(buildApp()).get('/api/auth/onboarding-context');
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual(answers);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { authUid: 'firebase-uid-1' }, select: { onboardingContext: true } });
+  });
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // POST /api/auth/sync
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('POST /api/auth/sync', () => {
+  it('creates a new account with no automatic trial timestamp', async () => {
+    const newAccount = { ...MOCK_DB_USER, trialStartedAt: null };
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.user.create as jest.Mock).mockResolvedValue(newAccount);
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'email' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.trialStartedAt).toBeNull();
+    expect(res.body.data.trialState).toBe('NOT_STARTED');
+    expect(res.body.data.isTrialExpired).toBe(false);
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      data: expect.not.objectContaining({ trialStartedAt: expect.anything() }),
+    });
+  });
+
   it('creates or updates user and returns profile', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);

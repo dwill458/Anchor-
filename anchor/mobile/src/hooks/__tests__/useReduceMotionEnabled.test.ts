@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
-import { useReduceMotionEnabled } from '../useReduceMotionEnabled';
+import { useCreationReduceMotion, useReduceMotionEnabled } from '../useReduceMotionEnabled';
+import { useCelebrationReduceMotion } from '../useCelebrationReduceMotion';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -17,36 +18,63 @@ jest.spyOn(AccessibilityInfo, 'addEventListener').mockReturnValue({
   remove: jest.fn(),
 } as never);
 
-describe('useReduceMotionEnabled', () => {
+describe('useCelebrationReduceMotion', () => {
+  it('is the single celebration source: the same hook creation uses', () => {
+    expect(useCelebrationReduceMotion).toBe(useCreationReduceMotion);
+  });
+});
+
+describe.each([
+  ['useReduceMotionEnabled', useReduceMotionEnabled],
+  ['useCreationReduceMotion', useCreationReduceMotion],
+] as const)('%s', (_name, useMotionPreference) => {
   beforeEach(() => {
-    useSettingsStore.setState({ reduceMotion: 'system' });
+    useSettingsStore.setState({ reduceMotion: 'system', devPerfTierOverride: 'auto' });
   });
 
   it('follows the system flag when the preference is "system"', async () => {
     mockIsReduceMotionEnabled.mockResolvedValue(true);
 
-    const { result } = renderHook(() => useReduceMotionEnabled());
+    const { result } = renderHook(() => useMotionPreference());
 
     await waitFor(() => expect(result.current).toBe(true));
   });
 
-  it('ignores the system flag when the user turned reduce motion off', async () => {
+  it('honours the OS flag during creation even with the in-app preference off', async () => {
     mockIsReduceMotionEnabled.mockResolvedValue(true);
-    useSettingsStore.setState({ reduceMotion: 'off' });
+    useSettingsStore.setState({ reduceMotion: 'off', devPerfTierOverride: 'high' });
 
-    const { result } = renderHook(() => useReduceMotionEnabled());
+    const { result } = renderHook(() => useMotionPreference());
 
     await waitFor(() => expect(mockIsReduceMotionEnabled).toHaveBeenCalled());
-    expect(result.current).toBe(false);
+    await waitFor(() => expect(result.current).toBe(_name === 'useCreationReduceMotion'));
   });
 
   it('reduces motion when the user turned it on despite the system flag being off', async () => {
     mockIsReduceMotionEnabled.mockResolvedValue(false);
     useSettingsStore.setState({ reduceMotion: 'on' });
 
-    const { result } = renderHook(() => useReduceMotionEnabled());
+    const { result } = renderHook(() => useMotionPreference());
 
     await waitFor(() => expect(mockIsReduceMotionEnabled).toHaveBeenCalled());
     expect(result.current).toBe(true);
+  });
+
+  it('is 100% reduce motion on low-tier hardware even if system flag is off and preference is off', async () => {
+    mockIsReduceMotionEnabled.mockResolvedValue(false);
+    useSettingsStore.setState({ reduceMotion: 'off', devPerfTierOverride: 'low' });
+
+    const { result } = renderHook(() => useMotionPreference());
+
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it('honours forced high-tier developer override when testing flagship behavior', async () => {
+    mockIsReduceMotionEnabled.mockResolvedValue(false);
+    useSettingsStore.setState({ reduceMotion: 'off', devPerfTierOverride: 'high' });
+
+    const { result } = renderHook(() => useMotionPreference());
+
+    await waitFor(() => expect(result.current).toBe(false));
   });
 });

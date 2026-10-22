@@ -7,10 +7,9 @@ archive/
 design/
 docs/
 /scripts/
-anchor/mobile/patches/
 yu/
 supabase/
-.git/
+.git
 .DS_Store
 # Root files
 /*.png
@@ -26,8 +25,26 @@ anchor/mobile/coverage/
 anchor/mobile/.jest-cache/
 anchor/mobile/android/.gradle/
 anchor/mobile/android/app/build/
+anchor/mobile/android/app/.cxx/
 anchor/mobile/android/build/
 anchor/mobile/node_modules/
 graphify-out/
 .codex-pr-worktree/
 
+# Local exports and QA artifacts are not inputs to native builds.
+artifacts/
+.codex-remote-attachments/
+.vision-export-tmp/
+anchor/mobile/dist-*/
+anchor/mobile/.visualize-cinematic-*/
+anchor/mobile/.chart-pass-c-export/
+anchor/mobile/.expo-*-verify/
+anchor/mobile/.expo-*-export-check/
+
+
+
+# Local QA scratch, never native build inputs.
+_expo58_generated/
+_expo58_worktree/
+anchor/mobile/.expo-thread-aura-verify/
+anchor/mobile/.expo-thread-aura-ios-verify/

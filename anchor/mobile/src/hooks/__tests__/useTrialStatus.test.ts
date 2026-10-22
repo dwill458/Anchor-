@@ -8,7 +8,12 @@ let mockState = {
   devOverrideEnabled: false,
   devTierOverride: 'pro' as 'free' | 'pro' | 'trial' | 'expired',
   rcSynced: false,
+  isInTrial: false,
+  isSubscribed: false,
   hasActiveEntitlement: false,
+  daysRemaining: null as number | null,
+  trialExpired: false,
+  entitlementReady: false,
 };
 
 jest.mock('@/stores/subscriptionStore', () => ({
@@ -21,10 +26,15 @@ jest.mock('@/stores/subscriptionStore', () => ({
   },
 }));
 
+let mockMasterAccount = false;
 jest.mock('@/stores/settingsStore', () => ({
   useSettingsStore: (selector: (state: { developerMasterAccountEnabled: boolean }) => unknown) =>
-    selector({ developerMasterAccountEnabled: false }),
+    selector({ developerMasterAccountEnabled: mockMasterAccount }),
 }));
+
+afterEach(() => {
+  mockMasterAccount = false;
+});
 
 describe('useTrialStatus', () => {
   it('returns active trial state', () => {
@@ -35,7 +45,12 @@ describe('useTrialStatus', () => {
       devOverrideEnabled: false,
       devTierOverride: 'pro',
       rcSynced: false,
-      hasActiveEntitlement: false,
+      isInTrial: true,
+      isSubscribed: false,
+      hasActiveEntitlement: true,
+      daysRemaining: 6,
+      trialExpired: false,
+      entitlementReady: true,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -52,7 +67,12 @@ describe('useTrialStatus', () => {
       devOverrideEnabled: false,
       devTierOverride: 'pro',
       rcSynced: false,
-      hasActiveEntitlement: false,
+      isInTrial: false,
+      isSubscribed: true,
+      hasActiveEntitlement: true,
+      daysRemaining: null,
+      trialExpired: false,
+      entitlementReady: true,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -69,7 +89,12 @@ describe('useTrialStatus', () => {
       devOverrideEnabled: false,
       devTierOverride: 'pro',
       rcSynced: false,
+      isInTrial: false,
+      isSubscribed: false,
       hasActiveEntitlement: false,
+      daysRemaining: null,
+      trialExpired: true,
+      entitlementReady: true,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -86,7 +111,12 @@ describe('useTrialStatus', () => {
       devOverrideEnabled: false,
       devTierOverride: 'pro',
       rcSynced: false,
+      isInTrial: false,
+      isSubscribed: false,
       hasActiveEntitlement: false,
+      daysRemaining: null,
+      trialExpired: true,
+      entitlementReady: true,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -96,7 +126,7 @@ describe('useTrialStatus', () => {
     expect(result.current.subscriptionStatus).toBe('active');
   });
 
-  it('returns expired when trialStartDate is null and status is trial', () => {
+  it('returns expired when no RevenueCat entitlement is active', () => {
     mockState = {
       subscriptionStatus: 'trial',
       trialStartDate: null,
@@ -105,6 +135,11 @@ describe('useTrialStatus', () => {
       devTierOverride: 'pro',
       rcSynced: false,
       hasActiveEntitlement: false,
+      isInTrial: false,
+      isSubscribed: false,
+      daysRemaining: null,
+      trialExpired: true,
+      entitlementReady: true,
     };
 
     const { result } = renderHook(() => useTrialStatus());
@@ -113,43 +148,65 @@ describe('useTrialStatus', () => {
     expect(result.current.hasExpired).toBe(true);
   });
 
-  it('does not expire a new user when RC has synced with no paid entitlement (post-onboarding race)', () => {
-    // RC syncs during onboarding and returns hasActiveEntitlement=false (no paid sub).
-    // The account trial has already been seeded from the backend user creation time.
+  it('keeps a new user Free when RC has synced with no paid entitlement (post-onboarding race)', () => {
+    // RC syncs during onboarding and returns no paid entitlement. Signup does
+    // not seed a local trial, so this remains Free.
     mockState = {
-      subscriptionStatus: 'trial',
-      trialStartDate: new Date().toISOString(),
+      subscriptionStatus: 'expired',
+      trialStartDate: null,
       remoteCompedAccess: false,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
       rcSynced: true,
+      isInTrial: false,
+      isSubscribed: false,
       hasActiveEntitlement: false,
+      daysRemaining: null,
+      trialExpired: true,
+      entitlementReady: true,
     };
 
     const { result } = renderHook(() => useTrialStatus());
 
-    expect(result.current.isTrialActive).toBe(true);
-    expect(result.current.hasExpired).toBe(false);
+    expect(result.current.isTrialActive).toBe(false);
+    expect(result.current.hasExpired).toBe(true);
   });
 
-  it('does not expire a user mid-trial when RC has synced with no paid entitlement', () => {
-    // RC syncs after trial is stamped. RC returns no paid entitlement (normal for trial users).
-    // Trial has 5 days left — should still be active.
-    const fiveDaysAgo = new Date(Date.now() - 5 * 86_400_000).toISOString();
+  it('keeps a user Free when RC has synced with no paid entitlement', () => {
+    // A store lookup without an active canonical entitlement is Free.
     mockState = {
-      subscriptionStatus: 'trial',
-      trialStartDate: fiveDaysAgo,
+      subscriptionStatus: 'expired',
+      trialStartDate: null,
       remoteCompedAccess: false,
       devOverrideEnabled: false,
       devTierOverride: 'pro',
       rcSynced: true,
+      isInTrial: false,
+      isSubscribed: false,
       hasActiveEntitlement: false,
+      daysRemaining: null,
+      trialExpired: true,
+      entitlementReady: true,
     };
 
     const { result } = renderHook(() => useTrialStatus());
 
-    expect(result.current.isTrialActive).toBe(true);
-    expect(result.current.hasExpired).toBe(false);
-    expect(result.current.daysRemaining).toBe(2);
+    expect(result.current.isTrialActive).toBe(false);
+    expect(result.current.hasExpired).toBe(true);
+    expect(result.current.daysRemaining).toBe(0);
+  });
+
+  it('lets an explicit Free/Expired dev override beat the master account so paywall gates fire', () => {
+    mockMasterAccount = true;
+    mockState = { ...mockState, devOverrideEnabled: false, isSubscribed: false, hasActiveEntitlement: false };
+    expect(renderHook(() => useTrialStatus()).result.current.isSubscribed).toBe(true);
+
+    for (const tier of ['free', 'expired'] as const) {
+      mockState = { ...mockState, devOverrideEnabled: true, devTierOverride: tier };
+      const { result } = renderHook(() => useTrialStatus());
+      expect(result.current.hasActiveEntitlement).toBe(false);
+      expect(result.current.isSubscribed).toBe(false);
+      expect(result.current.hasExpired).toBe(true);
+    }
   });
 });

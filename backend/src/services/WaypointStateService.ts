@@ -3,11 +3,16 @@ import type {
   AnchorLinkSummary,
   AnchorSnapshot,
   BlockedReason,
+  WaypointKind,
+  WaypointProgressMode,
   WaypointState,
   WaypointSummary,
 } from '../types/chart';
 
-type CoursePointer = Pick<Course, 'id' | 'status' | 'currentWaypointId'>;
+type CoursePointer = Pick<Course, 'id' | 'status' | 'currentWaypointId'> & {
+  /** Anchor 2.0 Charts belong to one Anchor; their waypoints need no own link. */
+  anchorId?: string | null;
+};
 
 export type WaypointWithOptionalCourse = Pick<
   Waypoint,
@@ -22,7 +27,10 @@ export type WaypointWithOptionalCourse = Pick<
   | 'supportingPracticeSessionId'
   | 'createdAt'
   | 'updatedAt'
->;
+> &
+  Partial<
+    Pick<Waypoint, 'kind' | 'metricLabel' | 'metricBaseline' | 'metricTarget' | 'metricCurrent' | 'progressMode' | 'requirements' | 'completionCriteria'>
+  >;
 
 export type ActiveLink = Pick<
   CourseAnchorLink,
@@ -63,8 +71,12 @@ export function isTerminal(
  */
 export function deriveBlockedReason(
   stateLink: ActiveLink,
-  anchor: AvailableAnchor
+  anchor: AvailableAnchor,
+  options: { chartAnchored?: boolean } = {}
 ): BlockedReason | null {
+  // A waypoint on an Anchor-owned Chart is never blocked for lacking its own
+  // link; the Chart's Anchor lifecycle (release) archives the whole route.
+  if (!stateLink && options.chartAnchored) return null;
   if (!stateLink) return null;
   if (stateLink.unlinkedAt) {
     const snapshot = stateLink.anchorSnapshot as Partial<AnchorSnapshot> | null;
@@ -88,7 +100,10 @@ export function deriveWaypointState(
   if (waypoint.cancelledAt) return 'CANCELLED';
   if (waypoint.skippedAt) return 'SKIPPED';
   if (waypoint.reachedAt) return 'REACHED';
-  if (waypoint.id === course.currentWaypointId && deriveBlockedReason(activeLink, anchor)) {
+  if (
+    waypoint.id === course.currentWaypointId &&
+    deriveBlockedReason(activeLink, anchor, { chartAnchored: Boolean(course.anchorId) })
+  ) {
     return 'BLOCKED';
   }
   if (waypoint.id === course.currentWaypointId) return 'CURRENT';
@@ -193,6 +208,20 @@ export function toAnchorLinkSummary(
   };
 }
 
+export function normalizeWaypointKind(value: string | null | undefined): WaypointKind {
+  return value === 'METRIC' || value === 'CAPABILITY' ? value : 'MILESTONE';
+}
+
+export function resolveProgressMode(waypoint: {
+  progressMode?: string | null;
+  metricTarget?: number | null;
+}): WaypointProgressMode {
+  // A stored measure always wins: a number on screen needs a target behind it.
+  if (typeof waypoint.metricTarget === 'number') return 'numeric';
+  if (waypoint.progressMode === 'checklist' || waypoint.progressMode === 'completion') return waypoint.progressMode;
+  return waypoint.progressMode === 'none' ? 'none' : 'moves';
+}
+
 export function buildWaypointSummary(
   course: CoursePointer,
   waypoint: WaypointWithOptionalCourse,
@@ -206,8 +235,24 @@ export function buildWaypointSummary(
     position: waypoint.position,
     title: waypoint.title,
     description: waypoint.description,
+    kind: normalizeWaypointKind(waypoint.kind),
+    progressMode: resolveProgressMode(waypoint),
+    requirements: Array.isArray(waypoint.requirements) ? waypoint.requirements as unknown as import('../types/chart').WaypointRequirement[] : [],
+    completionCriteria: waypoint.completionCriteria ?? null,
+    metric:
+      typeof waypoint.metricTarget === 'number'
+        ? {
+            label: waypoint.metricLabel ?? null,
+            baseline: waypoint.metricBaseline ?? null,
+            target: waypoint.metricTarget,
+            current: waypoint.metricCurrent ?? null,
+          }
+        : null,
     state,
-    blockedReason: state === 'BLOCKED' ? deriveBlockedReason(activeLink, anchor) : null,
+    blockedReason:
+      state === 'BLOCKED'
+        ? deriveBlockedReason(activeLink, anchor, { chartAnchored: Boolean(course.anchorId) })
+        : null,
     reachedAt: waypoint.reachedAt?.toISOString() ?? null,
     skippedAt: waypoint.skippedAt?.toISOString() ?? null,
     cancelledAt: waypoint.cancelledAt?.toISOString() ?? null,

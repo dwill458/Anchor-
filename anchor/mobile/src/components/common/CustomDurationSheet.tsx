@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   sheetGlow: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.4,
   },
   header: {

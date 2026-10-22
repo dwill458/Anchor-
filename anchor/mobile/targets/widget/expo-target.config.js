@@ -2,7 +2,7 @@
 module.exports = config => ({
   type: "widget",
   name: "AnchorWidget",
-  icon: "../../assets/anchor-icon.png",
+  icon: "../../assets/anchor-icon-v3.png",
   // Shares the WidgetSnapshot JSON with the main app (written by the
   // AnchorWidgetBridge local module). Must match WIDGET_APP_GROUP in
   // src/widgets/widgetTypes.ts and the main app's ios.entitlements.

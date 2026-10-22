@@ -5,7 +5,7 @@
  * Handles authentication tokens, request/response interceptors, and error handling.
  */
 
-import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig, type AxiosRequestConfig } from 'axios';
 import { AuthService } from './AuthService';
 import type { ApiResponse, ChartFeatureFlags } from '@/types';
 import { API_URL } from '@/config';
@@ -34,7 +34,14 @@ interface AnchorRequestMetadata {
   trace: PerformanceTrace;
 }
 
-type AnchorRequestConfig = InternalAxiosRequestConfig & {
+export type AccountBoundRequestConfig = AxiosRequestConfig & {
+  /** Rechecked after async token lookup so a request cannot borrow a new account's token. */
+  anchorAuthGuard?: () => boolean;
+  /** Optional token captured with that context; never borrow a later Firebase identity. */
+  anchorAuthToken?: string;
+};
+
+type AnchorRequestConfig = InternalAxiosRequestConfig & AccountBoundRequestConfig & {
   metadata?: AnchorRequestMetadata;
   _anchorUserSyncRetried?: boolean;
 };
@@ -71,9 +78,17 @@ apiClient.interceptors.request.use(
       trace,
     };
 
+    const assertAuthContext = () => {
+      if (requestConfig.anchorAuthGuard && !requestConfig.anchorAuthGuard()) {
+        trace.stop({ success: false, stage: 'account_changed' });
+        throw new axios.CanceledError('Authentication context changed.');
+      }
+    };
+    assertAuthContext();
+
     try {
       // Get current user's ID token
-      const token = await AuthService.getIdToken();
+      const token = requestConfig.anchorAuthToken ?? await AuthService.getIdToken();
 
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -82,6 +97,8 @@ apiClient.interceptors.request.use(
       // User not signed in - continue without token
       // This is expected for public endpoints like /auth/sync
     }
+
+    assertAuthContext();
 
     ErrorTrackingService.addBreadcrumb('API request', 'network.request', {
       request_id: requestConfig.metadata.requestId,
@@ -328,6 +345,7 @@ export async function updateUserSettings(
       | 'primeSessionAudio'
       | 'visualizeSessionDuration'
       | 'sessionAudioDefaults'
+      | 'useProfilePhotoForVision'
     >
   >
 ): Promise<UserSettings> {

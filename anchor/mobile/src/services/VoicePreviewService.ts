@@ -1,4 +1,5 @@
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { setAudioSessionMode } from '@/services/audio/AudioSession';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import {
   lookupVoicePreviewTrack,
@@ -25,6 +26,7 @@ export const stopVoicePreview = (): void => {
   try {
     activePlayer?.pause();
     activePlayer?.remove();
+    activePlayer?.release?.();
   } catch {
     // Preview cleanup is best effort.
   }
@@ -32,6 +34,7 @@ export const stopVoicePreview = (): void => {
   activePlayer = null;
   activeVoice = null;
   emit();
+  void setAudioSessionMode('effects').catch(() => undefined);
 };
 
 export const startVoicePreview = async (
@@ -50,13 +53,7 @@ export const startVoicePreview = async (
   }
 
   try {
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      interruptionMode: 'mixWithOthers',
-      shouldPlayInBackground: false,
-      allowsRecording: false,
-      shouldRouteThroughEarpiece: false,
-    });
+    await setAudioSessionMode('session');
     const player = createAudioPlayer(track.asset, {
       updateInterval: 100,
       keepAudioSessionActive: true,

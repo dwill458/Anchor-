@@ -30,11 +30,11 @@ export const HapticFeedbackScreen: React.FC = () => {
             updateSetting('hapticFeedback', level);
             
             if (level === 'strong') {
-              void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
+              void safeHaptics.notification(Haptics.NotificationFeedbackType.Success, { bypassScale: true });
             } else if (level === 'medium') {
-              void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+              void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium, { bypassScale: true });
             } else if (level === 'light') {
-              void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+              void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light, { bypassScale: true });
             }
           }}
         />

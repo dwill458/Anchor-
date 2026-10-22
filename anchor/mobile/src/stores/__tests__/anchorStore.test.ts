@@ -428,4 +428,159 @@ describe('anchorStore', () => {
       expect(result.current.lastSyncedAt).toBeNull();
     });
   });
+
+  describe('evolvedFrom (local only)', () => {
+    const FROM = { anchorId: 'old-1', intention: 'Publish my novel' };
+    const seed = () => [
+      createMockAnchor({ id: 'old-1', localId: 'old-1', intentionText: 'Publish my novel', isReleased: true }),
+      createMockAnchor({ id: 'new-1', localId: 'new-1', intentionText: 'Finish my novel this year' }),
+      createMockAnchor({ id: 'other', localId: 'other', intentionText: 'Another' }),
+    ];
+    const successorOf = (anchors: ReturnType<typeof seed>) => anchors.find((a) => a.id === 'new-1' || a.localId === 'new-1');
+
+    it('is written on the successor only, without touching updatedAt or any other Anchor', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      act(() => { result.current.setAnchors(seed()); });
+      const before = result.current.anchors.map((a) => ({ id: a.id, updatedAt: a.updatedAt.getTime() }));
+
+      act(() => { result.current.linkEvolvedFrom('new-1', FROM); });
+
+      expect(result.current.anchors.find((a) => a.id === 'new-1')?.evolvedFrom).toEqual(FROM);
+      expect(result.current.anchors.filter((a) => a.evolvedFrom).map((a) => a.id)).toEqual(['new-1']);
+      expect(result.current.anchors.map((a) => ({ id: a.id, updatedAt: a.updatedAt.getTime() }))).toEqual(before);
+    });
+
+    it('is idempotent: a repeat or a different source never rewrites or flips it', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      act(() => { result.current.setAnchors(seed()); });
+      act(() => { result.current.linkEvolvedFrom('new-1', FROM); });
+      const first = result.current.anchors.find((a) => a.id === 'new-1')?.evolvedFrom;
+
+      act(() => { result.current.linkEvolvedFrom('new-1', FROM); });
+      act(() => { result.current.linkEvolvedFrom('new-1', { anchorId: 'other', intention: 'Another' }); });
+
+      expect(result.current.anchors.find((a) => a.id === 'new-1')?.evolvedFrom).toBe(first);
+    });
+
+    it('never lands on a released or archived Anchor, on the released Anchor itself, or on an unknown id', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      act(() => { result.current.setAnchors([...seed(), createMockAnchor({ id: 'gone', localId: 'gone', archivedAt: new Date() })]); });
+
+      act(() => {
+        result.current.linkEvolvedFrom('old-1', { anchorId: 'new-1', intention: 'x' }); // released
+        result.current.linkEvolvedFrom('gone', FROM); // archived
+        result.current.linkEvolvedFrom('other', { anchorId: 'other', intention: 'x' }); // itself
+        result.current.linkEvolvedFrom('missing', FROM); // unknown
+      });
+
+      expect(result.current.anchors.some((a) => a.evolvedFrom)).toBe(false);
+    });
+
+    it('survives a full server refresh (setAnchors), matched by id or localId', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      act(() => { result.current.setAnchors(seed()); });
+      act(() => { result.current.linkEvolvedFrom('new-1', FROM); });
+
+      // The server copy: a cloud id, the local id kept as localId, no evolvedFrom.
+      const refreshed = [
+        createMockAnchor({ id: 'cloud-old', localId: 'old-1', isReleased: true }),
+        createMockAnchor({ id: 'cloud-new', localId: 'new-1', intentionText: 'Finish my novel this year' }),
+        createMockAnchor({ id: 'other', localId: 'other' }),
+      ];
+      act(() => { result.current.setAnchors(refreshed); });
+
+      const successor = result.current.anchors.find((a) => a.localId === 'new-1');
+      expect(successor?.id).toBe('cloud-new');
+      expect(successor?.evolvedFrom).toEqual(FROM);
+      expect(result.current.anchors.filter((a) => a.evolvedFrom)).toHaveLength(1);
+
+      // And again, with the server copy keyed only by the local id as its id.
+      act(() => { result.current.setAnchors([createMockAnchor({ id: 'new-1', intentionText: 'Finish my novel this year' })]); });
+      expect(result.current.anchors[0].evolvedFrom).toEqual(FROM);
+    });
+
+    it('survives applySyncedAnchor', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      act(() => { result.current.setAnchors(seed()); });
+      act(() => { result.current.linkEvolvedFrom('new-1', FROM); });
+
+      act(() => {
+        result.current.applySyncedAnchor('new-1', createMockAnchor({ id: 'cloud-new', localId: 'new-1', intentionText: 'Finish my novel this year' }));
+      });
+
+      const successor = result.current.anchors.find((a) => a.localId === 'new-1');
+      expect(successor?.id).toBe('cloud-new');
+      expect(successor?.evolvedFrom).toEqual(FROM);
+    });
+
+    it('an incoming server copy that does carry one is not overwritten by a stale local value', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      act(() => { result.current.setAnchors(seed()); });
+      act(() => { result.current.linkEvolvedFrom('new-1', FROM); });
+      const incoming = { anchorId: 'old-1', intention: 'Publish my novel (renamed)' };
+      act(() => { result.current.setAnchors([createMockAnchor({ id: 'new-1', localId: 'new-1', evolvedFrom: incoming })]); });
+      expect(successorOf(result.current.anchors as ReturnType<typeof seed>)?.evolvedFrom).toEqual(incoming);
+    });
+
+    it('everything behaves as before when no Anchor has one', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      act(() => { result.current.setAnchors(seed()); });
+      act(() => { result.current.applySyncedAnchor('new-1', createMockAnchor({ id: 'cloud-new', localId: 'new-1' })); });
+      expect(result.current.anchors.some((a) => 'evolvedFrom' in a)).toBe(false);
+    });
+  });
+
+  describe('missing updatedAt marker (__missingUpdatedAt)', () => {
+    it('survives JSON serialization, persisted rehydration, object spreading, and app restart, and clears on explicit updateAnchor', () => {
+      const { result } = renderHook(() => useAnchorStore());
+      const rawMissingTsAnchor = {
+        ...createMockAnchor({ id: 'missing-ts-1', intentionText: 'Initial missing ts' }),
+        updatedAt: undefined as unknown as Date,
+      };
+
+      // 1. addAnchor normalizes and attaches non-enumerable __missingUpdatedAt
+      act(() => {
+        result.current.addAnchor(rawMissingTsAnchor);
+      });
+      const added = result.current.getAnchorById('missing-ts-1') as any;
+      expect(added.__missingUpdatedAt).toBe(true);
+      expect(added.updatedAt).toBeInstanceOf(Date);
+      expect(added.updatedAt.__missingUpdatedAt).toBe(true);
+
+      // 2. Object spreading preserves the marker via updatedAt reference and reconstructs on setAnchors
+      const spreadCopy = { ...added, intentionText: 'Spread copy' };
+      expect((spreadCopy.updatedAt as any).__missingUpdatedAt).toBe(true);
+      act(() => {
+        result.current.setAnchors([spreadCopy]);
+      });
+      const afterSpread = result.current.getAnchorById('missing-ts-1') as any;
+      expect(afterSpread.__missingUpdatedAt).toBe(true);
+
+      // 3. JSON serialization + persisted store rehydration (simulating app termination & restart)
+      const serialized = JSON.stringify({ state: { anchors: [afterSpread] } });
+      const parsed = JSON.parse(serialized);
+      expect(parsed.state.anchors[0].updatedAt).toBeNull();
+
+      const persistOptions = (useAnchorStore as any).persist.getOptions();
+      act(() => {
+        useAnchorStore.setState({ anchors: parsed.state.anchors });
+        const onRehydrate = persistOptions.onRehydrateStorage();
+        onRehydrate(useAnchorStore.getState(), undefined);
+      });
+      const rehydrated = result.current.getAnchorById('missing-ts-1') as any;
+      expect(rehydrated.__missingUpdatedAt).toBe(true);
+      expect(rehydrated.updatedAt).toBeInstanceOf(Date);
+      expect(rehydrated.updatedAt.__missingUpdatedAt).toBe(true);
+
+      // 4. Genuine updateAnchor mutation stamps a real timestamp and clears __missingUpdatedAt
+      act(() => {
+        result.current.updateAnchor('missing-ts-1', { intentionText: 'Mutated with real timestamp' });
+      });
+      const updated = result.current.getAnchorById('missing-ts-1') as any;
+      expect(updated.intentionText).toBe('Mutated with real timestamp');
+      expect(updated.__missingUpdatedAt).toBeUndefined();
+      expect(updated.updatedAt.__missingUpdatedAt).toBeUndefined();
+      expect(JSON.parse(JSON.stringify(updated)).updatedAt).toEqual(expect.any(String));
+    });
+  });
 });

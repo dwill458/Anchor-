@@ -1,0 +1,15 @@
+
+> anchor-backend@0.1.0 test
+> jest --runInBand src/services/v2/__tests__/VisionCaptionPersistence.test.ts
+
+PASS src/services/v2/__tests__/VisionCaptionPersistence.test.ts (10.73 s)
+  Vision caption persistence and old response compatibility
+    √ persists caption when creating a Vision and returns it on the read model (29 ms)
+    √ persists caption when adding a scene and returns it (1 ms)
+    √ returns null for an old scene without caption (1 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        11.283 s, estimated 18 s
+Ran all test suites matching /src\\services\\v2\\__tests__\\VisionCaptionPersistence.test.ts/i.

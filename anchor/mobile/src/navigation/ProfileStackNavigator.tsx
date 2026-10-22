@@ -27,21 +27,22 @@ export const ProfileStackNavigator: React.FC = () => {
   return (
     <ErrorBoundary>
       <Stack.Navigator
+        initialRouteName="Settings"
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
           gestureEnabled: Platform.OS === 'ios',
-          contentStyle: { backgroundColor: '#080C10' },
+          contentStyle: { backgroundColor: '#F4F1E9' },
         }}
       >
         <Stack.Screen
-          name="Profile"
-          component={ProfileScreen}
+          name="Settings"
+          component={SettingsScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
+          name="Profile"
+          component={ProfileScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen

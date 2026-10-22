@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   badgeHalo: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(212,175,55,0.1)',
   },
   chargedText: {

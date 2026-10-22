@@ -32,20 +32,21 @@ const IS_ANDROID = Platform.OS === 'android';
 const DEFAULT_LIGHT_COLOR = '#D4AF37';
 const CUSTOM_NOTIFICATION_SOUND = 'notification.wav';
 
+
 /**
  * Android channel ids are versioned. Android freezes a channel's importance and
  * sound the moment it is first created — later `setNotificationChannelAsync`
  * calls with a higher importance are ignored for the lifetime of the install.
- * The `-v2` suffix creates fresh channels so existing installs pick up the
- * corrected importance levels; `LEGACY_NOTIFICATION_CHANNELS` are deleted so the
+ * A new version suffix creates fresh channels when importance or sound changes;
+ * `LEGACY_NOTIFICATION_CHANNELS` are deleted so the
  * user's notification settings screen does not accumulate dead entries.
  */
 export const NOTIFICATION_CHANNELS = {
-  DAILY_REMINDERS: 'daily-reminders-v2',
-  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v2',
-  RITUAL_REMINDERS: 'ritual-reminders-v2',
-  STREAK_PROTECTION: 'streak-protection-v2',
-  WEEKLY_SUMMARY: 'weekly-summary-v2',
+  DAILY_REMINDERS: 'daily-reminders-v4',
+  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v4',
+  RITUAL_REMINDERS: 'ritual-reminders-v3',
+  STREAK_PROTECTION: 'streak-protection-v3',
+  WEEKLY_SUMMARY: 'weekly-summary-v4',
 };
 
 const LEGACY_NOTIFICATION_CHANNELS = [
@@ -54,9 +55,18 @@ const LEGACY_NOTIFICATION_CHANNELS = [
   'ritual-reminders',
   'streak-protection',
   'weekly-summary',
+  'daily-reminders-v2',
+  'daily-goal-checkpoints-v2',
+  'weekly-summary-v2',
+  'daily-reminders-v3',
+  'daily-goal-checkpoints-v3',
+  'weekly-summary-v3',
+  'ritual-reminders-v2',
+  'streak-protection-v2',
 ];
 
 export const NOTIFICATION_IDS = {
+  PERSONAL_DAILY: 'anchor:personal-daily',
   DAILY_REMINDER: 'daily-reminder-id',
   DAILY_GOAL_CHECKPOINT_PREFIX: 'daily-goal-checkpoint',
   STREAK_PROTECTION: 'streak-protection-id',
@@ -77,7 +87,7 @@ export type NotificationType =
 
 export interface NotificationPayload {
   type: NotificationType;
-  category?: NotificationCategory;
+  category?: NotificationCategory | 'personal_daily' | 'chart' | 'vision' | string;
   templateId?: string;
   tone?: NotificationTone;
   anchorId?: string;
@@ -89,11 +99,13 @@ export interface NotificationPayload {
 }
 
 export type NotificationClickAction =
-  | { action: 'open_daily_reminder' }
+  | { action: 'open_daily_reminder'; anchorId?: string }
   | { action: 'open_ritual_reminder'; anchorId: string }
   | { action: 'open_streak_protection' }
   | { action: 'open_weekly_summary' }
-  | { action: 'open_notification_category'; category: NotificationCategory; anchorId?: string }
+  | { action: 'open_chart'; anchorId?: string }
+  | { action: 'open_vision'; anchorId?: string }
+  | { action: 'open_notification_category'; category: string; anchorId?: string }
   | { action: 'unknown' };
 
 export interface RemotePushRegistration {
@@ -233,8 +245,11 @@ class NotificationService {
         )
       );
 
+      // OS permission was verified as granted. Token acquisition failed due to network,
+      // simulator environment, or credential delay. Preserve permissionGranted: true so
+      // local notification scheduling is never suppressed.
       return {
-        permissionGranted: false,
+        permissionGranted: true,
         expoPushToken: null,
         fcmToken: null,
         apnsToken: null,
@@ -248,7 +263,10 @@ class NotificationService {
       if (this.hasGrantedPermissions(status)) {
         return 'granted';
       }
-      return status.status === 'denied' ? 'denied' : 'undetermined';
+      // A denied status can still be requestable (notably on Android before
+      // the user has exhausted the OS prompt). Only route to Settings when the
+      // platform says another permission request is no longer possible.
+      return status.status === 'denied' && !status.canAskAgain ? 'denied' : 'undetermined';
     } catch (error) {
       this.recordError(
         new ServiceError(
@@ -262,11 +280,15 @@ class NotificationService {
   }
 
   /**
-   * Schedule the main daily reminder.
+   * Schedule the explicitly requested personal daily reminder.
+   * Uses native repeating DAILY trigger and dedicated schedule identifier.
+   * Idempotent: If the desired reminder already exists with matching time,
+   * trigger, channel, and content, it is left untouched.
    */
-  async scheduleDailyReminder(time: string): Promise<string | null> {
-    await this.cancelDailyReminder();
-
+  async schedulePersonalDailyReminder(
+    time: string,
+    options?: { title?: string; body?: string; force?: boolean }
+  ): Promise<string | null> {
     const parsed = this.parseTime(time);
     if (!parsed) {
       this.recordError(
@@ -278,13 +300,57 @@ class NotificationService {
       return null;
     }
 
+    const title = options?.title ?? 'Your moment of focus';
+    const body =
+      options?.body ??
+      'Take a moment to reconnect with what matters. Your Anchor is ready.';
+
+    // Check if matching reminder already exists natively
+    if (!options?.force) {
+      const scheduledList = (await this.getScheduledNotifications()) ?? [];
+      const matchingList = Array.isArray(scheduledList)
+        ? scheduledList.filter(
+            (n) => n && n.identifier === NOTIFICATION_IDS.PERSONAL_DAILY
+          )
+        : [];
+      const existing = matchingList[0];
+      const hasDuplicatePersonal = matchingList.length > 1;
+
+      if (existing && !hasDuplicatePersonal) {
+        const trigger = existing.trigger as any;
+        const hourMatches = trigger?.hour === parsed.hour;
+        const minuteMatches = trigger?.minute === parsed.minute;
+        const channelMatches = !IS_ANDROID || !trigger?.channelId || trigger.channelId === NOTIFICATION_CHANNELS.DAILY_REMINDERS;
+        const contentMatches = existing.content?.title === title && existing.content?.body === body;
+        const timeMatches = existing.content?.data?.scheduledTime === time;
+
+        if (hourMatches && minuteMatches && channelMatches && contentMatches && timeMatches) {
+          // Desired reminder already active with correct time and content.
+          // Cleanse legacy identifiers if any still linger in scheduledList.
+          const hasLegacy = Array.isArray(scheduledList) && scheduledList.some(
+            (n) => n && (n.identifier === NOTIFICATION_IDS.DAILY_REMINDER || n.identifier?.startsWith('smart-notification-daily_prime-'))
+          );
+          if (hasLegacy) {
+            await this.cleanseLegacyDailyRemindersOnly();
+          }
+          return existing.identifier;
+        }
+      }
+    }
+
+    await this.cancelPersonalDailyReminder();
+
     return this.scheduleNotification({
-      identifier: NOTIFICATION_IDS.DAILY_REMINDER,
+      identifier: NOTIFICATION_IDS.PERSONAL_DAILY,
       content: {
-        title: 'Return to Your Anchor',
-        body: 'A moment to return to your anchor.',
+        title,
+        body,
         sound: CUSTOM_NOTIFICATION_SOUND,
-        data: this.buildPayload('daily_reminder'),
+        data: this.buildPayload('daily_reminder', {
+          category: 'personal_daily',
+          reminderId: NOTIFICATION_IDS.PERSONAL_DAILY,
+          scheduledTime: time,
+        }),
       },
       trigger: this.buildDailyTrigger(
         parsed,
@@ -294,10 +360,77 @@ class NotificationService {
   }
 
   /**
-   * Cancel the daily reminder.
+   * Checks whether a personal daily reminder matching the specified time and content
+   * is currently scheduled in native notification storage.
+   */
+  async hasMatchingPersonalDailyReminder(
+    time: string,
+    options?: { title?: string; body?: string }
+  ): Promise<boolean> {
+    const parsed = this.parseTime(time);
+    if (!parsed) return false;
+    const title = options?.title ?? 'Your moment of focus';
+    const body =
+      options?.body ??
+      'Take a moment to reconnect with what matters. Your Anchor is ready.';
+
+    const scheduledList = (await this.getScheduledNotifications()) ?? [];
+    const matchingList = Array.isArray(scheduledList)
+      ? scheduledList.filter(
+          (n) => n && n.identifier === NOTIFICATION_IDS.PERSONAL_DAILY
+        )
+      : [];
+    if (matchingList.length !== 1) return false;
+
+    const existing = matchingList[0];
+    const trigger = existing.trigger as any;
+    const hourMatches = trigger?.hour === parsed.hour;
+    const minuteMatches = trigger?.minute === parsed.minute;
+    const channelMatches =
+      !IS_ANDROID ||
+      !trigger?.channelId ||
+      trigger.channelId === NOTIFICATION_CHANNELS.DAILY_REMINDERS;
+    const contentMatches =
+      existing.content?.title === title && existing.content?.body === body;
+    const timeMatches = existing.content?.data?.scheduledTime === time;
+
+    return Boolean(
+      hourMatches &&
+      minuteMatches &&
+      channelMatches &&
+      contentMatches &&
+      timeMatches
+    );
+  }
+
+  /**
+   * Cleanse legacy reminder identifiers without touching the personal daily schedule.
+   */
+  private async cleanseLegacyDailyRemindersOnly(): Promise<void> {
+    await this.cancelReminder(NOTIFICATION_IDS.DAILY_REMINDER);
+    await this.cancelSmartNotificationSeries('daily_prime', 7);
+  }
+
+  /**
+   * Cancel the personal daily reminder and cleanse any legacy daily reminder identifiers.
+   */
+  async cancelPersonalDailyReminder(): Promise<void> {
+    await this.cancelReminder(NOTIFICATION_IDS.PERSONAL_DAILY);
+    await this.cleanseLegacyDailyRemindersOnly();
+  }
+
+  /**
+   * Schedule the main daily reminder. (Preserved as alias to schedulePersonalDailyReminder)
+   */
+  async scheduleDailyReminder(time: string): Promise<string | null> {
+    return this.schedulePersonalDailyReminder(time);
+  }
+
+  /**
+   * Cancel the daily reminder. (Preserved as alias to cancelPersonalDailyReminder)
    */
   async cancelDailyReminder(): Promise<void> {
-    await this.cancelReminder(NOTIFICATION_IDS.DAILY_REMINDER);
+    await this.cancelPersonalDailyReminder();
   }
 
   /**
@@ -329,7 +462,6 @@ class NotificationService {
         body: isFinalCheckpoint
           ? "One more focus or reinforce session completes today's goal."
           : "A quick focus or reinforce session keeps today's goal on track.",
-        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('daily_goal_checkpoint', {
           goal,
           milestone,
@@ -458,7 +590,6 @@ class NotificationService {
       content: {
         title: 'Your Weekly Reflection',
         body: 'A short overview of your practice this week is ready.',
-        sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('weekly_summary'),
       },
       trigger: {
@@ -633,6 +764,14 @@ class NotificationService {
         return { action: 'unknown' };
       }
 
+      if (payload.category === 'chart') {
+        return { action: 'open_chart', anchorId: payload.anchorId };
+      }
+
+      if (payload.category === 'vision') {
+        return { action: 'open_vision', anchorId: payload.anchorId };
+      }
+
       if (payload.category) {
         return {
           action: 'open_notification_category',
@@ -644,7 +783,7 @@ class NotificationService {
       switch (payload.type) {
         case 'daily_reminder':
         case 'daily_goal_checkpoint':
-          return { action: 'open_daily_reminder' };
+          return { action: 'open_daily_reminder', anchorId: payload.anchorId };
         case 'ritual_reminder':
           if (payload.anchorId) {
             return { action: 'open_ritual_reminder', anchorId: payload.anchorId };
@@ -680,7 +819,8 @@ class NotificationService {
     }
 
     try {
-      return await Notifications.getAllScheduledNotificationsAsync();
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      return Array.isArray(scheduled) ? (scheduled as MockScheduledNotification[]) : [];
     } catch (error) {
       this.recordError(
         new ServiceError(
@@ -739,7 +879,6 @@ class NotificationService {
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS, {
@@ -747,7 +886,6 @@ class NotificationService {
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
@@ -755,21 +893,18 @@ class NotificationService {
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.STREAK_PROTECTION, {
         name: 'Thread Strength',
         importance: Notifications.AndroidImportance.HIGH,
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.WEEKLY_SUMMARY, {
         name: 'Weekly Summary',
         importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
-        sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await this.deleteLegacyAndroidChannels();
@@ -928,7 +1063,6 @@ class NotificationService {
           content: {
             title: 'Test: Return to Your Anchor',
             body: 'Developer test for the daily reminder notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('daily_reminder'),
           },
           trigger: this.buildTimeIntervalTrigger(
@@ -942,7 +1076,6 @@ class NotificationService {
           content: {
             title: "Test: Stay with Today's Goal",
             body: 'Developer test for the daily goal checkpoint notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('daily_goal_checkpoint', {
               goal: 3,
               milestone: 2,
@@ -960,7 +1093,6 @@ class NotificationService {
           content: {
             title: 'Test: Prime Reminder',
             body: 'Developer test for the prime reminder notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('ritual_reminder', {
               anchorId: 'dev-anchor',
               reminderId: identifier,
@@ -977,7 +1109,6 @@ class NotificationService {
           content: {
             title: 'Test: Thread Strength',
             body: 'Developer test for the thread-strength protection notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('streak_protection'),
           },
           trigger: this.buildTimeIntervalTrigger(
@@ -991,7 +1122,6 @@ class NotificationService {
           content: {
             title: 'Test: Your Weekly Reflection',
             body: 'Developer test for the weekly summary notification.',
-            sound: CUSTOM_NOTIFICATION_SOUND,
             data: this.buildPayload('weekly_summary'),
           },
           trigger: this.buildTimeIntervalTrigger(

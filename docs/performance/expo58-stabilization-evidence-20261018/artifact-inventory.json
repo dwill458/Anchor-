@@ -1,0 +1,320 @@
+[
+  {
+    "path": "C:\\Users\\dwill\\.codex\\worktrees\\expo58-upgrade\\Anchor\\anchor\\mobile\\android\\app\\build\\outputs\\apk\\release\\app-release.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "58.0.0",
+    "package": "com.anchorintentions.expo58qa20261016",
+    "versionCode": "1",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\anchor-sqlcipher-build-ready-20261015\\Anchor-2.0-SQLCipher-QA.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "41",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\archive\\account-repair-r8-success-before-save-barriers.apk",
+    "abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.perflab20261012",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\archive\\anchor-perflab20261012-v3-auth-emulator-release-arm64.apk",
+    "abis": [
+      "arm64-v8a"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.perflab20261012",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\archive\\anchor-perflab20261012-v4-auth-emulator-dualabi.apk",
+    "abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.perflab20261012",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\archive\\anchor-perflab20261012-v5-startup-motion-dualabi.apk",
+    "abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.perflab20261012",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\archive\\anchor-perflab20261013-native-recovery-release-r2.apk",
+    "abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.perflab20261012",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\archive\\anchor-perflab20261013-native-recovery-release.apk",
+    "abis": [
+      "arm64-v8a",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.perflab20261012",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\archive\\perfbaseline-v2-url-control.apk",
+    "abis": [
+      "arm64-v8a"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.perfbaseline",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\backup-acceptance\\evidence\\anchor-backupqa-release-20261015.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.backupqa20261015",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\backup-acceptance\\mobile-ui-20261015\\android\\app\\build\\outputs\\apk\\release\\app-release.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.backupqa20261015",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\backup-acceptance\\mobile\\android\\app\\build\\outputs\\apk\\release\\app-release.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "39",
+    "debuggable": true
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-benchmark-measured-v1.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherlab20261013",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-owner-tested-20261016\\anchor-sqlcipher-owner-tested.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "41",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-product-acceptance.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherlab20261013",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-product-latest.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherlab20261013",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-product-runtime-final.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherlab20261013",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-realdata-qa-20261015\\artifact\\anchor-sqlcipher-preview.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "39",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-s24-ultra-20261014\\anchor-sqlcipher-dev-debug.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherlab20261013",
+    "versionCode": "39",
+    "debuggable": true
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-s24-ultra-20261014\\build-source\\android\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherlab20261013",
+    "versionCode": "39",
+    "debuggable": true
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-upgrade-run\\anchor-activated-v103.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "103",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-upgrade-run\\anchor-inert-v102.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "102",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-upgrade-run\\anchor-interruption-v104.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "104",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-upgrade-run\\anchor-legacy-v101-contaminated.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "101",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-upgrade-run\\anchor-legacy-v101.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "101",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-upgrade-run\\build\\mobile\\android\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "101",
+    "debuggable": true
+  },
+  {
+    "path": "E:\\apd\\record\\sqlcipher-upgrade-run\\build\\mobile\\android\\app\\build\\outputs\\apk\\release\\app-release.apk",
+    "abis": [
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherpreview20261015",
+    "versionCode": "104",
+    "debuggable": false
+  },
+  {
+    "path": "E:\\apd\\src\\android\\app\\build\\outputs\\apk\\release\\app-release.apk",
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "sdkVersionFromEmbeddedConfig": "54.0.0",
+    "package": "com.anchorintentions.sqlcipherlab20261013",
+    "versionCode": "39",
+    "debuggable": false
+  }
+]

@@ -33,6 +33,7 @@ import { calculateStreak } from '@/utils/streakHelpers';
 import { isoWeekKey } from '@/utils/primingAnalytics';
 import { resolveAnchorStrengthPct } from '@/components/ThreadStrengthSheet';
 import { getThreadState } from '@/screens/practice/components/ThreadStrengthBlock';
+import { countPerfRender, perfLog } from '@/utils/perfDiagnostics';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -109,6 +110,7 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
   onPress,
   reduceMotionEnabled = false,
 }) => {
+  countPerfRender('HeroAnchorCard');
   const imageUrl = anchor.enhancedImageUrl;
   const sigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
   const { pct: strengthPct, lastPrimedAt } = useAnchorThreadStrength(anchor);
@@ -119,14 +121,19 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
   useEffect(() => {
     if (reduceMotionEnabled) {
       glowOpacity.value = 0.5;
+      perfLog('animation-state', { animation: 'HeroAnchorCard.glow', active: false, reason: 'reduced-motion' });
       return;
     }
+    perfLog('animation-state', { animation: 'HeroAnchorCard.glow', active: true, loop: 'withRepeat' });
     glowOpacity.value = withRepeat(
       withTiming(1.0, { duration: 5000, easing: Easing.inOut(Easing.sin) }),
       -1,
       true,
     );
-    return () => cancelAnimation(glowOpacity);
+    return () => {
+      cancelAnimation(glowOpacity);
+      perfLog('animation-state', { animation: 'HeroAnchorCard.glow', active: false, reason: 'unmount-or-reduced-motion-change' });
+    };
   }, [reduceMotionEnabled, glowOpacity]);
 
   const glowStyle = useAnimatedStyle(() => ({
@@ -246,7 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   innerGlowRing: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: CIRCLE_SIZE / 2,
     borderWidth: 2,
     borderColor: withAlpha(colors.anchor15.gilt, 0.1),

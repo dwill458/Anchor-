@@ -1,0 +1,42 @@
+import { writeFileSync } from 'fs';
+import { buildStylePrompt, selectAnchor2PaletteLane, selectAnchor2FormComposition } from '../../../../../../backend/src/services/stylePromptLibrary';
+import { getAnchor2StyleDefinition } from '../../../../../../backend/src/services/anchor2StyleLibrary';
+
+const IDS = ['velvet_ember_v2','porcelain_v2','prism_flow_v2','joybrush_v2','deep_cosmos_v2','woven_v2','paper_v2','clay_v2','graphic_v2','plush_v2','herbarium_v2','alloy_v2','gilt_v2','flash_v2','buff_v2'];
+const INTENTIONS = [['I am calm and focused under pressure','desire'],['I earn more money every month','wealth'],['I forgive and let go of the past','release'],['I run my first marathon','health']];
+const pick = (p: string, label: string) => (p.match(new RegExp(`^${label}: (.*)$`, 'm')) || [])[1] || '(none)';
+const out: string[] = [];
+let nOpp = 0, nTot = 0, nMat = 0, nMot = 0, nPl = 0, nComp = 0;
+const rows: any[] = [];
+for (const id of IDS) {
+  const def = getAnchor2StyleDefinition(id);
+  if (!def) { out.push(`!! ${id} not found`); continue; }
+  for (const [text, cat] of INTENTIONS) {
+    const p0 = buildStylePrompt(text, id, 0, { category: cat });
+    const p1 = buildStylePrompt(text, id, 1, { category: cat });
+    const l0 = selectAnchor2PaletteLane(def, text, 0, cat), l1 = selectAnchor2PaletteLane(def, text, 1, cat);
+    const f = (p: string) => ({ lane: pick(p, 'Palette lane'), mat: pick(p, 'Material subtype'), mot: pick(p, 'Style-native motif to favour'), pl: pick(p, 'Peripheral placement'), comp: pick(p, 'Composition') });
+    const a = f(p0), b = f(p1);
+    const opp = (l0.fieldValue !== l1.fieldValue) && l0.fieldValue !== 'mixed' && l1.fieldValue !== 'mixed';
+    nTot++; if (opp) nOpp++; if (a.mat !== b.mat) nMat++; if (a.mot !== b.mot) nMot++; if (a.pl !== b.pl) nPl++; if (a.comp !== b.comp) nComp++;
+    rows.push({ id, text, cat, I: { field: l0.fieldValue, anchor: l0.anchorValue, ...a }, II: { field: l1.fieldValue, anchor: l1.anchorValue, ...b } });
+    if (text === INTENTIONS[0][0] || ['prism_flow_v2', 'alloy_v2'].includes(id)) {
+      out.push(`### ${id} | "${text}" (${cat})`);
+      out.push(`  Form I : field=${l0.fieldValue}/anchor=${l0.anchorValue} | ${a.lane}`);
+      out.push(`           material: ${a.mat}\n           motif: ${a.mot}\n           placement: ${a.pl}\n           composition: ${a.comp.slice(0, 60)}...`);
+      out.push(`  Form II: field=${l1.fieldValue}/anchor=${l1.anchorValue} | ${b.lane}`);
+      out.push(`           material: ${b.mat}\n           motif: ${b.mot}\n           placement: ${b.pl}\n           composition: ${b.comp.slice(0, 60)}...`);
+      out.push(`  opposite field value: ${opp}; material differs: ${a.mat !== b.mat}; motif differs: ${a.mot !== b.mot}; placement differs: ${a.pl !== b.pl}`);
+    }
+  }
+}
+out.push(`\nTOTALS over ${nTot} (style,intention) pairs: opposite light/dark field=${nOpp}, material differs=${nMat}, motif differs=${nMot}, placement differs=${nPl}, composition differs=${nComp}`);
+// per-style summary: how many of the 4 intentions have opposite field values
+const per: Record<string, number> = {};
+rows.forEach(r => { const o = r.I.field !== r.II.field && r.I.field !== 'mixed' && r.II.field !== 'mixed'; per[r.id] = (per[r.id] || 0) + (o ? 1 : 0); });
+out.push('Per style: opposite-value count out of 4 intentions: ' + JSON.stringify(per));
+const mixedList = rows.filter(r => !(r.I.field !== r.II.field && r.I.field !== 'mixed' && r.II.field !== 'mixed')).map(r => `${r.id}["${r.text.slice(0,20)}"] I=${r.I.field} II=${r.II.field}`);
+out.push('Pairs NOT light-vs-dark: ' + (mixedList.length ? '\n  ' + mixedList.join('\n  ') : 'none'));
+writeFileSync(__dirname + '/prompt_diff.txt', out.join('\n'));
+writeFileSync(__dirname + '/prompt_rows.json', JSON.stringify(rows, null, 1));
+console.log(out.slice(-3).join('\n'));

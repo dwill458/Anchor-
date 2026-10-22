@@ -1,0 +1,21 @@
+{
+  "capturedUtc": "2026-10-19T02:42:32.7295029Z",
+  "os": "Microsoft Windows NT 10.0.26300.0",
+  "powershell": "7.6.5",
+  "nodePath": "C:\\Program Files\\nodejs\\node.exe",
+  "nodeVersion": "v24.15.0",
+  "metroSource": "E:\\AnchorQA\\expo58-stabilization-20261018\\candidate\\anchor\\mobile",
+  "metroPort": 8081,
+  "launchFlags": [
+    "ANCHOR_SQLCIPHER_PRODUCTION_QA=1",
+    "EXPO_PUBLIC_ANCHOR_PERF_DIAGNOSTICS=1"
+  ],
+  "nativeDevice": "SM-S928U1 Android 16 API 36 arm64-v8a",
+  "packages": {
+    "expo": "58.0.14",
+    "react-native": "0.88.0",
+    "react": "19.3.0",
+    "expo-sqlite": "58.0.13",
+    "react-native-reanimated": "4.7.1"
+  }
+}

@@ -73,6 +73,45 @@ export const persistSessionAudioDefaults = async (
   }
 };
 
+/**
+ * "Make this my default": one choice becomes the default for Focus, Deep Focus
+ * and Visualize together, in one local write and one account sync. Other
+ * fields of the settings object are untouched, and nothing calls this unless
+ * the person ticked the box, so session-only changes never reach it.
+ */
+export const persistGlobalSessionAudioDefaults = async (
+  defaults: SessionAudioDefaults
+): Promise<void> => {
+  const authState = useAuthStore.getState();
+  const ownerUserId = authState.isAuthenticated ? authState.user?.id ?? null : null;
+  const settings = useSettingsStore.getState();
+  const next = normalizeSessionAudioDefaultsByType({
+    focus: defaults,
+    deep_prime: defaults,
+    visualize: defaults,
+  });
+  settings.setSessionAudioDefaultsByType(next, ownerUserId);
+
+  (['focus', 'deep_prime', 'visualize'] as const).forEach((sessionType) => {
+    AnalyticsService.track('session_audio_default_changed', {
+      session_type: sessionType,
+      guidance_voice: defaults.guidanceVoice,
+      background_audio: defaults.backgroundAudio,
+      source: 'default',
+    });
+  });
+
+  if (!ownerUserId) {
+    return;
+  }
+
+  try {
+    await syncDefaultsToAccount(ownerUserId, useSettingsStore.getState().sessionAudioDefaults);
+  } catch (error) {
+    logger.warn('[SessionAudioPreferences] Failed to sync global Voice & Sound default', error);
+  }
+};
+
 export const applyRemoteSessionAudioPreferences = (
   ownerUserId: string,
   remoteSettings?: UserSettings | null

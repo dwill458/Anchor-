@@ -1,0 +1,6 @@
+--------- beginning of main
+10-08 03:07:39.240 13768 13847 I ReactNativeJS: [chart-opening-qa] selected=perf at=27398175.5ms
+10-08 03:07:40.368 13768 13847 I ReactNativeJS: [chart-intro-timing] runner-start mode=introFull
+10-08 03:27:02.400 15098 15164 I ReactNativeJS: Running "main"
+10-08 03:27:02.570 15098 15164 I ReactNativeJS: [chart-opening-qa] replay-root-layout=393x852
+10-08 03:27:02.614 15098 15164 I ReactNativeJS: [chart-opening-qa] replay-window=393x852 scale=2 fontScale=1

@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(212, 175, 55, 0.03)',
   },
   haloGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 31,
   },
   candle: {

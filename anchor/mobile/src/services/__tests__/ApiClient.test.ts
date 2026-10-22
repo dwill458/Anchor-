@@ -6,7 +6,7 @@
 
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { ApiClientError, apiClient, get, post, put, del } from '../ApiClient';
+import { ApiClientError, apiClient, get, post, put, del, type AccountBoundRequestConfig } from '../ApiClient';
 import { AuthService } from '../AuthService';
 import { API_URL } from '@/config';
 import { ErrorTrackingService } from '../ErrorTrackingService';
@@ -55,6 +55,32 @@ describe('ApiClient', () => {
   });
 
   describe('Request Interceptor', () => {
+    it('uses the captured transfer token even if Firebase has moved to B before its store callback', async () => {
+      (AuthService.getIdToken as jest.Mock).mockResolvedValue('synthetic-b-token');
+      mock.onPost('/api/anchors').reply((config) => {
+        expect(config.headers?.Authorization).toBe('Bearer synthetic-a-token');
+        return [200, { success: true }];
+      });
+      const config: AccountBoundRequestConfig = { anchorAuthGuard: () => true, anchorAuthToken: 'synthetic-a-token' };
+      await apiClient.post('/api/anchors', {}, config);
+      expect(AuthService.getIdToken).not.toHaveBeenCalled();
+    });
+
+    it('never sends an obsolete transfer with the next account token', async () => {
+      let current = true;
+      let resolveToken!: (token: string) => void;
+      (AuthService.getIdToken as jest.Mock).mockImplementation(() => new Promise((resolve) => { resolveToken = resolve; }));
+      mock.onPost('/api/anchors').reply(200, { success: true });
+      const config: AccountBoundRequestConfig = { anchorAuthGuard: () => current };
+      const request = apiClient.post('/api/anchors', { intentionText: 'SYNTHETIC A' }, config);
+      const rejected = expect(request).rejects.toThrow();
+      await new Promise((resolve) => setImmediate(resolve));
+      current = false;
+      resolveToken('synthetic-b-token');
+      await rejected;
+      expect(mock.history.post).toHaveLength(0);
+    });
+
     it('should add Authorization header with token', async () => {
       (AuthService.getIdToken as jest.Mock).mockResolvedValue('test-token-123');
 

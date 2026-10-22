@@ -1,0 +1,1 @@
+PASS: top and bottom cursor taps; 108 paced characters retained exactly; total 491; focused=true; native bounds=[57,572][1023,1122]

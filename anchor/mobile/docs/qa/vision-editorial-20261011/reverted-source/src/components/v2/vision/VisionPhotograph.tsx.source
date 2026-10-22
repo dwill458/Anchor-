@@ -1,0 +1,51 @@
+import { memo, useEffect, useRef, useState } from 'react';
+import { Image, StyleSheet, View, type ImageProps } from 'react-native';
+import { visionImageFit } from './visionImageGeometry';
+import { colors } from '@/theme/v2';
+import { rememberVisionPhotoAspect } from './visionPhotoDimensions';
+
+/**
+ * Stable aperture. When a person's own photograph would be damaged by a crop,
+ * keep the whole original over warm paper instead of filling the sides with a
+ * darkened, blurred duplicate of the photo.
+ */
+export const VisionPhotograph = memo(function VisionPhotograph({ displayAspect, uploaded = false, onLoad, onAssetReady, style, ...props }:
+  Omit<ImageProps, 'resizeMode'> & { displayAspect: number; uploaded?: boolean; onAssetReady?: () => void }) {
+  const sourceKey = JSON.stringify(props.source);
+  const [source, setSource] = useState<{ key: string; aspect: number } | null>(null);
+  const [settledRecord, setSettledRecord] = useState<{ key: string } | null>(null);
+  const settled = useRef<{ key: string }>({ key: sourceKey });
+  if (settled.current.key !== sourceKey) settled.current = { key: sourceKey };
+  const markSettled = () => {
+    const current = settled.current;
+    if (current.key === sourceKey) setSettledRecord(current);
+  };
+  useEffect(() => {
+    if (settledRecord && settledRecord === settled.current) onAssetReady?.();
+  }, [onAssetReady, settledRecord, sourceKey]);
+  const sourceAspect = source?.key === sourceKey ? source.aspect : 0;
+  const fit = visionImageFit(sourceAspect, displayAspect, uploaded);
+  const handleLoad: ImageProps['onLoad'] = event => {
+    const { width, height } = event.nativeEvent.source;
+    const asset = props.source ? Image.resolveAssetSource(props.source) : null;
+    if (asset?.uri) rememberVisionPhotoAspect(asset.uri, width, height);
+    if (width > 0 && height > 0) setSource({ key: sourceKey, aspect: width / height });
+    onLoad?.(event);
+    markSettled();
+  };
+  const handleError: ImageProps['onError'] = event => {
+    props.onError?.(event);
+    markSettled();
+  };
+  // Keep one Image mounted across aspect discovery so mild crops do not cause a
+  // blank frame or reload. Downsample before allocating the decoded bitmap.
+  const contained = fit === 'contain';
+  return <View style={[style, styles.fitted]}>
+    <Image {...props} style={styles.whole} resizeMethod="resize" resizeMode={contained ? 'contain' : 'cover'} onLoad={handleLoad} onError={handleError} />
+  </View>;
+});
+
+const styles = StyleSheet.create({
+  fitted: { overflow: 'hidden', backgroundColor: colors.canvas },
+  whole: { ...StyleSheet.absoluteFillObject },
+});

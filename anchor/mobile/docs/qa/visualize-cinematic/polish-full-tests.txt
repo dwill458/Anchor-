@@ -1,0 +1,142 @@
+PASS src/screens/v2/practice/deepFocus/__tests__/V2DeepFocusActiveScreen.test.tsx (53.269 s)
+PASS src/screens/v2/practice/__tests__/V2PracticeScreen.test.tsx (24.458 s)
+PASS src/screens/v2/practice/__tests__/V2FocusActiveScreen.test.tsx (6.721 s)
+PASS src/screens/v2/practice/visualize/__tests__/V2VisualizeSessionScreen.test.tsx
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/screens/v2/practice/__tests__/V2PracticeSessionScreen.test.tsx (6.653 s)
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionReadiness.test.tsx
+PASS src/screens/v2/practice/__tests__/V2PracticeAnchorTransition.test.tsx
+  ● Console
+
+    console.log
+      [VisualProfiler] overlayMounted {
+        direction: 'forward',
+        sourcePlace: 'practice',
+        targetPlace: 'practiceSetup'
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsNavigationDispatched { direction: 'forward', targetPlace: 'practiceSetup', exitProgress: 1 }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsTransitionFinished { direction: 'forward', targetPlace: 'practiceSetup', measured: false }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] overlayRemoved { direction: 'forward', targetPlace: 'practiceSetup' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] overlayMounted {
+        direction: 'forward',
+        sourcePlace: 'practice',
+        targetPlace: 'practiceSetup'
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsNavigationDispatched { direction: 'forward', targetPlace: 'practiceSetup', exitProgress: 1 }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsTransitionFinished { direction: 'forward', targetPlace: 'practiceSetup', measured: false }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] overlayRemoved { direction: 'forward', targetPlace: 'practiceSetup' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] overlayMounted {
+        direction: 'forward',
+        sourcePlace: 'practiceSetup',
+        targetPlace: 'focusSession'
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsNavigationDispatched {
+        direction: 'forward',
+        targetPlace: 'focusSession',
+        exitProgress: 0.9999586776859504
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsTransitionFinished { direction: 'forward', targetPlace: 'focusSession', measured: false }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] overlayRemoved { direction: 'forward', targetPlace: 'focusSession' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] overlayMounted {
+        direction: 'forward',
+        sourcePlace: 'practice',
+        targetPlace: 'practiceSetup'
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsNavigationDispatched { direction: 'forward', targetPlace: 'practiceSetup', exitProgress: 1 }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsTransitionFinished { direction: 'forward', targetPlace: 'practiceSetup', measured: false }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] overlayRemoved { direction: 'forward', targetPlace: 'practiceSetup' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+PASS src/screens/v2/practice/visualize/__tests__/visualizeVisionPlan.test.ts
+PASS src/services/__tests__/PracticeCompletionService.test.ts
+PASS src/screens/v2/practice/__tests__/V2FocusPrepScreen.test.tsx
+PASS src/screens/v2/practice/__tests__/V2VisualizeThreadCompletion.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/visualizeBoardCamera.test.ts
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/screens/visualize/__tests__/useVisualizeSessionAudio.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionLifecycle.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/screens/v2/practice/__tests__/V2FocusCompleteScreen.test.tsx
+PASS src/services/__tests__/visualizeAudioManifest.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/screens/visualize/__tests__/visualizeAudioState.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicAssets.test.tsx
+PASS src/screens/v2/practice/deepFocus/__tests__/deepFocusTimeline.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicSessionMotion.test.ts
+PASS src/screens/visualize/__tests__/useVisualizeSessionEngine.test.ts
+PASS src/screens/v2/practice/deepFocus/__tests__/useDeepFocusSession.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/signatureMotion.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/enhancedAnchorMask.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicGeometry.test.ts
+PASS src/screens/visualize/__tests__/visualizeSessionConfig.test.ts
+PASS src/screens/visualize/__tests__/visualizePresentation.test.ts
+
+Test Suites: 34 passed, 34 total
+Tests:       316 passed, 316 total
+Snapshots:   0 total
+Time:        116.237 s, estimated 152 s
+Ran all test suites matching /src\\screens\\v2\\practice\\visualize|src\\screens\\visualize\\__tests__|src\\components\\v2\\vision\\board\\__tests__|src\\components\\v2\\vision\\__tests__\\V2VisionCreationFlow.test.tsx|src\\components\\v2\\vision\\__tests__\\VisionPhoto.test.tsx|src\\components\\v2\\vision\\__tests__\\VisionBoardPreview.test.tsx|src\\screens\\v2\\practice\\__tests__|src\\screens\\v2\\practice\\focus\\__tests__|src\\screens\\v2\\practice\\deepFocus\\__tests__|src\\services\\__tests__\\PracticeCompletionService.test.ts|src\\services\\__tests__\\visualizeAudioManifest.test.ts/i.

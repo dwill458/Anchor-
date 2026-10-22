@@ -1,0 +1,260 @@
+import React from 'react';
+import { Alert } from 'react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { V2AuthScreen } from '../V2AuthScreen';
+import { AuthService } from '@/services/AuthService';
+import PostAuthFlowService from '@/services/PostAuthFlowService';
+import { AnalyticsService } from '@/services/AnalyticsService';
+
+let mockSignedInUser: { id: string } | null = null;
+const mockSignOut = jest.fn().mockResolvedValue(undefined);
+const mockCompleteOnboarding = jest.fn();
+jest.mock('@/stores/authStore', () => {
+  const getMockState = () => ({
+    user: mockSignedInUser,
+    signOut: mockSignOut,
+    completeOnboarding: mockCompleteOnboarding,
+  });
+  const useAuthStore = (selector: (state: any) => unknown) => selector(getMockState());
+  useAuthStore.getState = getMockState;
+  return { useAuthStore };
+});
+
+jest.mock('expo-apple-authentication', () => ({
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+  AppleAuthenticationButton: ({ onPress }: { onPress: () => void }) => {
+    const { Pressable, Text } = require('react-native');
+    return <Pressable onPress={onPress}><Text>Continue with Apple</Text></Pressable>;
+  },
+  AppleAuthenticationButtonType: { CONTINUE: 'CONTINUE' },
+  AppleAuthenticationButtonStyle: { BLACK: 'BLACK' },
+}));
+
+jest.mock('@/services/AuthService', () => ({
+  AuthService: {
+    signInWithEmail: jest.fn(),
+    signUpWithEmail: jest.fn(),
+    signInWithGoogle: jest.fn(),
+    signInWithApple: jest.fn(),
+    sendPasswordResetEmail: jest.fn(),
+    signOut: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+jest.mock('@/services/PostAuthFlowService', () => ({
+  __esModule: true,
+  default: { run: jest.fn().mockResolvedValue(undefined) },
+}));
+
+let mockIsolatedPreview = false;
+jest.mock('@/config/isolatedPreview', () => ({
+  isIsolatedSqlCipherPreview: () => mockIsolatedPreview,
+  ISOLATED_PREVIEW_AUTH_MESSAGE: 'ISOLATED_PREVIEW_MESSAGE',
+}));
+
+jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
+
+describe('V2AuthScreen', () => {
+  beforeEach(() => { jest.clearAllMocks(); mockSignedInUser = null; mockIsolatedPreview = false; });
+
+  it('retries a failed onboarding save with the signed-in account without registering again', async () => {
+    mockSignedInUser = { id: 'new-account' };
+    const onSuccess = jest.fn().mockRejectedValueOnce(new Error('Your answers could not be saved.')).mockResolvedValueOnce(undefined);
+    render(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} onSuccess={onSuccess} />);
+    expect(screen.queryByLabelText('Email')).toBeNull();
+    fireEvent.press(screen.getByTestId('v2-auth-save-retry'));
+    await waitFor(() => expect(screen.getByText('Your answers could not be saved.')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('v2-auth-save-retry'));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(2));
+    expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-account' }));
+  });
+
+  it('recovers when post-auth first Anchor finalization fails after registration', async () => {
+    (AuthService.signUpWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'new-account' }, token: 'token' });
+    (PostAuthFlowService.run as jest.Mock).mockImplementationOnce(async () => {
+      mockSignedInUser = { id: 'new-account' };
+      throw new Error('Your first Anchor could not be saved yet.');
+    });
+    const onSuccess = jest.fn().mockResolvedValue(undefined);
+    const view = render(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} onSuccess={onSuccess} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'new@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    await waitFor(() => expect(screen.getByText('Your first Anchor could not be saved yet.')).toBeTruthy());
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_succeeded', expect.objectContaining({ context: 'save_progress' }));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('anchor_save_failed', expect.objectContaining({ context: 'save_progress' }));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
+    view.rerender(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} onSuccess={onSuccess} />);
+    fireEvent.press(screen.getByTestId('v2-auth-save-retry'));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-account' })));
+    expect(AuthService.signUpWithEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('attributes a V2Auth post-auth failure to v2_auth', async () => {
+    (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'existing' }, token: 'token' });
+    (PostAuthFlowService.run as jest.Mock).mockRejectedValueOnce(new Error('network save failed'));
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith(
+      'anchor_save_failed', expect.objectContaining({ context: 'v2_auth', error_code: 'network' }),
+    ));
+    const eventNames = (AnalyticsService.track as jest.Mock).mock.calls.map(([event]) => event);
+    expect(eventNames.indexOf('auth_succeeded')).toBeLessThan(eventNames.indexOf('anchor_save_failed'));
+    expect(eventNames).not.toContain('auth_failed');
+  });
+
+  it('transforms one screen between sign in and create account without stale validation', () => {
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    // "Welcome back." is removed per Anchor 2.0 design
+    expect(screen.queryByText('Welcome back.')).toBeNull();
+    // Editorial contextual copy for Sign In
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
+
+    // Switch to Create Account via segmented control
+    fireEvent.press(screen.getByRole('tab', { name: 'CREATE ACCOUNT' }));
+    expect(screen.getByText(/A stronger tomorrow/)).toBeTruthy();
+    expect(screen.getByLabelText('Name (optional)')).toBeTruthy();
+    expect(screen.getByText('At least 8 characters')).toBeTruthy();
+
+    // Switch back to Sign In
+    fireEvent.press(screen.getByRole('tab', { name: 'SIGN IN' }));
+    expect(screen.queryByLabelText('Name (optional)')).toBeNull();
+    expect(screen.getByText('Forgot password?')).toBeTruthy();
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
+  });
+
+  it('switches mode via top header contextual action', () => {
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
+
+    // In Sign In mode, top header has "CREATE ACCOUNT"
+    fireEvent.press(screen.getByLabelText('Switch to Create account'));
+    expect(screen.getByText(/A stronger tomorrow/)).toBeTruthy();
+    expect(screen.getByLabelText('Name (optional)')).toBeTruthy();
+
+    // In Create Account mode, top header has "SIGN IN"
+    fireEvent.press(screen.getByLabelText('Switch to Sign in'));
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
+    expect(screen.queryByLabelText('Name (optional)')).toBeNull();
+  });
+
+  it('gives a plain-language validation error before calling auth', () => {
+    render(<V2AuthScreen initialMode="create" onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'not-an-email');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'short');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
+    expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_failed', expect.objectContaining({ stage: 'validation', error_code: 'email_invalid', context: 'v2_auth' }));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_started', expect.anything());
+  });
+
+  it('reports short create passwords as validation failures without starting auth', () => {
+    render(<V2AuthScreen initialMode="create" onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'short');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_failed', expect.objectContaining({ stage: 'validation', error_code: 'password_short' }));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_started', expect.anything());
+  });
+
+  it('supports password visibility and email sign-in through the real service boundary', async () => {
+    const onSuccess = jest.fn();
+    (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'existing', hasCompletedOnboarding: true }, token: 'token' });
+    render(<V2AuthScreen onBack={jest.fn()} onSuccess={onSuccess} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByRole('button', { name: 'Show password' }));
+    expect(screen.getByRole('button', { name: 'Hide password' })).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    await waitFor(() => expect(AuthService.signInWithEmail).toHaveBeenCalledWith('person@example.com', 'password123'));
+    expect(PostAuthFlowService.run).toHaveBeenCalledWith(expect.objectContaining({ preserveCompletedOnboarding: true }));
+    expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'existing' }));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_started', expect.objectContaining({ context: 'v2_auth', method: 'email', mode: 'signin' }));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_succeeded', expect.objectContaining({ context: 'v2_auth', method: 'email', mode: 'signin', has_completed_onboarding: true }));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
+  });
+
+  it('refuses every account request in the isolated SQLCipher preview and says why', async () => {
+    mockIsolatedPreview = true;
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    await waitFor(() => expect(screen.getByText('ISOLATED_PREVIEW_MESSAGE')).toBeTruthy());
+    expect(AuthService.signInWithEmail).not.toHaveBeenCalled();
+    expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
+    expect(AuthService.signInWithGoogle).not.toHaveBeenCalled();
+    expect(AuthService.signInWithApple).not.toHaveBeenCalled();
+    expect(PostAuthFlowService.run).not.toHaveBeenCalled();
+  });
+
+  it('uses the existing reset operation and does not expose raw messages', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    (AuthService.sendPasswordResetEmail as jest.Mock).mockResolvedValue(undefined);
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.press(screen.getByText('Forgot password?'));
+    await waitFor(() => expect(AuthService.sendPasswordResetEmail).toHaveBeenCalledWith('person@example.com'));
+    expect(alertSpy).toHaveBeenCalledWith('Reset email sent', expect.stringContaining('person@example.com'));
+    expect(AnalyticsService.track).toHaveBeenCalledWith('auth_password_reset_requested', { context: 'v2_auth', outcome: 'sent' });
+  });
+
+  it('records reset failure after the reset request settles', async () => {
+    (AuthService.sendPasswordResetEmail as jest.Mock).mockRejectedValue(new Error('network error'));
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.press(screen.getByText('Forgot password?'));
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith('auth_password_reset_requested', { context: 'v2_auth', outcome: 'failed' }));
+  });
+
+  it('uses save_progress context for auth attempts from the save-progress mode', async () => {
+    (AuthService.signInWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'saved-user' }, token: 'token' });
+    render(<V2AuthScreen saveProgress onBack={jest.fn()} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'person@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith('auth_succeeded', expect.objectContaining({ context: 'save_progress', method: 'email' })));
+  });
+
+  it('triggers Google social authentication', async () => {
+    (AuthService.signInWithGoogle as jest.Mock).mockResolvedValue({ user: { id: 'google-user' }, token: 'token' });
+    render(<V2AuthScreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByLabelText('Continue with Google'));
+    await waitFor(() => expect(AuthService.signInWithGoogle).toHaveBeenCalledWith({ allowBackendCreate: false }));
+    expect(PostAuthFlowService.run).toHaveBeenCalledWith(expect.objectContaining({ user: { id: 'google-user' } }));
+  });
+
+  it('triggers Apple social authentication', async () => {
+    (AuthService.signInWithApple as jest.Mock).mockResolvedValue({ user: { id: 'apple-user' }, token: 'token' });
+    render(<V2AuthScreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByLabelText('Continue with Apple'));
+    await waitFor(() => expect(AuthService.signInWithApple).toHaveBeenCalledWith({ allowBackendCreate: false }));
+    expect(PostAuthFlowService.run).toHaveBeenCalledWith(expect.objectContaining({ user: { id: 'apple-user' } }));
+  });
+
+  it('reports provider cancellation without emitting auth_failed', async () => {
+    (AuthService.signInWithApple as jest.Mock).mockRejectedValue(new Error('Apple sign in cancelled'));
+    render(<V2AuthScreen onBack={jest.fn()} />);
+    fireEvent.press(screen.getByLabelText('Continue with Apple'));
+    await waitFor(() => expect(AnalyticsService.track).toHaveBeenCalledWith('auth_cancelled', expect.objectContaining({ context: 'v2_auth', method: 'apple' })));
+    expect(AnalyticsService.track).not.toHaveBeenCalledWith('auth_failed', expect.anything());
+  });
+
+  it('provides escape options on save-progress view to continue to Sanctuary or switch account', () => {
+    mockSignedInUser = { id: 'signed-in-user' };
+    render(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} />);
+
+    expect(screen.getByTestId('v2-auth-continue-home')).toBeTruthy();
+    expect(screen.getByTestId('v2-auth-switch-account')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('v2-auth-switch-account'));
+    expect(AuthService.signOut).toHaveBeenCalled();
+  });
+});

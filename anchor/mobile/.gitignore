@@ -32,7 +32,7 @@ bugreport-*.zip
 .env
 /ios/.xcode.env
 /ios/.xcode.env.local
-/ios/
+/ios
 
 # EAS/credentials (never commit private signing material)
 credentials.json
@@ -50,7 +50,7 @@ google-services.json
 
 # Testing
 coverage/
-.jest-cache/
+.jest-cache*/
 eas_build_log.txt
 expo*_output.txt
 jest-results.json
@@ -59,6 +59,13 @@ errors*.txt
 branches.txt
 vault_diff.txt
 android.view.*
+.expo-export*/
+.expo-*-verify/
+*.bundle
+*.pid
+teaching-*.json
+teaching-*.txt
+chart-opening-*.tsx
 
 # QA / debug capture artifacts (throwaway device screenshots & UI dumps)
 qa_*.png
@@ -70,3 +77,5 @@ expo-qr-code.png
 # Local export/build output checks
 dist_android_check/
 dist_android_check2/
+dist-*/
+.visualize-cinematic*

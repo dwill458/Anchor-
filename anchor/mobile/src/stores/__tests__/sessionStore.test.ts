@@ -126,7 +126,7 @@ describe('sessionStore', () => {
   describe('recordSession', () => {
     it('adds a session to the log', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry()));
+      act(() => { void result.current.recordSession(makeEntry()); });
       expect(result.current.sessionLog).toHaveLength(1);
     });
 
@@ -152,48 +152,44 @@ describe('sessionStore', () => {
 
     it('sets lastSession to the recorded entry', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() =>
-        result.current.recordSession(makeEntry({ anchorId: 'anchor-abc' })),
-      );
+      act(() => { void result.current.recordSession(makeEntry({ anchorId: 'anchor-abc' })); });
       expect(result.current.lastSession?.anchorId).toBe('anchor-abc');
     });
 
     it('increments todayPractice.sessionsCount', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() =>
-        result.current.recordSession(makeEntry({ durationSeconds: 60 })),
-      );
+      act(() => { void result.current.recordSession(makeEntry({ durationSeconds: 60 })); });
       expect(result.current.todayPractice.sessionsCount).toBe(1);
       expect(result.current.todayPractice.totalSeconds).toBe(60);
     });
 
     it('increments totalSessionsCount for activate sessions', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'activate' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'activate' })); });
       expect(result.current.totalSessionsCount).toBe(1);
     });
 
     it('increments totalSessionsCount for reinforce sessions', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'reinforce' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'reinforce' })); });
       expect(result.current.totalSessionsCount).toBe(1);
     });
 
     it('does NOT increment totalSessionsCount for stabilize sessions', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'stabilize' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'stabilize' })); });
       expect(result.current.totalSessionsCount).toBe(0);
     });
 
     it('increases threadStrength for activate session (gain 25)', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'activate' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'activate' })); });
       expect(result.current.threadStrength).toBe(75); // 50 + 25
     });
 
     it('increases threadStrength for reinforce session (gain 40)', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'reinforce' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'reinforce' })); });
       expect(result.current.threadStrength).toBe(90); // 50 + 40
     });
 
@@ -243,13 +239,13 @@ describe('sessionStore', () => {
 
     it('does not change threadStrength for stabilize sessions', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'stabilize' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'stabilize' })); });
       expect(result.current.threadStrength).toBe(50);
     });
 
     it('sets lastPrimedAt for activate sessions', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'activate' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'activate' })); });
       expect(result.current.lastPrimedAt).toBe(localDateString(new Date()));
     });
 
@@ -275,7 +271,7 @@ describe('sessionStore', () => {
 
     it('records uncapped priming history metadata for activate sessions', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'activate' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'activate' })); });
 
       expect(result.current.primingHistory).toHaveLength(1);
       expect(result.current.primingHistory[0]).toEqual(
@@ -289,7 +285,7 @@ describe('sessionStore', () => {
 
     it('sets journeyWeekStart from the first priming session', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ type: 'reinforce' })));
+      act(() => { void result.current.recordSession(makeEntry({ type: 'reinforce' })); });
 
       expect(result.current.journeyWeekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
@@ -298,7 +294,7 @@ describe('sessionStore', () => {
   describe('consumeGraceDay', () => {
     it('sets lastGraceDayUsedAt to a non-null ISO string', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.consumeGraceDay());
+      act(() => { void result.current.consumeGraceDay(); });
       expect(result.current.lastGraceDayUsedAt).not.toBeNull();
       expect(typeof result.current.lastGraceDayUsedAt).toBe('string');
     });
@@ -339,7 +335,7 @@ describe('sessionStore', () => {
   describe('applyDecay', () => {
     it('does nothing if never primed', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.applyDecay());
+      act(() => { void result.current.applyDecay(); });
       expect(result.current.threadStrength).toBe(50);
     });
 
@@ -456,7 +452,7 @@ describe('sessionStore', () => {
     it('adds an explicit thread strength reward without recording a session', () => {
       const { result } = renderHook(() => useSessionStore());
 
-      act(() => result.current.bumpThreadStrength(2));
+      act(() => { void result.current.bumpThreadStrength(2); });
 
       expect(result.current.threadStrength).toBe(52);
       expect(result.current.sessionLog).toHaveLength(0);

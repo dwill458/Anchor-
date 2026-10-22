@@ -1,0 +1,250 @@
+import { visionImageRetained } from './visionImageGeometry';
+
+export type VisionEditorialVariant = 'home' | 'details';
+
+/** Read-only subset of existing Vision tiles; no new persisted media contract. */
+export type VisionEditorialTile = {
+  id: string;
+  imageUrl?: string | null;
+  caption?: string | null;
+  sortOrder?: number;
+  isHero?: boolean;
+};
+
+export type VisionEditorialImage = {
+  tile: VisionEditorialTile;
+  imageUrl: string;
+  sourceIndex: number;
+};
+
+/** Top-left geometry normalized against the preview's stable canvas. */
+export type VisionEditorialPhotoSlot = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+};
+
+export type VisionEditorialNoteSlot = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+};
+
+export type VisionEditorialLayoutConfig = {
+  /** Measured preview canvas dimensions in layout points. */
+  width: number;
+  height: number;
+  /** Normalized amount prints may overlap adjacent frames. */
+  desiredOverlap?: number;
+  /** Normalized clear margin around the outside of the collage. */
+  safeMargin?: number;
+  /** Higher density packs more prints into each row. */
+  density?: 'roomy' | 'balanced' | 'dense';
+};
+
+/** Compact cards show up to 24 individual prints before the explicit overflow fallback. */
+export const EDITORIAL_PREVIEW_IMAGE_LIMIT = 24;
+
+/** Only remove recognized authentication fields, preserving proxy IDs and image transforms. */
+export function editorialImageIdentity(imageUrl: string): string {
+  if (!/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  const question = imageUrl.indexOf('?');
+  if (question < 0) return imageUrl;
+  const hash = imageUrl.indexOf('#', question);
+  const fragment = hash < 0 ? '' : imageUrl.slice(hash);
+  const query = imageUrl.slice(question + 1, hash < 0 ? undefined : hash);
+  const cloudFrontSigned = /(?:^|&)key-pair-id=/i.test(query);
+  const supabaseSigned = /\/storage\/v1\/object\/sign\//i.test(imageUrl.slice(0, question));
+  const retained = query.split('&').filter(parameter => {
+    const key = parameter.split('=')[0].toLowerCase();
+    return !/^x-(amz|goog)-/.test(key)
+      && !(cloudFrontSigned && /^(signature|expires|key-pair-id|policy)$/.test(key))
+      && !(supabaseSigned && key === 'token');
+  });
+  return imageUrl.slice(0, question) + (retained.length ? `?${retained.join('&')}` : '') + fragment;
+}
+
+/** Input already carries the canonical board order. Never mutate or reshuffle it. */
+export function selectEditorialImages(
+  tiles: readonly VisionEditorialTile[],
+  variant: VisionEditorialVariant,
+  featuredTileId?: string,
+): VisionEditorialImage[] {
+  const renderable = tiles.flatMap((tile, sourceIndex) => {
+    const imageUrl = tile.imageUrl?.trim();
+    return imageUrl ? [{ tile, imageUrl, sourceIndex }] : [];
+  });
+  const featured = renderable.find(item => item.tile.id === featuredTileId);
+  const ordered = featured ? [featured, ...renderable.filter(item => item !== featured)] : renderable;
+  const seen = new Set<string>();
+  return ordered.filter(item => {
+    // Tile identity represents a photograph on this board. Different tiles may
+    // intentionally use the same asset, so URL equality must not hide a print.
+    if (seen.has(item.tile.id)) return false;
+    seen.add(item.tile.id);
+    return true;
+  });
+}
+
+function fitAspect(slot: VisionEditorialPhotoSlot, sourceAspect: number | undefined, canvasAspect: number): VisionEditorialPhotoSlot {
+  if (!Number.isFinite(sourceAspect) || !sourceAspect || sourceAspect <= 0) return { ...slot };
+  const frameWidth = slot.width * canvasAspect;
+  const frameHeight = slot.height;
+  const width = Math.min(frameWidth, frameHeight * sourceAspect);
+  const height = Math.min(frameHeight, frameWidth / sourceAspect);
+  return {
+    ...slot,
+    x: slot.x + (slot.width - width / canvasAspect) / 2,
+    y: slot.y + (slot.height - height) / 2,
+    width: width / canvasAspect,
+    height,
+  };
+}
+
+function fitRotatedSlots(
+  slots: readonly VisionEditorialPhotoSlot[],
+  safeMargin: number,
+  canvasAspect: number,
+): VisionEditorialPhotoSlot[] {
+  if (!slots.length) return [];
+  const bounds = slots.map(slot => {
+    const radians = Math.abs(slot.rotation) * Math.PI / 180;
+    const width = Math.abs(slot.width * Math.cos(radians)) + Math.abs((slot.height / canvasAspect) * Math.sin(radians));
+    const height = (Math.abs((slot.height / canvasAspect) * Math.cos(radians)) + Math.abs(slot.width * Math.sin(radians))) * canvasAspect;
+    const centerX = slot.x + slot.width / 2;
+    const centerY = slot.y + slot.height / 2;
+    return { left: centerX - width / 2, right: centerX + width / 2, top: centerY - height / 2, bottom: centerY + height / 2 };
+  });
+  const minX = Math.min(...bounds.map(bound => bound.left));
+  const maxX = Math.max(...bounds.map(bound => bound.right));
+  const minY = Math.min(...bounds.map(bound => bound.top));
+  const maxY = Math.max(...bounds.map(bound => bound.bottom));
+  const usable = 1 - safeMargin * 2;
+  const scale = Math.min(1, usable / (maxX - minX), usable / (maxY - minY));
+  const offsetX = safeMargin + (usable - (maxX - minX) * scale) / 2 - minX * scale;
+  const offsetY = safeMargin + (usable - (maxY - minY) * scale) / 2 - minY * scale;
+  return slots.map(slot => ({
+    ...slot,
+    x: slot.x * scale + offsetX,
+    y: slot.y * scale + offsetY,
+    width: slot.width * scale,
+    height: slot.height * scale,
+  }));
+}
+
+/**
+ * Deterministic, count-adaptive scrapbook packing for compact previews.
+ * At 9+ images it switches to a denser, gently staggered contact collage; every
+ * renderable photo still receives a slot, so high-count boards are never hidden.
+ */
+export function getEditorialPhotoSlots(
+  variant: VisionEditorialVariant,
+  count: number,
+  sourceAspects: readonly number[] = [],
+  canvas: VisionEditorialLayoutConfig = { width: 1, height: variant === 'home' ? 0.68 : 0.62 },
+): VisionEditorialPhotoSlot[] {
+  const photoCount = Math.max(0, Math.floor(count));
+  if (!photoCount) return [];
+  const width = Math.max(1, canvas.width);
+  const height = Math.max(1, canvas.height);
+  const canvasAspect = width / height;
+  const margin = Math.min(0.12, Math.max(0.025, canvas.safeMargin ?? (variant === 'home' ? 0.045 : 0.035)));
+  const overlap = Math.min(0.18, Math.max(0, canvas.desiredOverlap ?? 0.07));
+  const densityScale = canvas.density === 'dense' ? 0.82 : canvas.density === 'roomy' ? 1.08 : 1;
+  const slots: VisionEditorialPhotoSlot[] = [];
+
+  if (photoCount === 1) {
+    slots.push({ x: margin, y: 0.06, width: 1 - margin * 2, height: 0.88, rotation: -0.7, zIndex: 1 });
+  } else if (photoCount === 2 || photoCount === 3) {
+    const first = photoCount === 2
+      ? { x: margin, y: 0.15, width: 0.68, height: 0.76, rotation: -1.1, zIndex: 1 }
+      : { x: margin, y: 0.12, width: 0.64, height: 0.78, rotation: -1.1, zIndex: 1 };
+    slots.push(first);
+    slots.push({ x: 0.57, y: 0.04, width: 0.38, height: photoCount === 2 ? 0.58 : 0.42, rotation: 1.7, zIndex: 2 });
+    if (photoCount === 3) slots.push({ x: 0.62, y: 0.51, width: 0.32, height: 0.42, rotation: -1.4, zIndex: 3 });
+  } else {
+    // Two rows read as an editorial spread through uneven placement, varied print
+    // sizes, slight angle changes, and controlled overlap. Very large collections
+    // use up to four prints per row so thumbnail size remains practical.
+    const rowCount = photoCount <= 4 ? 2 : photoCount <= 9 ? 3 : photoCount <= 12 ? 4 : Math.ceil(photoCount / 4);
+    const rowSizes = Array.from({ length: rowCount }, (_, row) =>
+      Math.floor(photoCount / rowCount) + (row < photoCount % rowCount ? 1 : 0));
+    const widestRow = Math.max(...rowSizes);
+    const widestRowPhotoWidth = Math.min(0.47, (1 - margin * 2 + overlap * (widestRow - 1)) / widestRow) * densityScale;
+    const rowHeight = Math.min(0.49, (0.94 + overlap * (rowCount - 1)) / rowCount) * densityScale;
+    // Let wide prints grow to a readable landscape footprint when a row has
+    // only two items. The row spacing below overlaps their frames vertically.
+    const baseHeight = Math.min(0.51, Math.max(rowHeight, widestRowPhotoWidth * canvasAspect / 1.7));
+    let index = 0;
+    for (let row = 0; row < rowCount; row += 1) {
+      const columns = rowSizes[row];
+      const baseWidth = Math.min(0.47, (1 - margin * 2 + overlap * (columns - 1)) / columns) * densityScale;
+      const rowStep = Math.min((0.94 - baseHeight) / Math.max(1, rowCount - 1), baseHeight * 0.72);
+      for (let column = 0; column < columns; column += 1) {
+        const sizeVariance = [1.03, 0.84, 1.08, 0.94][(index + row) % 4];
+        const slotWidth = Math.min(0.49, baseWidth * sizeVariance);
+        const slotHeight = Math.min(0.51, baseHeight * [1, 0.86, 1.04, 0.92][(index + column) % 4]);
+        const step = columns === 1 ? 0 : (1 - margin * 2 - slotWidth) / (columns - 1);
+        const rowShift = row % 2 ? Math.min(step * 0.24, 0.09) : 0;
+        // Three-row spreads otherwise repeat the same left/right columns.
+        // Pull the middle row's prints toward one another to make the collage
+        // read as one overlapping composition across the canvas.
+        const middleRowInward = rowCount === 3 && row === 1 && columns > 1
+          ? (column === 0 ? 0.075 : column === columns - 1 ? -0.075 : 0)
+          : 0;
+        const xNudge = ((index % 2) ? 1 : -1) * Math.min(0.026, step * 0.07);
+        const yBase = margin + row * rowStep;
+        const yNudge = [0.012, 0.075, -0.018, 0.045][(column + row) % 4];
+        const rotation = [-1.2, 1.1, -0.65, 1.45, -1.5, 0.7][index % 6];
+        const template: VisionEditorialPhotoSlot = {
+          x: Math.max(0.005, Math.min(1 - slotWidth, margin + column * step + rowShift + middleRowInward + xNudge)),
+          y: Math.max(0.005, Math.min(1 - slotHeight, yBase + yNudge)),
+          width: slotWidth,
+          height: slotHeight,
+          rotation,
+          zIndex: index + 1,
+        };
+        slots.push(fitAspect(template, sourceAspects[index], canvasAspect));
+        index += 1;
+      }
+    }
+  }
+  const aspectFitted = photoCount <= 3 ? slots.map((slot, index) => fitAspect(slot, sourceAspects[index], canvasAspect)) : slots;
+  return fitRotatedSlots(aspectFitted, margin, canvasAspect);
+}
+
+/** Styled notes occupy a small, deterministic layer within the photo collage. */
+export function getEditorialNoteSlots(
+  variant: VisionEditorialVariant,
+  count: number,
+  photoCount: number,
+): VisionEditorialNoteSlot[] {
+  const shown = Math.min(variant === 'home' ? 1 : 2, Math.max(0, Math.floor(count)));
+  if (!shown) return [];
+  if (photoCount <= 0) {
+    return variant === 'home'
+      ? [{ x: 0.28, y: 0.26, width: 0.44, height: 0.47, rotation: -2, zIndex: 12 }]
+      : [
+        { x: 0.04, y: 0.31, width: 0.36, height: 0.38, rotation: -2, zIndex: 12 },
+        ...(shown > 1 ? [{ x: 0.60, y: 0.30, width: 0.36, height: 0.38, rotation: 1.5, zIndex: 13 }] : []),
+      ];
+  }
+  return variant === 'home'
+    ? [{ x: 0.035, y: 0.61, width: 0.44, height: 0.36, rotation: -2.7, zIndex: 12 }]
+    : [
+      { x: 0.025, y: 0.62, width: 0.36, height: 0.34, rotation: -2.5, zIndex: 12 },
+      ...(shown > 1 ? [{ x: 0.615, y: 0.57, width: 0.35, height: 0.34, rotation: 2, zIndex: 13 }] : []),
+    ];
+}
+
+/** Unknown subject/dimensions keep the whole photo; no implied face detection. */
+export function editorialImageFit(sourceAspect: number, frameAspect: number): 'cover' | 'contain' {
+  if (!Number.isFinite(sourceAspect) || sourceAspect <= 0 || !Number.isFinite(frameAspect) || frameAspect <= 0) return 'contain';
+  return visionImageRetained(sourceAspect, frameAspect) >= 0.9 ? 'cover' : 'contain';
+}

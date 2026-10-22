@@ -29,6 +29,9 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const REVENUECAT_MONTHLY_PACKAGE_ID = '$rc_monthly';
 export const REVENUECAT_ANNUAL_PACKAGE_ID = '$rc_annual';
+// Offered by the V2 paywall when the current offering carries them; absent packages simply hide.
+export const REVENUECAT_WEEKLY_PACKAGE_ID = '$rc_weekly';
+export const REVENUECAT_LIFETIME_PACKAGE_ID = '$rc_lifetime';
 const platformRevenueCatApiKey =
   Platform.OS === 'ios'
     ? readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)
@@ -120,6 +123,8 @@ export const Config = {
   SUPABASE_ANON_KEY,
   REVENUECAT_MONTHLY_PACKAGE_ID,
   REVENUECAT_ANNUAL_PACKAGE_ID,
+  REVENUECAT_WEEKLY_PACKAGE_ID,
+  REVENUECAT_LIFETIME_PACKAGE_ID,
   REVENUECAT_API_KEY,
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_DEFAULT_PACKAGE_ID,

@@ -178,6 +178,36 @@ describe('known flagship Android models', () => {
   });
 });
 
+describe('known budget and low-end Android models', () => {
+  const GB = 1_073_741_824;
+
+  it('classifies Moto G Play (2024) as low', () => {
+    setOS('android', 34);
+    setBrand('motorola');
+    setModelName('moto g play - 2024');
+    setTotalMemory(3.6 * GB);
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('low');
+  });
+
+  it('classifies Android with <= 3.8 GB RAM as low', () => {
+    setOS('android', 34);
+    setTotalMemory(3.5 * GB);
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('low');
+  });
+
+  it('classifies Android with 4.5 GB RAM as medium', () => {
+    setOS('android', 34);
+    setTotalMemory(4.5 * GB);
+
+    const { result } = renderHook(() => usePerformanceTier());
+    expect(result.current).toBe('medium');
+  });
+});
+
 // ── Accessibility reduce-motion (async) ───────────────────────────────────────
 
 describe('reduce-motion', () => {

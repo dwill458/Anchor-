@@ -1,0 +1,35 @@
+import type { VisionNote } from '@/adapters/v2/vision';
+import { toSceneRect, VISION_SEAL_DIAMETER_SCALE, type BoardLayout, type Size } from './visionBoardLayouts';
+
+/** Sign the photo seam without covering saved notes or supporting photo centres. */
+export function placeVisionSeal(layout: BoardLayout, scene: Size, notes: readonly VisionNote[]): BoardLayout {
+  const active = notes.filter(note => !note.isArchived && note.content.text.trim());
+  if (!active.length || !layout.photos.length) return layout;
+  const radius = layout.card.width * scene.width * VISION_SEAL_DIAMETER_SCALE / 2;
+  const centreY = layout.card.y * scene.height;
+  const photos = layout.photos.map(photo => toSceneRect(photo, scene));
+  const score = (x: number) => {
+    const centreX = x * scene.width;
+    let cost = photos.reduce((total, photo) => total + (Math.hypot(centreX - photo.x - photo.width / 2,
+      centreY - photo.y - photo.height / 2) < radius ? 2 : 0), 0);
+    for (const note of active) {
+      const p = note.presentation;
+      const angle = p.rotation * Math.PI / 180;
+      const w = p.width * p.scale * scene.width;
+      const h = p.height * p.scale * scene.height;
+      const halfW = (Math.abs(w * Math.cos(angle)) + Math.abs(h * Math.sin(angle))) / 2;
+      const halfH = (Math.abs(h * Math.cos(angle)) + Math.abs(w * Math.sin(angle))) / 2;
+      const dx = Math.max(0, Math.min(centreX + radius, p.x * scene.width + halfW) - Math.max(centreX - radius, p.x * scene.width - halfW));
+      const dy = Math.max(0, Math.min(centreY + radius, p.y * scene.height + halfH) - Math.max(centreY - radius, p.y * scene.height - halfH));
+      cost += dx * dy / (radius * radius * 4);
+    }
+    return cost;
+  };
+  let bestX = layout.card.x;
+  let bestScore = score(bestX);
+  for (const x of [.34, .66, .5, .22, .78]) {
+    const candidate = score(x);
+    if (candidate < bestScore - .001) { bestX = x; bestScore = candidate; }
+  }
+  return bestX === layout.card.x ? layout : { ...layout, card: { ...layout.card, x: bestX } };
+}

@@ -1,3 +1,4 @@
+import type { ScrollViewInstance } from 'react-native';
 import React, { useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -169,7 +170,7 @@ export const ThreadStrengthDetailScreen: React.FC = () => {
       StackNavigationProp<PracticeStackParamList, "ThreadStrengthDetail">
     >();
   const metrics = usePracticeMetrics();
-  const heatMapScrollRef = useRef<ScrollView>(null);
+  const heatMapScrollRef = useRef<ScrollViewInstance>(null);
   const thisWeekTotal = metrics.currentWeek.reduce(
     (sum, day) => sum + day.count,
     0,

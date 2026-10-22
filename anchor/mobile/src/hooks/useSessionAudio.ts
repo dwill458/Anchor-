@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer, type AudioStatus } from 'expo-audio';
+import { createAudioPlayer, type AudioPlayer, type AudioStatus } from 'expo-audio';
 import type { AudioAssetReference } from '@/services/SessionAudioManifest';
+import { setAudioSessionMode } from '@/services/audio/AudioSession';
+import { hydrateRemoteAudioCache, resolvePlayableAudioSource } from '@/services/audio/remoteAudio';
 
 export type ManagedSessionAudioPlayer = {
   getCurrentTime: () => number;
@@ -42,6 +44,11 @@ export function useSessionAudio() {
       } catch {
         // Cleanup is best effort; the session timer remains authoritative.
       }
+      try {
+        player.release?.();
+      } catch {
+        // Cleanup is best effort; the session timer remains authoritative.
+      }
       activePlayersRef.current.delete(player);
     },
     []
@@ -53,15 +60,13 @@ export function useSessionAudio() {
   }, [cleanupPlayer]);
 
   useEffect(() => {
-    void setAudioModeAsync({
-      playsInSilentMode: true,
-      interruptionMode: 'mixWithOthers',
-      shouldPlayInBackground: false,
-      allowsRecording: false,
-      shouldRouteThroughEarpiece: false,
-    }).catch(() => undefined);
+    void setAudioSessionMode('session').catch(() => undefined);
+    void hydrateRemoteAudioCache();
 
-    return cleanupAllPlayers;
+    return () => {
+      cleanupAllPlayers();
+      void setAudioSessionMode('effects').catch(() => undefined);
+    };
   }, [cleanupAllPlayers]);
 
   const createSessionAudioPlayer = useCallback(
@@ -70,7 +75,8 @@ export function useSessionAudio() {
       { loop = false, onFinish, onFailure, onStatus, volume = 1 }: SessionAudioPlayerOptions = {}
     ): ManagedSessionAudioPlayer | null => {
       try {
-        const player = createAudioPlayer(asset, {
+        // Remote long tracks play from disk once downloaded; until then they stream.
+        const player = createAudioPlayer(resolvePlayableAudioSource(asset), {
           updateInterval: 100,
           keepAudioSessionActive: true,
         });

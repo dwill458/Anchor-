@@ -1,0 +1,5 @@
+
+Algorithm : SHA256
+Hash      : 14CA480792F93DCF584E8C976F0A0FFA8C46E9320A24AA774D06EDCBD5878DD2
+Path      : C:\Users\dwill\AppData\Local\Temp\anchor-installed-audit.apk
+

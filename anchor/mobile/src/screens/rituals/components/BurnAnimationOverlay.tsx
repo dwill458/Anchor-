@@ -14,7 +14,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
-import type { WebViewMessageEvent } from 'react-native-webview';
+import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { colors as themeColors, spacing, typography } from '@/theme';
 import { logger } from '@/utils/logger';
@@ -246,7 +246,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   const nativeArtworkScale = useSharedValue(1);
   const nativeArtworkTranslateY = useSharedValue(0);
 
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView<WebViewProps>>(null);
   const isMountedRef = useRef(true);
   const isLockedRef = useRef(true);
   const commitStartedRef = useRef(false);
@@ -628,7 +628,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     <View style={styles.screen}>
       {overlayState === 'animating' || overlayState === 'syncing' ? (
         <View style={styles.webviewContainer}>
-          <WebView
+          <WebView<WebViewProps>
             ref={webViewRef}
             source={{ html: burnRitualWebViewHtml }}
             style={styles.webview}

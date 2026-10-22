@@ -17,6 +17,7 @@ const mockRequestPhotoLibrarySavePermission = jest.fn();
 const mockSavePngToPhotoLibrary = jest.fn();
 const mockCaptureRef = jest.fn();
 const mockRequestPermissionsAsync = jest.fn();
+const mockAssetCreate = jest.fn();
 const mockSaveToLibraryAsync = jest.fn();
 const mockToastError = jest.fn();
 const mockAnalyticsTrack = jest.fn();
@@ -52,11 +53,18 @@ jest.mock('react-native-view-shot', () => ({
 }));
 
 jest.mock('expo-media-library', () => ({
+    Asset: { create: (...args: any[]) => mockAssetCreate(...args) },
     requestPermissionsAsync: (...args: any[]) => mockRequestPermissionsAsync(...args),
     saveToLibraryAsync: (...args: any[]) => mockSaveToLibraryAsync(...args),
 }));
 jest.mock('@/hooks/useAppPerformanceTier', () => ({
     useAppPerformanceTier: () => mockPerfTier,
+}));
+jest.mock('@/utils/scheduleAfterInteractions', () => ({
+    scheduleAfterInteractions: (callback: () => void) => {
+        callback();
+        return { cancel: jest.fn() };
+    },
 }));
 jest.mock('@/components/common', () => {
     const React = require('react');
@@ -180,7 +188,7 @@ jest.mock('@/stores/sessionStore', () => ({
 }));
 
 jest.mock('@/utils/haptics', () => ({
-    safeHaptics: { impact: jest.fn(), selection: jest.fn() },
+    safeHaptics: { impact: jest.fn(), selection: jest.fn(), notification: jest.fn() },
 }));
 
 jest.mock('@/services/ApiClient', () => ({
@@ -237,7 +245,7 @@ jest.mock('@/screens/vault/components/DivineSigilAura', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => {
-    const Reanimated = require('react-native-reanimated/mock');
+    const Reanimated = require('@/__tests__/mocks/reactNativeReanimated').default;
     Reanimated.default.call = () => {};
     Reanimated.useReducedMotion = () => false;
     Reanimated.useFrameCallback = jest.fn();
@@ -260,6 +268,7 @@ describe('AnchorDetailScreen', () => {
         mockSavePngToPhotoLibrary.mockReset();
         mockCaptureRef.mockReset();
         mockRequestPermissionsAsync.mockReset();
+        mockAssetCreate.mockReset();
         mockSaveToLibraryAsync.mockReset();
         mockToastError.mockReset();
         mockAnalyticsTrack.mockReset();
@@ -281,6 +290,7 @@ describe('AnchorDetailScreen', () => {
         mockRequestPhotoLibrarySavePermission.mockResolvedValue(true);
         mockSavePngToPhotoLibrary.mockResolvedValue('file:///tmp/anchor-card-saved.png');
         mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted', granted: true });
+        mockAssetCreate.mockResolvedValue({ id: 'content://saved-image' });
         mockSaveToLibraryAsync.mockResolvedValue(undefined);
         jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
         jest.spyOn(Sharing, 'isAvailableAsync').mockResolvedValue(true);
@@ -398,6 +408,10 @@ describe('AnchorDetailScreen', () => {
     });
 
     it('exports wallpaper from the detail screen', async () => {
+        jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
+            callback(0);
+            return 0;
+        });
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('SET AS WALLPAPER'));
         await waitFor(() => {
@@ -424,7 +438,7 @@ describe('AnchorDetailScreen', () => {
 
         fireEvent.press(screen.getByText('Delete Anchor'));
 
-        expect(screen.getByText('Burn & Release is the proper practice.')).toBeTruthy();
+        expect(screen.getByText('Release is the proper practice.')).toBeTruthy();
         expect(screen.getByText('Delete Anyway')).toBeTruthy();
 
         fireEvent.press(screen.getByText('Delete Anyway'));

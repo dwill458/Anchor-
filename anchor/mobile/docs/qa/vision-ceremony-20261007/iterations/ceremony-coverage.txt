@@ -1,0 +1,27 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --coverage --collectCoverageFrom=src/components/v2/vision/ceremony/*.{ts,tsx} src/components/v2/vision/ceremony src/screens/v2/vision src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (53.414 s)
+PASS src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (8.152 s)
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+-----------------------------|---------|----------|---------|---------|-------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-----------------------------|---------|----------|---------|---------|-------------------
+All files                    |   90.79 |    82.45 |   91.72 |   96.49 |                   
+ VisionCeremony.tsx          |   91.71 |    85.78 |   93.75 |   98.02 | 176-178,300       
+ VisionDevelop.ts            |   91.66 |    76.19 |    87.5 |   93.33 | 28                
+ VisionPrint.tsx             |    94.4 |    83.13 |   86.66 |   97.29 | 122-123           
+ VisionSealHold.tsx          |   95.71 |    85.71 |   93.75 |     100 | 24,46,62          
+ useVisionCreationActions.ts |   78.02 |    62.85 |      90 |    89.7 | 37,45-47,57,70,89 
+ visionCeremonyCopy.ts       |     100 |      100 |     100 |     100 |                   
+-----------------------------|---------|----------|---------|---------|-------------------
+
+Test Suites: 6 passed, 6 total
+Tests:       52 passed, 52 total
+Snapshots:   0 total
+Time:        71.845 s
+Ran all test suites matching /src\\components\\v2\\vision\\ceremony|src\\screens\\v2\\vision|src\\components\\v2\\vision\\__tests__\\V2VisionCreationFlow.test.tsx/i.

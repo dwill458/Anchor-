@@ -27,7 +27,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'daily_prime',
       'direct',
       'Your anchor is ready',
-      "One Focus Session can reinforce today's thread."
+      "One Focus session is enough to reinforce it today."
     ),
     makeTemplate(
       'daily_prime_encouraging_1',
@@ -40,15 +40,15 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'daily_prime_reflective_1',
       'daily_prime',
       'reflective',
-      'Return to the thread',
-      'A quiet prime can bring the day back into focus.'
+      'Return to your intention',
+      'A short session can bring the day back into focus.'
     ),
     makeTemplate(
       'daily_prime_performance_1',
       'daily_prime',
       'performance',
-      'Prime your focus',
-      'One short session keeps the signal strong.'
+      'Take a moment to focus',
+      'One short session keeps you consistent.'
     ),
   ],
   thread_strength: [
@@ -56,29 +56,29 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'thread_strength_direct_1',
       'thread_strength',
       'direct',
-      'Thread Strength is fading',
+      'Your consistency is slipping',
       'A short Focus Session can restore momentum.'
     ),
     makeTemplate(
       'thread_strength_encouraging_1',
       'thread_strength',
       'encouraging',
-      'Your thread can recover',
+      'Your consistency can recover',
       'One calm Focus Session can rebuild momentum.'
     ),
     makeTemplate(
       'thread_strength_reflective_1',
       'thread_strength',
       'reflective',
-      'The thread is lighter today',
-      'A brief prime can help your anchor feel present again.'
+      'It has been a few days',
+      'A brief session can bring your anchor back into view.'
     ),
     makeTemplate(
       'thread_strength_performance_1',
       'thread_strength',
       'performance',
-      'Rebuild Thread Strength',
-      'A focused session can bring the score back up.'
+      'Rebuild your consistency',
+      'A Focus session today brings it back up.'
     ),
   ],
   unfinished_anchor: [
@@ -86,7 +86,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'unfinished_anchor_direct_1',
       'unfinished_anchor',
       'direct',
-      'Your anchor is still unsealed',
+      'Your anchor is not finished yet',
       "Finish shaping it when you're ready."
     ),
     makeTemplate(
@@ -108,7 +108,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'unfinished_anchor',
       'performance',
       'Complete the anchor',
-      'Finish the open thread and save the structure.'
+      'Finish shaping it and save it.'
     ),
   ],
   weekly_recap: [
@@ -141,7 +141,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'weekly_recap',
       'performance',
       'Weekly progress recap',
-      '{sessionCount} sessions completed. Thread Strength: {threadStrength}%.',
+      '{sessionCount} sessions completed. Consistency: {threadStrength}%.',
       ['sessionCount', 'threadStrength']
     ),
   ],

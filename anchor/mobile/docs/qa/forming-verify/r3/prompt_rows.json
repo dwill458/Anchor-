@@ -1,0 +1,1382 @@
+[
+ {
+  "id": "velvet_ember_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Ember and umber — dark umber pile warming into a soft ember-orange concentration toward the perimeter",
+   "mat": "suede-like brushed leather-free pile",
+   "mot": "soft pigment pooling",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Dusty deep rose — mid-depth dusty rose pile with lighter and deeper tonal passages",
+   "mat": "dense short-nap velour",
+   "mot": "broad tonal clouds in the nap",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "velvet_ember_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Wine and aubergine — deep wine and aubergine pile with a slow warm shift toward dark rose",
+   "mat": "dense short-nap velour",
+   "mot": "soft pigment pooling",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Dusty deep rose — mid-depth dusty rose pile with lighter and deeper tonal passages",
+   "mat": "cotton velvet",
+   "mot": "broad tonal clouds in the nap",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "velvet_ember_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Dusty deep rose — mid-depth dusty rose pile with lighter and deeper tonal passages",
+   "mat": "dense short-nap velour",
+   "mot": "broad tonal clouds in the nap",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Wine and aubergine — deep wine and aubergine pile with a slow warm shift toward dark rose",
+   "mat": "cotton velvet",
+   "mot": "pile direction shifts",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "velvet_ember_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Dusty deep rose — mid-depth dusty rose pile with lighter and deeper tonal passages",
+   "mat": "cotton velvet",
+   "mot": "pile direction shifts",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Wine and aubergine — deep wine and aubergine pile with a slow warm shift toward dark rose",
+   "mat": "suede-like brushed leather-free pile",
+   "mot": "soft pigment pooling",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "porcelain_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Blush glaze — soft blush porcelain glaze",
+   "mat": "soft-fired celadon stoneware glaze",
+   "mot": "soft glaze pooling at the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ceramic — deep ink-blue or oxblood ceramic glaze with soft sheen",
+   "mat": "satin-glazed ceramic",
+   "mot": "a few restrained crackle lines near the edges",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "porcelain_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Cream glaze — warm cream porcelain glaze with soft depth",
+   "mat": "soft-fired celadon stoneware glaze",
+   "mot": "soft glaze pooling at the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ceramic — deep ink-blue or oxblood ceramic glaze with soft sheen",
+   "mat": "satin-glazed ceramic",
+   "mot": "a few restrained crackle lines near the edges",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "porcelain_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Cream glaze — warm cream porcelain glaze with soft depth",
+   "mat": "soft-fired celadon stoneware glaze",
+   "mot": "soft glaze pooling at the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ceramic — deep ink-blue or oxblood ceramic glaze with soft sheen",
+   "mat": "satin-glazed ceramic",
+   "mot": "a few restrained crackle lines near the edges",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "porcelain_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Cream glaze — warm cream porcelain glaze with soft depth",
+   "mat": "satin-glazed ceramic",
+   "mot": "a few restrained crackle lines near the edges",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ceramic — deep ink-blue or oxblood ceramic glaze with soft sheen",
+   "mat": "bone-white porcelain",
+   "mot": "soft glaze pooling at the perimeter",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "prism_flow_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it",
+   "mat": "fluid dyed resin sheet",
+   "mot": "soft refractive fades",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dusk spectrum — deep indigo-violet gel with broad teal and magenta flow",
+   "mat": "soft gel layers",
+   "mot": "broad spectral sweeps",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "prism_flow_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it",
+   "mat": "fluid dyed resin sheet",
+   "mot": "broad spectral sweeps",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dusk spectrum — deep indigo-violet gel with broad teal and magenta flow",
+   "mat": "soft gel layers",
+   "mot": "overlapping translucent layers",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "prism_flow_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Drifting spectrum — translucent layers moving between warm and cool, light and deep",
+   "mat": "fluid dyed resin sheet",
+   "mot": "soft refractive fades",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it",
+   "mat": "soft gel layers",
+   "mot": "broad spectral sweeps",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "prism_flow_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dusk spectrum — deep indigo-violet gel with broad teal and magenta flow",
+   "mat": "soft gel layers",
+   "mot": "overlapping translucent layers",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it",
+   "mat": "thin refractive film",
+   "mot": "soft refractive fades",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "joybrush_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Chalk ground, bright pigment — warm chalk-white primed ground with bright gestural pigment gathered toward the perimeter",
+   "mat": "chalky oil-bar pigment",
+   "mot": "loaded-brush edges",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ground, warm pigment — deep ink-blue ground with warm, bright gestural pigment around the edges",
+   "mat": "opaque gouache",
+   "mot": "dry-brush drags at the perimeter",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "joybrush_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Chalk ground, bright pigment — warm chalk-white primed ground with bright gestural pigment gathered toward the perimeter",
+   "mat": "opaque gouache",
+   "mot": "dry-brush drags at the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ground, warm pigment — deep ink-blue ground with warm, bright gestural pigment around the edges",
+   "mat": "loaded acrylic",
+   "mot": "broad brush sweeps",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "joybrush_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ground, warm pigment — deep ink-blue ground with warm, bright gestural pigment around the edges",
+   "mat": "chalky oil-bar pigment",
+   "mot": "dry-brush drags at the perimeter",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Chalk ground, bright pigment — warm chalk-white primed ground with bright gestural pigment gathered toward the perimeter",
+   "mat": "opaque gouache",
+   "mot": "broad brush sweeps",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "joybrush_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Chalk ground, bright pigment — warm chalk-white primed ground with bright gestural pigment gathered toward the perimeter",
+   "mat": "opaque gouache",
+   "mot": "loaded-brush edges",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Dark ground, warm pigment — deep ink-blue ground with warm, bright gestural pigment around the edges",
+   "mat": "loaded acrylic",
+   "mot": "dry-brush drags at the perimeter",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "deep_cosmos_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "mixed",
+   "anchor": "light",
+   "lane": "Lifted cold teal — near-black blue lifting softly toward a wide, hazy cold-teal and slate-blue glow across the lower field, graded without any visible light source or shape",
+   "mat": "deep pigment haze",
+   "mot": "soft depth gradation",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Deep navy — deep navy field with slow gradation toward near-black at the edges",
+   "mat": "matte velvet-dark atmospheric wash",
+   "mot": "a few distant soft points of light",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "deep_cosmos_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Near-black blue — near-black blue with barely lifted tonal depth",
+   "mat": "soft airbrushed depth",
+   "mot": "soft depth gradation",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "mixed",
+   "anchor": "light",
+   "lane": "Lifted dusk — deep indigo-black lifting softly toward a broad, hazy dusk-rose glow along one side, graded without any visible light source or shape",
+   "mat": "deep pigment haze",
+   "mot": "a few distant soft points of light",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "deep_cosmos_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Near-black blue — near-black blue with barely lifted tonal depth",
+   "mat": "soft airbrushed depth",
+   "mot": "soft depth gradation",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "mixed",
+   "anchor": "light",
+   "lane": "Lifted dusk — deep indigo-black lifting softly toward a broad, hazy dusk-rose glow along one side, graded without any visible light source or shape",
+   "mat": "deep pigment haze",
+   "mot": "a few distant soft points of light",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "deep_cosmos_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Deep navy — deep navy field with slow gradation toward near-black at the edges",
+   "mat": "soft airbrushed depth",
+   "mot": "a few distant soft points of light",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "mixed",
+   "anchor": "light",
+   "lane": "Lifted dusk — deep indigo-black lifting softly toward a broad, hazy dusk-rose glow along one side, graded without any visible light source or shape",
+   "mat": "deep pigment haze",
+   "mot": "soft depth gradation",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "woven_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Dusty blue canvas — dusty blue fine canvas with a slightly lighter, calmer middle",
+   "mat": "fine linen",
+   "mot": "gentle yarn irregularity",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Oatmeal linen — natural oatmeal linen with a fine, even weave",
+   "mat": "combed cotton",
+   "mot": "slight tonal variation in the fibre",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "woven_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Charcoal cotton — charcoal cotton with a fine plain weave",
+   "mat": "denim-like twill",
+   "mot": "gentle yarn irregularity",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Oatmeal linen — natural oatmeal linen with a fine, even weave",
+   "mat": "fine canvas",
+   "mot": "slight tonal variation in the fibre",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "woven_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Charcoal cotton — charcoal cotton with a fine plain weave",
+   "mat": "denim-like twill",
+   "mot": "gentle yarn irregularity",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Oatmeal linen — natural oatmeal linen with a fine, even weave",
+   "mat": "fine canvas",
+   "mot": "slight tonal variation in the fibre",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "woven_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Oatmeal linen — natural oatmeal linen with a fine, even weave",
+   "mat": "combed cotton",
+   "mot": "slight tonal variation in the fibre",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Indigo denim-like weave — deep indigo denim-like twill weave, fine and even",
+   "mat": "denim-like twill",
+   "mot": "gentle yarn irregularity",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "paper_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Dusty blue paper — dusty blue handmade paper with fine fibres",
+   "mat": "handmade paper with sparse inclusions",
+   "mot": "faint tonal clouding of the paper",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Charcoal paper — charcoal paper with a soft matte tooth",
+   "mat": "cotton rag paper",
+   "mot": "sparse pale fibres",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "paper_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Cream cotton rag — warm cream cotton rag paper with soft tonal variation",
+   "mat": "handmade paper with sparse inclusions",
+   "mot": "faint tonal clouding of the paper",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Charcoal paper — charcoal paper with a soft matte tooth",
+   "mat": "cotton rag paper",
+   "mot": "sparse pale fibres",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "paper_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Dusty blue paper — dusty blue handmade paper with fine fibres",
+   "mat": "kraft paper",
+   "mot": "faint tonal clouding of the paper",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Charcoal paper — charcoal paper with a soft matte tooth",
+   "mat": "washi paper",
+   "mot": "sparse pale fibres",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "paper_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Dusty blue paper — dusty blue handmade paper with fine fibres",
+   "mat": "washi paper",
+   "mot": "sparse pale fibres",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Charcoal paper — charcoal paper with a soft matte tooth",
+   "mat": "handmade paper with sparse inclusions",
+   "mot": "faint tonal clouding of the paper",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "clay_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Dusty mineral pink — dusty mineral pink pigment, powdery and matte",
+   "mat": "pressed ochre pigment",
+   "mot": "broad powdery tonal clouds",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Muted stone — deep muted slate-stone pigment, dense and dry",
+   "mat": "powdered sandstone",
+   "mot": "soft pigment pooling toward the perimeter",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "clay_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Bone and chalk — bone and chalk limewash with soft broad tonal clouds",
+   "mat": "limewash plaster",
+   "mot": "broad powdery tonal clouds",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Muted stone — deep muted slate-stone pigment, dense and dry",
+   "mat": "clay slip",
+   "mot": "soft pigment pooling toward the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "clay_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Bone and chalk — bone and chalk limewash with soft broad tonal clouds",
+   "mat": "limewash plaster",
+   "mot": "broad powdery tonal clouds",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Muted stone — deep muted slate-stone pigment, dense and dry",
+   "mat": "clay slip",
+   "mot": "soft pigment pooling toward the perimeter",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "clay_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Sage and ochre — sage and ochre pressed pigment with a calmer middle tone",
+   "mat": "powdered sandstone",
+   "mot": "soft pigment pooling toward the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Muted stone — deep muted slate-stone pigment, dense and dry",
+   "mat": "limewash plaster",
+   "mot": "broad powdery tonal clouds",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "graphic_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Warm primary — cream ground with a few large warm red, golden and blue shapes pushed toward the perimeter",
+   "mat": "cut-colour print",
+   "mot": "soft print grain",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pastel — pale ground with a few large soft pastel shapes",
+   "mat": "offset print with soft grain",
+   "mot": "quiet overlaps of two shapes",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "graphic_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pastel — pale ground with a few large soft pastel shapes",
+   "mat": "cut-colour print",
+   "mot": "few large flat shapes",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Night ground — deep ink ground with a few large muted colour shapes",
+   "mat": "offset print with soft grain",
+   "mot": "soft print grain",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "graphic_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pastel — pale ground with a few large soft pastel shapes",
+   "mat": "screen-printed ink on matte stock",
+   "mot": "soft print grain",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Night ground — deep ink ground with a few large muted colour shapes",
+   "mat": "cut-colour print",
+   "mot": "quiet overlaps of two shapes",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "graphic_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Night ground — deep ink ground with a few large muted colour shapes",
+   "mat": "cut-colour print",
+   "mot": "quiet overlaps of two shapes",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Pastel — pale ground with a few large soft pastel shapes",
+   "mat": "offset print with soft grain",
+   "mot": "few large flat shapes",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "plush_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Butter — butter-yellow felt ground with soft cream and peach felt forms",
+   "mat": "soft needle-felted wool",
+   "mot": "felt clouds",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Cobalt — bright cobalt felt ground with soft cream, butter and peach felt forms",
+   "mat": "wool felt",
+   "mot": "simple felt flowers",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "plush_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Mint — mint felt ground with soft cream and sky felt forms",
+   "mat": "wool felt",
+   "mot": "rounded felt stars",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Cobalt — bright cobalt felt ground with soft cream, butter and peach felt forms",
+   "mat": "thick craft felt",
+   "mot": "tiny felt dots",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "plush_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Butter — butter-yellow felt ground with soft cream and peach felt forms",
+   "mat": "soft needle-felted wool",
+   "mot": "rounded felt stars",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Cobalt — bright cobalt felt ground with soft cream, butter and peach felt forms",
+   "mat": "wool felt",
+   "mot": "tiny felt dots",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "plush_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Cobalt — bright cobalt felt ground with soft cream, butter and peach felt forms",
+   "mat": "soft needle-felted wool",
+   "mot": "simple felt flowers",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Butter — butter-yellow felt ground with soft cream and peach felt forms",
+   "mat": "wool felt",
+   "mot": "rounded felt stars",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "herbarium_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Sage paper — sage herbarium paper with a calmer pale middle",
+   "mat": "pressed specimens under a thin paper sheet",
+   "mot": "grass seed heads",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Soft blush — warm ivory-blush herbarium paper with softly pressed specimens",
+   "mat": "dried specimens on cotton paper",
+   "mot": "dried lavender",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "herbarium_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Grounded dark — dark umber-olive paper with pale pressed specimens",
+   "mat": "dried specimens on cotton paper",
+   "mot": "eucalyptus sprigs",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Soft blush — warm ivory-blush herbarium paper with softly pressed specimens",
+   "mat": "mounted herbarium sheet",
+   "mot": "grass seed heads",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "herbarium_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Grounded dark — dark umber-olive paper with pale pressed specimens",
+   "mat": "pressed specimens under a thin paper sheet",
+   "mot": "dried lavender",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Soft blush — warm ivory-blush herbarium paper with softly pressed specimens",
+   "mat": "dried specimens on cotton paper",
+   "mot": "pressed fern fronds",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "herbarium_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Soft blush — warm ivory-blush herbarium paper with softly pressed specimens",
+   "mat": "pressed specimens under a thin paper sheet",
+   "mot": "dried lavender",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Grounded dark — dark umber-olive paper with pale pressed specimens",
+   "mat": "dried specimens on cotton paper",
+   "mot": "pressed fern fronds",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "alloy_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Heat-treated metal — deep blued and straw-toned heat-treated metal, matte and even",
+   "mat": "fine brushed metal",
+   "mot": "gentle patina clouds toward the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Brushed champagne or silver — finely brushed champagne-silver satin metal with soft broad light",
+   "mat": "patinated copper",
+   "mot": "fine directional brushing",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "alloy_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Patinated copper — patinated copper sheet with a calmer, evenly toned middle",
+   "mat": "matte gunmetal",
+   "mot": "fine directional brushing",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Heat-treated metal — deep blued and straw-toned heat-treated metal, matte and even",
+   "mat": "heat-treated metal",
+   "mot": "soft broad light falloff",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "alloy_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Patinated copper — patinated copper sheet with a calmer, evenly toned middle",
+   "mat": "matte gunmetal",
+   "mot": "gentle patina clouds toward the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Heat-treated metal — deep blued and straw-toned heat-treated metal, matte and even",
+   "mat": "heat-treated metal",
+   "mot": "fine directional brushing",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "alloy_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Brushed champagne or silver — finely brushed champagne-silver satin metal with soft broad light",
+   "mat": "patinated copper",
+   "mot": "fine directional brushing",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Gunmetal — dark gunmetal satin sheet with very fine brushing",
+   "mat": "matte gunmetal",
+   "mot": "soft broad light falloff",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "gilt_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Ink navy lacquer and silver leaf — smooth ink-navy satin-matte lacquer with silver leaf laid along the perimeter",
+   "mat": "gold leaf on lacquer",
+   "mot": "faint leaf tarnish",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Ivory lacquer and gold leaf — smooth ivory satin-matte lacquer with gold leaf laid along the perimeter",
+   "mat": "silver leaf on lacquer",
+   "mot": "soft-edged leaf patches at the perimeter",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "gilt_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Ivory lacquer and gold leaf — smooth ivory satin-matte lacquer with gold leaf laid along the perimeter",
+   "mat": "silver leaf on lacquer",
+   "mot": "faint leaf tarnish",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Ink navy lacquer and silver leaf — smooth ink-navy satin-matte lacquer with silver leaf laid along the perimeter",
+   "mat": "lightly tarnished leaf on lacquer",
+   "mot": "soft-edged leaf patches at the perimeter",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "gilt_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Ivory lacquer and gold leaf — smooth ivory satin-matte lacquer with gold leaf laid along the perimeter",
+   "mat": "lightly tarnished leaf on lacquer",
+   "mot": "faint leaf tarnish",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Ink navy lacquer and silver leaf — smooth ink-navy satin-matte lacquer with silver leaf laid along the perimeter",
+   "mat": "gold leaf on lacquer",
+   "mot": "soft-edged leaf patches at the perimeter",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "gilt_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Bottle green lacquer and gold leaf — smooth bottle-green satin-matte lacquer with gold leaf laid along the perimeter",
+   "mat": "gold leaf on lacquer",
+   "mot": "soft-edged leaf patches at the perimeter",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Ivory lacquer and gold leaf — smooth ivory satin-matte lacquer with gold leaf laid along the perimeter",
+   "mat": "silver leaf on lacquer",
+   "mot": "faint leaf tarnish",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "flash_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Classic colour flash — aged cream flash paper with bold red, teal and golden-yellow inked forms toward the edges",
+   "mat": "sun-faded neo-traditional ink on paper",
+   "mot": "bold filled shapes",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Black-stock flash — matte black flash paper stock with bold cream, red and golden-yellow filled forms, rays and dotwork gathered toward the edges",
+   "mat": "aged flash paper with classic colour ink",
+   "mot": "rays",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "flash_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Blackwork — bone flash paper with black filled shapes, rays and dotwork gathered toward the edges",
+   "mat": "sun-faded neo-traditional ink on paper",
+   "mot": "dotwork clusters",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Black-stock flash — matte black flash paper stock with bold cream, red and golden-yellow filled forms, rays and dotwork gathered toward the edges",
+   "mat": "aged flash paper with classic colour ink",
+   "mot": "rounded petal forms",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "flash_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Blackwork — bone flash paper with black filled shapes, rays and dotwork gathered toward the edges",
+   "mat": "bone paper with blackwork ink",
+   "mot": "rays",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Black-stock flash — matte black flash paper stock with bold cream, red and golden-yellow filled forms, rays and dotwork gathered toward the edges",
+   "mat": "sun-faded neo-traditional ink on paper",
+   "mot": "dotwork clusters",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "flash_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Black-stock flash — matte black flash paper stock with bold cream, red and golden-yellow filled forms, rays and dotwork gathered toward the edges",
+   "mat": "aged flash paper with classic colour ink",
+   "mot": "rays",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Classic colour flash — aged cream flash paper with bold red, teal and golden-yellow inked forms toward the edges",
+   "mat": "bone paper with blackwork ink",
+   "mot": "dotwork clusters",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "buff_v2",
+  "text": "I am calm and focused under pressure",
+  "cat": "desire",
+  "I": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Night wall — dark night wall with soft muted overspray along the edges",
+   "mat": "whitewashed concrete",
+   "mot": "buffed paint patches",
+   "pl": "let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Whitewashed concrete — whitewashed concrete with buffed paint patches and faint soft overspray at the edges",
+   "mat": "buffed paint patches",
+   "mot": "soft aerosol overspray",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "buff_v2",
+  "text": "I earn more money every month",
+  "cat": "wealth",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Buffed grey wall — buffed grey paint patches with soft overspray toward the perimeter and a quiet middle",
+   "mat": "painted brick",
+   "mot": "soft aerosol overspray",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Night wall — dark night wall with soft muted overspray along the edges",
+   "mat": "night wall with soft overspray",
+   "mot": "faint paste-up edges at the perimeter",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "buff_v2",
+  "text": "I forgive and let go of the past",
+  "cat": "release",
+  "I": {
+   "field": "mixed",
+   "anchor": "dark",
+   "lane": "Buffed grey wall — buffed grey paint patches with soft overspray toward the perimeter and a quiet middle",
+   "mat": "painted brick",
+   "mot": "buffed paint patches",
+   "pl": "let richer material detail gather along the lower and right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Night wall — dark night wall with soft muted overspray along the edges",
+   "mat": "night wall with soft overspray",
+   "mot": "soft aerosol overspray",
+   "pl": "let richer material detail gather in the outer corners and thin out toward the middle",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ },
+ {
+  "id": "buff_v2",
+  "text": "I run my first marathon",
+  "cat": "health",
+  "I": {
+   "field": "light",
+   "anchor": "dark",
+   "lane": "Whitewashed concrete — whitewashed concrete with buffed paint patches and faint soft overspray at the edges",
+   "mat": "buffed paint patches",
+   "mot": "faint paste-up edges at the perimeter",
+   "pl": "let richer material detail gather toward the lower-left and upper-right perimeter",
+   "comp": "GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible"
+  },
+  "II": {
+   "field": "dark",
+   "anchor": "light",
+   "lane": "Night wall — dark night wall with soft muted overspray along the edges",
+   "mat": "painted brick",
+   "mot": "buffed paint patches",
+   "pl": "let richer material detail gather along the upper and left perimeter",
+   "comp": "OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness"
+  }
+ }
+]

@@ -130,11 +130,11 @@ function applyDecay(
 }
 
 export function selectCanonicalPracticeEvents(
-  events: readonly PracticeSessionRecord[],
+  events: readonly PracticeSessionRecord[] | null | undefined,
   accountId: string | null | undefined,
   now: Date = new Date(),
 ): PracticeSessionRecord[] {
-  if (!accountId) return [];
+  if (!accountId || !Array.isArray(events)) return [];
   const seen = new Set<string>();
   const latestAllowed = now.getTime() + FUTURE_CLOCK_SKEW_MS;
   return events

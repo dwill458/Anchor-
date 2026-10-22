@@ -27,6 +27,20 @@ export const colors = {
     goldHairline: 'rgba(217, 179, 108, 0.30)',
     purpleAtmosphere: '#3D2060',
   },
+  /** Cream/ink paper palette used by the one-screen creation flow. */
+  creation: {
+    cream: '#F4EDE0',
+    ink: '#14162B',
+    gold: '#C9A24A',
+    hairline: 'rgba(20, 22, 43, 0.14)',
+    /** Secondary text on cream (labels, counts, hints). */
+    muted: '#6B6B66',
+    placeholder: '#8A93A0',
+    /** Disabled primary-button fill on cream. */
+    disabledFill: '#EBE6DD',
+    /** Dimming scrim behind the all-styles sheet. */
+    scrim: 'rgba(8, 9, 20, 0.55)',
+  },
   // Primary Colors
   charcoal: '#1A1A1D',
   navy: '#0F1419',

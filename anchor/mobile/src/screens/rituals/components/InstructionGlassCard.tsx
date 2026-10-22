@@ -3,12 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  Platform,
   type StyleProp,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { AdaptiveGlassView } from '@/components/common/AdaptiveGlassView';
 import { colors, spacing, typography } from '@/theme';
 
 interface InstructionGlassCardProps {
@@ -47,13 +46,14 @@ export const InstructionGlassCard: React.FC<InstructionGlassCardProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {Platform.OS === 'ios' ? (
-        <BlurView intensity={intensity} tint="dark" style={styles.blur}>
-          {content}
-        </BlurView>
-      ) : (
-        <View style={[styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>{content}</View>
-      )}
+      <AdaptiveGlassView
+        intensity={intensity}
+        tint="dark"
+        fallbackColor="rgba(12, 17, 24, 0.92)"
+        style={styles.blur}
+      >
+        {content}
+      </AdaptiveGlassView>
     </View>
   );
 };

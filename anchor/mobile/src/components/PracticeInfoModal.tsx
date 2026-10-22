@@ -181,7 +181,7 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
     >
       <View style={styles.root} pointerEvents="box-none">
         <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={handleDismiss} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleDismiss} />
         </Animated.View>
 
         <Animated.View
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(6, 9, 13, 0.68)',
   },
   sheet: {

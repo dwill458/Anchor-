@@ -1,0 +1,29 @@
+import { useSyncExternalStore } from 'react';
+import { editorialImageIdentity } from './visionEditorialLayout';
+
+// Native decode supplies dimensions once; signed URL refreshes keep the same geometry.
+const aspects = new Map<string, number>();
+const listeners = new Set<() => void>();
+const identity = editorialImageIdentity;
+
+export function rememberVisionPhotoAspect(uri: string, width: number, height: number) {
+  if (!(Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0)) return;
+  const key = identity(uri);
+  const aspect = width / height;
+  if (aspects.get(key) === aspect) return;
+  if (aspects.size >= 128 && !aspects.has(key)) aspects.delete(aspects.keys().next().value!);
+  aspects.set(key, aspect);
+  listeners.forEach(listener => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+export function useVisionPhotoAspects(uris: readonly (string | null | undefined)[]) {
+  const snapshot = useSyncExternalStore(subscribe,
+    () => uris.map(uri => uri ? aspects.get(identity(uri)) ?? 0 : 0).join(','),
+    () => uris.map(() => 0).join(','));
+  return snapshot ? snapshot.split(',').map(Number) : [];
+}

@@ -8,7 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { ChevronRight, LucideIcon } from 'lucide-react-native';
-import { colors } from '@/theme';
+import { settingsColors as v2Colors, settingsTypography as v2Typography } from './settingsTheme';
 
 interface LegacySettingsRowProps {
   icon?: LucideIcon;
@@ -19,6 +19,7 @@ interface LegacySettingsRowProps {
   disabled?: boolean;
   style?: ViewStyle;
   showDivider?: boolean;
+  testID?: string;
 }
 
 interface ModernSettingsRowProps {
@@ -35,6 +36,7 @@ interface ModernSettingsRowProps {
   isDev?: boolean;
   style?: ViewStyle;
   showDivider?: boolean;
+  testID?: string;
 }
 
 type SettingsRowProps = LegacySettingsRowProps | ModernSettingsRowProps;
@@ -52,16 +54,17 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
   const style = props.style;
   const showDivider = props.showDivider ?? true;
   const isDev = modern ? props.isDev ?? false : false;
-  const accentColor = isDev ? '#4ade80' : colors.gold;
+  const accentColor = isDev ? '#047857' : v2Colors.text.primary;
   const titleColor = modern
-    ? props.titleColor ?? (isDev ? '#4ade80' : colors.anchor15.bone)
-    : colors.bone;
-  const subtitleColor = isDev ? 'rgba(74,222,128,0.6)' : colors.anchor15.ash;
-  const dividerColor = isDev ? 'rgba(74,222,128,0.2)' : colors.anchor15.hairline;
+    ? props.titleColor ?? (isDev ? '#047857' : v2Colors.text.primary)
+    : v2Colors.text.primary;
+  const subtitleColor = isDev ? 'rgba(4,120,87,0.7)' : v2Colors.text.secondary;
+  const dividerColor = isDev ? 'rgba(4,120,87,0.2)' : v2Colors.border.default;
   const onToggle = modern ? props.onToggle : undefined;
   const toggleValue = modern ? props.toggleValue ?? false : false;
+  const rowType = modern ? props.type : 'none';
   const onPress =
-    modern && props.type === 'toggle' && onToggle
+    modern && rowType === 'toggle' && onToggle
       ? () => onToggle(!toggleValue)
       : props.onPress;
 
@@ -77,7 +80,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
     if (props.type === 'chevron') {
       return (
         <View style={styles.right}>
-          <ChevronRight color={colors.anchor15.ash} size={16} strokeWidth={1.35} />
+          <ChevronRight color={v2Colors.text.secondary} size={16} strokeWidth={1.5} />
         </View>
       );
     }
@@ -88,9 +91,10 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
           <Switch
             value={toggleValue}
             onValueChange={onToggle}
-            trackColor={{ false: '#232d3f', true: accentColor }}
-            thumbColor={colors.bone}
-            ios_backgroundColor="#232d3f"
+            trackColor={{ false: v2Colors.border.default, true: isDev ? '#047857' : v2Colors.text.primary }}
+            thumbColor={v2Colors.surface}
+            ios_backgroundColor={v2Colors.border.default}
+            disabled={disabled}
           />
         </View>
       );
@@ -99,8 +103,16 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
     return null;
   };
 
+  const rowTestId = props.testID ?? `settings-row-${title}`;
+
   return (
     <Pressable
+      testID={rowTestId}
+      accessibilityRole={modern && props.type === 'toggle' ? 'switch' : onPress ? 'button' : undefined}
+      accessibilityState={modern && props.type === 'toggle' ? { checked: toggleValue, disabled } : { disabled }}
+      accessibilityLabel={title}
+      accessibilityHint={subtitle}
+      accessibilityValue={value ? { text: value } : undefined}
       onPress={onPress}
       disabled={disabled || !onPress}
       style={({ pressed }) => [
@@ -112,7 +124,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
     >
       <View style={[styles.container, modern && styles.modernContainer]}>
         <View style={styles.left}>
-          {Icon ? <Icon color={colors.gold} size={20} style={styles.icon} /> : null}
+          {Icon ? <Icon color={v2Colors.text.primary} size={20} style={styles.icon} /> : null}
           <View style={[styles.textContainer, modern && styles.modernTextContainer]}>
             <Text style={[styles.title, modern && styles.modernTitle, { color: titleColor }]} numberOfLines={2}>
               {title}
@@ -122,13 +134,19 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
                 {subtitle}
               </Text>
             ) : null}
-            {value ? (
+            {value && rowType !== 'chevron' ? (
               <Text style={[styles.value, modern && styles.modernValue, { color: accentColor }]} numberOfLines={2}>
                 {value}
               </Text>
             ) : null}
           </View>
         </View>
+
+        {value && rowType === 'chevron' ? (
+          <Text style={[styles.chevronValue, { color: subtitleColor }]} numberOfLines={1}>
+            {value}
+          </Text>
+        ) : null}
 
         {renderRight()}
       </View>
@@ -142,7 +160,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   pressed: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(23,23,23,0.04)',
   },
   disabled: {
     opacity: 0.4,
@@ -155,9 +173,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   modernContainer: {
-    minHeight: 56,
+    minHeight: 52,
     paddingHorizontal: 0,
-    paddingVertical: 9,
+    paddingVertical: 10,
   },
   left: {
     flex: 1,
@@ -176,39 +194,42 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 14,
-    fontFamily: 'Inter-Regular',
+    fontFamily: v2Typography.body,
     lineHeight: 18,
   },
   modernTitle: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 12,
-    letterSpacing: 1.15,
-    lineHeight: 17,
-    textTransform: 'uppercase',
+    fontFamily: v2Typography.bodyMedium,
+    fontSize: 15,
+    lineHeight: 20,
   },
   subtitle: {
     marginTop: 3,
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    fontFamily: v2Typography.body,
     lineHeight: 16,
   },
   modernSubtitle: {
-    marginTop: 4,
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    marginTop: 3,
+    fontFamily: v2Typography.body,
+    fontSize: 12.5,
     lineHeight: 17,
   },
   value: {
     marginTop: 3,
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
+    fontFamily: v2Typography.body,
     lineHeight: 16,
   },
   modernValue: {
-    marginTop: 4,
-    fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    marginTop: 3,
+    fontFamily: v2Typography.body,
+    fontSize: 13,
     lineHeight: 17,
+  },
+  chevronValue: {
+    fontFamily: v2Typography.body,
+    fontSize: 13.5,
+    marginRight: 8,
   },
   right: {
     marginLeft: 12,

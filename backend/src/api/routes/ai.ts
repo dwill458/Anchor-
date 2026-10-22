@@ -9,7 +9,6 @@
 
 import express, { Response } from 'express';
 import { createHash, randomUUID } from 'crypto';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import {
   AuthRequest,
@@ -17,15 +16,23 @@ import {
   optionalAuthMiddleware,
   DEV_MASTER_UID,
 } from '../middleware/auth';
+import {
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
+  anchorEnhanceConcurrencyGuard,
+  aiPlanningLimiter,
+  isAiDeveloper,
+} from '../middleware/aiRateLimit';
+import { DEV_IMAGE_MODEL_IDS } from '../../services/image/devImageModels';
 import { prisma } from '../../lib/prisma';
 import {
   getCostEstimate,
   enhanceSigilWithAI,
   enhanceSigilWithControlNet,
   estimateGenerationTime,
-  AIStyle,
 } from '../../services/AIEnhancer';
-import { VALID_AI_STYLES } from '../../services/stylePromptLibrary';
+import { VALID_AI_STYLES, getStyleGenerationVersion } from '../../services/stylePromptLibrary';
+import { ANCHOR2_STYLE_IDS, type GenerationStyleId } from '../../types';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
 import {
   isServerStoredAssetUrl,
@@ -38,72 +45,25 @@ import {
   getAvailableVoicePresets,
 } from '../../services/TTSService';
 import { logger } from '../../utils/logger';
-import { RedisStore } from 'rate-limit-redis';
-import { redisClient } from '../../lib/redis';
 
 const router = express.Router();
+// Anchor 2.0 styles are fully generatable but not released: the route only accepts them when this
+// flag is on, so production Anchor 1.5 clients are unaffected. Picker availability (forward vs
+// rotation) is separate catalog metadata and never gates generation.
+const isAnchor2StylesEnabled = (): boolean => process.env.ENABLE_ANCHOR2_STYLES === 'true';
 const TOTAL_VARIATION_OPTIONS = 2;
 const MAX_REUSED_VARIATIONS = 2;
 const RESERVATION_TTL_MINUTES = 30;
 
-const aiHourlyLimiterStore =
-  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
-    ? undefined
-    : new RedisStore({
-        prefix: 'rl:ai:hourly:',
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-
-const aiDailyLimiterStore =
-  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
-    ? undefined
-    : new RedisStore({
-        prefix: 'rl:ai:daily:',
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-
-// Per-user rate limiter for the AI image generation endpoint.
-// Keyed on the authenticated user's Firebase UID (set by authMiddleware before
-// this runs), falling back to IP for any unauthenticated edge cases.
-// Limit: 20 generations per hour — generous for normal use, tight enough to
-// prevent accidental loops or abuse.
-const aiHourlyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
-  message: {
-    error: 'Too many AI generation requests',
-    message: 'You have reached the AI enhancement limit. Please try again in an hour.',
-  },
-  store: aiHourlyLimiterStore,
-});
-
-// Daily AI generation limit per user — prevents runaway API costs.
-// Dev master account is exempt. Configurable via AI_DAILY_LIMIT env var.
-// NOTE: Uses RedisStore to persist across Railway restarts/multi-instance.
-const AI_DAILY_LIMIT = parseInt(process.env.AI_DAILY_LIMIT || '10', 10);
-const aiDailyLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  max: AI_DAILY_LIMIT,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
-  message: {
-    error: 'Daily generation limit reached',
-    message: `You have reached your daily limit of ${AI_DAILY_LIMIT} AI generations. Try again tomorrow.`,
-  },
-  store: aiDailyLimiterStore,
-});
-
 // --- Zod schemas ---
 
 const EnhanceSchema = z.object({
+  devImageModel: z.enum(DEV_IMAGE_MODEL_IDS).optional(),
   sigilSvg: z.string().min(1),
-  styleChoice: z.enum(VALID_AI_STYLES),
+  styleChoice: z.preprocess(
+    (val) => (val === 'mineral_wash_v2' || val === 'mineral-wash-v2' || val === 'mineral-wash' || val === 'mineral_wash' ? 'clay_v2' : val),
+    z.enum([...VALID_AI_STYLES, ...ANCHOR2_STYLE_IDS])
+  ),
   anchorId: z.string().min(1),
   intentionText: z.string().max(500).optional(),
   intention: z.string().max(500).optional(),
@@ -133,7 +93,11 @@ const MantraAudioSchema = z.object({
 
 // Validates data against a schema; returns parsed data or sends a 400 response.
 // Returns null if validation failed (caller should return early).
-function validateOrRespond<T>(schema: z.ZodSchema<T>, data: unknown, res: Response): T | null {
+function validateOrRespond<T>(
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  data: unknown,
+  res: Response
+): T | null {
   const result = schema.safeParse(data);
   if (!result.success) {
     const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
@@ -160,10 +124,11 @@ function buildVariationFingerprint(input: {
   sigilSvg: string;
   intentionText?: string;
   styleChoice: string;
+  devImageModel?: string;
 }): { fingerprint: string; intentionKey: string; structureHash: string } {
   const intentionKey = normalizeIntentionKey(input.intentionText);
   const structureHash = hashSigilSvg(input.sigilSvg);
-  const fingerprint = `${input.styleChoice}::${structureHash}::${intentionKey}`;
+  const fingerprint = `${input.styleChoice}::${structureHash}::${intentionKey}${input.devImageModel ? `::dev:${input.devImageModel}` : ''}`;
   return { fingerprint, intentionKey, structureHash };
 }
 
@@ -241,10 +206,19 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
   try {
     const parsed = validateOrRespond(EnhanceSchema, req.body, res);
     if (!parsed) return;
+    if (parsed.devImageModel && !isAiDeveloper(req)) {
+      res.status(403).json({ error: 'Developer model selection requires a developer account.' });
+      return;
+    }
 
     // Onboarding flow generates a "temp-*" anchor before the user has an
     // account. Those requests are permitted without auth (still IP rate
     // limited above). Every other path must be authenticated.
+    if (getStyleGenerationVersion(parsed.styleChoice) === 'anchor2' && !isAnchor2StylesEnabled()) {
+      res.status(400).json({ error: 'Validation error: styleChoice: Invalid enum value' });
+      return;
+    }
+
     const isTempAnchor = parsed.anchorId.startsWith('temp-');
     if (!isTempAnchor && !req.user?.uid) {
       res.status(401).json({
@@ -372,74 +346,77 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       sigilSvg,
       intentionText,
       styleChoice,
+      devImageModel: parsed.devImageModel,
     });
 
     let reservedPoolVariations: ClientVariation[] = [];
     let reservedPoolRows: Awaited<ReturnType<typeof prisma.anchorVariationPool.findMany>> = [];
     try {
-      await prisma.anchorVariationPool.updateMany({
-        where: {
-          status: 'reserved',
-          reservedUntil: { lt: new Date() },
-        },
-        data: {
-          status: 'available',
-          reservedByRequestId: null,
-          reservedAt: null,
-          reservedUntil: null,
-        },
-      });
-
-      const poolCandidates = await prisma.anchorVariationPool.findMany({
-        where: {
-          fingerprint,
-          status: 'available',
-        },
-        orderBy: {
-          createdAt: 'asc',
-        },
-        take: Math.min(MAX_REUSED_VARIATIONS, requestedVariations),
-      });
-
-      if (poolCandidates.length > 0) {
-        const candidateIds = poolCandidates.map(variation => variation.id);
+      if (!parsed.devImageModel) {
         await prisma.anchorVariationPool.updateMany({
           where: {
-            id: { in: candidateIds },
-            status: 'available',
+            status: 'reserved',
+            reservedUntil: { lt: new Date() },
           },
           data: {
-            status: 'reserved',
-            reservedByRequestId: reuseRequestId,
-            reservedAt: new Date(),
-            reservedUntil: buildReservationExpiry(),
+            status: 'available',
+            reservedByRequestId: null,
+            reservedAt: null,
+            reservedUntil: null,
           },
         });
 
-        reservedPoolRows = await prisma.anchorVariationPool.findMany({
+        const poolCandidates = await prisma.anchorVariationPool.findMany({
           where: {
-            id: { in: candidateIds },
-            status: 'reserved',
-            reservedByRequestId: reuseRequestId,
+            fingerprint,
+            status: 'available',
           },
+          orderBy: {
+            createdAt: 'asc',
+          },
+          take: Math.min(MAX_REUSED_VARIATIONS, requestedVariations),
         });
 
-        const reservedById = new Map(reservedPoolRows.map(variation => [variation.id, variation]));
-        reservedPoolVariations = candidateIds
-          .map(id => reservedById.get(id))
-          .filter((variation): variation is NonNullable<typeof variation> => Boolean(variation))
-          .map(variation => ({
-            variationId: variation.id,
-            imageUrl: variation.imageUrl,
-            structureMatchScore: variation.structureMatchScore ?? 0,
-            iouScore: variation.iouScore ?? 0,
-            edgeOverlapScore: variation.edgeOverlapScore ?? 0,
-            structurePreserved: variation.structurePreserved ?? false,
-            classification: variation.classification ?? 'Reused',
-            wasComposited: false,
-            seed: variation.seed ?? 0,
-            reusedFromPool: true,
-          }));
+        if (poolCandidates.length > 0) {
+          const candidateIds = poolCandidates.map(variation => variation.id);
+          await prisma.anchorVariationPool.updateMany({
+            where: {
+              id: { in: candidateIds },
+              status: 'available',
+            },
+            data: {
+              status: 'reserved',
+              reservedByRequestId: reuseRequestId,
+              reservedAt: new Date(),
+              reservedUntil: buildReservationExpiry(),
+            },
+          });
+
+          reservedPoolRows = await prisma.anchorVariationPool.findMany({
+            where: {
+              id: { in: candidateIds },
+              status: 'reserved',
+              reservedByRequestId: reuseRequestId,
+            },
+          });
+
+          const reservedById = new Map(reservedPoolRows.map(variation => [variation.id, variation]));
+          reservedPoolVariations = candidateIds
+            .map(id => reservedById.get(id))
+            .filter((variation): variation is NonNullable<typeof variation> => Boolean(variation))
+            .map(variation => ({
+              variationId: variation.id,
+              imageUrl: variation.imageUrl,
+              structureMatchScore: variation.structureMatchScore ?? 0,
+              iouScore: variation.iouScore ?? 0,
+              edgeOverlapScore: variation.edgeOverlapScore ?? 0,
+              structurePreserved: variation.structurePreserved ?? false,
+              classification: variation.classification ?? 'Reused',
+              wasComposited: false,
+              seed: variation.seed ?? 0,
+              reusedFromPool: true,
+            }));
+        }
       }
     } catch (poolError) {
       logger.warn('[AI Enhance] Variation pool lookup failed; continuing with fresh generation', {
@@ -471,7 +448,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       // --- AI Generation (with timeout) ---
       // Use enhanceSigilWithAI for automatic provider selection (Google → Replicate fallback)
       // Or use enhanceSigilWithControlNet directly for Replicate-only
-      const useNewPipeline = provider !== 'replicate';
+      const useNewPipeline = Boolean(parsed.devImageModel) || provider !== 'replicate';
 
       let enhancementResult: Awaited<ReturnType<typeof enhanceSigilWithAI>>;
       try {
@@ -479,17 +456,19 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
           useNewPipeline
             ? enhanceSigilWithAI({
                 sigilSvg,
-                styleChoice: styleChoice as AIStyle,
+                styleChoice: styleChoice as GenerationStyleId,
                 userId: user.id,
                 intentionText,
                 validateStructure: validateStructure !== false,
                 autoComposite: autoComposite === true,
                 tier: effectiveTier,
                 numberOfVariations: numberOfVariationsToGenerate,
+                devImageModel: parsed.devImageModel,
+                variationKey: `${anchorId}:${parsedAttempt}`,
               })
             : enhanceSigilWithControlNet({
                 sigilSvg,
-                styleChoice: styleChoice as AIStyle,
+                styleChoice: styleChoice as GenerationStyleId,
                 userId: user.id,
                 intentionText,
                 validateStructure: validateStructure !== false,
@@ -557,9 +536,11 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       usedProvider =
         modelLower.includes('gemini') || modelLower.includes('imagen')
           ? 'gemini'
-          : modelLower.includes('controlnet')
-            ? 'replicate'
-            : 'unknown';
+          : modelLower.includes('openai') || modelLower.includes('gpt-image')
+            ? 'openai'
+            : modelLower.includes('controlnet')
+              ? 'replicate'
+              : 'unknown';
 
       // --- Upload variations to R2 (per-variation error handling) ---
       const uploadedVariations: ClientVariation[] = [];
@@ -650,7 +631,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         negativePromptUsed = firstReserved.sourceNegativePrompt || '';
         generationTime = 0;
         controlMethod = 'lineart';
-        styleApplied = (firstReserved.styleChoice as AIStyle) || styleChoice;
+        styleApplied = (firstReserved.styleChoice as GenerationStyleId) || styleChoice;
       }
     }
 
@@ -708,13 +689,21 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
 }
 
 // Primary route
-router.post('/enhance', optionalAuthMiddleware, aiDailyLimiter, aiHourlyLimiter, handleEnhance);
+router.post(
+  '/enhance',
+  optionalAuthMiddleware,
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
+  anchorEnhanceConcurrencyGuard,
+  handleEnhance
+);
 // Legacy alias — keeps older mobile builds working
 router.post(
   '/enhance-controlnet',
   optionalAuthMiddleware,
-  aiDailyLimiter,
-  aiHourlyLimiter,
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
+  anchorEnhanceConcurrencyGuard,
   handleEnhance
 );
 
@@ -722,7 +711,12 @@ router.post(
  * POST /api/ai/mantra
  * Generate mantra from distilled letters
  */
-router.post('/mantra', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post(
+  '/mantra',
+  authMiddleware,
+  globalAiCeilingLimiter,
+  aiPlanningLimiter,
+  async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const parsed = validateOrRespond(MantraSchema, req.body, res);
     if (!parsed) return;
@@ -754,6 +748,8 @@ router.post('/mantra', authMiddleware, async (req: AuthRequest, res: Response): 
 router.post(
   '/mantra/audio',
   authMiddleware,
+  globalAiCeilingLimiter,
+  aiPlanningLimiter,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const parsed = validateOrRespond(MantraAudioSchema, req.body, res);

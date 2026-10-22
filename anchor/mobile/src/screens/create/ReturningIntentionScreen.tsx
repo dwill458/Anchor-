@@ -1,3 +1,5 @@
+import type { ScrollViewInstance, TextInputInstance } from 'react-native';
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
@@ -34,6 +36,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { analyzeIntention, detectGibberish, getGuidanceText } from '@/utils/intentionPatterns';
+import { warmUpBackend } from '@/services/backendWarmup';
 
 const { height } = Dimensions.get('window');
 
@@ -42,7 +45,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 export default function ReturningIntentionScreen() {
     const navigation = useNavigation<NavigationProp>();
     const insets = useSafeAreaInsets();
-    const { recordShown } = useTeachingStore();
+    const recordShown = useTeachingStore((s) => s.recordShown);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const pendingForgeIntent = useAuthStore((state) => state.pendingForgeIntent);
     const setPendingForgeIntent = useAuthStore((state) => state.setPendingForgeIntent);
@@ -51,8 +54,8 @@ export default function ReturningIntentionScreen() {
     const anchorCount = useAnchorStore((state) => state.anchors.length);
     const entitlements = useEntitlements();
 
-    const scrollViewRef = useRef<ScrollView>(null);
-    const textInputRef = useRef<TextInput>(null);
+    const scrollViewRef = useRef<ScrollViewInstance>(null);
+    const textInputRef = useRef<TextInputInstance>(null);
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');
@@ -64,7 +67,6 @@ export default function ReturningIntentionScreen() {
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
     const undertoneOpacity = useRef(new Animated.Value(0)).current;
     const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const firstTimeShownRef = useRef(false);
     const hesitationShownRef = useRef(false);
 
     // Reduced motion & tense nudge
@@ -74,13 +76,10 @@ export default function ReturningIntentionScreen() {
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
-    // Teaching gate — evaluated once per render cycle
-    const firstTimeTeaching = useTeachingGate({
-        screenId: 'intention_input',
-        candidateIds: ['intention_input_first_time_v1'],
-    });
+    // Teaching gate — evaluated once per render cycle (hesitation only, first-time omitted for returning users)
     const hesitationTeaching = useTeachingGate({
-        screenId: 'intention_input',
+        screenId: 'returning_intention',
+        isReturning: true,
         candidateIds: ['intention_input_hesitation_v1'],
     });
 
@@ -218,15 +217,6 @@ export default function ReturningIntentionScreen() {
 
     const handleFocus = () => {
         setIsFocused(true);
-        // First-time undertone: show after 1.2s of focus with no keystrokes
-        if (firstTimeTeaching && !firstTimeShownRef.current) {
-            idleTimerRef.current = setTimeout(() => {
-                if (firstTimeTeaching && !firstTimeShownRef.current) {
-                    firstTimeShownRef.current = true;
-                    showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
-                }
-            }, 1200);
-        }
         // Scroll to end of ScrollView to make sure text box is visible above the keyboard
         setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -264,14 +254,14 @@ export default function ReturningIntentionScreen() {
             // Reset idle timer on every keystroke
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
 
-            // Schedule hesitation hint after 8s idle (only if user has typed something)
+            // Schedule hesitation hint after 16s idle (only if user has typed something)
             if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
                 idleTimerRef.current = setTimeout(() => {
                     if (hesitationTeaching && !hesitationShownRef.current) {
                         hesitationShownRef.current = true;
                         showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
                     }
-                }, 8000);
+                }, 16000);
             }
 
             if (text.length === 0) {
@@ -345,10 +335,21 @@ export default function ReturningIntentionScreen() {
 
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
-            navigation.navigate('LetterDistillation', {
+            warmUpBackend();
+            // DEFERRED: the old creation path. Superseded by AnchorCreationFlow; kept registered.
+            // navigation.navigate('LetterDistillation', {
+            //     intentionText: intention,
+            //     category,
+            //     distilledLetters: distillation.finalLetters,
+            // });
+            // DEFERRED: visual redesign of this screen to the cream Intention layout. Until then the
+            // flow fades the centred text in (entry: 'fade') rather than gliding from a field.
+            navigation.navigate('AnchorCreationFlow', {
                 intentionText: intention,
                 category,
                 distilledLetters: distillation.finalLetters,
+                source: 'typed',
+                entry: 'fade',
             });
         }
     };

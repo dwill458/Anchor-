@@ -23,6 +23,10 @@ export interface TeachingUserFlags {
   hasCompletedFirstBurn: boolean;
   hasCompletedFirstStabilize: boolean;
   hasTracedBefore: boolean;
+  /** Set once, when a first-Anchor arrival on Home actually plays. Never cleared. */
+  hasSeenFirstAnchorArrival: boolean;
+  /** Set once, when the first-practice completion scene actually starts. Never cleared. */
+  hasSeenFirstPracticeScene: boolean;
 }
 
 export interface TeachingState {
@@ -64,6 +68,7 @@ export interface TeachingState {
   recordTraceHintSeen: (id: string) => void;
   exhaustTraceHint: (id: string) => void;
   isTraceHintExhausted: (id: string) => boolean;
+  isReturningUser: () => boolean;
 }
 
 const createInitialTeachingState = () => ({
@@ -79,6 +84,8 @@ const createInitialTeachingState = () => ({
     hasCompletedFirstBurn: false,
     hasCompletedFirstStabilize: false,
     hasTracedBefore: false,
+    hasSeenFirstAnchorArrival: false,
+    hasSeenFirstPracticeScene: false,
   },
   traceHintSeenCounts: {},
   traceHintExhaustedIds: {},
@@ -177,6 +184,18 @@ export const useTeachingStore = create<TeachingState>()(
       },
 
       isTraceHintExhausted: (id) => id in get().traceHintExhaustedIds,
+
+      isReturningUser: () => {
+        const flags = get().userFlags;
+        return (
+          flags.hasCreatedFirstAnchor ||
+          flags.hasCompletedFirstCharge ||
+          flags.hasCompletedFirstBurn ||
+          flags.hasCompletedFirstStabilize ||
+          flags.hasSeenFirstAnchorArrival ||
+          flags.hasSeenFirstPracticeScene
+        );
+      },
     }),
     {
       name: 'anchor-teaching-storage',
@@ -193,6 +212,8 @@ export const useTeachingStore = create<TeachingState>()(
           hasCompletedFirstBurn: false,
           hasCompletedFirstStabilize: false,
           hasTracedBefore: false,
+          hasSeenFirstAnchorArrival: false,
+          hasSeenFirstPracticeScene: false,
           ...(persistedState.userFlags ?? {}),
         };
 

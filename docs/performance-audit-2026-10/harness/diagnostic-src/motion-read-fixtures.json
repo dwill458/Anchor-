@@ -1,0 +1,89 @@
+{
+  "vision": {
+    "id": "motion-vision-__ANCHOR_ID__",
+    "anchorId": "__ANCHOR_ID__",
+    "title": "Synthetic motion board",
+    "description": "Local diagnostic fixture; no user writing.",
+    "status": "ACTIVE",
+    "scenes": [
+      {
+        "id": "motion-scene-1-__ANCHOR_ID__",
+        "visionId": "motion-vision-__ANCHOR_ID__",
+        "sourceType": "USER_UPLOAD",
+        "assetId": "motion-local-asset-1",
+        "resolvedImageUrl": "http://127.0.0.1:39999/perf-assets/vision-future-desk.jpg",
+        "prompt": null,
+        "caption": null,
+        "sortOrder": 0,
+        "isArchived": false,
+        "createdAt": "2026-01-03T00:00:00.000Z",
+        "updatedAt": "2026-01-03T00:00:00.000Z"
+      },
+      {
+        "id": "motion-scene-2-__ANCHOR_ID__",
+        "visionId": "motion-vision-__ANCHOR_ID__",
+        "sourceType": "USER_UPLOAD",
+        "assetId": "motion-local-asset-2",
+        "resolvedImageUrl": "http://127.0.0.1:39999/perf-assets/vision-future-window.jpg",
+        "prompt": null,
+        "caption": null,
+        "sortOrder": 1,
+        "isArchived": false,
+        "createdAt": "2026-01-03T00:00:00.000Z",
+        "updatedAt": "2026-01-03T00:00:00.000Z"
+      },
+      {
+        "id": "motion-scene-3-__ANCHOR_ID__",
+        "visionId": "motion-vision-__ANCHOR_ID__",
+        "sourceType": "USER_UPLOAD",
+        "assetId": "motion-local-asset-3",
+        "resolvedImageUrl": "http://127.0.0.1:39999/perf-assets/vision-future-family.jpg",
+        "prompt": null,
+        "caption": null,
+        "sortOrder": 2,
+        "isArchived": false,
+        "createdAt": "2026-01-03T00:00:00.000Z",
+        "updatedAt": "2026-01-03T00:00:00.000Z"
+      }
+    ],
+    "notes": [],
+    "seenToday": true,
+    "createdAt": "2026-01-03T00:00:00.000Z",
+    "updatedAt": "2026-01-03T00:00:00.000Z"
+  },
+  "chart": {
+    "anchor": {
+      "id": "__ANCHOR_ID__",
+      "intentionText": "__INTENTION_TEXT__",
+      "category": "__CATEGORY__",
+      "enhancedImageUrl": null,
+      "released": false
+    },
+    "chart": {
+      "id": "motion-course-__ANCHOR_ID__",
+      "destinationText": "Reach 1,000",
+      "status": "ACTIVE",
+      "version": 1,
+      "currentWaypointId": "motion-waypoint-1-__ANCHOR_ID__",
+      "currentMoveId": "motion-move-1-__ANCHOR_ID__",
+      "waypointCount": 5,
+      "reachedCount": 0,
+      "plottedAt": "2026-01-03T00:00:00.000Z",
+      "completedAt": null,
+      "archivedAt": null,
+      "destinationAnchorLink": null,
+      "waypoints": [
+        { "id": "motion-waypoint-1-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 0, "title": "First synthetic milestone", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": 254, "target": 1000 }, "state": "CURRENT", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
+        { "id": "motion-waypoint-2-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 1, "title": "Synthetic waypoint 2", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
+        { "id": "motion-waypoint-3-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 2, "title": "Synthetic waypoint 3", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
+        { "id": "motion-waypoint-4-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 3, "title": "Synthetic waypoint 4", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null },
+        { "id": "motion-waypoint-5-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "position": 4, "title": "Synthetic waypoint 5", "description": null, "kind": "METRIC", "metric": { "label": null, "baseline": 84, "current": null, "target": 1000 }, "state": "UPCOMING", "blockedReason": null, "reachedAt": null, "skippedAt": null, "cancelledAt": null, "anchorLink": null }
+      ],
+      "moves": [
+        { "id": "motion-move-1-__ANCHOR_ID__", "courseId": "motion-course-__ANCHOR_ID__", "waypointId": "motion-waypoint-1-__ANCHOR_ID__", "title": "Complete one synthetic practice action", "rationale": null, "source": "USER", "status": "ACTIVE", "position": 0, "isCurrent": true, "completedAt": null, "createdAt": "2026-01-03T00:00:00.000Z" }
+      ]
+    },
+    "history": [],
+    "stats": { "completedMoveCount": 0, "practiceCount": 0 }
+  }
+}

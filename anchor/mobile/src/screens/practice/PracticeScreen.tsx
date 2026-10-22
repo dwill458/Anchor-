@@ -1,3 +1,4 @@
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import React, {
   useCallback,
   useEffect,
@@ -12,8 +13,7 @@ import {
   Text,
   Pressable,
   Platform,
-  InteractionManager,
-} from "react-native";
+  } from "react-native";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -25,11 +25,11 @@ import { Eye, Flame, Zap, ChevronRight } from "lucide-react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { Anchor, PracticeStackParamList } from '@/types';
 import type { PracticeEntrySource } from '@/types/practice';
 import { ZenBackground } from '@/components/common';
@@ -57,6 +57,7 @@ import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { perfLog } from '@/utils/perfDiagnostics';
 import { ENABLE_VISUALIZE } from '@/config';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 import {
@@ -127,6 +128,10 @@ function toModeTitle(mode: Exclude<PendingMode, null>): string {
 }
 
 export const PracticeScreen: React.FC = () => {
+  useEffect(() => {
+    perfLog('screen-lifecycle', { screen: 'PracticeScreen', action: 'mount' });
+    return () => perfLog('screen-lifecycle', { screen: 'PracticeScreen', action: 'unmount' });
+  }, []);
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();
@@ -134,7 +139,7 @@ export const PracticeScreen: React.FC = () => {
   const { navigateToPaywall, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotionEnabled();
   const performanceTier = useAppPerformanceTier();
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
@@ -268,7 +273,7 @@ export const PracticeScreen: React.FC = () => {
     setSelectedMode(selectedAnchor?.isCharged ? 'charge' : 'quickActivate');
   }, [selectedAnchor?.id]);
 
-  const threadState = getThreadState(threadStrength, lastPrimedAt);
+  const threadState = getThreadState(threadStrength ?? 0, lastPrimedAt);
   const isFading = threadState === "fading";
   const hasPrimedToday = lastPrimedAt === localDateString(new Date());
   const locationPreset = locationPrimingSuggestion?.zone.preset;
@@ -277,7 +282,7 @@ export const PracticeScreen: React.FC = () => {
       ? "focusSession"
       : locationPreset?.sessionType === "prime"
         ? "deepPrime"
-        : threadStrength < 40
+        : (threadStrength ?? 0) < 40
           ? "focusSession"
           : "deepPrime";
   const ctaTitle = locationPrimingSuggestion
@@ -668,7 +673,7 @@ export const PracticeScreen: React.FC = () => {
       };
 
       if (Platform.OS === "android") {
-        InteractionManager.runAfterInteractions(() => {
+        scheduleAfterInteractions(() => {
           requestAnimationFrame(applySelection);
         });
         return;

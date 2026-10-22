@@ -65,13 +65,13 @@ export const DailyStreakStrip: React.FC<DailyStreakStripProps> = ({
         <BlurView
           intensity={48}
           tint="dark"
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
         <LinearGradient
           colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         />
         {!reduceMotionEnabled && (
           <Animated.View pointerEvents="none" style={[styles.driftLayer, driftStyle]}>
@@ -79,7 +79,7 @@ export const DailyStreakStrip: React.FC<DailyStreakStripProps> = ({
               colors={['rgba(240,203,106,0)', 'rgba(240,203,106,0.14)', 'rgba(240,203,106,0)']}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
-              style={StyleSheet.absoluteFillObject}
+              style={StyleSheet.absoluteFill}
             />
           </Animated.View>
         )}

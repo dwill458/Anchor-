@@ -63,6 +63,7 @@ jest.mock('@/hooks/useTrialStatus', () => ({
     hasActiveEntitlement: false,
     daysRemaining: 0,
     subscriptionStatus: 'expired',
+    entitlementReady: true,
   }),
 }));
 
@@ -140,6 +141,7 @@ const buildLiveOfferingMetadata = () => ({
     pricePerYear: 95.88,
     pricePerYearString: '$95.88',
     currencyCode: 'USD',
+    trialEligible: true,
   },
   annual: {
     planId: 'annual' as const,
@@ -151,6 +153,7 @@ const buildLiveOfferingMetadata = () => ({
     pricePerYear: 59.99,
     pricePerYearString: '$59.99',
     currencyCode: 'USD',
+    trialEligible: true,
   },
 });
 
@@ -210,7 +213,7 @@ describe('PaywallScreen', () => {
     expect(screen.getByText('Annual')).toBeTruthy();
     expect(screen.queryByText('Lifetime')).toBeNull();
     await waitFor(() => {
-      expect(screen.getByText('Continue my practice')).toBeTruthy();
+      expect(screen.getByText('Start 7-day free trial')).toBeTruthy();
     });
   });
 
@@ -221,7 +224,7 @@ describe('PaywallScreen', () => {
     expect(screen.getByTestId('paywall-plan-monthly').props.accessibilityState.selected).toBe(false);
     expect(
       StyleSheet.flatten(screen.getByTestId('paywall-plan-check-annual').props.style).backgroundColor
-    ).toBe('#f0cb6a');
+    ).toBe('#F2DFA8');
   });
 
   it('uses the preferred plan from navigation params', () => {
@@ -237,7 +240,7 @@ describe('PaywallScreen', () => {
     render(<PaywallScreen />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+      expect(screen.getByLabelText('Start 7-day free trial, Annual selected')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('paywall-plan-monthly'));
 
@@ -256,10 +259,10 @@ describe('PaywallScreen', () => {
     render(<PaywallScreen />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+      expect(screen.getByLabelText('Start 7-day free trial, Annual selected')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('paywall-plan-monthly'));
-    fireEvent.press(screen.getByLabelText('Continue my practice, Monthly selected'));
+    fireEvent.press(screen.getByLabelText('Start 7-day free trial, Monthly selected'));
 
     await waitFor(() => {
       expect(revenueCatService.purchasePackageByIdentifier).toHaveBeenCalledWith('$rc_monthly', {
@@ -270,7 +273,7 @@ describe('PaywallScreen', () => {
 
   it('resets to Main only after the server confirms an entitlement', async () => {
     jest.mocked(revenueCatService.purchasePackageByIdentifier).mockResolvedValueOnce({
-      status: trialStatus(false),
+      status: trialStatus(true),
       dismissed: false,
     });
     mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(true));
@@ -278,9 +281,9 @@ describe('PaywallScreen', () => {
     render(<PaywallScreen />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+      expect(screen.getByLabelText('Start 7-day free trial, Annual selected')).toBeTruthy();
     });
-    fireEvent.press(screen.getByLabelText('Continue my practice, Annual selected'));
+    fireEvent.press(screen.getByLabelText('Start 7-day free trial, Annual selected'));
 
     await waitFor(() => {
       expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Main' }] });
@@ -290,7 +293,7 @@ describe('PaywallScreen', () => {
   });
 
   it('restores and unlocks only when the server reports active access', async () => {
-    jest.mocked(revenueCatService.restorePurchases).mockResolvedValueOnce(trialStatus(false));
+    jest.mocked(revenueCatService.restorePurchases).mockResolvedValueOnce(trialStatus(true));
     mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(true));
 
     render(<PaywallScreen />);
@@ -304,7 +307,7 @@ describe('PaywallScreen', () => {
     expect(mockApplyServerEntitlement).toHaveBeenCalledWith(true);
   });
 
-  it('does not unlock when the server cannot confirm a restored entitlement', async () => {
+  it('still closes after the store restores access when backend reconciliation is deferred', async () => {
     jest.mocked(revenueCatService.restorePurchases).mockResolvedValueOnce(trialStatus(true));
     mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(false));
 
@@ -315,16 +318,13 @@ describe('PaywallScreen', () => {
     await waitFor(() => {
       expect(revenueCatService.restorePurchases).toHaveBeenCalled();
     });
-    expect(mockReset).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith(
-      'No subscription found',
-      'No active subscription was found for this account.'
-    );
+    expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Main' }] });
+    expect(mockApplyServerEntitlement).toHaveBeenCalledWith(true);
   });
 
-  it('keeps the paywall visible while a completed purchase is still awaiting server confirmation', async () => {
+  it('does not unlock when the store does not report an active entitlement', async () => {
     jest.mocked(revenueCatService.purchasePackageByIdentifier).mockResolvedValueOnce({
-      status: trialStatus(true),
+      status: trialStatus(false),
       dismissed: false,
     });
     mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(false));
@@ -332,9 +332,9 @@ describe('PaywallScreen', () => {
     render(<PaywallScreen />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+      expect(screen.getByLabelText('Start 7-day free trial, Annual selected')).toBeTruthy();
     });
-    fireEvent.press(screen.getByLabelText('Continue my practice, Annual selected'));
+    fireEvent.press(screen.getByLabelText('Start 7-day free trial, Annual selected'));
 
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(
@@ -396,9 +396,9 @@ describe('PaywallScreen', () => {
     render(<PaywallScreen />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+      expect(screen.getByLabelText('Start 7-day free trial, Annual selected')).toBeTruthy();
     });
-    fireEvent.press(screen.getByLabelText('Continue my practice, Annual selected'));
+    fireEvent.press(screen.getByLabelText('Start 7-day free trial, Annual selected'));
 
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(
@@ -472,7 +472,7 @@ describe('PaywallScreen', () => {
   it('frames the expired-trial decision as retaining access, not losing stored work', () => {
     render(<PaywallScreen />);
 
-    expect(screen.getByText(/Your anchors and progress are safe/)).toBeTruthy();
+    expect(screen.getByText(/Your first Anchor is safe/)).toBeTruthy();
     expect(screen.getByText(/Keep it within reach as you/)).toBeTruthy();
   });
 

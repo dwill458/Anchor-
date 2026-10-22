@@ -5,7 +5,6 @@
  */
 
 import { Router, Response, NextFunction } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { GoogleGenAI } from '@google/genai';
 import { RedisStore } from 'rate-limit-redis';
 import { z } from 'zod';
@@ -15,10 +14,11 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { redisClient } from '../../lib/redis';
 import { BackendAnalyticsService } from '../../services/AnalyticsService';
-import { getRevenueCatAccess } from '../../services/RevenueCatEntitlementService';
+import { resolveMonetizationAccess } from '../../services/MonetizationAccessService';
 import { logger } from '../../utils/logger';
 import { resolveStoredAssetUrl } from '../../services/StorageService';
 import { courseService } from '../../services/CourseService';
+import { globalAiCeilingLimiter, anchorEnhanceLimiter } from '../middleware/aiRateLimit';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = [
@@ -66,38 +66,40 @@ const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
   lastActivatedAt: true,
   createdAt: true,
   updatedAt: true,
+  threadV2States: {
+    select: {
+      strength: true,
+    },
+    take: 1,
+  },
 };
 
 const router = Router();
-const TRIAL_ANCHOR_LIMIT = 7;
 const PAID_PRO_DAILY_ANCHOR_LIMIT = 10;
-const TRIAL_DURATION_DAYS = 7;
-
-const aiHourlyLimiterStore =
-  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
-    ? undefined
-    : new RedisStore({
-        prefix: 'rl:anchors:classify-tier:',
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-
-const aiHourlyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
-  message: {
-    error: 'Too many AI classification requests',
-    message: 'You have reached the AI classification limit. Please try again in an hour.',
-  },
-  store: aiHourlyLimiterStore,
-});
 
 // --- Zod schemas ---
 
 const StructureVariantEnum = z.enum(['dense', 'balanced', 'minimal']);
+
+/**
+ * How an Anchor's structure appears (Anchor 2.0 "expression"). Appearance only: it never
+ * changes the stored geometry. Kept in `classifierMeta.v2Expression`.
+ */
+const AnchorExpressionEnum = z.enum([
+  'original',
+  'monoline',
+  'architectural',
+  'foil',
+  'embossed',
+  'etched',
+  'ink',
+  'halo',
+  'glass',
+  'radiant',
+  'organic',
+  'woven',
+  'cut_paper',
+]);
 
 const CreateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500),
@@ -210,6 +212,7 @@ const UpdateAnchorSchema = z.object({
   archivedAt: z.string().nullable().optional(),
   isShared: z.boolean().optional(),
   sharedAt: z.string().nullable().optional(),
+  expression: AnchorExpressionEnum.optional(),
 });
 
 const ChargeAnchorSchema = z.object({
@@ -226,7 +229,20 @@ const ActivateAnchorSchema = z.object({
 
 const ClassifyTierSchema = z.object({
   intentionText: z.string().min(1).max(500),
+  category: z.string().min(1).max(100).optional(),
 });
+
+const AUTHORITATIVE_CATEGORY_TIERS: Record<string, string> = {
+  health: 'mars',
+  career: 'jupiter',
+  relationships: 'venus',
+  creativity: 'sun',
+  spirituality: 'saturn',
+  abundance: 'jupiter',
+  family: 'venus',
+  learning: 'saturn',
+  adventure: 'venus',
+};
 
 const CLASSIFY_TIER_RESPONSE_SCHEMA = {
   type: 'object',
@@ -302,15 +318,31 @@ function extractVariationReservation(metadata: unknown): {
   };
 }
 
-async function resolveAnchorArtworkUrls<T extends { enhancedImageUrl?: string | null }>(
-  anchor: T
-): Promise<T> {
+async function resolveAnchorArtworkUrls<
+  T extends {
+    enhancedImageUrl?: string | null;
+    threadV2States?: Array<{ strength: number }>;
+    threadStrength?: number | null;
+  }
+>(anchor: T): Promise<T & { threadStrength: number | null }> {
+  const existingStrength = anchor.threadStrength;
+  const threadStrength =
+    typeof existingStrength === 'number'
+      ? existingStrength
+      : Array.isArray(anchor.threadV2States) && anchor.threadV2States.length > 0
+        ? anchor.threadV2States[0].strength
+        : null;
+
   if (!anchor?.enhancedImageUrl) {
-    return anchor;
+    return {
+      ...anchor,
+      threadStrength,
+    };
   }
 
   return {
     ...anchor,
+    threadStrength,
     enhancedImageUrl:
       (await resolveStoredAssetUrl(anchor.enhancedImageUrl, 7 * 24 * 60 * 60)) ?? null,
   };
@@ -342,9 +374,12 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
   const user = await tx.user.findUnique({
     where: { id: userId },
     select: {
+      id: true,
       subscriptionStatus: true,
       isComped: true,
       trialStartedAt: true,
+      subscriptionId: true,
+      totalAnchorsCreated: true,
     },
   });
 
@@ -353,8 +388,8 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
   }
 
   const now = new Date();
-  const paidPro =
-    user.isComped || user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
+  const access = await resolveMonetizationAccess(user);
+  const paidPro = access.hasProAccess;
 
   if (paidPro) {
     const { start, end } = getUtcDayRange(now);
@@ -374,45 +409,26 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
     return;
   }
 
-  const trialStartedAt = user.trialStartedAt;
-  const trialEndsAt = addDays(trialStartedAt, TRIAL_DURATION_DAYS);
-  const isTrialActive = now < trialEndsAt;
-
-  if (!isTrialActive) {
+  if (user.totalAnchorsCreated >= 1) {
     throw new AppError('Create more anchors with Pro', 403, 'CREATE_ANCHOR_FREE_LOCKED');
-  }
-
-  const trialAnchorCount = await tx.anchor.count({
-    where: {
-      userId,
-      createdAt: {
-        gte: trialStartedAt,
-        lt: trialEndsAt,
-      },
-    },
-  });
-
-  if (trialAnchorCount >= TRIAL_ANCHOR_LIMIT) {
-    throw new AppError('Trial anchor limit reached', 403, 'TRIAL_ANCHOR_CAP_REACHED');
   }
 }
 
 async function syncRevenueCatSubscription(user: NonNullable<AuthRequest['dbUser']>): Promise<void> {
   if (user.isComped) return;
 
-  const access = await getRevenueCatAccess(user.id);
-  if (!access) return;
+  const access = await resolveMonetizationAccess(user);
+  if (access.source !== 'revenuecat' && access.source !== 'revenuecat_cache') return;
 
-  const persistedPaid =
-    user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
-  if (persistedPaid === access.isActive) return;
-
-  const subscriptionStatus = access.isActive ? 'pro' : 'free';
+  const subscriptionStatus = access.hasProAccess ? 'pro' : 'free';
+  const subscriptionId = access.hasProAccess ? access.productIdentifier : null;
+  if (user.subscriptionStatus === subscriptionStatus && user.subscriptionId === subscriptionId)
+    return;
   await prisma.user.update({
     where: { id: user.id },
     data: {
       subscriptionStatus,
-      subscriptionId: access.productIdentifier,
+      subscriptionId,
     },
   });
   user.subscriptionStatus = subscriptionStatus;
@@ -441,6 +457,8 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
         subscriptionStatus: true,
         isComped: true,
         trialStartedAt: true,
+        subscriptionId: true,
+        totalAnchorsCreated: true,
       },
     });
     if (!user) {
@@ -461,13 +479,32 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
  *
  * Body:
  * - intentionText
+ * - category (optional resolved AnchorCategory)
  */
 router.post(
   '/classify-tier',
-  aiHourlyLimiter,
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { intentionText } = validate(ClassifyTierSchema, req.body);
+      const { intentionText, category } = validate(ClassifyTierSchema, req.body);
+
+      // Precedence rule: the deterministic category -> tier map (CATEGORY_TO_TIER) is
+      // authoritative for all 9 specific categories. The Gemini tier classifier runs ONLY
+      // when the resolved category is a fallback ('desire' or 'custom'), i.e. the exact
+      // cases where the keyword system has declared uncertainty. In all other cases this
+      // endpoint must not override the deterministic map.
+      const normalizedCategory = category?.trim().toLowerCase();
+      if (normalizedCategory && AUTHORITATIVE_CATEGORY_TIERS[normalizedCategory]) {
+        res.json({
+          success: true,
+          data: {
+            tier: AUTHORITATIVE_CATEGORY_TIERS[normalizedCategory],
+            confidenceScore: 0.8,
+          },
+        });
+        return;
+      }
 
       const ai = new GoogleGenAI({});
 
@@ -480,7 +517,13 @@ Tier mapping:
 - jupiter: Career, wealth, ambition, abundance, scaling up.
 - mars: Health, vitality, physical energy, protection, fitness.
 - sun: Identity, core desires, raw intent, pure will, clarity.
-- venus: Relationships, love, peace, harmony, experiences.`;
+- venus: Relationships, love, peace, harmony, experiences.
+Classification guidance:
+- Classify the user's primary intention, not the grammatical role or person mentioned.
+- Academic and educational intentions belong to saturn: "I am a straight-A student", "get better grades", "pass my exams".
+- Only use venus when the intention is actually about a relationship or connection: "build a stronger relationship with my partner".
+- Do not classify an intention as venus just because it mentions a student, mentor, coach, teacher, or another person.
+Return the single best tier and lower confidence when the intention is genuinely ambiguous.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-flash-latest',
@@ -961,6 +1004,12 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
           },
           take: 5, // Last 5 charges
         },
+        threadV2States: {
+          select: {
+            strength: true,
+          },
+          take: 1,
+        },
       },
     });
 
@@ -1028,6 +1077,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       archivedAt,
       isShared,
       sharedAt,
+      expression,
     } = validate(UpdateAnchorSchema, req.body);
 
     // Build update object with only the allowed fields that were provided
@@ -1049,6 +1099,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       archivedAt?: Date | null;
       isShared?: boolean;
       sharedAt?: Date | null;
+      classifierMeta?: Prisma.InputJsonValue;
       updatedAt: Date;
     };
 
@@ -1074,6 +1125,21 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       allowedUpdates.archivedAt = archivedAt ? new Date(archivedAt) : null;
     if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
     if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
+    if (expression !== undefined) {
+      // Merge rather than replace: classifierMeta also carries classification provenance.
+      const current = await prisma.anchor.findFirst({
+        where: { id, userId },
+        select: { classifierMeta: true },
+      });
+      if (!current) {
+        throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+      }
+      const meta =
+        current.classifierMeta && typeof current.classifierMeta === 'object' && !Array.isArray(current.classifierMeta)
+          ? (current.classifierMeta as Prisma.JsonObject)
+          : {};
+      allowedUpdates.classifierMeta = { ...meta, v2Expression: expression };
+    }
 
     // Archiving is an Anchor-owned lifecycle operation, but closing Chart
     // links must commit atomically with it. Other edits retain the existing
@@ -1440,6 +1506,16 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
  */
 router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    // This endpoint hard-deletes the live Anchor. It remains available only
+    // behind an explicit legacy safety acknowledgement until Workstream J
+    // replaces it with an idempotent, non-destructive release lifecycle.
+    if (process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE !== 'true') {
+      throw new AppError(
+        'Legacy destructive release is disabled.',
+        403,
+        'DESTRUCTIVE_RELEASE_DISABLED'
+      );
+    }
     const { id } = req.params;
     const userId = req.dbUser!.id;
 

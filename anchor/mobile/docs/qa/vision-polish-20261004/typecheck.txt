@@ -1,0 +1,17 @@
+src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx(563,15): error TS2322: Type '{ id: string; anchorId: string; practiceMode: "focus"; completedDurationSeconds: number; completedAt: string; }[]' is not assignable to type 'PracticeSessionRecord[]'.
+  Type '{ id: string; anchorId: string; practiceMode: "focus"; completedDurationSeconds: number; completedAt: string; }' is missing the following properties from type 'PracticeSessionRecord': accountId, anchorLocalId, anchorServerId, plannedDurationSeconds, and 14 more.
+src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx(647,41): error TS2322: Type 'null' is not assignable to type 'number | undefined'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(541,5): error TS2322: Type 'number | null | undefined' is not assignable to type 'number | null'.
+  Type 'undefined' is not assignable to type 'number | null'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(594,48): error TS2345: Argument of type 'Anchor | undefined' is not assignable to parameter of type 'ExportAnchor | null'.
+  Type 'undefined' is not assignable to type 'ExportAnchor | null'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(618,37): error TS2339: Property 'status' does not exist on type '{ state: "ready"; courseId: string; destinationText: string; nextMove: string | null; reachedCount: number; waypointCount: number; currentWaypointId: string | null; currentWaypointIndex: number | null; ... 4 more ...; waypoints: { ...; }[]; }'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(630,113): error TS2339: Property 'viewedTodayAt' does not exist on type 'UseV2VisionResult'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(674,31): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<"header" | "centered">'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(804,34): error TS2322: Type '{ title: string; onBack: () => void; }' is not assignable to type 'IntrinsicAttributes & { title?: string | undefined; onBackPress?: (() => void) | undefined; utility?: ReactNode; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title?: string | undefined; onBackPress?: (() => void) | undefined; utility?: ReactNode; }'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(805,48): error TS2322: Type '{ title: string; description: string; }' is not assignable to type 'IntrinsicAttributes & { title: string; message?: string | undefined; action?: ReactNode; gesture?: ReactNode; }'.
+  Property 'description' does not exist on type 'IntrinsicAttributes & { title: string; message?: string | undefined; action?: ReactNode; gesture?: ReactNode; }'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(810,64): error TS2339: Property 'threadStrength' does not exist on type 'V2AnchorDetailModel'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(811,61): error TS2339: Property 'weeklyDelta' does not exist on type 'V2AnchorDetailModel'.
+src/screens/v2/anchors/V2AnchorDetailsScreen.tsx(858,13): error TS1345: An expression of type 'void' cannot be tested for truthiness.

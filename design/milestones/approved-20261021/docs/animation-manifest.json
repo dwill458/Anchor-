@@ -1,0 +1,6820 @@
+{
+ "strength_building": {
+  "family": "strength",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "strength_building__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "strength_building__structure",
+    "children": [
+     {
+      "id": "strength_building__structure-ring-ghost",
+      "tag": "circle",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 414.02
+     },
+     {
+      "id": "strength_building__structure-tick-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     },
+     {
+      "id": "strength_building__structure-tick-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     },
+     {
+      "id": "strength_building__structure-tick-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     },
+     {
+      "id": "strength_building__structure-tick-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "strength_building__emblem",
+    "children": [
+     {
+      "id": "strength_building__emblem-ring-main",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 250.92
+     },
+     {
+      "id": "strength_building__emblem-ring-inner",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 149.82
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "strength_building__engraving",
+    "children": [
+     {
+      "id": "strength_building__engraving-spoke-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "strength_building__engraving-spoke-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "strength_building__engraving-spoke-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "strength_building__engraving-spoke-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "strength_building__engraving-ring-fine",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 313.65
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "strength_building__highlight",
+    "children": [
+     {
+      "id": "strength_building__highlight-arc-growth",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 62.84
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "strength_building__accent",
+    "children": [
+     {
+      "id": "strength_building__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "strength_established": {
+  "family": "strength",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "strength_established__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "strength_established__structure",
+    "children": [
+     {
+      "id": "strength_established__structure-ring-outer",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 439.11
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "strength_established__emblem",
+    "children": [
+     {
+      "id": "strength_established__emblem-square",
+      "tag": "rect",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 390.37
+     },
+     {
+      "id": "strength_established__emblem-ring-inscribed",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 310.52
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "strength_established__engraving",
+    "children": [
+     {
+      "id": "strength_established__engraving-diamond",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 280.01
+     },
+     {
+      "id": "strength_established__engraving-ring-core",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 162.31
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "strength_established__highlight",
+    "children": [
+     {
+      "id": "strength_established__highlight-arc-01",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 34.21
+     },
+     {
+      "id": "strength_established__highlight-arc-02",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 34.21
+     },
+     {
+      "id": "strength_established__highlight-arc-03",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 34.21
+     },
+     {
+      "id": "strength_established__highlight-arc-04",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 34.21
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "strength_established__accent",
+    "children": [
+     {
+      "id": "strength_established__accent-node-01",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 24.49
+     },
+     {
+      "id": "strength_established__accent-node-02",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 24.49
+     },
+     {
+      "id": "strength_established__accent-node-03",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 24.49
+     },
+     {
+      "id": "strength_established__accent-node-04",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 24.49
+     },
+     {
+      "id": "strength_established__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "strength_integrated": {
+  "family": "strength",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "strength_integrated__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "strength_integrated__structure",
+    "children": [
+     {
+      "id": "strength_integrated__structure-ring-outer",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 476.75
+     },
+     {
+      "id": "strength_integrated__structure-tick-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_integrated__structure-tick-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "strength_integrated__structure-tick-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "strength_integrated__structure-tick-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_integrated__structure-tick-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "strength_integrated__structure-tick-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "strength_integrated__structure-tick-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_integrated__structure-tick-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "strength_integrated__structure-tick-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "strength_integrated__structure-tick-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_integrated__structure-tick-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "strength_integrated__structure-tick-12",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "strength_integrated__emblem",
+    "children": [
+     {
+      "id": "strength_integrated__emblem-circle-01",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 225.83
+     },
+     {
+      "id": "strength_integrated__emblem-circle-02",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 225.83
+     },
+     {
+      "id": "strength_integrated__emblem-circle-03",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 225.83
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "strength_integrated__engraving",
+    "children": [
+     {
+      "id": "strength_integrated__engraving-ring-core",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 112.37
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "strength_integrated__highlight",
+    "children": [
+     {
+      "id": "strength_integrated__highlight-arc-01",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 58.36
+     },
+     {
+      "id": "strength_integrated__highlight-arc-02",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 58.36
+     },
+     {
+      "id": "strength_integrated__highlight-arc-03",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 58.36
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "strength_integrated__accent",
+    "children": [
+     {
+      "id": "strength_integrated__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "strength_reinforced": {
+  "family": "strength",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "strength_reinforced__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "strength_reinforced__structure",
+    "children": [
+     {
+      "id": "strength_reinforced__structure-ring-fine",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 501.84
+     },
+     {
+      "id": "strength_reinforced__structure-ring-outer",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 470.48
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "strength_reinforced__emblem",
+    "children": [
+     {
+      "id": "strength_reinforced__emblem-hex-outer",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 371.99
+     },
+     {
+      "id": "strength_reinforced__emblem-hex-inner",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 180
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "strength_reinforced__engraving",
+    "children": [
+     {
+      "id": "strength_reinforced__engraving-strut-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.01
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.01
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.01
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.02
+     },
+     {
+      "id": "strength_reinforced__engraving-strut-12",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 39.01
+     },
+     {
+      "id": "strength_reinforced__engraving-ring-circum",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 388.93
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "strength_reinforced__highlight",
+    "children": [
+     {
+      "id": "strength_reinforced__highlight-arc-01",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 36.64
+     },
+     {
+      "id": "strength_reinforced__highlight-arc-02",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 36.65
+     },
+     {
+      "id": "strength_reinforced__highlight-arc-03",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 36.65
+     },
+     {
+      "id": "strength_reinforced__highlight-arc-04",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 36.64
+     },
+     {
+      "id": "strength_reinforced__highlight-arc-05",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 36.65
+     },
+     {
+      "id": "strength_reinforced__highlight-arc-06",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 36.65
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "strength_reinforced__accent",
+    "children": [
+     {
+      "id": "strength_reinforced__accent-node-01",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 33.68
+     },
+     {
+      "id": "strength_reinforced__accent-node-02",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 33.68
+     },
+     {
+      "id": "strength_reinforced__accent-node-03",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 33.68
+     },
+     {
+      "id": "strength_reinforced__accent-node-04",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 33.68
+     },
+     {
+      "id": "strength_reinforced__accent-node-05",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 33.68
+     },
+     {
+      "id": "strength_reinforced__accent-node-06",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 33.68
+     },
+     {
+      "id": "strength_reinforced__accent-ring-core",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 106.13
+     },
+     {
+      "id": "strength_reinforced__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "strength_full_strength": {
+  "family": "strength",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "strength_full_strength__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "strength_full_strength__structure",
+    "children": [
+     {
+      "id": "strength_full_strength__structure-ring-halo",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 577.12
+     },
+     {
+      "id": "strength_full_strength__structure-tick-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-12",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-13",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-14",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-15",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-16",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-17",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-18",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-19",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-20",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-21",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-22",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     },
+     {
+      "id": "strength_full_strength__structure-tick-23",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "strength_full_strength__structure-tick-24",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "strength_full_strength__emblem",
+    "children": [
+     {
+      "id": "strength_full_strength__emblem-ring-1",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 414.02
+     },
+     {
+      "id": "strength_full_strength__emblem-ring-2",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 313.65
+     },
+     {
+      "id": "strength_full_strength__emblem-ring-3",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 219.56
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "strength_full_strength__engraving",
+    "children": [
+     {
+      "id": "strength_full_strength__engraving-axis-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 55
+     },
+     {
+      "id": "strength_full_strength__engraving-axis-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 55
+     },
+     {
+      "id": "strength_full_strength__engraving-axis-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 55
+     },
+     {
+      "id": "strength_full_strength__engraving-axis-4",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 55
+     },
+     {
+      "id": "strength_full_strength__engraving-ring-fine-a",
+      "tag": "circle",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 266.6
+     },
+     {
+      "id": "strength_full_strength__engraving-ring-fine-b",
+      "tag": "circle",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 363.84
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "strength_full_strength__highlight",
+    "children": [
+     {
+      "id": "strength_full_strength__highlight-arc-01",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 50.68
+     },
+     {
+      "id": "strength_full_strength__highlight-arc-02",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 50.68
+     },
+     {
+      "id": "strength_full_strength__highlight-arc-03",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 38.4
+     },
+     {
+      "id": "strength_full_strength__highlight-arc-04",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 38.4
+     },
+     {
+      "id": "strength_full_strength__highlight-arc-05",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 26.88
+     },
+     {
+      "id": "strength_full_strength__highlight-arc-06",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 26.88
+     },
+     {
+      "id": "strength_full_strength__highlight-ring-crown",
+      "tag": "circle",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 577.12
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "strength_full_strength__accent",
+    "children": [
+     {
+      "id": "strength_full_strength__accent-sat-1",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "strength_full_strength__accent-sat-2",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "strength_full_strength__accent-sat-3",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "strength_full_strength__accent-sat-4",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "strength_full_strength__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "commitment_ten_practices": {
+  "family": "commitment",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "commitment_ten_practices__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "commitment_ten_practices__structure",
+    "children": [
+     {
+      "id": "commitment_ten_practices__structure-ring-outer",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 589.67
+     },
+     {
+      "id": "commitment_ten_practices__structure-ring-core",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 169.01
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "commitment_ten_practices__emblem",
+    "children": [
+     {
+      "id": "commitment_ten_practices__emblem-mark-01",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-02",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-03",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-04",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-05",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-06",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-07",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-08",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-09",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__emblem-mark-10",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "commitment_ten_practices__engraving",
+    "children": [
+     {
+      "id": "commitment_ten_practices__engraving-dot-01",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-02",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-03",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-04",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-05",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-06",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-07",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-08",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-09",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-dot-10",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_ten_practices__engraving-ring-fine",
+      "tag": "circle",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 276.01
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "commitment_ten_practices__highlight",
+    "children": [
+     {
+      "id": "commitment_ten_practices__highlight-tip-gold",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 30.86
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "commitment_ten_practices__accent",
+    "children": [
+     {
+      "id": "commitment_ten_practices__accent-bead-01",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-02",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-03",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-04",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-05",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-06",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-07",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-08",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-09",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-bead-10",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 19.59
+     },
+     {
+      "id": "commitment_ten_practices__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "commitment_thirty_practices": {
+  "family": "commitment",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "commitment_thirty_practices__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "commitment_thirty_practices__structure",
+    "children": [
+     {
+      "id": "commitment_thirty_practices__structure-ring-a",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 294.83
+     },
+     {
+      "id": "commitment_thirty_practices__structure-ring-b",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 445.39
+     },
+     {
+      "id": "commitment_thirty_practices__structure-ring-core",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 99.88
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "commitment_thirty_practices__emblem",
+    "children": [
+     {
+      "id": "commitment_thirty_practices__emblem-mark-01",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-02",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-03",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-04",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-05",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-06",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-07",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-08",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-09",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-10",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-11",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-12",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-13",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-14",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-15",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-16",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-17",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-18",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-19",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-20",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-21",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-22",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-23",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-24",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-25",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-26",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-27",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-28",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-29",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__emblem-mark-30",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "commitment_thirty_practices__engraving",
+    "children": [
+     {
+      "id": "commitment_thirty_practices__engraving-dot-01",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-02",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-03",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-04",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-05",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-06",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-07",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-08",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-09",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_thirty_practices__engraving-dot-10",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "commitment_thirty_practices__highlight",
+    "children": [
+     {
+      "id": "commitment_thirty_practices__highlight-arc-01",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 16.4
+     },
+     {
+      "id": "commitment_thirty_practices__highlight-arc-02",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 24.78
+     },
+     {
+      "id": "commitment_thirty_practices__highlight-arc-03",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 16.4
+     },
+     {
+      "id": "commitment_thirty_practices__highlight-arc-04",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 24.78
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "commitment_thirty_practices__accent",
+    "children": [
+     {
+      "id": "commitment_thirty_practices__accent-gem-1",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 22.56
+     },
+     {
+      "id": "commitment_thirty_practices__accent-gem-2",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 22.56
+     },
+     {
+      "id": "commitment_thirty_practices__accent-gem-3",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 22.56
+     },
+     {
+      "id": "commitment_thirty_practices__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "commitment_one_hundred_practices": {
+  "family": "commitment",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "commitment_one_hundred_practices__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "commitment_one_hundred_practices__structure",
+    "children": [
+     {
+      "id": "commitment_one_hundred_practices__structure-ring-track",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 489.3
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-002",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-003",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-004",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-005",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-006",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-007",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-008",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-009",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-010",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-012",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-013",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-014",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-015",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-016",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-017",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-018",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-019",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-020",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-022",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-023",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-024",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-025",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-026",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-027",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-028",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-029",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-030",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-032",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-033",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-034",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-035",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-036",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-037",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-038",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-039",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-040",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-042",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-043",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-044",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-045",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-046",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-047",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-048",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-049",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-050",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-052",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-053",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-054",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-055",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-056",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-057",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-058",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-059",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-060",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-062",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-063",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-064",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-065",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-066",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-067",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-068",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-069",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-070",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-072",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-073",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-074",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-075",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-076",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-077",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-078",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-079",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-080",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-082",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-083",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-084",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-085",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-086",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-087",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-088",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-089",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-090",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-092",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-093",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8.99
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-094",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-095",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-096",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 12
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-097",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-098",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9.01
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-099",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "commitment_one_hundred_practices__structure-tick-100",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "commitment_one_hundred_practices__emblem",
+    "children": [
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-01",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-02",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-03",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-04",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-05",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-06",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-07",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-08",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-09",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__emblem-mark-10",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "commitment_one_hundred_practices__engraving",
+    "children": [
+     {
+      "id": "commitment_one_hundred_practices__engraving-ring-fine",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 439.11
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-01",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-02",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-03",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-04",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-05",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-06",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-07",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-08",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-09",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "commitment_one_hundred_practices__engraving-gem-10",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "commitment_one_hundred_practices__highlight",
+    "children": [
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     },
+     {
+      "id": "commitment_one_hundred_practices__highlight-decade-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "commitment_one_hundred_practices__accent",
+    "children": [
+     {
+      "id": "commitment_one_hundred_practices__accent-ring-core",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 106.13
+     },
+     {
+      "id": "commitment_one_hundred_practices__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "commitment_100_minutes": {
+  "family": "commitment",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "commitment_100_minutes__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "commitment_100_minutes__structure",
+    "children": [
+     {
+      "id": "commitment_100_minutes__structure-tick-001",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-002",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-003",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-004",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-005",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-006",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-007",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-008",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6.99
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-009",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-010",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-011",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-012",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-013",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-014",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-015",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-016",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-017",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-018",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-019",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-020",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6.99
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-021",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-022",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-023",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-024",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-025",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-026",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-027",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-028",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-029",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-030",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-031",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-032",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-033",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-034",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-035",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6.99
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-036",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-037",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-038",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-039",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-040",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-041",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-042",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-043",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-044",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-045",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-046",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-047",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 6.99
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-048",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-049",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-050",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-051",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-052",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-053",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10.01
+     },
+     {
+      "id": "commitment_100_minutes__structure-tick-054",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "commitment_100_minutes__emblem",
+    "children": [
+     {
+      "id": "commitment_100_minutes__emblem-glass",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 400.2
+     },
+     {
+      "id": "commitment_100_minutes__emblem-rail-top",
+      "tag": "rect",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 186.37
+     },
+     {
+      "id": "commitment_100_minutes__emblem-rail-bottom",
+      "tag": "rect",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 186.37
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "commitment_100_minutes__engraving",
+    "children": [
+     {
+      "id": "commitment_100_minutes__engraving-sand-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 60.66
+     },
+     {
+      "id": "commitment_100_minutes__engraving-sand-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 59.38
+     },
+     {
+      "id": "commitment_100_minutes__engraving-sand-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 57.06
+     },
+     {
+      "id": "commitment_100_minutes__engraving-sand-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 53.6
+     },
+     {
+      "id": "commitment_100_minutes__engraving-sand-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 48.86
+     },
+     {
+      "id": "commitment_100_minutes__engraving-sand-up-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 16.6
+     },
+     {
+      "id": "commitment_100_minutes__engraving-sand-up-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 26.4
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "commitment_100_minutes__highlight",
+    "children": [
+     {
+      "id": "commitment_100_minutes__highlight-thread",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 29
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "commitment_100_minutes__accent",
+    "children": [
+     {
+      "id": "commitment_100_minutes__accent-bead-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "commitment_100_minutes__accent-bead-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "commitment_100_minutes__accent-finial-top",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 15.92
+     },
+     {
+      "id": "commitment_100_minutes__accent-finial-bottom",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 15.92
+     }
+    ]
+   }
+  ]
+ },
+ "commitment_500_minutes": {
+  "family": "commitment",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "commitment_500_minutes__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "commitment_500_minutes__structure",
+    "children": [
+     {
+      "id": "commitment_500_minutes__structure-ring-back",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 176.67
+     },
+     {
+      "id": "commitment_500_minutes__structure-post-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 124
+     },
+     {
+      "id": "commitment_500_minutes__structure-post-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 124
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "commitment_500_minutes__emblem",
+    "children": [
+     {
+      "id": "commitment_500_minutes__emblem-glass",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 376.27
+     },
+     {
+      "id": "commitment_500_minutes__emblem-rail-top",
+      "tag": "rect",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 267.43
+     },
+     {
+      "id": "commitment_500_minutes__emblem-rail-bottom",
+      "tag": "rect",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 267.43
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "commitment_500_minutes__engraving",
+    "children": [
+     {
+      "id": "commitment_500_minutes__engraving-rail-sheen-top",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 112
+     },
+     {
+      "id": "commitment_500_minutes__engraving-rail-sheen-bottom",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 112
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 53.52
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 53.02
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 51.98
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 50.32
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 48.06
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 45.14
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 41.52
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 37.22
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 32.4
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 27.2
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 21.88
+     },
+     {
+      "id": "commitment_500_minutes__engraving-sand-up-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10.12
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "commitment_500_minutes__highlight",
+    "children": [
+     {
+      "id": "commitment_500_minutes__highlight-band-l-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "commitment_500_minutes__highlight-band-r-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "commitment_500_minutes__highlight-band-l-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "commitment_500_minutes__highlight-band-r-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "commitment_500_minutes__highlight-band-l-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "commitment_500_minutes__highlight-band-r-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "commitment_500_minutes__highlight-thread",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 22
+     },
+     {
+      "id": "commitment_500_minutes__highlight-ring-front",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 176.67
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "commitment_500_minutes__accent",
+    "children": [
+     {
+      "id": "commitment_500_minutes__accent-bead-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 25.72
+     },
+     {
+      "id": "commitment_500_minutes__accent-bead-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 25.72
+     },
+     {
+      "id": "commitment_500_minutes__accent-bead-3",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 25.72
+     },
+     {
+      "id": "commitment_500_minutes__accent-bead-4",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 25.72
+     },
+     {
+      "id": "commitment_500_minutes__accent-bead-5",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 25.72
+     },
+     {
+      "id": "commitment_500_minutes__accent-cap-top-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 20.82
+     },
+     {
+      "id": "commitment_500_minutes__accent-cap-bottom-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 20.82
+     },
+     {
+      "id": "commitment_500_minutes__accent-cap-top-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 20.82
+     },
+     {
+      "id": "commitment_500_minutes__accent-cap-bottom-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 20.82
+     }
+    ]
+   }
+  ]
+ },
+ "journey_first_waypoint": {
+  "family": "journey",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "journey_first_waypoint__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "journey_first_waypoint__structure",
+    "children": [
+     {
+      "id": "journey_first_waypoint__structure-contour-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 115.36
+     },
+     {
+      "id": "journey_first_waypoint__structure-contour-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 217.72
+     },
+     {
+      "id": "journey_first_waypoint__structure-contour-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 319.54
+     },
+     {
+      "id": "journey_first_waypoint__structure-contour-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 420.95
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "journey_first_waypoint__emblem",
+    "children": [
+     {
+      "id": "journey_first_waypoint__emblem-origin",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 30.61
+     },
+     {
+      "id": "journey_first_waypoint__emblem-seg-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 43.23
+     },
+     {
+      "id": "journey_first_waypoint__emblem-seg-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 42.43
+     },
+     {
+      "id": "journey_first_waypoint__emblem-seg-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 37.99
+     },
+     {
+      "id": "journey_first_waypoint__emblem-seg-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 35.14
+     },
+     {
+      "id": "journey_first_waypoint__emblem-seg-5",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 37.15
+     },
+     {
+      "id": "journey_first_waypoint__emblem-seg-6",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 45.89
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "journey_first_waypoint__engraving",
+    "children": [
+     {
+      "id": "journey_first_waypoint__engraving-wp-ring-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_first_waypoint__engraving-wp-ring-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 36.74
+     },
+     {
+      "id": "journey_first_waypoint__engraving-wp-ring-3",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 36.74
+     },
+     {
+      "id": "journey_first_waypoint__engraving-wp-ring-4",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 36.74
+     },
+     {
+      "id": "journey_first_waypoint__engraving-wp-ring-5",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 36.74
+     },
+     {
+      "id": "journey_first_waypoint__engraving-summit-ring",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 74.91
+     },
+     {
+      "id": "journey_first_waypoint__engraving-summit-x",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 33.94
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "journey_first_waypoint__highlight",
+    "children": [
+     {
+      "id": "journey_first_waypoint__highlight-inlay-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 43.23
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "journey_first_waypoint__accent",
+    "children": [
+     {
+      "id": "journey_first_waypoint__accent-wp-1",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_first_waypoint__accent-pennant",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "journey_halfway": {
+  "family": "journey",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "journey_halfway__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "journey_halfway__structure",
+    "children": [
+     {
+      "id": "journey_halfway__structure-contour-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 115.36
+     },
+     {
+      "id": "journey_halfway__structure-contour-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 217.72
+     },
+     {
+      "id": "journey_halfway__structure-contour-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 319.54
+     },
+     {
+      "id": "journey_halfway__structure-contour-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 420.95
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "journey_halfway__emblem",
+    "children": [
+     {
+      "id": "journey_halfway__emblem-origin",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 30.61
+     },
+     {
+      "id": "journey_halfway__emblem-seg-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 43.23
+     },
+     {
+      "id": "journey_halfway__emblem-seg-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 42.43
+     },
+     {
+      "id": "journey_halfway__emblem-seg-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 37.99
+     },
+     {
+      "id": "journey_halfway__emblem-seg-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 35.14
+     },
+     {
+      "id": "journey_halfway__emblem-seg-5",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 37.15
+     },
+     {
+      "id": "journey_halfway__emblem-seg-6",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 45.89
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "journey_halfway__engraving",
+    "children": [
+     {
+      "id": "journey_halfway__engraving-wp-ring-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_halfway__engraving-wp-ring-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_halfway__engraving-wp-ring-3",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_halfway__engraving-wp-ring-4",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 36.74
+     },
+     {
+      "id": "journey_halfway__engraving-wp-ring-5",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 36.74
+     },
+     {
+      "id": "journey_halfway__engraving-summit-ring",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 74.91
+     },
+     {
+      "id": "journey_halfway__engraving-summit-x",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 33.94
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "journey_halfway__highlight",
+    "children": [
+     {
+      "id": "journey_halfway__highlight-inlay-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 43.23
+     },
+     {
+      "id": "journey_halfway__highlight-inlay-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 42.43
+     },
+     {
+      "id": "journey_halfway__highlight-inlay-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 37.99
+     },
+     {
+      "id": "journey_halfway__highlight-mid-ring",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 87.4
+     },
+     {
+      "id": "journey_halfway__highlight-mid-ticks",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "journey_halfway__accent",
+    "children": [
+     {
+      "id": "journey_halfway__accent-wp-1",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_halfway__accent-wp-2",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_halfway__accent-wp-3",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_halfway__accent-pennant",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "journey_all_waypoints": {
+  "family": "journey",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "journey_all_waypoints__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "journey_all_waypoints__structure",
+    "children": [
+     {
+      "id": "journey_all_waypoints__structure-contour-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 115.36
+     },
+     {
+      "id": "journey_all_waypoints__structure-contour-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 217.72
+     },
+     {
+      "id": "journey_all_waypoints__structure-contour-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 319.54
+     },
+     {
+      "id": "journey_all_waypoints__structure-contour-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 420.95
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-12",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-13",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-14",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-15",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-16",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-17",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-18",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-19",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-20",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-21",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-22",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-23",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7
+     },
+     {
+      "id": "journey_all_waypoints__structure-bezel-24",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 4
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "journey_all_waypoints__emblem",
+    "children": [
+     {
+      "id": "journey_all_waypoints__emblem-origin",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 30.61
+     },
+     {
+      "id": "journey_all_waypoints__emblem-seg-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 43.23
+     },
+     {
+      "id": "journey_all_waypoints__emblem-seg-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 42.43
+     },
+     {
+      "id": "journey_all_waypoints__emblem-seg-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 37.99
+     },
+     {
+      "id": "journey_all_waypoints__emblem-seg-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 35.14
+     },
+     {
+      "id": "journey_all_waypoints__emblem-seg-5",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 37.15
+     },
+     {
+      "id": "journey_all_waypoints__emblem-seg-6",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 45.89
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "journey_all_waypoints__engraving",
+    "children": [
+     {
+      "id": "journey_all_waypoints__engraving-wp-ring-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_all_waypoints__engraving-wp-ring-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_all_waypoints__engraving-wp-ring-3",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_all_waypoints__engraving-wp-ring-4",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_all_waypoints__engraving-wp-ring-5",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 53.06
+     },
+     {
+      "id": "journey_all_waypoints__engraving-summit-ring",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 74.91
+     },
+     {
+      "id": "journey_all_waypoints__engraving-summit-x",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 33.94
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "journey_all_waypoints__highlight",
+    "children": [
+     {
+      "id": "journey_all_waypoints__highlight-inlay-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 43.23
+     },
+     {
+      "id": "journey_all_waypoints__highlight-inlay-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 42.43
+     },
+     {
+      "id": "journey_all_waypoints__highlight-inlay-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 37.99
+     },
+     {
+      "id": "journey_all_waypoints__highlight-inlay-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 35.14
+     },
+     {
+      "id": "journey_all_waypoints__highlight-inlay-5",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 37.15
+     },
+     {
+      "id": "journey_all_waypoints__highlight-inlay-6",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 45.89
+     },
+     {
+      "id": "journey_all_waypoints__highlight-spark-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "journey_all_waypoints__highlight-spark-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "journey_all_waypoints__highlight-spark-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     },
+     {
+      "id": "journey_all_waypoints__highlight-spark-4",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 9
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "journey_all_waypoints__accent",
+    "children": [
+     {
+      "id": "journey_all_waypoints__accent-wp-1",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_all_waypoints__accent-wp-2",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_all_waypoints__accent-wp-3",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_all_waypoints__accent-wp-4",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_all_waypoints__accent-wp-5",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_all_waypoints__accent-wp-6",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": "journey_all_waypoints__accent-pennant",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "commitment_first_practice": {
+  "family": "commitment",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "commitment_first_practice__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "commitment_first_practice__structure",
+    "children": [
+     {
+      "id": "commitment_first_practice__structure-ring-outer",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 564.57
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-tick-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 5.99
+     },
+     {
+      "id": "commitment_first_practice__structure-ring-core",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 149.82
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "commitment_first_practice__emblem",
+    "children": [
+     {
+      "id": "commitment_first_practice__emblem-mark-01",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 134.69
+     },
+     {
+      "id": "commitment_first_practice__emblem-mark-02",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 98.03
+     },
+     {
+      "id": "commitment_first_practice__emblem-mark-03",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 134.69
+     },
+     {
+      "id": "commitment_first_practice__emblem-mark-04",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 98.03
+     },
+     {
+      "id": "commitment_first_practice__emblem-mark-05",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 134.69
+     },
+     {
+      "id": "commitment_first_practice__emblem-mark-06",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 98.03
+     },
+     {
+      "id": "commitment_first_practice__emblem-mark-07",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 134.69
+     },
+     {
+      "id": "commitment_first_practice__emblem-mark-08",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 98.03
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "commitment_first_practice__engraving",
+    "children": [
+     {
+      "id": "commitment_first_practice__engraving-facet-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 66
+     },
+     {
+      "id": "commitment_first_practice__engraving-facet-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 48
+     },
+     {
+      "id": "commitment_first_practice__engraving-facet-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 66
+     },
+     {
+      "id": "commitment_first_practice__engraving-facet-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 48
+     },
+     {
+      "id": "commitment_first_practice__engraving-facet-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 66
+     },
+     {
+      "id": "commitment_first_practice__engraving-facet-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 48
+     },
+     {
+      "id": "commitment_first_practice__engraving-facet-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 66
+     },
+     {
+      "id": "commitment_first_practice__engraving-facet-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 48
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "commitment_first_practice__highlight",
+    "children": [
+     {
+      "id": "commitment_first_practice__highlight-arc-01",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 15.08
+     },
+     {
+      "id": "commitment_first_practice__highlight-arc-02",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 15.08
+     },
+     {
+      "id": "commitment_first_practice__highlight-arc-03",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 15.08
+     },
+     {
+      "id": "commitment_first_practice__highlight-arc-04",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 15.08
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "commitment_first_practice__accent",
+    "children": [
+     {
+      "id": "commitment_first_practice__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "journey_goal_reached": {
+  "family": "journey",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "journey_goal_reached__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "journey_goal_reached__structure",
+    "children": [
+     {
+      "id": "journey_goal_reached__structure-contour-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 158.17
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 152.96
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 146.65
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 139.08
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-5",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 130.02
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-6",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 119.18
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-7",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 106.04
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-8",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 89.61
+     },
+     {
+      "id": "journey_goal_reached__structure-contour-9",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 67.81
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "journey_goal_reached__emblem",
+    "children": [
+     {
+      "id": "journey_goal_reached__emblem-hill-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 91.71
+     },
+     {
+      "id": "journey_goal_reached__emblem-hill-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 129.15
+     },
+     {
+      "id": "journey_goal_reached__emblem-seg-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 31.03
+     },
+     {
+      "id": "journey_goal_reached__emblem-seg-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28.27
+     },
+     {
+      "id": "journey_goal_reached__emblem-seg-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 31.77
+     },
+     {
+      "id": "journey_goal_reached__emblem-seg-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17.22
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "journey_goal_reached__engraving",
+    "children": [
+     {
+      "id": "journey_goal_reached__engraving-sun-outer",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 125.68
+     },
+     {
+      "id": "journey_goal_reached__engraving-sun-inner",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 105.23
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "journey_goal_reached__highlight",
+    "children": [
+     {
+      "id": "journey_goal_reached__highlight-inlay-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 31.03
+     },
+     {
+      "id": "journey_goal_reached__highlight-inlay-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28.27
+     },
+     {
+      "id": "journey_goal_reached__highlight-inlay-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 31.77
+     },
+     {
+      "id": "journey_goal_reached__highlight-inlay-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 17.22
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 27.99
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 20
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28.01
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 20
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 20
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 20
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 20
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28.01
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-12",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 20
+     },
+     {
+      "id": "journey_goal_reached__highlight-ray-13",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 27.99
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "journey_goal_reached__accent",
+    "children": [
+     {
+      "id": "journey_goal_reached__accent-goal",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "vision_first_glimpse": {
+  "family": "vision",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "vision_first_glimpse__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "vision_first_glimpse__structure",
+    "children": [
+     {
+      "id": "vision_first_glimpse__structure-ring-outer",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 545.75
+     },
+     {
+      "id": "vision_first_glimpse__structure-ring-fine",
+      "tag": "circle",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 489.3
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "vision_first_glimpse__emblem",
+    "children": [
+     {
+      "id": "vision_first_glimpse__emblem-arm-1a",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     },
+     {
+      "id": "vision_first_glimpse__emblem-arm-1b",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     },
+     {
+      "id": "vision_first_glimpse__emblem-arm-2a",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     },
+     {
+      "id": "vision_first_glimpse__emblem-arm-2b",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     },
+     {
+      "id": "vision_first_glimpse__emblem-arm-3a",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     },
+     {
+      "id": "vision_first_glimpse__emblem-arm-3b",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     },
+     {
+      "id": "vision_first_glimpse__emblem-arm-4a",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     },
+     {
+      "id": "vision_first_glimpse__emblem-arm-4b",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 145.34
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "vision_first_glimpse__engraving",
+    "children": [
+     {
+      "id": "vision_first_glimpse__engraving-cross-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 24
+     },
+     {
+      "id": "vision_first_glimpse__engraving-cross-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 24
+     },
+     {
+      "id": "vision_first_glimpse__engraving-cross-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 24
+     },
+     {
+      "id": "vision_first_glimpse__engraving-cross-4",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 24
+     },
+     {
+      "id": "vision_first_glimpse__engraving-diag-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28
+     },
+     {
+      "id": "vision_first_glimpse__engraving-diag-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28
+     },
+     {
+      "id": "vision_first_glimpse__engraving-diag-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28
+     },
+     {
+      "id": "vision_first_glimpse__engraving-diag-4",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 28
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "vision_first_glimpse__highlight",
+    "children": [
+     {
+      "id": "vision_first_glimpse__highlight-ring-hub",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 74.91
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "vision_first_glimpse__accent",
+    "children": [
+     {
+      "id": "vision_first_glimpse__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "vision_picture_complete": {
+  "family": "vision",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "vision_picture_complete__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "vision_picture_complete__structure",
+    "children": [
+     {
+      "id": "vision_picture_complete__structure-frame-outer",
+      "tag": "rect",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 522.75
+     },
+     {
+      "id": "vision_picture_complete__structure-frame",
+      "tag": "rect",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 478.74
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "vision_picture_complete__emblem",
+    "children": [
+     {
+      "id": "vision_picture_complete__emblem-ridge-far",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 154.13
+     },
+     {
+      "id": "vision_picture_complete__emblem-hill-near",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 309.71
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "vision_picture_complete__engraving",
+    "children": [
+     {
+      "id": "vision_picture_complete__engraving-ray-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 8
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-ray-12",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 7.99
+     },
+     {
+      "id": "vision_picture_complete__engraving-etch-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 126.04
+     },
+     {
+      "id": "vision_picture_complete__engraving-etch-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 126.04
+     },
+     {
+      "id": "vision_picture_complete__engraving-etch-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 126.04
+     },
+     {
+      "id": "vision_picture_complete__engraving-seam-v1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 119.68
+     },
+     {
+      "id": "vision_picture_complete__engraving-seam-h1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 119.68
+     },
+     {
+      "id": "vision_picture_complete__engraving-seam-v2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 119.68
+     },
+     {
+      "id": "vision_picture_complete__engraving-seam-h2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 119.68
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "vision_picture_complete__highlight",
+    "children": [
+     {
+      "id": "vision_picture_complete__highlight-glint",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 52.8
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "vision_picture_complete__accent",
+    "children": [
+     {
+      "id": "vision_picture_complete__accent-cell-1",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-cell-2",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-cell-3",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-cell-4",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-cell-5",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-cell-6",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-cell-7",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-cell-8",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_picture_complete__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "vision_seen_clearly": {
+  "family": "vision",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "vision_seen_clearly__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "vision_seen_clearly__structure",
+    "children": [
+     {
+      "id": "vision_seen_clearly__structure-bracket-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 44
+     },
+     {
+      "id": "vision_seen_clearly__structure-bracket-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 44
+     },
+     {
+      "id": "vision_seen_clearly__structure-bracket-3",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 44
+     },
+     {
+      "id": "vision_seen_clearly__structure-bracket-4",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 44
+     },
+     {
+      "id": "vision_seen_clearly__structure-ring-guide",
+      "tag": "circle",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 351.29
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "vision_seen_clearly__emblem",
+    "children": [
+     {
+      "id": "vision_seen_clearly__emblem-ring-focus",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 213.28
+     },
+     {
+      "id": "vision_seen_clearly__emblem-ring-inner",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 131.1
+     },
+     {
+      "id": "vision_seen_clearly__emblem-reticle-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     },
+     {
+      "id": "vision_seen_clearly__emblem-reticle-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     },
+     {
+      "id": "vision_seen_clearly__emblem-reticle-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     },
+     {
+      "id": "vision_seen_clearly__emblem-reticle-4",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 14
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "vision_seen_clearly__engraving",
+    "children": [
+     {
+      "id": "vision_seen_clearly__engraving-ghost-1",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 213.28
+     },
+     {
+      "id": "vision_seen_clearly__engraving-ghost-2",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 213.28
+     },
+     {
+      "id": "vision_seen_clearly__engraving-ghost-3",
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 213.28
+     },
+     {
+      "id": "vision_seen_clearly__engraving-horizon-soft",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 22
+     },
+     {
+      "id": "vision_seen_clearly__engraving-horizon-sharp",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 22
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "vision_seen_clearly__highlight",
+    "children": [
+     {
+      "id": "vision_seen_clearly__highlight-arc-focus",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 54.6
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "vision_seen_clearly__accent",
+    "children": [
+     {
+      "id": "vision_seen_clearly__accent-gem-1",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 17.76
+     },
+     {
+      "id": "vision_seen_clearly__accent-gem-2",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 17.76
+     },
+     {
+      "id": "vision_seen_clearly__accent-gem-3",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 17.76
+     },
+     {
+      "id": "vision_seen_clearly__accent-gem-4",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 17.76
+     },
+     {
+      "id": "vision_seen_clearly__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "vision_familiar_future": {
+  "family": "vision",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "vision_familiar_future__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "vision_familiar_future__structure",
+    "children": [
+     {
+      "id": "vision_familiar_future__structure-floor-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 72.8
+     },
+     {
+      "id": "vision_familiar_future__structure-floor-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 72.8
+     },
+     {
+      "id": "vision_familiar_future__structure-horizon",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 148
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "vision_familiar_future__emblem",
+    "children": [
+     {
+      "id": "vision_familiar_future__emblem-arch-1",
+      "tag": "path",
+      "filled": false,
+      "dashed": true,
+      "pathLength": 353.09
+     },
+     {
+      "id": "vision_familiar_future__emblem-arch-2",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 242.25
+     },
+     {
+      "id": "vision_familiar_future__emblem-arch-3",
+      "tag": "path",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 200.84
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "vision_familiar_future__engraving",
+    "children": [
+     {
+      "id": "vision_familiar_future__engraving-ray-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "vision_familiar_future__engraving-ray-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "vision_familiar_future__engraving-ray-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "vision_familiar_future__engraving-ray-4",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     },
+     {
+      "id": "vision_familiar_future__engraving-ray-5",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 10
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "vision_familiar_future__highlight",
+    "children": [
+     {
+      "id": "vision_familiar_future__highlight-arch-halo",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 394.23
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "vision_familiar_future__accent",
+    "children": [
+     {
+      "id": "vision_familiar_future__accent-base-gem",
+      "tag": "circle",
+      "filled": true,
+      "dashed": false,
+      "pathLength": 18.37
+     },
+     {
+      "id": "vision_familiar_future__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ },
+ "vision_living_the_vision": {
+  "family": "vision",
+  "viewBox": "0 0 256 256",
+  "layers": [
+   {
+    "layer": "plate",
+    "id": "vision_living_the_vision__plate",
+    "children": [
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": true,
+      "dashed": false
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 748.65
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 737.35
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 681.67
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 672.89
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 633.58
+     },
+     {
+      "id": null,
+      "tag": "circle",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 626.68
+     }
+    ]
+   },
+   {
+    "layer": "structure",
+    "id": "vision_living_the_vision__structure",
+    "children": [
+     {
+      "id": "vision_living_the_vision__structure-ray-01",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 59.99
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-02",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 46
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-03",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 59.99
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-04",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 46
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-05",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 60
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-06",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 46
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-07",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 59.99
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-08",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 46
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-09",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 59.99
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-10",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 46
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-11",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 60.01
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-12",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 45.99
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-13",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 60
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-14",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 46
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-15",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 60
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-16",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 45.99
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-17",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 60.01
+     },
+     {
+      "id": "vision_living_the_vision__structure-ray-18",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 46
+     },
+     {
+      "id": "vision_living_the_vision__structure-door-tint",
+      "tag": "path",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   },
+   {
+    "layer": "emblem",
+    "id": "vision_living_the_vision__emblem",
+    "children": [
+     {
+      "id": "vision_living_the_vision__emblem-arch-main",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 284.53
+     },
+     {
+      "id": "vision_living_the_vision__emblem-arch-inner",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 239.4
+     },
+     {
+      "id": "vision_living_the_vision__emblem-step-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 96
+     },
+     {
+      "id": "vision_living_the_vision__emblem-step-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 112
+     },
+     {
+      "id": "vision_living_the_vision__emblem-step-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 128
+     }
+    ]
+   },
+   {
+    "layer": "engraving",
+    "id": "vision_living_the_vision__engraving",
+    "children": [
+     {
+      "id": "vision_living_the_vision__engraving-tread-in-1",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 60
+     },
+     {
+      "id": "vision_living_the_vision__engraving-tread-in-2",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 44
+     },
+     {
+      "id": "vision_living_the_vision__engraving-tread-in-3",
+      "tag": "line",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 30
+     }
+    ]
+   },
+   {
+    "layer": "highlight",
+    "id": "vision_living_the_vision__highlight",
+    "children": [
+     {
+      "id": "vision_living_the_vision__highlight-halo-arch",
+      "tag": "path",
+      "filled": false,
+      "dashed": false,
+      "pathLength": 305.1
+     }
+    ]
+   },
+   {
+    "layer": "accent",
+    "id": "vision_living_the_vision__accent",
+    "children": [
+     {
+      "id": "vision_living_the_vision__accent-orb",
+      "tag": "g",
+      "filled": true,
+      "dashed": false
+     }
+    ]
+   }
+  ]
+ }
+}

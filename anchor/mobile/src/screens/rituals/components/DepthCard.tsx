@@ -20,7 +20,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { AdaptiveGlassView } from '@/components/common/AdaptiveGlassView';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
@@ -115,15 +115,14 @@ export const DepthCard: React.FC<DepthCardProps> = ({
             },
           ]}
         >
-          {Platform.OS === 'ios' ? (
-            <BlurView intensity={10} tint="dark" style={StyleSheet.absoluteFill}>
-              {renderCardContent()}
-            </BlurView>
-          ) : (
-            <View style={[styles.androidFallback, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
-              {renderCardContent()}
-            </View>
-          )}
+          <AdaptiveGlassView
+            intensity={10}
+            tint="dark"
+            fallbackColor="rgba(12, 17, 24, 0.92)"
+            style={StyleSheet.absoluteFill}
+          >
+            {renderCardContent()}
+          </AdaptiveGlassView>
         </View>
       </TouchableOpacity>
     </Animated.View>

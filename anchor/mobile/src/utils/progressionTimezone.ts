@@ -45,6 +45,37 @@ function formatDateFromParts(parts: Intl.DateTimeFormatPart[]): string | null {
   return `${year}-${month}-${day}`;
 }
 
+// Constructing an Intl.DateTimeFormat is expensive on Hermes; reuse one per zone.
+const dateFormatterCache = new Map<string, Intl.DateTimeFormat>();
+const hourFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getDateFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = dateFormatterCache.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    dateFormatterCache.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
+function getHourFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = hourFormatterCache.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      hour12: false,
+      timeZone,
+    });
+    hourFormatterCache.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 export function getProgressionTimezoneInfo(
   timezoneLabel?: string | null
 ): ProgressionTimezoneInfo {
@@ -69,12 +100,7 @@ export function toProgressionLocalDateString(
 
   if (ianaTimeZone) {
     try {
-      const formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: ianaTimeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
+      const formatter = getDateFormatter(ianaTimeZone);
       const fromParts = formatDateFromParts(formatter.formatToParts(date));
       if (fromParts) {
         return fromParts;
@@ -107,11 +133,7 @@ export function getProgressionHourForTimezone(
 
   if (ianaTimeZone) {
     try {
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        hour12: false,
-        timeZone: ianaTimeZone,
-      });
+      const formatter = getHourFormatter(ianaTimeZone);
       const formatted = formatter.format(value);
       const parsed = Number.parseInt(formatted, 10);
       if (Number.isFinite(parsed)) {

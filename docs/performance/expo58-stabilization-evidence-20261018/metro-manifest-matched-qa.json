@@ -1,0 +1,18 @@
+{
+  "capturedUtc": "2026-10-19T01:40:15.5622717Z",
+  "sdkVersion": "58.0.0",
+  "runtimeVersion": "2.0-sqlcipher-v2-realdata-qa",
+  "package": "com.anchorintentions.sqlcipherpreview20261015",
+  "extra": {
+    "eas": {
+      "projectId": "8fc5bf55-b18f-41c9-a8ce-767b307debb7"
+    },
+    "sqlCipherLab": true,
+    "sqlCipherPreview": false,
+    "sqlCipherOwnerPilot": false,
+    "sqlCipherOwnerPilotMigrationEnabled": false
+  },
+  "updates": {
+    "enabled": false
+  }
+}

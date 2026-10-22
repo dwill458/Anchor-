@@ -1,0 +1,2414 @@
+{
+  "scope": "Current ApprovedMilestoneSvg React renderer with native SVG component boundary mapped to equivalent browser SVG tags. Verifies serialized geometry, references, palette and browser pixels; does not verify react-native-svg native drawing or device performance.",
+  "checkedAssets": 40,
+  "pixelComparisons": 240,
+  "mismatches": [],
+  "clippedOuterBorder": [],
+  "references": {
+    "ids": 114,
+    "duplicateIds": 0,
+    "missingReferences": []
+  },
+  "results": [
+    {
+      "id": "strength.building",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "8dbccbc4003a5ce95eb304fc78cffaf121a0d4c1e98133700f8210136066dce7",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "8dbccbc4003a5ce95eb304fc78cffaf121a0d4c1e98133700f8210136066dce7",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "8dbccbc4003a5ce95eb304fc78cffaf121a0d4c1e98133700f8210136066dce7",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "8dbccbc4003a5ce95eb304fc78cffaf121a0d4c1e98133700f8210136066dce7",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "8dbccbc4003a5ce95eb304fc78cffaf121a0d4c1e98133700f8210136066dce7",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "8dbccbc4003a5ce95eb304fc78cffaf121a0d4c1e98133700f8210136066dce7",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "19b0c128bb48927fb1d35658d2b65e71826613e64a265fe45ac69ac46448734c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "19b0c128bb48927fb1d35658d2b65e71826613e64a265fe45ac69ac46448734c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "19b0c128bb48927fb1d35658d2b65e71826613e64a265fe45ac69ac46448734c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "19b0c128bb48927fb1d35658d2b65e71826613e64a265fe45ac69ac46448734c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "19b0c128bb48927fb1d35658d2b65e71826613e64a265fe45ac69ac46448734c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.building",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "19b0c128bb48927fb1d35658d2b65e71826613e64a265fe45ac69ac46448734c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "8d5742f3862276172434aaa328dc58b3aebae61996bf47cacf4e7a620e36968f",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "8d5742f3862276172434aaa328dc58b3aebae61996bf47cacf4e7a620e36968f",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "8d5742f3862276172434aaa328dc58b3aebae61996bf47cacf4e7a620e36968f",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "8d5742f3862276172434aaa328dc58b3aebae61996bf47cacf4e7a620e36968f",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "8d5742f3862276172434aaa328dc58b3aebae61996bf47cacf4e7a620e36968f",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "8d5742f3862276172434aaa328dc58b3aebae61996bf47cacf4e7a620e36968f",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "f95daad28d05666ad7c089ec15ba975bd288314a327cd9b619b1b1cf0a91f08c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "f95daad28d05666ad7c089ec15ba975bd288314a327cd9b619b1b1cf0a91f08c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "f95daad28d05666ad7c089ec15ba975bd288314a327cd9b619b1b1cf0a91f08c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "f95daad28d05666ad7c089ec15ba975bd288314a327cd9b619b1b1cf0a91f08c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "f95daad28d05666ad7c089ec15ba975bd288314a327cd9b619b1b1cf0a91f08c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.established",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "f95daad28d05666ad7c089ec15ba975bd288314a327cd9b619b1b1cf0a91f08c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "a5dea1bbdea589719389a582498f5bab1cbe728e9e9ceb4e27bbde8bcd454529",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "a5dea1bbdea589719389a582498f5bab1cbe728e9e9ceb4e27bbde8bcd454529",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "a5dea1bbdea589719389a582498f5bab1cbe728e9e9ceb4e27bbde8bcd454529",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "a5dea1bbdea589719389a582498f5bab1cbe728e9e9ceb4e27bbde8bcd454529",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "a5dea1bbdea589719389a582498f5bab1cbe728e9e9ceb4e27bbde8bcd454529",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "a5dea1bbdea589719389a582498f5bab1cbe728e9e9ceb4e27bbde8bcd454529",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "f73dc479027953ed86070ead734d595c2bd558280572923cee90c1aab7e87a77",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "f73dc479027953ed86070ead734d595c2bd558280572923cee90c1aab7e87a77",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "f73dc479027953ed86070ead734d595c2bd558280572923cee90c1aab7e87a77",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "f73dc479027953ed86070ead734d595c2bd558280572923cee90c1aab7e87a77",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "f73dc479027953ed86070ead734d595c2bd558280572923cee90c1aab7e87a77",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.integrated",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "f73dc479027953ed86070ead734d595c2bd558280572923cee90c1aab7e87a77",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "0cbfd1401357d13c6165e69a58d2e9b05099370165d41b2fa0de55c8aba90479",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "0cbfd1401357d13c6165e69a58d2e9b05099370165d41b2fa0de55c8aba90479",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "0cbfd1401357d13c6165e69a58d2e9b05099370165d41b2fa0de55c8aba90479",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "0cbfd1401357d13c6165e69a58d2e9b05099370165d41b2fa0de55c8aba90479",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "0cbfd1401357d13c6165e69a58d2e9b05099370165d41b2fa0de55c8aba90479",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "0cbfd1401357d13c6165e69a58d2e9b05099370165d41b2fa0de55c8aba90479",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "fa79c956205057f56bc7ee0b0902ce9e350b3c01fa7b477cf5aabc6c2af3d015",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "fa79c956205057f56bc7ee0b0902ce9e350b3c01fa7b477cf5aabc6c2af3d015",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "fa79c956205057f56bc7ee0b0902ce9e350b3c01fa7b477cf5aabc6c2af3d015",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "fa79c956205057f56bc7ee0b0902ce9e350b3c01fa7b477cf5aabc6c2af3d015",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "fa79c956205057f56bc7ee0b0902ce9e350b3c01fa7b477cf5aabc6c2af3d015",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.reinforced",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "fa79c956205057f56bc7ee0b0902ce9e350b3c01fa7b477cf5aabc6c2af3d015",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "ae0120ee313bd4f3b39312a80497e8c1e459bf7c6baea273dac38658657c3524",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "ae0120ee313bd4f3b39312a80497e8c1e459bf7c6baea273dac38658657c3524",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "ae0120ee313bd4f3b39312a80497e8c1e459bf7c6baea273dac38658657c3524",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "ae0120ee313bd4f3b39312a80497e8c1e459bf7c6baea273dac38658657c3524",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "ae0120ee313bd4f3b39312a80497e8c1e459bf7c6baea273dac38658657c3524",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "ae0120ee313bd4f3b39312a80497e8c1e459bf7c6baea273dac38658657c3524",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "d8df75a61924436d9883dbb3ea25b87c8e762021494108ced94f6d66f20a5096",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "d8df75a61924436d9883dbb3ea25b87c8e762021494108ced94f6d66f20a5096",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "d8df75a61924436d9883dbb3ea25b87c8e762021494108ced94f6d66f20a5096",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "d8df75a61924436d9883dbb3ea25b87c8e762021494108ced94f6d66f20a5096",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "d8df75a61924436d9883dbb3ea25b87c8e762021494108ced94f6d66f20a5096",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "strength.full",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "d8df75a61924436d9883dbb3ea25b87c8e762021494108ced94f6d66f20a5096",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "ea41d0c73f0d67c515a2626257133bae861234fde66dd410f757f441b1500ff3",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "ea41d0c73f0d67c515a2626257133bae861234fde66dd410f757f441b1500ff3",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "ea41d0c73f0d67c515a2626257133bae861234fde66dd410f757f441b1500ff3",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "ea41d0c73f0d67c515a2626257133bae861234fde66dd410f757f441b1500ff3",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "ea41d0c73f0d67c515a2626257133bae861234fde66dd410f757f441b1500ff3",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "ea41d0c73f0d67c515a2626257133bae861234fde66dd410f757f441b1500ff3",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "8771d48ab9267889dbc8c63ad744c773d92750e27e14f3b9734e977e80ebf6da",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "8771d48ab9267889dbc8c63ad744c773d92750e27e14f3b9734e977e80ebf6da",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "8771d48ab9267889dbc8c63ad744c773d92750e27e14f3b9734e977e80ebf6da",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "8771d48ab9267889dbc8c63ad744c773d92750e27e14f3b9734e977e80ebf6da",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "8771d48ab9267889dbc8c63ad744c773d92750e27e14f3b9734e977e80ebf6da",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.1",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "8771d48ab9267889dbc8c63ad744c773d92750e27e14f3b9734e977e80ebf6da",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "a91f473c1510cc1978ff17fdc16913d4119909ea139565068486471c7690486c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "a91f473c1510cc1978ff17fdc16913d4119909ea139565068486471c7690486c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "a91f473c1510cc1978ff17fdc16913d4119909ea139565068486471c7690486c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "a91f473c1510cc1978ff17fdc16913d4119909ea139565068486471c7690486c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "a91f473c1510cc1978ff17fdc16913d4119909ea139565068486471c7690486c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "a91f473c1510cc1978ff17fdc16913d4119909ea139565068486471c7690486c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "4fbdbf050d6df3cb6cbc5b427437ef1d912d54a7414eacfeba58fe49b3805d4a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "4fbdbf050d6df3cb6cbc5b427437ef1d912d54a7414eacfeba58fe49b3805d4a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "4fbdbf050d6df3cb6cbc5b427437ef1d912d54a7414eacfeba58fe49b3805d4a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "4fbdbf050d6df3cb6cbc5b427437ef1d912d54a7414eacfeba58fe49b3805d4a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "4fbdbf050d6df3cb6cbc5b427437ef1d912d54a7414eacfeba58fe49b3805d4a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.10",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "4fbdbf050d6df3cb6cbc5b427437ef1d912d54a7414eacfeba58fe49b3805d4a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "a2f2cbf49664b9f162979c2ac6464bc2b4a0415b3e5a8c12643d6f7a0f69bb3e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "a2f2cbf49664b9f162979c2ac6464bc2b4a0415b3e5a8c12643d6f7a0f69bb3e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "a2f2cbf49664b9f162979c2ac6464bc2b4a0415b3e5a8c12643d6f7a0f69bb3e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "a2f2cbf49664b9f162979c2ac6464bc2b4a0415b3e5a8c12643d6f7a0f69bb3e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "a2f2cbf49664b9f162979c2ac6464bc2b4a0415b3e5a8c12643d6f7a0f69bb3e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "a2f2cbf49664b9f162979c2ac6464bc2b4a0415b3e5a8c12643d6f7a0f69bb3e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "a27b0b6c8f197ffafdf415398e35c6444b72c4d9b2c7fc5828040c64acbdb29a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "a27b0b6c8f197ffafdf415398e35c6444b72c4d9b2c7fc5828040c64acbdb29a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "a27b0b6c8f197ffafdf415398e35c6444b72c4d9b2c7fc5828040c64acbdb29a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "a27b0b6c8f197ffafdf415398e35c6444b72c4d9b2c7fc5828040c64acbdb29a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "a27b0b6c8f197ffafdf415398e35c6444b72c4d9b2c7fc5828040c64acbdb29a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.30",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "a27b0b6c8f197ffafdf415398e35c6444b72c4d9b2c7fc5828040c64acbdb29a",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "d5cc4b90e71d064378e3336cc50268635498e51797cac0e889fa294570af89d2",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "d5cc4b90e71d064378e3336cc50268635498e51797cac0e889fa294570af89d2",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "d5cc4b90e71d064378e3336cc50268635498e51797cac0e889fa294570af89d2",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "d5cc4b90e71d064378e3336cc50268635498e51797cac0e889fa294570af89d2",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "d5cc4b90e71d064378e3336cc50268635498e51797cac0e889fa294570af89d2",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "d5cc4b90e71d064378e3336cc50268635498e51797cac0e889fa294570af89d2",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "b2bfcb21f20c76951637e4110e3645de0abb257f1be7d80886355ba3ba3db0df",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "b2bfcb21f20c76951637e4110e3645de0abb257f1be7d80886355ba3ba3db0df",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "b2bfcb21f20c76951637e4110e3645de0abb257f1be7d80886355ba3ba3db0df",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "b2bfcb21f20c76951637e4110e3645de0abb257f1be7d80886355ba3ba3db0df",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "b2bfcb21f20c76951637e4110e3645de0abb257f1be7d80886355ba3ba3db0df",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.practices.100",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "b2bfcb21f20c76951637e4110e3645de0abb257f1be7d80886355ba3ba3db0df",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "b10ddfc6e550e4224334ebbe93ee8de4d0ca80d65e92e215e4c88e5f06f529c9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "b10ddfc6e550e4224334ebbe93ee8de4d0ca80d65e92e215e4c88e5f06f529c9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "b10ddfc6e550e4224334ebbe93ee8de4d0ca80d65e92e215e4c88e5f06f529c9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "b10ddfc6e550e4224334ebbe93ee8de4d0ca80d65e92e215e4c88e5f06f529c9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "b10ddfc6e550e4224334ebbe93ee8de4d0ca80d65e92e215e4c88e5f06f529c9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "b10ddfc6e550e4224334ebbe93ee8de4d0ca80d65e92e215e4c88e5f06f529c9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "ca5a3d1888e3e775278ecec645cfb409c49a3f71afe5134ff7fbc53c743be0d9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "ca5a3d1888e3e775278ecec645cfb409c49a3f71afe5134ff7fbc53c743be0d9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "ca5a3d1888e3e775278ecec645cfb409c49a3f71afe5134ff7fbc53c743be0d9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "ca5a3d1888e3e775278ecec645cfb409c49a3f71afe5134ff7fbc53c743be0d9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "ca5a3d1888e3e775278ecec645cfb409c49a3f71afe5134ff7fbc53c743be0d9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.100",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "ca5a3d1888e3e775278ecec645cfb409c49a3f71afe5134ff7fbc53c743be0d9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "669f085d91b8e384a883d757af137d536fa0c25c1ab70bc7c6dc5061976e755e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "669f085d91b8e384a883d757af137d536fa0c25c1ab70bc7c6dc5061976e755e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "669f085d91b8e384a883d757af137d536fa0c25c1ab70bc7c6dc5061976e755e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "669f085d91b8e384a883d757af137d536fa0c25c1ab70bc7c6dc5061976e755e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "669f085d91b8e384a883d757af137d536fa0c25c1ab70bc7c6dc5061976e755e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "669f085d91b8e384a883d757af137d536fa0c25c1ab70bc7c6dc5061976e755e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "87c3030e7a158351eea78a1c4d61ae0f72bff1dbccc0a9d9896a1cfb831fed57",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "87c3030e7a158351eea78a1c4d61ae0f72bff1dbccc0a9d9896a1cfb831fed57",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "87c3030e7a158351eea78a1c4d61ae0f72bff1dbccc0a9d9896a1cfb831fed57",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "87c3030e7a158351eea78a1c4d61ae0f72bff1dbccc0a9d9896a1cfb831fed57",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "87c3030e7a158351eea78a1c4d61ae0f72bff1dbccc0a9d9896a1cfb831fed57",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "commitment.minutes.500",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "87c3030e7a158351eea78a1c4d61ae0f72bff1dbccc0a9d9896a1cfb831fed57",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "82cbf188b9d0895f489a506afd581d85a174aaac4fbb1b98b1cd621f1cfbfe8e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "82cbf188b9d0895f489a506afd581d85a174aaac4fbb1b98b1cd621f1cfbfe8e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "82cbf188b9d0895f489a506afd581d85a174aaac4fbb1b98b1cd621f1cfbfe8e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "82cbf188b9d0895f489a506afd581d85a174aaac4fbb1b98b1cd621f1cfbfe8e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "82cbf188b9d0895f489a506afd581d85a174aaac4fbb1b98b1cd621f1cfbfe8e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "82cbf188b9d0895f489a506afd581d85a174aaac4fbb1b98b1cd621f1cfbfe8e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "4f9e090815059620b589c077c84f0843c7c6fa7229d5ef8df41ef67749881f53",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "4f9e090815059620b589c077c84f0843c7c6fa7229d5ef8df41ef67749881f53",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "4f9e090815059620b589c077c84f0843c7c6fa7229d5ef8df41ef67749881f53",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "4f9e090815059620b589c077c84f0843c7c6fa7229d5ef8df41ef67749881f53",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "4f9e090815059620b589c077c84f0843c7c6fa7229d5ef8df41ef67749881f53",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.waypoint.first",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "4f9e090815059620b589c077c84f0843c7c6fa7229d5ef8df41ef67749881f53",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "d1aaf7fe7b7144b518cdc80302f7ee604ee9d3dcf97d5d1d14713a85c092d118",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "d1aaf7fe7b7144b518cdc80302f7ee604ee9d3dcf97d5d1d14713a85c092d118",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "d1aaf7fe7b7144b518cdc80302f7ee604ee9d3dcf97d5d1d14713a85c092d118",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "d1aaf7fe7b7144b518cdc80302f7ee604ee9d3dcf97d5d1d14713a85c092d118",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "d1aaf7fe7b7144b518cdc80302f7ee604ee9d3dcf97d5d1d14713a85c092d118",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "d1aaf7fe7b7144b518cdc80302f7ee604ee9d3dcf97d5d1d14713a85c092d118",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "60cdc226a5a56e4c4554160ad3f96f513e6a0d51700d05524fe2a6dc0028ba6e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "60cdc226a5a56e4c4554160ad3f96f513e6a0d51700d05524fe2a6dc0028ba6e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "60cdc226a5a56e4c4554160ad3f96f513e6a0d51700d05524fe2a6dc0028ba6e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "60cdc226a5a56e4c4554160ad3f96f513e6a0d51700d05524fe2a6dc0028ba6e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "60cdc226a5a56e4c4554160ad3f96f513e6a0d51700d05524fe2a6dc0028ba6e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.halfway",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "60cdc226a5a56e4c4554160ad3f96f513e6a0d51700d05524fe2a6dc0028ba6e",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "d708a6e06e232488a243f83e6021b6e21c04b081447e1a562d4396f14b2681bf",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "d708a6e06e232488a243f83e6021b6e21c04b081447e1a562d4396f14b2681bf",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "d708a6e06e232488a243f83e6021b6e21c04b081447e1a562d4396f14b2681bf",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "d708a6e06e232488a243f83e6021b6e21c04b081447e1a562d4396f14b2681bf",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "d708a6e06e232488a243f83e6021b6e21c04b081447e1a562d4396f14b2681bf",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "d708a6e06e232488a243f83e6021b6e21c04b081447e1a562d4396f14b2681bf",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "0f8d84349e1060a154a6bc9a39525e7e9feea17376e0a07d7eaa035eb71ccf10",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "0f8d84349e1060a154a6bc9a39525e7e9feea17376e0a07d7eaa035eb71ccf10",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "0f8d84349e1060a154a6bc9a39525e7e9feea17376e0a07d7eaa035eb71ccf10",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "0f8d84349e1060a154a6bc9a39525e7e9feea17376e0a07d7eaa035eb71ccf10",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "0f8d84349e1060a154a6bc9a39525e7e9feea17376e0a07d7eaa035eb71ccf10",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.destination",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "0f8d84349e1060a154a6bc9a39525e7e9feea17376e0a07d7eaa035eb71ccf10",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "9d6ea81df548644e3e897917d102454712bdfc3436f7602c70c98e5ee6460403",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "9d6ea81df548644e3e897917d102454712bdfc3436f7602c70c98e5ee6460403",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "9d6ea81df548644e3e897917d102454712bdfc3436f7602c70c98e5ee6460403",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "9d6ea81df548644e3e897917d102454712bdfc3436f7602c70c98e5ee6460403",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "9d6ea81df548644e3e897917d102454712bdfc3436f7602c70c98e5ee6460403",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "9d6ea81df548644e3e897917d102454712bdfc3436f7602c70c98e5ee6460403",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "667981c3697b498a5dac2431ac9e753da576f79149ba4b16f79d0b5670035747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "667981c3697b498a5dac2431ac9e753da576f79149ba4b16f79d0b5670035747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "667981c3697b498a5dac2431ac9e753da576f79149ba4b16f79d0b5670035747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "667981c3697b498a5dac2431ac9e753da576f79149ba4b16f79d0b5670035747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "667981c3697b498a5dac2431ac9e753da576f79149ba4b16f79d0b5670035747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "journey.goal",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "667981c3697b498a5dac2431ac9e753da576f79149ba4b16f79d0b5670035747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "c6d4073827723c4deee126a5fceaee365818b6419b89a495ea984a42b4014bc9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "c6d4073827723c4deee126a5fceaee365818b6419b89a495ea984a42b4014bc9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "c6d4073827723c4deee126a5fceaee365818b6419b89a495ea984a42b4014bc9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "c6d4073827723c4deee126a5fceaee365818b6419b89a495ea984a42b4014bc9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "c6d4073827723c4deee126a5fceaee365818b6419b89a495ea984a42b4014bc9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "c6d4073827723c4deee126a5fceaee365818b6419b89a495ea984a42b4014bc9",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "f94b78e591d6634f8c3fd055e8192c6eec2ccb0d40cd2409ce49f98880ac666c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "f94b78e591d6634f8c3fd055e8192c6eec2ccb0d40cd2409ce49f98880ac666c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "f94b78e591d6634f8c3fd055e8192c6eec2ccb0d40cd2409ce49f98880ac666c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "f94b78e591d6634f8c3fd055e8192c6eec2ccb0d40cd2409ce49f98880ac666c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "f94b78e591d6634f8c3fd055e8192c6eec2ccb0d40cd2409ce49f98880ac666c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.first",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "f94b78e591d6634f8c3fd055e8192c6eec2ccb0d40cd2409ce49f98880ac666c",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "d307dadf50cd57932a0c8e27cf424f5e0c653056ac2a19f1667a7f1b4e6880c6",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "d307dadf50cd57932a0c8e27cf424f5e0c653056ac2a19f1667a7f1b4e6880c6",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "d307dadf50cd57932a0c8e27cf424f5e0c653056ac2a19f1667a7f1b4e6880c6",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "d307dadf50cd57932a0c8e27cf424f5e0c653056ac2a19f1667a7f1b4e6880c6",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "d307dadf50cd57932a0c8e27cf424f5e0c653056ac2a19f1667a7f1b4e6880c6",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "d307dadf50cd57932a0c8e27cf424f5e0c653056ac2a19f1667a7f1b4e6880c6",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "9583c552f0713ee67021983216b2345522fd4bddf1bcc23f8a77c881fc32a3c4",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "9583c552f0713ee67021983216b2345522fd4bddf1bcc23f8a77c881fc32a3c4",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "9583c552f0713ee67021983216b2345522fd4bddf1bcc23f8a77c881fc32a3c4",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "9583c552f0713ee67021983216b2345522fd4bddf1bcc23f8a77c881fc32a3c4",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "9583c552f0713ee67021983216b2345522fd4bddf1bcc23f8a77c881fc32a3c4",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.board.complete",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "9583c552f0713ee67021983216b2345522fd4bddf1bcc23f8a77c881fc32a3c4",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "b0b22527d4f197cc0c068681804aa800baf52d827e0eb51e3bd1e4be28234613",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "b0b22527d4f197cc0c068681804aa800baf52d827e0eb51e3bd1e4be28234613",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "b0b22527d4f197cc0c068681804aa800baf52d827e0eb51e3bd1e4be28234613",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "b0b22527d4f197cc0c068681804aa800baf52d827e0eb51e3bd1e4be28234613",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "b0b22527d4f197cc0c068681804aa800baf52d827e0eb51e3bd1e4be28234613",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "b0b22527d4f197cc0c068681804aa800baf52d827e0eb51e3bd1e4be28234613",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "402d54f5e253e2f3df437ed61df70b1dac0a9b823e1732151aa15150d86c8379",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "402d54f5e253e2f3df437ed61df70b1dac0a9b823e1732151aa15150d86c8379",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "402d54f5e253e2f3df437ed61df70b1dac0a9b823e1732151aa15150d86c8379",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "402d54f5e253e2f3df437ed61df70b1dac0a9b823e1732151aa15150d86c8379",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "402d54f5e253e2f3df437ed61df70b1dac0a9b823e1732151aa15150d86c8379",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.1",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "402d54f5e253e2f3df437ed61df70b1dac0a9b823e1732151aa15150d86c8379",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "ec34eb0ac2e021d00f34d1b2487ad923a9420d8e9d059660ebdbe78f80b60747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "ec34eb0ac2e021d00f34d1b2487ad923a9420d8e9d059660ebdbe78f80b60747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "ec34eb0ac2e021d00f34d1b2487ad923a9420d8e9d059660ebdbe78f80b60747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "ec34eb0ac2e021d00f34d1b2487ad923a9420d8e9d059660ebdbe78f80b60747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "ec34eb0ac2e021d00f34d1b2487ad923a9420d8e9d059660ebdbe78f80b60747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "ec34eb0ac2e021d00f34d1b2487ad923a9420d8e9d059660ebdbe78f80b60747",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "a46df9608572967471255b41f156d1f7f67bb6ad26e1459f0d26eadade855a6d",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "a46df9608572967471255b41f156d1f7f67bb6ad26e1459f0d26eadade855a6d",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "a46df9608572967471255b41f156d1f7f67bb6ad26e1459f0d26eadade855a6d",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "a46df9608572967471255b41f156d1f7f67bb6ad26e1459f0d26eadade855a6d",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "a46df9608572967471255b41f156d1f7f67bb6ad26e1459f0d26eadade855a6d",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.10",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "a46df9608572967471255b41f156d1f7f67bb6ad26e1459f0d26eadade855a6d",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "earned",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "5c6b73a0f4a303715a081be50e5749729c3830c3c8457ea7b6eaf4c40cf4449b",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "earned",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "5c6b73a0f4a303715a081be50e5749729c3830c3c8457ea7b6eaf4c40cf4449b",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "earned",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "5c6b73a0f4a303715a081be50e5749729c3830c3c8457ea7b6eaf4c40cf4449b",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "earned",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "5c6b73a0f4a303715a081be50e5749729c3830c3c8457ea7b6eaf4c40cf4449b",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "earned",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "5c6b73a0f4a303715a081be50e5749729c3830c3c8457ea7b6eaf4c40cf4449b",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "earned",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "5c6b73a0f4a303715a081be50e5749729c3830c3c8457ea7b6eaf4c40cf4449b",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "locked",
+      "size": 64,
+      "background": "#F5F1E8",
+      "sourceHash": "3cfd3828a923352345cd20e1d1b72075a121659fdec39d6866f85e01ad460c49",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "locked",
+      "size": 64,
+      "background": "#101D28",
+      "sourceHash": "3cfd3828a923352345cd20e1d1b72075a121659fdec39d6866f85e01ad460c49",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "locked",
+      "size": 96,
+      "background": "#F5F1E8",
+      "sourceHash": "3cfd3828a923352345cd20e1d1b72075a121659fdec39d6866f85e01ad460c49",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "locked",
+      "size": 96,
+      "background": "#101D28",
+      "sourceHash": "3cfd3828a923352345cd20e1d1b72075a121659fdec39d6866f85e01ad460c49",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "locked",
+      "size": 256,
+      "background": "#F5F1E8",
+      "sourceHash": "3cfd3828a923352345cd20e1d1b72075a121659fdec39d6866f85e01ad460c49",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    },
+    {
+      "id": "vision.visualize.30",
+      "state": "locked",
+      "size": 256,
+      "background": "#101D28",
+      "sourceHash": "3cfd3828a923352345cd20e1d1b72075a121659fdec39d6866f85e01ad460c49",
+      "differingChannels": 0,
+      "maxChannelDelta": 0,
+      "borderPixels": 0
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "runnerUptimeMs": 19732659.5,
+  "samples": "full-probe-window-framestats.txt",
+  "intervalMs": 7200,
+  "source": "full-probe-window-logcat.txt",
+  "selectedWallClock": "00:59:52.727",
+  "scheduledSequenceEndUptimeMs": 19739859.5,
+  "selectedPerformanceMs": 19731662.5,
+  "runnerWallClock": "00:59:53.724"
+}

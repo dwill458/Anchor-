@@ -1,5 +1,5 @@
+import { scheduleAfterInteractions } from '@/utils/scheduleAfterInteractions';
 import { useEffect } from 'react';
-import { InteractionManager } from 'react-native';
 import { navigateToVaultDestination, type VaultNavigationLike } from '@/navigation/firstAnchorGate';
 
 export function useMissingAnchorRedirect(
@@ -12,7 +12,7 @@ export function useMissingAnchorRedirect(
       return;
     }
 
-    const task = InteractionManager.runAfterInteractions(() => {
+    const task = scheduleAfterInteractions(() => {
       navigateToVaultDestination(navigation, mode);
     });
 

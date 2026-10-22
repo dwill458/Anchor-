@@ -76,7 +76,7 @@ export default function AIGeneratingScreen() {
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const anchorCount = useAuthStore((state) => state.anchorCount);
-  const { hasActiveEntitlement } = useTrialStatus();
+  const { hasActiveEntitlement, entitlementReady } = useTrialStatus();
   const {
     intentionText,
     category,
@@ -152,11 +152,14 @@ export default function AIGeneratingScreen() {
       ]);
       return;
     }
+    if (!isFirstAnchor && !entitlementReady) {
+      return;
+    }
     if (!isFirstAnchor && !hasActiveEntitlement) {
-      Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
-        { text: 'View Paywall', onPress: () => navigation.navigate('Paywall') },
-        { text: 'Go Back', style: 'cancel', onPress: () => navigation.goBack() },
-      ]);
+      navigation.navigate('Paywall', {
+        source: 'gated_feature',
+        preferredPlanId: 'annual',
+      });
       return;
     }
 
@@ -297,6 +300,7 @@ export default function AIGeneratingScreen() {
     category,
     clearGenerationResources,
     distilledLetters,
+    entitlementReady,
     hasActiveEntitlement,
     intentionText,
     isAuthenticated,
@@ -375,7 +379,7 @@ export default function AIGeneratingScreen() {
       <LinearGradient
         colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]}
         locations={[0, 0.5, 1]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View pointerEvents="none" style={styles.goldAmbient} />
       <View pointerEvents="none" style={styles.arcTop} />

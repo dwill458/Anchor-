@@ -1,4 +1,5 @@
 import {
+  FULL_MIX_PHASE_ID,
   GUIDED_AUDIO_MANIFEST,
   SESSION_VOICE_CUE_SHEETS,
   VISUALIZE_VOICE_PLAYBACK_GAIN,
@@ -10,6 +11,7 @@ import {
 describe('SessionAudioManifest', () => {
   it('has complete female coverage for every supported cue sheet', () => {
     for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('female')) continue;
       const result = lookupVoiceTracks({
         voice: 'female',
         sessionType: sheet.sessionType,
@@ -27,6 +29,7 @@ describe('SessionAudioManifest', () => {
 
   it('has complete male coverage for every supported cue sheet', () => {
     for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('male')) continue;
       const result = lookupVoiceTracks({
         voice: 'male',
         sessionType: sheet.sessionType,
@@ -43,12 +46,68 @@ describe('SessionAudioManifest', () => {
       }
     }
 
-    expect(GUIDED_AUDIO_MANIFEST.filter((track) => track.voice === 'male')).toHaveLength(71);
+    expect(GUIDED_AUDIO_MANIFEST.filter((track) => track.voice === 'male')).toHaveLength(53);
     expect(
       isSessionAudioSelectionAvailable({
         sessionType: 'focus',
         durationSeconds: 30,
         defaults: { guidanceVoice: 'male', backgroundAudio: 'ambient' },
+      })
+    ).toBe(true);
+  });
+
+  it('has complete warm coverage for every supported cue sheet', () => {
+    for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('warm')) continue;
+      if (sheet.sessionType === 'visualize') continue;
+      const result = lookupVoiceTracks({
+        voice: 'warm',
+        sessionType: sheet.sessionType,
+        durationSeconds: sheet.durationSeconds,
+        locale: sheet.locale,
+      });
+      expect(result.available).toBe(true);
+      if (result.available) {
+        expect(result.tracks.map((track) => track.phaseId).sort()).toEqual(
+          sheet.cues.map((cue) => cue.phaseId).sort()
+        );
+      }
+    }
+
+    expect(
+      isSessionAudioSelectionAvailable({
+        sessionType: 'focus',
+        durationSeconds: 30,
+        defaults: { guidanceVoice: 'warm', backgroundAudio: 'ambient' },
+      })
+    ).toBe(true);
+  });
+
+  it('has complete soothing coverage for every supported cue sheet', () => {
+    for (const sheet of SESSION_VOICE_CUE_SHEETS) {
+      if (sheet.voices && !sheet.voices.includes('soothing')) continue;
+      if (sheet.sessionType === 'visualize') continue;
+      const result = lookupVoiceTracks({
+        voice: 'soothing',
+        sessionType: sheet.sessionType,
+        durationSeconds: sheet.durationSeconds,
+        locale: sheet.locale,
+      });
+      expect(result.available).toBe(true);
+      if (result.available) {
+        expect(result.tracks.map((track) => track.phaseId).sort()).toEqual(
+          sheet.cues.map((cue) => cue.phaseId).sort()
+        );
+        expect(result.tracks.every((track) => track.playbackGain > 0)).toBe(true);
+        expect(result.tracks.every((track) => track.playbackGain <= 1)).toBe(true);
+      }
+    }
+
+    expect(
+      isSessionAudioSelectionAvailable({
+        sessionType: 'focus',
+        durationSeconds: 30,
+        defaults: { guidanceVoice: 'soothing', backgroundAudio: 'ambient' },
       })
     ).toBe(true);
   });
@@ -75,9 +134,10 @@ describe('SessionAudioManifest', () => {
     ['none', 'off', false, false],
     ['none', 'ambient', false, true],
     ['female', 'off', true, false],
-    ['female', 'ambient', true, true],
+    // Finished mixes carry their own bed, so ambient is not layered on top.
+    ['female', 'ambient', true, false],
     ['male', 'off', true, false],
-    ['male', 'ambient', true, true],
+    ['male', 'ambient', true, false],
   ] as const)(
     'resolves voice=%s and background=%s independently',
     (guidanceVoice, backgroundAudio, voice, ambient) => {
@@ -119,5 +179,23 @@ describe('SessionAudioManifest', () => {
     expect(VISUALIZE_VOICE_PLAYBACK_GAIN).toBe(0.19);
     expect(visualizeTracks).toHaveLength(64);
     expect(visualizeTracks.every(track => track.playbackGain === 0.19)).toBe(true);
+  });
+
+  it.each([
+    ['focus', 10], ['focus', 30], ['focus', 60],
+    ['deep_prime', 120], ['deep_prime', 300], ['deep_prime', 600],
+  ] as const)('serves one full-length mix per voice for %s %ss', (sessionType, durationSeconds) => {
+    for (const voice of ['female', 'male'] as const) {
+      const plan = resolveSessionAudioPlan({
+        sessionType,
+        durationSeconds,
+        configuration: { guidanceVoice: voice, backgroundAudio: 'off', source: 'default' },
+      });
+      expect(plan.fallbackUsed).toBe(false);
+      expect(plan.voiceCues).toHaveLength(1);
+      expect(plan.voiceCues[0].triggerAtRemainingMs).toBe(durationSeconds * 1000);
+      expect(plan.voiceCues[0].track.phaseId).toBe(FULL_MIX_PHASE_ID);
+      expect(plan.voiceCues[0].track.playbackGain).toBe(1);
+    }
   });
 });

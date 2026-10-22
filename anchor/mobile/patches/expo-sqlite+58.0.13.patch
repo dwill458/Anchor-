@@ -1,0 +1,14 @@
+diff --git a/node_modules/expo-sqlite/android/src/main/java/expo/modules/sqlite/SQLRecords.kt b/node_modules/expo-sqlite/android/src/main/java/expo/modules/sqlite/SQLRecords.kt
+--- a/node_modules/expo-sqlite/android/src/main/java/expo/modules/sqlite/SQLRecords.kt
++++ b/node_modules/expo-sqlite/android/src/main/java/expo/modules/sqlite/SQLRecords.kt
+@@ -1,8 +1,9 @@
+ package expo.modules.sqlite
+ 
+ import io.github.expo.modules.v2.Record
++import io.github.expo.modules.v2.Enumerable
+ 
+-internal enum class SQLAction(val value: String) {
++internal enum class SQLAction(val value: String) : Enumerable {
+   INSERT("insert"),
+   UPDATE("update"),
+   DELETE("delete"),

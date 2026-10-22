@@ -1,3 +1,4 @@
+// DEFERRED: superseded by AnchorCreationFlow (no longer navigated to from creation).
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -131,7 +132,10 @@ export default function StructureForgeScreen() {
     );
   }, [glowOpacity]);
 
-  const { tier } = classifyToTierPreliminary(intention);
+  // Precedence rule: the deterministic category -> tier map (CATEGORY_TO_TIER) is
+  // authoritative for all 9 specific categories; fallback classification applies only
+  // when the resolved category is 'desire' or 'custom'.
+  const { tier } = classifyToTierPreliminary(intention, category);
 
   const variants = useMemo<SigilGenerationResult[]>(
     () => generateAllVariants(distilledLetters, tier),

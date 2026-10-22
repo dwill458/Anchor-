@@ -75,7 +75,7 @@ const applyProfileSettings = (user: User): void => {
     focusSessionAudio: user.settings?.focusSessionAudio ?? current.focusSessionAudio,
     primeSessionDuration: user.settings?.primeSessionDuration ?? current.primeSessionDuration,
     visualizeSessionDuration:
-      user.settings?.visualizeSessionDuration === 60 || user.settings?.visualizeSessionDuration === 300
+      user.settings?.visualizeSessionDuration === 60 || user.settings?.visualizeSessionDuration === 600
         ? user.settings.visualizeSessionDuration
         : user.settings?.visualizeSessionDuration === 180
           ? 180

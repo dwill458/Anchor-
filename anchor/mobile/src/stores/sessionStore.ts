@@ -1,3 +1,4 @@
+import { privateJsonStorage, sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
 /**
  * Session Store — tracks the user's practice sessions locally.
  *
@@ -11,6 +12,8 @@ import { useTeachingStore } from './teachingStore';
 import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
+import { perfLog } from '@/utils/perfDiagnostics';
 import {
   JOURNEY_MILESTONE_IDS,
   JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
@@ -87,8 +90,8 @@ interface SessionState {
   sessionLog: SessionLogEntry[];
 
   // Thread Strength fields
-  /** 0–100. Decays on missed days, recovers on priming sessions. */
-  threadStrength: number;
+  /** 0–100 or null if unestablished. Decays on missed days, recovers on practice sessions. */
+  threadStrength: number | null;
   /** Lifetime priming session count — never decrements. */
   totalSessionsCount: number;
   /** YYYY-MM-DD of last priming session, or null. */
@@ -112,7 +115,10 @@ interface SessionState {
   recordSession: (entry: SessionRecordInput) => string;
   recordPracticeSession: (entry: PracticeSessionRecord) => string;
   appendCanonicalPracticeSession: (entry: PracticeSessionRecord) => string;
-  markPracticeSessionSynced: (id: string) => void;
+  markPracticeSessionSynced: (
+    id: string,
+    updates?: Partial<PracticeSessionRecord>,
+  ) => void;
   updatePracticeSessionNextAction: (
     id: string,
     nextAction: string | null,
@@ -158,7 +164,7 @@ const EMPTY_WEEK_HISTORY = (): boolean[] => [
   false,
   false,
 ];
-const createInitialSessionState = (): Omit<
+export const createInitialSessionState = (): Omit<
   SessionState,
   | 'recordSession'
   | 'recordPracticeSession'
@@ -177,7 +183,7 @@ const createInitialSessionState = (): Omit<
   weeklyPractice: EMPTY_WEEK(),
   lastGraceDayUsedAt: null,
   sessionLog: [],
-  threadStrength: 50,
+  threadStrength: null,
   totalSessionsCount: 0,
   lastPrimedAt: null,
   weekHistory: EMPTY_WEEK_HISTORY(),
@@ -403,6 +409,184 @@ function mergePrimingHistory(
   return merged;
 }
 
+export function projectThreadDecay(state: ReturnType<typeof createInitialSessionState>): Partial<ReturnType<typeof createInitialSessionState>> {
+
+  const { lastPrimedAt, threadStrength, lastDecayDate } = state;
+  const { threadStrengthSensitivity, restDays } =
+    useSettingsStore.getState();
+  const today = localDateString(new Date());
+
+  // Already applied decay today — skip
+  if (lastDecayDate === today) return {};
+
+  // Never primed or primed today — no decay
+  if (!lastPrimedAt || lastPrimedAt === today) {
+    return { lastDecayDate: today };
+  }
+
+  const decayEligibleMissedDays = countDecayEligibleDays(
+    lastPrimedAt,
+    today,
+    restDays,
+  );
+  const daysAlreadyDecayed = lastDecayDate
+    ? countDecayEligibleDays(lastPrimedAt, lastDecayDate, restDays)
+    : 0;
+
+  if (daysAlreadyDecayed >= decayEligibleMissedDays) {
+    return { lastDecayDate: today };
+  }
+
+  if (threadStrength === null) {
+    return { lastDecayDate: today };
+  }
+
+  let newStrength = threadStrength;
+  const decayStartDay = getThreadDecayStartDay(threadStrengthSensitivity);
+
+  for (
+    let missedDay = daysAlreadyDecayed + 1;
+    missedDay <= decayEligibleMissedDays;
+    missedDay += 1
+  ) {
+    const previousPenalty = calculateThreadDecay(
+      missedDay - 1,
+      threadStrengthSensitivity,
+    );
+    const nextPenalty = calculateThreadDecay(
+      missedDay,
+      threadStrengthSensitivity,
+    );
+    const penaltyDelta = nextPenalty - previousPenalty;
+
+    if (penaltyDelta <= 0) {
+      continue;
+    }
+
+    const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
+    newStrength = Math.max(
+      minimumStrengthFloor,
+      newStrength - penaltyDelta,
+    );
+  }
+
+  return { threadStrength: newStrength, lastDecayDate: today };
+
+}
+
+/** Shared projection for middleware and the atomic SQLCipher completion receipt. */
+export function projectSessionRecord(state: ReturnType<typeof createInitialSessionState>, full: SessionLogEntry): Partial<ReturnType<typeof createInitialSessionState>> {
+  const entry = full;
+  const id = full.id;
+  const completedAtDate = new Date(entry.completedAt);
+  const eventDate = Number.isNaN(completedAtDate.getTime())
+    ? new Date()
+    : completedAtDate;
+  const todayKey = localDateString(eventDate);
+  const weekKey = isoWeekKey(eventDate);
+  const weekStart = localWeekStartString(eventDate);
+  // Mon=0 … Sun=6
+  const dayOfWeek = getIsoWeekdayIndex(eventDate);
+  const isPrimingSession = isPrimingSessionType(entry.type);
+  const { restDays, restDayPolicy } = useSettingsStore.getState();
+  const isRestDay = restDays.includes(eventDate.getDay());
+  const shouldBuildThread = !isRestDay || restDayPolicy === 'build';
+  const primingHistoryEntry = isPrimingSession
+    ? buildPrimingHistoryEntry({
+        id,
+        anchorId: entry.anchorId,
+        type: entry.type as 'activate' | 'reinforce' | 'visualize',
+        completedAt: entry.completedAt,
+      })
+    : null;
+
+  // Reset today counters if date has changed
+  const today: DayPractice =
+    state.todayPractice.date === todayKey
+      ? { ...state.todayPractice }
+      : { date: todayKey, sessionsCount: 0, totalSeconds: 0 };
+
+  // Reset week counters if week has changed
+  const week: WeekPractice =
+    state.weeklyPractice.weekKey === weekKey
+      ? { ...state.weeklyPractice }
+      : { weekKey, sessionsCount: 0, totalSeconds: 0 };
+
+  const updatedLog = [full, ...state.sessionLog].slice(0, LOG_CAP);
+
+  // Thread strength updates (priming sessions only)
+  let threadStrength = state.threadStrength;
+  let totalSessionsCount = state.totalSessionsCount;
+  let lastPrimedAt = state.lastPrimedAt;
+  let weekHistory = state.weekHistory;
+  let weekHistoryKey = state.weekHistoryKey;
+  let primingHistory = state.primingHistory;
+  let journeyWeekStart = state.journeyWeekStart;
+
+  if (isPrimingSession) {
+    totalSessionsCount = state.totalSessionsCount + 1;
+    if (primingHistoryEntry) {
+      primingHistory = [primingHistoryEntry, ...state.primingHistory];
+      journeyWeekStart =
+        state.journeyWeekStart ??
+        primingHistoryEntry.weekStart ??
+        weekStart;
+    }
+    // Reset week history on new week
+    if (state.weekHistoryKey !== weekKey) {
+      weekHistory = EMPTY_WEEK_HISTORY();
+      weekHistoryKey = weekKey;
+    } else {
+      weekHistory = [...state.weekHistory];
+    }
+    weekHistory[dayOfWeek] = true;
+
+    if (shouldBuildThread) {
+      const gain = getPracticeSessionGain(entry.type);
+      threadStrength = Math.min(100, (threadStrength ?? 0) + gain);
+      lastPrimedAt = todayKey;
+    }
+  }
+
+  return {
+    lastSession: full,
+    todayPractice: {
+      date: today.date,
+      sessionsCount: today.sessionsCount + 1,
+      totalSeconds: today.totalSeconds + entry.durationSeconds,
+    },
+    weeklyPractice: {
+      weekKey: week.weekKey,
+      sessionsCount: week.sessionsCount + 1,
+      totalSeconds: week.totalSeconds + entry.durationSeconds,
+    },
+    sessionLog: updatedLog,
+    threadStrength,
+    totalSessionsCount,
+    lastPrimedAt,
+    weekHistory,
+    weekHistoryKey,
+    primingHistory,
+    journeyWeekStart,
+  };
+
+}
+
+export function projectCanonicalCompletion(state: ReturnType<typeof createInitialSessionState>, entry: PracticeSessionRecord, mirror: boolean): ReturnType<typeof createInitialSessionState> {
+  if (state.practiceHistory.some((event) => event.id === entry.id)) return state;
+  const alreadyMirrored = state.sessionLog.some((event) => event.id === entry.id) || state.primingHistory.some((event) => event.id === entry.id);
+  const base = mirror && !alreadyMirrored && entry.practiceMode !== 'release' ? { ...state, ...projectThreadDecay(state) } : state;
+  const projected = mirror && !alreadyMirrored && entry.practiceMode !== 'release' ? projectSessionRecord(base, {
+    id: entry.id, anchorId: entry.anchorId ?? entry.anchorLocalId ?? 'unlinked-anchor',
+    type: entry.practiceMode === 'focus' ? 'activate' : entry.practiceMode === 'deep_prime' ? 'reinforce' : entry.practiceMode,
+    durationSeconds: entry.completedDurationSeconds,
+    mode: entry.backgroundAudio === 'ambient' ? 'ambient' : entry.guidanceVoice === 'none' ? 'silent' : 'mantra',
+    audioConfiguration: { guidanceVoice: entry.guidanceVoice, backgroundAudio: entry.backgroundAudio, source: 'session_override' },
+    completedAt: entry.completedAt,
+  }) : {};
+  return { ...base, ...projected, practiceHistory: sortCanonicalPracticeHistory([entry, ...state.practiceHistory]) };
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useSessionStore = create<SessionState>()(
@@ -428,100 +612,7 @@ export const useSessionStore = create<SessionState>()(
         get().applyDecay();
 
         const full: SessionLogEntry = { id, ...entry };
-
-        const completedAtDate = new Date(entry.completedAt);
-        const eventDate = Number.isNaN(completedAtDate.getTime())
-          ? new Date()
-          : completedAtDate;
-        const todayKey = localDateString(eventDate);
-        const weekKey = isoWeekKey(eventDate);
-        const weekStart = localWeekStartString(eventDate);
-        // Mon=0 … Sun=6
-        const dayOfWeek = getIsoWeekdayIndex(eventDate);
-        const isPrimingSession = isPrimingSessionType(entry.type);
-        const { restDays, restDayPolicy } = useSettingsStore.getState();
-        const isRestDay = restDays.includes(eventDate.getDay());
-        const shouldBuildThread = !isRestDay || restDayPolicy === 'build';
-        const primingHistoryEntry = isPrimingSession
-          ? buildPrimingHistoryEntry({
-              id,
-              anchorId: entry.anchorId,
-              type: entry.type as 'activate' | 'reinforce' | 'visualize',
-              completedAt: entry.completedAt,
-            })
-          : null;
-
-        set((state) => {
-          // Reset today counters if date has changed
-          const today: DayPractice =
-            state.todayPractice.date === todayKey
-              ? { ...state.todayPractice }
-              : { date: todayKey, sessionsCount: 0, totalSeconds: 0 };
-
-          // Reset week counters if week has changed
-          const week: WeekPractice =
-            state.weeklyPractice.weekKey === weekKey
-              ? { ...state.weeklyPractice }
-              : { weekKey, sessionsCount: 0, totalSeconds: 0 };
-
-          const updatedLog = [full, ...state.sessionLog].slice(0, LOG_CAP);
-
-          // Thread strength updates (priming sessions only)
-          let threadStrength = state.threadStrength;
-          let totalSessionsCount = state.totalSessionsCount;
-          let lastPrimedAt = state.lastPrimedAt;
-          let weekHistory = state.weekHistory;
-          let weekHistoryKey = state.weekHistoryKey;
-          let primingHistory = state.primingHistory;
-          let journeyWeekStart = state.journeyWeekStart;
-
-          if (isPrimingSession) {
-            totalSessionsCount = state.totalSessionsCount + 1;
-            if (primingHistoryEntry) {
-              primingHistory = [primingHistoryEntry, ...state.primingHistory];
-              journeyWeekStart =
-                state.journeyWeekStart ??
-                primingHistoryEntry.weekStart ??
-                weekStart;
-            }
-            // Reset week history on new week
-            if (state.weekHistoryKey !== weekKey) {
-              weekHistory = EMPTY_WEEK_HISTORY();
-              weekHistoryKey = weekKey;
-            } else {
-              weekHistory = [...state.weekHistory];
-            }
-            weekHistory[dayOfWeek] = true;
-
-            if (shouldBuildThread) {
-              const gain = getPracticeSessionGain(entry.type);
-              threadStrength = Math.min(100, threadStrength + gain);
-              lastPrimedAt = todayKey;
-            }
-          }
-
-          return {
-            lastSession: full,
-            todayPractice: {
-              date: today.date,
-              sessionsCount: today.sessionsCount + 1,
-              totalSeconds: today.totalSeconds + entry.durationSeconds,
-            },
-            weeklyPractice: {
-              weekKey: week.weekKey,
-              sessionsCount: week.sessionsCount + 1,
-              totalSeconds: week.totalSeconds + entry.durationSeconds,
-            },
-            sessionLog: updatedLog,
-            threadStrength,
-            totalSessionsCount,
-            lastPrimedAt,
-            weekHistory,
-            weekHistoryKey,
-            primingHistory,
-            journeyWeekStart,
-          };
-        });
+        set((state) => projectSessionRecord(state, full));
 
         // Wire teaching flags — deterministic booleans, never derived from counts
         const teaching = useTeachingStore.getState();
@@ -621,10 +712,10 @@ export const useSessionStore = create<SessionState>()(
         return entry.id;
       },
 
-      markPracticeSessionSynced: (id) => {
+      markPracticeSessionSynced: (id, updates) => {
         set((state) => ({
           practiceHistory: state.practiceHistory.map((entry) =>
-            entry.id === id ? { ...entry, syncState: 'synced' } : entry,
+            entry.id === id ? { ...entry, ...updates, syncState: 'synced' } : entry,
           ),
         }));
       },
@@ -666,66 +757,7 @@ export const useSessionStore = create<SessionState>()(
         }
       },
 
-      applyDecay: () => {
-        const { lastPrimedAt, threadStrength, lastDecayDate } = get();
-        const { threadStrengthSensitivity, restDays } =
-          useSettingsStore.getState();
-        const today = localDateString(new Date());
-
-        // Already applied decay today — skip
-        if (lastDecayDate === today) return;
-
-        // Never primed or primed today — no decay
-        if (!lastPrimedAt || lastPrimedAt === today) {
-          set({ lastDecayDate: today });
-          return;
-        }
-
-        const decayEligibleMissedDays = countDecayEligibleDays(
-          lastPrimedAt,
-          today,
-          restDays,
-        );
-        const daysAlreadyDecayed = lastDecayDate
-          ? countDecayEligibleDays(lastPrimedAt, lastDecayDate, restDays)
-          : 0;
-
-        if (daysAlreadyDecayed >= decayEligibleMissedDays) {
-          set({ lastDecayDate: today });
-          return;
-        }
-
-        let newStrength = threadStrength;
-        const decayStartDay = getThreadDecayStartDay(threadStrengthSensitivity);
-
-        for (
-          let missedDay = daysAlreadyDecayed + 1;
-          missedDay <= decayEligibleMissedDays;
-          missedDay += 1
-        ) {
-          const previousPenalty = calculateThreadDecay(
-            missedDay - 1,
-            threadStrengthSensitivity,
-          );
-          const nextPenalty = calculateThreadDecay(
-            missedDay,
-            threadStrengthSensitivity,
-          );
-          const penaltyDelta = nextPenalty - previousPenalty;
-
-          if (penaltyDelta <= 0) {
-            continue;
-          }
-
-          const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
-          newStrength = Math.max(
-            minimumStrengthFloor,
-            newStrength - penaltyDelta,
-          );
-        }
-
-        set({ threadStrength: newStrength, lastDecayDate: today });
-      },
+      applyDecay: () => set((state) => projectThreadDecay(state)),
 
       bumpThreadStrength: (delta) => {
         if (!Number.isFinite(delta) || delta === 0) {
@@ -735,7 +767,7 @@ export const useSessionStore = create<SessionState>()(
         set((state) => ({
           threadStrength: Math.max(
             0,
-            Math.min(100, state.threadStrength + delta),
+            Math.min(100, (state.threadStrength ?? 0) + delta),
           ),
         }));
       },
@@ -767,10 +799,10 @@ export const useSessionStore = create<SessionState>()(
               (entry) =>
                 !incomingAccountId ||
                 entry.accountId === incomingAccountId ||
-                entry.accountId === 'legacy',
+                (!sqlCipherEnabled() && entry.accountId === 'legacy'),
             )
             .map((entry) => {
-              if (incomingAccountId && entry.accountId === 'legacy') {
+              if (!sqlCipherEnabled() && incomingAccountId && entry.accountId === 'legacy') {
                 reassignedLegacyPracticeHistory = true;
                 return { ...entry, accountId: incomingAccountId };
               }
@@ -905,8 +937,15 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'anchor-session-storage',
-      storage: createJSONStorage(() => encryptedPersistStorage),
+      storage: privateJsonStorage(encryptedPersistStorage),
       version: 5,
+      merge: (persisted, current) => {
+        if (!sqlCipherEnabled()) return { ...current, ...(persisted as Partial<SessionState>) };
+        // The old device-wide summary has no proven owner. Retain its database
+        // and legacy bytes for recovery, but restore product views only from
+        // the explicitly scoped snapshot in AuthHydrationService.
+        return { ...current, ...createInitialSessionState() };
+      },
       migrate: (persistedState: unknown, version: number) => {
         const s = (persistedState as Partial<SessionState>) ?? {};
         const migratedState: Partial<SessionState> = { ...s };
@@ -1042,6 +1081,17 @@ export const useSessionStore = create<SessionState>()(
         }
 
         return migratedState as SessionState;
+      },
+      onRehydrateStorage: () => {
+        const span = HomeStartupProfiler.start('session_store_persisted_hydration');
+        return (state, error) => {
+          perfLog('store-hydration-finished', { store: 'session', ok: !error, practiceHistoryCount: state?.practiceHistory?.length ?? 0, hasState: Boolean(state) });
+          span({
+            ok: !error,
+            sessionCount: state?.practiceHistory?.length ?? 0,
+            hasThreadStrength: typeof state?.threadStrength === 'number',
+          });
+        };
       },
     },
   ),

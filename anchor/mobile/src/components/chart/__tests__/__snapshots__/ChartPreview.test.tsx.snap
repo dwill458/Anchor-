@@ -1,0 +1,6310 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`card ChartPreview renders and snapshots complete, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Chart complete. Waypoint 5 of 5. 1,000 / 1,000. 100% progress"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      {
+        "height": 607.375,
+      },
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 180,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": -20.354020852330336,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 2 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-1"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    2
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 3 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 146.43688198417516,
+                    "top": 192.3522921740891,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-2"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    3
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 4 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 196.57612603732042,
+                    "top": 141.94411867653514,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-3"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    4
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 5 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 242.4866092523394,
+                    "top": 90.82350442040544,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-4"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    5
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Destination reached"
+              accessibilityRole="image"
+              accessible={true}
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 48,
+                    "left": 254.30985915492954,
+                    "top": 18.065727699530512,
+                    "width": 48,
+                  },
+                ]
+              }
+              testID="chart-map-summit"
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      5
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Chart complete
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      1,000
+       / 
+      1,000
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 100,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "100%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`card ChartPreview renders and snapshots empty, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Chart your first waypoint"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      {
+        "height": 607.375,
+      },
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 180,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": -121.88280860601395,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          />
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Chart your first waypoint
+    </Text>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`card ChartPreview renders and snapshots normal, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 19% progress. Next move: Publish one useful story"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      {
+        "height": 607.375,
+      },
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 180,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": -226.00528846528022,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    opacity={0.4}
+                    r={44}
+                    stroke="#8A8175"
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#F4F1E9"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={6}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#726c64",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "opacity": 0.4,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-ghost"
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      1
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      254
+       / 
+      1,000
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 18.5589519650655,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "18.5589519650655%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+    <View
+      style={
+        {
+          "gap": 4,
+          "paddingRight": 40,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-SemiBold",
+            "fontSize": 11,
+            "letterSpacing": 0.55,
+            "lineHeight": 14,
+            "textTransform": "uppercase",
+          }
+        }
+      >
+        Next move
+      </Text>
+      <Text
+        ellipsizeMode="tail"
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-Regular",
+            "fontSize": 13,
+            "lineHeight": 19,
+          }
+        }
+      >
+        Publish one useful story
+      </Text>
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`card ChartPreview renders and snapshots reached, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 1,000 / 1,000. 100% progress"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      {
+        "height": 607.375,
+      },
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 180,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": -226.00528846528022,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    opacity={0.4}
+                    r={44}
+                    stroke="#8A8175"
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#F4F1E9"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={6}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#726c64",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "opacity": 0.4,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-ghost"
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      1
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      1,000
+       / 
+      1,000
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 100,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "100%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`card ChartPreview renders and snapshots regressed, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 0% progress. Next move: Publish one useful story"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      {
+        "height": 607.375,
+      },
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 180,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": -226.00528846528022,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    opacity={0.4}
+                    r={44}
+                    stroke="#8A8175"
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#F4F1E9"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={6}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#726c64",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "opacity": 0.4,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-ghost"
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      1
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      54
+       / 
+      1,000
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 0,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 0,
+              "width": "0%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+    <View
+      style={
+        {
+          "gap": 4,
+          "paddingRight": 40,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-SemiBold",
+            "fontSize": 11,
+            "letterSpacing": 0.55,
+            "lineHeight": 14,
+            "textTransform": "uppercase",
+          }
+        }
+      >
+        Next move
+      </Text>
+      <Text
+        ellipsizeMode="tail"
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-Regular",
+            "fontSize": 13,
+            "lineHeight": 19,
+          }
+        }
+      >
+        Publish one useful story
+      </Text>
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`hero ChartPreview renders and snapshots complete, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Chart complete. Waypoint 5 of 5. 1,000 / 1,000. 100% progress. started at 84"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 443.1924882629108,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": 0,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 2 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-1"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    2
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 3 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 146.43688198417516,
+                    "top": 192.3522921740891,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-2"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    3
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 4 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 196.57612603732042,
+                    "top": 141.94411867653514,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-3"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    4
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Waypoint 5 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 242.4866092523394,
+                    "top": 90.82350442040544,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-4"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#8A8175"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={3}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#111820",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    5
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityLabel="Destination reached"
+              accessibilityRole="image"
+              accessible={true}
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 48,
+                    "left": 254.30985915492954,
+                    "top": 18.065727699530512,
+                    "width": 48,
+                  },
+                ]
+              }
+              testID="chart-map-summit"
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        {
+          "backgroundColor": "#18212A",
+        },
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      5
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          {
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 23,
+            "letterSpacing": -0.7,
+            "lineHeight": 28,
+          },
+        ]
+      }
+    >
+      Chart complete
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      1,000
+       / 
+      1,000
+    </Text>
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-Regular",
+          "fontSize": 13,
+          "lineHeight": 19,
+        }
+      }
+    >
+      started at 
+      84
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 100,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "100%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`hero ChartPreview renders and snapshots empty, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Chart your first waypoint"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 443.1924882629108,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": 0,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          />
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        {
+          "backgroundColor": "#18212A",
+        },
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          {
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 23,
+            "letterSpacing": -0.7,
+            "lineHeight": 28,
+          },
+        ]
+      }
+    >
+      Chart your first waypoint
+    </Text>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`hero ChartPreview renders and snapshots normal, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 254 / 1,000. 19% progress. started at 84. Next move: Publish one useful story"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 443.1924882629108,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": 0,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    opacity={0.4}
+                    r={44}
+                    stroke="#8A8175"
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#F4F1E9"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={6}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#726c64",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "opacity": 0.4,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-ghost"
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        {
+          "backgroundColor": "#18212A",
+        },
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      CURRENT WAYPOINT
+    </Text>
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      1
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          {
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 23,
+            "letterSpacing": -0.7,
+            "lineHeight": 28,
+          },
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      254
+       / 
+      1,000
+    </Text>
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-Regular",
+          "fontSize": 13,
+          "lineHeight": 19,
+        }
+      }
+    >
+      started at 
+      84
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 18.5589519650655,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "18.5589519650655%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`hero ChartPreview renders and snapshots reached, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 1,000 / 1,000. 100% progress. started at 84"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 443.1924882629108,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": 0,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    opacity={0.4}
+                    r={44}
+                    stroke="#8A8175"
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#F4F1E9"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={6}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#726c64",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "opacity": 0.4,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-ghost"
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        {
+          "backgroundColor": "#18212A",
+        },
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      CURRENT WAYPOINT
+    </Text>
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      1
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          {
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 23,
+            "letterSpacing": -0.7,
+            "lineHeight": 28,
+          },
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      1,000
+       / 
+      1,000
+    </Text>
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-Regular",
+          "fontSize": 13,
+          "lineHeight": 19,
+        }
+      }
+    >
+      started at 
+      84
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 100,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "100%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`hero ChartPreview renders and snapshots regressed, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 54 / 1,000. 0% progress. started at 84. Next move: Publish one useful story"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      false,
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    accessibilityElementsHidden={true}
+    importantForAccessibility="no-hide-descendants"
+    onLayout={[Function]}
+    pointerEvents="none"
+    style={
+      [
+        {
+          "backgroundColor": "#F4F1E9",
+          "overflow": "hidden",
+        },
+        {
+          "height": 443.1924882629108,
+        },
+      ]
+    }
+    testID="chart-map-crop"
+  >
+    <View
+      style={
+        {
+          "position": "absolute",
+          "top": 0,
+        }
+      }
+      testID="chart-preview-map-offset"
+    >
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "#F4F1E9",
+              "overflow": "hidden",
+            },
+            {
+              "height": 443.1924882629108,
+              "width": 320,
+            },
+          ]
+        }
+        testID="chart-preview-etched-map"
+      >
+        <View
+          style={
+            [
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              },
+              {
+                "opacity": 1,
+              },
+            ]
+          }
+          testID="chart-preview-etched-map-layers"
+        >
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+          >
+            <Canvas style={"width":320,"height":443.1924882629108} />
+          </View>
+          <View
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={false}
+            collapsable={false}
+            focusable={true}
+            importantForAccessibility="no"
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            style={
+              {
+                "bottom": 0,
+                "left": 0,
+                "position": "absolute",
+                "right": 0,
+                "top": 0,
+              }
+            }
+            testID="chart-preview-etched-map-surface"
+          />
+          <View
+            pointerEvents="box-none"
+            style={
+              [
+                {
+                  "height": 443.1924882629108,
+                  "width": 320,
+                },
+                {
+                  "left": 0,
+                  "position": "absolute",
+                  "top": 0,
+                },
+                {
+                  "transform": [
+                    {
+                      "translateX": 0,
+                    },
+                    {
+                      "translateY": 0,
+                    },
+                    {
+                      "scale": 1,
+                    },
+                  ],
+                },
+              ]
+            }
+          >
+            <View
+              accessibilityLabel="Waypoint 1 of 5"
+              accessibilityRole="image"
+              accessible={true}
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 50.082303796703584,
+                    "top": 296.47477203335535,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-marker-0"
+            >
+              <View
+                pointerEvents="none"
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    opacity={0.4}
+                    r={44}
+                    stroke="#8A8175"
+                    strokeWidth={2}
+                  />
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="#F4F1E9"
+                    r={30}
+                    stroke="#8A8175"
+                    strokeWidth={6}
+                  />
+                </Svg>
+                <View
+                  pointerEvents="none"
+                  style={
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    }
+                  }
+                >
+                  <Text
+                    allowFontScaling={false}
+                    style={
+                      [
+                        {
+                          "fontFamily": "EBGaramond-Medium",
+                          "includeFontPadding": false,
+                          "textAlign": "center",
+                        },
+                        {
+                          "color": "#726c64",
+                          "fontSize": 12.769953051643192,
+                          "lineHeight": 15.023474178403756,
+                          "marginTop": 0.7511737089201878,
+                        },
+                      ]
+                    }
+                  >
+                    1
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+              pointerEvents="none"
+              style={
+                [
+                  {
+                    "alignItems": "center",
+                    "justifyContent": "center",
+                    "position": "absolute",
+                  },
+                  {
+                    "height": 39.06103286384976,
+                    "left": 95.52283053019305,
+                    "opacity": 0.4,
+                    "top": 241.62683611467435,
+                    "width": 39.06103286384976,
+                  },
+                ]
+              }
+              testID="chart-map-ghost"
+            >
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "bottom": 0,
+                      "justifyContent": "center",
+                      "left": 0,
+                      "position": "absolute",
+                      "right": 0,
+                      "top": 0,
+                    },
+                    {
+                      "transform": [
+                        {
+                          "scale": 1,
+                        },
+                      ],
+                    },
+                  ]
+                }
+              >
+                <Svg
+                  height={39.06103286384976}
+                  viewBox="-52 -52 104 104"
+                  width={39.06103286384976}
+                >
+                  <Circle
+                    cx={0}
+                    cy={0}
+                    fill="none"
+                    r={30}
+                    stroke="rgba(17,24,32,0.5)"
+                    strokeDasharray="4 7"
+                    strokeWidth={2.5}
+                  />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        false,
+        {
+          "backgroundColor": "#18212A",
+        },
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      CURRENT WAYPOINT
+    </Text>
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-SemiBold",
+          "fontSize": 11,
+          "letterSpacing": 0.55,
+          "lineHeight": 14,
+          "textTransform": "uppercase",
+        }
+      }
+    >
+      WAYPOINT 
+      1
+       OF 
+      5
+    </Text>
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          {
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 23,
+            "letterSpacing": -0.7,
+            "lineHeight": 28,
+          },
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#F4F6FA",
+          "fontFamily": "Inter-SemiBold",
+          "fontSize": 20,
+          "letterSpacing": -0.2,
+          "lineHeight": 25,
+        }
+      }
+    >
+      54
+       / 
+      1,000
+    </Text>
+    <Text
+      style={
+        {
+          "color": "rgba(244, 246, 250, 0.65)",
+          "fontFamily": "Figtree-Regular",
+          "fontSize": 13,
+          "lineHeight": 19,
+        }
+      }
+    >
+      started at 
+      84
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 0,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 0,
+              "width": "0%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "bottom": 16,
+        "position": "absolute",
+        "right": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`row ChartPreview renders and snapshots complete, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Chart complete. Waypoint 5 of 5. 100% progress"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      },
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        {
+          "flex": 1,
+          "minWidth": 0,
+          "paddingRight": 8,
+        },
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Chart complete
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 100,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "100%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "flexShrink": 0,
+        "paddingRight": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`row ChartPreview renders and snapshots empty, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Chart your first waypoint"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      },
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        {
+          "flex": 1,
+          "minWidth": 0,
+          "paddingRight": 8,
+        },
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Chart your first waypoint
+    </Text>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "flexShrink": 0,
+        "paddingRight": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`row ChartPreview renders and snapshots normal, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 19% progress. Next move: Publish one useful story"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      },
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        {
+          "flex": 1,
+          "minWidth": 0,
+          "paddingRight": 8,
+        },
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 18.5589519650655,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "18.5589519650655%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+    <View
+      style={
+        {
+          "gap": 4,
+          "paddingRight": 40,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-SemiBold",
+            "fontSize": 11,
+            "letterSpacing": 0.55,
+            "lineHeight": 14,
+            "textTransform": "uppercase",
+          }
+        }
+      >
+        Next move
+      </Text>
+      <Text
+        ellipsizeMode="tail"
+        numberOfLines={1}
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-Regular",
+            "fontSize": 13,
+            "lineHeight": 19,
+          }
+        }
+      >
+        Publish one useful story
+      </Text>
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "flexShrink": 0,
+        "paddingRight": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`row ChartPreview renders and snapshots reached, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 100% progress"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      },
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        {
+          "flex": 1,
+          "minWidth": 0,
+          "paddingRight": 8,
+        },
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 100,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 4,
+              "width": "100%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "flexShrink": 0,
+        "paddingRight": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;
+
+exports[`row ChartPreview renders and snapshots regressed, and delegates presses 1`] = `
+<View
+  accessibilityLabel="Build a steady audience. Waypoint 1 of 5. 0% progress. Next move: Publish one useful story"
+  accessibilityRole="button"
+  accessibilityState={
+    {
+      "busy": undefined,
+      "checked": undefined,
+      "disabled": undefined,
+      "expanded": undefined,
+      "selected": undefined,
+    }
+  }
+  accessibilityValue={
+    {
+      "max": undefined,
+      "min": undefined,
+      "now": undefined,
+      "text": undefined,
+    }
+  }
+  accessible={true}
+  collapsable={false}
+  focusable={true}
+  onBlur={[Function]}
+  onClick={[Function]}
+  onFocus={[Function]}
+  onResponderGrant={[Function]}
+  onResponderMove={[Function]}
+  onResponderRelease={[Function]}
+  onResponderTerminate={[Function]}
+  onResponderTerminationRequest={[Function]}
+  onStartShouldSetResponder={[Function]}
+  style={
+    [
+      {
+        "backgroundColor": "#0E151C",
+        "borderColor": "rgba(255, 255, 255, 0.14)",
+        "borderRadius": 18,
+        "borderWidth": 1,
+        "minHeight": 44,
+        "overflow": "hidden",
+      },
+      false,
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+      },
+      false,
+    ]
+  }
+  testID="chart-preview"
+>
+  <View
+    style={
+      [
+        {
+          "gap": 8,
+          "padding": 16,
+          "paddingRight": 16,
+        },
+        {
+          "flex": 1,
+          "minWidth": 0,
+          "paddingRight": 8,
+        },
+        false,
+      ]
+    }
+    testID="chart-preview-copy"
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#F4F6FA",
+            "fontFamily": "BricolageGrotesque-SemiBold",
+            "fontSize": 16,
+            "lineHeight": 22,
+          },
+          false,
+        ]
+      }
+    >
+      Build a steady audience
+    </Text>
+    <View
+      accessibilityLabel="Waypoint progress"
+      accessibilityRole="progressbar"
+      accessibilityValue={
+        {
+          "max": 100,
+          "min": 0,
+          "now": 0,
+        }
+      }
+      accessible={true}
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.14)",
+          "borderRadius": 4,
+          "height": 4,
+          "overflow": "hidden",
+        }
+      }
+    >
+      <View
+        style={
+          [
+            {
+              "borderRadius": 4,
+              "height": "100%",
+              "maxWidth": "100%",
+            },
+            {
+              "backgroundColor": "#8A8175",
+              "minWidth": 0,
+              "width": "0%",
+            },
+          ]
+        }
+        testID="chart-progress-fill"
+      />
+    </View>
+    <View
+      style={
+        {
+          "gap": 4,
+          "paddingRight": 40,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-SemiBold",
+            "fontSize": 11,
+            "letterSpacing": 0.55,
+            "lineHeight": 14,
+            "textTransform": "uppercase",
+          }
+        }
+      >
+        Next move
+      </Text>
+      <Text
+        ellipsizeMode="tail"
+        numberOfLines={1}
+        style={
+          {
+            "color": "rgba(244, 246, 250, 0.65)",
+            "fontFamily": "Figtree-Regular",
+            "fontSize": 13,
+            "lineHeight": 19,
+          }
+        }
+      >
+        Publish one useful story
+      </Text>
+    </View>
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      {
+        "flexShrink": 0,
+        "paddingRight": 16,
+      }
+    }
+  >
+    <ChevronRight
+      color="#F4F6FA"
+      size={24}
+    />
+  </View>
+</View>
+`;

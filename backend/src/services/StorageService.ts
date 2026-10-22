@@ -21,6 +21,8 @@ import { logger } from '../utils/logger';
 interface UploadUrlOptions {
   baseUrl?: string;
   signedUrlExpiresIn?: number;
+  visibility?: 'public' | 'private';
+  contentType?: string;
 }
 
 interface UploadedImageAsset {
@@ -110,6 +112,23 @@ function getPublicAssetBaseUrl(bucket: string): string {
   return `https://${bucket}.r2.cloudflarestorage.com`;
 }
 
+function getPrivateBucketName(): string {
+  const privateBucket = normalizeEnvValue(process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME);
+  if (privateBucket) {
+    return privateBucket;
+  }
+
+  // A configured public domain means the default bucket may be world-readable.
+  // Do not silently place personal Vision assets there in production.
+  if (isProduction() && normalizeEnvValue(process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN)) {
+    throw new Error(
+      'Private Vision storage requires CLOUDFLARE_R2_PRIVATE_BUCKET_NAME when a public R2 domain is configured'
+    );
+  }
+
+  return getBucketName();
+}
+
 async function buildSignedObjectUrl(
   client: S3Client,
   bucket: string,
@@ -121,11 +140,11 @@ async function buildSignedObjectUrl(
   // presigner's own parameter types to bridge the mismatch without `any`.
   type PresignParams = Parameters<typeof presignS3Request>;
   return presignS3Request(
-    client as PresignParams[0],
+    client as unknown as PresignParams[0],
     new GetObjectCommand({
       Bucket: bucket,
       Key: objectKey,
-    }) as PresignParams[1],
+    }) as unknown as PresignParams[1],
     { expiresIn }
   );
 }
@@ -216,12 +235,15 @@ export function isServerStoredAssetUrl(assetUrl: string | null | undefined): boo
     return true;
   }
   try {
-    return new URL(assetUrl).pathname.startsWith('/uploads/anchors/');
+    // Local development uploads: only this server's own hosts, never an arbitrary host that
+    // happens to use the same path.
+    const url = new URL(assetUrl);
+    const ownHosts = new Set(['localhost', '127.0.0.1', '10.0.2.2', normalizeEnvValue(process.env.LOCAL_IP)]);
+    return ownHosts.has(url.hostname) && url.pathname.startsWith('/uploads/anchors/');
   } catch {
     return false;
   }
 }
-
 export async function resolveStoredAssetUrl(
   assetUrl: string | null | undefined,
   expiresIn: number = 3600
@@ -248,6 +270,66 @@ export async function resolveStoredAssetUrl(
       objectKey,
     });
     return assetUrl;
+  }
+}
+
+/**
+ * Resolve a server-owned storage key to a short-lived read URL. Vision assets
+ * use this path so no permanent public URL is persisted or returned.
+ */
+export async function resolveStorageKeyUrl(
+  storageKey: string | null | undefined,
+  expiresIn: number = 3600
+): Promise<string | null> {
+  const normalizedKey = storageKey?.trim();
+  if (!normalizedKey) {
+    return null;
+  }
+
+  const client = getR2Client();
+  const bucket = getPrivateBucketName();
+  if (!client) {
+    if (isProduction()) {
+      throw new Error('Private Vision storage is unavailable in production');
+    }
+    return buildLocalUploadUrl(normalizedKey);
+  }
+
+  try {
+    return await buildSignedObjectUrl(client, bucket, normalizedKey, expiresIn);
+  } catch (error) {
+    logger.warn('[Storage] Failed to resolve private asset URL', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      objectKey: normalizedKey,
+    });
+    return null;
+  }
+}
+
+/** Read a private Vision asset inside the trusted backend only. Never log or return its bytes. */
+export async function readPrivateImageAsset(storageKey: string): Promise<Buffer> {
+  const client = getR2Client();
+  if (!client) {
+    const localPath = path.join(getLocalUploadsDir(), storageKey);
+    return fs.promises.readFile(localPath);
+  }
+  const result = await client.send(new GetObjectCommand({ Bucket: getPrivateBucketName(), Key: storageKey })) as { Body?: unknown };
+  const body = result.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+  if (!body?.transformToByteArray) throw new Error('Private Vision asset could not be read');
+  return Buffer.from(await body.transformToByteArray());
+}
+
+/** Best-effort removal for generation-scoped appearance references. */
+export async function deletePrivateImageAsset(storageKey: string): Promise<void> {
+  try {
+    const client = getR2Client();
+    if (!client) {
+      await fs.promises.rm(path.join(getLocalUploadsDir(), storageKey), { force: true });
+      return;
+    }
+    await client.send(new DeleteObjectCommand({ Bucket: getPrivateBucketName(), Key: storageKey }));
+  } catch (error) {
+    logger.warn('[Storage] Failed to remove private Vision asset', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
@@ -368,8 +450,9 @@ export async function uploadImageAssetFromBuffer(
 ): Promise<UploadedImageAsset> {
   try {
     const objectKey = buildImageStorageKey(userId, anchorId, variationIndex);
+    const isPrivate = options?.visibility === 'private';
     const client = getR2Client();
-    const bucket = getBucketName();
+    const bucket = isPrivate ? getPrivateBucketName() : getBucketName();
 
     if (client) {
       logger.info('[Storage] Uploading image buffer to R2', { key: objectKey });
@@ -379,12 +462,11 @@ export async function uploadImageAssetFromBuffer(
             Bucket: bucket,
             Key: objectKey,
             Body: imageBuffer,
-            ContentType: 'image/png',
-            CacheControl: 'public, max-age=31536000',
+            ContentType: options?.contentType ?? 'image/png',
+            CacheControl: isPrivate ? 'private, no-store' : 'public, max-age=31536000',
           })
         );
 
-        const url = `${getPublicAssetBaseUrl(bucket)}/${objectKey}`;
         const externalUrl = await buildSignedObjectUrl(
           client,
           bucket,
@@ -392,11 +474,9 @@ export async function uploadImageAssetFromBuffer(
           options?.signedUrlExpiresIn ?? 3600
         );
 
-        return {
-          objectKey,
-          url,
-          externalUrl,
-        };
+        return isPrivate
+          ? { objectKey, url: externalUrl, externalUrl }
+          : { objectKey, url: `${getPublicAssetBaseUrl(bucket)}/${objectKey}`, externalUrl };
       } catch (r2Error) {
         if (isProduction()) {
           throw r2Error;

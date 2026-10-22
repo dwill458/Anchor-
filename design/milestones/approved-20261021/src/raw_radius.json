@@ -1,0 +1,22 @@
+{
+ "strength_building": 76.5,
+ "strength_established": 76.4,
+ "strength_integrated": 79.3,
+ "strength_reinforced": 82.6,
+ "strength_full_strength": 96.8,
+ "commitment_ten_practices": 96.6,
+ "commitment_thirty_practices": 100.0,
+ "commitment_one_hundred_practices": 97.6,
+ "commitment_100_minutes": 98.5,
+ "commitment_500_minutes": 98.0,
+ "journey_first_waypoint": 82.9,
+ "journey_halfway": 82.9,
+ "journey_all_waypoints": 102.9,
+ "commitment_first_practice": 92.6,
+ "journey_goal_reached": 92.1,
+ "vision_first_glimpse": 100.0,
+ "vision_picture_complete": 97.9,
+ "vision_seen_clearly": 91.9,
+ "vision_familiar_future": 101.1,
+ "vision_living_the_vision": 106.8
+}

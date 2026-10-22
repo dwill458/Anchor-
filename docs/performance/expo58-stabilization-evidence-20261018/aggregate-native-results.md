@@ -1,0 +1,9 @@
+# Corrected native Focus aggregation
+
+`aggregate-native-results.py` is an evidence-only reader. Do not run it until the corrected run is complete and both `native-focus-cycles.jsonl` and `native-focus-traces.json` are present. The combined cycle log includes an `interrupted-route-start` and `inspector-disconnected` event for the excluded attempted sample 18; the raw record is preserved in `native-focus-pre-interruption.jsonl`. The driver stopped UI automation after the inspector disconnected. The interrupted attempt made no service call and does not consume trace IDs.
+
+The script requires exactly 20 successful `cycle-verified` entries and 20 focused Home returns, checks final canonical count 41 from baseline 21, and requires corrected service trace IDs 43–82. It permits duplicated/extra route-start events created around the interrupted/resume boundary, but every successful cycle must have a route-start record. It reports the excluded interruption and resume markers separately. The initial unscoped logs are never read. It excludes `duplicate: true` durability entries from service latency statistics.
+
+`native-focused-observations.json` is optional and may contain a CDP wrapper or a direct value. Queue wait and transaction latency are labeled partial: the observer was installed after two corrected samples (verified count 23, baseline 21), covering samples 3–17 and resumed samples 18–20 with the background/interruption gap in the interval. JS timing is labeled development-only and covers resumed samples 18–20 only; the timer restarted before sample 18. Any `focused-*-after.txt` memory/GFX captures are included verbatim when present. The output always declares `DEV_ONLY` and zero release samples.
+
+The script fails closed on missing inputs, incomplete successful samples, unexpected IDs/counts, or missing Home returns; it does not emit a partial summary. It writes `native-focused-summary.json` only after all validations pass.

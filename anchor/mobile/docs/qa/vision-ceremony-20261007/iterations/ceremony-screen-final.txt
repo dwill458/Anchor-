@@ -1,0 +1,22 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (11.145 s)
+  V2VisionScreen ceremony additions
+    √ Add image opens Ask directly with all three paths and launches nothing (317 ms)
+    √ camera photos stay local through Keep and persist caption at Seal (956 ms)
+    √ library photos stay local through Keep and persist caption at Seal (938 ms)
+    √ canceling before Seal saves no image (416 ms)
+    √ a permanent camera refusal explains permission and leaves Ask usable (148 ms)
+    √ offers no add action when the real board holds six images (68 ms)
+    √ one-image boards retain room to add (39 ms)
+    √ keeps added images when the Vision is reopened (173 ms)
+    √ keeps a failed add sealed and retries without another upload or hold (815 ms)
+    √ first own-photo creation remains mounted through Sealed and Pinned (763 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       10 passed, 10 total
+Snapshots:   0 total
+Time:        11.256 s, estimated 14 s
+Ran all test suites matching /src\\screens\\v2\\vision\\__tests__\\V2VisionScreen.addImage.test.tsx/i.

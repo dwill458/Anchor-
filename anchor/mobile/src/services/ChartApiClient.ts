@@ -11,6 +11,10 @@ import type {
   ReorderWaypointsRequest,
   AddWaypointRequest,
   CourseLogEntry,
+  CompleteWaypointRequest,
+  CompleteWaypointResponse,
+  SkipWaypointRequest,
+  CancelWaypointRequest,
 } from '@/types/chart';
 
 export type ChartApiResult<T> = {
@@ -42,6 +46,13 @@ export class ChartApiClient {
       );
     }
     if (!Object.prototype.hasOwnProperty.call(envelope, 'data')) {
+      if (envelope.success) {
+        return {
+          data: envelope as unknown as T,
+          migrationRequired: envelope.migrationRequired,
+          pagination: envelope.pagination,
+        };
+      }
       throw new ApiClientError('Chart response did not include data', 'INVALID_RESPONSE', response.status);
     }
     return {
@@ -203,6 +214,56 @@ export class ChartApiClient {
           ...this.requestConfig(signal),
           data: { expectedCourseVersion },
         },
+      ),
+    );
+  }
+
+  completeWaypoint(
+    courseId: string,
+    waypointId: string,
+    request: CompleteWaypointRequest,
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CompleteWaypointResponse>> {
+    return this.unwrap(() =>
+      signal
+        ? apiClient.post(
+            `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/complete`,
+            request,
+            this.requestConfig(signal),
+          )
+        : apiClient.post(
+            `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/complete`,
+            request,
+          ),
+    );
+  }
+
+  skipWaypoint(
+    courseId: string,
+    waypointId: string,
+    request: SkipWaypointRequest,
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CourseDetail>> {
+    return this.unwrap(() =>
+      apiClient.post(
+        `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/skip`,
+        request,
+        this.requestConfig(signal),
+      ),
+    );
+  }
+
+  cancelWaypoint(
+    courseId: string,
+    waypointId: string,
+    request: CancelWaypointRequest,
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CourseDetail>> {
+    return this.unwrap(() =>
+      apiClient.post(
+        `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/cancel`,
+        request,
+        this.requestConfig(signal),
       ),
     );
   }

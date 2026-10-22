@@ -1,0 +1,1 @@
+393,1097 from fresh visible menu bounds [64,1033][722,1161]

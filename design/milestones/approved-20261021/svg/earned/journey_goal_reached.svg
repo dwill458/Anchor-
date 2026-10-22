@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="journey_goal_reached" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Goal Reached (Journey) earned">
+  <title>Goal Reached (Journey) earned</title>
+  <desc>Anchor milestone emblem. Provisional design slug: journey_goal_reached. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="journey_goal_reached-orb" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F8E2A8"/><stop offset="0.38" stop-color="#DDB35F"/>
+      <stop offset="0.78" stop-color="#B08A46"/><stop offset="1" stop-color="#7E5E28"/>
+    </radialGradient>
+    <radialGradient id="journey_goal_reached-plate" cx="36%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#FFFBF0"/><stop offset="0.6" stop-color="#F7F0DE"/><stop offset="1" stop-color="#EBE3CF"/>
+    </radialGradient>
+    <linearGradient id="journey_goal_reached-metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2D08A"/><stop offset="0.5" stop-color="#D9B263"/><stop offset="1" stop-color="#A98245"/>
+    </linearGradient>
+  </defs>
+  <g id="journey_goal_reached__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#journey_goal_reached-plate)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CDBE96" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFF6DC" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B08A50" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#F0DFB4" stroke-width="0.7"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#B39561" stroke-width="1.2"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FEEED2" stroke-width="0.6"/>
+  </g>
+  <g id="journey_goal_reached__structure">
+    <path id="journey_goal_reached__structure-contour-1" d="M49.02 160C96.41 154 159.59 166 206.98 160" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-2" d="M51.63 166C97.45 172 158.55 160 204.37 166" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-3" d="M54.79 172C98.72 166 157.28 178 201.21 172" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-4" d="M58.58 178C100.23 184 155.77 172 197.42 178" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-5" d="M63.12 184C102.05 178 153.95 190 192.88 184" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-6" d="M68.55 190C104.22 196 151.78 184 187.45 190" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-7" d="M75.14 196C106.86 190 149.14 202 180.86 196" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-8" d="M83.38 202C110.15 208 145.85 196 172.62 202" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__structure-contour-9" d="M94.34 208C114.54 202 141.46 214 161.66 208" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="journey_goal_reached__emblem">
+    <path id="journey_goal_reached__emblem-hill-1" d="M43 152C72 136 112 138 130 154" fill="none" stroke="#13222C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-hill-2" d="M100 182C128 146 188 128 214 152" fill="none" stroke="#13222C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-1" d="M104 206C108.33 203.33 129.33 195.33 130 190" fill="none" stroke="#13222C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-2" d="M130 190C130.67 184.67 107 179 108 174" fill="none" stroke="#13222C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-3" d="M108 174C109 169 129 164 136 160" fill="none" stroke="#13222C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__emblem-seg-4" d="M136 160C143 156 147.67 151.67 150 150" fill="none" stroke="#13222C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="journey_goal_reached__engraving">
+    <path id="journey_goal_reached__engraving-sun-outer" d="M88 146A40 40 0 0 1 168 146" fill="none" stroke="#13222C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__engraving-sun-inner" d="M94.5 146A33.5 33.5 0 0 1 161.5 146" fill="none" stroke="#3A4A55" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="journey_goal_reached__highlight">
+    <path id="journey_goal_reached__highlight-inlay-1" d="M104 206C108.33 203.33 129.33 195.33 130 190" fill="none" stroke="#C9A24A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__highlight-inlay-2" d="M130 190C130.67 184.67 107 179 108 174" fill="none" stroke="#C9A24A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__highlight-inlay-3" d="M108 174C109 169 129 164 136 160" fill="none" stroke="#C9A24A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="journey_goal_reached__highlight-inlay-4" d="M136 160C143 156 147.67 151.67 150 150" fill="none" stroke="#C9A24A" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-01" x1="80.26" y1="140.98" x2="52.42" y2="138.06" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-02" x1="82.89" y1="129.58" x2="64.1" y2="122.74" fill="none" stroke="#C9A24A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-03" x1="88.21" y1="119.16" x2="64.99" y2="103.5" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-04" x1="95.88" y1="110.33" x2="82.5" y2="95.47" fill="none" stroke="#C9A24A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-05" x1="105.47" y1="103.62" x2="92.32" y2="78.9" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-06" x1="116.39" y1="99.43" x2="111.55" y2="80.02" fill="none" stroke="#C9A24A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-07" x1="128" y1="98" x2="128" y2="70" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-08" x1="139.61" y1="99.43" x2="144.45" y2="80.02" fill="none" stroke="#C9A24A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-09" x1="150.53" y1="103.62" x2="163.68" y2="78.9" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-10" x1="160.12" y1="110.33" x2="173.5" y2="95.47" fill="none" stroke="#C9A24A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-11" x1="167.79" y1="119.16" x2="191.01" y2="103.5" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-12" x1="173.11" y1="129.58" x2="191.9" y2="122.74" fill="none" stroke="#C9A24A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="journey_goal_reached__highlight-ray-13" x1="175.74" y1="140.98" x2="203.58" y2="138.06" fill="none" stroke="#C9A24A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="journey_goal_reached__accent">
+    <g id="journey_goal_reached__accent-goal">
+      <circle cx="150" cy="150" r="5.5" fill="url(#journey_goal_reached-orb)" stroke="#A07C3E" stroke-width="0.9"/>
+      <circle cx="148.24" cy="148.02" r="1.43" fill="#FFFFFF" opacity="0.6"/>
+    </g>
+  </g>
+</svg>

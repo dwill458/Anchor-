@@ -14,6 +14,8 @@ interface UseAppStartupOptions {
   fontsReady: boolean;
   settingsHydrated: boolean;
   authRestorationSettled: boolean;
+  firstRunHydrated: boolean;
+  anchorsHydrated: boolean;
   primeOnLaunchResolved: boolean;
   safeFailure?: boolean;
   fatalFailure?: boolean;
@@ -30,6 +32,8 @@ export const useAppStartup = ({
   fontsReady,
   settingsHydrated,
   authRestorationSettled,
+  firstRunHydrated,
+  anchorsHydrated,
   primeOnLaunchResolved,
   safeFailure = false,
   fatalFailure = false,
@@ -40,8 +44,14 @@ export const useAppStartup = ({
     fontsReady &&
     settingsHydrated &&
     authRestorationSettled &&
+    firstRunHydrated &&
+    anchorsHydrated &&
     primeOnLaunchResolved;
-  const safeToFailOpen = authRestorationSettled && primeOnLaunchResolved;
+  const safeToFailOpen =
+    authRestorationSettled &&
+    firstRunHydrated &&
+    anchorsHydrated &&
+    primeOnLaunchResolved;
 
   useEffect(() => {
     if (dependenciesSettled || fatalFailure || timedOut) {

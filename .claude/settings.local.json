@@ -25,7 +25,8 @@
       "Read(//c/Users/dwill/Downloads/Anchor-App/**)",
       "Read(//e/downloads/**)",
       "Bash(gh api *)",
-      "Bash(adb devices *)"
+      "Bash(adb devices *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\dwill\\\\AppData\\\\Local\\\\pnpm\" -Force | Select-Object Name, Mode, LastWriteTime | Format-Table -AutoSize; \\(Get-Command pnpm -ErrorAction SilentlyContinue\\).Source)"
     ]
   }
 }

@@ -1,0 +1,5 @@
+
+Algorithm : SHA256
+Hash      : 12F2E606A9FEAA13C06C04A0EDF69FCF9FDA52B15FDF080A288859227F5C8966
+Path      : C:\Users\dwill\.codex\worktrees\expo58-upgrade\Anchor\anchor\mobile\android\app\build\outputs\apk\release\app-release.apk
+

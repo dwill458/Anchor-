@@ -1,0 +1,34 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx --testNamePattern=persists all
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (19.669 s)
+  V2VisionScreen ceremony additions
+    √ persists all 7 selected personal photos in picker order with their source metadata (5121 ms)
+    √ persists all 8 selected personal photos in picker order with their source metadata (5853 ms)
+    ○ skipped Add image opens Ask directly with all three paths and launches nothing
+    ○ skipped camera photos stay local through Keep and persist caption at Seal
+    ○ skipped library photos stay local through Keep and persist caption at Seal
+    ○ skipped drops the arrival pin on the saved scene id after add even when the read model re-signs its URL
+    ○ skipped drops the arrival pin on the saved scene id after regenerate even when the read model re-signs its URL
+    ○ skipped canceling before Seal saves no image
+    ○ skipped a permanent camera refusal explains permission and leaves Ask usable
+    ○ skipped offers no add action when the real board holds eight images
+    ○ skipped one-image boards retain room to add
+    ○ skipped keeps added images when the Vision is reopened
+    ○ skipped keeps a failed add sealed and retries without another upload or hold
+    ○ skipped first own-photo creation remains mounted through Sealed and Pinned
+    ○ skipped sealed regeneration on a 8-image board resumes unfinished mutations
+    ○ skipped sealed regeneration on a 3-image board resumes unfinished mutations
+    the first image remains on its completed board
+      ○ skipped stays on the completed board after the pinned board has been sat with
+      ○ skipped does not automatically navigate after Reduce Motion sealing either
+      ○ skipped does not go Home if the person leaves the screen first
+      ○ skipped does not go Home when the person starts adding an image first
+      ○ skipped a later image never navigates
+
+Test Suites: 1 passed, 1 total
+Tests:       19 skipped, 2 passed, 21 total
+Snapshots:   0 total
+Time:        19.82 s, estimated 50 s
+Ran all test suites matching /src\\screens\\v2\\vision\\__tests__\\V2VisionScreen.addImage.test.tsx/i with tests matching "persists all".

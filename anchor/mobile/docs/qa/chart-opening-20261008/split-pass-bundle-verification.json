@@ -1,0 +1,12 @@
+{
+  "path": "E:\\Projects\\Anchor\\anchor\\mobile\\docs\\qa\\chart-opening-20261008\\split-pass-current.bundle",
+  "bytes": 7410364,
+  "sha256": "53a517fc4957fb75ecd8e66f5bb99aa0a8e223b22f4fc213a7e50473489ba94a",
+  "probe": true,
+  "sequenceEnd": true,
+  "splitBase": true,
+  "splitInk": true,
+  "premount": true,
+  "fade": true,
+  "clock": true
+}

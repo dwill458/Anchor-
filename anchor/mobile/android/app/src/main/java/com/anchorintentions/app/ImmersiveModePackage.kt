@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class ImmersiveModePackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-    listOf(ImmersiveModeModule(reactContext))
+    listOf(ImmersiveModeModule(reactContext), DisplayModeModule(reactContext))
 
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
     emptyList()

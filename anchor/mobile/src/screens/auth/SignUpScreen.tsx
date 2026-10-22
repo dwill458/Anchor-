@@ -445,7 +445,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.navy },
-  backgroundGradient: { ...StyleSheet.absoluteFillObject },
+  backgroundGradient: { ...StyleSheet.absoluteFill },
   safeArea: { flex: 1 },
   keyboardAvoid: { flex: 1 },
   scrollContent: { flexGrow: 1, padding: 24, justifyContent: 'center' },

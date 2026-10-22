@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '@/services/ApiClient';
 import {
+  clearPushTokensFromServer,
   getPendingNotificationStateSync,
   syncNotificationStateToServer,
 } from '../NotificationSyncService';
@@ -129,5 +130,23 @@ describe('NotificationSyncService', () => {
     } as any);
 
     expect(await AsyncStorage.getItem('@anchor_notification_state_pending_sync')).toBeNull();
+  });
+
+  it('stops waiting on a hung push-token clear so sign-out cannot freeze', async () => {
+    jest.useFakeTimers();
+    try {
+      (apiClient.put as jest.Mock).mockReturnValue(new Promise(() => {}));
+      let settled = false;
+      const clearing = clearPushTokensFromServer().then(() => {
+        settled = true;
+      });
+
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      expect(settled).toBe(true);
+      await clearing;
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

@@ -1,0 +1,86 @@
+import React from 'react';
+import { Text } from 'react-native';
+import { act, render } from '@testing-library/react-native';
+import { VisionIntentionHeading } from '../VisionIntentionHeading';
+
+describe('VisionIntentionHeading native measurement readiness', () => {
+  let scheduledFrames: FrameRequestCallback[];
+
+  beforeEach(() => {
+    scheduledFrames = [];
+    jest.spyOn(global, 'requestAnimationFrame').mockImplementation(callback => {
+      scheduledFrames.push(callback);
+      return scheduledFrames.length;
+    });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  function settleLayout(view: ReturnType<typeof render>, height: number) {
+    const container = view.getByTestId('vision-intention-heading');
+    act(() => container.props.onLayout({
+      nativeEvent: { layout: { x: 0, y: 0, width: 302, height: height + 30 } },
+    }));
+    const heading = view.UNSAFE_getAllByType(Text).find(node => node.props.accessibilityRole === 'header');
+    expect(heading).toBeTruthy();
+    act(() => heading!.props.onLayout({
+      nativeEvent: { layout: { x: 0, y: 0, width: 302, height } },
+    }));
+  }
+
+  function flushFrames() {
+    for (let frameNumber = 0; frameNumber < 6; frameNumber += 1) {
+      act(() => {
+        scheduledFrames.splice(0).forEach(callback => callback(0));
+      });
+    }
+    expect(scheduledFrames).toHaveLength(0);
+  }
+
+  it.each([
+    ['empty', '', 0],
+    ['single word', 'Anchor', 41],
+    ['long unbroken word', 'x'.repeat(140), 160],
+  ])('reports the laid-out height for a %s intention', (_label, intention, height) => {
+    const onMeasured = jest.fn();
+    const view = render(<VisionIntentionHeading intention={intention} onMeasured={onMeasured} />);
+    settleLayout(view, height);
+
+    if (intention === 'Anchor') {
+      const measureWord = view.UNSAFE_getAllByType(Text).find(node =>
+        node.props.onTextLayout && node.props.children === intention && node.props.accessibilityRole !== 'header',
+      );
+      expect(measureWord).toBeTruthy();
+      act(() => measureWord!.props.onTextLayout({ nativeEvent: { lines: [{ width: 104 }] } }));
+    }
+
+    flushFrames();
+    expect(onMeasured).toHaveBeenCalledTimes(1);
+    expect(onMeasured).toHaveBeenCalledWith(height);
+  });
+
+  it('waits for visible native text layout when the hidden word bank reports first', () => {
+    const onMeasured = jest.fn();
+    const intention = 'I am the owner of dope ass regal';
+    const view = render(<VisionIntentionHeading intention={intention} onMeasured={onMeasured} />);
+    const container = view.getByTestId('vision-intention-heading');
+    act(() => container.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 302, height: 100 } } }));
+
+    const wordBank = view.UNSAFE_getAllByType(Text).filter(node =>
+      node.props.onTextLayout && node.props.accessibilityRole !== 'header',
+    );
+    expect(wordBank.length).toBeGreaterThan(2);
+    act(() => wordBank.forEach(node => node.props.onTextLayout({
+      nativeEvent: { lines: [{ width: node.props.children === 'M M' ? 60 : node.props.children === 'MM' ? 40 : 24 }] },
+    })));
+    flushFrames();
+    expect(onMeasured).not.toHaveBeenCalled();
+
+    const visibleHeading = view.UNSAFE_getAllByType(Text).find(node => node.props.accessibilityRole === 'header');
+    expect(visibleHeading).toBeTruthy();
+    act(() => visibleHeading!.props.onTextLayout({ nativeEvent: { lines: [{ width: 270 }, { width: 180 }] } }));
+    flushFrames();
+    expect(onMeasured).toHaveBeenCalledTimes(1);
+    expect(onMeasured).toHaveBeenCalledWith(82);
+  });
+});

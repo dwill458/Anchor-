@@ -66,12 +66,32 @@ export type AnchorLinkSummary = {
   linkedAt: string;
 };
 
+export type WaypointKind = 'MILESTONE' | 'METRIC' | 'CAPABILITY';
+
+/** How a waypoint shows progress: a number, its moves, or nothing. */
+export type WaypointProgressMode = 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
+
+export type WaypointRequirement = { id: string; title: string; completed: boolean };
+
+export type WaypointMetric = {
+  label: string | null;
+  baseline: number | null;
+  target: number;
+  current: number | null;
+};
+
 export type WaypointSummary = {
   id: string;
   courseId: string;
   position: number;
   title: string;
   description: string | null;
+  kind: WaypointKind;
+  /** Always resolved: older waypoints without a stored mode read as numeric when they have a measure, else moves. */
+  progressMode: WaypointProgressMode;
+  requirements?: WaypointRequirement[];
+  completionCriteria?: string | null;
+  metric: WaypointMetric | null;
   state: WaypointState;
   blockedReason: BlockedReason | null;
   reachedAt: string | null;
@@ -90,9 +110,33 @@ export type CourseObservation = {
   text: string;
 };
 
+export type MoveStatus = 'SUGGESTED' | 'ACTIVE' | 'COMPLETED' | 'DISMISSED';
+
+export type MoveSummary = {
+  id: string;
+  courseId: string;
+  waypointId: string;
+  title: string;
+  rationale: string | null;
+  source: 'AI' | 'USER';
+  status: MoveStatus;
+  position: number;
+  isCurrent: boolean;
+  completedAt: string | null;
+  createdAt: string;
+};
+
 export type CourseSummary = {
   id: string;
   destinationText: string;
+  startingContext: string | null;
+  actualStartingPoint?: string | null;
+  routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
+  routeStartPosition?: number;
+  anchorId: string | null;
+  visionId: string | null;
+  complexity: string | null;
+  currentMoveId: string | null;
   status: CourseStatus;
   version: number;
   currentWaypointId: string | null;
@@ -108,6 +152,7 @@ export type CourseSummary = {
 
 export type CourseDetail = CourseSummary & {
   waypoints: WaypointSummary[];
+  moves: MoveSummary[];
   migrationRequired?: boolean;
 };
 
@@ -153,6 +198,11 @@ export type AddWaypointRequest = {
   title: string;
   description?: string;
   afterWaypointId?: string | null;
+  kind?: WaypointKind;
+  metricLabel?: string | null;
+  metricBaseline?: number | null;
+  metricTarget?: number | null;
+  metricCurrent?: number | null;
 };
 
 export type ReorderWaypointsRequest = {

@@ -1,0 +1,202 @@
+{
+ "strength_building": {
+  "duration_ms": 2900,
+  "max_pixel_diff_held_vs_static": 97,
+  "bbox": [
+   49,
+   49,
+   291,
+   291
+  ]
+ },
+ "strength_established": {
+  "duration_ms": 2900,
+  "max_pixel_diff_held_vs_static": 111,
+  "bbox": [
+   62,
+   62,
+   278,
+   278
+  ]
+ },
+ "strength_integrated": {
+  "duration_ms": 2900,
+  "max_pixel_diff_held_vs_static": 73,
+  "bbox": [
+   57,
+   57,
+   284,
+   284
+  ]
+ },
+ "strength_reinforced": {
+  "duration_ms": 2900,
+  "max_pixel_diff_held_vs_static": 83,
+  "bbox": [
+   57,
+   57,
+   284,
+   284
+  ]
+ },
+ "strength_full_strength": {
+  "duration_ms": 2900,
+  "max_pixel_diff_held_vs_static": 82,
+  "bbox": [
+   47,
+   47,
+   293,
+   293
+  ]
+ },
+ "commitment_ten_practices": {
+  "duration_ms": 2700,
+  "max_pixel_diff_held_vs_static": 81,
+  "bbox": [
+   47,
+   47,
+   293,
+   293
+  ]
+ },
+ "commitment_thirty_practices": {
+  "duration_ms": 2700,
+  "max_pixel_diff_held_vs_static": 84,
+  "bbox": [
+   58,
+   46,
+   282,
+   287
+  ]
+ },
+ "commitment_one_hundred_practices": {
+  "duration_ms": 2700,
+  "max_pixel_diff_held_vs_static": 88,
+  "bbox": [
+   49,
+   45,
+   291,
+   295
+  ]
+ },
+ "commitment_100_minutes": {
+  "duration_ms": 2700,
+  "max_pixel_diff_held_vs_static": 96,
+  "bbox": [
+   45,
+   74,
+   295,
+   265
+  ]
+ },
+ "commitment_500_minutes": {
+  "duration_ms": 2700,
+  "max_pixel_diff_held_vs_static": 90,
+  "bbox": [
+   61,
+   46,
+   280,
+   266
+  ]
+ },
+ "journey_first_waypoint": {
+  "duration_ms": 3000,
+  "max_pixel_diff_held_vs_static": 84,
+  "bbox": [
+   73,
+   82,
+   263,
+   262
+  ]
+ },
+ "journey_halfway": {
+  "duration_ms": 3000,
+  "max_pixel_diff_held_vs_static": 112,
+  "bbox": [
+   73,
+   82,
+   263,
+   262
+  ]
+ },
+ "journey_all_waypoints": {
+  "duration_ms": 3045,
+  "max_pixel_diff_held_vs_static": 84,
+  "bbox": [
+   47,
+   47,
+   293,
+   293
+  ]
+ },
+ "commitment_first_practice": {
+  "duration_ms": 2700,
+  "max_pixel_diff_held_vs_static": 94,
+  "bbox": [
+   49,
+   49,
+   292,
+   292
+  ]
+ },
+ "journey_goal_reached": {
+  "duration_ms": 3010,
+  "max_pixel_diff_held_vs_static": 110,
+  "bbox": [
+   54,
+   91,
+   288,
+   280
+  ]
+ },
+ "vision_first_glimpse": {
+  "duration_ms": 3000,
+  "max_pixel_diff_held_vs_static": 84,
+  "bbox": [
+   46,
+   46,
+   294,
+   294
+  ]
+ },
+ "vision_picture_complete": {
+  "duration_ms": 3000,
+  "max_pixel_diff_held_vs_static": 80,
+  "bbox": [
+   57,
+   57,
+   282,
+   282
+  ]
+ },
+ "vision_seen_clearly": {
+  "duration_ms": 3000,
+  "max_pixel_diff_held_vs_static": 118,
+  "bbox": [
+   82,
+   82,
+   259,
+   258
+  ]
+ },
+ "vision_familiar_future": {
+  "duration_ms": 3000,
+  "max_pixel_diff_held_vs_static": 85,
+  "bbox": [
+   77,
+   62,
+   263,
+   267
+  ]
+ },
+ "vision_living_the_vision": {
+  "duration_ms": 3000,
+  "max_pixel_diff_held_vs_static": 83,
+  "bbox": [
+   76,
+   83,
+   269,
+   280
+  ]
+ }
+}

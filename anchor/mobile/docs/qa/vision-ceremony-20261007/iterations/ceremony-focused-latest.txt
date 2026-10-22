@@ -1,0 +1,32 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand src/components/v2/vision/ceremony
+
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (22.045 s)
+  ● Vision ceremony › Choose is one tap, Keep edits the caption, and Seal saves once with that caption
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      88 |     expect(view.getByText(copy.sealed)).toBeTruthy();
+      89 |     await advance(3500); await advance(200);
+    > 90 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+         |                           ^
+      91 |   });
+      92 |   it('See both again and neither retain the description without saving', async () => {
+      93 |     mockJob = job(); const view = setup(); await choose(view);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:90:27)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+
+Test Suites: 1 failed, 2 passed, 3 total
+Tests:       1 failed, 18 passed, 19 total
+Snapshots:   0 total
+Time:        24.554 s, estimated 34 s
+Ran all test suites matching /src\\components\\v2\\vision\\ceremony/i.

@@ -27,21 +27,22 @@ describe('EditProfileSheet', () => {
     jest.restoreAllMocks();
   });
 
-  it('keeps the Profile 1.5 form labels and all editable profile controls available', () => {
+  it('renders Anchor 2.0 editorial edit profile form with display name and photo actions', () => {
     render(<EditProfileSheet open profile={profile} onClose={jest.fn()} onSave={jest.fn()} />);
 
-    expect(screen.getByText('EDIT PROFILE')).toBeTruthy();
-    expect(screen.getByText('PROFILE MARK')).toBeTruthy();
+    expect(screen.getByText('Edit profile')).toBeTruthy();
     expect(screen.getByText('DISPLAY NAME')).toBeTruthy();
-    expect(screen.getByText('OPERATING PRINCIPLE')).toBeTruthy();
-    expect(screen.getByText('DEFAULT MARK')).toBeTruthy();
-    expect(screen.getByText('TIMEZONE')).toBeTruthy();
     expect(screen.getByDisplayValue('Mara')).toBeTruthy();
-    expect(screen.getByDisplayValue('I return to what matters.')).toBeTruthy();
-    expect(screen.getByLabelText('Choose avatar 0 profile mark')).toBeTruthy();
+    expect(screen.getByText('Change photo')).toBeTruthy();
+    expect(screen.getByLabelText('Cancel editing profile')).toBeTruthy();
+    expect(screen.getByLabelText('Save profile')).toBeTruthy();
+
+    // Verify obsolete V1 concepts are absent
+    expect(screen.queryByText('OPERATING PRINCIPLE')).toBeNull();
+    expect(screen.queryByText('DEFAULT MARK')).toBeNull();
   });
 
-  it('saves the edited values through the existing profile contract', async () => {
+  it('saves the edited display name through the profile contract', async () => {
     const onSave = jest.fn();
     render(<EditProfileSheet open profile={profile} onClose={jest.fn()} onSave={onSave} />);
 
@@ -49,10 +50,11 @@ describe('EditProfileSheet', () => {
     fireEvent.press(screen.getByLabelText('Save profile'));
 
     await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith({
-        ...profile,
-        name: 'Mara Vale',
-      });
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Mara Vale',
+        })
+      );
     });
   });
 });

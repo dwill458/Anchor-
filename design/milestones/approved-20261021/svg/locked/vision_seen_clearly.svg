@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="vision_seen_clearly" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Seen Clearly (Vision) locked">
+  <title>Seen Clearly (Vision) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: vision_seen_clearly. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="vision_seen_clearly-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="vision_seen_clearly-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="vision_seen_clearly__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#vision_seen_clearly-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="vision_seen_clearly__art" transform="translate(128 128) scale(1.023) translate(-128 -128)">
+  <g id="vision_seen_clearly__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M66 88V66H88" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M190 88V66H168" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M190 168V190H168" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M66 168V190H88" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="56" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M66 88V66H88" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M190 88V66H168" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M190 168V190H168" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M66 168V190H88" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="56" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+    </g>
+    <path id="vision_seen_clearly__structure-bracket-1" d="M66 88V66H88" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_seen_clearly__structure-bracket-2" d="M190 88V66H168" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_seen_clearly__structure-bracket-3" d="M190 168V190H168" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_seen_clearly__structure-bracket-4" d="M66 168V190H88" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_seen_clearly__structure-ring-guide" cx="128" cy="128" r="56" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 4"/>
+  </g>
+  <g id="vision_seen_clearly__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="128" cy="128" r="34" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="21" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="88" x2="128" y2="74" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="168" y1="128" x2="182" y2="128" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="128" y1="168" x2="128" y2="182" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="88" y1="128" x2="74" y2="128" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="128" cy="128" r="34" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="21" fill="none" stroke="#B7B0A0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="128" y1="88" x2="128" y2="74" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="168" y1="128" x2="182" y2="128" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="128" y1="168" x2="128" y2="182" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+      <line x1="88" y1="128" x2="74" y2="128" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+    </g>
+    <circle id="vision_seen_clearly__emblem-ring-focus" cx="128" cy="128" r="34" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="vision_seen_clearly__emblem-ring-inner" cx="128" cy="128" r="21" fill="none" stroke="#8C867A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="vision_seen_clearly__emblem-reticle-1" x1="128" y1="88" x2="128" y2="74" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="vision_seen_clearly__emblem-reticle-2" x1="168" y1="128" x2="182" y2="128" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="vision_seen_clearly__emblem-reticle-3" x1="128" y1="168" x2="128" y2="182" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+    <line id="vision_seen_clearly__emblem-reticle-4" x1="88" y1="128" x2="74" y2="128" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_seen_clearly__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="120" cy="128" r="34" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.38"/>
+      <circle cx="112" cy="128" r="34" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.24"/>
+      <circle cx="104" cy="128" r="34" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.13"/>
+      <path d="M70 128H92" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 3"/>
+      <path d="M164 128H186" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="120" cy="128" r="34" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.38"/>
+      <circle cx="112" cy="128" r="34" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.24"/>
+      <circle cx="104" cy="128" r="34" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.13"/>
+      <path d="M70 128H92" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 3"/>
+      <path d="M164 128H186" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <circle id="vision_seen_clearly__engraving-ghost-1" cx="120" cy="128" r="34" fill="none" stroke="#8C867A" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.38"/>
+    <circle id="vision_seen_clearly__engraving-ghost-2" cx="112" cy="128" r="34" fill="none" stroke="#8C867A" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.24"/>
+    <circle id="vision_seen_clearly__engraving-ghost-3" cx="104" cy="128" r="34" fill="none" stroke="#8C867A" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.13"/>
+    <path id="vision_seen_clearly__engraving-horizon-soft" d="M70 128H92" fill="none" stroke="#A8A295" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 3"/>
+    <path id="vision_seen_clearly__engraving-horizon-sharp" d="M164 128H186" fill="none" stroke="#8C867A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="vision_seen_clearly__highlight"/>
+  <g id="vision_seen_clearly__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M128 64.4L130.6 68L128 71.6L125.4 68Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M188 124.4L190.6 128L188 131.6L185.4 128Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 184.4L130.6 188L128 191.6L125.4 188Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68 124.4L70.6 128L68 131.6L65.4 128Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="12" fill="#FFFFFF"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M128 64.4L130.6 68L128 71.6L125.4 68Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M188 124.4L190.6 128L188 131.6L185.4 128Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M128 184.4L130.6 188L128 191.6L125.4 188Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68 124.4L70.6 128L68 131.6L65.4 128Z" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="128" r="12" fill="#B7B0A0"/>
+    </g>
+    <path id="vision_seen_clearly__accent-gem-1" d="M128 64.4L130.6 68L128 71.6L125.4 68Z" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_seen_clearly__accent-gem-2" d="M188 124.4L190.6 128L188 131.6L185.4 128Z" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_seen_clearly__accent-gem-3" d="M128 184.4L130.6 188L128 191.6L125.4 188Z" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path id="vision_seen_clearly__accent-gem-4" d="M68 124.4L70.6 128L68 131.6L65.4 128Z" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="vision_seen_clearly__accent-orb">
+      <circle cx="128" cy="128" r="12" fill="url(#vision_seen_clearly-orbS)" stroke="#8F897C" stroke-width="0.9"/>
+      <circle cx="124.16" cy="123.68" r="3.12" fill="#FFFFFF" opacity="0.5"/>
+    </g>
+  </g>
+  </g>
+</svg>

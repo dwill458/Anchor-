@@ -1,0 +1,872 @@
+--------- beginning of main
+ 24413.557   793   824 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+ 24413.557   793   824 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+ 24413.613  7504  7504 W dmesg   : type=1400 audit(0.0:49): avc:  denied  { syslog_read } for  scontext=u:r:shell:s0 tcontext=u:r:kernel:s0 tclass=system permissive=0
+ 24413.961  7505  7505 I ChartOpeningQA: REC_START_PRE
+ 24414.113   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 24414.350  1523 12649 W MediaProvider: isAppCloneUserPair for user 0: false
+ 24414.383  7507  7512 I ApexCodecsLazy: ApexCodecs loaded
+ 24414.383  7507  7512 I Codec2Client: Available Codec2 services: "default" "software" "__ApexCodecs__"
+ 24414.389  7507  7512 I CCodec  : setting up 'default' as default (vendor) store
+ 24414.404   714 18885 I mediaswcodec: missing struct descriptor #Param::CoreIndex(--004) for field values of struct #Param::CoreIndex(F-12004)
+ 24414.404   714 18885 I mediaswcodec: missing struct descriptor #Param::CoreIndex(--1812) for field values of struct #Param::CoreIndex(F-11812)
+ 24414.405   714 18885 I mediaswcodec: missing struct descriptor #Param::CoreIndex(--004) for field values of struct #Param::CoreIndex(F-12004)
+ 24414.405   714 18885 I mediaswcodec: missing struct descriptor #Param::CoreIndex(--1812) for field values of struct #Param::CoreIndex(F-11812)
+ 24414.411  7507  7512 I CCodec  : Created component [c2.android.avc.encoder] for [c2.android.avc.encoder]
+ 24414.447  7507  7512 I CCodecConfig: query failed after returning 13 values (BAD_INDEX)
+ 24414.449  7507  7512 W ColorUtils: expected specified color aspects (0:0:0:0)
+ 24414.455  7507  7507 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24414.472  7507  7512 W ColorUtils: expected specified color aspects (0:0:0:0)
+ 24414.474  7507  7512 I CCodecConfig: query failed after returning 14 values (BAD_INDEX)
+ 24414.475  7507  7512 W ColorUtils: expected specified color aspects (0:0:0:0)
+ 24414.476  7507  7512 E screenrecord: Failed to query component interface for required system resources: 6
+ 24414.482  7507  7512 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24414.482  7507  7512 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24414.490  7507  7512 I CCodecBufferChannel: [c2.android.avc.encoder#64] Created output block pool with allocatorID 16 => poolID 609 - OK
+ 24414.495   710 19635 W ResourceManagerServiceUtils: Ignoring request to add new resource entry with value <= 0
+ 24414.514  1523 12651 I MediaProvider: Deleted 0 0 0 1 0 0 0 items on external_primary due to com.android.shell
+ 24414.530   651   651 E SurfaceFlinger: [ScreenRecorder] getUniqueId: Invalid operation on virtual display
+ 24414.534  1523  3037 W MediaProvider: isAppCloneUserPair for user 0: false
+ 24414.543  1373  1614 I UriTaskContentObserver: (REDACTED) Throttling content uri change event for %s
+ 24414.561   793   824 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+ 24414.577  7507  7510 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24414.634  7507  7507 I MPEG4Writer: limits: 4503599627370495/0 bytes/us, bit rate: -1 bps and the estimated moov size 3192 bytes
+ 24414.645  7507  7525 I MPEG4Writer: setStartTimestampUs: 24414576943
+ 24414.645  7507  7525 I MPEG4Writer: Earliest track starting time: 24414576943
+ 24414.741  7528  7528 I ChartOpeningQA: REC_START_POST
+ 24414.886  6088  6158 I ReactNativeJS: [chart-opening-qa] selected=full at=24414886.6ms
+ 24414.896   793  1943 W AS.PlaybackActivityMon: No piid assigned for invalid/internal port id 15
+ 24414.931  6088  6158 I ReactNativeJS: [chart-opening-qa] isolated-clock-v1; sibling overlay owns clock state
+ 24414.933  6088  6159 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 24414.994  7507  7510 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24415.042  6088  6088 I ExoPlayerImpl: Init 8d80929 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 24415.060  7507  7510 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24415.076  6088  6088 I ExoPlayerImpl: Init e0d855e [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 24415.076  7507  7510 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24415.126  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24415.127  6088  6088 I ExoPlayerImpl: Init 341e3c5 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 24415.145  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24415.159  6088  7540 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 24415.192  6088  7553 I CCodec  : setting up 'default' as default (vendor) store
+ 24415.198  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24415.214  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24415.214  6088  6159 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 24415.218  6088  7542 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 24415.234  6088  7558 I CCodec  : setting up 'default' as default (vendor) store
+ 24415.238  6088  7553 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 24415.250  6088  7558 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 24415.256  6088  7549 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 24415.280  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24415.295  6088  7560 I CCodec  : setting up 'default' as default (vendor) store
+ 24415.295  6088  7558 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.303   793   968 I AS.AudioDeviceBroker: setCommunicationRouteForClient for uid: 10227 device: AudioDeviceAttributes: role:output type:speaker addr: name: profiles:[] descriptors:[] isPrivileged: false from API: setSpeakerphoneOn(true) from u/pid:10227/6088
+ 24415.305  6088  7558 I MediaCodec: MediaCodec will operate in async mode
+ 24415.314  6088  7542 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24415.321   714 18885 E Codec2-ComponentInterface: We have a failed config
+ 24415.322  6088  7553 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.326  6088  7558 W Codec2Client: query -- param skipped: index = 1107298332.
+ 24415.326  6088  7558 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 24415.334  6088  7560 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 24415.338  6088  7553 I MediaCodec: MediaCodec will operate in async mode
+ 24415.339  6088  7558 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.339  6088  7558 E rintentions.app: Failed to query component interface for required system resources: 6
+ 24415.349  6088  7540 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24415.354  6088  7558 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24415.354  6088  7558 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24415.367   714 18882 E Codec2-ComponentInterface: We have a failed config
+ 24415.384  6088  6159 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 24415.391  6088  7553 W Codec2Client: query -- param skipped: index = 1107298332.
+ 24415.391  6088  7553 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 24415.399  6088  7553 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.399   793   968 E AS.AudioDeviceBroker: mCommunicationDeviceUpdateCount already 0 in MSG_L_SET_COMMUNICATION_DEVICE_FOR_CLIENT
+ 24415.405  6088  7553 E rintentions.app: Failed to query component interface for required system resources: 6
+ 24415.416  6088  7553 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24415.416  6088  7553 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24415.424  6088  7558 I CCodecBufferChannel: [c2.android.mp3.decoder#393] Created output block pool with allocatorID 16 => poolID 613 - OK
+ 24415.424  6088  6088 E GFXSTREAM: [egl.cpp(2130)] eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+ 24415.424  6088  6088 E GFXSTREAM: [egl.cpp(2131)] tid 6088: error 0x3004 (EGL_BAD_ATTRIBUTE)
+ 24415.424  6088  6088 I SkiaTextureView: onSurfaceTextureAvailable:  393x544
+ 24415.426   714   776 E Codec2-ComponentInterface: We have a failed config
+ 24415.436  6088  7560 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.436  6088  7553 I CCodecBufferChannel: [c2.android.mp3.decoder#413] Created output block pool with allocatorID 16 => poolID 614 - OK
+ 24415.437   714   776 E Codec2-ComponentInterface: We have a failed config
+ 24415.445  6088  6088 E Surface : [SurfaceTexture-0-6088-3-DISCONNECTED](id:0) Surface::cancelBuffer given a leaked buffer! Deleting extra held reference.
+ 24415.446  6088  7560 I MediaCodec: MediaCodec will operate in async mode
+ 24415.453  6088  7542 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 24415.454  6088  7549 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24415.463   714 25215 E Codec2-ComponentInterface: We have a failed config
+ 24415.466  6088  6088 E GFXSTREAM: [egl.cpp(2130)] eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+ 24415.466  6088  6088 E GFXSTREAM: [egl.cpp(2131)] tid 6088: error 0x3004 (EGL_BAD_ATTRIBUTE)
+ 24415.467  6088  6088 I SkiaTextureView: onSurfaceTextureAvailable:  786x1089
+ 24415.470   714  7559 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 24415.472  6088  7560 W Codec2Client: query -- param skipped: index = 1107298332.
+ 24415.472  6088  7540 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 24415.473  6088  7560 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 24415.475  6088  7560 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.478  6088  7560 E rintentions.app: Failed to query component interface for required system resources: 6
+ 24415.487   714  7554 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 24415.518  6088  7560 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24415.518  6088  7560 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24415.534  6088  7560 I CCodecBufferChannel: [c2.android.mp3.decoder#637] Created output block pool with allocatorID 16 => poolID 615 - OK
+ 24415.537   714 18882 E Codec2-ComponentInterface: We have a failed config
+ 24415.546  6088  7549 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 24415.557   714  7564 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 24415.575  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24415.609  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24415.628  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24415.668  6088  6088 I ExoPlayerImpl: Init 1fedd91 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 24415.701  6088  6088 I ExoPlayerImpl: Init 8014d01 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 24415.733  6088  6088 I ExoPlayerImpl: Init 7e976d7 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 24415.734  6088  7589 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 24415.753  6088  7593 I CCodec  : setting up 'default' as default (vendor) store
+ 24415.760  6088  7593 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 24415.779  6088  7591 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 24415.793  6088  7597 I CCodec  : setting up 'default' as default (vendor) store
+ 24415.803  6088  7593 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.804  6088  7594 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+--------- beginning of system
+ 24415.807   793   971 I AS.AudioService: onUpdateContextualVolumes: absolute volume driving streams 3 avrcp supported: false
+ 24415.809  6088  7597 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 24415.820  6088  7599 I CCodec  : setting up 'default' as default (vendor) store
+ 24415.823  6088  7593 I MediaCodec: MediaCodec will operate in async mode
+ 24415.828  6088  7589 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24415.832   714   776 E Codec2-ComponentInterface: We have a failed config
+ 24415.835  6088  7593 W Codec2Client: query -- param skipped: index = 1107298332.
+ 24415.835  6088  7593 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 24415.837  6088  7593 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.839  6088  7593 E rintentions.app: Failed to query component interface for required system resources: 6
+ 24415.842  6088  7599 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 24415.849  6088  7593 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24415.849  6088  7593 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24415.855  6088  7597 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.860  6088  7597 I MediaCodec: MediaCodec will operate in async mode
+ 24415.863  6088  7591 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24415.867  6088  7593 I CCodecBufferChannel: [c2.android.mp3.decoder#577] Created output block pool with allocatorID 16 => poolID 619 - OK
+ 24415.867   714 25213 E Codec2-ComponentInterface: We have a failed config
+ 24415.868   714   776 E Codec2-ComponentInterface: We have a failed config
+ 24415.873  6088  7597 W Codec2Client: query -- param skipped: index = 1107298332.
+ 24415.873  6088  7597 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 24415.879  6088  7597 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.880  6088  7597 E rintentions.app: Failed to query component interface for required system resources: 6
+ 24415.883  6088  7589 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 24415.889  6088  7597 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24415.889  6088  7597 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24415.890  6088  7599 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.895   714  7595 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 24415.901  6088  7599 I MediaCodec: MediaCodec will operate in async mode
+ 24415.905  6088  7594 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24415.908   714 25215 E Codec2-ComponentInterface: We have a failed config
+ 24415.913  6088  7597 I CCodecBufferChannel: [c2.android.mp3.decoder#208] Created output block pool with allocatorID 16 => poolID 620 - OK
+ 24415.917   714 25213 E Codec2-ComponentInterface: We have a failed config
+ 24415.917  6088  7599 W Codec2Client: query -- param skipped: index = 1107298332.
+ 24415.917  6088  7599 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 24415.917  6088  7599 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24415.917  6088  7599 E rintentions.app: Failed to query component interface for required system resources: 6
+ 24415.924  6088  7599 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24415.924  6088  7599 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24415.929  6088  7591 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 24415.938  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24415.941  6088  7599 I CCodecBufferChannel: [c2.android.mp3.decoder#468] Created output block pool with allocatorID 16 => poolID 621 - OK
+ 24415.942   714 25215 E Codec2-ComponentInterface: We have a failed config
+ 24415.945   714  7598 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 24415.959   714  7601 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 24415.965  6088  7594 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 24415.974  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24416.038  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24416.048  1523  7613 I PSyncWorker: Starting proactive picker sync from sync source: 1
+ 24416.048  1523  7613 I PickerSyncTracker: Created new sync future java.util.concurrent.CompletableFuture@19deb68[Not completed, 1 dependents]. Future map: {075404f3-03c6-4267-a4b0-9f0e6808e67b=java.util.concurrent.CompletableFuture@19deb68[Not completed, 1 dependents]}
+ 24416.056  1523  7613 I PickerSyncController: Executing SyncAdd. isLocal: true. authority: com.android.providers.media.photopicker
+ 24416.058  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24416.072  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24416.078  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-5] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24416.078  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24416.096  1523  7613 I PickerSyncController: Paged sync successful. QueryArgs: Bundle[{android.provider.extra.PAGE_TOKEN=1791443863000|312, android.provider.extra.SYNC_GENERATION=3628, android.provider.extra.PAGE_SIZE=1000}] Total Rows: 1
+ 24416.096  1523  7613 I PickerSyncController: Executing SyncRemove. isLocal: true. authority: com.android.providers.media.photopicker
+ 24416.100  1523  7613 E PickerDbFacade: Could not get first date taken millis for media id: 318
+ 24416.103  1523  7613 W PickerDbFacade: Unable to promote cloud media with localId: 318
+ 24416.110  1523  7613 I PickerSyncController: Paged sync successful. QueryArgs: Bundle[{android.provider.extra.PAGE_TOKEN=1791443863000|312, android.provider.extra.SYNC_GENERATION=3628, android.provider.extra.PAGE_SIZE=1000}] Total Rows: 0
+ 24416.111  1523  7613 I PickerSyncTracker: Marked sync future complete for work id: 075404f3-03c6-4267-a4b0-9f0e6808e67b. Future map: {}
+ 24416.111  1523  7613 I PSyncWorker: Completed picker proactive sync complete from local provider.
+ 24416.113  1523  1729 I WM-WorkerWrapper: Worker result SUCCESS for Work [ id=075404f3-03c6-4267-a4b0-9f0e6808e67b, tags={ com.android.providers.media.photopicker.sync.ProactiveSyncWorker } ]
+ 24416.118  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-5] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24416.118  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24416.126  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24416.133  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-5] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24416.134  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24416.161  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24416.174  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24416.180   647 15493 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24416.182   647 15493 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24416.199   793  1977 W JobScheduler: Job didn't exist in JobStore: 4f8e9c7 {androidx.work.systemjobscheduler} #u0a213/821 #ProactiveSyncWorker#@androidx.work.systemjobscheduler@com.google.android.providers.media.module/androidx.work.impl.background.systemjob.SystemJobService
+ 24416.204  6088  6158 I ReactNativeJS: [chart-intro-timing] runner-start mode=introFull
+ 24416.208  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24416.232  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24416.232  6088  6088 I ExoPlayerImpl: Init 8912a19 [AndroidXMedia3/1.8.0] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+ 24416.243  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24416.280  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-5] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24416.281  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24416.290  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24416.313  6088  6159 W unknown:ReactNative: StatusBarModule: Ignored status bar change, current activity is edge-to-edge.
+ 24416.316  6088  7624 I DMCodecAdapterFactory: Creating an asynchronous MediaCodec adapter for track type audio
+ 24416.325  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24416.337  6088  7635 I CCodec  : setting up 'default' as default (vendor) store
+ 24416.344  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24416.356  6088  7635 I CCodec  : Created component [c2.android.mp3.decoder] for [c2.android.mp3.decoder]
+ 24416.367  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-4] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24416.367  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24416.367  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24416.384  6088  6088 E Surface : [SurfaceTexture-0-6088-4](id:17c800000007) clearBuffersForDisconnectLocked: 1 buffers were freed while being dequeued!
+ 24416.392  6088  7635 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24416.402  6088  7635 I MediaCodec: MediaCodec will operate in async mode
+ 24416.405  6088  7624 I MediaCodec: media_quality service unavailable, skipping updatePictureProfile
+ 24416.406  6088  6088 E GFXSTREAM: [egl.cpp(2130)] eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+ 24416.406  6088  6088 E GFXSTREAM: [egl.cpp(2131)] tid 6088: error 0x3004 (EGL_BAD_ATTRIBUTE)
+ 24416.407  6088  6088 I SkiaTextureView: onSurfaceTextureAvailable:  393x544
+ 24416.413   714 25215 E Codec2-ComponentInterface: We have a failed config
+ 24416.419  6088  7635 W Codec2Client: query -- param skipped: index = 1107298332.
+ 24416.419  6088  7635 W CCodec  : This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+ 24416.424  6088  6088 E Surface : [SurfaceTexture-0-6088-4-DISCONNECTED](id:0) Surface::cancelBuffer given a leaked buffer! Deleting extra held reference.
+ 24416.425  6088  7635 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24416.431  6088  7635 E rintentions.app: Failed to query component interface for required system resources: 6
+ 24416.444  6088  6088 E GFXSTREAM: [egl.cpp(2130)] eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+ 24416.444  6088  6088 E GFXSTREAM: [egl.cpp(2131)] tid 6088: error 0x3004 (EGL_BAD_ATTRIBUTE)
+ 24416.444  6088  6088 I SkiaTextureView: onSurfaceTextureAvailable:  786x1089
+ 24416.446  6088  7635 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24416.446  6088  7635 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24416.464  6088  7635 I CCodecBufferChannel: [c2.android.mp3.decoder#199] Created output block pool with allocatorID 16 => poolID 623 - OK
+ 24416.469   714 25215 E Codec2-ComponentInterface: We have a failed config
+ 24416.486  6088  7624 W LoudnessCodecController: MediaCodec mime type not supported for loudness annotation
+ 24416.497   714  7636 I C2SoftMp3Dec: Reconfiguring decoder: 0->44100 Hz, 0->1 channels
+ 24416.513  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24416.513   647 15493 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24416.518   647 15493 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24416.534  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24416.534  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24416.547   647 15493 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24416.550   647 15493 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24416.565   647 15491 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24416.566   647 15491 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24416.594   793  1574 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24416.596  1167  1167 I bluetooth: system/btif/avrcp/avrcp_service.cc:532 SendMediaUpdate: track_changed=false :  play_state=true :  queue=false
+ 24416.596   793  1574 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24416.599  1167  1167 E MediaControlProfile: onCurrentPlayerStateUpdated: base actions not supported, player actions= 0, expected at least= 7f
+ 24416.599  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED support: true
+ 24416.599  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED support: true
+ 24416.599  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED support: true
+ 24416.599  1167  1167 W MediaControlGattService: Feature PLAYBACK_SPEED_NOTIFY support: true
+ 24416.605  1167  1167 I BluetoothAdapterProperties: getBondedDevices: length=0
+ 24416.607  1167  1167 W MediaControlGattService: Feature TRACK_POSITION support: true
+ 24416.609  1167  1167 W MediaControlGattService: Feature TRACK_POSITION_NOTIFY support: true
+ 24416.610  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 24416.616  1167  1167 I BluetoothAdapterProperties: getBondedDevices: length=0
+ 24416.616  1167  1167 W MediaControlGattService: Feature MEDIA_CONTROL_POINT_OPCODES_SUPPORTED support: true
+ 24416.616  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 24416.616  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 24416.629  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24416.654  1167  1167 I BluetoothAdapterProperties: getBondedDevices: length=0
+ 24416.654  1167  1167 W MediaControlGattService: Feature MEDIA_STATE support: true
+ 24416.654  1167  1167 W MediaControlGattService: Feature SEEKING_SPEED support: true
+ 24416.654  1167  1167 W MediaControlGattService: Feature SEEKING_SPEED support: true
+ 24416.654  1167  1167 W MediaControlGattService: Feature SEEKING_SPEED support: true
+ 24416.655  1167  1167 W MediaControlProfile: MCS service state fields left unhandled: 
+ 24416.655  1167  1167 W MediaControlProfile:    > PLAYER_NAME
+ 24416.655  1167  1167 W MediaControlProfile:    > PLAYING_ORDER_SUPPORTED
+ 24416.690  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24416.761  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24416.774   793  1574 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24416.775   793   862 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24416.826  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24416.856  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24416.898  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24416.915   647  3701 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24416.919   647  3701 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24416.955   647 15491 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24416.964   647 15491 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24416.964  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24416.990  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24416.994   647 15493 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24416.995   647 15493 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24417.051  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24417.076  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24417.109  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24417.141   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 24417.155  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24417.172  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.172  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.174  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24417.176  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.177  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.204  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.205  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.205  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24417.208  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.209  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.232  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24417.259  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.259  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.264  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.265  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.273  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24417.291  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.291  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.305  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24417.325  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24417.325  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.325  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.331  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.331  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.340  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24417.374  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24417.390  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24417.436  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24417.448  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24417.491  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24417.509  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24417.541  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24417.570  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24417.584  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24417.616  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24417.673  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24417.677  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.677  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.683  6088  6093 I rintentions.app: NativeAlloc concurrent mark compact GC freed 15MB AllocSpace bytes, 30(920KB) LOS objects, 50% free, 22MB/44MB, paused 7.514ms,5.311ms total 293.320ms
+ 24417.684  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.684  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.739  6088  6099 W System  : A resource failed to call Surface.release. 
+ 24417.740  6088  6099 W System  : A resource failed to call Surface.release. 
+ 24417.740  6088  6099 W System  : A resource failed to call Surface.release. 
+ 24417.740  6088  6099 W System  : A resource failed to call Surface.release. 
+ 24417.744  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24417.751  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.753  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.763  1031  1031 I wpa_supplicant: wlan0: CTRL-EVENT-BEACON-LOSS 
+ 24417.764  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24417.789  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24417.808  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24417.841  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24417.873  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24417.911  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24417.911  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24417.911  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24417.941  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24417.961  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24417.997  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24418.003   793  1977 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24418.006   793  1977 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24418.042  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24418.075  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24418.081  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.082  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.107  7507  7547 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24418.136  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24418.159  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24418.172  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24418.195  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.196  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.203  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.204  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.211  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24418.225  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24418.251  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24418.266  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.266  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.277  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.278  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.283  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24418.326  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24418.364  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24418.401  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24418.408  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.408  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.426  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24418.446  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.446  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.456  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24418.476  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.476  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.489  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24418.524  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24418.554  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24418.574  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24418.575  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.575  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.580  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.581  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.619  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24418.625  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.625  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.651  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24418.674  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24418.680  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.681  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.700  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24418.713  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.714  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.732  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24418.764  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24418.778  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.778  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.793  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24418.820  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24418.846  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24418.847  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24418.848  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24418.895  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24418.919  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24418.957  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24419.002  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24419.014  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.014  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.017  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.018  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.036  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24419.065  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24419.085  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24419.117  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24419.157  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24419.178  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.178  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.183  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24419.212  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.212  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.227  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24419.241  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.241  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.246  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.246  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.277  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24419.306  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24419.327  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.328  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.338  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24419.361  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24419.361  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.361  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.388  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24419.409  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.410  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.423  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24419.451  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24419.458  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.458  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.473  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.474  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.480  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24419.509  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24419.524  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24419.550  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24419.567  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.567  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.584  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24419.623  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24419.643  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.644  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.644  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24419.674  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24419.710  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.711  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.735  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24419.770  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24419.792  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24419.800  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.801  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.825  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24419.846  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24419.873  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24419.917  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24419.953  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.954  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.973  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24419.995  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24419.996  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24419.999  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.000  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24420.012  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24420.058  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24420.076  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24420.093  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24420.116  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24420.152  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24420.166   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 24420.184  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.185  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24420.186  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24420.195  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.195  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24420.227  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24420.265  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24420.303  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24420.330  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24420.349  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24420.375  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24420.414  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24420.445  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24420.469  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24420.507  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24420.533  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24420.564  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24420.591  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24420.612  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24420.645  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24420.677  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24420.689  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.690  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24420.717  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24420.755  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24420.790  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24420.810  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24420.827  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24420.842  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.843  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24420.850  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.850  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24420.859  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24420.889  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24420.909  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24420.939  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24420.955  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24420.965  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.965  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24420.977  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24420.981  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24420.981  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.001  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24421.026  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24421.044  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.044  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.056  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24421.074  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24421.077  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.077  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.079  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.082  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.102  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24421.116  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.121  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.131  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24421.155  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24421.184  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24421.206  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24421.207  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.207  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.231  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24421.262  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24421.265  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.265  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.285  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.285  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.290  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24421.316  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24421.335  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24421.343  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.345  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.361  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24421.375  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.376  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.398  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24421.417  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24421.426  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.426  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.431  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.431  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.456  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24421.495  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24421.521  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24421.543  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24421.585  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24421.602  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24421.634  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24421.670  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24421.702  6088  7558 I CCodecConfig: query failed after returning 8 values (BAD_INDEX)
+ 24421.703  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24421.706  6088  7558 W Codec2Client: query -- param skipped: index = 1342179345.
+ 24421.706  6088  7558 W Codec2Client: query -- param skipped: index = 2415921170.
+ 24421.728  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24421.760  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.761  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.774  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24421.806   647  3701 W AudioFlinger: createTrack_l(): mismatch between requested flags (00000008) and output flags (00000002)
+ 24421.807  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24421.808   647  3701 I AF::PthrPatchRecord: creating track with enforcement level 0
+ 24421.837   793  1181 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24421.841   793  1181 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24421.857  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24421.876  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.883  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.905   793   810 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24421.908   793  1181 E AppOps  : attributionTag  not declared in manifest of com.anchorintentions.app
+ 24421.919  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24421.953  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24421.990  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24421.990  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24421.991  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24422.028  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24422.056  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24422.069  1373  8142 I GmscoreIpa: Starting mediastore instant index [CONTEXT service_id=255 ]
+ 24422.082  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.083  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.112  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24422.156  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24422.188  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24422.216  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24422.241  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.242  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.266  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24422.285  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24422.288  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.289  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.315  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24422.349  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24422.370  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24422.372  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.374  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.377  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.377  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.401  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24422.425  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24422.444  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.445  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.448  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.450  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.450  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24422.474  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24422.494  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.498  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.514  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24422.516  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.516  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.545  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.545  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.555  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24422.561  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.561  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.582  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24422.594  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.594  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.628  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24422.654  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24422.692  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24422.712  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24422.752  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24422.763   793   862 W libbinder.IPCThreadState: Sending oneway calls to frozen process.
+ 24422.791  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24422.814  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24422.851  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24422.878  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.879  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.880  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24422.907  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24422.962  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24422.963  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24422.963  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24422.998  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24423.030  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24423.044  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.044  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.069  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24423.091  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24423.105  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.105  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.124  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24423.146  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.147  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.150  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.153  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.162  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24423.190  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24423.198   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 24423.213  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24423.232  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.232  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.238  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.238  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.249  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24423.278  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24423.310  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24423.343  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24423.365  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24423.390  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24423.410  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.410  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.448  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24423.469  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24423.502  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24423.509  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.510  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.540  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24423.573  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24423.606  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24423.638  6088  6088 I SkiaTextureView: onSurfaceTextureSizeChanged:  786x1089
+ 24423.638  6088  6088 I SkiaView: onSurfaceTextureSizeChanged 786/1089
+ 24423.639  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24423.651  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.651  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.692  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24423.693  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-6] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.694  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.700  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.700  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.718  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.718  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.727  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.727  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.740  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24423.773  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24423.788  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24423.807  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24423.819  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.819  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.840  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24423.856  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24423.880  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24423.911  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24423.923  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24423.923  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24423.946  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24423.973  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24423.998  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24424.032  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24424.055  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.055  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.071   659   659 W adbd    : timeout expired while flushing socket, closing
+ 24424.078  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24424.107  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24424.145  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24424.151  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.151  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.180  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24424.221  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24424.250  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24424.282  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24424.313  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24424.334  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24424.370  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.370  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.381  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24424.427  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24424.436  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.436  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.445  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24424.480  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24424.513  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24424.550  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24424.593  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24424.624  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.625  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.649  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24424.687  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.687  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.697  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24424.732  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24424.779  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24424.825  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24424.836  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.836  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.857  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24424.892  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24424.921  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24424.950  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24424.950  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24424.970  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24424.992  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24425.013  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24425.041  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24425.054  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24425.055  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24425.073  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24425.108  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24425.140  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24425.168  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24425.185  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24425.185  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24425.196  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24425.238  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24425.266  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24425.284  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24425.285  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24425.307  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24425.342  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24425.374  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24425.390  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24425.393  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24425.399  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24425.429  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24425.448  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24425.481  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24425.518  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24425.543  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24425.562  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24425.611  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24425.645  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24425.671  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24425.695  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24425.730  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24425.750  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24425.750  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24425.766  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24425.797  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24425.825  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24425.847  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24425.873  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24425.902  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24425.925  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24425.954  1031  1031 I wpa_supplicant: wlan0: CTRL-EVENT-BEACON-LOSS 
+ 24425.959  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24425.970  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24425.971  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24425.990  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24426.023  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24426.051  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24426.073  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1815: unexpected standardMetadataType=21
+ 24426.083  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24426.083  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24426.107  7507  7509 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1797: unexpected standardMetadataType=21
+ 24426.131  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1804: unexpected standardMetadataType=21
+ 24426.165  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1819: unexpected standardMetadataType=21
+ 24426.196  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1822: unexpected standardMetadataType=21
+ 24426.218   793   944 I HalDevMgr: bestIfaceCreationProposal is null, requestIface=STA, existingIface=[name=wlan0 type=STA]
+ 24426.234  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1805: unexpected standardMetadataType=21
+ 24426.266  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1806: unexpected standardMetadataType=21
+ 24426.294  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1795: unexpected standardMetadataType=21
+ 24426.321  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1818: unexpected standardMetadataType=21
+ 24426.352  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1796: unexpected standardMetadataType=21
+ 24426.379  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1813: unexpected standardMetadataType=21
+ 24426.419  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1817: unexpected standardMetadataType=21
+ 24426.447  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1816: unexpected standardMetadataType=21
+ 24426.480  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1794: unexpected standardMetadataType=21
+ 24426.493  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24426.493  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24426.516  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1814: unexpected standardMetadataType=21
+ 24426.558  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24426.558  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24426.558  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1820: unexpected standardMetadataType=21
+ 24426.566  7507  7526 I MPEG4Writer: setStartTimestampUs: 24414576943
+ 24426.569  7507  7527 I MPEG4Writer: setStartTimestampUs: 24414576943
+ 24426.571  7507  7527 W MPEG4Writer: 0-duration samples found: 1
+ 24426.571  7507  7527 I MPEG4Writer: Received total/0-length (1/0) buffers and encoded 1 frames. - Metadata
+ 24426.571  7507  7526 W MPEG4Writer: 0-duration samples found: 1
+ 24426.571  7507  7526 I MPEG4Writer: Received total/0-length (1/0) buffers and encoded 1 frames. - Metadata
+ 24426.571  7507  7525 I MPEG4Writer: Received total/0-length (321/0) buffers and encoded 321 frames. - Video
+ 24426.580  7507  7507 I MPEG4Writer: Adjust the moov start time from 24414576943 us -> 24414576943 us
+ 24426.596  7507  7507 I MPEG4Writer: The mp4 file will not be streamable.
+ 24426.596  7507  7507 I MPEG4Writer: MOOV atom was written to the file
+ 24426.606  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1821: unexpected standardMetadataType=21
+ 24426.645  7507  7512 E mapper.ranchu: getStandardMetadataImpl:886 failure: UNSUPPORTED: id=1823: unexpected standardMetadataType=21
+ 24426.704  7507  8572 I hw-BpHwBinder: onLastStrongRef automatically unlinking death recipients
+ 24426.705   714 25213 I hw-BpHwBinder: onLastStrongRef automatically unlinking death recipients
+ 24426.705   714 25213 I hw-BpHwBinder: onLastStrongRef automatically unlinking death recipients
+ 24426.711  7507  7509 I libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for descriptor: '(not cached)'
+ 24426.754   793   862 I ActivityManager: Broadcasting: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }
+ 24426.758   793   862 I ActivityManager: Enqueued broadcast Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x400000 }: 0
+ 24426.764  1523  1523 I MediaServiceV2: Creating work for intent Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaServiceV2 }
+ 24426.766  1523  1523 I MediaServiceV2: Work enqueued for intent: Intent { act=android.intent.action.MEDIA_SCANNER_SCAN_FILE dat=file:///... flg=0x1400010 cmp=com.google.android.providers.media.module/com.android.providers.media.MediaServiceV2 }
+ 24426.770   793   815 I ActivityManager: Broadcast completed: result=0
+ 24426.832  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24426.833  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24426.897  1523  1729 W JobInfo : Requested important-while-foreground flag for job822 is ignored and takes no effect
+ 24426.939  1523  8577 I MediaServiceV2: Work initiated for action [ android.intent.action.MEDIA_SCANNER_SCAN_FILE ]
+ 24427.020  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24427.021  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored
+ 24427.023  8578  8578 I ChartOpeningQA: REC_END
+ 24427.154  6088  6088 E rintentions.app: [SurfaceTexture-0-6088-7] updateAndRelease: EGLConsumer is not attached to an OpenGL ES context
+ 24427.154  6088  6088 I RNSkia  : updateAndRelease() failed. The exception above can safely be ignored

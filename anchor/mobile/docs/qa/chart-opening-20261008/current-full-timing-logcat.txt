@@ -1,0 +1,6 @@
+--------- beginning of main
+10-08 00:30:56.767  2600 18514 I ReactNativeJS: Running "main"
+10-08 00:30:57.111  2600 18514 I ReactNativeJS: [chart-intro-timing] opening-commit
+10-08 00:30:57.336  2600 18514 I ReactNativeJS: [chart-intro-timing] storage-result +225.8ms replay=full
+10-08 00:30:58.174  2600 18514 I ReactNativeJS: [chart-intro-timing] map-art-ready +1063.8ms
+10-08 00:30:58.211  2600 18514 I ReactNativeJS: [chart-intro-timing] runner-start +1100.9ms mode=introShort

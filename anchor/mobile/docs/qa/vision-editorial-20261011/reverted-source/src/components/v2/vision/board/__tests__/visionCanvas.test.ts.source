@@ -1,0 +1,59 @@
+import { selectBoardLayout, selectDetailBoardLayout, detailBoardSizeForWidth, toSceneRect, boardSizeForWidth, emptyBoardPlaceholderSlots } from '../visionBoardLayouts';
+
+describe('editorial Vision Canvas geometry', () => {
+  it.each([2, 3, 4, 5, 6, 7, 8])('places the Anchor at the photo intersection for %i images', count => {
+    const layout = selectDetailBoardLayout(count);
+    const scene = detailBoardSizeForWidth(320, count);
+    const rect = toSceneRect(layout.card, scene);
+    const hero = toSceneRect(layout.photos[0], scene);
+    const support = toSceneRect(layout.photos[1], scene);
+    const sealY = rect.y + rect.height / 2;
+    const expectedX = count === 4 || count === 6 || count === 8 ? .34 : .5;
+    expect(rect.x + rect.width / 2).toBeCloseTo(scene.width * expectedX);
+    expect(sealY).toBeGreaterThanOrEqual(Math.min(hero.y + hero.height, support.y));
+    expect(sealY).toBeLessThanOrEqual(Math.max(hero.y + hero.height, support.y));
+  });
+  it.each([1, 2, 3, 4, 5, 6, 7, 8])('shows every saved image in a %i-photo detail board', count => {
+    const layout = selectDetailBoardLayout(count);
+    expect(layout.photos).toHaveLength(count);
+    const scene = detailBoardSizeForWidth(320, count);
+    for (const slot of layout.photos) {
+      const rect = toSceneRect(slot, scene);
+      expect(rect.x).toBeGreaterThanOrEqual(-2);
+      expect(rect.y).toBeGreaterThanOrEqual(-2);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(scene.width + 2);
+      expect(rect.y + rect.height).toBeLessThanOrEqual(scene.height + 2);
+    }
+    if (count > 1) expect(layout.photos[0].width).toBeGreaterThan(layout.photos.at(-1)!.width);
+    if (count > 3) expect(selectBoardLayout(count).photos).toHaveLength(3); // protected cinematic overview
+  });
+  it('adapts photo apertures to each source ratio within bounded print proportions', () => {
+    const ratios = [.48, .86, 1.08, 1.77];
+    const layout = selectDetailBoardLayout(4, ratios);
+    layout.photos.forEach((slot, index) => expect(slot.aspectRatio).toBeCloseTo(Math.max(.48, Math.min(1.82, ratios[index])), 5));
+    expect(selectDetailBoardLayout(4, [0.1]).photos[0].aspectRatio).toBeCloseTo(.48);
+    expect(selectDetailBoardLayout(4, [4]).photos[0].aspectRatio).toBeCloseTo(1.82);
+  });
+  it.each([0, 1, 2, 3, 4, 6])('composes %i saved images without physical decorations', count => {
+    const layout = selectBoardLayout(count);
+    expect(layout.photos).toHaveLength(Math.min(count, 3));
+    expect(layout.decor).toEqual([]);
+    const scene = boardSizeForWidth(360, count);
+    for (const slot of layout.photos) {
+      const rect = toSceneRect(slot, scene);
+      expect(rect.x).toBeGreaterThanOrEqual(-1);
+      expect(rect.y).toBeGreaterThanOrEqual(-1);
+      expect(rect.x + rect.width).toBeLessThanOrEqual(scene.width + 1);
+      expect(rect.y + rect.height).toBeLessThanOrEqual(scene.height + 1);
+    }
+    if (count) expect(layout.photos[0].width).toBeGreaterThanOrEqual(0.95);
+    if (count > 1) expect(layout.photos[0].width).toBeGreaterThan(layout.photos[1].width);
+    expect(layout.card.width).toBeLessThanOrEqual(0.24);
+  });
+  it('keeps three large scenes for larger collections', () => {
+    expect(selectBoardLayout(6).photos).toEqual(selectBoardLayout(3).photos);
+  });
+  it('has no imaginary slots in an empty Vision', () => {
+    expect(emptyBoardPlaceholderSlots()).toEqual([]);
+  });
+});

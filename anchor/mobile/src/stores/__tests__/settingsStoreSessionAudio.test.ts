@@ -53,12 +53,20 @@ describe("settingsStore Voice & Sound ownership", () => {
     );
   });
 
+  it("resolves the retired five-minute Visualize length to three minutes", () => {
+    useSettingsStore.getState().setVisualizeSessionDuration(300 as never);
+    expect(useSettingsStore.getState().visualizeSessionDuration).toBe(180);
+    useSettingsStore.getState().setVisualizeSessionDuration(600);
+    expect(useSettingsStore.getState().visualizeSessionDuration).toBe(600);
+    useSettingsStore.getState().setVisualizeSessionDuration(180);
+  });
+
   it("keeps recent Visualize duration account-scoped without changing its global default", () => {
     useSettingsStore.getState().bindSessionAudioDefaultsOwner("user-a");
-    useSettingsStore.getState().setLastSessionDuration("visualize", 300);
+    useSettingsStore.getState().setLastSessionDuration("visualize", 600);
     expect(
       useSettingsStore.getState().lastSessionDurationByMode.visualize,
-    ).toBe(300);
+    ).toBe(600);
     expect(useSettingsStore.getState().visualizeSessionDuration).toBe(180);
 
     useSettingsStore.getState().bindSessionAudioDefaultsOwner("user-b");
@@ -107,5 +115,34 @@ describe("settingsStore Voice & Sound ownership", () => {
       backgroundAudio: "off",
     });
     jest.useRealTimers();
+  });
+});
+
+describe("settingsStore Daily Practice Goal & Summary persistence", () => {
+  it("preserves custom preset when updating dailyPracticeGoal", () => {
+    useSettingsStore.getState().setDailyPracticeGoalPreset("custom");
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("custom");
+
+    // When goal is 1 (the default), it must stay custom and NOT get coerced to 'once'
+    useSettingsStore.getState().setDailyPracticeGoal(1);
+    expect(useSettingsStore.getState().dailyPracticeGoal).toBe(1);
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("custom");
+
+    // Incrementing goal to 3 must stay custom and NOT get coerced to 'three'
+    useSettingsStore.getState().setDailyPracticeGoal(3);
+    expect(useSettingsStore.getState().dailyPracticeGoal).toBe(3);
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("custom");
+
+    // Explicitly setting preset to 'once' sets it back
+    useSettingsStore.getState().setDailyPracticeGoalPreset("once");
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("once");
+  });
+
+  it("toggles and persists weeklySummaryEnabled", () => {
+    useSettingsStore.getState().setWeeklySummaryEnabled(false);
+    expect(useSettingsStore.getState().weeklySummaryEnabled).toBe(false);
+
+    useSettingsStore.getState().setWeeklySummaryEnabled(true);
+    expect(useSettingsStore.getState().weeklySummaryEnabled).toBe(true);
   });
 });

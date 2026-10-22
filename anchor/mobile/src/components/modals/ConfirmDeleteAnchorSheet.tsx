@@ -1,17 +1,9 @@
 import React from 'react';
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { colors, spacing, typography } from '@/theme';
-import { safeHaptics } from '@/utils/haptics';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT, V2Button } from '@/components/v2/primitives';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export interface ConfirmDeleteAnchorSheetProps {
   visible: boolean;
@@ -21,6 +13,12 @@ export interface ConfirmDeleteAnchorSheetProps {
   onCancel: () => void;
 }
 
+/**
+ * Anchor 2.0 Confirm Delete Anchor Sheet.
+ *
+ * Prompts the user before deleting an anchor, offering the proper Burn & Release practice.
+ * Built with Anchor 2.0 design language and spring bottom sheet physics.
+ */
 export const ConfirmDeleteAnchorSheet: React.FC<ConfirmDeleteAnchorSheetProps> = ({
   visible,
   intentionText,
@@ -28,184 +26,151 @@ export const ConfirmDeleteAnchorSheet: React.FC<ConfirmDeleteAnchorSheetProps> =
   onDelete,
   onCancel,
 }) => {
+  const reduceMotion = useV2ReduceMotion();
+
   const handleBurnInstead = (): void => {
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+    v2Haptics.selection();
     onBurnInstead();
   };
 
   const handleDelete = (): void => {
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
+    v2Haptics.destructiveCommit();
     onDelete();
   };
 
   const handleCancel = (): void => {
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    v2Haptics.selection();
     onCancel();
   };
 
   return (
-    <Modal
+    <V2SheetModal
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancel}
-      accessibilityViewIsModal
+      onClose={onCancel}
+      reduceMotion={reduceMotion}
+      scrimAccessibilityLabel="Cancel deletion"
+      testID="confirm-delete-anchor-sheet"
     >
-      <View style={styles.overlay}>
-        <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFillObject} />
-        <Pressable style={styles.pressableOverlay} onPress={onCancel}>
-          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-            <View style={styles.handle} />
+      <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal>
+        <V2SheetGrabZone>
+          <View style={styles.handle} />
+          <Text style={styles.eyebrow} accessibilityRole="none">
+            ANCHOR ARCHIVE
+          </Text>
+          <Text accessibilityRole="header" style={styles.title}>
+            Release is the proper practice.
+          </Text>
+        </V2SheetGrabZone>
 
-            <Text style={styles.eyebrow}>ANCHOR WARNING</Text>
-            <Text style={styles.title}>Burn & Release is the proper practice.</Text>
-
-            {intentionText ? (
-              <Text style={styles.intention} numberOfLines={2}>
-                "{intentionText}"
-              </Text>
-            ) : null}
-
-            <Text style={styles.body}>
-              Deleting skips the ceremony and quietly archives this anchor.
-              {'\n\n'}
-              If you are truly ready to let it go, Burn & Release is the intended path.
+        {intentionText ? (
+          <View style={styles.intentionCard}>
+            <Text style={styles.intention} numberOfLines={2}>
+              "{intentionText}"
             </Text>
+          </View>
+        ) : null}
 
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={handleBurnInstead}
-                activeOpacity={0.85}
-              >
-                <LinearGradient
-                  colors={['#b8920a', '#d4a820', '#c49a15']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.primaryButtonGradient}
-                >
-                  <Text style={styles.primaryButtonText}>Burn & Release</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+        <Text style={styles.body}>
+          Deleting skips the ceremony and quietly archives this Anchor. If you are ready to let it go, Release is the intended path.
+        </Text>
 
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={handleDelete}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.deleteButtonText}>Delete Anyway</Text>
-              </TouchableOpacity>
+        <View style={styles.actions}>
+          <V2Button
+            variant="primary"
+            size="large"
+            onPress={handleBurnInstead}
+            accessibilityLabel="Burn and Release"
+            testID="confirm-delete-burn-instead-btn"
+          >
+            Release with Ceremony
+          </V2Button>
 
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleCancel}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.cancelButtonText}>Keep Anchor</Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </View>
-    </Modal>
+          <V2Button
+            variant="destructive"
+            size="large"
+            onPress={handleDelete}
+            accessibilityLabel="Delete Anyway"
+            testID="confirm-delete-anyway-btn"
+          >
+            Delete Anyway
+          </V2Button>
+
+          <V2Button
+            variant="secondary"
+            size="large"
+            onPress={handleCancel}
+            accessibilityLabel="Cancel"
+            testID="confirm-delete-cancel-btn"
+          >
+            Keep Anchor
+          </V2Button>
+        </View>
+      </SafeAreaView>
+    </V2SheetModal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  pressableOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-  },
   sheet: {
-    backgroundColor: 'rgba(30, 30, 35, 0.95)',
-    borderRadius: 24,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.default,
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[3],
+    paddingBottom: spacing[4] + V2_SHEET_SKIRT,
+    marginBottom: -V2_SHEET_SKIRT,
+    flexShrink: 1,
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 10,
   },
   handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: spacing.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    width: 38,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: colors.border.default,
+    marginBottom: spacing[3],
   },
   eyebrow: {
-    fontSize: 12,
-    letterSpacing: 2,
-    textAlign: 'center',
-    color: colors.gold,
-    fontFamily: typography.fonts.bodyBold,
-    marginBottom: spacing.sm,
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    letterSpacing: 0.8,
+    marginBottom: spacing[1],
   },
   title: {
-    fontSize: 24,
-    textAlign: 'center',
+    ...typography.headingLG,
     color: colors.text.primary,
-    fontFamily: typography.fonts.headingBold,
-    marginBottom: spacing.md,
+    letterSpacing: -0.4,
+  },
+  intentionCard: {
+    marginTop: spacing[3],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderRadius: radii.md,
+    backgroundColor: colors.grouped,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
   },
   intention: {
-    fontSize: 15,
-    textAlign: 'center',
-    color: colors.gold,
-    fontFamily: typography.fonts.body,
+    ...typography.bodyMD,
     fontStyle: 'italic',
-    marginBottom: spacing.md,
+    color: colors.text.primary,
   },
   body: {
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
+    ...typography.bodyMD,
     color: colors.text.secondary,
-    fontFamily: typography.fonts.body,
-    marginBottom: spacing.xl,
+    marginTop: spacing[3],
+    lineHeight: 22,
   },
   actions: {
-    gap: 12,
-  },
-  primaryButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  primaryButtonGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 14,
-    color: '#000',
-    fontFamily: typography.fonts.bodyBold,
-  },
-  deleteButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 110, 110, 0.35)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  deleteButtonText: {
-    fontSize: 14,
-    color: 'rgba(255, 135, 135, 0.95)',
-    fontFamily: typography.fonts.bodyBold,
-  },
-  cancelButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 14,
-    color: colors.text.tertiary,
-    fontFamily: typography.fonts.bodyBold,
+    marginTop: spacing[5],
+    gap: spacing[2],
   },
 });
+
+export default ConfirmDeleteAnchorSheet;

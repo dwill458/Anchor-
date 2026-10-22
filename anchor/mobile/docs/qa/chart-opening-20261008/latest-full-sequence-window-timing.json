@@ -1,0 +1,11 @@
+{
+  "selectedWallClock": "01:13:41.856",
+  "framestats": "latest-full-shell-window-framestats.txt",
+  "runnerUptimeMs": 20562080.5,
+  "canvasLog": "layout=196.5x272.1 scale=0.5 surfacePx=393x544 displayed=393x544.3 ratio=2",
+  "runnerWallClock": "01:13:43.145",
+  "selectedPerformanceMs": 20560791.5,
+  "source": "latest-full-shell-window-logcat.txt",
+  "intervalMs": 7200,
+  "scheduledSequenceEndUptimeMs": 20569280.5
+}

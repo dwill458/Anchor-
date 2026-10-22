@@ -1,6 +1,8 @@
 import type { Anchor } from '@/types';
 import type { StoredProfile } from '@/stores/profileStore';
 import { readSecureValue, writeSecureValue } from '@/stores/encryptedPersistStorage';
+import { sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
+const database = () => (require('@/storage/sqlcipher/runtime') as typeof import('@/storage/sqlcipher/runtime')).recordDatabase();
 import { logger } from '@/utils/logger';
 import type { SessionAudioConfiguration } from '@/types/sessionAudio';
 import type { PracticeSessionRecord } from '@/types/practice';
@@ -39,7 +41,7 @@ export interface SessionSnapshot {
     reflectionWord?: string;
     completedAt: string;
   }>;
-  threadStrength: number;
+  threadStrength: number | null;
   totalSessionsCount: number;
   lastPrimedAt: string | null;
   weekHistory: boolean[];
@@ -74,6 +76,7 @@ export async function saveProfileSnapshot(
   userId: string,
   snapshot: StoredProfile
 ): Promise<void> {
+  if (sqlCipherEnabled()) return database().write(profileSnapshotKey(userId), snapshot);
   await writeSecureValue(profileSnapshotKey(userId), JSON.stringify(snapshot));
 }
 
@@ -95,10 +98,23 @@ export async function saveSessionSnapshot(
   userId: string,
   snapshot: SessionSnapshot
 ): Promise<void> {
+  if (sqlCipherEnabled()) return database().write(sessionSnapshotKey(userId), snapshot);
   await writeSecureValue(sessionSnapshotKey(userId), JSON.stringify(snapshot));
 }
 
 export async function loadSessionSnapshot(userId: string): Promise<SessionSnapshot | null> {
+  if (sqlCipherEnabled()) {
+    const snapshot = await database().read(sessionSnapshotKey(userId)) as SessionSnapshot | null;
+    const history = await database().read(`anchor:practice-history:${userId}`) as PracticeSessionRecord[] | null;
+    if (!snapshot && !history?.length) return null;
+    const base = snapshot ?? (require('@/stores/sessionStore') as typeof import('@/stores/sessionStore')).createInitialSessionState();
+    const existing = base.practiceHistory ?? [];
+    const byId = new Map((history ?? []).map((event) => [event.id, event]));
+    // A server acknowledgement/projection can carry newer fields than the
+    // immutable completion event. Preserve those fields for the same identity.
+    for (const event of existing) byId.set(event.id, event);
+    return { ...base, practiceHistory: [...byId.values()].filter((event) => event.accountId === userId) };
+  }
   const rawSnapshot = await readSecureValue(sessionSnapshotKey(userId));
   if (!rawSnapshot) {
     return null;
@@ -116,6 +132,7 @@ export async function saveAnchorSnapshot(
   userId: string,
   snapshot: AnchorSnapshot
 ): Promise<void> {
+  if (sqlCipherEnabled()) return database().write(anchorSnapshotKey(userId), snapshot);
   await writeSecureValue(anchorSnapshotKey(userId), JSON.stringify(snapshot));
 }
 

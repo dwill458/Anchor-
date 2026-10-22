@@ -1,0 +1,82 @@
+[
+  {
+    "path": "anchor/mobile/src/services/PracticeCompletionService.ts",
+    "sha256": "1dda64cf7b3c93c2160f550f9d7a84b962b46324e10398988254ff016e494433",
+    "baselineSha256": "400a655de7871d3b6cdf882e9e8f0edb23a92fc4fb3059753c6b3e8d32904a72"
+  },
+  {
+    "path": "anchor/mobile/src/stores/encryptedPersistStorage.ts",
+    "sha256": "fac0f72dad3433ead435420ff2415d8dca512aa157f3b3d5b88c268a32bafc0c",
+    "baselineSha256": "0d8da2c7fd862e4fa7ac0f4ebb77784683793ccfb060d306208cd2a5d3432118"
+  },
+  {
+    "path": "anchor/mobile/src/utils/stabilizationDiagnostics.ts",
+    "sha256": "d684a353da17b9ec0b2b731c811c90c412ed95201ef23acf91fbf932ef349b13",
+    "baselineSha256": null
+  },
+  {
+    "path": "anchor/mobile/src/__tests__/AppStartupHydration.integration.test.tsx",
+    "sha256": "194cb7b66c874882e8a4a6eec51f14c121bd77807f1105c5cac2b029ca1c23bb",
+    "baselineSha256": "25a3d74afddeb510ef06f15ece5e2ebb03454ef7b74ec6de8aecf25eaa66230d"
+  },
+  {
+    "path": "anchor/mobile/src/components/v2/paywall/twoStep/__tests__/PaywallPreviewTiles.test.tsx",
+    "sha256": "75efc6520b0cfc92d2938b60cac8313eabaee1452742c6cb19a48c350be8be94",
+    "baselineSha256": "94f6808063d02db211926e2c69f59beab6a75ffaef20fc0df4a831a8a4b57478"
+  },
+  {
+    "path": "anchor/mobile/src/screens/practice/__tests__/PracticeScreen.test.tsx",
+    "sha256": "2868a8f8795e1ab43d17fb7124ab9a20148fa4b67ea1e3eeda9c9e6522386347",
+    "baselineSha256": "1ef5d1f0b134e26c195559024cc89200776bef9e3e8261b33a5be0cf5a9c51ba"
+  },
+  {
+    "path": "anchor/mobile/src/screens/v2/practice/V2PracticeSessionScreen.tsx",
+    "sha256": "351c40955ba4c7e1c1c1c72b60b8f3c8ac9ac14352a5a6640a14a8d90afc6e48",
+    "baselineSha256": "321d8babbb09aa460b2c4ada37f5bfe7da770fb7a6af03843257dbaadcab8172"
+  },
+  {
+    "path": "anchor/mobile/src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx",
+    "sha256": "0bce0d301c9dfb798770f9e4b022b1cbfe483357b73834267c30ff1f6e58dc4e",
+    "baselineSha256": "7c16be0d9e6070268c03e6ef42e1bd48268dd636acc2f56547dfd66786e1ad69"
+  },
+  {
+    "path": "anchor/mobile/src/screens/v2/notifications/__tests__/NotificationSettingsScreen.test.tsx",
+    "sha256": "ad5981f03369d005baa6d6b29ec0572853728ef6af1803a8b661faa6b85a35c9",
+    "baselineSha256": "62a1cfc1f3b1b43442686365ac138edc60a568d7dfab93c5acf48581003cd0dc"
+  },
+  {
+    "path": "anchor/mobile/src/screens/v2/paywall/__tests__/paywallSkiaMock.ts",
+    "sha256": "d3ec188425eaad3b5ea8e5b6a4afbaeb22cd5b4243db120d9c842db882390585",
+    "baselineSha256": null
+  },
+  {
+    "path": "anchor/mobile/src/screens/v2/paywall/__tests__/V2PaywallScreen.motion.test.tsx",
+    "sha256": "439bcf00edb4b145e1d4c97f53ba3fa747883e4d11d92b1f4d40b66186fb96d5",
+    "baselineSha256": "791172acdf887187268491a6c4db0089a037e11fcf83d0f1ef953559b120735a"
+  },
+  {
+    "path": "anchor/mobile/src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx",
+    "sha256": "e9972d25e519035a1a6c75629ac0d179cc84f0f121eb5be02bd3891facb031de",
+    "baselineSha256": "1eb4fecb1b6c59f6cce253b7c2767b0c2985271c2a2f57de392318df747e8e40"
+  },
+  {
+    "path": "anchor/mobile/src/screens/v2/practice/__tests__/V2PracticeAnchorTransition.test.tsx",
+    "sha256": "fc383b3918088098c3f4b22e591205adc849a8976abafd81a212ace391285ad3",
+    "baselineSha256": "e1a2dc4458af0dc34fbb02605f341ba5df2654df93a0b5dff66e864775fc3a1f"
+  },
+  {
+    "path": "anchor/mobile/src/storage/sqlcipher/database.ts",
+    "sha256": "21be9f92e2a8ba6dd0457a38ba1d2da6fca467bea432f34d1f126d07b41c8286",
+    "baselineSha256": "987c1829a2c9e20e593c2dbcc382d2caa0d9ca2fc2af0a7f15bc114a2b407217"
+  },
+  {
+    "path": "anchor/mobile/src/storage/sqlcipher/__tests__/product.integration.test.ts",
+    "sha256": "20324a0516391ccbca5bf3a64f8022ab613e889e96e3240ac22520c96d4a9db6",
+    "baselineSha256": "f669507d7d3495c5f4140cb0ace1f9586c31900ceb07f5704bd0078736b50d49"
+  },
+  {
+    "path": "anchor/mobile/src/utils/__tests__/stabilizationDiagnostics.test.ts",
+    "sha256": "f0d5e257ee4b6ff4d1f476fb1f2eac1f20c314c75857e65125910918510c2e31",
+    "baselineSha256": null
+  }
+]

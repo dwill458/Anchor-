@@ -57,6 +57,8 @@ const ROUTE_FLOW_STEPS: Record<string, RouteFlowStep> = {
   EnhancedVersionPicker: { flow: 'anchor_creation', step: 'variation_picker' },
   AnchorReveal: { flow: 'anchor_creation', step: 'anchor_reveal' },
   WallpaperPrompt: { flow: 'anchor_creation', step: 'wallpaper_prompt' },
+  // Per-beat steps are fired by the flow itself; the route entry marks the handoff from Intention.
+  AnchorCreationFlow: { flow: 'anchor_creation', step: 'intention_handoff' },
 
   ChargeSetup: { flow: 'activation', step: 'charge_setup' },
   Ritual: { flow: 'activation', step: 'ritual' },

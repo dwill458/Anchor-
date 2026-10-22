@@ -1,0 +1,36 @@
+{
+  "artifact": "Expo 58 candidate source attestation: Jest snapshot header migration",
+  "attestedUtc": "2026-10-19T02:25:44.321702+00:00",
+  "sourceRoot": "E:\\AnchorQA\\expo58-stabilization-20261018\\source",
+  "candidateRoot": "E:\\AnchorQA\\expo58-stabilization-20261018\\candidate",
+  "path": "anchor/mobile/src/components/v2/chart/map/__tests__/__snapshots__/chartCloudTiles.test.ts.snap",
+  "source": {
+    "sha256": "6e9fd373a825a463b409c7697f6d4493c1de7a4223d3c5233aa5dba70b4a5051",
+    "bytes": 3146,
+    "lastWriteUtc": "2026-10-19T01:10:38.803842+00:00",
+    "firstLine": "// Jest Snapshot v1, https://goo.gl/fbAQLP"
+  },
+  "candidate": {
+    "sha256": "66aaa07eb463663d83c0879b3b2ee133d432bf7b3748bb79d5116927805c5dfc",
+    "bytes": 3164,
+    "lastWriteUtc": "2026-10-19T01:52:31.352429+00:00",
+    "firstLine": "// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing"
+  },
+  "comparison": {
+    "identicalBytes": false,
+    "lineCountsEqual": true,
+    "firstLineChanged": true,
+    "assertionBodyEqualAfterFirstLine": true,
+    "changedLinesAfterHeader": 0,
+    "interpretation": "Only the Jest snapshot-file header changed from the legacy goo.gl reference to the current jestjs.io snapshot-testing documentation URL. All snapshot assertion content after line 1 is byte-identical; no assertions were added, removed, or changed."
+  },
+  "repoAttestation": {
+    "checkedFiles": 2886,
+    "upgradeUnexpectedDrift": [],
+    "candidateUnexpectedDriftBeforeClassification": [
+      "anchor/mobile/src/components/v2/chart/map/__tests__/__snapshots__/chartCloudTiles.test.ts.snap"
+    ],
+    "sameHead": "5d9a6497996665eb28b4e3641531cac5a7b34546",
+    "upgradeWorktreeExpectedDirtyFilesPreserved": true
+  }
+}

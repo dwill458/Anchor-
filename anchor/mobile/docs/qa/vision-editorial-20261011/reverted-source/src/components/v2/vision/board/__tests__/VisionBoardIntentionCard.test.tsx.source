@@ -1,0 +1,129 @@
+
+import { fireEvent, render } from '@testing-library/react-native';
+import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
+import { VisionBoardIntentionCard, visionSealSvg } from '../VisionBoardIntentionCard';
+
+const mockMarkProps: Array<Record<string, unknown>> = [];
+jest.mock('@/components/v2/anchor/CircularAnchorRenderer', () => {
+  const { View } = require('react-native');
+  return {
+    CircularAnchorRenderer: (props: Record<string, unknown>) => {
+      mockMarkProps.push(props);
+      return <View testID={(props.testID as string) ?? 'anchor-mark'} />;
+    },
+  };
+});
+
+const rect = { x: 100, y: 100, width: 300, height: 380, rotation: -1.5, zIndex: 40 };
+const storedAnchor = {
+  baseSigilSvg: '<svg viewBox="0 0 10 10"><path d="M1 1L9 9M9 1L1 9"/></svg>',
+  reinforcedSigilSvg: null,
+  enhancedImageUrl: undefined,
+  category: 'career',
+  classifierMeta: undefined,
+} as never;
+
+describe('VisionBoardIntentionCard', () => {
+  beforeEach(() => { mockMarkProps.length = 0; });
+
+  it('lets the compositor own the actual seal without duplicate text or art', () => {
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="My saved intention" art={anchorRenderProps(storedAnchor)} hideMark reduceMotion />);
+    expect(mockMarkProps).toHaveLength(0);
+    expect(view.queryByText('My saved intention')).toBeNull();
+    expect(view.getByTestId('vision-board-card-mark-slot').props.style.width).toBe(258);
+  });
+
+  it.each([true, false])('reports the measured mark in paper coordinates regardless of layout event order: %s', contentFirst => {
+    const onMarkLayout = jest.fn();
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="Real intention" onMarkLayout={onMarkLayout} hideMark reduceMotion />);
+    const content = () => fireEvent(view.getByTestId('vision-board-card-content'), 'layout', { nativeEvent: { layout: { x: 33, y: 49.4, width: 234, height: 292.6 } } });
+    const mark = () => fireEvent(view.getByTestId('vision-board-card-mark-slot'), 'layout', { nativeEvent: { layout: { x: 39, y: 17, width: 156, height: 156 } } });
+    if (contentFirst) { content(); mark(); } else { mark(); content(); }
+    expect(onMarkLayout).toHaveBeenLastCalledWith({ x: 72, y: 66.4, width: 156, height: 156 });
+  });
+
+  it('draws the Anchor\'s own stored structure, never a re-drawn one', () => {
+    const art = anchorRenderProps(storedAnchor);
+    render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" category="career" art={art} reduceMotion />);
+    expect(mockMarkProps).toHaveLength(1);
+    // The exact string the rest of the app renders (Home, Details, Practice), passed through untouched.
+    expect(mockMarkProps[0].svg).toBe((storedAnchor as { baseSigilSvg: string }).baseSigilSvg);
+    expect(mockMarkProps[0].svg).toBe(art.svg);
+  });
+
+  it('follows a reinforced Anchor: whatever geometry the Anchor currently has is what is shown', () => {
+    const reinforced = { ...(storedAnchor as object), reinforcedSigilSvg: '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>' } as never;
+    render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" category="career" art={anchorRenderProps(reinforced)} reduceMotion />);
+    expect(mockMarkProps[0].svg).toContain('<circle');
+  });
+
+  it('passes finished artwork through for the bare Vision signature', () => {
+    const enhanced = { ...(storedAnchor as object), enhancedImageUrl: 'https://example.com/enhanced.jpg' } as never;
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="My future" category="career" art={anchorRenderProps(enhanced)} reduceMotion />);
+    expect(mockMarkProps).toHaveLength(1);
+    expect(mockMarkProps[0].svg).toBe(anchorRenderProps(enhanced).svg);
+    expect(mockMarkProps[0].imageUrl).toBe('https://example.com/enhanced.jpg');
+    expect(mockMarkProps[0].appearance).toBe('bare');
+    expect(view.UNSAFE_queryAllByType(require('react-native').Image)).toHaveLength(0);
+  });
+
+  it('keeps enhanced artwork and the selected expression on the paper seal', () => {
+    const art = { svg: '<svg viewBox="0 0 240 80"><path stroke="#a476df" d="M10 40H230"/></svg>',
+      imageUrl: 'https://example.com/personal-enhanced.png', expression: 'foil' as const, category: 'career' };
+    render(<VisionBoardIntentionCard rect={rect} intention="My future" art={art} markAppearance="paper" reduceMotion />);
+    expect(mockMarkProps[0]).toEqual(expect.objectContaining({ ...art, appearance: 'dark' }));
+  });
+
+  it('preserves the original SVG paints for the selected expression without an enhanced image', () => {
+    const art = { svg: '<svg viewBox="0 0 240 80"><path stroke="#a476df" d="M10 40H230"/></svg>', expression: 'foil' as const };
+    render(<VisionBoardIntentionCard rect={rect} intention="My future" art={art} markAppearance="paper" reduceMotion />);
+    expect(mockMarkProps[0]).toEqual(expect.objectContaining(art));
+  });
+
+  it('recolors explicit seal paints while preserving SVG geometry and transparent paint', () => {
+    const source = '<svg viewBox="0 0 24 24"><defs><path d="M0 0L1 1" stroke="#111111"/></defs><path d="M2 2L22 22" stroke="#CE6091" fill="none"/><path d="M1 1" stroke="rgba(0,0,0,0)"/><path stroke="#abcdef00" d="M1 2"/><path style="fill: #88769B; stroke: #88769B" d="M2 22L22 2"/></svg>';
+    const recolored = visionSealSvg(source);
+    expect(recolored).toContain('viewBox="0 0 24 24"');
+    expect(recolored).toContain('d="M2 2L22 22"');
+    expect(recolored).toContain('stroke="#F4EDE0"');
+    expect(recolored).toContain('fill="none"');
+    expect(recolored).toContain('stroke="rgba(0,0,0,0)"');
+    expect(recolored).toContain('stroke="#abcdef00"');
+    expect(recolored).toContain('<defs><path d="M0 0L1 1" stroke="#111111"/></defs>');
+    expect(recolored).toContain('fill: #F4EDE0;stroke: #F4EDE0');
+    expect(recolored).not.toContain('#CE6091');
+    expect(recolored).not.toContain('#88769B');
+  });
+
+  it('gives implicit visible fills contrast without overriding inherited none or touching mask defaults', () => {
+    const source = '<svg viewBox="0 0 10 10"><g fill="none"><path d="M1 1L9 9"/></g><g><path d="M2 2L8 8"/></g><mask id="m"><path d="M0 0L10 10"/></mask><path d="M3 3L7 7"/></svg>';
+    const recolored = visionSealSvg(source);
+    expect(recolored).toContain('<g fill="none"><path d="M1 1L9 9"/></g>');
+    expect(recolored).toContain('<g><path d="M2 2L8 8" fill="#F4EDE0"/></g>');
+    expect(recolored).toContain('<mask id="m"><path d="M0 0L10 10"/></mask>');
+    expect(recolored).toContain('<path d="M3 3L7 7" fill="#F4EDE0"/>');
+  });
+
+  it('uses a 30% larger dark seal with the Anchor SVG on paper-backed Vision surfaces', () => {
+    const art = anchorRenderProps(storedAnchor);
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="My future" art={art} markAppearance="paper" reduceMotion />);
+    expect(view.getByTestId('vision-board-card-mark-slot').props.style.width / (rect.width * .94)).toBeCloseTo(1.3, 2);
+    expect(mockMarkProps[0]).toEqual(expect.objectContaining({ svg: visionSealSvg(art.svg), appearance: 'dark', size: 366 }));
+    expect(mockMarkProps[0].imageUrl).toBeUndefined();
+    expect(mockMarkProps[0].style).toEqual(expect.objectContaining({ backgroundColor: '#171717', borderColor: '#B69A65' }));
+  });
+
+  it('keeps intention accessible without duplicating the overview heading', () => {
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" category="career" art={anchorRenderProps(storedAnchor)} reduceMotion />);
+    expect(view.queryByText('Anchor has ten thousand users')).toBeNull();
+    expect(view.getByLabelText('Your Anchor, Career. Anchor has ten thousand users')).toBeTruthy();
+  });
+
+  it('is tappable to bring the Anchor forward, and a plain image when it is not', () => {
+    const onPress = jest.fn();
+    const tappable = render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" onPress={onPress} reduceMotion />);
+    expect(tappable.getByRole('button')).toBeTruthy();
+    const still = render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" reduceMotion />);
+    expect(still.queryByRole('button')).toBeNull();
+  });
+});

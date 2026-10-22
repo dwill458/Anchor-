@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const TARGET_MIGRATIONS = [
   '20260506010000_add_user_data_cleanup_foreign_keys',
   '20260508000000_diagnose_and_fix_orphaned_rows',
+  '20261009130000_unique_push_tokens',
 ];
 const prisma = new PrismaClient();
 

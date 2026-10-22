@@ -34,6 +34,22 @@ async function persist(accountId: string, courseId: string, entries: CourseLogEn
   await encryptedPersistStorage.setItem(chartLogCacheKey(accountId, courseId), JSON.stringify(cache));
 }
 
+/** Read one account-owned encrypted Course log snapshot for presentation fallback. */
+export async function readCourseLogCache(accountId: string, courseId: string): Promise<CourseLogEntry[] | null> {
+  try {
+    const raw = await encryptedPersistStorage.getItem(chartLogCacheKey(accountId, courseId));
+    if (!raw) return null;
+    return validCache(JSON.parse(raw), accountId, courseId)?.entries ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Persist a server response for offline/stale presentation reads. */
+export async function writeCourseLogCache(accountId: string, courseId: string, entries: CourseLogEntry[]): Promise<void> {
+  await persist(accountId, courseId, entries, null);
+}
+
 export const useCourseLogStore = create<CourseLogState>((set, get) => ({
   accountId: null, courseId: null, entries: [], nextCursor: null, loading: false, refreshing: false, offline: false, errorCode: null,
   bind: async (accountId, courseId) => {

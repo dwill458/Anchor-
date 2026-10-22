@@ -1,0 +1,7 @@
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+
+Test Suites: 2 passed, 2 total
+Tests:       13 passed, 13 total
+Snapshots:   0 total
+Time:        5.275 s, estimated 6 s

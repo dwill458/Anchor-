@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="commitment_500_minutes" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="500 Minutes (Commitment) locked">
+  <title>500 Minutes (Commitment) locked</title>
+  <desc>Anchor milestone emblem. Provisional design slug: commitment_500_minutes. Layers: plate, structure, emblem, engraving, highlight, accent.</desc>
+  <defs>
+    <radialGradient id="commitment_500_minutes-orbS" cx="38%" cy="32%" r="78%">
+      <stop offset="0" stop-color="#F6F3EC"/><stop offset="0.5" stop-color="#CFC8B9"/><stop offset="1" stop-color="#9F988A"/>
+    </radialGradient>
+    <radialGradient id="commitment_500_minutes-plateS" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#F4F1E8"/><stop offset="1" stop-color="#E6E1D5"/>
+    </radialGradient>
+  </defs>
+  <g id="commitment_500_minutes__plate">
+    <circle cx="128" cy="128" r="120" fill="url(#commitment_500_minutes-plateS)"/>
+    <circle cx="128" cy="128" r="119.2" fill="none" stroke="#CFC8B8" stroke-width="1"/>
+    <circle cx="128" cy="128" r="117.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" opacity="0.9"/>
+    <circle cx="128" cy="128" r="108.6" fill="none" stroke="#B8B1A3" stroke-width="1.7"/>
+    <circle cx="128" cy="128" r="107.2" fill="none" stroke="#FFFFFF" stroke-width="0.8" opacity="0.9"/>
+    <circle cx="128" cy="128" r="101" fill="none" stroke="#C0BAAC" stroke-width="1.1"/>
+    <circle cx="128" cy="128" r="99.9" fill="none" stroke="#FFFFFF" stroke-width="0.6" opacity="0.9"/>
+  </g>
+  <g id="commitment_500_minutes__art" transform="translate(128 128) scale(0.959) translate(-128 -128)">
+  <g id="commitment_500_minutes__structure">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M44 128A84 17 0 0 1 212 128" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 3"/>
+      <line x1="78" y1="66" x2="78" y2="190" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="178" y1="66" x2="178" y2="190" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M44 128A84 17 0 0 1 212 128" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 3"/>
+      <line x1="78" y1="66" x2="78" y2="190" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="178" y1="66" x2="178" y2="190" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="commitment_500_minutes__structure-ring-back" d="M44 128A84 17 0 0 1 212 128" fill="none" stroke="#A19A8B" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 3"/>
+    <line id="commitment_500_minutes__structure-post-1" x1="78" y1="66" x2="78" y2="190" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__structure-post-2" x1="178" y1="66" x2="178" y2="190" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_500_minutes__emblem">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <path d="M98 70C98 100 122 108 122 128C122 148 98 156 98 186L158 186C158 156 134 148 134 128C134 108 158 100 158 70Z" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="66" y="54" width="124" height="13" rx="3.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="66" y="189" width="124" height="13" rx="3.5" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <path d="M98 70C98 100 122 108 122 128C122 148 98 156 98 186L158 186C158 156 134 148 134 128C134 108 158 100 158 70Z" fill="none" stroke="#B7B0A0" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="66" y="54" width="124" height="13" rx="3.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="66" y="189" width="124" height="13" rx="3.5" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path id="commitment_500_minutes__emblem-glass" d="M98 70C98 100 122 108 122 128C122 148 98 156 98 186L158 186C158 156 134 148 134 128C134 108 158 100 158 70Z" fill="none" stroke="#8C867A" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect id="commitment_500_minutes__emblem-rail-top" x="66" y="54" width="124" height="13" rx="3.5" fill="#8C867A" stroke="#8C867A" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect id="commitment_500_minutes__emblem-rail-bottom" x="66" y="189" width="124" height="13" rx="3.5" fill="#8C867A" stroke="#8C867A" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_500_minutes__engraving">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <line x1="72" y1="60.5" x2="184" y2="60.5" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="72" y1="195.5" x2="184" y2="195.5" fill="none" stroke="#FFFFFF" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="101.24" y1="184" x2="154.76" y2="184" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="101.49" y1="180.4" x2="154.51" y2="180.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="102.01" y1="176.8" x2="153.99" y2="176.8" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="102.84" y1="173.2" x2="153.16" y2="173.2" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="103.97" y1="169.6" x2="152.03" y2="169.6" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="105.43" y1="166" x2="150.57" y2="166" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="107.24" y1="162.4" x2="148.76" y2="162.4" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="109.39" y1="158.8" x2="146.61" y2="158.8" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="111.8" y1="155.2" x2="144.2" y2="155.2" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="114.4" y1="151.6" x2="141.6" y2="151.6" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="117.06" y1="148" x2="138.94" y2="148" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="122.94" y1="116" x2="133.06" y2="116" fill="none" stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <line x1="72" y1="60.5" x2="184" y2="60.5" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="72" y1="195.5" x2="184" y2="195.5" fill="none" stroke="#B7B0A0" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="101.24" y1="184" x2="154.76" y2="184" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="101.49" y1="180.4" x2="154.51" y2="180.4" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="102.01" y1="176.8" x2="153.99" y2="176.8" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="102.84" y1="173.2" x2="153.16" y2="173.2" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="103.97" y1="169.6" x2="152.03" y2="169.6" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="105.43" y1="166" x2="150.57" y2="166" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="107.24" y1="162.4" x2="148.76" y2="162.4" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="109.39" y1="158.8" x2="146.61" y2="158.8" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="111.8" y1="155.2" x2="144.2" y2="155.2" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="114.4" y1="151.6" x2="141.6" y2="151.6" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="117.06" y1="148" x2="138.94" y2="148" fill="none" stroke="#B7B0A0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="122.94" y1="116" x2="133.06" y2="116" fill="none" stroke="#B7B0A0" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <line id="commitment_500_minutes__engraving-rail-sheen-top" x1="72" y1="60.5" x2="184" y2="60.5" fill="none" stroke="#C6BFAE" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-rail-sheen-bottom" x1="72" y1="195.5" x2="184" y2="195.5" fill="none" stroke="#C6BFAE" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-01" x1="101.24" y1="184" x2="154.76" y2="184" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-02" x1="101.49" y1="180.4" x2="154.51" y2="180.4" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-03" x1="102.01" y1="176.8" x2="153.99" y2="176.8" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-04" x1="102.84" y1="173.2" x2="153.16" y2="173.2" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-05" x1="103.97" y1="169.6" x2="152.03" y2="169.6" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-06" x1="105.43" y1="166" x2="150.57" y2="166" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-07" x1="107.24" y1="162.4" x2="148.76" y2="162.4" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-08" x1="109.39" y1="158.8" x2="146.61" y2="158.8" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-09" x1="111.8" y1="155.2" x2="144.2" y2="155.2" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-10" x1="114.4" y1="151.6" x2="141.6" y2="151.6" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-11" x1="117.06" y1="148" x2="138.94" y2="148" fill="none" stroke="#B3AB99" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <line id="commitment_500_minutes__engraving-sand-up-1" x1="122.94" y1="116" x2="133.06" y2="116" fill="none" stroke="#A19A8B" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="commitment_500_minutes__highlight"/>
+  <g id="commitment_500_minutes__accent">
+    <g transform="translate(-1 -1)" opacity="0.9">
+      <circle cx="68.55" cy="62.47" r="4.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="95.46" cy="42.92" r="4.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="36" r="4.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="160.54" cy="42.92" r="4.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="187.45" cy="62.47" r="4.2" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78" cy="62" r="3.4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78" cy="194" r="3.4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="178" cy="62" r="3.4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="178" cy="194" r="3.4" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0.9 0.9)" opacity="0.55">
+      <circle cx="68.55" cy="62.47" r="4.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="95.46" cy="42.92" r="4.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="128" cy="36" r="4.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="160.54" cy="42.92" r="4.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="187.45" cy="62.47" r="4.2" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78" cy="62" r="3.4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="78" cy="194" r="3.4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="178" cy="62" r="3.4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="178" cy="194" r="3.4" fill="#B7B0A0" stroke="#B7B0A0" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <circle id="commitment_500_minutes__accent-bead-1" cx="68.55" cy="62.47" r="4.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-bead-2" cx="95.46" cy="42.92" r="4.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-bead-3" cx="128" cy="36" r="4.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-bead-4" cx="160.54" cy="42.92" r="4.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-bead-5" cx="187.45" cy="62.47" r="4.2" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-cap-top-1" cx="78" cy="62" r="3.4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-cap-bottom-1" cx="78" cy="194" r="3.4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-cap-top-2" cx="178" cy="62" r="3.4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle id="commitment_500_minutes__accent-cap-bottom-2" cx="178" cy="194" r="3.4" fill="#B3AB99" stroke="#A19A8B" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  </g>
+</svg>

@@ -39,6 +39,8 @@ describe('RevenueCatEntitlementService', () => {
     ).resolves.toEqual({
       isActive: true,
       productIdentifier: 'anchor_pro_annual',
+      isTrialPeriod: false,
+      expiresAt: '2026-07-20T00:00:00.000Z',
     });
     expect(getSpy).toHaveBeenCalledWith(
       'https://api.revenuecat.com/v1/subscribers/user%2Fid',
@@ -68,6 +70,8 @@ describe('RevenueCatEntitlementService', () => {
     ).resolves.toEqual({
       isActive: false,
       productIdentifier: 'anchor_pro_monthly',
+      isTrialPeriod: false,
+      expiresAt: '2026-07-01T00:00:00.000Z',
     });
   });
 
@@ -79,10 +83,43 @@ describe('RevenueCatEntitlementService', () => {
     expect(getSpy).not.toHaveBeenCalled();
   });
 
-  it('falls back to persisted state when RevenueCat is unavailable', async () => {
+  it('returns no access for a Free user when RevenueCat is unavailable', async () => {
     jest.spyOn(axios, 'get').mockRejectedValue(new Error('timeout'));
 
     await expect(getRevenueCatAccess('user-1')).resolves.toBeNull();
+  });
+
+  it('uses a bounded stale verified Pro cache during a transient outage', async () => {
+    const getSpy = jest.spyOn(axios, 'get')
+      .mockResolvedValueOnce({
+        data: {
+          subscriber: {
+            entitlements: {
+              pro: {
+                expires_date: '2026-08-31T00:00:00.000Z',
+                product_identifier: 'anchor_pro_monthly',
+              },
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockRejectedValueOnce(new Error('timeout'));
+    const verifiedAt = new Date('2026-08-29T12:00:00.000Z');
+
+    await expect(getRevenueCatAccess('cached-user', verifiedAt)).resolves.toMatchObject({
+      isActive: true,
+    });
+    await expect(
+      getRevenueCatAccess('cached-user', new Date('2026-08-29T12:02:00.000Z'), { forceRefresh: true })
+    ).resolves.toMatchObject({
+      isActive: true,
+      isStale: true,
+    });
+    await expect(
+      getRevenueCatAccess('cached-user', new Date('2026-09-01T12:00:00.000Z'), { forceRefresh: true })
+    ).resolves.toBeNull();
+    expect(getSpy).toHaveBeenCalledTimes(3);
   });
 
   it('bypasses a cached entitlement after a completed purchase or restore', async () => {
@@ -116,12 +153,16 @@ describe('RevenueCatEntitlementService', () => {
     await expect(getRevenueCatAccess('fresh-user', now)).resolves.toEqual({
       isActive: true,
       productIdentifier: 'anchor_pro_monthly',
+      isTrialPeriod: false,
+      expiresAt: '2026-07-20T00:00:00.000Z',
     });
     await expect(
       getRevenueCatAccess('fresh-user', now, { forceRefresh: true })
     ).resolves.toEqual({
       isActive: true,
       productIdentifier: 'anchor_pro_annual',
+      isTrialPeriod: false,
+      expiresAt: '2026-08-20T00:00:00.000Z',
     });
 
     expect(getSpy).toHaveBeenCalledTimes(2);

@@ -1,0 +1,398 @@
+import {
+  COMPLEXITY_WAYPOINT_BANDS,
+  ChartPlanValidationError,
+  complexityForCount,
+  isCountWithinBand,
+  normalizeGenerationResult,
+  normalizeMoveSuggestions,
+} from '../chartPlanSchema';
+import { buildTemplateRoute, parseNumericTarget } from '../chartTemplateRoute';
+import { buildPlanningUserMessage } from '../chartPlanPrompt';
+import { toOpenAiStrictSchema } from '../chartModelProviders';
+import { GENERATION_JSON_SCHEMA } from '../chartPlanSchema';
+
+function waypoint(title: string, extra: Partial<Record<string, unknown>> = {}) {
+  return {
+    title,
+    rationale: 'Why this matters.',
+    type: 'MILESTONE',
+    targetMetric: null,
+    targetValue: null,
+    baselineValue: null,
+    ...extra,
+  };
+}
+
+function route(titles: string[], overrides: Record<string, unknown> = {}) {
+  return {
+    needsMoreContext: false,
+    followUpQuestion: null,
+    destination: 'Reach 10,000 active users',
+    complexity: 'MODERATE',
+    waypoints: titles.map(title => waypoint(title)),
+    suggestedOneMove: { title: 'Finish onboarding redesign', rationale: null },
+    personalizedGuidance: 'Retention is the lever here, so the early waypoints focus on it.',
+    ...overrides,
+  };
+}
+
+describe('complexity → waypoint count rules', () => {
+  it('uses overlapping bands: SIMPLE 2–4, MODERATE 4–6, COMPLEX 6–8', () => {
+    expect(COMPLEXITY_WAYPOINT_BANDS).toEqual({
+      SIMPLE: { min: 2, max: 4 },
+      MODERATE: { min: 4, max: 6 },
+      COMPLEX: { min: 6, max: 8 },
+    });
+    expect(isCountWithinBand('SIMPLE', 4)).toBe(true);
+    expect(isCountWithinBand('MODERATE', 4)).toBe(true);
+    expect(isCountWithinBand('SIMPLE', 5)).toBe(false);
+    expect(isCountWithinBand('COMPLEX', 5)).toBe(false);
+  });
+
+  it('derives a complexity from count when the model label disagrees', () => {
+    expect(complexityForCount(2)).toBe('SIMPLE');
+    expect(complexityForCount(5)).toBe('MODERATE');
+    expect(complexityForCount(7)).toBe('COMPLEX');
+    const result = normalizeGenerationResult(route(['One', 'Two', 'Three'], { complexity: 'COMPLEX' }), {
+      allowFollowUp: true,
+    });
+    expect(result.needsMoreContext).toBe(false);
+    if (!result.needsMoreContext) expect(result.complexity).toBe('SIMPLE');
+  });
+
+  it('keeps a label that fits its count', () => {
+    const result = normalizeGenerationResult(route(['A one', 'A two', 'A three', 'A four'], { complexity: 'SIMPLE' }), {
+      allowFollowUp: true,
+    });
+    if (!result.needsMoreContext) expect(result.complexity).toBe('SIMPLE');
+  });
+
+  it('rejects more than 8 waypoints instead of truncating into a different plan', () => {
+    const titles = Array.from({ length: 9 }, (_, index) => `Waypoint ${index + 1}`);
+    expect(() => normalizeGenerationResult(route(titles), { allowFollowUp: true })).toThrow(
+      ChartPlanValidationError
+    );
+  });
+
+  it('rejects fewer than 2 waypoints for a new route but allows 1 when revising what is ahead', () => {
+    expect(() => normalizeGenerationResult(route(['Only one']), { allowFollowUp: true })).toThrow(/too_few/);
+    const revised = normalizeGenerationResult(route(['Only one']), { allowFollowUp: false, minWaypoints: 1 });
+    if (!revised.needsMoreContext) expect(revised.waypoints).toHaveLength(1);
+  });
+});
+
+describe('structured output validation', () => {
+  it('rejects output that does not match the schema', () => {
+    expect(() => normalizeGenerationResult({ waypoints: 'nope' }, { allowFollowUp: true })).toThrow(/schema/);
+    expect(() => normalizeGenerationResult('A route with some steps', { allowFollowUp: true })).toThrow(/schema/);
+    expect(() => normalizeGenerationResult(null, { allowFollowUp: true })).toThrow(/schema/);
+  });
+
+  it('drops duplicate and empty titles, and strips trailing punctuation', () => {
+    const result = normalizeGenerationResult(
+      route(['Reach 500 active users.', 'reach 500 active users', '', 'Reach 1,000 active users']),
+      { allowFollowUp: true }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected');
+    expect(result.waypoints.map(item => item.title)).toEqual(['Reach 500 active users', 'Reach 1,000 active users']);
+  });
+
+  it('downgrades a METRIC waypoint with no usable target to a milestone', () => {
+    const result = normalizeGenerationResult(
+      {
+        ...route([]),
+        waypoints: [
+          waypoint('Reach 1,000 active users', { type: 'METRIC', targetMetric: 'active users', targetValue: 1000, baselineValue: 100 }),
+          waypoint('Retention holds', { type: 'METRIC', targetMetric: 'retention', targetValue: null }),
+        ],
+      },
+      { allowFollowUp: true }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected');
+    expect(result.waypoints[0]).toMatchObject({ kind: 'METRIC', metricTarget: 1000, metricBaseline: 100, metricLabel: 'active users' });
+    expect(result.waypoints[1]).toMatchObject({ kind: 'MILESTONE', metricTarget: null, metricLabel: null });
+  });
+
+  it('drops hype guidance rather than showing it', () => {
+    const result = normalizeGenerationResult(
+      route(['One step', 'Two step'], { personalizedGuidance: "You've got this! Dream big." }),
+      { allowFollowUp: true }
+    );
+    if (!result.needsMoreContext) expect(result.personalizedGuidance).toBeNull();
+  });
+
+  it('returns exactly one follow-up question when context is missing', () => {
+    const result = normalizeGenerationResult(
+      route([], { needsMoreContext: true, followUpQuestion: 'Where are you starting from now?' }),
+      { allowFollowUp: true }
+    );
+    expect(result).toEqual({ needsMoreContext: true, followUpQuestion: 'Where are you starting from now?' });
+  });
+
+  it('refuses a second follow-up after the user already answered one', () => {
+    expect(() =>
+      normalizeGenerationResult(
+        route([], { needsMoreContext: true, followUpQuestion: 'What else can you share?' }),
+        { allowFollowUp: false }
+      )
+    ).toThrow(/unwanted_follow_up/);
+  });
+
+  it('uses the route when a model asks a question it may not but still supplied one', () => {
+    const result = normalizeGenerationResult(
+      route(['First real users', 'Steady growth'], { needsMoreContext: true, followUpQuestion: 'Anything else?' }),
+      { allowFollowUp: false }
+    );
+    expect(result.needsMoreContext).toBe(false);
+  });
+
+  it('validates move suggestions and removes ones the user already has', () => {
+    expect(
+      normalizeMoveSuggestions(
+        {
+          moves: [
+            { title: 'Improve onboarding flow', rationale: null },
+            { title: 'Launch creator campaign', rationale: 'Reach new users.' },
+            { title: 'Optimize conversion funnel', rationale: null },
+            { title: 'A fourth idea', rationale: null },
+          ],
+        },
+        ['improve onboarding flow']
+      ).map(move => move.title)
+    ).toEqual(['Launch creator campaign', 'Optimize conversion funnel', 'A fourth idea']);
+    expect(() => normalizeMoveSuggestions({ moves: [] })).toThrow(/no_moves/);
+  });
+});
+
+describe('deterministic template route', () => {
+  it('parses numeric targets with units and currency, ignoring bare years', () => {
+    expect(parseNumericTarget('Anchor has ten thousand users')).toBeNull();
+    expect(parseNumericTarget('Anchor has 10,000 active users')).toMatchObject({ value: 10000, unit: 'active users' });
+    expect(parseNumericTarget('Save $50k by summer')).toMatchObject({ value: 50000, prefix: '$' });
+    expect(parseNumericTarget('Move abroad in 2027')).toBeNull();
+  });
+
+  it('never invents proportional numeric intervals when AI is unavailable', () => {
+    const result = buildTemplateRoute({ intention: 'Reach $111,000 net worth', startingContext: 'Limited resources' });
+    expect(result.needsNaming).toBe(true);
+    expect(result.waypoints.every(item => item.metricTarget === null)).toBe(true);
+    expect(result.destination).toBe('Reach $111,000 net worth');
+  });
+
+  it('does not turn a destination number into a fabricated starting baseline', () => {
+    const result = buildTemplateRoute({ intention: 'Build a business I love', startingContext: 'The app has 1,000 weekly users' });
+    expect(result.needsNaming).toBe(true);
+    expect(result.waypoints.every(item => item.metricBaseline === null)).toBe(true);
+  });
+
+  it('falls back to a plain outline the user is invited to rename', () => {
+    const result = buildTemplateRoute({ intention: 'I trust my own decisions', startingContext: null });
+    expect(result.needsNaming).toBe(true);
+    expect(result.waypoints).toHaveLength(3);
+    expect(result.waypoints[2].title).toBe('I trust my own decisions');
+  });
+});
+
+describe('provider schema adaptation', () => {
+  it('rewrites nullable objects to anyOf for strict structured outputs', () => {
+    const adapted = toOpenAiStrictSchema(GENERATION_JSON_SCHEMA) as {
+      properties: { suggestedOneMove: { anyOf: Array<{ type: string }> } };
+    };
+    expect(adapted.properties.suggestedOneMove.anyOf.map(item => item.type)).toEqual(['object', 'null']);
+  });
+});
+
+describe('planning prompt', () => {
+  it('passes the answer to "What would make this real?" as the destination reality, not a starting point', () => {
+    const message = buildPlanningUserMessage(
+      {
+        intention: 'Build a business I love',
+        category: 'career',
+        startingContext: 'The app is live and people use it every week',
+        vision: null,
+        followUp: null,
+        adjustment: null,
+      },
+      { allowFollowUp: true }
+    );
+    expect(message).toContain('"whatWouldMakeItReal": "The app is live and people use it every week"');
+    expect(message).not.toContain('startingPoint');
+    expect(message).toContain('Use it to state the DESTINATION concretely');
+  });
+
+  it('omits the reality instruction when the person wrote nothing', () => {
+    const message = buildPlanningUserMessage(
+      { intention: 'Run a marathon', category: 'health', startingContext: null, vision: null, followUp: null, adjustment: null },
+      { allowFollowUp: true }
+    );
+    expect(message).not.toContain('whatWouldMakeItReal is');
+  });
+});
+
+describe('metric type (progress mode)', () => {
+  const run = (waypoints: unknown[]) =>
+    normalizeGenerationResult(route(['a', 'b'], { waypoints }), { allowFollowUp: false });
+  const plan = (result: ReturnType<typeof run>) => {
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    return result.waypoints;
+  };
+
+  it('numeric carries its unit and target and becomes a METRIC', () => {
+    const [first] = plan(
+      run([
+        waypoint('Reach 1,000 active users', { type: 'METRIC', metricType: 'numeric', targetMetric: 'active users', targetValue: 1000 }),
+        waypoint('Reach 10,000 active users', { type: 'METRIC', metricType: 'numeric', targetMetric: 'active users', targetValue: 10000 }),
+      ])
+    );
+    expect(first).toMatchObject({ kind: 'METRIC', progressMode: 'numeric', metricTarget: 1000, metricLabel: 'active users' });
+  });
+
+  it('numeric without a real target is downgraded to moves, never shown as a counter', () => {
+    const [first] = plan(
+      run([
+        waypoint('Feel steady again', { metricType: 'numeric', targetValue: null }),
+        waypoint('Hold it for a month', { metricType: 'moves' }),
+      ])
+    );
+    expect(first).toMatchObject({ kind: 'MILESTONE', progressMode: 'moves', metricTarget: null, metricLabel: null });
+  });
+
+  it('moves and none discard any number the model attached', () => {
+    const [moves, none] = plan(
+      run([
+        waypoint('Have the conversation', { metricType: 'moves', targetValue: 5, targetMetric: 'talks' }),
+        waypoint('Things feel different', { metricType: 'none', type: 'METRIC', targetValue: 3 }),
+      ])
+    );
+    expect(moves).toMatchObject({ progressMode: 'moves', metricTarget: null, metricLabel: null });
+    expect(none).toMatchObject({ kind: 'MILESTONE', progressMode: 'none', metricTarget: null });
+  });
+
+  it('legacy output without a metric type falls back to the kind', () => {
+    const [metric, milestone] = plan(
+      run([
+        waypoint('Reach 50 clients', { type: 'METRIC', targetValue: 50, targetMetric: 'clients' }),
+        waypoint('Ship the first version'),
+      ])
+    );
+    expect(metric).toMatchObject({ kind: 'METRIC', progressMode: 'numeric' });
+    expect(milestone).toMatchObject({ kind: 'MILESTONE', progressMode: 'moves' });
+  });
+
+  it('requires metricType in the structured-output schema', () => {
+    expect(GENERATION_JSON_SCHEMA.properties.waypoints.items.required).toContain('metricType');
+  });
+});
+
+describe('waypoint 1 is the first real move, never setup', () => {
+  it('drops a baseline-establishing waypoint while enough real waypoints remain', () => {
+    const result = normalizeGenerationResult(
+      route([
+        'Establish current verified monthly income baseline',
+        'Reach $3,000 a month',
+        'Reach $5,000 a month',
+      ]),
+      { allowFollowUp: false }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    expect(result.waypoints.map(item => item.title)).toEqual(['Reach $3,000 a month', 'Reach $5,000 a month']);
+  });
+
+  it('keeps ordinary waypoints that merely mention a baseline later in the route', () => {
+    const result = normalizeGenerationResult(
+      route(['Ship the first version', 'Double the baseline conversion rate']),
+      { allowFollowUp: false }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    expect(result.waypoints).toHaveLength(2);
+  });
+
+  it('never trims a route below the minimum length', () => {
+    const result = normalizeGenerationResult(
+      route(['Establish your baseline', 'Reach the goal']),
+      { allowFollowUp: false }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    expect(result.waypoints).toHaveLength(2);
+  });
+});
+
+
+describe('Structured prerequisite foundation compatibility', () => {
+  it('keeps explicitly evidenced foundation milestones and their prerequisite indices intact', () => {
+    const titles = ['Document current income', 'A feasible contribution is chosen', 'First allocation completed'];
+    const analysis = { startingPointSummary: 'Limited resources', assumptions: [], firstMilestoneEvidence: 'Existing account records are available', difficultyReduction: null, prerequisites: titles.map((_title, waypointIndex) => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) };
+    const result = normalizeGenerationResult(route(titles, { analysis }), { allowFollowUp: false });
+    if (result.needsMoreContext) throw new Error('Unexpected clarification');
+    expect(result.waypoints.map(w => w.title)).toEqual(titles);
+    expect(result.analysis?.prerequisites).toEqual(analysis.prerequisites);
+  });
+
+  it('normalizes missing index 0 from provider prerequisites without crashing', () => {
+    const titles = ['First Milestone', 'Second Milestone', 'Third Milestone'];
+    // Providers like gpt-4.1-mini omit index 0 since it has no prior dependencies
+    const providerPrerequisites = [
+      { waypointIndex: 1, requires: [0] },
+      { waypointIndex: 2, requires: [1] },
+    ];
+    const analysis = {
+      startingPointSummary: 'Starting point',
+      assumptions: [],
+      firstMilestoneEvidence: 'Clear initial evidence',
+      difficultyReduction: null,
+      prerequisites: providerPrerequisites,
+    };
+    const result = normalizeGenerationResult(route(titles, { analysis }), { allowFollowUp: false });
+    if (result.needsMoreContext) throw new Error('Unexpected clarification');
+    expect(result.analysis?.prerequisites).toHaveLength(3);
+    expect(result.analysis?.prerequisites[0]).toEqual({ waypointIndex: 0, requires: [] });
+    expect(result.analysis?.prerequisites[1]).toEqual({ waypointIndex: 1, requires: [0] });
+    expect(result.analysis?.prerequisites[2]).toEqual({ waypointIndex: 2, requires: [1] });
+  });
+
+  it('resiliently normalizes waypoints with missing or fewer than 3 moves', () => {
+    const titles = ['Milestone A', 'Milestone B'];
+    const rawWaypoints = [
+      waypoint('Milestone A', { moves: null }),
+      waypoint('Milestone B', { moves: [{ title: 'Single move', rationale: 'One step' }] }),
+    ];
+    const result = normalizeGenerationResult(route(titles, { waypoints: rawWaypoints }), { allowFollowUp: false });
+    if (result.needsMoreContext) throw new Error('Unexpected clarification');
+    expect(result.waypoints).toHaveLength(2);
+    expect(result.waypoints[0].title).toBe('Milestone A');
+    expect(result.waypoints[1].title).toBe('Milestone B');
+  });
+});
+
+describe('Vision context and practice momentum in prompt', () => {
+  it('incorporates vision notes, scene captions, and practice count when available', () => {
+    const message = buildPlanningUserMessage(
+      {
+        intention: 'Launch Anchor 2.0',
+        category: 'career',
+        startingContext: 'Beta in TestFlight',
+        actualStartingPoint: '20 active testers',
+        vision: {
+          title: 'Anchor 2.0 Live',
+          description: '10,000 active users',
+          notes: ['Focus on clarity', 'Emphasize ritual flow'],
+          captions: ['App Store feature page', 'User review screen'],
+        },
+        progress: {
+          practiceCount: 15,
+          lastPracticedAt: '2026-10-19T12:00:00.000Z',
+        },
+        followUp: null,
+        adjustment: null,
+      },
+      { allowFollowUp: true }
+    );
+    expect(message).toContain('Vision notes describe specific milestones');
+    expect(message).toContain('Focus on clarity');
+    expect(message).toContain('Emphasize ritual flow');
+    expect(message).toContain('App Store feature page');
+    expect(message).toContain('User review screen');
+    expect(message).toContain('The person has practiced 15 time(s)');
+    expect(message).toContain('"practiceCount": 15');
+  });
+});

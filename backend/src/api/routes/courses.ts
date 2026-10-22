@@ -5,6 +5,7 @@ import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { courseService } from '../../services/CourseService';
+import { milestoneService } from '../../services/v2/milestones/MilestoneService';
 import {
   requireChartEnabled,
   requireChartInitialized,
@@ -29,7 +30,7 @@ const CreateCourseSchema = z
           })
           .strict()
       )
-      .max(7)
+      .max(12)
       .optional(),
     fromProposalId: z.string().min(1).max(200).optional(),
   })
@@ -42,8 +43,18 @@ const UpdateCourseSchema = z
   })
   .strict();
 const ExpectedVersionSchema = z.object({ expectedCourseVersion: CourseVersion }).strict();
+const MetricFields = {
+  completionCriteria: z.string().trim().max(400).nullable().optional(),
+  requirements: z.array(z.object({ id: z.string().min(1).max(80), title: z.string().trim().min(1).max(140), completed: z.boolean() }).strict()).max(12).optional(),
+  kind: z.enum(['MILESTONE', 'METRIC', 'CAPABILITY']).optional(),
+  progressMode: z.enum(['numeric', 'checklist', 'completion', 'moves', 'none']).optional(),
+  metricLabel: z.string().trim().max(40).nullable().optional(),
+  metricBaseline: z.number().finite().min(-1e12).max(1e12).nullable().optional(),
+  metricTarget: z.number().finite().min(-1e12).max(1e12).nullable().optional(),
+};
 const AddWaypointSchema = z
   .object({
+    ...MetricFields,
     idempotencyKey: IdempotencyKey,
     expectedCourseVersion: CourseVersion,
     title: z.string().trim().min(1).max(60),
@@ -53,6 +64,7 @@ const AddWaypointSchema = z
   .strict();
 const EditWaypointSchema = z
   .object({
+    ...MetricFields,
     expectedCourseVersion: CourseVersion,
     title: z.string().trim().min(1).max(60).optional(),
     description: z.string().trim().max(400).nullable().optional(),
@@ -61,7 +73,7 @@ const EditWaypointSchema = z
 const ReorderSchema = z
   .object({
     expectedCourseVersion: CourseVersion,
-    orderedWaypointIds: z.array(z.string().min(1).max(200)).max(7),
+    orderedWaypointIds: z.array(z.string().min(1).max(200)).max(12),
   })
   .strict();
 const CompleteSchema = z
@@ -346,15 +358,15 @@ router.post(
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const userId = await requireWriteUser(req);
-      res.json({
-        success: true,
-        data: await courseService.completeWaypoint(
-          userId,
-          req.params.courseId,
-          req.params.waypointId,
-          validate(CompleteSchema, req.body ?? {})
-        ),
-      });
+      const result = await courseService.completeWaypoint(
+        userId,
+        req.params.courseId,
+        req.params.waypointId,
+        validate(CompleteSchema, req.body ?? {})
+      );
+      // Awards never block the Chart action; the next Progress read reconciles a failure.
+      void milestoneService.evaluateQuietly(userId, result.course?.anchorId, { kind: 'chart', sourceEntityId: req.params.courseId, eventId: req.params.waypointId });
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }

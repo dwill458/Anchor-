@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
   },
   threadTrackBase: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   threadFill: {
     height: THREAD_TRACK_HEIGHT,

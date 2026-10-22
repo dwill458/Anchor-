@@ -1,0 +1,8 @@
+{
+  "joybrush": {
+    "success": true,
+    "seconds": 10,
+    "model": "gemini-3.1-flash-image-preview",
+    "images": 2
+  }
+}

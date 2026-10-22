@@ -1,0 +1,3383 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --no-watchman --testPathPattern=src/(components/v2/vision|hooks/v2/vision|adapters/v2/vision|screens/v2/vision|screens/v2/practice/visualize|screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test)
+
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (77.517 s)
+  ● Vision ceremony › one loaded candidate remains choosable when the other cannot load
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View
+      testID="vision-ceremony"
+    >
+      <View
+        nativeID="1385"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-1"
+      >
+        <View
+          nativeID="1386"
+        >
+          <View
+            testID="vision-ceremony-print-1"
+          >
+            <View
+              nativeID="1387"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1388"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1389"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1390"
+              >
+                <View
+                  nativeID="1391"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-1-sharp"
+                  />
+                  <View
+                    nativeID="1392"
+                  >
+                    <Image
+                      accessible={false}
+                    />
+                  </View>
+                </View>
+                <View
+                  nativeID="1393"
+                  testID="vision-ceremony-print-1-ink"
+                />
+                <Text>
+                  Image unavailable. Choose another photo or try again.
+                </Text>
+              </View>
+              <View
+                nativeID="1394"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1395"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-0"
+      >
+        <View
+          nativeID="1396"
+        >
+          <View
+            testID="vision-ceremony-print-0"
+          >
+            <View
+              nativeID="1397"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1398"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1399"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1400"
+              >
+                <View
+                  nativeID="1401"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-0-sharp"
+                  />
+                </View>
+                <View
+                  nativeID="1403"
+                  testID="vision-ceremony-print-0-ink"
+                />
+              </View>
+              <View
+                nativeID="1404"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <TextInput
+                  accessibilityLabel="One line on your picture"
+                  testID="vision-ceremony-print-0-caption"
+                  value="I build what matters."
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1419"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-anchor"
+      >
+        <View
+          nativeID="1420"
+        >
+          <View
+            nativeID="1421"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="1439"
+      >
+        <View
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          accessible={true}
+        >
+          <ArrowLeft />
+        </View>
+        <View>
+          <Text>
+            Write one line on it
+          </Text>
+        </View>
+        <View>
+          <Text>
+            Tap the line to rewrite it
+          </Text>
+        </View>
+        <View>
+          <View
+            accessibilityLabel="Complete Vision"
+            accessibilityRole="button"
+            accessible={true}
+            testID="vision-complete-vision"
+          >
+            <Text>
+              Complete Vision
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      273 |     expect(view.getByTestId('scene-candidate-c0').props.accessibilityState.disabled).toBeFalsy();
+      274 |     expect(view.getByTestId('scene-candidate-c1').props.accessibilityState.disabled).toBe(true);
+    > 275 |     fireEvent.press(view.getByTestId('scene-candidate-c0')); expect(view.getByTestId('vision-complete-vision')).toBeTruthy();
+          |                                                                          ^
+      276 |   });
+      277 |   it('retry retains development readiness for a partial image reused by the server', async () => {
+      278 |     mockJob = job('FAILED', candidates.slice(0, 1)); const view = setup();
+
+      at Object.getByTestId (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:275:74)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision ceremony › plays the bed only during the Develop wait and stops it at the first reveal
+
+    Unable to find an element with testID: vision-complete-vision
+
+    <View
+      testID="vision-ceremony"
+    >
+      <View
+        nativeID="1599"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-1"
+      >
+        <View
+          nativeID="1600"
+        >
+          <View
+            testID="vision-ceremony-print-1"
+          >
+            <View
+              nativeID="1601"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1602"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1603"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1604"
+              >
+                <View
+                  nativeID="1605"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-1-sharp"
+                  />
+                </View>
+                <View
+                  nativeID="1607"
+                  testID="vision-ceremony-print-1-ink"
+                />
+              </View>
+              <View
+                nativeID="1608"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1609"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-0"
+      >
+        <View
+          nativeID="1610"
+        >
+          <View
+            testID="vision-ceremony-print-0"
+          >
+            <View
+              nativeID="1611"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1612"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1613"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1614"
+              >
+                <View
+                  nativeID="1615"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-0-sharp"
+                  />
+                </View>
+                <View
+                  nativeID="1617"
+                  testID="vision-ceremony-print-0-ink"
+                />
+              </View>
+              <View
+                nativeID="1618"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <TextInput
+                  accessibilityLabel="One line on your picture"
+                  testID="vision-ceremony-print-0-caption"
+                  value="I build what matters."
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1633"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-anchor"
+      >
+        <View
+          nativeID="1634"
+        >
+          <View
+            nativeID="1635"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="1653"
+      >
+        <View
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          accessible={true}
+        >
+          <ArrowLeft />
+        </View>
+        <View>
+          <Text>
+            Write one line on it
+          </Text>
+        </View>
+        <View>
+          <View
+            accessibilityLabel="See both again"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <Text>
+              See both again
+            </Text>
+          </View>
+          <Text>
+            Tap the line to rewrite it
+          </Text>
+        </View>
+        <View>
+          <View
+            accessibilityLabel="Keep this one"
+            accessibilityRole="button"
+            accessible={true}
+            testID="vision-ceremony-keep"
+          >
+            <Text>
+              Keep this one
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      305 |     await act(async () => { fireEvent.press(add.getByLabelText(copy.camera)); });
+      306 |     expect(AnalyticsService.track).toHaveBeenCalledWith('vision_image_add_started', { anchor_id: 'anchor', source_type: 'camera' });
+    > 307 |   });
+          |      ^
+      308 |   const bedCalls = () => (playCreationSound as jest.Mock).mock.calls.filter(([id]) => id === 'formBed').length;
+      309 |   it('plays the bed only during the Develop wait and stops it at the first reveal', async () => {
+      310 |     mockJob = job(); const view = setup();
+
+      at Object.getByTestId (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:307:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › the short seal scene is not skippable and lands the print on the board once
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      449 |   it('completion fires one Heavy haptic after the print movement and no Medium haptic', async () => {
+      450 |     const view = setup(); await choose(view);
+    > 451 |     (safeHaptics.impact as jest.Mock).mockClear();
+          |                           ^
+      452 |     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      453 |     await advance(CEREMONY.printMoveMs + CEREMONY.stampMs);
+      454 |     expect(impacts()).not.toContain(ImpactFeedbackStyle.Medium);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:451:27)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › a pending save remains visible until completion without a skip affordance
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      460 |     await sealNow(view, 1600);
+      461 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    > 462 |     expect(view.queryByLabelText('Skip')).toBeNull();
+          |                           ^
+      463 |     await advance(12000);
+      464 |     expect(view.getByLabelText(copy.back)).toBeTruthy();
+      465 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:462:27)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx (10.038 s)
+  ● Console
+
+    console.log
+      [VisualProfiler] overlayMounted {
+        direction: 'forward',
+        sourcePlace: 'details',
+        targetPlace: 'practiceSetup'
+      }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+    console.log
+      [VisualProfiler] detailsNavigationDispatched { direction: 'forward', targetPlace: 'practiceSetup', exitProgress: 0 }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+FAIL src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (43.754 s)
+  ● V2VisionScreen ceremony additions › drops the arrival pin on the saved scene id after regenerate even when the read model re-signs its URL
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="419"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="420"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="421"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="422"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="423"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="424"
+                >
+                  <View
+                    nativeID="425"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="426"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="427"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="429"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="430"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="431"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="432"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="433"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="434"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="435"
+                >
+                  <View
+                    nativeID="436"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="438"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="440"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <TextInput
+                    accessibilityLabel="One line on your picture"
+                    testID="vision-ceremony-print-0-caption"
+                    value="I build what matters."
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="400"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="401"
+          >
+            <View
+              nativeID="402"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="442"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Write one line on it
+            </Text>
+          </View>
+          <View>
+            <Text>
+              Tap the line to rewrite it
+            </Text>
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Complete Vision"
+              accessibilityRole="button"
+              accessible={true}
+              testID="vision-complete-vision"
+            >
+              <Text>
+                Complete Vision
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      109 |       await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+      110 |       fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+    > 111 |       fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+          |                                                                                              ^
+      112 |       await advance(200);
+      113 |     }
+      114 |     await advance(3200); await advance(1200); await advance(200); await advance(600);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:111:94)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › protects in-flight sealing from route removal and restores navigation on the completed board
+
+    Unable to find an element with testID: vision-board
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="610"
+        >
+          <Svg
+            accessible={false}
+          >
+            <Path />
+          </Svg>
+          <View />
+        </View>
+        <View
+          testID="vision-photo-stack"
+        >
+          <View
+            nativeID="595"
+            testID="vision-ceremony-slot-0"
+          >
+            <View
+              nativeID="596"
+            >
+              <View
+                testID="vision-ceremony-print-0"
+              >
+                <View
+                  nativeID="597"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Svg>
+                    <Rect
+                      nativeID="598"
+                    />
+                    <Path />
+                  </Svg>
+                </View>
+                <View
+                  nativeID="599"
+                >
+                  <View>
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                  </View>
+                  <View
+                    nativeID="600"
+                  >
+                    <View
+                      nativeID="601"
+                    >
+                      <Image
+                        accessible={false}
+                        testID="vision-ceremony-print-0-sharp"
+                      />
+                    </View>
+                    <View
+                      nativeID="603"
+                      testID="vision-ceremony-print-0-ink"
+                    />
+                  </View>
+                  <View
+                    nativeID="605"
+                    style={
+                      {
+                        "opacity": 0,
+                      }
+                    }
+                  >
+                    <Text>
+                      I build what matters.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="592"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="593"
+          >
+            <View
+              nativeID="608"
+            />
+            <View
+              nativeID="594"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="611"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text
+              accessibilityRole="header"
+            >
+              Sealed.
+            </Text>
+            <Text>
+              This is where it leads.
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      131 |     expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: false });
+      132 |     expect(mockPreventRemove).toHaveBeenLastCalledWith(true, expect.any(Function));
+    > 133 |     await advance(3500); await advance(1200); await advance(200);
+          |                 ^
+      134 |     expect(view.getByTestId('vision-board')).toBeTruthy();
+      135 |     preventDefault.mockClear();
+      136 |     act(() => mockNavigationListeners.beforeRemove({ preventDefault }));
+
+      at Object.getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:133:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › sealed regeneration on a 8-image board resumes unfinished mutations
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="1317"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="1318"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="1319"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1320"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1321"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1322"
+                >
+                  <View
+                    nativeID="1323"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="1324"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="1325"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1327"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1328"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="1329"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="1330"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1331"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1332"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1333"
+                >
+                  <View
+                    nativeID="1334"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="1336"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1338"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <TextInput
+                    accessibilityLabel="One line on your picture"
+                    testID="vision-ceremony-print-0-caption"
+                    value="I build what matters."
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1298"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="1299"
+          >
+            <View
+              nativeID="1300"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1340"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Write one line on it
+            </Text>
+          </View>
+          <View>
+            <Text>
+              Tap the line to rewrite it
+            </Text>
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Complete Vision"
+              accessibilityRole="button"
+              accessible={true}
+              testID="vision-complete-vision"
+            >
+              <Text>
+                Complete Vision
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      243 |     const first = await view.findByLabelText(`Vision image 1 of ${count}`); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+      244 |     fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
+    > 245 |     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+          |                                                                                            ^
+      246 |     fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+      247 |     fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      248 |     await advance(200);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:245:92)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › sealed regeneration on a 3-image board resumes unfinished mutations
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="1390"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="1391"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="1392"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1393"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1394"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1395"
+                >
+                  <View
+                    nativeID="1396"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="1397"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="1398"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1400"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1401"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="1402"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="1403"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1404"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1405"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1406"
+                >
+                  <View
+                    nativeID="1407"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="1409"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1411"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <TextInput
+                    accessibilityLabel="One line on your picture"
+                    testID="vision-ceremony-print-0-caption"
+                    value="I build what matters."
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1371"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="1372"
+          >
+            <View
+              nativeID="1373"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1413"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Write one line on it
+            </Text>
+          </View>
+          <View>
+            <Text>
+              Tap the line to rewrite it
+            </Text>
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Complete Vision"
+              accessibilityRole="button"
+              accessible={true}
+              testID="vision-complete-vision"
+            >
+              <Text>
+                Complete Vision
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      243 |     const first = await view.findByLabelText(`Vision image 1 of ${count}`); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+      244 |     fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
+    > 245 |     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+          |                                                                                            ^
+      246 |     fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+      247 |     fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      248 |     await advance(200);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:245:92)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx (5.055 s)
+PASS src/components/v2/vision/board/__tests__/VisionBoardPhoto.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionEntrance.test.tsx
+PASS src/components/v2/vision/__tests__/V2SavedVision.caption.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionPhotoStack.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionLifecycle.test.tsx
+PASS src/components/v2/vision/__tests__/VisionMomentInput.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionContinuity.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionReadiness.test.tsx
+PASS src/components/v2/vision/__tests__/V2SavedVision.teaching.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+PASS src/components/v2/vision/__tests__/VisionImageArrival.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/components/v2/vision/ceremony/__tests__/VisionSealHold.test.tsx
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/components/v2/vision/__tests__/visionIntroArt.test.ts
+PASS src/components/v2/vision/__tests__/VisionChartLink.test.tsx
+PASS src/hooks/v2/vision/__tests__/referenceFailure.test.ts
+PASS src/components/v2/vision/__tests__/VisionChrome.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/visualizeVisionPlan.test.ts
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChartRoute.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/cinematicAssets.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/cinematicPhotoMotion.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicSessionMotion.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/visualizeGuidedPlan.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/useGuidedPlayback.test.ts
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/visionEncoding.test.ts
+FAIL src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts
+  ● cinematic timeline › caps image count at the saved board maximum without repeating indices
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 2
+
+    @@ -3,6 +3,8 @@
+        1,
+        2,
+        3,
+        4,
+        5,
+    +   6,
+    +   7,
+      ]
+
+      62 |     const timeline = buildCinematicTimeline(60, 20);
+      63 |     expect(timeline.segments.filter(segment => segment.kind === 'immersion').map(segment => segment.imageIndex))
+    > 64 |       .toEqual([0, 1, 2, 3, 4, 5]);
+         |        ^
+      65 |   });
+      66 |
+      67 |   it('selects the segment at exact boundaries and clamps elapsed time', () => {
+
+      at Object.toEqual (src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts:64:8)
+
+PASS src/components/v2/vision/ceremony/__tests__/visionExamples.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/signatureMotion.test.ts
+PASS src/hooks/v2/vision/__tests__/useVisionGenerationAnalytics.test.tsx
+PASS src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+PASS src/components/v2/vision/__tests__/visionGuidance.test.ts
+PASS src/adapters/v2/vision/__tests__/visionAdapter.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/components/v2/vision/__tests__/visionImageGeometry.test.ts
+PASS src/components/v2/vision/__tests__/visionDetailText.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/enhancedAnchorMask.test.ts
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/components/v2/vision/__tests__/visionTwoUp.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicGeometry.test.ts
+PASS src/adapters/v2/vision/__tests__/orderedVisionImages.test.ts
+
+Summary of all failing tests
+FAIL src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx (77.517 s)
+  ● Vision ceremony › one loaded candidate remains choosable when the other cannot load
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View
+      testID="vision-ceremony"
+    >
+      <View
+        nativeID="1385"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-1"
+      >
+        <View
+          nativeID="1386"
+        >
+          <View
+            testID="vision-ceremony-print-1"
+          >
+            <View
+              nativeID="1387"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1388"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1389"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1390"
+              >
+                <View
+                  nativeID="1391"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-1-sharp"
+                  />
+                  <View
+                    nativeID="1392"
+                  >
+                    <Image
+                      accessible={false}
+                    />
+                  </View>
+                </View>
+                <View
+                  nativeID="1393"
+                  testID="vision-ceremony-print-1-ink"
+                />
+                <Text>
+                  Image unavailable. Choose another photo or try again.
+                </Text>
+              </View>
+              <View
+                nativeID="1394"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1395"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-0"
+      >
+        <View
+          nativeID="1396"
+        >
+          <View
+            testID="vision-ceremony-print-0"
+          >
+            <View
+              nativeID="1397"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1398"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1399"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1400"
+              >
+                <View
+                  nativeID="1401"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-0-sharp"
+                  />
+                </View>
+                <View
+                  nativeID="1403"
+                  testID="vision-ceremony-print-0-ink"
+                />
+              </View>
+              <View
+                nativeID="1404"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <TextInput
+                  accessibilityLabel="One line on your picture"
+                  testID="vision-ceremony-print-0-caption"
+                  value="I build what matters."
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1419"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-anchor"
+      >
+        <View
+          nativeID="1420"
+        >
+          <View
+            nativeID="1421"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="1439"
+      >
+        <View
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          accessible={true}
+        >
+          <ArrowLeft />
+        </View>
+        <View>
+          <Text>
+            Write one line on it
+          </Text>
+        </View>
+        <View>
+          <Text>
+            Tap the line to rewrite it
+          </Text>
+        </View>
+        <View>
+          <View
+            accessibilityLabel="Complete Vision"
+            accessibilityRole="button"
+            accessible={true}
+            testID="vision-complete-vision"
+          >
+            <Text>
+              Complete Vision
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      273 |     expect(view.getByTestId('scene-candidate-c0').props.accessibilityState.disabled).toBeFalsy();
+      274 |     expect(view.getByTestId('scene-candidate-c1').props.accessibilityState.disabled).toBe(true);
+    > 275 |     fireEvent.press(view.getByTestId('scene-candidate-c0')); expect(view.getByTestId('vision-complete-vision')).toBeTruthy();
+          |                                                                          ^
+      276 |   });
+      277 |   it('retry retains development readiness for a partial image reused by the server', async () => {
+      278 |     mockJob = job('FAILED', candidates.slice(0, 1)); const view = setup();
+
+      at Object.getByTestId (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:275:74)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision ceremony › plays the bed only during the Develop wait and stops it at the first reveal
+
+    Unable to find an element with testID: vision-complete-vision
+
+    <View
+      testID="vision-ceremony"
+    >
+      <View
+        nativeID="1599"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-1"
+      >
+        <View
+          nativeID="1600"
+        >
+          <View
+            testID="vision-ceremony-print-1"
+          >
+            <View
+              nativeID="1601"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1602"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1603"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1604"
+              >
+                <View
+                  nativeID="1605"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-1-sharp"
+                  />
+                </View>
+                <View
+                  nativeID="1607"
+                  testID="vision-ceremony-print-1-ink"
+                />
+              </View>
+              <View
+                nativeID="1608"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Text>
+                  I build what matters.
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1609"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-slot-0"
+      >
+        <View
+          nativeID="1610"
+        >
+          <View
+            testID="vision-ceremony-print-0"
+          >
+            <View
+              nativeID="1611"
+            >
+              <Svg>
+                <Rect
+                  nativeID="1612"
+                />
+                <Path />
+              </Svg>
+            </View>
+            <View
+              nativeID="1613"
+              style={
+                {
+                  "opacity": 0,
+                }
+              }
+            >
+              <View>
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+                <View />
+              </View>
+              <View
+                nativeID="1614"
+              >
+                <View
+                  nativeID="1615"
+                >
+                  <Image
+                    accessible={false}
+                    testID="vision-ceremony-print-0-sharp"
+                  />
+                </View>
+                <View
+                  nativeID="1617"
+                  testID="vision-ceremony-print-0-ink"
+                />
+              </View>
+              <View
+                nativeID="1618"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <TextInput
+                  accessibilityLabel="One line on your picture"
+                  testID="vision-ceremony-print-0-caption"
+                  value="I build what matters."
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+      <View
+        nativeID="1633"
+        style={
+          {
+            "opacity": 0,
+          }
+        }
+        testID="vision-ceremony-anchor"
+      >
+        <View
+          nativeID="1634"
+        >
+          <View
+            nativeID="1635"
+          />
+        </View>
+      </View>
+      <View
+        nativeID="1653"
+      >
+        <View
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          accessible={true}
+        >
+          <ArrowLeft />
+        </View>
+        <View>
+          <Text>
+            Write one line on it
+          </Text>
+        </View>
+        <View>
+          <View
+            accessibilityLabel="See both again"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <Text>
+              See both again
+            </Text>
+          </View>
+          <Text>
+            Tap the line to rewrite it
+          </Text>
+        </View>
+        <View>
+          <View
+            accessibilityLabel="Keep this one"
+            accessibilityRole="button"
+            accessible={true}
+            testID="vision-ceremony-keep"
+          >
+            <Text>
+              Keep this one
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      305 |     await act(async () => { fireEvent.press(add.getByLabelText(copy.camera)); });
+      306 |     expect(AnalyticsService.track).toHaveBeenCalledWith('vision_image_add_started', { anchor_id: 'anchor', source_type: 'camera' });
+    > 307 |   });
+          |      ^
+      308 |   const bedCalls = () => (playCreationSound as jest.Mock).mock.calls.filter(([id]) => id === 'formBed').length;
+      309 |   it('plays the bed only during the Develop wait and stops it at the first reveal', async () => {
+      310 |     mockJob = job(); const view = setup();
+
+      at Object.getByTestId (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:307:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › the short seal scene is not skippable and lands the print on the board once
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      449 |   it('completion fires one Heavy haptic after the print movement and no Medium haptic', async () => {
+      450 |     const view = setup(); await choose(view);
+    > 451 |     (safeHaptics.impact as jest.Mock).mockClear();
+          |                           ^
+      452 |     fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      453 |     await advance(CEREMONY.printMoveMs + CEREMONY.stampMs);
+      454 |     expect(impacts()).not.toContain(ImpactFeedbackStyle.Medium);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:451:27)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● Vision celebration scene › a pending save remains visible until completion without a skip affordance
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      460 |     await sealNow(view, 1600);
+      461 |     expect(view.onAssemble).toHaveBeenCalledTimes(1);
+    > 462 |     expect(view.queryByLabelText('Skip')).toBeNull();
+          |                           ^
+      463 |     await advance(12000);
+      464 |     expect(view.getByLabelText(copy.back)).toBeTruthy();
+      465 |     expect(view.onPinned).toHaveBeenCalledTimes(1);
+
+      at Object.toHaveBeenCalledTimes (src/components/v2/vision/ceremony/__tests__/VisionCeremony.test.tsx:462:27)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx (43.754 s)
+  ● V2VisionScreen ceremony additions › drops the arrival pin on the saved scene id after regenerate even when the read model re-signs its URL
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="419"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="420"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="421"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="422"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="423"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="424"
+                >
+                  <View
+                    nativeID="425"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="426"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="427"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="429"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="430"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="431"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="432"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="433"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="434"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="435"
+                >
+                  <View
+                    nativeID="436"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="438"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="440"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <TextInput
+                    accessibilityLabel="One line on your picture"
+                    testID="vision-ceremony-print-0-caption"
+                    value="I build what matters."
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="400"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="401"
+          >
+            <View
+              nativeID="402"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="442"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Write one line on it
+            </Text>
+          </View>
+          <View>
+            <Text>
+              Tap the line to rewrite it
+            </Text>
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Complete Vision"
+              accessibilityRole="button"
+              accessible={true}
+              testID="vision-complete-vision"
+            >
+              <Text>
+                Complete Vision
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      109 |       await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+      110 |       fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+    > 111 |       fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+          |                                                                                              ^
+      112 |       await advance(200);
+      113 |     }
+      114 |     await advance(3200); await advance(1200); await advance(200); await advance(600);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:111:94)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › protects in-flight sealing from route removal and restores navigation on the completed board
+
+    Unable to find an element with testID: vision-board
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="610"
+        >
+          <Svg
+            accessible={false}
+          >
+            <Path />
+          </Svg>
+          <View />
+        </View>
+        <View
+          testID="vision-photo-stack"
+        >
+          <View
+            nativeID="595"
+            testID="vision-ceremony-slot-0"
+          >
+            <View
+              nativeID="596"
+            >
+              <View
+                testID="vision-ceremony-print-0"
+              >
+                <View
+                  nativeID="597"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Svg>
+                    <Rect
+                      nativeID="598"
+                    />
+                    <Path />
+                  </Svg>
+                </View>
+                <View
+                  nativeID="599"
+                >
+                  <View>
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                    <View />
+                  </View>
+                  <View
+                    nativeID="600"
+                  >
+                    <View
+                      nativeID="601"
+                    >
+                      <Image
+                        accessible={false}
+                        testID="vision-ceremony-print-0-sharp"
+                      />
+                    </View>
+                    <View
+                      nativeID="603"
+                      testID="vision-ceremony-print-0-ink"
+                    />
+                  </View>
+                  <View
+                    nativeID="605"
+                    style={
+                      {
+                        "opacity": 0,
+                      }
+                    }
+                  >
+                    <Text>
+                      I build what matters.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="592"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="593"
+          >
+            <View
+              nativeID="608"
+            />
+            <View
+              nativeID="594"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="611"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text
+              accessibilityRole="header"
+            >
+              Sealed.
+            </Text>
+            <Text>
+              This is where it leads.
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      131 |     expect(mockSetOptions).toHaveBeenLastCalledWith({ gestureEnabled: false });
+      132 |     expect(mockPreventRemove).toHaveBeenLastCalledWith(true, expect.any(Function));
+    > 133 |     await advance(3500); await advance(1200); await advance(200);
+          |                 ^
+      134 |     expect(view.getByTestId('vision-board')).toBeTruthy();
+      135 |     preventDefault.mockClear();
+      136 |     act(() => mockNavigationListeners.beforeRemove({ preventDefault }));
+
+      at Object.getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:133:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › sealed regeneration on a 8-image board resumes unfinished mutations
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="1317"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="1318"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="1319"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1320"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1321"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1322"
+                >
+                  <View
+                    nativeID="1323"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="1324"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="1325"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1327"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1328"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="1329"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="1330"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1331"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1332"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1333"
+                >
+                  <View
+                    nativeID="1334"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="1336"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1338"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <TextInput
+                    accessibilityLabel="One line on your picture"
+                    testID="vision-ceremony-print-0-caption"
+                    value="I build what matters."
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1298"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="1299"
+          >
+            <View
+              nativeID="1300"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1340"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Write one line on it
+            </Text>
+          </View>
+          <View>
+            <Text>
+              Tap the line to rewrite it
+            </Text>
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Complete Vision"
+              accessibilityRole="button"
+              accessible={true}
+              testID="vision-complete-vision"
+            >
+              <Text>
+                Complete Vision
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      243 |     const first = await view.findByLabelText(`Vision image 1 of ${count}`); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+      244 |     fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
+    > 245 |     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+          |                                                                                            ^
+      246 |     fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+      247 |     fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      248 |     await advance(200);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:245:92)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+  ● V2VisionScreen ceremony additions › sealed regeneration on a 3-image board resumes unfinished mutations
+
+    Unable to find an element with testID: vision-ceremony-keep
+
+    <View>
+      <View
+        testID="vision-ceremony"
+      >
+        <View
+          nativeID="1390"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-1"
+        >
+          <View
+            nativeID="1391"
+          >
+            <View
+              testID="vision-ceremony-print-1"
+            >
+              <View
+                nativeID="1392"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1393"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1394"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1395"
+                >
+                  <View
+                    nativeID="1396"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-1-sharp"
+                    />
+                    <View
+                      nativeID="1397"
+                    >
+                      <Image
+                        accessible={false}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    nativeID="1398"
+                    testID="vision-ceremony-print-1-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1400"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <Text>
+                    I build what matters.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1401"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-slot-0"
+        >
+          <View
+            nativeID="1402"
+          >
+            <View
+              testID="vision-ceremony-print-0"
+            >
+              <View
+                nativeID="1403"
+                style={
+                  {
+                    "opacity": 0,
+                  }
+                }
+              >
+                <Svg>
+                  <Rect
+                    nativeID="1404"
+                  />
+                  <Path />
+                </Svg>
+              </View>
+              <View
+                nativeID="1405"
+              >
+                <View>
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                  <View />
+                </View>
+                <View
+                  nativeID="1406"
+                >
+                  <View
+                    nativeID="1407"
+                  >
+                    <Image
+                      accessible={false}
+                      testID="vision-ceremony-print-0-sharp"
+                    />
+                  </View>
+                  <View
+                    nativeID="1409"
+                    testID="vision-ceremony-print-0-ink"
+                  />
+                </View>
+                <View
+                  nativeID="1411"
+                  style={
+                    {
+                      "opacity": 0,
+                    }
+                  }
+                >
+                  <TextInput
+                    accessibilityLabel="One line on your picture"
+                    testID="vision-ceremony-print-0-caption"
+                    value="I build what matters."
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1371"
+          style={
+            {
+              "opacity": 0,
+            }
+          }
+          testID="vision-ceremony-anchor"
+        >
+          <View
+            nativeID="1372"
+          >
+            <View
+              nativeID="1373"
+            >
+              <View
+                accessibilityLabel="career Anchor artwork"
+                accessibilityRole="image"
+                accessible={true}
+                testID="vision-ceremony-anchor-art"
+              >
+                <View
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <SvgXml />
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View
+          nativeID="1413"
+        >
+          <View
+            accessibilityLabel="Back"
+            accessibilityRole="button"
+            accessible={true}
+          >
+            <ArrowLeft />
+          </View>
+          <View>
+            <Text>
+              Write one line on it
+            </Text>
+          </View>
+          <View>
+            <Text>
+              Tap the line to rewrite it
+            </Text>
+          </View>
+          <View>
+            <View
+              accessibilityLabel="Complete Vision"
+              accessibilityRole="button"
+              accessible={true}
+              testID="vision-complete-vision"
+            >
+              <Text>
+                Complete Vision
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      243 |     const first = await view.findByLabelText(`Vision image 1 of ${count}`); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+      244 |     fireEvent.press(view.getByLabelText('Regenerate')); fireEvent.changeText(view.getByTestId('vision-scene-input'), 'A new studio.');
+    > 245 |     await act(async () => { fireEvent.press(view.getByTestId('vision-scene-generate')); });
+          |                                                                                            ^
+      246 |     fireEvent(view.getByTestId('vision-ceremony-print-0-sharp'), 'load'); await advance(0); await advance(2800); await advance(3600);
+      247 |     fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-ceremony-keep'));
+      248 |     await advance(200);
+
+      at getByTestId (src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx:245:92)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts
+  ● cinematic timeline › caps image count at the saved board maximum without repeating indices
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 2
+
+    @@ -3,6 +3,8 @@
+        1,
+        2,
+        3,
+        4,
+        5,
+    +   6,
+    +   7,
+      ]
+
+      62 |     const timeline = buildCinematicTimeline(60, 20);
+      63 |     expect(timeline.segments.filter(segment => segment.kind === 'immersion').map(segment => segment.imageIndex))
+    > 64 |       .toEqual([0, 1, 2, 3, 4, 5]);
+         |        ^
+      65 |   });
+      66 |
+      67 |   it('selects the segment at exact boundaries and clamps elapsed time', () => {
+
+      at Object.toEqual (src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts:64:8)
+
+
+Test Suites: 3 failed, 49 passed, 52 total
+Tests:       9 failed, 542 passed, 551 total
+Snapshots:   0 total
+Time:        168.162 s
+Ran all test suites matching /src\\(components\\v2\\vision|hooks\\v2\\vision|adapters\\v2\\vision|screens\\v2\\vision|screens\\v2\\practice\\visualize|screens\\v2\\anchors\\__tests__\\V2AnchorDetailsScreen.test)/i.

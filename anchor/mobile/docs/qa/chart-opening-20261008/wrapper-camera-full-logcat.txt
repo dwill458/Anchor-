@@ -1,0 +1,4 @@
+--------- beginning of main
+ 29213.785 17894 17959 I ReactNativeJS: [chart-opening-qa] selected=full at=29213785.6ms
+ 29213.807 17894 17959 I ReactNativeJS: [chart-opening-qa] isolated-clock-v1; sibling overlay owns clock state
+ 29214.818 17894 17959 I ReactNativeJS: [chart-intro-timing] runner-start mode=full uptime=29214818.0ms

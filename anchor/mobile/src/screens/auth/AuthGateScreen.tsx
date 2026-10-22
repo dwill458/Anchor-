@@ -325,7 +325,7 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
             colors={[colors.navy, colors.deepPurple, colors.black]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.82, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           />
 
           <View style={styles.previewAmbientOrbLeft} />
@@ -356,7 +356,7 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
             )}
 
             <View style={styles.previewDesaturateWash} />
-            <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFillObject} />
+            <BlurView intensity={18} tint="dark" style={StyleSheet.absoluteFill} />
           </View>
 
           <View style={styles.closeRow}>
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     backgroundColor: withAlpha(colors.gold, 0.06),
   },
   previewContentWrap: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     transform: [{ translateY: 20 }],
@@ -557,14 +557,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   previewDesaturateWash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: withAlpha(colors.black, 0.28),
   },
   previewFadeSvg: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   voidGlowSvg: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   closeRow: {
     position: 'absolute',

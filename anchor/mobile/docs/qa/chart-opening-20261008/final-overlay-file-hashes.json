@@ -1,0 +1,137 @@
+[
+  {
+    "path": "src/components/v2/chart/ChartCreationFlow.tsx",
+    "sha256": "02B91CD63F5802F93017087793C1B9C47E3D874BF4D2DEBED0A6F70CC1045EE8",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/ChartIntroOpening.tsx",
+    "sha256": "475BFCFE05293864443A63F2623FD4C21DEC1000717435BCF18D69BF144CB535",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/chartIntroSeen.ts",
+    "sha256": "84FCA1B4C232F88CA4FDB3173E4FDFE006FE255A15F400075460756C1EF8B1AE",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/chartMotion.ts",
+    "sha256": "C2F928B79D1749E6E233546206A7C8E7FA8E72797B55D0F9CBA18F2E5577965B",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/useChartSound.ts",
+    "sha256": "A3A1D12CC6FFFE44627E930B299E3FBDE4AE2A2A89D02AC3AC04872E6CFFB6E2",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/__tests__/useChartSound.test.ts",
+    "sha256": "DE93A24B755EDD5169D12DFDAD732D4311A214A889470A4FD956D81EE873CF58",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/ChartMap.tsx",
+    "sha256": "87134BF214D4E6A63495F8C4CCAD104AB2EC53CBD004E987941C0A01F884D293",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/ChartMapLand.tsx",
+    "sha256": "D48D50BB749A10FA5964C2887DCF319431931CB68BD6BF0F97B4E03C62F261DC",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/ChartMapOverlay.tsx",
+    "sha256": "6A1318613D8BCB5863A45E423E9B77F9A21247F89A1D93CDEBB738FCF0ED48B9",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/chartMapContracts.ts",
+    "sha256": "FB845F4A6C3AB2FDE9D88452556E499BAEF7E9B593ECE884520EB0D2A3F2EC7A",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/chartMapSequences.ts",
+    "sha256": "9E2F6DE3C4456E222FD0BE59B3DB046638D37807F7832D9FB2DFFA969C15D7B5",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/chartSequence.ts",
+    "sha256": "494FF3ECAB33485485395B259A5D664D1381DD9E7ACE7C2FFE40C8A2D4D89619",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/useChartMapCamera.ts",
+    "sha256": "24891556A5020C9A2945545DF1D2545490427A73A6E6F3155E696F016B2659DF",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/useChartSequencer.ts",
+    "sha256": "875A41A773AAA195F7D5CD1A92033B561110C4C5B52DB4674797D9B446568493",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/chartInkShader.ts",
+    "sha256": "BEA30431E269F45E047A56470D13E9E40801A829949968003265C0AE2C8C216C",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/__tests__/ChartMap.test.tsx",
+    "sha256": "D421F56E7CCF3D3DDA7D6DCE80BA397447EF21A5EB6C859E127A2F33BE64E1E1",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/__tests__/ChartMapOverlay.test.tsx",
+    "sha256": "776ADEE89E9B137ED38725F40ED0C7123F4C41396A49026E8D66338F4235B5C5",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/__tests__/chartSequence.test.ts",
+    "sha256": "A09A461F9BD383D5B1540DEA03A9B9CD847E37B4E91515BA47D7F51F8F8346E8",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/__tests__/useChartSequencer.test.tsx",
+    "sha256": "79882833253CEA0D4074F2095CAB4BDBE1162EC349698719ED621346FD80B45F",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/__tests__/chartIntroSequences.test.ts",
+    "sha256": "C70C97FD5A87F460C1A17B30044F28C7802E831CCC8FD06458A6F1F242DED925",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/map/__tests__/chartInkShader.test.ts",
+    "sha256": "72C664D6FDBCE8DF019BB413A3262F6FBD14B043122835425C5E521B703174A4",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/panel/ChartMapHeader.tsx",
+    "sha256": "50630BF3E85B9F285B6B819302E176A46076E77DBD7FB64288AE9494410BB610",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/panel/ChartStaticMap.tsx",
+    "sha256": "4E23E709F7BC8705FE1F952314E46455B85C6E6853117757E719FBE7F898A493",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/panel/__tests__/ChartMapHeader.test.tsx",
+    "sha256": "A2658D6F800EFFF91E251F7CB90179F87C4CEFF12168B62D3B409A1760038572",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/__tests__/ChartIntroOpening.test.tsx",
+    "sha256": "0057BA6AFDF84050BF6A7AA3FCF13A5E11A8DCE6E3A3C3B2A6AE756C37E3BD83",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/__tests__/chartIntroSeen.test.ts",
+    "sha256": "CF3152A4F586437B9315E2EECCE50BC170BBF6391C5C5B11D58A30A96A9CF8C8",
+    "targetMatches": true
+  },
+  {
+    "path": "src/components/v2/chart/__tests__/ChartCreationFlowIntroPreparation.test.tsx",
+    "sha256": "EFBA236261C03A579D2D0261E3C276CC09CF8C3E6FE2C9E142DDC060F1133630",
+    "targetMatches": true
+  }
+]

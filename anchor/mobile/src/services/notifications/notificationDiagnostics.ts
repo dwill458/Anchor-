@@ -71,6 +71,7 @@ export interface NotificationDiagnosticsReport {
   } | null;
   pending: PendingSmartNotification | null;
   scheduled: ScheduledNotificationSummary[];
+  hasPersonalDailyReminder: boolean;
   errors: string[];
 }
 
@@ -130,6 +131,7 @@ export async function collectNotificationDiagnostics(): Promise<NotificationDiag
     appState: null,
     pending: null,
     scheduled: [],
+    hasPersonalDailyReminder: false,
     errors,
   };
 
@@ -193,6 +195,9 @@ export async function collectNotificationDiagnostics(): Promise<NotificationDiag
         channelId: described.channelId,
       };
     });
+    report.hasPersonalDailyReminder = scheduled.some(
+      (notification) => notification.identifier === 'anchor:personal-daily'
+    );
   } catch (error) {
     errors.push(`scheduled queue: ${(error as Error).message}`);
   }
@@ -266,6 +271,14 @@ export function formatNotificationDiagnostics(
     report.pending
       ? `  ${report.pending.category} → ${report.pending.fireDate} (${report.pending.identifier})`
       : '  nothing queued'
+  );
+  lines.push('');
+
+  lines.push('PERSONAL DAILY REMINDER');
+  lines.push(
+    report.hasPersonalDailyReminder
+      ? '  active (repeating DAILY trigger anchor:personal-daily)'
+      : '  not scheduled'
   );
   lines.push('');
 

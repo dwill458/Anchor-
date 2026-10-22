@@ -42,6 +42,10 @@ jest.mock('../../../lib/prisma', () => ({
 jest.mock('../../../services/PracticeAccessService', () => ({
   requireVisualizeAccess: jest.fn().mockResolvedValue(undefined),
 }));
+const mockThreadStrengthService = { calculateForPracticeSession: jest.fn() };
+jest.mock('../../../services/v2/ThreadStrengthService', () => ({
+  threadStrengthService: mockThreadStrengthService,
+}));
 
 import { authMiddleware } from '../../middleware/auth';
 import practiceRouter from '../practice';
@@ -291,6 +295,8 @@ describe('canonical practice sessions', () => {
   beforeEach(() => {
     app = buildApp();
     jest.clearAllMocks();
+    delete process.env.THREAD_V2_SHADOW;
+    delete process.env.THREAD_V2_AUTHORITY;
     mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
       req.user = MOCK_AUTH_USER;
       next();
@@ -317,6 +323,28 @@ describe('canonical practice sessions', () => {
     mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(mockPrisma));
   });
 
+  it.each([60, 180, 300, 600])('accepts a completed %i-second Visualize session', async seconds => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body, id: `client-session-${seconds}`, plannedDurationSeconds: seconds, completedDurationSeconds: seconds,
+      startedAt: new Date(Date.now() - seconds * 1000).toISOString(),
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects a Visualize length that has no guided track', async () => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body, id: 'client-session-90', plannedDurationSeconds: 90, completedDurationSeconds: 90,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a Visualize completion that did not reach its boundary, however long the track', async () => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body, id: 'client-session-early', plannedDurationSeconds: 600, completedDurationSeconds: 240,
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('creates a completed Visualize session idempotently', async () => {
     const created = await request(app).post('/api/practice/sessions').send(body);
     expect(created.status).toBe(201);
@@ -332,6 +360,27 @@ describe('canonical practice sessions', () => {
     const retry = await request(app).post('/api/practice/sessions').send(body);
     expect(retry.status).toBe(200);
     expect(retry.body.idempotent).toBe(true);
+  });
+
+  it('runs an isolated V2 Thread shadow without changing the legacy session response', async () => {
+    process.env.THREAD_V2_SHADOW = 'true';
+    mockThreadStrengthService.calculateForPracticeSession.mockResolvedValue({
+      beforeStrength: 50,
+      afterStrength: 90,
+      delta: 40,
+      reason: 'practice_completed',
+      idempotent: false,
+    });
+
+    const response = await request(app).post('/api/practice/sessions').send(body);
+
+    expect(response.status).toBe(201);
+    expect(response.body.data).not.toHaveProperty('threadStrengthMovement');
+    expect(mockThreadStrengthService.calculateForPracticeSession).toHaveBeenCalledWith({
+      userId: MOCK_DB_USER.id,
+      sessionId: body.id,
+      mode: 'shadow',
+    });
   });
 
   it('accepts Chart context and emits exactly one PRACTICE_COMPLETED event across retries', async () => {
@@ -431,6 +480,17 @@ describe('canonical practice sessions', () => {
       .post('/api/practice/sessions')
       .send({ ...body, completedDurationSeconds: 90 });
     expect(partial.status).toBe(400);
+  });
+
+  it('rejects a focus session ended early as completed', async () => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body,
+      practiceMode: 'focus',
+      plannedDurationSeconds: 300,
+      completedDurationSeconds: 45,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('ended early');
   });
 
   it('rejects invalid timezone metadata and a mismatched local date', async () => {

@@ -1,0 +1,182 @@
+[
+ {
+  "slug": "strength_building",
+  "name": "Building",
+  "category": "Strength",
+  "req": "First Anchor",
+  "family": "strength",
+  "note": "",
+  "scale": 1.2
+ },
+ {
+  "slug": "strength_established",
+  "name": "Established",
+  "category": "Strength",
+  "req": "10 Strength",
+  "family": "strength",
+  "note": "",
+  "scale": 1.14
+ },
+ {
+  "slug": "strength_integrated",
+  "name": "Integrated",
+  "category": "Strength",
+  "req": "30 Strength",
+  "family": "strength",
+  "note": "",
+  "scale": 1.1
+ },
+ {
+  "slug": "strength_reinforced",
+  "name": "Reinforced",
+  "category": "Strength",
+  "req": "70 Strength",
+  "family": "strength",
+  "note": "",
+  "scale": 1.05
+ },
+ {
+  "slug": "strength_full_strength",
+  "name": "Full Strength",
+  "category": "Strength",
+  "req": "100 Strength",
+  "family": "strength",
+  "note": "Vector candidate for the 100 Strength milestone; the original master was not available.",
+  "scale": 0.971
+ },
+ {
+  "slug": "commitment_ten_practices",
+  "name": "Ten Practices",
+  "category": "Commitment",
+  "req": "10 practices",
+  "family": "commitment",
+  "note": "",
+  "scale": 0.973
+ },
+ {
+  "slug": "commitment_thirty_practices",
+  "name": "Thirty Practices",
+  "category": "Commitment",
+  "req": "30 practices",
+  "family": "commitment",
+  "note": "",
+  "scale": 0.94
+ },
+ {
+  "slug": "commitment_one_hundred_practices",
+  "name": "One Hundred Practices",
+  "category": "Commitment",
+  "req": "100 practices",
+  "family": "commitment",
+  "note": "",
+  "scale": 0.963
+ },
+ {
+  "slug": "commitment_100_minutes",
+  "name": "100 Minutes",
+  "category": "Commitment",
+  "req": "100 minutes",
+  "family": "commitment",
+  "note": "Hourglass vocabulary retained from the mockup for recognition; rebuilt as engraved hatch glass with a minute scale.",
+  "scale": 0.954
+ },
+ {
+  "slug": "commitment_500_minutes",
+  "name": "500 Minutes",
+  "category": "Commitment",
+  "req": "500 minutes",
+  "family": "commitment",
+  "note": "",
+  "scale": 0.959
+ },
+ {
+  "slug": "journey_first_waypoint",
+  "name": "First Waypoint",
+  "category": "Journey",
+  "req": "1 waypoint",
+  "family": "journey",
+  "note": "",
+  "scale": 1
+ },
+ {
+  "slug": "journey_halfway",
+  "name": "Halfway",
+  "category": "Journey",
+  "req": "50% waypoints",
+  "family": "journey",
+  "note": "",
+  "scale": 1
+ },
+ {
+  "slug": "journey_all_waypoints",
+  "name": "All Waypoints",
+  "category": "Journey",
+  "req": "All waypoints",
+  "family": "journey",
+  "note": "",
+  "scale": 0.914
+ },
+ {
+  "slug": "commitment_first_practice",
+  "name": "First Practice",
+  "category": "Commitment",
+  "req": "1 practice",
+  "family": "commitment",
+  "note": "Vector reconstruction from the in-app screenshot; the original SVG master was not available.",
+  "scale": 1
+ },
+ {
+  "slug": "journey_goal_reached",
+  "name": "Goal Reached",
+  "category": "Journey",
+  "req": "Final waypoint",
+  "family": "journey",
+  "note": "Vector reconstruction from the in-app screenshot; the original SVG master was not available.",
+  "scale": 1
+ },
+ {
+  "slug": "vision_first_glimpse",
+  "name": "First Glimpse",
+  "category": "Vision",
+  "req": "Create a Vision",
+  "family": "vision",
+  "note": "Vector reconstruction from the in-app screenshot; the original SVG master was not available.",
+  "scale": 0.94
+ },
+ {
+  "slug": "vision_picture_complete",
+  "name": "Picture Complete",
+  "category": "Vision",
+  "req": "8 images",
+  "family": "vision",
+  "note": "",
+  "scale": 0.96
+ },
+ {
+  "slug": "vision_seen_clearly",
+  "name": "Seen Clearly",
+  "category": "Vision",
+  "req": "1 Visualize",
+  "family": "vision",
+  "note": "",
+  "scale": 1.023
+ },
+ {
+  "slug": "vision_familiar_future",
+  "name": "Familiar Future",
+  "category": "Vision",
+  "req": "10 Visualize",
+  "family": "vision",
+  "note": "",
+  "scale": 0.93
+ },
+ {
+  "slug": "vision_living_the_vision",
+  "name": "Living the Vision",
+  "category": "Vision",
+  "req": "30 Visualize",
+  "family": "vision",
+  "note": "",
+  "scale": 0.88
+ }
+]

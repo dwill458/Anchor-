@@ -15,9 +15,9 @@ import React, { useEffect } from 'react';
 import { Dimensions, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
-  useReducedMotion,
   useDerivedValue,
 } from 'react-native-reanimated';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useIsFocused } from '@react-navigation/native';
 import { tabPosition, tabDirection, visualTabIndex } from './tabTransitionState';
 import { colors } from '@/theme';
@@ -35,7 +35,7 @@ export const TabSlideWrapper: React.FC<TabSlideWrapperProps> = ({
   tabIndex,
 }) => {
   const isFocused = useIsFocused();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useReduceMotionEnabled();
 
   // On mount: set the initial position for this tab so the animated style
   // starts at the correct translateX without requiring a tabPress.
@@ -89,7 +89,7 @@ export const TabSlideWrapper: React.FC<TabSlideWrapperProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.background.primary,
   },
 });

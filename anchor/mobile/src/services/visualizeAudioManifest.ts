@@ -9,6 +9,7 @@ import {
   type VisualizeDuration,
   type VisualizePhaseId,
 } from '@/screens/visualize/visualizeSessionConfig';
+import { remoteAudio } from '@/services/audio/remoteAudio';
 
 export const VISUALIZE_DURATIONS_SECONDS = VISUALIZE_DURATIONS;
 export type VisualizeDurationSeconds = VisualizeDuration;
@@ -144,7 +145,7 @@ const VOICE_ASSETS: Record<string, ReturnType<typeof voiceAssets>> = {
 const AMBIENT_ASSETS: Record<VisualizeDurationSeconds, AudioSource> = {
   60: require('../assets/sounds/visualize/visualize_ambient_1m.mp3'),
   180: require('../assets/sounds/visualize/visualize_ambient_3m.mp3'),
-  300: require('../assets/sounds/visualize/visualize_ambient_5m.mp3'),
+  300: remoteAudio('visualizeAmbient5m'),
 };
 
 const DEFAULT_DUCKING: VisualizeDuckingEnvelope = { attackMs: 160, releaseMs: 400 };

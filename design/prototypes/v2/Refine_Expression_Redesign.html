@@ -1,0 +1,1998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Anchor — Refine Expression</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;600;700;750;800&family=Figtree:ital,wght@0,400;0,500;0,600;0,650;1,400&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       ANCHOR DESIGN SYSTEM — REFINE EXPRESSION PROTOTYPE
+       Living Spec v0.3 / Anchor 2.0 System Baseline
+       Primary Canvas: #F4F1E9 (warm mineral paper / soft editorial stock)
+       Primary Ink: #171717 | Secondary: #6C6861 | Tertiary: #969088 | Quiet: #B6B0A4
+       Surfaces: #FBF9F4 (raised/cards) | Neutral Secondary: #ECE8DF | Dividers: #D8D2C8
+       Display: Bricolage Grotesque | UI & Body: Figtree
+       ========================================================================== */
+
+    :root {
+      --canvas: #F4F1E9;
+      --ink: #171717;
+      --ink-secondary: #6C6861;
+      --ink-tertiary: #969088;
+      --ink-quiet: #B6B0A4;
+      --surface-field: #FBF9F4;
+      --surface-secondary: #ECE8DF;
+      --surface-elevated: #FFFFFF;
+      --border-light: #D8D2C8;
+      --border-strong: #B8B0A2;
+      --border-focus: #171717;
+      --font-display: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-ui: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      
+      /* Active Semantic Category Color (Default: Career #3157D8) */
+      --cat-color: #3157D8;
+      --cat-rgb: 49, 87, 216;
+      --cat-name: 'Career';
+      
+      --radius-btn: 14px;
+      --radius-card: 16px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #EAE6DD;
+      font-family: var(--font-ui);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Desktop Outer Studio Canvas */
+    .studio-viewport {
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      background: #E8E4DA;
+      background-image: 
+        radial-gradient(rgba(0,0,0,0.035) 1px, transparent 1px);
+      background-size: 24px 24px;
+      padding: 18px 16px 36px;
+    }
+
+    /* Desktop Studio Bar (External Testing Controls Only) */
+    .studio-bar {
+      width: 100%;
+      max-width: 440px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .studio-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-secondary);
+      background: rgba(255,255,255,0.75);
+      padding: 5px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+
+    .studio-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cat-color);
+      transition: background 0.2s ease;
+    }
+
+    .studio-switcher-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--ink-secondary);
+      font-weight: 500;
+    }
+
+    .studio-select {
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-light);
+      background: #FFFFFF;
+      color: var(--ink);
+      cursor: pointer;
+      outline: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      transition: border-color 0.15s;
+    }
+
+    .studio-select:focus {
+      border-color: var(--ink);
+    }
+
+    /* Mobile Device Frame (iPhone 15 Pro Ratio) */
+    .device-frame {
+      width: 100%;
+      max-width: 420px;
+      height: 874px;
+      background: var(--canvas);
+      border-radius: 46px;
+      box-shadow: 
+        0 0 0 1px rgba(0, 0, 0, 0.08),
+        0 14px 28px rgba(0, 0, 0, 0.06),
+        0 30px 60px rgba(0, 0, 0, 0.12);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      border: 9px solid #1C1B1A;
+    }
+
+    /* iOS Dynamic Island & Status Bar */
+    .status-bar {
+      height: 48px;
+      padding: 12px 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .dynamic-island {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 116px;
+      height: 30px;
+      background: #000000;
+      border-radius: 20px;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-icons svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+    }
+
+    /* Navigation Header — Cleaned & Tightened */
+    .screen-header {
+      padding: 4px 18px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 40;
+      background: var(--canvas);
+    }
+
+    .header-back-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .header-back-btn:hover {
+      background: var(--surface-secondary);
+    }
+
+    .header-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .header-title {
+      font-family: var(--font-display);
+      font-size: 16.5px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    .header-spacer {
+      width: 38px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .header-info-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-secondary);
+      background: transparent;
+      border: 1px solid var(--border-light);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .header-info-btn:hover {
+      background: var(--surface-field);
+      color: var(--ink);
+      border-color: var(--border-strong);
+    }
+
+    /* Scrollable Screen Content Body */
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+      padding-bottom: 138px; /* Room for sticky bottom CTA */
+    }
+
+    .screen-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Screen Lead In — Tightened */
+    .hero-intro {
+      padding: 4px 22px 6px;
+    }
+
+    .hero-heading {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 750;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .hero-support {
+      font-size: 13.5px;
+      line-height: 1.4;
+      color: var(--ink-secondary);
+      margin-top: 2px;
+    }
+
+    /* Large Live Hero Anchor Stage */
+    .anchor-hero-stage {
+      margin: 6px 20px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .hero-preview-container {
+      width: 252px;
+      height: 252px;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      touch-action: none;
+      transition: transform 0.18s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+
+    .hero-preview-container:active {
+      transform: scale(0.985);
+    }
+
+    /* Category-Derived Soft Ambient Wash */
+    .hero-wash-field {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(var(--cat-rgb), 0.11) 0%, rgba(var(--cat-rgb), 0.035) 55%, transparent 72%);
+      pointer-events: none;
+      transition: background 0.3s ease;
+    }
+
+    .hero-focal-ring {
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      border: 1px solid rgba(var(--cat-rgb), 0.14);
+      pointer-events: none;
+      transition: border-color 0.3s ease;
+    }
+
+    .hero-svg-target {
+      width: 218px;
+      height: 218px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+      transition: opacity 0.14s ease, transform 0.16s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+
+    .hero-svg-target.is-switching {
+      opacity: 0.15;
+      transform: scale(0.97);
+    }
+
+    /* Hold to Compare Original Pill & Accessible Button */
+    .compare-pill {
+      position: absolute;
+      bottom: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(251, 249, 244, 0.94);
+      border: 1px solid var(--border-light);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 550;
+      color: var(--ink-secondary);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      z-index: 5;
+      -webkit-appearance: none;
+      appearance: none;
+      outline: none;
+    }
+
+    .compare-pill svg {
+      width: 12px;
+      height: 12px;
+      stroke-width: 2;
+    }
+
+    .hero-preview-container.is-comparing .compare-pill,
+    .compare-pill.is-active,
+    .compare-pill:active {
+      background: var(--ink);
+      color: #FFFFFF;
+      border-color: var(--ink);
+      transform: scale(0.96);
+    }
+
+    /* Structure-Preserved Reassurance Message — Quiet */
+    .structure-preservation-lock {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--ink-tertiary);
+      text-align: center;
+    }
+
+    .lock-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+      color: var(--ink-secondary);
+    }
+
+    .lock-primary svg {
+      width: 11px;
+      height: 11px;
+    }
+
+    .lock-dot {
+      color: var(--ink-quiet);
+    }
+
+    /* Sticky Horizontal Category Navigation */
+    .category-nav-wrapper {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--canvas);
+      padding: 12px 0 6px;
+      margin-top: 8px;
+      border-bottom: 1px solid rgba(216, 210, 200, 0.6);
+    }
+
+    .category-scroll {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 20px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .category-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .cat-tab {
+      flex-shrink: 0;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 550;
+      color: var(--ink-secondary);
+      background: transparent;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.16s ease;
+      outline: none;
+    }
+
+    .cat-tab:hover {
+      color: var(--ink);
+      background: rgba(0, 0, 0, 0.035);
+    }
+
+    .cat-tab.is-active {
+      color: var(--ink);
+      font-weight: 650;
+      background: var(--surface-secondary);
+    }
+
+    .cat-tab.is-active::after {
+      content: '';
+      position: absolute;
+      bottom: -7px;
+      left: 14px;
+      right: 14px;
+      height: 2px;
+      background: var(--ink);
+      border-radius: 2px;
+    }
+
+    /* Section Banner with Plain Rationale */
+    .section-banner {
+      padding: 14px 22px 2px;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 15.5px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    .section-rationale {
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--ink-secondary);
+      margin-top: 2px;
+    }
+
+    /* 2-Column Expression Grid */
+    .expression-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 12px 20px 24px;
+    }
+
+    /* Expression Card */
+    .expr-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      background: var(--surface-field);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-card);
+      padding: 12px 10px 12px;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      color: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1), 
+                  border-color 0.15s ease, 
+                  box-shadow 0.15s ease,
+                  background 0.15s ease;
+      outline: none;
+    }
+
+    .expr-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+    }
+
+    .expr-card:active {
+      transform: scale(0.98);
+    }
+
+    .expr-card.is-selected {
+      border-color: var(--ink);
+      border-width: 1.5px;
+      background: #FFFFFF;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+    }
+
+    /* Card Check Indicator */
+    .card-check-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(0.6);
+      transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+      z-index: 5;
+    }
+
+    .card-check-badge svg {
+      width: 10px;
+      height: 10px;
+    }
+
+    .expr-card.is-selected .card-check-badge {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Restrained Status Badge on Non-ForYou tabs */
+    .card-tag {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      z-index: 5;
+      background: rgba(var(--cat-rgb), 0.09);
+      color: var(--cat-color);
+      border: 1px solid rgba(var(--cat-rgb), 0.20);
+    }
+
+    .card-tag-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Card Artwork Field */
+    .card-art-box {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.015);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 9px;
+      overflow: hidden;
+    }
+
+    .card-art-wash {
+      position: absolute;
+      inset: 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(var(--cat-rgb), 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .card-svg-container {
+      width: 86%;
+      height: 86%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-svg-container svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Card Typography */
+    .card-meta {
+      padding: 0 2px;
+    }
+
+    .card-name {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    .card-desc {
+      font-size: 11px;
+      color: var(--ink-secondary);
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+
+    /* Sticky Bottom Action Area */
+    .sticky-cta-area {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 60;
+      padding: 26px 20px 20px;
+      background: linear-gradient(180deg, 
+        rgba(244, 241, 233, 0) 0%, 
+        rgba(244, 241, 233, 0.76) 20%, 
+        rgba(244, 241, 233, 0.96) 45%, 
+        var(--canvas) 70%, 
+        var(--canvas) 100%);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .selected-summary-row {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--ink-secondary);
+      margin-bottom: 8px;
+      user-select: none;
+      background: rgba(244, 241, 233, 0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 3px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(216, 210, 200, 0.7);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+
+    .summary-swatch {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cat-color);
+    }
+
+    .summary-strong {
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .primary-cta-btn {
+      pointer-events: auto;
+      width: 100%;
+      height: 52px;
+      border-radius: var(--radius-btn);
+      background: #171717;
+      color: #FBF9F4;
+      font-family: var(--font-ui);
+      font-size: 15px;
+      font-weight: 650;
+      letter-spacing: 0.01em;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+      transition: transform 0.12s cubic-bezier(0.2, 0, 0.2, 1), 
+                  background-color 0.18s ease, 
+                  box-shadow 0.18s ease;
+    }
+
+    .primary-cta-btn:hover {
+      background: #242424;
+      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+    }
+
+    .primary-cta-btn:active {
+      transform: scale(0.985);
+    }
+
+    .primary-cta-btn.is-success {
+      background: #171717;
+      color: #FFFFFF;
+    }
+
+    /* Modal Sheet: About Expressions (Clean, Direct) */
+    .sheet-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .sheet-overlay.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .info-sheet {
+      background: #FFFFFF;
+      border-radius: 28px 28px 0 0;
+      padding: 24px 24px 36px;
+      transform: translateY(100%);
+      transition: transform 0.25s cubic-bezier(0.2, 0, 0.2, 1);
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.12);
+    }
+
+    .sheet-overlay.is-open .info-sheet {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-light);
+      margin: 0 auto 18px;
+    }
+
+    .sheet-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 750;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+      margin-bottom: 10px;
+    }
+
+    .sheet-body {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--ink-secondary);
+      margin-bottom: 12px;
+    }
+
+    .sheet-body-strong {
+      font-size: 13.5px;
+      line-height: 1.45;
+      font-weight: 550;
+      color: var(--ink);
+      margin-bottom: 22px;
+    }
+
+    .sheet-btn {
+      width: 100%;
+      height: 48px;
+      border-radius: var(--radius-btn);
+      background: var(--ink);
+      color: #FFFFFF;
+      font-size: 14.5px;
+      font-weight: 650;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .sheet-btn:hover {
+      background: #282828;
+    }
+
+    /* ==========================================================================
+       KEYBOARD FOCUS STATES (:focus-visible)
+       Restrained, accessible 2px near-black outline with 3px offset.
+       Applies to all interactive controls for rigorous keyboard accessibility.
+       ========================================================================== */
+    .header-back-btn:focus-visible,
+    .header-info-btn:focus-visible,
+    .cat-tab:focus-visible,
+    .expr-card:focus-visible,
+    .compare-pill:focus-visible,
+    .primary-cta-btn:focus-visible,
+    .sheet-btn:focus-visible,
+    .studio-select:focus-visible {
+      outline: 2px solid var(--ink) !important;
+      outline-offset: 3px !important;
+      box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.07) !important;
+    }
+
+    /* Accessibility / Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+      .hero-svg-target {
+        transition: none !important;
+      }
+      .expr-card {
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="studio-viewport">
+
+    <!-- External Desktop Testing Switcher (Outside Mobile Frame) -->
+    <div class="studio-bar">
+      <div class="studio-badge">
+        <span class="studio-badge-dot" id="studioDot"></span>
+        <span>Anchor 2.0 Living Spec</span>
+      </div>
+      <div class="studio-switcher-wrap">
+        <label for="anchorSelect">Anchor Sample:</label>
+        <select id="anchorSelect" class="studio-select" title="Switch sample generated Anchor to test geometry independence">
+          <option value="anchorA">Anchor A — Contained & Geometric (Career)</option>
+          <option value="anchorB">Anchor B — Open & Directional (Health)</option>
+          <option value="anchorC">Anchor C — Dense & Intersecting (Ambition)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Mobile Device Container -->
+    <div class="device-frame" role="region" aria-label="Anchor Mobile Screen">
+      
+      <!-- iOS Dynamic Island -->
+      <div class="dynamic-island"></div>
+
+      <!-- iOS Status Bar -->
+      <div class="status-bar">
+        <span>9:41</span>
+        <div class="status-icons">
+          <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 18.25c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l.64-.64C7.93 20.26 9.88 21 12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+          <svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v3"/></svg>
+        </div>
+      </div>
+
+      <!-- Screen Header — Tightened Hierarchy -->
+      <header class="screen-header">
+        <button class="header-back-btn" aria-label="Go back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div class="header-center">
+          <h1 class="header-title">Expression</h1>
+        </div>
+        <div class="header-spacer">
+          <button class="header-info-btn" id="infoBtn" aria-label="About Expressions">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Screen Content Body -->
+      <div class="screen-scroll" id="screenScroll">
+        
+        <!-- Screen Lead In -->
+        <div class="hero-intro">
+          <h2 class="hero-heading">Refine expression</h2>
+          <p class="hero-support">Choose how your Anchor is visually treated.</p>
+        </div>
+
+        <!-- Large Live Hero Anchor Stage -->
+        <div class="anchor-hero-stage">
+          <div class="hero-preview-container" id="heroContainer" title="Press and hold to compare with untreated Original Anchor">
+            <div class="hero-wash-field" id="heroWash"></div>
+            <div class="hero-focal-ring" id="heroRing"></div>
+            <div class="hero-svg-target" id="heroSvgTarget">
+              <!-- Rendered via JS -->
+            </div>
+            <!-- Hold to compare / Accessible toggle comparison -->
+            <button type="button" class="compare-pill" id="comparePill" aria-pressed="false" aria-label="Toggle comparison with original anchor">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span id="compareLabel">Hold to compare original</span>
+            </button>
+          </div>
+
+          <!-- Structure-Preserved Reassurance (Quiet) -->
+          <div class="structure-preservation-lock">
+            <div class="lock-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+              <span>Structure preserved</span>
+            </div>
+            <span class="lock-dot">·</span>
+            <span>Expression changes appearance only.</span>
+          </div>
+        </div>
+
+        <!-- Sticky Horizontal Category Navigation -->
+        <div class="category-nav-wrapper" id="categoryNavWrapper" role="tablist" aria-label="Expression categories">
+          <div class="category-scroll" id="categoryScroll">
+            <button class="cat-tab is-active" data-cat="foryou" role="tab" aria-selected="true">For You</button>
+            <button class="cat-tab" data-cat="core" role="tab" aria-selected="false">Core</button>
+            <button class="cat-tab" data-cat="material" role="tab" aria-selected="false">Material</button>
+            <button class="cat-tab" data-cat="light" role="tab" aria-selected="false">Light</button>
+            <button class="cat-tab" data-cat="organic" role="tab" aria-selected="false">Organic</button>
+            <button class="cat-tab" data-cat="graphic" role="tab" aria-selected="false">Graphic</button>
+            <button class="cat-tab" data-cat="all" role="tab" aria-selected="false">All</button>
+          </div>
+        </div>
+
+        <!-- Section Banner with Useful Rationale -->
+        <div class="section-banner" id="sectionBanner">
+          <h3 class="section-title" id="sectionTitle">Recommended for this Anchor</h3>
+          <p class="section-rationale" id="sectionRationale">
+            Its contained geometry works especially well with dimensional and precision finishes.
+          </p>
+        </div>
+
+        <!-- 2-Column Expression Grid (Native Buttons for Accessible Keyboard Interaction) -->
+        <div class="expression-grid" id="expressionGrid" role="list" aria-label="Available Expressions">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+      </div>
+
+      <!-- Sticky Bottom Action Area -->
+      <div class="sticky-cta-area">
+        <div class="selected-summary-row" id="selectedSummaryRow">
+          <span class="summary-swatch" id="summarySwatch"></span>
+          <span>Selected: <span class="summary-strong" id="summaryLabel">Foil</span></span>
+        </div>
+        <button class="primary-cta-btn" id="applyBtn" aria-label="Apply Expression">
+          <span>Apply Expression</span>
+        </button>
+      </div>
+
+      <!-- About Expressions Modal Sheet -->
+      <div class="sheet-overlay" id="infoSheetOverlay" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="info-sheet">
+          <div class="sheet-handle"></div>
+          <h3 class="sheet-title" id="sheetTitle">About Expressions</h3>
+          <p class="sheet-body">
+            Expressions change the visual finish of your Anchor while preserving its original generated structure.
+          </p>
+          <p class="sheet-body-strong">
+            Your intention and underlying construction stay exactly the same.
+          </p>
+          <button class="sheet-btn" id="sheetCloseBtn">Got it</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       ANCHOR DATA: ABSTRACT GENERATED GEOMETRY
+       P0: Anchor is the product name and the user's generated symbol.
+       It is NOT a nautical anchor.
+       Three varied generative constructions demonstrate geometry independence:
+       - Anchor A: Contained, geometric, moderate-density construction (Career)
+       - Anchor B: Open, directional, asymmetric construction (Health)
+       - Anchor C: Dense, intersecting, angular construction (Ambition)
+       ========================================================================== */
+
+    const ANCHORS = {
+      anchorA: {
+        id: 'anchorA',
+        name: 'Scale Engineering Org',
+        category: 'Career',
+        catColor: '#3157D8',
+        catRgb: '49, 87, 216',
+        geometryType: 'Contained, geometric construction',
+        rationale: 'Its contained geometry works especially well with dimensional and precision finishes.',
+        recommended: ['foil', 'architectural', 'embossed', 'cutpaper'],
+        // Coordinates on a 200x200 canvas
+        frame: 'M100 24 L166 60 L166 140 L100 176 L34 140 L34 60 Z',
+        spine: 'M100 24 L100 176',
+        crossbar: 'M54 100 L146 100',
+        diagonals: [
+          'M34 60 L100 128 L166 60',
+          'M34 140 L100 100 L166 140'
+        ],
+        coreFacet: 'M100 80 L118 100 L100 120 L82 100 Z',
+        nodes: [
+          { x: 100, y: 24 },
+          { x: 166, y: 60 },
+          { x: 166, y: 140 },
+          { x: 100, y: 176 },
+          { x: 34, y: 140 },
+          { x: 34, y: 60 },
+          { x: 100, y: 100 },
+          { x: 54, y: 100 },
+          { x: 146, y: 100 },
+          { x: 100, y: 128 }
+        ],
+        archGuides: [
+          'M12 100 L188 100',
+          'M100 10 L100 190',
+          'M20 52 L180 148',
+          'M20 148 L180 52'
+        ],
+        radiantNodes: [
+          { x: 100, y: 24, dx: 0, dy: -12 },
+          { x: 100, y: 100, dx: 10, dy: 0 },
+          { x: 100, y: 176, dx: 0, dy: 12 }
+        ]
+      },
+
+      anchorB: {
+        id: 'anchorB',
+        name: 'Sub-3hr Marathon Pace',
+        category: 'Health',
+        catColor: '#2FA879',
+        catRgb: '47, 168, 121',
+        geometryType: 'Open, directional, asymmetric construction',
+        rationale: 'Its open directional paths stay clearest with fluid, luminous, and fine-line finishes.',
+        recommended: ['ink', 'halo', 'monoline', 'radiant'],
+        frame: null, // Open structure
+        spine: 'M44 162 L158 46',
+        crossbar: 'M42 78 L108 78',
+        diagonals: [
+          'M158 46 L108 78',
+          'M76 48 L76 144',
+          'M76 144 L148 144 L168 116',
+          'M60 114 L128 114'
+        ],
+        coreFacet: 'M108 68 L118 78 L108 88 L98 78 Z',
+        nodes: [
+          { x: 44, y: 162 },
+          { x: 158, y: 46 },
+          { x: 108, y: 78 },
+          { x: 42, y: 78 },
+          { x: 76, y: 48 },
+          { x: 76, y: 144 },
+          { x: 148, y: 144 },
+          { x: 168, y: 116 },
+          { x: 60, y: 114 },
+          { x: 128, y: 114 }
+        ],
+        archGuides: [
+          'M30 176 L172 32',
+          'M18 78 L182 78',
+          'M76 22 L76 182',
+          'M46 144 L186 144'
+        ],
+        radiantNodes: [
+          { x: 158, y: 46, dx: 10, dy: -10 },
+          { x: 108, y: 78, dx: -10, dy: 0 },
+          { x: 168, y: 116, dx: 8, dy: -8 }
+        ]
+      },
+
+      anchorC: {
+        id: 'anchorC',
+        name: 'Launch Studio Monograph',
+        category: 'Ambition',
+        catColor: '#E85D32',
+        catRgb: '232, 93, 50',
+        geometryType: 'Dense, intersecting, angular construction',
+        rationale: 'Its dense intersections pair best with textured and etched finishes that maintain edge definition.',
+        recommended: ['etched', 'glass', 'woven', 'organic'],
+        frame: 'M100 28 L168 148 L32 148 Z', // Primary triangle
+        spine: 'M100 28 L100 172',
+        crossbar: 'M48 107 L152 107',
+        diagonals: [
+          'M100 172 L162 66 L38 66 Z', // Inverted intersecting triangle
+          'M100 66 L131 87 L131 127 L100 148 L69 127 L69 87 Z' // Inner faceted hexagon
+        ],
+        coreFacet: 'M100 92 L115 107 L100 122 L85 107 Z',
+        nodes: [
+          { x: 100, y: 28 },
+          { x: 168, y: 148 },
+          { x: 32, y: 148 },
+          { x: 100, y: 172 },
+          { x: 162, y: 66 },
+          { x: 38, y: 66 },
+          { x: 100, y: 107 },
+          { x: 69, y: 87 },
+          { x: 131, y: 87 },
+          { x: 69, y: 127 },
+          { x: 131, y: 127 }
+        ],
+        archGuides: [
+          'M12 107 L188 107',
+          'M100 12 L100 188',
+          'M20 48 L180 166',
+          'M20 166 L180 48'
+        ],
+        radiantNodes: [
+          { x: 100, y: 28, dx: 0, dy: -12 },
+          { x: 100, y: 107, dx: 10, dy: 0 },
+          { x: 100, y: 172, dx: 0, dy: 12 }
+        ]
+      }
+    };
+
+    /* ==========================================================================
+       EXPRESSION TAXONOMY (13 Distinct Authored Finishes)
+       No fantasy naming, no giant occult catalogue.
+       Distinguishes Surface Treatments & Structural Accents.
+       ========================================================================== */
+    const EXPRESSIONS = [
+      // CORE
+      {
+        id: 'original',
+        name: 'Original',
+        category: 'core',
+        descriptor: 'Baseline generated form',
+        isDefault: false
+      },
+      {
+        id: 'monoline',
+        name: 'Monoline',
+        category: 'core',
+        descriptor: 'Ultra-fine technical line',
+        isDefault: false
+      },
+      {
+        id: 'architectural',
+        name: 'Architectural',
+        category: 'core',
+        descriptor: 'Precision guide construction',
+        isDefault: false
+      },
+
+      // MATERIAL
+      {
+        id: 'foil',
+        name: 'Foil',
+        category: 'material',
+        descriptor: 'Warm metallic finish',
+        isDefault: true
+      },
+      {
+        id: 'embossed',
+        name: 'Embossed',
+        category: 'material',
+        descriptor: 'Tactile paper relief',
+        isDefault: false
+      },
+      {
+        id: 'etched',
+        name: 'Etched',
+        category: 'material',
+        descriptor: 'Fine engraved finish',
+        isDefault: false
+      },
+      {
+        id: 'ink',
+        name: 'Ink',
+        category: 'material',
+        descriptor: 'Textured drawn finish',
+        isDefault: false
+      },
+
+      // LIGHT
+      {
+        id: 'halo',
+        name: 'Halo',
+        category: 'light',
+        descriptor: 'Soft luminous edge',
+        isDefault: false
+      },
+      {
+        id: 'glass',
+        name: 'Glass',
+        category: 'light',
+        descriptor: 'Refractive transparent finish',
+        isDefault: false
+      },
+      {
+        id: 'radiant',
+        name: 'Radiant',
+        category: 'light',
+        descriptor: 'Focal vertex light',
+        isDefault: false
+      },
+
+      // ORGANIC / TEXTURE
+      {
+        id: 'organic',
+        name: 'Organic',
+        category: 'organic',
+        descriptor: 'Textured natural line',
+        isDefault: false
+      },
+      {
+        id: 'woven',
+        name: 'Woven',
+        category: 'organic',
+        descriptor: 'Textured fiber finish',
+        isDefault: false
+      },
+
+      // GRAPHIC
+      {
+        id: 'cutpaper',
+        name: 'Cut Paper',
+        category: 'graphic',
+        descriptor: 'Layered dimensional relief',
+        isDefault: false
+      }
+    ];
+
+    /* ==========================================================================
+       APP STATE
+       ========================================================================== */
+    let currentAnchor = ANCHORS.anchorA;
+    let selectedExprId = 'foil';
+    let currentCategory = 'foryou';
+    let isHoldingCompare = false;
+    let isCompareToggled = false;
+    let applyResetTimer = null;
+
+    // DOM Elements
+    const heroContainer = document.getElementById('heroContainer');
+    const heroSvgTarget = document.getElementById('heroSvgTarget');
+    const comparePill = document.getElementById('comparePill');
+    const compareLabel = document.getElementById('compareLabel');
+    const expressionGrid = document.getElementById('expressionGrid');
+    const sectionTitle = document.getElementById('sectionTitle');
+    const sectionRationale = document.getElementById('sectionRationale');
+    const summaryLabel = document.getElementById('summaryLabel');
+    const summarySwatch = document.getElementById('summarySwatch');
+    const applyBtn = document.getElementById('applyBtn');
+    const anchorSelect = document.getElementById('anchorSelect');
+    const studioDot = document.getElementById('studioDot');
+    const infoBtn = document.getElementById('infoBtn');
+    const infoSheetOverlay = document.getElementById('infoSheetOverlay');
+    const sheetCloseBtn = document.getElementById('sheetCloseBtn');
+
+    /* ==========================================================================
+       DYNAMIC SVG EXPRESSION GENERATOR
+       Renders the EXACT underlying Anchor geometry across all 13 treatments.
+       Preserves core vertices, paths, proportions, and visual traceable identity.
+
+       PRODUCTION CONTRACT
+
+       Expression renderers consume canonical geometry supplied by the
+       Anchor generator record.
+
+       Expressions may change rendering characteristics such as stroke,
+       material, texture, depth, illumination, and finish.
+
+       Expressions must never generate replacement Anchor geometry or
+       alter the canonical vertices, paths, proportions, orientation,
+       or construction produced by the Anchor generator.
+
+       The sample Anchors in this standalone file are prototype fixtures only.
+       ========================================================================== */
+    function generateAnchorSVG(exprId, anchor, size = 200, isHero = false) {
+      const uid = `svg_${exprId}_${anchor.id}_${size}_${Math.floor(Math.random()*10000)}`;
+      
+      // Collect primary paths
+      const paths = [];
+      if (anchor.frame) paths.push(anchor.frame);
+      if (anchor.spine) paths.push(anchor.spine);
+      if (anchor.crossbar) paths.push(anchor.crossbar);
+      if (anchor.diagonals) {
+        anchor.diagonals.forEach(d => paths.push(d));
+      }
+
+      let defs = '';
+      let layers = '';
+
+      switch (exprId) {
+        /* 1. ORIGINAL (Clean baseline generated stroke) */
+        case 'original': {
+          layers = `
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(var(--cat-rgb), 0.12)" stroke="var(--cat-color)" stroke-width="1.8" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#171717" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            ${anchor.nodes.map(n => `<circle cx="${n.x}" cy="${n.y}" r="2.6" fill="#171717" />`).join('')}
+          `;
+          break;
+        }
+
+        /* 2. MONOLINE (Ultra-fine technical line — pure canonical geometry) */
+        case 'monoline': {
+          layers = `
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="none" stroke="#171717" stroke-width="1.1" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#171717" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            ${anchor.nodes.map(n => `<circle cx="${n.x}" cy="${n.y}" r="1.8" fill="#171717" />`).join('')}
+          `;
+          break;
+        }
+
+        /* 3. ARCHITECTURAL (Precision guide construction, neutral graphite + active category color accents) */
+        case 'architectural': {
+          layers = `
+            <!-- Subtle construction datum guides using active category color -->
+            ${anchor.archGuides ? anchor.archGuides.map(g => `<path d="${g}" fill="none" stroke="rgba(${anchor.catRgb}, 0.35)" stroke-width="0.8" stroke-dasharray="3 3" />`).join('') : ''}
+            <!-- Precision crosshairs at key vertices using active category color -->
+            ${anchor.nodes.slice(0, 3).map(n => `
+              <line x1="${n.x - 5}" y1="${n.y}" x2="${n.x + 5}" y2="${n.y}" stroke="rgba(${anchor.catRgb}, 0.55)" stroke-width="0.8" />
+              <line x1="${n.x}" y1="${n.y - 5}" x2="${n.x}" y2="${n.y + 5}" stroke="rgba(${anchor.catRgb}, 0.55)" stroke-width="0.8" />
+            `).join('')}
+            <!-- Structural line work in neutral graphite -->
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(${anchor.catRgb}, 0.07)" stroke="#242321" stroke-width="1.5" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#242321" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            <!-- Drafting node rings: neutral graphite border with restrained category accent center -->
+            ${anchor.nodes.map(n => `
+              <circle cx="${n.x}" cy="${n.y}" r="2.8" fill="#FFFFFF" stroke="#242321" stroke-width="1.2" />
+              <circle cx="${n.x}" cy="${n.y}" r="0.85" fill="rgba(${anchor.catRgb}, 0.85)" />
+            `).join('')}
+          `;
+          break;
+        }
+
+        /* 4. FOIL (Warm metallic gold leaf finish with specular glints) */
+        case 'foil': {
+          defs = `
+            <linearGradient id="foilGrad_${uid}" x1="25" y1="25" x2="175" y2="175" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#8A6218" />
+              <stop offset="20%" stop-color="#C9972E" />
+              <stop offset="42%" stop-color="#FFF0BE" />
+              <stop offset="58%" stop-color="#C28D24" />
+              <stop offset="78%" stop-color="#FBE39A" />
+              <stop offset="100%" stop-color="#805610" />
+            </linearGradient>
+            <filter id="foilGlow_${uid}" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" />
+            </filter>
+          `;
+          layers = `
+            <!-- Specular edge underlay -->
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="rgba(255, 235, 170, 0.5)" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#foilGlow_${uid})" />`).join('')}
+            <!-- Main metallic body -->
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="url(#foilGrad_${uid})" opacity="0.45" stroke="url(#foilGrad_${uid})" stroke-width="2" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="url(#foilGrad_${uid})" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            ${anchor.nodes.map(n => `<circle cx="${n.x}" cy="${n.y}" r="2.8" fill="url(#foilGrad_${uid})" />`).join('')}
+            <!-- Specular glint stars on 2 acute nodes -->
+            ${anchor.nodes.slice(0, 2).map(n => `
+              <g transform="translate(${n.x}, ${n.y})">
+                <path d="M0 -7 L1.2 -1.2 L7 0 L1.2 1.2 L0 7 L-1.2 1.2 L-7 0 L-1.2 -1.2 Z" fill="#FFFBE6" opacity="0.88" />
+              </g>
+            `).join('')}
+          `;
+          break;
+        }
+
+        /* 5. EMBOSSED (Believable tactile blind paper relief) */
+        case 'embossed': {
+          layers = `
+            <!-- Upper-left highlight stroke -->
+            <g transform="translate(-1.2, -1.2)">
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="rgba(255, 255, 255, 0.95)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            </g>
+            <!-- Lower-right cast shadow stroke -->
+            <g transform="translate(1.8, 1.8)">
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="rgba(45, 40, 32, 0.38)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            </g>
+            <!-- Base paper stroke -->
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(236, 232, 223, 0.6)" stroke="#ECE8DF" stroke-width="2" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#ECE8DF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+          `;
+          break;
+        }
+
+        /* 6. ETCHED (Fine engraved / intaglio character) */
+        case 'etched': {
+          layers = `
+            <!-- Corner registration marks -->
+            <path d="M20 28 L28 28 M20 28 L20 36 M180 28 L172 28 M180 28 L180 36" stroke="#1A1816" stroke-width="0.8" opacity="0.4" />
+            <!-- Parallel micro-hatching along the geometry -->
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="none" stroke="#1A1816" stroke-width="0.8" stroke-dasharray="2 2" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#1A1816" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            <!-- Stippled micro-dot clusters at intersection nodes -->
+            ${anchor.nodes.map(n => `
+              <circle cx="${n.x}" cy="${n.y}" r="2" fill="#1A1816" />
+              <circle cx="${n.x + 2}" cy="${n.y - 2}" r="0.7" fill="#1A1816" opacity="0.6" />
+              <circle cx="${n.x - 2}" cy="${n.y + 2}" r="0.7" fill="#1A1816" opacity="0.6" />
+            `).join('')}
+          `;
+          break;
+        }
+
+        /* 7. INK (Textured drawn sumi carbon finish with organic bleed) */
+        case 'ink': {
+          defs = `
+            <filter id="inkBleed_${uid}" x="-10%" y="-10%" width="120%" height="120%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.8" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+          `;
+          layers = `
+            <g filter="url(#inkBleed_${uid})">
+              ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(20, 20, 20, 0.15)" stroke="#141414" stroke-width="2.2" stroke-linejoin="round" />` : ''}
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="#141414" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+              <!-- Ink pool expansion at vertices -->
+              ${anchor.nodes.slice(0, 4).map(n => `<circle cx="${n.x}" cy="${n.y}" r="3.4" fill="#141414" />`).join('')}
+            </g>
+          `;
+          break;
+        }
+
+        /* 8. HALO (Soft category-derived luminous edge) */
+        case 'halo': {
+          defs = `
+            <filter id="haloGlow_${uid}" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="7" result="wideGlow" />
+              <feGaussianBlur stdDeviation="2.5" result="sharpGlow" />
+              <feMerge>
+                <feMergeNode in="wideGlow" />
+                <feMergeNode in="sharpGlow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          `;
+          layers = `
+            <!-- Outer soft category bloom -->
+            <g filter="url(#haloGlow_${uid})">
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="rgba(var(--cat-rgb), 0.55)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            </g>
+            <!-- Crisp core line for maximum structural clarity -->
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(var(--cat-rgb), 0.15)" stroke="#161616" stroke-width="1.8" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#161616" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            ${anchor.nodes.map(n => `<circle cx="${n.x}" cy="${n.y}" r="2.5" fill="#161616" />`).join('')}
+          `;
+          break;
+        }
+
+        /* 9. GLASS (Refractive transparent optical finish) */
+        case 'glass': {
+          layers = `
+            <!-- Prismatic refraction edges -->
+            <g transform="translate(-1, 0)">
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="rgba(49, 87, 216, 0.45)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            </g>
+            <g transform="translate(1, 0)">
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="rgba(232, 93, 50, 0.45)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            </g>
+            <!-- Translucent frosted glass body -->
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="rgba(255, 255, 255, 0.85)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            <!-- Razor core line -->
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(255, 255, 255, 0.4)" stroke="#171717" stroke-width="1.5" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#171717" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+          `;
+          break;
+        }
+
+        /* 10. RADIANT (Restrained light generated strictly from the Anchor's own vertices) */
+        case 'radiant': {
+          defs = `
+            <radialGradient id="nodeGlow_${uid}">
+              <stop offset="0%" stop-color="rgba(var(--cat-rgb), 0.9)" />
+              <stop offset="100%" stop-color="rgba(var(--cat-rgb), 0)" />
+            </radialGradient>
+          `;
+          layers = `
+            <!-- Localized vertex light traces along path directions -->
+            ${anchor.radiantNodes ? anchor.radiantNodes.map(rn => `
+              <circle cx="${rn.x}" cy="${rn.y}" r="8" fill="url(#nodeGlow_${uid})" />
+              <line x1="${rn.x}" y1="${rn.y}" x2="${rn.x + rn.dx}" y2="${rn.y + rn.dy}" stroke="rgba(var(--cat-rgb), 0.85)" stroke-width="1.8" stroke-linecap="round" />
+            `).join('') : ''}
+            <!-- Faint energy trace underlay along spine -->
+            ${anchor.spine ? `<path d="${anchor.spine}" fill="none" stroke="rgba(var(--cat-rgb), 0.3)" stroke-width="4.5" stroke-linecap="round" />` : ''}
+            <!-- Crisp core anchor structure -->
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(var(--cat-rgb), 0.12)" stroke="#181818" stroke-width="1.8" stroke-linejoin="round" />` : ''}
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#181818" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+            ${anchor.nodes.map(n => `<circle cx="${n.x}" cy="${n.y}" r="2.5" fill="#181818" />`).join('')}
+          `;
+          break;
+        }
+
+        /* 11. ORGANIC (Pure surface treatment: variable ink density, subtle grain, softened junctions) */
+        case 'organic': {
+          defs = `
+            <filter id="orgSurface_${uid}" x="-10%" y="-10%" width="120%" height="120%">
+              <!-- Restrained organic edge irregularity and hand-worked grain -->
+              <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" result="grain" />
+              <feDisplacementMap in="SourceGraphic" in2="grain" scale="1.4" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+          `;
+          layers = `
+            <g filter="url(#orgSurface_${uid})">
+              <!-- Softened under-pass for tiny ink density modulation and softened junctions -->
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="#262520" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.28" />`).join('')}
+              <!-- Primary hand-worked organic stroke on exact canonical paths -->
+              ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(38, 37, 32, 0.08)" stroke="#262520" stroke-width="2.2" stroke-linejoin="round" />` : ''}
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="#262520" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.95" />`).join('')}
+              <!-- Hand-worked junction nodes on exact vertex coordinates -->
+              ${anchor.nodes.map(n => `<circle cx="${n.x}" cy="${n.y}" r="2.7" fill="#262520" />`).join('')}
+            </g>
+          `;
+          break;
+        }
+
+        /* 12. WOVEN (Interlaced textured fiber finish) */
+        case 'woven': {
+          layers = `
+            <!-- Alternating two-tone tactile fiber threads -->
+            ${paths.map(p => `
+              <path d="${p}" fill="none" stroke="#22201E" stroke-width="3.8" stroke-linecap="round" stroke-dasharray="4.5 4.5" />
+              <path d="${p}" fill="none" stroke="#B8AE9E" stroke-width="3.8" stroke-linecap="round" stroke-dasharray="4.5 4.5" stroke-dashoffset="4.5" />
+            `).join('')}
+            ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="rgba(184, 174, 158, 0.25)" stroke="#22201E" stroke-width="2" stroke-linejoin="round" />` : ''}
+          `;
+          break;
+        }
+
+        /* 13. CUT PAPER (Clean dimensional layered paper relief with realistic drop-shadow) */
+        case 'cutpaper': {
+          defs = `
+            <filter id="paperShadow_${uid}" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="2" dy="3.5" stdDeviation="2.2" flood-color="rgba(30, 24, 18, 0.24)" />
+            </filter>
+          `;
+          layers = `
+            <g filter="url(#paperShadow_${uid})">
+              <!-- Dimensional paper strip layer -->
+              ${paths.map(p => `<path d="${p}" fill="none" stroke="#FAF8F3" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round" />`).join('')}
+              ${anchor.coreFacet ? `<path d="${anchor.coreFacet}" fill="#ECE7DD" stroke="#FAF8F3" stroke-width="2.2" stroke-linejoin="round" />` : ''}
+            </g>
+            <!-- Crisp razor-cut top highlight -->
+            ${paths.map(p => `<path d="${p}" fill="none" stroke="#FFFFFF" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />`).join('')}
+          `;
+          break;
+        }
+      }
+
+      return `
+        <svg viewBox="0 0 200 200" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+          ${defs}
+          ${layers}
+        </svg>
+      `;
+    }
+
+    /* ==========================================================================
+       HERO PREVIEW CONTROLLER
+       ========================================================================== */
+    function updateHeroPreview(exprId, animated = true) {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!animated || prefersReducedMotion) {
+        heroSvgTarget.classList.remove('is-switching');
+        heroSvgTarget.innerHTML = generateAnchorSVG(exprId, currentAnchor, 218, true);
+      } else {
+        heroSvgTarget.classList.add('is-switching');
+        setTimeout(() => {
+          heroSvgTarget.innerHTML = generateAnchorSVG(exprId, currentAnchor, 218, true);
+          heroSvgTarget.classList.remove('is-switching');
+        }, 90);
+      }
+    }
+
+    /* ==========================================================================
+       HOLD TO COMPARE & ACCESSIBLE TOGGLE COMPARISON
+       Precedence:
+       1. active pointer hold -> Original
+       2. persistent compare toggle -> Original
+       3. otherwise -> selected expression
+       ========================================================================== */
+    function resolveHeroDisplay() {
+      if (isHoldingCompare) {
+        heroContainer.classList.add('is-comparing');
+        compareLabel.textContent = 'Original';
+        heroSvgTarget.innerHTML = generateAnchorSVG('original', currentAnchor, 218, false);
+      } else if (isCompareToggled) {
+        heroContainer.classList.add('is-comparing');
+        compareLabel.textContent = 'Original · Tap to return';
+        heroSvgTarget.innerHTML = generateAnchorSVG('original', currentAnchor, 218, false);
+      } else {
+        heroContainer.classList.remove('is-comparing');
+        compareLabel.textContent = 'Hold to compare original';
+        heroSvgTarget.innerHTML = generateAnchorSVG(selectedExprId, currentAnchor, 218, false);
+      }
+    }
+
+    function startComparing() {
+      isHoldingCompare = true;
+      resolveHeroDisplay();
+    }
+
+    function stopComparing() {
+      if (!isHoldingCompare) return;
+      isHoldingCompare = false;
+      resolveHeroDisplay();
+    }
+
+    function setCompareToggled(toggled) {
+      isCompareToggled = toggled;
+      comparePill.setAttribute('aria-pressed', isCompareToggled ? 'true' : 'false');
+      comparePill.classList.toggle('is-active', isCompareToggled);
+      resolveHeroDisplay();
+    }
+
+    function toggleCompare() {
+      setCompareToggled(!isCompareToggled);
+    }
+
+    // Hero stage press-and-hold (ignores pointer events originating inside comparePill)
+    heroContainer.addEventListener('pointerdown', (e) => {
+      if (comparePill.contains(e.target)) return;
+      startComparing();
+    });
+
+    heroContainer.addEventListener('pointerup', (e) => {
+      if (comparePill.contains(e.target)) return;
+      stopComparing();
+    });
+
+    heroContainer.addEventListener('pointercancel', (e) => {
+      if (comparePill.contains(e.target)) return;
+      stopComparing();
+    });
+
+    heroContainer.addEventListener('pointerleave', (e) => {
+      if (comparePill.contains(e.target)) return;
+      stopComparing();
+    });
+
+    // Compare Pill Click / Tap / Enter / Space Toggle
+    comparePill.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleCompare();
+    });
+
+    /* ==========================================================================
+       RENDER EXPRESSION CARDS (2-Column Grid of Real Native Buttons)
+       ========================================================================== */
+    function renderCards() {
+      expressionGrid.innerHTML = '';
+      let listToRender = [];
+
+      if (currentCategory === 'foryou') {
+        listToRender = EXPRESSIONS.filter(e => currentAnchor.recommended.includes(e.id));
+        sectionTitle.textContent = 'Recommended for this Anchor';
+        sectionRationale.textContent = currentAnchor.rationale;
+        sectionBanner.style.display = 'block';
+      } else if (currentCategory === 'all') {
+        listToRender = EXPRESSIONS;
+        sectionTitle.textContent = 'All Expressions';
+        sectionRationale.textContent = 'Browse the complete collection of visual finishes.';
+        sectionBanner.style.display = 'block';
+      } else {
+        listToRender = EXPRESSIONS.filter(e => e.category === currentCategory);
+        const catTitles = {
+          core: 'Core Expressions',
+          material: 'Material Finishes',
+          light: 'Light Treatments',
+          organic: 'Organic & Texture Treatments',
+          graphic: 'Graphic Relief Finishes'
+        };
+        const catRationales = {
+          core: 'Essential treatments that preserve maximum structural clarity.',
+          material: 'Metal, ink, paper and dimensional finishes.',
+          light: 'Glow, transparency and illumination.',
+          organic: 'Textured and naturally irregular treatments.',
+          graphic: 'Layered and constructed visual finishes.'
+        };
+        sectionTitle.textContent = catTitles[currentCategory] || 'Expressions';
+        sectionRationale.textContent = catRationales[currentCategory] || '';
+        sectionBanner.style.display = 'block';
+      }
+
+      listToRender.forEach(expr => {
+        const isSelected = expr.id === selectedExprId;
+        const isReco = currentAnchor.recommended.includes(expr.id);
+
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = `expr-card ${isSelected ? 'is-selected' : ''}`;
+        card.setAttribute('data-id', expr.id);
+        card.setAttribute('data-name', expr.name);
+        card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        card.setAttribute('aria-label', `Select ${expr.name} Expression${isSelected ? ', currently selected' : ''}`);
+
+        // Small restrained Recommended badge only on non-ForYou category tabs
+        let tagHtml = '';
+        if (isReco && currentCategory !== 'foryou') {
+          tagHtml = `<div class="card-tag"><span class="card-tag-dot"></span>Recommended</div>`;
+        }
+
+        card.innerHTML = `
+          ${tagHtml}
+          <div class="card-check-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div class="card-art-box" aria-hidden="true">
+            <div class="card-art-wash"></div>
+            <div class="card-svg-container">
+              ${generateAnchorSVG(expr.id, currentAnchor, 110, false)}
+            </div>
+          </div>
+          <div class="card-meta">
+            <div class="card-name">${expr.name}</div>
+            <div class="card-desc">${expr.descriptor}</div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => {
+          selectExpression(expr.id, true);
+        });
+
+        expressionGrid.appendChild(card);
+      });
+    }
+
+    /* ==========================================================================
+       SELECT AN EXPRESSION
+       ========================================================================== */
+    function selectExpression(exprId, animated = true) {
+      selectedExprId = exprId;
+      const expr = EXPRESSIONS.find(e => e.id === exprId);
+
+      // If user had toggled compare on, exit compare mode cleanly
+      if (isCompareToggled) {
+        setCompareToggled(false);
+      }
+
+      // Update Hero
+      updateHeroPreview(exprId, animated);
+
+      // Update Cards Selected State
+      document.querySelectorAll('.expr-card').forEach(c => {
+        const isMatch = c.getAttribute('data-id') === exprId;
+        c.classList.toggle('is-selected', isMatch);
+        c.setAttribute('aria-pressed', isMatch ? 'true' : 'false');
+        c.setAttribute('aria-label', `Select ${c.getAttribute('data-name')} Expression${isMatch ? ', currently selected' : ''}`);
+      });
+
+      // Update Bottom Action Summary (Concise: "Selected: Foil")
+      summaryLabel.textContent = expr ? expr.name : '';
+
+      // Reset Apply CTA state immediately
+      resetApplyButton();
+    }
+
+    /* ==========================================================================
+       CATEGORY TABS
+       ========================================================================== */
+    document.querySelectorAll('.cat-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.cat-tab').forEach(t => {
+          t.classList.remove('is-active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.classList.add('is-active');
+        tab.setAttribute('aria-selected', 'true');
+
+        currentCategory = tab.getAttribute('data-cat');
+        renderCards();
+
+        // Scroll active tab smoothly into view (instant if reduced motion)
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        tab.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+      });
+    });
+
+    /* ==========================================================================
+       ANCHOR SWITCHER (External Studio Control)
+       Switches between 3 convincingly different abstract generative Anchors
+       ========================================================================== */
+    function switchAnchor(anchorKey, animated = true) {
+      if (!ANCHORS[anchorKey]) return;
+      currentAnchor = ANCHORS[anchorKey];
+
+      // If user had toggled compare on, exit compare mode cleanly
+      if (isCompareToggled) {
+        setCompareToggled(false);
+      }
+
+      // Reset Apply CTA state immediately
+      resetApplyButton();
+
+      // Update CSS Variables for Category Tint
+      document.documentElement.style.setProperty('--cat-color', currentAnchor.catColor);
+      document.documentElement.style.setProperty('--cat-rgb', currentAnchor.catRgb);
+      document.documentElement.style.setProperty('--cat-name', `'${currentAnchor.category}'`);
+
+      studioDot.style.backgroundColor = currentAnchor.catColor;
+      summarySwatch.style.backgroundColor = currentAnchor.catColor;
+
+      // Select first recommended if current expression is not recommended
+      if (!currentAnchor.recommended.includes(selectedExprId)) {
+        selectedExprId = currentAnchor.recommended[0];
+      }
+
+      // Re-render hero and cards
+      renderCards();
+      selectExpression(selectedExprId, animated);
+    }
+
+    anchorSelect.addEventListener('change', (e) => {
+      switchAnchor(e.target.value, true);
+    });
+
+    /* ==========================================================================
+       APPLY CTA STATE MANAGEMENT (Clean Reset & Timeout Handling)
+       P0 Bug Fix: Single reusable reset helper, no cached destroyed inner nodes,
+       immediate reset on selection change, robust timer lifecycle.
+       ========================================================================== */
+    function resetApplyButton() {
+      if (applyResetTimer) {
+        clearTimeout(applyResetTimer);
+        applyResetTimer = null;
+      }
+      applyBtn.classList.remove('is-success');
+      applyBtn.innerHTML = '<span>Apply Expression</span>';
+    }
+
+    function showApplySuccess() {
+      if (applyResetTimer) {
+        clearTimeout(applyResetTimer);
+        applyResetTimer = null;
+      }
+      applyBtn.classList.add('is-success');
+      applyBtn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        <span>Expression applied</span>
+      `;
+
+      // Hero Micro-Pulse (respects prefers-reduced-motion)
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        heroSvgTarget.style.transform = 'scale(1.03)';
+        setTimeout(() => {
+          heroSvgTarget.style.transform = 'scale(1)';
+        }, 180);
+      }
+
+      // Safe auto-settle after 2.8s
+      applyResetTimer = setTimeout(() => {
+        resetApplyButton();
+      }, 2800);
+    }
+
+    const showAppliedState = showApplySuccess; // Alias for test compatibility
+
+    applyBtn.addEventListener('click', () => {
+      showApplySuccess();
+    });
+
+    /* ==========================================================================
+       ABOUT EXPRESSIONS MODAL SHEET
+       ========================================================================== */
+    infoBtn.addEventListener('click', () => {
+      infoSheetOverlay.classList.add('is-open');
+    });
+
+    sheetCloseBtn.addEventListener('click', () => {
+      infoSheetOverlay.classList.remove('is-open');
+      infoBtn.focus();
+    });
+
+    infoSheetOverlay.addEventListener('click', (e) => {
+      if (e.target === infoSheetOverlay) {
+        infoSheetOverlay.classList.remove('is-open');
+        infoBtn.focus();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && infoSheetOverlay.classList.contains('is-open')) {
+        infoSheetOverlay.classList.remove('is-open');
+        infoBtn.focus();
+      }
+    });
+
+    /* ==========================================================================
+       INITIAL MOUNT & DEEP-LINKING
+       ========================================================================== */
+    function init() {
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash.replace('#', '').toLowerCase();
+
+      const anchorParam = params.get('anchor');
+      if (anchorParam && ANCHORS[anchorParam]) {
+        anchorSelect.value = anchorParam;
+        switchAnchor(anchorParam, false);
+      } else {
+        switchAnchor('anchorA', false);
+      }
+
+      if (hash) {
+        if (EXPRESSIONS.some(e => e.id === hash)) {
+          selectExpression(hash, false);
+        } else if (['foryou', 'core', 'material', 'light', 'organic', 'graphic', 'all'].includes(hash)) {
+          const tab = document.querySelector(`.cat-tab[data-cat="${hash}"]`);
+          if (tab) tab.click();
+        }
+      }
+
+      const exprParam = params.get('expr');
+      if (exprParam && EXPRESSIONS.some(e => e.id === exprParam)) {
+        selectExpression(exprParam, false);
+      }
+
+      const catParam = params.get('cat');
+      if (catParam && ['foryou', 'core', 'material', 'light', 'organic', 'graphic', 'all'].includes(catParam)) {
+        const tab = document.querySelector(`.cat-tab[data-cat="${catParam}"]`);
+        if (tab) tab.click();
+      }
+
+      if (params.get('scroll') === 'cards') {
+        setTimeout(() => {
+          document.getElementById('screenScroll').scrollTop = 380;
+        }, 80);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+jest.mock('@/stores/encryptedPersistStorage', () => ({
+  encryptedPersistStorage: {
+    getItem: jest.fn().mockResolvedValue(null),
+    setItem: jest.fn().mockResolvedValue(undefined),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+  },
+  readSecureValue: jest.fn().mockResolvedValue(null),
+  writeSecureValue: jest.fn().mockResolvedValue(undefined),
+}));
+
+import {
+  V2_RECOMMENDATION_FRESH_MS,
+  hydrateV2RecommendationContext,
+  invalidateV2RecommendationContext,
+  isV2RecommendationContextFresh,
+  peekV2RecommendationContext,
+  rememberV2RecommendationContext,
+} from '../recommendationCache';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useAuthStore } from '@/stores/authStore';
+import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
+import type { V2RecommendationContext } from '../recommendationClient';
+
+const context = (anchorId: string): V2RecommendationContext => ({
+  anchorId,
+  completionSignal: null,
+  vision: { exists: false, seenToday: false },
+  thread: { delta7d: null, delta7dStatus: 'UNAVAILABLE', status: 'UNAVAILABLE' },
+  recommendation: { action: 'Focus', reason: 'server_authoritative' },
+});
+
+describe('recommendationCache', () => {
+  beforeEach(() => {
+    invalidateV2RecommendationContext();
+    useAuthStore.setState({ user: { id: 'cache-user' } as never });
+    jest.mocked(encryptedPersistStorage.getItem).mockReset().mockResolvedValue(null);
+    jest.mocked(encryptedPersistStorage.setItem).mockReset().mockResolvedValue(undefined);
+    jest.mocked(encryptedPersistStorage.removeItem).mockReset().mockResolvedValue(undefined);
+    jest.useRealTimers();
+  });
+
+  it('returns nothing for an Anchor it has not seen', () => {
+    expect(peekV2RecommendationContext('a')).toBeNull();
+    expect(isV2RecommendationContextFresh('a')).toBe(false);
+  });
+
+  it('serves the last context and treats it as fresh within the window', () => {
+    rememberV2RecommendationContext('a', context('a'));
+    expect(peekV2RecommendationContext('a')?.anchorId).toBe('a');
+    expect(isV2RecommendationContextFresh('a')).toBe(true);
+  });
+
+  it('persists presentation data in encrypted account-scoped storage and restores it', async () => {
+    const cached = {
+      value: context('a'),
+      fetchedAt: Date.now(),
+      practiceMarker: '',
+    };
+    rememberV2RecommendationContext('a', context('a'));
+    expect(encryptedPersistStorage.setItem).toHaveBeenCalledWith(
+      'anchor:v2:recommendation-context:cache-user:a',
+      expect.stringContaining('server_authoritative'),
+    );
+
+    invalidateV2RecommendationContext('a');
+    jest.mocked(encryptedPersistStorage.getItem).mockResolvedValueOnce(JSON.stringify(cached));
+    await expect(hydrateV2RecommendationContext('a')).resolves.toEqual(context('a'));
+    expect(encryptedPersistStorage.getItem).toHaveBeenCalledWith(
+      'anchor:v2:recommendation-context:cache-user:a',
+    );
+
+    useAuthStore.setState({ user: { id: 'another-user' } as never });
+    expect(peekV2RecommendationContext('a')).toBeNull();
+  });
+
+  it('keeps serving a stale context but stops calling it fresh', () => {
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    rememberV2RecommendationContext('a', context('a'));
+    (Date.now as jest.Mock).mockReturnValue(now + V2_RECOMMENDATION_FRESH_MS + 1);
+    expect(peekV2RecommendationContext('a')).not.toBeNull();
+    expect(isV2RecommendationContextFresh('a')).toBe(false);
+    (Date.now as jest.Mock).mockRestore();
+  });
+
+  it('is no longer fresh once a practice has been recorded', () => {
+    rememberV2RecommendationContext('a', context('a'));
+    useSessionStore.setState({ lastSession: { id: 'session-after-fetch' } as never });
+    expect(isV2RecommendationContextFresh('a')).toBe(false);
+    expect(peekV2RecommendationContext('a')).not.toBeNull();
+  });
+
+  it('also indexes the context under the server Anchor id', () => {
+    rememberV2RecommendationContext('local-a', context('server-a'));
+    expect(peekV2RecommendationContext('server-a')?.anchorId).toBe('server-a');
+  });
+
+  it('forgets one Anchor or everything on invalidation', () => {
+    rememberV2RecommendationContext('a', context('a'));
+    rememberV2RecommendationContext('b', context('b'));
+    invalidateV2RecommendationContext('a');
+    expect(peekV2RecommendationContext('a')).toBeNull();
+    expect(peekV2RecommendationContext('b')).not.toBeNull();
+    invalidateV2RecommendationContext();
+    expect(peekV2RecommendationContext('b')).toBeNull();
+  });
+});

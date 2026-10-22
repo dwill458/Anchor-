@@ -478,7 +478,7 @@ export interface WidgetSnapshotInputs {
   accountId?: string | null;
   lastPrimedAt: string | null;
   lastGraceDayUsedAt: string | null;
-  threadStrength?: number;
+  threadStrength?: number | null;
   threadStrengthSensitivity?: ThreadStrengthSensitivity;
   now?: Date;
 }

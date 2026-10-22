@@ -1,3 +1,4 @@
+import { privateJsonStorage } from '@/storage/sqlcipher/persistence';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -49,7 +50,7 @@ export const useFirstAnchorFlowStore = create<FirstAnchorFlowState>()(
     }),
     {
       name: FIRST_ANCHOR_FLOW_STORAGE_KEY,
-      storage: createJSONStorage(() => encryptedPersistStorage),
+      storage: privateJsonStorage(encryptedPersistStorage),
       partialize: (state) => ({ draft: state.draft }),
     }
   )

@@ -105,7 +105,9 @@ export type CourseEventType =
   | 'WAYPOINT_UNBLOCKED'
   | 'COURSE_COMPLETED'
   | 'COURSE_ARCHIVED'
-  | 'COURSE_RESTORED';
+  | 'COURSE_RESTORED'
+  | 'MOVE_COMPLETED'
+  | 'ROUTE_ADJUSTED';
 
 export type AnchorSnapshot = {
   snapshotVersion: 1;
@@ -127,12 +129,34 @@ export type AnchorLinkSummary = {
   linkedAt: string;
 };
 
+export type WaypointKind = 'MILESTONE' | 'METRIC' | 'CAPABILITY';
+
+/** numeric: a counter; moves: the checklist of its moves; none: no progress UI. */
+export type WaypointProgressMode = 'numeric' | 'checklist' | 'completion' | 'moves' | 'none';
+
+export type WaypointRequirement = { id: string; title: string; completed: boolean };
+
+export type WaypointMetric = {
+  label: string | null;
+  baseline: number | null;
+  target: number;
+  current: number | null;
+};
+
 export type WaypointSummary = {
   id: string;
   courseId: string;
   position: number;
   title: string;
+  /** Rationale: why this state change matters. */
   description: string | null;
+  /** Absent on responses from servers older than Chart 2.0. */
+  kind?: WaypointKind;
+  /** Absent on responses from servers older than progress modes. */
+  progressMode?: WaypointProgressMode;
+  requirements?: WaypointRequirement[];
+  completionCriteria?: string | null;
+  metric?: WaypointMetric | null;
   state: WaypointState;
   blockedReason: BlockedReason | null;
   reachedAt: string | null;
@@ -151,9 +175,33 @@ export type CourseObservation = {
   text: string;
 };
 
+export type MoveStatus = 'SUGGESTED' | 'ACTIVE' | 'COMPLETED' | 'DISMISSED';
+
+export type MoveSummary = {
+  id: string;
+  courseId: string;
+  waypointId: string;
+  title: string;
+  rationale: string | null;
+  source: 'AI' | 'USER';
+  status: MoveStatus;
+  position: number;
+  isCurrent: boolean;
+  completedAt: string | null;
+  createdAt: string;
+};
+
 export type CourseSummary = {
   id: string;
   destinationText: string;
+  startingContext?: string | null;
+  actualStartingPoint?: string | null;
+  routeScope?: 'DESTINATION' | 'NEXT_STRETCH';
+  routeStartPosition?: number;
+  anchorId?: string | null;
+  visionId?: string | null;
+  complexity?: string | null;
+  currentMoveId?: string | null;
   status: CourseStatus;
   version: number;
   currentWaypointId: string | null;
@@ -169,6 +217,7 @@ export type CourseSummary = {
 
 export type CourseDetail = CourseSummary & {
   waypoints: WaypointSummary[];
+  moves?: MoveSummary[];
   migrationRequired?: boolean;
 };
 
@@ -208,17 +257,63 @@ export type AddWaypointRequest = {
   title: string;
   description?: string;
   afterWaypointId?: string | null;
+} & WaypointMetricFields;
+
+/** Optional measure on a waypoint. A null target clears it. */
+export type WaypointMetricFields = {
+  kind?: WaypointKind;
+  progressMode?: WaypointProgressMode;
+  requirements?: WaypointRequirement[];
+  completionCriteria?: string | null;
+  metricLabel?: string | null;
+  metricBaseline?: number | null;
+  metricTarget?: number | null;
 };
 
 export type EditWaypointRequest = {
   expectedCourseVersion: number;
   title?: string;
   description?: string | null;
-};
+} & WaypointMetricFields;
 
 export type ReorderWaypointsRequest = {
   expectedCourseVersion: number;
   orderedWaypointIds: string[];
+};
+
+export type SkipWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+  reason?: string;
+};
+
+export type CancelWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+};
+
+export type CompleteWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+  reflection?: {
+    body?: string;
+    structuredContent?: { whatHelped?: string; whatLearned?: string };
+    moodAfter?: ReflectionMood;
+    promptType: 'WAYPOINT_COMPLETION';
+    promptVersion: number;
+    idempotencyKey: string;
+  };
+  supportingPracticeSessionId?: string;
+};
+
+export type CompleteWaypointResponse = {
+  course: CourseSummary;
+  completedWaypoint: WaypointSummary;
+  nextWaypoint: WaypointSummary | null;
+  courseCompleted: boolean;
+  completionEventId: string;
+  replayed: boolean;
+  reflectionId?: string;
 };
 
 export type LinkAnchorRequest = {

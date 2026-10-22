@@ -3,7 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SubscriptionStatus } from '@/types';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
+import { useSettingsStore } from '@/stores/settingsStore';
 
+/** Store intro length; entitlement eligibility comes from RevenueCat/store. */
 const TRIAL_DURATION_DAYS = 7;
 export type PreferredPlanId = 'monthly' | 'annual';
 
@@ -25,7 +27,9 @@ function normalizeTrialStartDate(value: Date | string): string | null {
 }
 
 function isLocalTrialActive(trialStartDate: string | null): boolean {
-    return computeDaysRemaining(trialStartDate) > 0;
+    // Kept as a compatibility export for older callers. Local dates never
+    // grant access after the RevenueCat migration.
+    return false;
 }
 
 interface TrialStatusSnapshot {
@@ -40,6 +44,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     // Real state from RevenueCat (synced via hook/service)
     rcTier: SubscriptionStatus;
     remoteCompedAccess: boolean;
+    legacyMigrationAccess: boolean;
 
     // Trial state (local, AsyncStorage-persisted)
     trialStartDate: string | null;
@@ -52,6 +57,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
 
     // True once RevenueCat has returned at least one real response (not persisted — resets on reinstall)
     rcSynced: boolean;
+    entitlementReady: boolean;
 
     // Actions
     setRcTier: (tier: SubscriptionStatus) => void;
@@ -64,13 +70,23 @@ interface SubscriptionState extends TrialStatusSnapshot {
     confirmServerExpiry: () => void;
     setPreferredPlanId: (planId: PreferredPlanId) => void;
     setRemoteCompedAccess: (enabled: boolean) => void;
+    setLegacyMigrationAccess: (enabled: boolean) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
     setDevTierOverride: (tier: 'free' | 'pro' | 'trial' | 'expired') => void;
     setRcSynced: (synced: boolean) => void;
+    setEntitlementReady: (ready: boolean) => void;
+    resetForAccount: () => void;
     resetOverrides: () => void;
 
     // Computed values (accessed via selectors or the hook)
     getEffectiveTier: () => 'free' | 'pro';
+    /**
+     * True once the effective tier is known. Mirrors `useTrialStatus()`: a dev
+     * override, the dev master account and server-verified comped/legacy access
+     * are authoritative without RevenueCat, so a RevenueCat hydration failure
+     * must not leave those accounts "unresolved".
+     */
+    isEntitlementResolved: () => boolean;
 }
 
 export const useSubscriptionStore = create<SubscriptionState>()(
@@ -78,12 +94,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         (set, get) => ({
             rcTier: 'free',
             remoteCompedAccess: false,
+            legacyMigrationAccess: false,
             trialStartDate: null,
             subscriptionStatus: 'expired',
             preferredPlanId: 'annual',
             devOverrideEnabled: false,
             devTierOverride: 'pro',
             rcSynced: false,
+            entitlementReady: false,
 
             // RevenueCat-derived trial status fields
             isInTrial: false,
@@ -106,6 +124,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     trialExpired: !hasActiveEntitlement,
                     subscriptionStatus: hasActiveEntitlement ? 'active' : 'expired',
                     rcSynced: true,
+                    entitlementReady: true,
                 }),
             syncAccountTrial: (startDate) => {
                 const normalizedStartDate = normalizeTrialStartDate(startDate);
@@ -125,10 +144,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                             ? existingStartDate
                             : normalizedStartDate;
 
-                    return {
-                        trialStartDate: effectiveStartDate,
-                        subscriptionStatus: isLocalTrialActive(effectiveStartDate) ? 'trial' : 'expired',
-                    };
+                    return { trialStartDate: effectiveStartDate };
                 });
             },
             applyServerTrial: (startDate, serverExpired) => {
@@ -144,54 +160,34 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     return;
                 }
 
-                const prevStatus = get().subscriptionStatus;
-
                 set((state) => {
-                    // Never downgrade a paid subscriber.
-                    if (state.subscriptionStatus === 'active') {
-                        return {};
-                    }
-
-                    // Server clock is authoritative for expiry (defeats device
-                    // clock rollback). Fall back to local math only when the
-                    // backend predates the isTrialExpired field.
-                    const expired =
-                        typeof serverExpired === 'boolean'
-                            ? serverExpired
-                            : !isLocalTrialActive(normalizedStartDate);
-
-                    return {
-                        trialStartDate: normalizedStartDate,
-                        subscriptionStatus: expired ? 'expired' : 'trial',
-                    };
+                    return { trialStartDate: normalizedStartDate };
                 });
-
-                // Emit once on the genuine trial→expired transition. Persisted
-                // state means a returning expired user (prev already 'expired')
-                // never re-fires.
-                if (prevStatus === 'trial' && get().subscriptionStatus === 'expired') {
-                    AnalyticsService.track(AnalyticsEvents.TRIAL_EXPIRED, {
-                        trial_started_at: normalizedStartDate,
-                    });
-                }
             },
             confirmServerExpiry: () => {
-                const prevStatus = get().subscriptionStatus;
-                set((state) => {
-                    if (state.subscriptionStatus === 'active') return {};
-                    return { subscriptionStatus: 'expired' };
-                });
-                if (prevStatus === 'trial' && get().subscriptionStatus === 'expired') {
-                    AnalyticsService.track(AnalyticsEvents.TRIAL_EXPIRED, {
-                        trial_started_at: get().trialStartDate ?? undefined,
-                    });
-                }
+                set({ trialExpired: true });
             },
             setPreferredPlanId: (preferredPlanId) => set({ preferredPlanId }),
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),
+            setLegacyMigrationAccess: (enabled) => set({ legacyMigrationAccess: enabled }),
             setDevOverrideEnabled: (enabled) => set({ devOverrideEnabled: enabled }),
             setDevTierOverride: (tier) => set({ devTierOverride: tier }),
             setRcSynced: (synced) => set({ rcSynced: synced }),
+            setEntitlementReady: (ready) => set({ entitlementReady: ready }),
+            resetForAccount: () => set({
+                rcTier: 'free',
+                remoteCompedAccess: false,
+                legacyMigrationAccess: false,
+                isInTrial: false,
+                isSubscribed: false,
+                hasActiveEntitlement: false,
+                daysRemaining: null,
+                trialExpired: false,
+                subscriptionStatus: 'expired',
+                trialStartDate: null,
+                rcSynced: false,
+                entitlementReady: false,
+            }),
 
             resetOverrides: () => set({
                 devOverrideEnabled: false,
@@ -204,41 +200,36 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     devTierOverride,
                     rcTier,
                     remoteCompedAccess,
-                    subscriptionStatus,
-                    trialStartDate,
+                    legacyMigrationAccess,
                     hasActiveEntitlement,
-                    rcSynced,
                 } = get();
-                const localTrialActive =
-                    subscriptionStatus === 'trial' && isLocalTrialActive(trialStartDate);
 
+                // Same precedence as useTrialStatus(): an explicit dev override wins, then the
+                // dev master account, then server-granted access, then the live entitlement.
                 if (__DEV__ && devOverrideEnabled) {
                     if (devTierOverride === 'expired' || devTierOverride === 'free') return 'free';
                     // 'trial' and 'pro' both grant full access
                     return 'pro';
                 }
 
-                if (remoteCompedAccess) return 'pro';
+                if (__DEV__ && useSettingsStore.getState().developerMasterAccountEnabled) return 'pro';
 
-                // Active paid subscription always wins
-                if (rcTier.startsWith('pro') || subscriptionStatus === 'active') return 'pro';
+                if (remoteCompedAccess || legacyMigrationAccess) return 'pro';
 
-                // After RC has confirmed state, paid entitlement or the account-bound
-                // local trial may grant access. A null trial date never does.
-                if (rcSynced) {
-                    return hasActiveEntitlement || localTrialActive ? 'pro' : 'free';
-                }
+                return hasActiveEntitlement ? 'pro' : 'free';
+            },
 
-                // Before RC sync: fall back to local trial clock (offline UX cache)
-                if (localTrialActive) return 'pro';
-
-                return 'free';
+            isEntitlementResolved: () => {
+                const { devOverrideEnabled, remoteCompedAccess, legacyMigrationAccess, entitlementReady } = get();
+                if (__DEV__ && devOverrideEnabled) return true;
+                if (__DEV__ && useSettingsStore.getState().developerMasterAccountEnabled) return true;
+                return remoteCompedAccess || legacyMigrationAccess || entitlementReady;
             },
         }),
         {
             name: 'anchor-subscription-override-storage',
             storage: createJSONStorage(() => AsyncStorage),
-            version: 3,
+            version: 5,
             migrate: (persistedState: any, version: number) => {
                 let nextState = persistedState ?? {};
 
@@ -264,13 +255,25 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     };
                 }
 
+                if (version < 4) {
+                    nextState = { ...nextState, entitlementReady: false };
+                }
+
+                if (version < 5) {
+                    // Legacy trial timestamps remain readable in old builds,
+                    // but are not persisted into the RevenueCat-era store.
+                    nextState = {
+                        ...nextState,
+                        trialStartDate: null,
+                        subscriptionStatus: 'expired',
+                    };
+                }
+
                 return nextState;
             },
             partialize: (state) => ({
                 devOverrideEnabled: state.devOverrideEnabled,
                 devTierOverride: state.devTierOverride,
-                trialStartDate: state.trialStartDate,
-                subscriptionStatus: state.subscriptionStatus,
                 preferredPlanId: state.preferredPlanId,
             }),
         }

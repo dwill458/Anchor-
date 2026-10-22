@@ -1,0 +1,29 @@
+{
+  "before": "docs\\qa\\chart-opening-20261008\\intro-before.png",
+  "after": "docs\\qa\\chart-opening-20261008\\latest-full-final.png",
+  "dimensions": [
+    786,
+    1704
+  ],
+  "maskedPaperZoneY": [
+    937,
+    1329
+  ],
+  "maskedSystemBandsY": [
+    [
+      0,
+      77
+    ],
+    [
+      1663,
+      1704
+    ]
+  ],
+  "includedPixels": 938484,
+  "pixelsOver12Of255": 0,
+  "pixelsOver12Pct": 0.0,
+  "pixelsOver32Of255": 0,
+  "meanAbsoluteChannelDifference": 0.0134,
+  "diffImage": "docs\\qa\\chart-opening-20261008\\latest-full-diff\\final-outside-paper-diff.png",
+  "overlayImage": "docs\\qa\\chart-opening-20261008\\latest-full-diff\\final-before-after-overlay.png"
+}
