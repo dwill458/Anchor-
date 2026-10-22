@@ -186,6 +186,11 @@ export const chartV2Api = {
     );
   },
 
+  /** A saved route proposal for this Chart (e.g. one Ask Chart prepared), so the route review can open on it. */
+  getProposal(courseId: string, proposalId: string): Promise<ChartProposal> {
+    return call(() => apiClient.get(`/api/v2/charts/${enc(courseId)}/proposals/${enc(proposalId)}`));
+  },
+
   adjust(
     anchorId: string,
     body: {

@@ -23,6 +23,7 @@ import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { trackChart, useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { chartV2Api, classifyChartError, freshKey, type ChartProposal } from '@/services/v2/chartV2Api';
+import { askChartApi } from '@/services/v2/askChartApi';
 import { liveWaypoints } from '@/adapters/v2/chart/chartV2Model';
 import { routeWasRevised } from '@/components/v2/chart/chartRouteRevision';
 import { useChartRouteRevisionStore } from '@/stores/v2/chartRouteRevisionStore';
@@ -32,7 +33,13 @@ import type { CourseDetail, WaypointSummary } from '@/types/chart';
 import { CenteredMessage } from './V2ChartScreen';
 import { useChartContext } from './chartScreenSupport';
 
-type Params = { anchorId: string };
+type Params = {
+  anchorId: string;
+  /** Open straight on a route Ask Chart prepared, ready to review. Nothing changes until the person applies it. */
+  proposalId?: string;
+  /** The Ask Chart message that proposed it, so it can be marked applied once the server has saved the route. */
+  askMessageId?: string;
+};
 
 function fromWaypoint(waypoint: WaypointSummary): DraftWaypoint {
   const reached = Boolean(waypoint.reachedAt) || waypoint.state === 'REACHED' || waypoint.state === 'SKIPPED';
@@ -96,6 +103,8 @@ export function V2ChartAdjustScreen() {
   const route = useRoute<RouteProp<Record<string, Params>, string>>();
   const navigation = useNavigation<any>();
   const anchorId = route.params?.anchorId ?? '';
+  const proposalParam = route.params?.proposalId;
+  const askMessageId = route.params?.askMessageId;
   const insets = useSafeAreaInsets();
   const reducedMotion = useV2ReduceMotion();
   const chart = useAnchorChart(anchorId);
@@ -110,6 +119,9 @@ export function V2ChartAdjustScreen() {
   const [applying, setApplying] = useState(false);
   const [confirmRewrite, setConfirmRewrite] = useState(false);
   const applyKey = useRef(freshKey(`chart-apply:${anchorId}`));
+  // A route Ask Chart prepared opens straight on the review.
+  const [loadingProposal, setLoadingProposal] = useState(Boolean(proposalParam));
+  const proposalLoaded = useRef(false);
 
   const categoryColor = getCategoryColor(context.identity?.category ?? 'custom');
 
@@ -125,6 +137,21 @@ export function V2ChartAdjustScreen() {
     if (ready) arrived.current = true;
   }, [ready]);
 
+  useEffect(() => {
+    if (!proposalParam || !course || proposalLoaded.current) return;
+    proposalLoaded.current = true;
+    chartV2Api
+      .getProposal(course.id, proposalParam)
+      .then((loaded) => {
+        setProposal(loaded);
+        setDraft(draftFromProposal(course, loaded));
+        setReason('ASK_CHART');
+        setPhase('review');
+      })
+      .catch(() => setError(CHART_COPY.errors.adjust))
+      .finally(() => setLoadingProposal(false));
+  }, [course, proposalParam]);
+
   if (!course || (course.status !== 'ACTIVE' && !(course.status === 'COMPLETED' && course.routeScope === 'NEXT_STRETCH'))) {
     return (
       <View testID="v2-chart-adjust-missing" style={[styles.screen, { paddingTop: insets.top }]}>
@@ -137,6 +164,15 @@ export function V2ChartAdjustScreen() {
           <View style={styles.headerSpacer} />
         </View>
         <CenteredMessage title={chart.loading ? '' : CHART_COPY.errors.load} />
+      </View>
+    );
+  }
+
+  // A route Ask Chart prepared is being fetched: show the quiet screen, not the question it replaces.
+  if (loadingProposal) {
+    return (
+      <View testID="v2-chart-adjust-loading" style={[styles.screen, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" animated />
       </View>
     );
   }
@@ -240,10 +276,21 @@ export function V2ChartAdjustScreen() {
       // cancel, a failure or a no-op apply). It goes out before the new Chart is published, so the Chart holds the revised
       // markers back until it plays the scene.
       if (routeWasRevised(course, updated)) useChartRouteRevisionStore.getState().signal(anchorId, updated.id);
+      const revised = routeWasRevised(course, updated);
       chart.commitChart(updated);
       trackChart('chart_route_adjusted', { reason: reason ?? 'MANUAL', stage: 'active', waypointCount: editedAhead.length });
       setConfirmRewrite(false);
-      back();
+      if (askMessageId) void askChartApi.routeApplied(course.id, askMessageId).catch(() => undefined);
+      if (revised) {
+        // The route is saved: confirm it. (A no-op apply changed nothing, so it simply returns.)
+        navigation.replace('V2ChartRouteUpdated', {
+          anchorId,
+          change: { kind: 'ROUTE_REVISED', aheadCount: editedAhead.length, firstTitle: editedAhead[0]?.title.trim() ?? null },
+          source: askMessageId ? 'ask' : 'adjust',
+        });
+      } else {
+        back();
+      }
     } catch (caught) {
       const classified = classifyChartError(caught);
       if (classified.kind === 'confirmation_required') {

@@ -107,3 +107,21 @@ Not committed. **Not yet exercised on a device**: the microphone, camera, system
 - **Voice**: `expo-speech-recognition` (the Vision dictation stack). Mic shown only where recognition is available. Record → animated recorder with duration and a 28-bar waveform fed by the recogniser's volume events (calm idle motion if the device reports no level) → ✓ puts the words in the composer to edit, ✗ discards. Never auto-sends. Heard words survive errors, backgrounding and the 2-minute cap; one-time disclosure; permission denial explained with Settings.
 - **Live multimodal check** (`scripts/evaluate-ask-chart.ts --image-check --run`): gpt-5.4-mini and gemini-3.5-flash both read a number off a generated photo and, asked if the car was safe/structurally sound, refused to judge from a photo and pointed to a mechanic.
 - **Tests added**: 20 backend (photos, route), ~60 mobile (dictation, attachments, recorder, sheet, composer integration, creation screen).
+
+## 11. Phase 5 (proposals, Route Updated, settings) and Phase 6 (navy sheet) status — 2026-10-21
+
+Not committed. Verified by tests and the type checker only; nothing has run on a device.
+
+- **Proposal cards** (`AskProposalCard`, `useAskProposals`): suggested moves are approved with "Add to my Chart" (server applies what it stored, then the saved Chart is published to the shared cache, then Route Updated opens) or dismissed. A stale or failed save shows nothing as saved. Suggested route changes open the existing Adjust Route review on that proposal (`GET /charts/:courseId/proposals/:proposalId`, `V2ChartAdjust` params `proposalId`, `askMessageId`); the message is marked applied only after the server records the proposal as accepted.
+- **Route Updated** (`ChartRouteUpdated`, `V2ChartRouteUpdated`): real Anchor, category ring, pulse into a check, then copy built from what was actually saved. About 1 s, controls live from frame one, reduced-motion path, one success haptic. Shown after approved move additions and after any applied route revision (Ask Chart or Adjust Route); not after a no-op apply.
+- **Settings** (`AskSettingsSheet`, `useAskProfile`): coaching style, review/correct/forget remembered preferences, clear conversation (deletes its photos).
+- **Navy sheet (Phase 6, minimal)**: a "Help me move forward" row and the person's own Anchor (tap → existing Anchor Details) in the half tier of the sheet. The existing Practice row already launches Focus and returns through `returnRoute`.
+- **Not done**: the full navy-sheet hierarchy rework (removing repeated labels, collapsible route section, reordering). It touches `ChartWaypointContent` (1,268 lines) and its gesture/scroll tiers, so it needs on-device review before it is attempted. Also not done: conversational (free-chat) revision inside the creation route review; it still uses the existing Adjust panel.
+
+## 12. Device verification — 2026-10-22 (Moto G Play 2024, Android, dev-client build, local backend + disposable Postgres)
+
+Verified on the device against the real model (`gpt-5.4-mini`, streamed): Chart sheet shows "Help me move forward" with the person's Anchor; Ask Chart opens with an unprompted greeting grounded in the Chart; suggestion chips send turns and stream replies (2.0–3.9 s server latency); a proposal card ("Add to my Chart") rendered; approving it saved server-side, showed Route Updated only after the save, and the Chart then read "0 of 3 moves done" (was 1). The Chart board was visually unchanged.
+
+**Not verified on device**: microphone and waveform, camera/library photos and AI-requested photos, settings sheet, creation flow (Entrance → Ask → review), keyboard behaviour, reduced-motion path. Frame timing in this dev build during streaming: p50 17 ms, p90 30 ms (19 frames, 42% janky) — a development build over Metro, not a release measurement; no release-build 60 FPS claim is made.
+
+Environment notes: local QA used a temporary dev-master auth override (reverted, not committed) and a short-path build copy because of Windows path-length limits in Reanimated's CMake build. The Ask Chart migration has not been applied to any shared database.

@@ -10,6 +10,8 @@ import { panelAccent } from '../panel/chartPanelColors';
 import { ChartSheetGrabZone, ChartSheetScrollArea, ChartSheetTier, type ChartSheetViewport } from './ChartSheet';
 import { ChartRouteSegments } from './ChartRouteSegments';
 import { ChartRouteList } from './ChartRouteList';
+import { ChartSheetHelpRow } from './ChartSheetHelpRow';
+import type { ChartAnchorArt } from '../ChartLandscape';
 
 type Props = ChartWaypointContentProps & {
   stale?: boolean; stillRight?: React.ReactNode; viewWaypoint: (index: number) => void;
@@ -18,6 +20,9 @@ type Props = ChartWaypointContentProps & {
   scrollViewportRef?: React.Ref<ChartSheetViewport>;
   onScrollViewportLayout?: () => void;
   onContentApplied?: (showingCommit: boolean) => void;
+  anchorArt?: ChartAnchorArt | null;
+  onOpenAnchor?: () => void;
+  onAskChart?: () => void;
 };
 
 /** The handler/modal owner and all three tier frames survive a content swap. */
@@ -41,6 +46,7 @@ const Content = memo(function Content({ snapshot }: { snapshot: Props }) {
         {parts.oneMove}
         <ChartSheetTier tier="half">
           {snapshot.stillRight}
+          {parts.isCurrent && !snapshot.arrived ? <ChartSheetHelpRow category={snapshot.category} anchorArt={snapshot.anchorArt ?? null} onOpenAnchor={snapshot.onOpenAnchor} onAskChart={snapshot.onAskChart} /> : null}
           {parts.isCurrent ? <ChartRouteSegments view={snapshot.view} inputs={snapshot.inputs} hw={snapshot.hw} color={accent.text} reducedMotion={snapshot.reducedMotion} /> : null}
           {parts.half}
           {parts.edit}

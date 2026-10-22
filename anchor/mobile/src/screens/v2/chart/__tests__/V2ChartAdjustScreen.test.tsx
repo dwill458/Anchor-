@@ -11,9 +11,11 @@ import { useChartRouteRevisionStore } from '@/stores/v2/chartRouteRevisionStore'
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
+const mockReplace = jest.fn();
 let canGoBackValue = true;
 const mockNavigation = {
   navigate: mockNavigate,
+  replace: mockReplace,
   goBack: mockGoBack,
   canGoBack: () => canGoBackValue,
 };
@@ -418,11 +420,13 @@ describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
     waypoints: activeCourse.waypoints.map((item) => (item.id === 'wp-3' ? { ...item, title: 'Reach $250k ARR' } : item)),
   });
 
-  it('fires once for a saved revision that changed the route', async () => {
+  it('fires once for a saved revision that changed the route, and confirms it with Route Updated', async () => {
     put.mockResolvedValueOnce({ data: { success: true, data: changedCourse() } });
     const screen = render(<V2ChartAdjustScreen />);
     await openEditorAndApply(screen);
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    expect(mockReplace).toHaveBeenCalledWith('V2ChartRouteUpdated', expect.objectContaining({ anchorId: 'anchor-1', source: 'adjust', change: expect.objectContaining({ kind: 'ROUTE_REVISED', aheadCount: 2 }) }));
+    expect(mockGoBack).not.toHaveBeenCalled();
     expect(pending()).toMatchObject({ nonce: 1, anchorId: 'anchor-1', courseId: 'course-1' });
   });
 
@@ -431,6 +435,8 @@ describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
     const screen = render(<V2ChartAdjustScreen />);
     await openEditorAndApply(screen);
     await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    // Nothing changed, so there is nothing to confirm.
+    expect(mockReplace).not.toHaveBeenCalled();
     expect(pending()).toBeNull();
   });
 
@@ -462,8 +468,88 @@ describe('V2ChartAdjustScreen — route-revised signal (R1)', () => {
     const screen = render(<V2ChartAdjustScreen />);
     await openEditorAndApply(screen);
     fireEvent.press(await screen.findByTestId('chart-rewrite-yes'));
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('V2ChartRouteUpdated', expect.anything()));
     expect(put).toHaveBeenCalledTimes(2);
     expect(pending()).toMatchObject({ nonce: 1, courseId: 'course-1' });
+  });
+});
+
+describe('V2ChartAdjustScreen — opened on a route Ask Chart prepared', () => {
+  const put = apiClient.put as jest.Mock;
+  const proposal = {
+    proposalId: 'prop-1',
+    kind: 'ADJUST',
+    anchorId: 'anchor-1',
+    courseId: 'course-1',
+    baseCourseVersion: 1,
+    destination: 'Reach $100k ARR',
+    complexity: 'MODERATE',
+    waypoints: [
+      { clientKey: 'k1', title: 'Reach $10k MRR', rationale: null, kind: 'MILESTONE', metricLabel: null, metricTarget: null, metricBaseline: null },
+      { clientKey: 'k2', title: 'Reach $50k ARR', rationale: null, kind: 'MILESTONE', metricLabel: null, metricTarget: null, metricBaseline: null },
+    ],
+    suggestedOneMove: null,
+    guidance: null,
+    generation: { source: 'ai', fallbackUsed: false, needsNaming: false },
+    createdAt: '2026-10-21T00:00:00Z',
+    expiresAt: '2026-10-22T00:00:00Z',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReduce = true;
+    canGoBackValue = true;
+    mockParams = { anchorId: 'anchor-1', proposalId: 'prop-1', askMessageId: 'msg-1' };
+    useAuthStore.setState({ user: { id: 'test-user' } as never });
+    resetAnchorChartCache();
+    useAnchorStore.setState({ anchors: [anchor as never] });
+    get.mockImplementation(async (url: string) => {
+      if (url.endsWith('/proposals/prop-1')) return { data: { success: true, data: proposal } };
+      if (url.endsWith('/chart')) {
+        return { data: { success: true, data: { anchor: { id: 'anchor-1', intentionText: anchor.intentionText, category: 'desire', enhancedImageUrl: null, released: false }, chart: activeCourse, history: [], stats: { completedMoveCount: 3, practiceCount: 12 } } } };
+      }
+      return { data: { success: true, data: null } };
+    });
+  });
+
+  it('opens straight on the review of that route, without asking the question again', async () => {
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('chart-adjust-editor');
+    expect(get).toHaveBeenCalledWith('/api/v2/charts/course-1/proposals/prop-1');
+    expect(screen.queryByTestId('chart-adjust-manual')).toBeNull();
+    // Reading the proposal changed nothing.
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('applies it against the version it was prepared for, tells Ask Chart once saved, and confirms with Route Updated', async () => {
+    put.mockResolvedValueOnce({ data: { success: true, data: { ...activeCourse, version: 2, waypoints: activeCourse.waypoints.map((item) => (item.id === 'wp-3' ? { ...item, title: 'Reach $50k ARR' } : item)) } } });
+    post.mockResolvedValue({ data: { success: true, data: { applied: true } } });
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('chart-adjust-editor');
+    fireEvent.press(screen.getByTestId('chart-adjust-apply'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    expect(put.mock.calls[0][1]).toMatchObject({ expectedCourseVersion: 1, proposalId: 'prop-1', adjustmentReason: 'ASK_CHART' });
+    expect(post).toHaveBeenCalledWith('/api/v2/charts/course-1/ask/msg-1/route-applied');
+    expect(mockReplace).toHaveBeenCalledWith('V2ChartRouteUpdated', expect.objectContaining({ source: 'ask', change: expect.objectContaining({ kind: 'ROUTE_REVISED' }) }));
+  });
+
+  it('does not tell Ask Chart anything when the route was not saved', async () => {
+    put.mockRejectedValueOnce(new Error('network'));
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('chart-adjust-editor');
+    fireEvent.press(screen.getByTestId('chart-adjust-apply'));
+    await waitFor(() => expect(put).toHaveBeenCalled());
+    expect(post).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the question with an error when the proposal is no longer available', async () => {
+    get.mockImplementation(async (url: string) => {
+      if (url.endsWith('/proposals/prop-1')) throw new Error('gone');
+      return { data: { success: true, data: { anchor: { id: 'anchor-1', intentionText: anchor.intentionText, category: 'desire', enhancedImageUrl: null, released: false }, chart: activeCourse, history: [], stats: null } } };
+    });
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('chart-adjust-manual');
+    expect(screen.queryByTestId('chart-adjust-editor')).toBeNull();
   });
 });

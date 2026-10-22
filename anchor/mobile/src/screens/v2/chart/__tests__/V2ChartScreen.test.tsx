@@ -54,6 +54,7 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 let mockReduceMotion = true;
+jest.mock('expo/fetch', () => ({ fetch: jest.fn(async () => { throw new Error('no streaming under jest'); }) }));
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => mockReduceMotion }));
 
 jest.mock('@/services/ApiClient', () => {
@@ -202,6 +203,7 @@ function serve(options: { chart: ChartForAnchor | Error; vision?: typeof vision 
       if (!options.vision) throw new ApiClientError('Not found', 'NOT_FOUND', 404);
       return { data: { success: true, data: options.vision } };
     }
+    if (url.endsWith('/chart/ask')) return { data: { success: true, data: { conversationId: null, messages: [], mode: 'CREATE', courseId: null } } };
     if (url.startsWith('/api/courses/')) return { data: { success: true, data: [] } };
     throw new Error(`unexpected GET ${url}`);
   });
@@ -236,70 +238,123 @@ async function renderChartScreen(prepareIntro = false) {
   return screen;
 }
 
+/** One assistant message as the server stores it. */
+function assistantMessage(text: string, extra: Record<string, unknown> = {}) {
+  return {
+    id: `assistant-${text.length}-${Math.random().toString(36).slice(2, 8)}`, role: 'ASSISTANT', text, createdAt: '2026-10-21T00:00:00Z',
+    attachments: [], suggestions: [], requestPhoto: null, readyToPlan: false, planInput: null, action: null, actionUnavailable: false, skill: null, ...extra,
+  };
+}
+
+/** Plays the server for creation: the next Ask Chart reply, the planner, and the create call. */
+function serveCreation(options: { replies?: Array<ReturnType<typeof assistantMessage> | Error>; plan?: 'proposal' | Error } = {}) {
+  const replies = [...(options.replies ?? [assistantMessage('You’re working toward ten thousand users. Where is Anchor today?')])];
+  post.mockImplementation(async (url: string, body: Record<string, unknown>) => {
+    if (url.endsWith('/chart/ask')) {
+      const next = replies.shift();
+      if (next instanceof Error) throw next;
+      if (!next) throw new Error('no scripted Ask Chart reply');
+      const userMessage = body.opening
+        ? null
+        : { id: `user-${Math.random().toString(36).slice(2, 8)}`, role: 'USER', text: body.text, createdAt: '2026-10-21T00:00:01Z', attachments: [], suggestions: [], requestPhoto: null, readyToPlan: false, planInput: null, action: null, actionUnavailable: false, skill: null };
+      return { data: { success: true, data: { conversationId: 'conv-1', mode: 'CREATE', userMessage, assistantMessage: next, remembered: null, generation: { source: 'ai', fallbackUsed: false }, replayed: false } } };
+    }
+    if (url.endsWith('/chart/plan')) {
+      if (options.plan instanceof Error) throw options.plan;
+      return { data: { success: true, data: { status: 'proposal', proposal } } };
+    }
+    if (url.endsWith('/chart')) return { data: { success: true, data: activeChart({ id: 'course-new' }) } };
+    throw new Error(`unexpected POST ${url} ${JSON.stringify(body)}`);
+  });
+}
+
+const askCalls = () => post.mock.calls.filter(([url]) => String(url).endsWith('/chart/ask')).map(([, body]) => body as Record<string, unknown>);
+const planCalls = () => post.mock.calls.filter(([url]) => String(url).endsWith('/chart/plan')).map(([, body]) => body as Record<string, unknown>);
+
+async function openConversation() {
+  const screen = await renderChartScreen(true);
+  fireEvent.press(await screen.findByTestId('chart-create-cta'));
+  await screen.findByTestId('chart-ask');
+  return screen;
+}
+
 describe('V2ChartScreen — no Chart', () => {
-  it('without Vision: shows the empty state, asks what would make it real, no fake imagery', async () => {
+  it('shows the existing opening, then Continue goes straight into the cream Ask Chart conversation', async () => {
     serve({ chart: readModel(null), vision: null });
+    serveCreation();
     const screen = await renderChartScreen(true);
     expect(await screen.findByText('Let’s chart the distance between here and there.')).toBeTruthy();
-    expect(screen.getByText('I’ll use what you’ve already given Anchor. You only need to fill in what I can’t see.')).toBeTruthy();
     // The etched map replaces the old road art.
     expect(screen.getByTestId('chart-intro-map', { includeHiddenElements: true })).toBeTruthy();
-    expect(screen.queryByText(/Gentle S|Wide zig-zag|Rising arc|Double bend/)).toBeNull();
 
     fireEvent.press(screen.getByTestId('chart-create-cta'));
-    // The photo step comes first; the written question stays one tap away.
-    expect(await screen.findByTestId('chart-context-step')).toBeTruthy();
-    expect(screen.getByText('SHOW WHERE YOU ARE NOW')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('chart-context-describe'));
-    expect(await screen.findByTestId('chart-starting-context')).toBeTruthy();
-    expect(screen.queryByTestId('chart-vision-context')).toBeNull();
-    expect(screen.getByText('What would make this real?')).toBeTruthy();
-    expect(screen.getByText('Describe what ‘real’ looks like')).toBeTruthy();
-    // Continue waits for something concrete.
-    expect(screen.getByTestId('chart-context-continue').props.accessibilityState).toMatchObject({ disabled: true });
-    fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'ok');
-    expect(screen.getByTestId('chart-context-continue').props.accessibilityState).toMatchObject({ disabled: true });
-
-    // Thought starters teach without writing into the field.
-    fireEvent.press(screen.getByTestId('chart-starter-measure'));
-    expect(screen.getByTestId('chart-starter-hint')).toBeTruthy();
-    expect(screen.getByTestId('chart-starting-input').props.value).toBe('ok');
-    fireEvent.press(screen.getByTestId('chart-starter-measure'));
-    expect(screen.queryByTestId('chart-starter-hint')).toBeNull();
+    expect(await screen.findByTestId('chart-ask')).toBeTruthy();
+    expect(screen.getByText('Ask Chart')).toBeTruthy();
+    // No standalone starting-photo screen, no written-question screen, no photo requirement.
+    expect(screen.queryByTestId('chart-context-step')).toBeNull();
+    expect(screen.queryByTestId('chart-starting-context')).toBeNull();
+    expect(screen.queryByText('SHOW WHERE YOU ARE NOW')).toBeNull();
+    // Photos are optional and always available; voice is offered only where the device can recognise speech.
+    expect(screen.getByTestId('ask-plus')).toBeTruthy();
+    expect(screen.queryByTestId('ask-mic')).toBeNull();
   });
 
-  it('with Vision: acknowledges the real Vision instead of asking for the destination again', async () => {
+  it('greets from what the app already knows: an opening turn with no typed text', async () => {
     serve({ chart: readModel(null), vision });
-    const screen = await renderChartScreen(true);
-    fireEvent.press(await screen.findByTestId('chart-create-cta'));
-    await waitFor(() => expect(screen.getByTestId('chart-vision-context')).toBeTruthy());
-    expect(screen.getByText('YOUR DESTINATION')).toBeTruthy();
-    expect(screen.getByText('I’ll use your Vision to understand where you’re headed.')).toBeTruthy();
-    // The written fallback still acknowledges the Vision.
-    fireEvent.press(screen.getByTestId('chart-context-describe'));
-    await waitFor(() => expect(screen.getByText('YOU’VE ALREADY SEEN IT.')).toBeTruthy());
-    expect(screen.getByText(vision.description)).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('View Vision'));
-    expect(mockNavigate).toHaveBeenCalledWith('V2Vision', { anchorId: 'anchor-1' });
+    serveCreation();
+    const screen = await openConversation();
+    expect(await screen.findByText('You’re working toward ten thousand users. Where is Anchor today?')).toBeTruthy();
+    expect(askCalls()).toHaveLength(1);
+    expect(askCalls()[0]).toMatchObject({ opening: true });
+    expect(askCalls()[0].text).toBeUndefined();
   });
 
-  it('generates, reviews, edits and saves a route — then reveals it', async () => {
+  it('shows the person’s message at once, clears the composer, and offers the route when Ask Chart says it is ready', async () => {
     serve({ chart: readModel(null), vision: null });
-    post.mockImplementation(async (url: string, body: Record<string, unknown>) => {
-      if (url.endsWith('/chart/plan')) return { data: { success: true, data: { status: 'proposal', proposal } } };
-      if (url.endsWith('/chart')) return { data: { success: true, data: activeChart({ id: 'course-new' }) } };
-      throw new Error(`unexpected POST ${url} ${JSON.stringify(body)}`);
+    serveCreation({
+      replies: [
+        assistantMessage('Where is Anchor today?', { suggestions: ['Just launched', 'Pre-launch'] }),
+        assistantMessage('That’s enough to draft a route.', {
+          readyToPlan: true,
+          planInput: { actualStartingPoint: 'App is launched but only has 100 users.', startingContext: 'Solo founder, evenings only', photoAssetIds: [] },
+        }),
+      ],
     });
-    const screen = await renderChartScreen(true);
-    fireEvent.press(await screen.findByTestId('chart-create-cta'));
-    fireEvent.press(await screen.findByTestId('chart-context-describe'));
-    fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'App is launched but only has 100 users.');
-    fireEvent.press(screen.getByTestId('chart-context-continue'));
+    const screen = await openConversation();
+    expect(await screen.findByText('Where is Anchor today?')).toBeTruthy();
+    expect(screen.getByText('Just launched')).toBeTruthy();
+    // No route yet, and drafting early is already possible.
+    expect(screen.queryByTestId('ask-build-route')).toBeNull();
+    expect(screen.getByTestId('ask-draft-now')).toBeTruthy();
 
-    // DEFERRED: Vision-specific generation headline with no Vision.
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'App is launched but only has 100 users.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    expect(screen.getByTestId('ask-input').props.value).toBe('');
+    expect(await screen.findByText('App is launched but only has 100 users.')).toBeTruthy();
+    expect(await screen.findByText('That’s enough to draft a route.')).toBeTruthy();
+    expect(await screen.findByTestId('ask-build-route')).toBeTruthy();
+    expect(screen.queryByTestId('ask-draft-now')).toBeNull();
+    expect(askCalls()[1]).toMatchObject({ text: 'App is launched but only has 100 users.', skill: 'FREE' });
+  });
+
+  it('plans from the conversation, then reviews, edits and saves the route — and reveals it', async () => {
+    serve({ chart: readModel(null), vision: null });
+    serveCreation({
+      replies: [
+        assistantMessage('Where is Anchor today?'),
+        assistantMessage('That’s enough to draft a route.', {
+          readyToPlan: true,
+          planInput: { actualStartingPoint: 'App is launched but only has 100 users.', startingContext: 'Solo founder, evenings only', photoAssetIds: [] },
+        }),
+      ],
+    });
+    const screen = await openConversation();
+    await screen.findByText('Where is Anchor today?');
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'App is launched but only has 100 users.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    fireEvent.press(await screen.findByTestId('ask-build-route'));
+
     expect(await screen.findByText('Mapping the way there.')).toBeTruthy();
-    expect(screen.queryByText('Finding the meaningful changes between where you are and your destination.')).toBeNull();
-    // DEFERRED: the road art's layer images are gone; the etched map has nothing to load.
     expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn’t.')).toBeTruthy();
 
@@ -307,11 +362,12 @@ describe('V2ChartScreen — no Chart', () => {
     expect(screen.getByText('YOUR ROUTE')).toBeTruthy();
     expect(screen.getByText('4 waypoints')).toBeTruthy();
     expect(screen.getByText('ONE MOVE')).toBeTruthy();
-    expect(screen.getByText('For waypoint 1')).toBeTruthy();
     expect(screen.getByTestId('chart-review-one-move-card')).toBeTruthy();
 
-    const planBody = post.mock.calls.find(([url]) => url.endsWith('/chart/plan'))![1];
-    expect(planBody).toMatchObject({ startingContext: 'App is launched but only has 100 users.', followUp: null });
+    // The existing planner receives exactly what the conversation produced.
+    expect(planCalls()).toHaveLength(1);
+    expect(planCalls()[0]).toMatchObject({ actualStartingPoint: 'App is launched but only has 100 users.', startingContext: 'Solo founder, evenings only', followUp: null });
+    expect(planCalls()[0].references).toBeUndefined();
 
     // Rename the first waypoint.
     fireEvent.press(screen.getByLabelText('Waypoint 1 of 4: Validate product-market fit'));
@@ -320,8 +376,7 @@ describe('V2ChartScreen — no Chart', () => {
 
     // The saved Chart exists on the server once the create call lands.
     serve({ chart: readModel(activeChart({ id: 'course-new' })), vision: null });
-    // "Looks right" is the confirmation: there is no separate "Explore your Chart" screen. The First Waypoint
-    // reveal plays and flows straight into the permanent Chart.
+    // "Looks right" is the confirmation: the existing First Waypoint reveal plays and flows into the permanent Chart.
     fireEvent.press(screen.getByTestId('chart-review-confirm'));
     expect(await screen.findByTestId('chart-current-waypoint', {}, { timeout: 8000 })).toBeTruthy();
     expect(screen.queryByTestId('chart-explore')).toBeNull();
@@ -330,6 +385,7 @@ describe('V2ChartScreen — no Chart', () => {
       destinationText: 'Reach 10,000 active users',
       proposalId: 'proposal-1',
       complexity: 'MODERATE',
+      actualStartingPoint: 'App is launched but only has 100 users.',
       oneMove: { title: 'Finish onboarding redesign' },
     });
     expect((createCall[1] as { waypoints: Array<{ title: string }> }).waypoints.map((w) => w.title)).toEqual([
@@ -340,73 +396,58 @@ describe('V2ChartScreen — no Chart', () => {
     ]);
   });
 
-  it('skip goes straight to mapping with no context and no references', async () => {
+  it('“Draft my route now” plans from what the person wrote, without waiting for the assistant', async () => {
     serve({ chart: readModel(null), vision: null });
-    post.mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
-    const screen = await renderChartScreen(true);
-    fireEvent.press(await screen.findByTestId('chart-create-cta'));
-    fireEvent.press(await screen.findByTestId('chart-context-skip'));
-    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
-    const body = post.mock.calls[0][1];
-    expect(body.startingContext).toBeNull();
-    expect(body.followUp).toBeNull();
-    expect(body.references).toBeUndefined();
+    serveCreation({ replies: [assistantMessage('Where is Anchor today?'), assistantMessage('Tell me a bit more?')] });
+    const screen = await openConversation();
+    await screen.findByText('Where is Anchor today?');
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'Launched, 100 users.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    await screen.findByText('Tell me a bit more?');
+    fireEvent.press(screen.getByTestId('ask-draft-now'));
+    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(planCalls()[0]).toMatchObject({ actualStartingPoint: 'Launched, 100 users.', followUp: null });
+    expect(planCalls()[0].startingContext).toBeNull();
   });
 
-  it('a clarity answer can be a reference alone (no text)', async () => {
+  it('photos sent in the conversation reach the planner by asset id', async () => {
     serve({ chart: readModel(null), vision: null });
-    post
-      .mockResolvedValueOnce({ data: { success: true, data: { status: 'needs_context', followUpQuestion: 'What does the garage look like?' } } })
-      .mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
-    const screen = await renderChartScreen(true);
-    fireEvent.press(await screen.findByTestId('chart-create-cta'));
-    fireEvent.press(await screen.findByTestId('chart-context-skip'));
-    expect(await screen.findByText('ONE THING I CAN’T SEE')).toBeTruthy();
-    expect(await screen.findByText('What does the garage look like?')).toBeTruthy();
-    // Nothing yet: Continue is disabled.
-    expect(screen.getByTestId('chart-follow-up-continue').props.accessibilityState).toMatchObject({ disabled: true });
-    fireEvent.press(screen.getByTestId('chart-reference-place'));
-    fireEvent.changeText(screen.getByTestId('chart-reference-place-input'), 'Mike’s Auto Body');
-    fireEvent.press(screen.getByTestId('chart-reference-place-add'));
-    expect(screen.getByTestId('chart-follow-up-continue').props.accessibilityState).toMatchObject({ disabled: false });
-    fireEvent.press(screen.getByTestId('chart-follow-up-continue'));
-    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
-    expect(post.mock.calls[1][1]).toMatchObject({
-      followUp: { question: 'What does the garage look like?', answer: '' },
-      references: [{ kind: 'place', label: 'Mike’s Auto Body' }],
+    serveCreation({
+      replies: [
+        assistantMessage('Where is Anchor today?'),
+        assistantMessage('Thanks.', { readyToPlan: true, planInput: { actualStartingPoint: 'See the photo', startingContext: null, photoAssetIds: ['asset-1', 'asset-2'] } }),
+      ],
     });
+    const screen = await openConversation();
+    await screen.findByText('Where is Anchor today?');
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'See the photo');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    fireEvent.press(await screen.findByTestId('ask-build-route'));
+    await waitFor(() => expect(planCalls()).toHaveLength(1));
+    expect(planCalls()[0].references).toEqual([
+      { kind: 'photo', assetId: 'asset-1', role: 'start' },
+      { kind: 'photo', assetId: 'asset-2', role: 'extra' },
+    ]);
   });
 
-  it('asks one follow-up question, then plans with the answer', async () => {
+  it('when Ask Chart cannot answer, the message is kept, the reason is shown, and a draft is still possible', async () => {
     serve({ chart: readModel(null), vision: null });
-    post
-      .mockResolvedValueOnce({ data: { success: true, data: { status: 'needs_context', followUpQuestion: 'Where are you starting from now?' } } })
-      .mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
-    const screen = await renderChartScreen(true);
-    fireEvent.press(await screen.findByTestId('chart-create-cta'));
-    fireEvent.press(await screen.findByTestId('chart-context-describe'));
-    fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'Just starting');
-    fireEvent.press(screen.getByTestId('chart-context-continue'));
-    expect(await screen.findByText('Where are you starting from now?')).toBeTruthy();
-    fireEvent.changeText(screen.getByTestId('chart-follow-up-input'), '100 users, no marketing yet');
-    fireEvent.press(screen.getByTestId('chart-follow-up-continue'));
-    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
-    expect(post.mock.calls[1][1]).toMatchObject({
-      followUp: { question: 'Where are you starting from now?', answer: '100 users, no marketing yet' },
-    });
+    serveCreation({ replies: [new ApiClientError('down', 'ASK_UNAVAILABLE', 503)] });
+    const screen = await openConversation();
+    expect(await screen.findByTestId('ask-error')).toBeTruthy();
+    expect(screen.getByText(/can’t answer right now/)).toBeTruthy();
+    // The person can still get a route from the intention alone.
+    fireEvent.press(screen.getByTestId('ask-draft-now'));
+    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(planCalls()[0].actualStartingPoint).toBe('Anchor has ten thousand users');
   });
 
   it('never strands the user: when generation fails, an outline can be named and saved', async () => {
     serve({ chart: readModel(null), vision: null });
-    post.mockImplementation(async (url: string) => {
-      if (url.endsWith('/chart/plan')) throw new Error('Network error. Please check your connection.');
-      return { data: { success: true, data: activeChart() } };
-    });
-    const screen = await renderChartScreen(true);
-    fireEvent.press(await screen.findByTestId('chart-create-cta'));
-    fireEvent.press(await screen.findByTestId('chart-context-describe'));
-    fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'Starting from zero');
-    fireEvent.press(screen.getByTestId('chart-context-continue'));
+    serveCreation({ plan: new Error('Network error. Please check your connection.') });
+    const screen = await openConversation();
+    await screen.findByText('You’re working toward ten thousand users. Where is Anchor today?');
+    fireEvent.press(screen.getByTestId('ask-draft-now'));
     expect(await screen.findByTestId('chart-generation-failed')).toBeTruthy();
     expect(screen.getByText('You’re offline. Chart needs a connection for this.')).toBeTruthy();
 
@@ -431,6 +472,14 @@ describe('V2ChartScreen — active Chart', () => {
     await waitFor(() => expect(within(screen.getByTestId('chart-destination')).getByText('Reach 10,000 active users')).toBeTruthy());
     fireEvent.press(screen.getByTestId('chart-view-vision'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Vision', { anchorId: 'anchor-1' });
+  });
+
+  it('the sheet opens Ask Chart from "Help me move forward" (the Anchor button is covered by its own unit test: this fixture has no Anchor art)', async () => {
+    serve({ chart: readModel(activeChart()), vision: null });
+    const screen = render(<V2ChartScreen />);
+    await openFullSheet(screen);
+    fireEvent.press(await screen.findByTestId('chart-help-forward'));
+    expect(mockNavigate).toHaveBeenCalledWith('V2ChartAsk', { anchorId: 'anchor-1', source: 'sheet' });
   });
 
   it('without Vision: shows the destination with no stand-in image and no View Vision', async () => {

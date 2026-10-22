@@ -165,6 +165,16 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     navigation.replace('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
   }, [anchorId, chart.data, chart.error, chart.loading, entitlementReady, hasActiveEntitlement, navigation, route.params?.source]);
 
+  const openAnchor = () => {
+    trackChart('chart_anchor_opened', { from: 'sheet' });
+    navigation.navigate('V2AnchorDetails', { anchorId });
+  };
+
+  const openAskChart = () => {
+    trackChart('chart_ask_opened', { from: 'sheet' });
+    navigation.navigate('V2ChartAsk', { anchorId, source: 'sheet' });
+  };
+
   const openPractice = (mode?: 'focus' | 'deep_prime') => {
     trackChart('chart_practice_opened', { from: 'chart', mode: mode ?? null });
     navigation.navigate('V2Practice', { anchorId, recommendedMode: mode, source: 'chart', returnRoute: 'V2Chart' });
@@ -260,6 +270,8 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         }}
         onOpenVision={openVision}
         onOpenPractice={openPractice}
+        onOpenAnchor={openAnchor}
+        onAskChart={openAskChart}
         onOpenLog={() => navigation.navigate('V2ChartJourney', { anchorId })}
         onAdjust={() => navigation.navigate('V2ChartAdjust', { anchorId })}
         onRelease={() => view.isStretch ? navigation.navigate('V2ChartAdjust', { anchorId }) : navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}

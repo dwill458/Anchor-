@@ -21,7 +21,7 @@ import AnchorCreationFlowScreen from '@/screens/create/flow/AnchorCreationFlowSc
 import { V2PracticeScreen } from '@/screens/v2/practice';
 import { V2VisionScreen } from '@/screens/v2/vision';
 import { V2VisionNoteComposer } from '@/screens/v2/vision/V2VisionNoteComposer';
-import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypointScreen } from '@/screens/v2/chart';
+import { V2ChartAdjustScreen, V2ChartAskScreen, V2ChartJourneyScreen, V2ChartRouteUpdatedScreen, V2ChartScreen, V2ChartWaypointScreen } from '@/screens/v2/chart';
 import { V2ProgressScreen } from '@/screens/v2/progress';
 import { V2MilestoneCollectionScreen, V2MilestoneDetailScreen } from '@/screens/v2/milestones';
 import { MilestoneCelebrationHost } from '@/components/v2/milestones/MilestoneCelebrationHost';
@@ -619,6 +619,8 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2Chart" component={V2ChartScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={{ ...CREAM_BACKGROUND, animation: 'none', gestureEnabled: false }} />
         <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={CREAM_BACKGROUND} />
+        <Stack.Screen name="V2ChartAsk" component={V2ChartAskScreen} options={CREAM_BACKGROUND} />
+        <Stack.Screen name="V2ChartRouteUpdated" component={V2ChartRouteUpdatedScreen} options={{ ...CREAM_BACKGROUND, gestureEnabled: false }} />
         <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2Progress" component={V2ProgressRouteScreen} options={PROGRESS_OPTIONS} />
         <Stack.Screen name="V2MilestoneCollection" component={V2MilestoneCollectionRouteScreen} options={CREAM_BACKGROUND} />

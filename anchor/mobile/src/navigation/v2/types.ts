@@ -59,6 +59,8 @@ export type AnchorV2StackParamList = {
   };
   V2ChartWaypoint: { anchorId: string; waypointId: string };
   V2ChartAdjust: { anchorId: string };
+  V2ChartRouteUpdated: { anchorId: string; change: import('@/components/v2/chart/ask/routeUpdatedCopy').RouteUpdatedChange; source: 'ask' | 'adjust' };
+  V2ChartAsk: { anchorId: string; prompt?: { text: string; skill?: import('@/services/v2/askChartApi').AskSkill; targetMoveId?: string | null }; source?: string };
   V2ChartJourney: { anchorId: string };
   /** `anchorTransition`: the Anchor is travelling in from Details, so the route only cross-fades under it. */
   V2Progress: { anchorId?: string; anchorTransition?: boolean };
