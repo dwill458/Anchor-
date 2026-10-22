@@ -77,7 +77,6 @@ import { ConfirmDeleteAnchorSheet } from '@/components/modals/ConfirmDeleteAncho
 import ShareCardRenderer from '@/components/ShareCardRenderer';
 import { useShareCard } from '@/hooks/useShareCard';
 import { logger } from '@/utils/logger';
-import { ENABLE_MERCH } from '@/config';
 const PhysicalAnchorCard = ENABLE_MERCH
   ? require('./components/PhysicalAnchorCard').PhysicalAnchorCard
   : null;
