@@ -42,8 +42,29 @@ const RouteWaypoint = z
     metricBaseline: MetricNumber.nullish(),
     metricTarget: MetricNumber.nullish(),
     completionCriteria: z.string().trim().max(400).nullish(),
-    requirements: z.array(z.object({ id: z.string().min(1).max(80), title: z.string().trim().min(1).max(140), completed: z.boolean() }).strict()).max(12).optional(),
-    suggestedMoves: z.array(z.object({ title: z.string().trim().min(1).max(120), rationale: z.string().max(280).nullish() }).strict()).max(4).optional(),
+    requirements: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1).max(80),
+            title: z.string().trim().min(1).max(140),
+            completed: z.boolean(),
+          })
+          .strict()
+      )
+      .max(12)
+      .optional(),
+    suggestedMoves: z
+      .array(
+        z
+          .object({
+            title: z.string().trim().min(1).max(120),
+            rationale: z.string().max(280).nullish(),
+          })
+          .strict()
+      )
+      .max(4)
+      .optional(),
   })
   .strict();
 
@@ -53,7 +74,13 @@ const RouteWaypoint = z
  * text plus optional coordinates. Documents are plain text, used for one request and never stored.
  */
 const ChartReferenceSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('photo'), assetId: z.string().uuid(), role: z.enum(['start', 'extra']).default('extra') }).strict(),
+  z
+    .object({
+      kind: z.literal('photo'),
+      assetId: z.string().uuid(),
+      role: z.enum(['start', 'extra']).default('extra'),
+    })
+    .strict(),
   z
     .object({
       kind: z.literal('place'),
@@ -62,7 +89,13 @@ const ChartReferenceSchema = z.discriminatedUnion('kind', [
       longitude: z.number().min(-180).max(180).optional(),
     })
     .strict(),
-  z.object({ kind: z.literal('document'), name: z.string().trim().min(1).max(80), text: z.string().trim().min(1).max(6000) }).strict(),
+  z
+    .object({
+      kind: z.literal('document'),
+      name: z.string().trim().min(1).max(80),
+      text: z.string().trim().min(1).max(6000),
+    })
+    .strict(),
 ]);
 
 const PlanSchema = z
@@ -73,22 +106,31 @@ const PlanSchema = z
     destinationDescription: z.string().max(500).nullish(),
     followUp: z
       // The answer may be empty when a reference answers the question instead.
-      .object({ question: z.string().min(1).max(200), answer: z.string().trim().max(500).default('') })
+      .object({
+        question: z.string().min(1).max(200),
+        answer: z.string().trim().max(500).default(''),
+      })
       .strict()
       .nullish(),
     references: z.array(ChartReferenceSchema).max(4).nullish(),
   })
   .strict()
-  .refine(value => !value.followUp || value.followUp.answer.length > 0 || (value.references?.length ?? 0) > 0, {
-    message: 'A follow-up needs an answer or a reference',
-    path: ['followUp'],
-  });
+  .refine(
+    value =>
+      !value.followUp || value.followUp.answer.length > 0 || (value.references?.length ?? 0) > 0,
+    {
+      message: 'A follow-up needs an answer or a reference',
+      path: ['followUp'],
+    }
+  );
 
 const AdjustSchema = z
   .object({
     idempotencyKey: IdempotencyKey,
     reason: z.enum([
-      'SMALLER_STEPS', 'STARTING_FROM_ZERO', 'CHANGE_APPROACH',
+      'SMALLER_STEPS',
+      'STARTING_FROM_ZERO',
+      'CHANGE_APPROACH',
       'TOO_MANY_STEPS',
       'TOO_FEW_STEPS',
       'DIFFERENT_MILESTONES',
@@ -139,9 +181,15 @@ const CreateSchema = z
     proposalId: Id.nullish(),
     routeScope: z.enum(['DESTINATION', 'NEXT_STRETCH']).optional(),
     complexity: z.enum(['SIMPLE', 'MODERATE', 'COMPLEX']).nullish(),
-    waypoints: z.array(RouteWaypoint.omit({ id: true })).min(1).max(12),
+    waypoints: z
+      .array(RouteWaypoint.omit({ id: true }))
+      .min(1)
+      .max(12),
     oneMove: z
-      .object({ title: z.string().trim().min(1).max(120), rationale: z.string().max(280).nullish() })
+      .object({
+        title: z.string().trim().min(1).max(120),
+        rationale: z.string().max(280).nullish(),
+      })
       .strict()
       .nullish(),
   })
@@ -156,7 +204,13 @@ const ApplyRouteSchema = z
     proposalId: Id.nullish(),
     adjustmentReason: z.string().max(32).nullish(),
     routeScope: z.enum(['DESTINATION', 'NEXT_STRETCH']).optional(),
-    oneMove: z.object({ title: z.string().trim().min(1).max(120), rationale: z.string().max(280).nullish() }).strict().nullish(),
+    oneMove: z
+      .object({
+        title: z.string().trim().min(1).max(120),
+        rationale: z.string().max(280).nullish(),
+      })
+      .strict()
+      .nullish(),
     confirmRewrite: z.boolean().optional(),
   })
   .strict();
@@ -181,18 +235,28 @@ const UpdateMoveSchema = z
   .strict();
 
 const ProgressSchema = z
-  .object({ expectedCourseVersion: CourseVersion, metricCurrent: MetricNumber.nullable().optional(), requirementId: z.string().min(1).max(80).optional(), completed: z.boolean().optional() })
+  .object({
+    expectedCourseVersion: CourseVersion,
+    metricCurrent: MetricNumber.nullable().optional(),
+    requirementId: z.string().min(1).max(80).optional(),
+    completed: z.boolean().optional(),
+  })
   .strict()
-  .refine(v => (v.metricCurrent !== undefined) !== (v.requirementId !== undefined && v.completed !== undefined), { message: 'Provide a numeric value or a checklist item update' });
+  .refine(
+    v =>
+      (v.metricCurrent !== undefined) !==
+      (v.requirementId !== undefined && v.completed !== undefined),
+    { message: 'Provide a numeric value or a checklist item update' }
+  );
 
-const ArchiveDeleteSchema = z
-  .object({ expectedCourseVersion: CourseVersion.optional() })
-  .strict();
+const ArchiveDeleteSchema = z.object({ expectedCourseVersion: CourseVersion.optional() }).strict();
 
 function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) {
-    const message = result.error.errors.map(error => `${error.path.join('.')}: ${error.message}`).join(', ');
+    const message = result.error.errors
+      .map(error => `${error.path.join('.')}: ${error.message}`)
+      .join(', ');
     throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
   }
   return result.data;
@@ -207,7 +271,10 @@ async function readUser(req: AuthRequest): Promise<string> {
 async function writeUser(req: AuthRequest): Promise<string> {
   requireChartWriteEnabled();
   const userId = await getAuthenticatedUserId(req);
-  await prisma.user.updateMany({ where: { id: userId, chartSchemaVersion: { not: 1 } }, data: { chartSchemaVersion: 1 } });
+  await prisma.user.updateMany({
+    where: { id: userId, chartSchemaVersion: { not: 1 } },
+    data: { chartSchemaVersion: 1 },
+  });
   return userId;
 }
 
@@ -239,7 +306,10 @@ router.get(
   '/anchors/:anchorId/chart',
   handle(async (req, res) => {
     const userId = await readUser(req);
-    res.json({ success: true, data: await chartService.getChartForAnchor(userId, req.params.anchorId) });
+    res.json({
+      success: true,
+      data: await chartService.getChartForAnchor(userId, req.params.anchorId),
+    });
   })
 );
 
@@ -252,7 +322,10 @@ router.post(
     await requireChartCreationAccess(req);
     const userId = await writeUser(req);
     const body = validate(PlanSchema, req.body);
-    const requestId = (req.headers['x-request-id'] as string) || (req.headers['x-correlation-id'] as string) || undefined;
+    const requestId =
+      (req.headers['x-request-id'] as string) ||
+      (req.headers['x-correlation-id'] as string) ||
+      undefined;
     const result = await chartPlannerService.generate(userId, {
       anchorId: req.params.anchorId,
       idempotencyKey: body.idempotencyKey,
@@ -319,7 +392,8 @@ router.get(
   handle(async (req, res) => {
     const userId = await readUser(req);
     const proposal = await chartPlannerService.get(userId, req.params.proposalId);
-    if (proposal.courseId !== req.params.courseId) throw new AppError('Proposal is unavailable', 404, 'PROPOSAL_UNAVAILABLE');
+    if (proposal.courseId !== req.params.courseId)
+      throw new AppError('Proposal is unavailable', 404, 'PROPOSAL_UNAVAILABLE');
     res.json({ success: true, data: proposal });
   })
 );
@@ -329,7 +403,10 @@ router.put(
   handle(async (req, res) => {
     const userId = await writeUser(req);
     const body = validate(ApplyRouteSchema, req.body);
-    res.json({ success: true, data: await chartService.applyRoute(userId, req.params.courseId, body) });
+    res.json({
+      success: true,
+      data: await chartService.applyRoute(userId, req.params.courseId, body),
+    });
   })
 );
 
@@ -403,7 +480,12 @@ router.patch(
     const body = validate(ProgressSchema, req.body);
     res.json({
       success: true,
-      data: await chartService.updateWaypointProgress(userId, req.params.courseId, req.params.waypointId, body),
+      data: await chartService.updateWaypointProgress(
+        userId,
+        req.params.courseId,
+        req.params.waypointId,
+        body
+      ),
     });
   })
 );
@@ -412,10 +494,15 @@ router.post(
   '/charts/:courseId/archive',
   handle(async (req, res) => {
     const userId = await writeUser(req);
-    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    const body =
+      req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
     res.json({
       success: true,
-      data: await chartService.archiveChart(userId, { courseId: req.params.courseId }, body.expectedCourseVersion),
+      data: await chartService.archiveChart(
+        userId,
+        { courseId: req.params.courseId },
+        body.expectedCourseVersion
+      ),
     });
   })
 );
@@ -424,10 +511,15 @@ router.delete(
   '/charts/:courseId',
   handle(async (req, res) => {
     const userId = await writeUser(req);
-    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    const body =
+      req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
     res.json({
       success: true,
-      data: await chartService.deleteChart(userId, { courseId: req.params.courseId }, body.expectedCourseVersion),
+      data: await chartService.deleteChart(
+        userId,
+        { courseId: req.params.courseId },
+        body.expectedCourseVersion
+      ),
     });
   })
 );
@@ -436,10 +528,15 @@ router.post(
   '/anchors/:anchorId/chart/archive',
   handle(async (req, res) => {
     const userId = await writeUser(req);
-    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    const body =
+      req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
     res.json({
       success: true,
-      data: await chartService.archiveChart(userId, { anchorId: req.params.anchorId }, body.expectedCourseVersion),
+      data: await chartService.archiveChart(
+        userId,
+        { anchorId: req.params.anchorId },
+        body.expectedCourseVersion
+      ),
     });
   })
 );
@@ -448,10 +545,15 @@ router.delete(
   '/anchors/:anchorId/chart',
   handle(async (req, res) => {
     const userId = await writeUser(req);
-    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    const body =
+      req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
     res.json({
       success: true,
-      data: await chartService.deleteChart(userId, { anchorId: req.params.anchorId }, body.expectedCourseVersion),
+      data: await chartService.deleteChart(
+        userId,
+        { anchorId: req.params.anchorId },
+        body.expectedCourseVersion
+      ),
     });
   })
 );

@@ -369,15 +369,24 @@ router.patch('/visions/:visionId', async (req: AuthRequest, res: Response, next:
   }
 });
 
-router.put('/visions/:visionId/scenes/slots', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const visionId = z.string().uuid().parse(req.params.visionId);
-    const input = validateBody(UpdateVisionSceneSlotsSchema, req.body);
-    const result = await visionService.updateSceneSlots(await getAuthenticatedUserId(req), visionId, input,
-      (req.headers['x-timezone'] as string) || 'UTC');
-    res.json({ success: true, data: result });
-  } catch (error) { next(error); }
-});
+router.put(
+  '/visions/:visionId/scenes/slots',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const visionId = z.string().uuid().parse(req.params.visionId);
+      const input = validateBody(UpdateVisionSceneSlotsSchema, req.body);
+      const result = await visionService.updateSceneSlots(
+        await getAuthenticatedUserId(req),
+        visionId,
+        input,
+        (req.headers['x-timezone'] as string) || 'UTC'
+      );
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.delete('/visions/:visionId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

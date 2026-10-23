@@ -222,7 +222,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'ember_umber',
         label: 'Ember and umber',
         fieldValue: 'dark',
-        field: 'dark umber pile warming into a soft ember-orange concentration toward the perimeter',
+        field:
+          'dark umber pile warming into a soft ember-orange concentration toward the perimeter',
         anchorTone: 'pale warm cream',
         anchorValue: 'light',
       },
@@ -235,23 +236,34 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'dark',
       },
     ],
-    materialVariants: ['cotton velvet', 'suede-like brushed leather-free pile', 'dense short-nap velour'],
+    materialVariants: [
+      'cotton velvet',
+      'suede-like brushed leather-free pile',
+      'dense short-nap velour',
+    ],
     materialBehavior: 'soft matte pile with a subtle directional nap and broad tonal variation',
     anchorRendering:
       'the structure reads as a pressed, flattened channel in the pile or as a contrasting short-pile band, with the same soft matte nap as the field, never as a raised metallic or glossy line',
-    styleNativeMotifs: ['pile direction shifts', 'soft pigment pooling', 'broad tonal clouds in the nap'],
+    styleNativeMotifs: [
+      'pile direction shifts',
+      'soft pigment pooling',
+      'broad tonal clouds in the nap',
+    ],
     legibilityRule:
       'keep nap direction changes and pigment concentration low contrast behind the geometry; let the richest tonal depth gather toward the perimeter',
-    categoryInfluence: 'category and intention may shift pigment temperature, how much ember concentrates, and tonal pressure toward the edges',
+    categoryInfluence:
+      'category and intention may shift pigment temperature, how much ember concentrates, and tonal pressure toward the edges',
     visualLanguage: {
       coreArtWorld:
         'A rich tactile velvet world: dense soft pile, subtle directional nap and deep warm pigment that pools like embers without any fire.',
       primaryMedium: 'dyed velvet or suede-like pile fabric',
       substrate: 'the pile surface itself, filling the entire canvas edge to edge',
       edgeBehavior: 'soft, pile-feathered transitions with no hard cut lines',
-      lightBehavior: 'low, diffuse light that rolls across the nap; matte, with no specular streaks',
+      lightBehavior:
+        'low, diffuse light that rolls across the nap; matte, with no specular streaks',
       textureLogic: 'fine dense pile with gentle directional brushing and broad tonal variation',
-      depthLogic: 'depth comes from pile direction and tonal pooling, never from folds or dimensional objects',
+      depthLogic:
+        'depth comes from pile direction and tonal pooling, never from folds or dimensional objects',
       ornamentSystem: 'no ornament; the pile and its pigment are the whole composition',
       shouldFeelLike: 'touching dark velvet in a warm room: tactile, intimate, dramatic',
       mustNotFeelLike: 'fire art, metallic foil, glossy satin, a cosmic scene or draped cloth',
@@ -336,17 +348,24 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialBehavior: 'smooth translucent forms with broad refractive colour transitions',
     anchorRendering:
       'the structure reads as a dense, saturated gel-like band whose colour is a single deep or pale tone chosen for contrast, with smooth soft edges and no glassy highlights',
-    styleNativeMotifs: ['broad spectral sweeps', 'overlapping translucent layers', 'soft refractive fades'],
+    styleNativeMotifs: [
+      'broad spectral sweeps',
+      'overlapping translucent layers',
+      'soft refractive fades',
+    ],
     legibilityRule:
       'keep optical transitions broad and slow behind the geometry so no colour boundary cuts across a stroke; concentrate vivid spectral shifts toward the perimeter',
-    categoryInfluence: 'category and intention may steer which spectral range flows and how fast the colour moves',
+    categoryInfluence:
+      'category and intention may steer which spectral range flows and how fast the colour moves',
     visualLanguage: {
       coreArtWorld:
         'A translucent optical world: smooth gel-like forms and spectral colour that flows and refracts, playful and contemporary.',
       primaryMedium: 'layered translucent gel and refracted colour',
-      substrate: 'a continuous field of overlapping translucent colour filling the canvas edge to edge',
+      substrate:
+        'a continuous field of overlapping translucent colour filling the canvas edge to edge',
       edgeBehavior: 'soft, smoothly blended boundaries between colour layers',
-      lightBehavior: 'broad even light passing through the layers; restrained, soft highlights only',
+      lightBehavior:
+        'broad even light passing through the layers; restrained, soft highlights only',
       textureLogic: 'smooth and seamless; no grain, no cellular pattern',
       depthLogic: 'depth from overlapping translucent layers, never from bevels or hard shadows',
       ornamentSystem: 'no ornament; the colour flow is the composition',
@@ -439,7 +458,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'dusk_lift',
         label: 'Lifted dusk',
         fieldValue: 'mixed',
-        field: 'deep indigo-black lifting softly toward a broad, hazy dusk-rose glow along one side, graded without any visible light source or shape',
+        field:
+          'deep indigo-black lifting softly toward a broad, hazy dusk-rose glow along one side, graded without any visible light source or shape',
         anchorTone: 'pale warm cream',
         anchorValue: 'light',
       },
@@ -447,19 +467,25 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'teal_lift',
         label: 'Lifted cold teal',
         fieldValue: 'mixed',
-        field: 'near-black blue lifting softly toward a wide, hazy cold-teal and slate-blue glow across the lower field, graded without any visible light source or shape',
+        field:
+          'near-black blue lifting softly toward a wide, hazy cold-teal and slate-blue glow across the lower field, graded without any visible light source or shape',
         anchorTone: 'pale ice-white',
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['matte velvet-dark atmospheric wash', 'soft airbrushed depth', 'deep pigment haze'],
+    materialVariants: [
+      'matte velvet-dark atmospheric wash',
+      'soft airbrushed depth',
+      'deep pigment haze',
+    ],
     materialBehavior: 'soft matte atmospheric depth with very sparse, soft stellar texture',
     anchorRendering:
       'the structure reads as a fine continuous filament of pale pigment lit from within, even and steady in weight, with the same soft stellar grain running through the line as through the field and a faint, tight halo of light along its edges; never as glowing particles, a trail or a portal',
     styleNativeMotifs: ['soft depth gradation', 'a few distant soft points of light'],
     legibilityRule:
       'star and speckle density must thin to nothing around the geometry; keep every point of light soft and small, gathered toward the perimeter',
-    categoryInfluence: 'category and intention may shift the hue of the depth and how much stellar texture gathers at the edges',
+    categoryInfluence:
+      'category and intention may shift the hue of the depth and how much stellar texture gathers at the edges',
     visualLanguage: {
       coreArtWorld:
         'The feeling of deep space as a quiet atmospheric colour field: vast, dark and softly graded, with only sparse soft stellar texture.',
@@ -471,7 +497,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       depthLogic: 'depth from slow tonal gradation across the whole field',
       ornamentSystem: 'no ornament; only sparse soft stellar texture near the perimeter',
       shouldFeelLike: 'standing in a quiet dark sky: vast, calm, deep',
-      mustNotFeelLike: 'an astronomy poster, a nebula photograph, a zodiac chart or a sci-fi screen',
+      mustNotFeelLike:
+        'an astronomy poster, a nebula photograph, a zodiac chart or a sci-fi screen',
       crossStyleAvoidances: [
         'no literal astronomy',
         'no mystical circles or portals',
@@ -528,7 +555,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'chalk_ground',
         label: 'Chalk ground, bright pigment',
         fieldValue: 'light',
-        field: 'warm chalk-white primed ground with bright gestural pigment gathered toward the perimeter',
+        field:
+          'warm chalk-white primed ground with bright gestural pigment gathered toward the perimeter',
         anchorTone: 'deep ink-navy',
         anchorValue: 'dark',
       },
@@ -536,7 +564,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'saturated_field',
         label: 'Saturated painted field',
         fieldValue: 'mixed',
-        field: 'broad saturated brush passages with a calmer, quieter tonal zone through the middle',
+        field:
+          'broad saturated brush passages with a calmer, quieter tonal zone through the middle',
         anchorTone: 'deep ink-black',
         anchorValue: 'dark',
       },
@@ -553,10 +582,15 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialBehavior: 'matte hand-applied pigment with visible brush direction and honest edges',
     anchorRendering:
       'the structure reads as a confident, even brush-laid line of a single contrasting pigment, hand-painted yet following the supplied geometry exactly',
-    styleNativeMotifs: ['broad brush sweeps', 'loaded-brush edges', 'dry-brush drags at the perimeter'],
+    styleNativeMotifs: [
+      'broad brush sweeps',
+      'loaded-brush edges',
+      'dry-brush drags at the perimeter',
+    ],
     legibilityRule:
       'keep major gestural activity at the perimeter and calm the brushwork across the geometry footprint; no stroke should read as part of the Anchor',
-    categoryInfluence: 'category and intention may steer palette temperature, stroke energy and how the gestures cluster',
+    categoryInfluence:
+      'category and intention may steer palette temperature, stroke energy and how the gestures cluster',
     visualLanguage: {
       coreArtWorld:
         'An expressive painted world: spontaneous, joyful brushwork with real pigment, composed so the energy lives at the edges.',
@@ -657,14 +691,23 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['bone-white porcelain', 'soft-fired celadon stoneware glaze', 'satin-glazed ceramic'],
-    materialBehavior: 'smooth glaze with a soft satin sheen and a few fine, restrained crackle lines',
+    materialVariants: [
+      'bone-white porcelain',
+      'soft-fired celadon stoneware glaze',
+      'satin-glazed ceramic',
+    ],
+    materialBehavior:
+      'smooth glaze with a soft satin sheen and a few fine, restrained crackle lines',
     anchorRendering:
       'the structure reads as a glazed inlay: a fine channel set into the porcelain and filled with contrasting glaze or underglaze pigment, smooth and even, with a thin pale glaze rim along both edges and the same soft sheen as the field; the line is part of the ceramic, never drawn on top of it',
-    styleNativeMotifs: ['soft glaze pooling at the perimeter', 'a few restrained crackle lines near the edges'],
+    styleNativeMotifs: [
+      'soft glaze pooling at the perimeter',
+      'a few restrained crackle lines near the edges',
+    ],
     legibilityRule:
       'crackle must soften and clear behind the geometry; keep any crackle at the perimeter and fine, never crossing a stroke',
-    categoryInfluence: 'category and intention may shift glaze warmth and how much crackle gathers at the edges',
+    categoryInfluence:
+      'category and intention may shift glaze warmth and how much crackle gathers at the edges',
     visualLanguage: {
       coreArtWorld:
         'A real glazed porcelain world: smooth, softly lustrous ceramic with the faintest restrained crackle at its edges.',
@@ -672,7 +715,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       substrate: 'a continuous glazed ceramic surface filling the canvas edge to edge',
       edgeBehavior: 'soft glaze pooling and gentle tonal shifts; no chips or breaks',
       lightBehavior: 'soft broad daylight with a gentle satin sheen and no hard highlights',
-      textureLogic: 'smooth fine glaze with very sparse, hairline-fine crackle only near the perimeter',
+      textureLogic:
+        'smooth fine glaze with very sparse, hairline-fine crackle only near the perimeter',
       depthLogic: 'depth from glaze thickness and gentle pooling',
       ornamentSystem: 'no ornament; the glaze and its restrained crackle are the composition',
       shouldFeelLike: 'holding a piece of fine porcelain: quiet, smooth, cool to the touch',
@@ -765,7 +809,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     styleNativeMotifs: ['gentle yarn irregularity', 'slight tonal variation in the fibre'],
     legibilityRule:
       'the weave must be fine and even enough that it never reads as a competing line pattern; keep the weave scale uniform behind the geometry',
-    categoryInfluence: 'category and intention may shift the fabric colour and how much yarn irregularity appears',
+    categoryInfluence:
+      'category and intention may shift the fabric colour and how much yarn irregularity appears',
     visualLanguage: {
       coreArtWorld:
         'A simple honest textile world: a fine, flat woven fabric surface, with nothing cinematic added to it.',
@@ -777,7 +822,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       depthLogic: 'shallow; the flat cloth lies flat with only fibre-level relief',
       ornamentSystem: 'no ornament; the cloth itself is the composition',
       shouldFeelLike: 'a piece of good linen or cotton laid flat',
-      mustNotFeelLike: 'embroidery art, draped fabric, plaid, a quilt, leather or glossy synthetic cloth',
+      mustNotFeelLike:
+        'embroidery art, draped fabric, plaid, a quilt, leather or glossy synthetic cloth',
       crossStyleAvoidances: [
         'no felt fuzz from Plush',
         'no paper fibre from Paper',
@@ -869,14 +915,20 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'dark',
       },
     ],
-    materialVariants: ['cotton rag paper', 'kraft paper', 'washi paper', 'handmade paper with sparse inclusions'],
+    materialVariants: [
+      'cotton rag paper',
+      'kraft paper',
+      'washi paper',
+      'handmade paper with sparse inclusions',
+    ],
     materialBehavior: 'matte paper with fine fibre tooth and sparse, low-contrast inclusions',
     anchorRendering:
       'the structure reads as a strip of contrasting paper inlaid into the sheet along the supplied geometry exactly, with a soft hand-torn edge where its fibres show, matte and even in weight, set flush with the surface and casting no shadow',
     styleNativeMotifs: ['sparse pale fibres', 'faint tonal clouding of the paper'],
     legibilityRule:
       'paper fibres and inclusions remain low contrast and short around the geometry; no fibre may read as a competing line',
-    categoryInfluence: 'category and intention may shift paper tone and how many inclusions gather near the edge',
+    categoryInfluence:
+      'category and intention may shift paper tone and how many inclusions gather near the edge',
     visualLanguage: {
       coreArtWorld:
         'A tactile paper world: real matte paper with fine fibre character and quiet tonal variation, edge to edge.',
@@ -970,14 +1022,20 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['limewash plaster', 'clay slip', 'pressed ochre pigment', 'powdered sandstone'],
+    materialVariants: [
+      'limewash plaster',
+      'clay slip',
+      'pressed ochre pigment',
+      'powdered sandstone',
+    ],
     materialBehavior: 'dry, dense, matte, powdery surface with broad soft tonal clouding',
     anchorRendering:
       'the structure reads as a line of pressed contrasting pigment or slip, dry and matte with softly powdery edges, following the supplied geometry exactly',
     styleNativeMotifs: ['broad powdery tonal clouds', 'soft pigment pooling toward the perimeter'],
     legibilityRule:
       'use broad tonal clouding rather than tiny noisy speckle; keep tonal clouds soft and low contrast behind the geometry',
-    categoryInfluence: 'category and intention may shift the mineral palette and how dense the clouding is toward the edges',
+    categoryInfluence:
+      'category and intention may shift the mineral palette and how dense the clouding is toward the edges',
     visualLanguage: {
       coreArtWorld:
         'A dry mineral world: compressed pigment, limewash and clay slip, dense and powdery with broad soft tonal clouds.',
@@ -1040,7 +1098,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'warm_primary',
         label: 'Warm primary',
         fieldValue: 'mixed',
-        field: 'cream ground with a few large warm red, golden and blue shapes pushed toward the perimeter',
+        field:
+          'cream ground with a few large warm red, golden and blue shapes pushed toward the perimeter',
         anchorTone: 'deep ink-navy',
         anchorValue: 'dark',
       },
@@ -1069,26 +1128,37 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['screen-printed ink on matte stock', 'cut-colour print', 'offset print with soft grain'],
+    materialVariants: [
+      'screen-printed ink on matte stock',
+      'cut-colour print',
+      'offset print with soft grain',
+    ],
     materialBehavior: 'flat matte colour with a fine print grain and slight ink irregularity',
     anchorRendering:
       'the structure reads as a flat, even-weight printed line of one contrasting ink, with the same fine print grain as the field',
-    styleNativeMotifs: ['few large flat shapes', 'soft print grain', 'quiet overlaps of two shapes'],
+    styleNativeMotifs: [
+      'few large flat shapes',
+      'soft print grain',
+      'quiet overlaps of two shapes',
+    ],
     legibilityRule:
       'use fewer, larger forms and keep shape edges and value jumps away from the geometry footprint; let shapes sit mostly toward the perimeter',
-    categoryInfluence: 'category and intention may steer the colour logic and how large or crowded the shapes feel',
+    categoryInfluence:
+      'category and intention may steer the colour logic and how large or crowded the shapes feel',
     visualLanguage: {
       coreArtWorld:
         'An original flat print world: a few large confident shapes in matte colour with a fine print grain, composed with restraint.',
       primaryMedium: 'flat printed ink colour',
       substrate: 'matte printing stock filling the canvas edge to edge',
-      edgeBehavior: 'clean but slightly imperfect printed edges that stay away from the Anchor footprint',
+      edgeBehavior:
+        'clean but slightly imperfect printed edges that stay away from the Anchor footprint',
       lightBehavior: 'flat even light; no shading, no gloss',
       textureLogic: 'fine print grain and slight ink irregularity',
       depthLogic: 'flat; depth only from two shapes overlapping',
       ornamentSystem: 'a handful of large abstract shapes; no icons, no pattern',
       shouldFeelLike: 'a well-made original print: bold, flat, confident',
-      mustNotFeelLike: 'a known painting, a logo, an icon set, an optical pattern or a poster of tiny shapes',
+      mustNotFeelLike:
+        'a known painting, a logo, an icon set, an optical pattern or a poster of tiny shapes',
       crossStyleAvoidances: [
         'no gestural brushwork from Joybrush',
         'no tattoo-flash outlines from Flash',
@@ -1196,18 +1266,27 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       },
     ],
     materialVariants: ['wool felt', 'thick craft felt', 'soft needle-felted wool'],
-    materialBehavior: 'matte wool felt with a fine fuzzy fibre surface and shallow puffy forms; no weave',
+    materialBehavior:
+      'matte wool felt with a fine fuzzy fibre surface and shallow puffy forms; no weave',
     anchorRendering:
       'the structure reads as a chunky strip of deep felt laid flat onto the felt ground with softly rounded edges, following the supplied geometry exactly; no stitching crosses it',
-    styleNativeMotifs: ['soft felt blobs', 'felt clouds', 'simple felt flowers', 'rounded felt stars', 'tiny felt dots'],
+    styleNativeMotifs: [
+      'soft felt blobs',
+      'felt clouds',
+      'simple felt flowers',
+      'rounded felt stars',
+      'tiny felt dots',
+    ],
     legibilityRule:
       'keep felt forms and dots toward the perimeter and away from the geometry footprint; forms never overlap or touch the structure',
-    categoryInfluence: 'category and intention may shift which pastel leads and how many felt forms appear; the result stays cute and light',
+    categoryInfluence:
+      'category and intention may shift which pastel leads and how many felt forms appear; the result stays cute and light',
     visualLanguage: {
       coreArtWorld:
         'A cute plush felt world: matte wool-felt ground and chunky soft felt appliqué forms, cheerful and handmade.',
       primaryMedium: 'wool-felt appliqué',
-      substrate: 'a flat matte wool-felt sheet filling the canvas edge to edge, with no visible weave',
+      substrate:
+        'a flat matte wool-felt sheet filling the canvas edge to edge, with no visible weave',
       edgeBehavior: 'soft, rounded, slightly wobbly cut edges with a gentle fuzz',
       lightBehavior: 'soft even light; fully matte, no sheen',
       textureLogic: 'fine fuzzy wool fibres, no weave, shallow puffiness on the forms',
@@ -1297,26 +1376,39 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'dark',
       },
     ],
-    materialVariants: ['mounted herbarium sheet', 'pressed specimens under a thin paper sheet', 'dried specimens on cotton paper'],
+    materialVariants: [
+      'mounted herbarium sheet',
+      'pressed specimens under a thin paper sheet',
+      'dried specimens on cotton paper',
+    ],
     materialBehavior: 'flattened, slightly translucent plant matter pressed flat on matte paper',
     anchorRendering:
       'the structure reads as a narrow strip of aged linen mounting tape laid flat onto the paper, as a herbarium sheet is mounted: matte, even in weight, with visible linen fibre and soft frayed edges, clearly separate from every specimen and following the supplied geometry exactly',
-    styleNativeMotifs: ['pressed fern fronds', 'ginkgo leaves', 'eucalyptus sprigs', 'grass seed heads', 'dried lavender'],
+    styleNativeMotifs: [
+      'pressed fern fronds',
+      'ginkgo leaves',
+      'eucalyptus sprigs',
+      'grass seed heads',
+      'dried lavender',
+    ],
     legibilityRule:
       'thin stems and veins must stay away from or soften behind the geometry strokes; place specimens toward the perimeter and keep any veins pale and short near the structure',
-    categoryInfluence: 'category and intention may steer the expression (soft, calm or grounded) and how many specimens gather at the edges',
+    categoryInfluence:
+      'category and intention may steer the expression (soft, calm or grounded) and how many specimens gather at the edges',
     visualLanguage: {
       coreArtWorld:
         'A quiet herbarium world: real pressed specimens, flattened and slightly translucent, resting on matte paper.',
       primaryMedium: 'pressed dried plant specimens on paper',
       substrate: 'a matte herbarium paper sheet filling the canvas edge to edge',
-      edgeBehavior: 'specimens rest naturally with irregular, observed edges; nothing is cut into shapes',
+      edgeBehavior:
+        'specimens rest naturally with irregular, observed edges; nothing is cut into shapes',
       lightBehavior: 'soft even daylight, as if photographed flat; matte',
       textureLogic: 'fine paper tooth with the faint translucent texture of pressed leaves',
       depthLogic: 'shallow; specimens lie flat and slightly translucent against the sheet',
       ornamentSystem: 'a small number of believable specimens placed toward the edges',
       shouldFeelLike: 'a page from a naturalist’s herbarium: observed, quiet, real',
-      mustNotFeelLike: 'boho wallpaper, clip art, a wreath, a botanical illustration or a cartoon garden',
+      mustNotFeelLike:
+        'boho wallpaper, clip art, a wreath, a botanical illustration or a cartoon garden',
       crossStyleAvoidances: [
         'no illustrated watercolor washes',
         'no mounted-card labels or captions',
@@ -1397,14 +1489,25 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['fine brushed metal', 'patinated copper', 'matte gunmetal', 'heat-treated metal'],
-    materialBehavior: 'satin or matte machined metal with fine, directional, low-contrast treatment',
+    materialVariants: [
+      'fine brushed metal',
+      'patinated copper',
+      'matte gunmetal',
+      'heat-treated metal',
+    ],
+    materialBehavior:
+      'satin or matte machined metal with fine, directional, low-contrast treatment',
     anchorRendering:
       'the structure reads as a contrasting finish on the same sheet, such as polished against brushed or oxidized against bare, with the same soft satin character and no engraving depth',
-    styleNativeMotifs: ['fine directional brushing', 'soft broad light falloff', 'gentle patina clouds toward the perimeter'],
+    styleNativeMotifs: [
+      'fine directional brushing',
+      'soft broad light falloff',
+      'gentle patina clouds toward the perimeter',
+    ],
     legibilityRule:
       'keep brushing fine and uniform behind the geometry, with no specular streaks or engraving crossing a stroke; patina and heat colour belong toward the perimeter',
-    categoryInfluence: 'category and intention may shift the metal type and how much patina or heat colour appears at the edges',
+    categoryInfluence:
+      'category and intention may shift the metal type and how much patina or heat colour appears at the edges',
     visualLanguage: {
       coreArtWorld:
         'A worked-metal world: a machined satin or matte metal sheet with fine treatment and soft broad light.',
@@ -1412,7 +1515,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       substrate: 'a continuous metal sheet filling the canvas edge to edge',
       edgeBehavior: 'no edges; the sheet continues to the borders',
       lightBehavior: 'soft broad light with gentle falloff; no mirror highlights, no hard streaks',
-      textureLogic: 'fine brushed or finely worked surface, smooth and low contrast; never crinkled or crystalline',
+      textureLogic:
+        'fine brushed or finely worked surface, smooth and low contrast; never crinkled or crystalline',
       depthLogic: 'shallow; the flat sheet shows only fine surface relief',
       ornamentSystem: 'no ornament; the metal and its finish are the composition',
       shouldFeelLike: 'a well-made metal panel: cool, precise, matte',
@@ -1493,14 +1597,20 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['gold leaf on lacquer', 'silver leaf on lacquer', 'lightly tarnished leaf on lacquer'],
-    materialBehavior: 'smooth satin-matte lacquer ground with thin applied leaf in soft, broken, peripheral patches',
+    materialVariants: [
+      'gold leaf on lacquer',
+      'silver leaf on lacquer',
+      'lightly tarnished leaf on lacquer',
+    ],
+    materialBehavior:
+      'smooth satin-matte lacquer ground with thin applied leaf in soft, broken, peripheral patches',
     anchorRendering:
       'the structure reads as a fine line of burnished gilding set into the lacquer: a smooth, even channel of bright satin leaf in a tone that contrasts with the ground, sharp-edged and never flaking, crinkled or covered by loose leaf, following the supplied geometry exactly',
     styleNativeMotifs: ['soft-edged leaf patches at the perimeter', 'faint leaf tarnish'],
     legibilityRule:
       'keep the ground smooth and clear around the geometry; loose leaf patches stay peripheral and never cross, touch or flake over a stroke (the gilded structure itself is the only leaf near the geometry)',
-    categoryInfluence: 'category and intention may shift the lacquer colour, the leaf metal and how far the leaf reaches inward',
+    categoryInfluence:
+      'category and intention may shift the lacquer colour, the leaf metal and how far the leaf reaches inward',
     visualLanguage: {
       coreArtWorld:
         'A leaf-on-lacquer world: a smooth satin-matte lacquer ground with thin metal leaf laid on it toward the edges.',
@@ -1508,7 +1618,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       substrate: 'a smooth satin-matte lacquer ground filling the canvas edge to edge',
       edgeBehavior: 'leaf patches have soft, slightly broken, hand-laid edges',
       lightBehavior: 'soft broad light; the leaf glows softly, never sparkles',
-      textureLogic: 'smooth ground; the leaf has a fine, soft, low-contrast broken texture only at the perimeter',
+      textureLogic:
+        'smooth ground; the leaf has a fine, soft, low-contrast broken texture only at the perimeter',
       depthLogic: 'shallow; the leaf is a thin layer above the ground',
       ornamentSystem: 'no ornament; leaf placement at the perimeter is the whole decoration',
       shouldFeelLike: 'lacquerware with hand-applied leaf: calm, rich, quiet',
@@ -1568,7 +1679,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'classic_colour',
         label: 'Classic colour flash',
         fieldValue: 'light',
-        field: 'aged cream flash paper with bold red, teal and golden-yellow inked forms toward the edges',
+        field:
+          'aged cream flash paper with bold red, teal and golden-yellow inked forms toward the edges',
         anchorTone: 'deep black-brown ink',
         anchorValue: 'dark',
       },
@@ -1576,7 +1688,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'blackwork',
         label: 'Blackwork',
         fieldValue: 'light',
-        field: 'bone flash paper with black filled shapes, rays and dotwork gathered toward the edges',
+        field:
+          'bone flash paper with black filled shapes, rays and dotwork gathered toward the edges',
         anchorTone: 'deep black ink with a calm clear paper zone around it',
         anchorValue: 'dark',
       },
@@ -1592,7 +1705,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'cobalt_blue',
         label: 'Cobalt blue flash',
         fieldValue: 'light',
-        field: 'cool pale-blue flash paper with bold cobalt and ultramarine forms, small cream highlights and restrained charcoal accents',
+        field:
+          'cool pale-blue flash paper with bold cobalt and ultramarine forms, small cream highlights and restrained charcoal accents',
         anchorTone: 'deep navy ink',
         anchorValue: 'dark',
       },
@@ -1600,7 +1714,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'ember_orange',
         label: 'Ember orange flash',
         fieldValue: 'light',
-        field: 'warm ivory flash paper with vivid burnt-orange and vermilion forms, touches of deep blue and matte charcoal',
+        field:
+          'warm ivory flash paper with vivid burnt-orange and vermilion forms, touches of deep blue and matte charcoal',
         anchorTone: 'deep charcoal ink',
         anchorValue: 'dark',
       },
@@ -1608,7 +1723,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'marigold_yellow',
         label: 'Marigold yellow flash',
         fieldValue: 'light',
-        field: 'soft butter-yellow flash paper with saturated marigold and lemon-yellow forms, balanced by indigo and dark umber accents',
+        field:
+          'soft butter-yellow flash paper with saturated marigold and lemon-yellow forms, balanced by indigo and dark umber accents',
         anchorTone: 'deep indigo-brown ink',
         anchorValue: 'dark',
       },
@@ -1616,7 +1732,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'turquoise',
         label: 'Turquoise flash',
         fieldValue: 'light',
-        field: 'pale sea-glass paper with strong turquoise and blue-green forms, warm orange accents and dark ink outlines',
+        field:
+          'pale sea-glass paper with strong turquoise and blue-green forms, warm orange accents and dark ink outlines',
         anchorTone: 'deep blue-green ink',
         anchorValue: 'dark',
       },
@@ -1624,7 +1741,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'midnight_blue_stock',
         label: 'Midnight blue flash',
         fieldValue: 'dark',
-        field: 'deep matte cobalt-blue flash paper with cream, pale-blue and warm orange filled forms, rays and dotwork',
+        field:
+          'deep matte cobalt-blue flash paper with cream, pale-blue and warm orange filled forms, rays and dotwork',
         anchorTone: 'warm cream-white ink with a calm clear paper zone around it',
         anchorValue: 'light',
       },
@@ -1632,7 +1750,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'indigo_marigold_stock',
         label: 'Indigo and marigold flash',
         fieldValue: 'dark',
-        field: 'dark indigo flash paper with bright marigold-yellow and coral-orange forms, small pale-blue accents and cream linework',
+        field:
+          'dark indigo flash paper with bright marigold-yellow and coral-orange forms, small pale-blue accents and cream linework',
         anchorTone: 'warm cream-white ink with a calm clear paper zone around it',
         anchorValue: 'light',
       },
@@ -1640,19 +1759,32 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'black_stock',
         label: 'Black-stock flash',
         fieldValue: 'dark',
-        field: 'matte black flash paper stock with bold cream, red and golden-yellow filled forms, rays and dotwork gathered toward the edges',
+        field:
+          'matte black flash paper stock with bold cream, red and golden-yellow filled forms, rays and dotwork gathered toward the edges',
         anchorTone: 'bright cream-white ink with a calm clear paper zone around it',
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['aged flash paper with classic colour ink', 'bone paper with blackwork ink', 'sun-faded neo-traditional ink on paper'],
-    materialBehavior: 'matte paper with thick, confident ink fills and outlines that sit slightly into the sheet',
+    materialVariants: [
+      'aged flash paper with classic colour ink',
+      'bone paper with blackwork ink',
+      'sun-faded neo-traditional ink on paper',
+    ],
+    materialBehavior:
+      'matte paper with thick, confident ink fills and outlines that sit slightly into the sheet',
     anchorRendering:
       'the structure reads as a thick, even black or deep-ink line on the paper, as if inked by hand, following the supplied geometry exactly',
-    styleNativeMotifs: ['rays', 'dotwork clusters', 'rounded petal forms', 'small stars', 'bold filled shapes'],
+    styleNativeMotifs: [
+      'rays',
+      'dotwork clusters',
+      'rounded petal forms',
+      'small stars',
+      'bold filled shapes',
+    ],
     legibilityRule:
       'keep thick flash linework subordinate to and away from the geometry; clusters of rays, dots and petals stay toward the perimeter and never touch a stroke',
-    categoryInfluence: 'category and intention may steer the ink palette and which abstract forms gather at the edges',
+    categoryInfluence:
+      'category and intention may steer the ink palette and which abstract forms gather at the edges',
     visualLanguage: {
       coreArtWorld:
         'An inked flash-sheet world: bold abstract tattoo-flash forms in thick ink on aged paper, composed toward the edges.',
@@ -1662,9 +1794,11 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
       lightBehavior: 'soft even light; matte paper and flat ink',
       textureLogic: 'fine paper tooth with slight ink absorption; flat ink fills',
       depthLogic: 'flat; ink sits on the paper with no shading',
-      ornamentSystem: 'a handful of abstract flash forms toward the perimeter, with no literal subjects',
+      ornamentSystem:
+        'a handful of abstract flash forms toward the perimeter, with no literal subjects',
       shouldFeelLike: 'a sheet of hand-inked flash: bold, confident, a little worn',
-      mustNotFeelLike: 'skin, a tattoo on a body, a pin-up, a nautical scene or fine-line illustration',
+      mustNotFeelLike:
+        'skin, a tattoo on a body, a pin-up, a nautical scene or fine-line illustration',
       crossStyleAvoidances: [
         'no painted urban wall from Buff',
         'no gestural brush energy from Joybrush',
@@ -1724,7 +1858,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'whitewashed_concrete',
         label: 'Whitewashed concrete',
         fieldValue: 'light',
-        field: 'whitewashed concrete with buffed paint patches and faint soft overspray at the edges',
+        field:
+          'whitewashed concrete with buffed paint patches and faint soft overspray at the edges',
         anchorTone: 'deep charcoal-ink',
         anchorValue: 'dark',
       },
@@ -1740,7 +1875,8 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         id: 'buffed_grey',
         label: 'Buffed grey wall',
         fieldValue: 'mixed',
-        field: 'buffed grey paint patches with soft overspray toward the perimeter and a quiet middle',
+        field:
+          'buffed grey paint patches with soft overspray toward the perimeter and a quiet middle',
         anchorTone: 'deep ink-black',
         anchorValue: 'dark',
       },
@@ -1753,14 +1889,25 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
         anchorValue: 'light',
       },
     ],
-    materialVariants: ['whitewashed concrete', 'buffed paint patches', 'painted brick', 'night wall with soft overspray'],
-    materialBehavior: 'matte painted-over wall with soft aerosol overspray falloff and worn paint patches',
+    materialVariants: [
+      'whitewashed concrete',
+      'buffed paint patches',
+      'painted brick',
+      'night wall with soft overspray',
+    ],
+    materialBehavior:
+      'matte painted-over wall with soft aerosol overspray falloff and worn paint patches',
     anchorRendering:
       'the structure reads as a firm band of matte paint in a contrasting tone laid onto the wall, even in weight and following the supplied geometry exactly',
-    styleNativeMotifs: ['buffed paint patches', 'soft aerosol overspray', 'faint paste-up edges at the perimeter'],
+    styleNativeMotifs: [
+      'buffed paint patches',
+      'soft aerosol overspray',
+      'faint paste-up edges at the perimeter',
+    ],
     legibilityRule:
       'overspray falls off softly and stays at the perimeter; no drip, crack or dense splatter near or across the geometry',
-    categoryInfluence: 'category and intention may steer the spray colours and how much paint history gathers at the edges',
+    categoryInfluence:
+      'category and intention may steer the spray colours and how much paint history gathers at the edges',
     visualLanguage: {
       coreArtWorld:
         'A worn urban wall world: painted-over, buffed surface with soft aerosol falloff and quiet paint history.',
@@ -1847,7 +1994,10 @@ export function validateAnchor2StyleDefinition(def: Anchor2StyleDefinition): str
   };
 
   need(def.generationVersion === 'anchor2', 'generationVersion must be anchor2');
-  need(def.availability === 'forward' || def.availability === 'rotation', 'availability must be forward or rotation');
+  need(
+    def.availability === 'forward' || def.availability === 'rotation',
+    'availability must be forward or rotation'
+  );
   need(def.displayName.trim().length > 0, 'displayName is required');
   need(def.materialName.trim().length > 0, 'materialName is required');
   need(def.lockedCore.length > 0, 'lockedCore is required');
@@ -1873,7 +2023,9 @@ export function validateAnchor2StyleDefinition(def: Anchor2StyleDefinition): str
 
   for (const key of REQUIRED_ANCHOR2_DNA_KEYS) {
     const value = def.visualLanguage[key];
-    const present = Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim().length > 0;
+    const present = Array.isArray(value)
+      ? value.length > 0
+      : typeof value === 'string' && value.trim().length > 0;
     need(present, `visualLanguage.${key} is required`);
   }
 

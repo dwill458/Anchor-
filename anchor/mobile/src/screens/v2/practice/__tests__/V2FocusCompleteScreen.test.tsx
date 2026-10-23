@@ -12,6 +12,7 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import { useCelebrationRecordsStore } from '@/stores/v2/celebrationRecordsStore';
 import { NavigationContext } from '@react-navigation/native';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
+import { withTiming } from 'react-native-reanimated';
 
 const mockMilestoneAction = jest.fn();
 jest.mock('@/milestones/queueMilestoneAction', () => ({ queueMilestoneAction: (...args: unknown[]) => mockMilestoneAction(...args) }));
@@ -563,7 +564,9 @@ describe('V2FocusCompleteScreen entry', () => {
 
   it('arrives from the ink field by default, which fades away', () => {
     render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={60} onDone={jest.fn()} onAgain={jest.fn()} />);
-    expect(opacityOf('v2-focus-complete-ink')).toBe(1);
+    // The Reanimated stand-in resolves animations to their end values immediately.
+    expect(withTiming).toHaveBeenCalledWith(0, expect.objectContaining({ duration: 500 }));
+    expect(opacityOf('v2-focus-complete-ink')).toBe(0);
   });
 
   it('arrives on cream after Visualize, whose last frame is the cream board, so there is no dark flash', () => {

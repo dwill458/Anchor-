@@ -355,13 +355,13 @@ describe('V2ChartScreen — no Chart', () => {
     fireEvent.press(await screen.findByTestId('ask-build-route'));
 
     expect(await screen.findByText('Mapping the way there.')).toBeTruthy();
-    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
-    expect(screen.getByText('We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn’t.')).toBeTruthy();
+    expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();
+    expect(screen.getByText("We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn't.")).toBeTruthy();
 
     // The route and the One Move are different things: four numbered waypoints, then a separate move for waypoint 1.
     expect(screen.getByText('YOUR ROUTE')).toBeTruthy();
     expect(screen.getByText('4 waypoints')).toBeTruthy();
-    expect(screen.getByText('ONE MOVE')).toBeTruthy();
+    expect(screen.getByText('YOUR FIRST MOVE THIS WEEK')).toBeTruthy();
     expect(screen.getByTestId('chart-review-one-move-card')).toBeTruthy();
 
     // The existing planner receives exactly what the conversation produced.
@@ -405,7 +405,7 @@ describe('V2ChartScreen — no Chart', () => {
     fireEvent.press(screen.getByTestId('ask-send'));
     await screen.findByText('Tell me a bit more?');
     fireEvent.press(screen.getByTestId('ask-draft-now'));
-    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();
     expect(planCalls()[0]).toMatchObject({ actualStartingPoint: 'Launched, 100 users.', followUp: null });
     expect(planCalls()[0].startingContext).toBeNull();
   });
@@ -438,7 +438,7 @@ describe('V2ChartScreen — no Chart', () => {
     expect(screen.getByText(/can’t answer right now/)).toBeTruthy();
     // The person can still get a route from the intention alone.
     fireEvent.press(screen.getByTestId('ask-draft-now'));
-    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();
     expect(planCalls()[0].actualStartingPoint).toBe('Anchor has ten thousand users');
   });
 

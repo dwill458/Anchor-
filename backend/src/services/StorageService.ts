@@ -238,7 +238,12 @@ export function isServerStoredAssetUrl(assetUrl: string | null | undefined): boo
     // Local development uploads: only this server's own hosts, never an arbitrary host that
     // happens to use the same path.
     const url = new URL(assetUrl);
-    const ownHosts = new Set(['localhost', '127.0.0.1', '10.0.2.2', normalizeEnvValue(process.env.LOCAL_IP)]);
+    const ownHosts = new Set([
+      'localhost',
+      '127.0.0.1',
+      '10.0.2.2',
+      normalizeEnvValue(process.env.LOCAL_IP),
+    ]);
     return ownHosts.has(url.hostname) && url.pathname.startsWith('/uploads/anchors/');
   } catch {
     return false;
@@ -313,7 +318,9 @@ export async function readPrivateImageAsset(storageKey: string): Promise<Buffer>
     const localPath = path.join(getLocalUploadsDir(), storageKey);
     return fs.promises.readFile(localPath);
   }
-  const result = await client.send(new GetObjectCommand({ Bucket: getPrivateBucketName(), Key: storageKey })) as { Body?: unknown };
+  const result = (await client.send(
+    new GetObjectCommand({ Bucket: getPrivateBucketName(), Key: storageKey })
+  )) as { Body?: unknown };
   const body = result.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
   if (!body?.transformToByteArray) throw new Error('Private Vision asset could not be read');
   return Buffer.from(await body.transformToByteArray());
@@ -329,7 +336,9 @@ export async function deletePrivateImageAsset(storageKey: string): Promise<void>
     }
     await client.send(new DeleteObjectCommand({ Bucket: getPrivateBucketName(), Key: storageKey }));
   } catch (error) {
-    logger.warn('[Storage] Failed to remove private Vision asset', { error: error instanceof Error ? error.message : 'Unknown error' });
+    logger.warn('[Storage] Failed to remove private Vision asset', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 }
 

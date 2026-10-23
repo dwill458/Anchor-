@@ -129,17 +129,22 @@ export const STYLE_EXTRA_NEGATIVES: Partial<Record<AIStyle, string>> = {
   resonance_rings: 'sonar UI, target reticle, radar screen',
   solar_veil: 'literal suns, rays, fiery solar flares, saturated yellow neon',
   solar_halo: 'literal suns, landscapes, flames, overwhelming golden poster treatment',
-  ink_bloom: 'calligraphy, readable brush marks, literal flowers, uncontrolled splatter across linework',
+  ink_bloom:
+    'calligraphy, readable brush marks, literal flowers, uncontrolled splatter across linework',
   ocean_current: 'literal waves, beaches, shells, sea creatures, watery blur softening geometry',
   tideglass: 'literal beaches, shells, waves as objects, watery blur that softens geometry',
-  halo_drift: 'literal suns, religious iconography, target rings, hard circular frames, glowing UI effects',
-  harvest_gild: 'literal harvest objects, coins, antique props, readable inscriptions, decorative clutter',
+  halo_drift:
+    'literal suns, religious iconography, target rings, hard circular frames, glowing UI effects',
+  harvest_gild:
+    'literal harvest objects, coins, antique props, readable inscriptions, decorative clutter',
   midnight_bloom: 'flowers as objects, flames, fashion imagery, oversaturated red effects',
-  winter_halo: 'literal snow scenes, snowflakes, winter landscapes, hard target circles, frost on linework',
+  winter_halo:
+    'literal snow scenes, snowflakes, winter landscapes, hard target circles, frost on linework',
   gold_leaf: 'generic sparkle overlays, coins, currency, neon glitter, ornamental competing frames',
   cosmic: 'planets, literal space scenes, astronauts, zodiac signs, horoscope wheel',
   minimal_line: 'app-icon treatment, decorative clutter, colorful gradients, glowing halos',
-  obsidian_mono: 'color noise, soft painterly treatment, flat monochrome poster styling, bright glow',
+  obsidian_mono:
+    'color noise, soft painterly treatment, flat monochrome poster styling, bright glow',
   aurora_glow: 'rainbow neon, hard-edged overlays, literal landscape scenes, synthetic flares',
   ember_trace: 'flames as literal objects, explosions, messy molten distortion',
   monolith_ink: 'soft brushiness, decorative filigree, ornamental clutter, metallic shine',
@@ -156,10 +161,12 @@ export const STYLE_EXTRA_NEGATIVES: Partial<Record<AIStyle, string>> = {
   stone_relief: 'glowing runes, neon glow, magic fantasy effects, plastic 3d render',
   porcelain: 'grunge, rough distress, metallic foil, neon glow, plastic tile',
   copper_patina: 'gold leaf duplication, neon green, clean chrome, fantasy slime',
-  topographic: 'readable numbers, text labels, hiking trails, GPS icons, fingerprint, zebra stripes',
+  topographic:
+    'readable numbers, text labels, hiking trails, GPS icons, fingerprint, zebra stripes',
   botanical_etching: 'flower bouquets, cartoon leaves, text labels, wallpaper floral print',
   mineral_bloom: 'tie-dye, psychedelic swirls, resin pour, glitter, cheap crystal',
-  dreamscape: 'melting clocks, fantasy animals, cliche surrealism, face in cloud, literal narrative',
+  dreamscape:
+    'melting clocks, fantasy animals, cliche surrealism, face in cloud, literal narrative',
   soft_monument: 'dystopian bunker, military fort, dark ruin, noisy concrete textures',
   street_mark: 'graffiti tags, bubble letters, sticker bomb, messy spray splatter',
   collage_archive: 'readable text, letters, magazine faces, chaotic scrapbooking, pop art cutout',
@@ -176,7 +183,10 @@ function buildAnchor2NegativePrompt(def: Anchor2StyleDefinition): string {
   const globalTokens = GLOBAL_NEGATIVE_PROMPT.split(',')
     .map(token => token.trim())
     .filter(token => token && !removed.has(token));
-  const additions = [...ANCHOR2_NEGATIVE_ADDITIONS, ...(def.visualLanguage.negativePromptAdditions ?? [])];
+  const additions = [
+    ...ANCHOR2_NEGATIVE_ADDITIONS,
+    ...(def.visualLanguage.negativePromptAdditions ?? []),
+  ];
   return Array.from(new Set([...globalTokens, ...additions])).join(', ');
 }
 
@@ -216,7 +226,9 @@ export function getStyleNegativePrompt(style: string): string {
 
   const unique = Array.from(new Set(rawTokens));
 
-  return unique.length > 0 ? `${GLOBAL_NEGATIVE_PROMPT}, ${unique.join(', ')}` : GLOBAL_NEGATIVE_PROMPT;
+  return unique.length > 0
+    ? `${GLOBAL_NEGATIVE_PROMPT}, ${unique.join(', ')}`
+    : GLOBAL_NEGATIVE_PROMPT;
 }
 
 // ============================================================================
@@ -440,21 +452,73 @@ export function deriveIntentionSignal(intention: string): IntentionSignal {
 // ============================================================================
 
 export const CATEGORY_PALETTE_MAP: Record<string, { name: string; hex: string; desc: string }> = {
-  desire: { name: 'Desire', hex: '#C23B72', desc: 'Rose / Crimson (#C23B72) — magnetic warmth, emotional velocity' },
-  health: { name: 'Health', hex: '#238A65', desc: 'Emerald / Forest Green (#238A65) — vital equilibrium, cellular calm' },
-  career: { name: 'Career', hex: '#3157D8', desc: 'Cobalt / Royal Blue (#3157D8) — structural clarity, professional focus' },
-  relationships: { name: 'Relationships', hex: '#E17D69', desc: 'Coral Rose / Blush (#E17D69) — intimate resonance, connective warmth' },
-  creativity: { name: 'Creativity', hex: '#E58A27', desc: 'Tangerine / Warm Amber (#E58A27) — expressive vitality, innovative spark' },
-  spirituality: { name: 'Spirituality', hex: '#7657D9', desc: 'Deep Violet / Amethyst (#7657D9) — contemplative depth, sacred quiet' },
-  abundance: { name: 'Abundance', hex: '#A48B25', desc: 'Warm Gold / Olive Ochre (#A48B25) — fertile radiance, earned grounding' },
-  family: { name: 'Family', hex: '#A96743', desc: 'Terracotta / Warm Ochre (#A96743) — ancestral rooting, sheltering warmth' },
-  learning: { name: 'Learning', hex: '#168C98', desc: 'Deep Teal / Sea Pine (#168C98) — analytical lucidity, quiet intellect' },
-  adventure: { name: 'Adventure', hex: '#329BC9', desc: 'Cerulean / Ocean Blue (#329BC9) — horizon expansiveness, forward motion' },
-  focus: { name: 'Focus', hex: '#62666D', desc: 'Slate Gray / Cool Graphite (#62666D) — measured stillness, disciplined reduction' },
-  custom: { name: 'Custom', hex: '#C64D40', desc: 'Vermilion / Coral (#C64D40) — personal resonance, distinct signature' },
+  desire: {
+    name: 'Desire',
+    hex: '#C23B72',
+    desc: 'Rose / Crimson (#C23B72) — magnetic warmth, emotional velocity',
+  },
+  health: {
+    name: 'Health',
+    hex: '#238A65',
+    desc: 'Emerald / Forest Green (#238A65) — vital equilibrium, cellular calm',
+  },
+  career: {
+    name: 'Career',
+    hex: '#3157D8',
+    desc: 'Cobalt / Royal Blue (#3157D8) — structural clarity, professional focus',
+  },
+  relationships: {
+    name: 'Relationships',
+    hex: '#E17D69',
+    desc: 'Coral Rose / Blush (#E17D69) — intimate resonance, connective warmth',
+  },
+  creativity: {
+    name: 'Creativity',
+    hex: '#E58A27',
+    desc: 'Tangerine / Warm Amber (#E58A27) — expressive vitality, innovative spark',
+  },
+  spirituality: {
+    name: 'Spirituality',
+    hex: '#7657D9',
+    desc: 'Deep Violet / Amethyst (#7657D9) — contemplative depth, sacred quiet',
+  },
+  abundance: {
+    name: 'Abundance',
+    hex: '#A48B25',
+    desc: 'Warm Gold / Olive Ochre (#A48B25) — fertile radiance, earned grounding',
+  },
+  family: {
+    name: 'Family',
+    hex: '#A96743',
+    desc: 'Terracotta / Warm Ochre (#A96743) — ancestral rooting, sheltering warmth',
+  },
+  learning: {
+    name: 'Learning',
+    hex: '#168C98',
+    desc: 'Deep Teal / Sea Pine (#168C98) — analytical lucidity, quiet intellect',
+  },
+  adventure: {
+    name: 'Adventure',
+    hex: '#329BC9',
+    desc: 'Cerulean / Ocean Blue (#329BC9) — horizon expansiveness, forward motion',
+  },
+  focus: {
+    name: 'Focus',
+    hex: '#62666D',
+    desc: 'Slate Gray / Cool Graphite (#62666D) — measured stillness, disciplined reduction',
+  },
+  custom: {
+    name: 'Custom',
+    hex: '#C64D40',
+    desc: 'Vermilion / Coral (#C64D40) — personal resonance, distinct signature',
+  },
 };
 
-export function getCategoryColorInfo(category?: string | null): { name: string; color: string; behavior: string } {
+export function getCategoryColorInfo(category?: string | null): {
+  name: string;
+  color: string;
+  behavior: string;
+} {
   const key = (category || '').trim().toLowerCase();
   const info = Object.prototype.hasOwnProperty.call(CATEGORY_PALETTE_MAP, key)
     ? CATEGORY_PALETTE_MAP[key]
@@ -538,7 +602,8 @@ function normalizeCompositionFamilyKey(family: string): string {
   if (upper === 'DIAGONAL_TENSION' || upper === 'DIAGONALTENSION') return 'DIAGONAL_TENSION';
   if (upper === 'OPEN_VOID' || upper === 'OPENVOID') return 'OPEN_VOID';
   if (upper === 'FULL_FIELD' || upper === 'FULLFIELD') return 'FULL_FIELD';
-  if (upper === 'OBJECT_PRESENTATION' || upper === 'OBJECTPRESENTATION') return 'OBJECT_PRESENTATION';
+  if (upper === 'OBJECT_PRESENTATION' || upper === 'OBJECTPRESENTATION')
+    return 'OBJECT_PRESENTATION';
   if (upper === 'CENTRED_AXIS' || upper === 'CENTREDAXIS') return 'CENTRED_AXIS';
   return 'CENTRED_STILLPOINT';
 }
@@ -548,7 +613,8 @@ function normalizeCompositionFamilyKey(family: string): string {
 // ============================================================================
 
 function deriveDefaultMedium(style: StylePromptDefinition): string {
-  if (style.category === 'Material') return 'Tactile physical medium with authentic material behavior';
+  if (style.category === 'Material')
+    return 'Tactile physical medium with authentic material behavior';
   if (style.category === 'Organic') return 'Natural pigment washes on archival tooth';
   if (style.category === 'Geometric') return 'Precision drafted ink and technical lines';
   if (style.category === 'Luminous') return 'Atmospheric luminescence and soft emitted radiance';
@@ -558,18 +624,26 @@ function deriveDefaultMedium(style: StylePromptDefinition): string {
 
 function deriveDefaultSubstrate(style: StylePromptDefinition): string {
   const lane = (style.paletteLane || '').toLowerCase();
-  if (lane.includes('paper') || lane.includes('parchment')) return 'Textured archival cotton paper or vellum';
-  if (lane.includes('black') || lane.includes('charcoal') || lane.includes('indigo') || lane.includes('navy')) {
+  if (lane.includes('paper') || lane.includes('parchment'))
+    return 'Textured archival cotton paper or vellum';
+  if (
+    lane.includes('black') ||
+    lane.includes('charcoal') ||
+    lane.includes('indigo') ||
+    lane.includes('navy')
+  ) {
     return 'Deep matte archival dark ground with subtle tooth';
   }
   return 'Fine museum board with soft natural tooth';
 }
 
 function deriveDefaultLight(style: StylePromptDefinition): string {
-  if (style.category === 'Luminous') return 'Soft ambient luminous bloom and disciplined halo radiance';
+  if (style.category === 'Luminous')
+    return 'Soft ambient luminous bloom and disciplined halo radiance';
   if (style.category === 'Geometric') return 'Clean, even drafting illumination with zero glare';
   if (style.category === 'Minimal') return 'Flat natural ambient light with quiet edge highlights';
-  if (style.category === 'Material') return 'Directional raking light revealing authentic surface texture and micro-shadows';
+  if (style.category === 'Material')
+    return 'Directional raking light revealing authentic surface texture and micro-shadows';
   return 'Soft diffused natural daylight';
 }
 
@@ -605,16 +679,26 @@ export function buildLegacyFallbackDNA(style: StylePromptDefinition): Required<V
     signatureTraits: [style.materialBehavior, style.styleNativeMotif],
     shouldFeelLike: `${style.displayName} — ${style.description}`,
     mustNotFeelLike: 'Generic mystical poster, clipart sticker, flat app icon, altered geometry',
-    crossStyleAvoidances: extraNeg.length ? extraNeg : ['Do not import unrelated style traits or cosmic glows'],
+    crossStyleAvoidances: extraNeg.length
+      ? extraNeg
+      : ['Do not import unrelated style traits or cosmic glows'],
     paletteBehavior: style.paletteLane,
     preferredPaletteLanes: [style.paletteLane],
-    categoryColorBehavior: 'Category color influences atmospheric temperature without overriding medium or substrate',
+    categoryColorBehavior:
+      'Category color influences atmospheric temperature without overriding medium or substrate',
     accentBehavior: style.accentMotifs[0] || 'Restrained peripheral accent',
     allowedCompositionFamilies: [style.compositionFamily],
     preferredCompositionFamilies: [style.compositionFamily],
     motifVocabulary: [style.styleNativeMotif, ...style.accentMotifs],
-    intentionMotifBehavior: 'Translates intention through abstract atmospheric density and visual tension',
-    prohibitedMotifs: ['readable text', 'runes', 'astrology symbols', 'coins', 'literal illustrations'],
+    intentionMotifBehavior:
+      'Translates intention through abstract atmospheric density and visual tension',
+    prohibitedMotifs: [
+      'readable text',
+      'runes',
+      'astrology symbols',
+      'coins',
+      'literal illustrations',
+    ],
     maxSupportingMotifs: 3,
     directionalBehavior: 'Balanced directional flow supporting the central structure',
     densityBehavior: style.defaultDensity,
@@ -646,27 +730,47 @@ export function normalizeVisualLanguage(style: StylePromptDefinition): Required<
     depthLogic: custom.depthLogic || fallback.depthLogic,
     ornamentSystem: custom.ornamentSystem || fallback.ornamentSystem,
     framingLogic: custom.framingLogic || fallback.framingLogic,
-    signatureTraits: custom.signatureTraits?.length ? custom.signatureTraits : fallback.signatureTraits,
+    signatureTraits: custom.signatureTraits?.length
+      ? custom.signatureTraits
+      : fallback.signatureTraits,
     shouldFeelLike: custom.shouldFeelLike || fallback.shouldFeelLike,
     mustNotFeelLike: custom.mustNotFeelLike || fallback.mustNotFeelLike,
-    crossStyleAvoidances: custom.crossStyleAvoidances?.length ? custom.crossStyleAvoidances : fallback.crossStyleAvoidances,
+    crossStyleAvoidances: custom.crossStyleAvoidances?.length
+      ? custom.crossStyleAvoidances
+      : fallback.crossStyleAvoidances,
     paletteBehavior: custom.paletteBehavior || fallback.paletteBehavior,
-    preferredPaletteLanes: custom.preferredPaletteLanes?.length ? custom.preferredPaletteLanes : fallback.preferredPaletteLanes,
+    preferredPaletteLanes: custom.preferredPaletteLanes?.length
+      ? custom.preferredPaletteLanes
+      : fallback.preferredPaletteLanes,
     categoryColorBehavior: custom.categoryColorBehavior || fallback.categoryColorBehavior,
     accentBehavior: custom.accentBehavior || fallback.accentBehavior,
-    allowedCompositionFamilies: custom.allowedCompositionFamilies?.length ? custom.allowedCompositionFamilies : fallback.allowedCompositionFamilies,
-    preferredCompositionFamilies: custom.preferredCompositionFamilies?.length ? custom.preferredCompositionFamilies : fallback.preferredCompositionFamilies,
-    motifVocabulary: custom.motifVocabulary?.length ? custom.motifVocabulary : fallback.motifVocabulary,
+    allowedCompositionFamilies: custom.allowedCompositionFamilies?.length
+      ? custom.allowedCompositionFamilies
+      : fallback.allowedCompositionFamilies,
+    preferredCompositionFamilies: custom.preferredCompositionFamilies?.length
+      ? custom.preferredCompositionFamilies
+      : fallback.preferredCompositionFamilies,
+    motifVocabulary: custom.motifVocabulary?.length
+      ? custom.motifVocabulary
+      : fallback.motifVocabulary,
     intentionMotifBehavior: custom.intentionMotifBehavior || fallback.intentionMotifBehavior,
-    prohibitedMotifs: custom.prohibitedMotifs?.length ? custom.prohibitedMotifs : fallback.prohibitedMotifs,
+    prohibitedMotifs: custom.prohibitedMotifs?.length
+      ? custom.prohibitedMotifs
+      : fallback.prohibitedMotifs,
     maxSupportingMotifs: custom.maxSupportingMotifs ?? fallback.maxSupportingMotifs,
     directionalBehavior: custom.directionalBehavior || fallback.directionalBehavior,
     densityBehavior: custom.densityBehavior || fallback.densityBehavior,
     focalBehavior: custom.focalBehavior || fallback.focalBehavior,
     atmosphericBehavior: custom.atmosphericBehavior || fallback.atmosphericBehavior,
-    negativePromptAdditions: custom.negativePromptAdditions?.length ? custom.negativePromptAdditions : fallback.negativePromptAdditions,
-    stylePromptDirectives: custom.stylePromptDirectives?.length ? custom.stylePromptDirectives : fallback.stylePromptDirectives,
-    visualFailureConditions: custom.visualFailureConditions?.length ? custom.visualFailureConditions : fallback.visualFailureConditions,
+    negativePromptAdditions: custom.negativePromptAdditions?.length
+      ? custom.negativePromptAdditions
+      : fallback.negativePromptAdditions,
+    stylePromptDirectives: custom.stylePromptDirectives?.length
+      ? custom.stylePromptDirectives
+      : fallback.stylePromptDirectives,
+    visualFailureConditions: custom.visualFailureConditions?.length
+      ? custom.visualFailureConditions
+      : fallback.visualFailureConditions,
   };
 }
 
@@ -686,22 +790,28 @@ function buildRecentRendersBlock(recent?: BuildStylePromptOptions['recentRenders
   }
 
   const lines: string[] = [];
-  if (recent.usedStyles?.length) lines.push(`Recently used styles: ${recent.usedStyles.join(', ')}`);
+  if (recent.usedStyles?.length)
+    lines.push(`Recently used styles: ${recent.usedStyles.join(', ')}`);
   else lines.push('[RECENTLY USED STYLES]: None recorded');
 
-  if (recent.usedStyleFamilies?.length) lines.push(`Recently used style families: ${recent.usedStyleFamilies.join(', ')}`);
+  if (recent.usedStyleFamilies?.length)
+    lines.push(`Recently used style families: ${recent.usedStyleFamilies.join(', ')}`);
   else lines.push('[RECENTLY USED STYLE FAMILIES]: None recorded');
 
-  if (recent.usedCompositions?.length) lines.push(`Recently used compositions: ${recent.usedCompositions.join(', ')}`);
+  if (recent.usedCompositions?.length)
+    lines.push(`Recently used compositions: ${recent.usedCompositions.join(', ')}`);
   else lines.push('[RECENTLY USED COMPOSITIONS]: None recorded');
 
-  if (recent.usedPaletteLanes?.length) lines.push(`Recently used palette lanes: ${recent.usedPaletteLanes.join(', ')}`);
+  if (recent.usedPaletteLanes?.length)
+    lines.push(`Recently used palette lanes: ${recent.usedPaletteLanes.join(', ')}`);
   else lines.push('[RECENTLY USED PALETTE LANES]: None recorded');
 
-  if (recent.usedDensityLevels?.length) lines.push(`Recently used density levels: ${recent.usedDensityLevels.join(', ')}`);
+  if (recent.usedDensityLevels?.length)
+    lines.push(`Recently used density levels: ${recent.usedDensityLevels.join(', ')}`);
   else lines.push('[RECENTLY USED DENSITY LEVELS]: None recorded');
 
-  if (recent.usedMaterialTypes?.length) lines.push(`Recently used material types: ${recent.usedMaterialTypes.join(', ')}`);
+  if (recent.usedMaterialTypes?.length)
+    lines.push(`Recently used material types: ${recent.usedMaterialTypes.join(', ')}`);
   else lines.push('[RECENTLY USED MATERIAL TYPES]: None recorded');
 
   return lines.join('\n');
@@ -791,7 +901,8 @@ export function buildStylePrompt(
   const categoryInfo = getCategoryColorInfo(options.category);
 
   const familyKey = normalizeCompositionFamilyKey(style.compositionFamily);
-  const compositionNotes = COMPOSITION_VARIANTS[familyKey] || COMPOSITION_VARIANTS['CENTRED_STILLPOINT'];
+  const compositionNotes =
+    COMPOSITION_VARIANTS[familyKey] || COMPOSITION_VARIANTS['CENTRED_STILLPOINT'];
   const compositionVariant =
     compositionNotes[positiveModulo(safeVariationIndex, compositionNotes.length)];
 
@@ -1253,7 +1364,9 @@ export function selectAnchor2PaletteLane(
   // dark; a mixed Form I gets any extreme) so the two read apart at thumbnail size, not only by hue.
   const partner = pickStaggered(def.paletteLanes, seed, safeIndex - 1);
   const contrasting = (lane: Anchor2PaletteLane) =>
-    partner.fieldValue === 'mixed' ? lane.fieldValue !== 'mixed' : lane.fieldValue !== partner.fieldValue && lane.fieldValue !== 'mixed';
+    partner.fieldValue === 'mixed'
+      ? lane.fieldValue !== 'mixed'
+      : lane.fieldValue !== partner.fieldValue && lane.fieldValue !== 'mixed';
   for (let step = 0; step < def.paletteLanes.length; step += 1) {
     const lane = pickStaggered(def.paletteLanes, seed, safeIndex + step);
     if (contrasting(lane)) return lane;
@@ -1306,7 +1419,9 @@ export function buildAnchor2StylePrompt(
   const cleanIntention = normalizeIntention(intention) || 'personal intention';
   const safeVariationIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
   const options: BuildStylePromptOptions =
-    typeof optionsOrCategory === 'string' ? { category: optionsOrCategory } : optionsOrCategory || {};
+    typeof optionsOrCategory === 'string'
+      ? { category: optionsOrCategory }
+      : optionsOrCategory || {};
   const categoryInfo = getCategoryColorInfo(options.category);
 
   const variationKey = options.variationKey?.trim() || '';
@@ -1320,13 +1435,21 @@ export function buildAnchor2StylePrompt(
   // Staggered, never independently hashed: the two Forms of one request must differ in material
   // subtype, motif and placement as well as palette lane, or choosing between them is a fake choice.
   const seedBase = `${style.id}:${cleanIntention}:${variationKey}`;
-  const materialVariant = pickStaggered(style.materialVariants, `${seedBase}:material`, safeVariationIndex);
+  const materialVariant = pickStaggered(
+    style.materialVariants,
+    `${seedBase}:material`,
+    safeVariationIndex
+  );
   const peripheralPlacement = pickStaggered(
     ANCHOR2_PERIPHERAL_PLACEMENTS,
     `${seedBase}:placement`,
     safeVariationIndex
   );
-  const nativeMotif = pickStaggered(style.styleNativeMotifs, `${seedBase}:motif`, safeVariationIndex);
+  const nativeMotif = pickStaggered(
+    style.styleNativeMotifs,
+    `${seedBase}:motif`,
+    safeVariationIndex
+  );
 
   const sections: string[] = [
     `ANCHOR IDENTITY
@@ -1487,7 +1610,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'soft graphite datum lines dissolved into smoked parchment',
     ],
     visualLanguage: {
-      coreArtWorld: 'Precision drafting discipline, measured geometry, blueprint and archival drafting',
+      coreArtWorld:
+        'Precision drafting discipline, measured geometry, blueprint and archival drafting',
       primaryMedium: 'Etched drafting ink and graphite technical pen',
       substrate: 'Smoked blueprint parchment or heavy vellum',
       edgeBehavior: 'Crisp measured boundaries with calibration extension ticks',
@@ -1501,7 +1625,9 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       signatureTraits: ['Blueprint grid logic', 'Silver calibration marks', 'Graphite guide rails'],
       shouldFeelLike: 'An archival architectural masterplan drafted by a master geometer',
       mustNotFeelLike: 'Mystical mandala, occult circle, glowing sci-fi HUD',
-      crossStyleAvoidances: ['Architectural styles must not become mystical mandalas or fantasy seals'],
+      crossStyleAvoidances: [
+        'Architectural styles must not become mystical mandalas or fantasy seals',
+      ],
       paletteBehavior: 'Smoked parchment, silver-white, faint cyan, graphite',
       preferredPaletteLanes: ['smoked parchment, silver-white, faint cyan, graphite'],
       categoryColorBehavior: 'Faint engineering tint in secondary grid lines',
@@ -1509,14 +1635,20 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       allowedCompositionFamilies: ['CENTRED_STILLPOINT', 'OFFSET_FIELD'],
       preferredCompositionFamilies: ['CENTRED_STILLPOINT'],
       motifVocabulary: ['calibration ticks', 'orthographic guide rails', 'datum lines'],
-      intentionMotifBehavior: 'Adjusts grid spacing, guide rail density, and structural convergence',
+      intentionMotifBehavior:
+        'Adjusts grid spacing, guide rail density, and structural convergence',
       prohibitedMotifs: ['occult stars', 'runes', 'readable text', 'blueprint numbers', 'flames'],
       maxSupportingMotifs: 3,
       directionalBehavior: 'Measured orthographic alignment with stable focal anchor',
       densityBehavior: 'Moderate technical detail outside the Anchor perimeter',
       focalBehavior: 'Anchor sits as the definitive central structure',
       atmosphericBehavior: 'Crisp drafting clarity with subtle vellum warmth',
-      negativePromptAdditions: ['readable annotations', 'blueprint labels', 'technical numbers', 'mandala'],
+      negativePromptAdditions: [
+        'readable annotations',
+        'blueprint labels',
+        'technical numbers',
+        'mandala',
+      ],
     },
   },
 
@@ -1623,21 +1755,29 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'soft backrun blooms held outside the Anchor geometry',
     ],
     visualLanguage: {
-      coreArtWorld: 'Pigment washes on heavy cold-press cotton paper, natural drying edges and backruns',
+      coreArtWorld:
+        'Pigment washes on heavy cold-press cotton paper, natural drying edges and backruns',
       primaryMedium: 'Wet-on-wet and wet-on-dry mineral watercolor pigments',
       substrate: '300gsm cold-press deckled cotton rag paper',
       edgeBehavior: 'Soft pigment blooms, feathery watermarks, natural drying edges',
-      lineBehavior: 'Preserved Anchor linework with pigment settling along edges without distortion',
+      lineBehavior:
+        'Preserved Anchor linework with pigment settling along edges without distortion',
       spatialBehavior: 'Asymmetrical pigment pools with open breathable paper void',
       lightBehavior: 'Soft diffused natural daylight filtered through watercolor wash',
       textureLogic: 'Granulating mineral pigments, paper grain texture, deckled edges',
       depthLogic: 'Translucent layered washes creating organic atmospheric recession',
       ornamentSystem: 'Natural water blooms, granulating pigment pools, deckled margins',
       framingLogic: 'Organic paper deckle with asymmetrical wash falloff',
-      signatureTraits: ['Deckled cotton paper grain', 'Granulating mineral pigment', 'Wet-edge blooms'],
+      signatureTraits: [
+        'Deckled cotton paper grain',
+        'Granulating mineral pigment',
+        'Wet-edge blooms',
+      ],
       shouldFeelLike: 'An authentic master watercolor painting on fine archival cotton rag',
       mustNotFeelLike: 'Digital spray, airbrush, neon glow, metallic leafing, sharp plastic vector',
-      crossStyleAvoidances: ['Watercolor must not inherit metallic engraving, neon, or cosmic halos'],
+      crossStyleAvoidances: [
+        'Watercolor must not inherit metallic engraving, neon, or cosmic halos',
+      ],
       paletteBehavior: 'Mineral blue, oxblood, moss, plum, muted saffron on bone paper',
       preferredPaletteLanes: ['mineral blue, oxblood, moss, plum, muted saffron'],
       categoryColorBehavior: 'Infuses one dominant mineral wash pool in the peripheral field',
@@ -1652,7 +1792,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Moderate wash density balanced by open paper areas',
       focalBehavior: 'Anchor geometry remains crisp against soft organic wash',
       atmosphericBehavior: 'Moist atmospheric paper wash, peaceful natural diffusion',
-      negativePromptAdditions: ['metallic foil', 'neon glow', 'digital airbrush', 'sharp vector edges'],
+      negativePromptAdditions: [
+        'metallic foil',
+        'neon glow',
+        'digital airbrush',
+        'sharp vector edges',
+      ],
     },
   },
 
@@ -1683,17 +1828,26 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       primaryMedium: 'Carbon pine-soot ink on absorbent paper',
       substrate: 'Handmade washi / mulberry paper with visible fiber texture',
       edgeBehavior: 'Feathered ink-bleed and dry-brush friction edges (flying white / feibai)',
-      lineBehavior: 'Preserved Anchor geometry textured with authentic ink pressure without altering paths',
+      lineBehavior:
+        'Preserved Anchor geometry textured with authentic ink pressure without altering paths',
       spatialBehavior: 'Profound negative space (ma), asymmetrical weight',
       lightBehavior: 'Natural matte light on absorbent paper',
       textureLogic: 'Dry brush drag, fiber grain, diluted ink washes (suibokuga)',
       depthLogic: 'Atmospheric ink wash gradients fading into vast paper emptiness',
-      ornamentSystem: 'Diluted ink mist, dry-brush pressure traces, faint vermilion seal haze (no text)',
+      ornamentSystem:
+        'Diluted ink mist, dry-brush pressure traces, faint vermilion seal haze (no text)',
       framingLogic: 'Open expansive margins with natural paper boundary',
-      signatureTraits: ['Dry brush friction', 'Mulberry paper grain', 'Philosophical negative space'],
+      signatureTraits: [
+        'Dry brush friction',
+        'Mulberry paper grain',
+        'Philosophical negative space',
+      ],
       shouldFeelLike: 'A Zen sumi-e ink painting executed with supreme stillness and focus',
-      mustNotFeelLike: 'Digital ink splatter, comic book hatching, graffiti marker, fantasy calligraphy',
-      crossStyleAvoidances: ['Ink styles must not become polished digital fantasy or metallic engraving'],
+      mustNotFeelLike:
+        'Digital ink splatter, comic book hatching, graffiti marker, fantasy calligraphy',
+      crossStyleAvoidances: [
+        'Ink styles must not become polished digital fantasy or metallic engraving',
+      ],
       paletteBehavior: 'Carbon black ink, bone washi, faint iron-red seal haze',
       preferredPaletteLanes: ['black ink, bone paper, faint iron-red seal haze'],
       categoryColorBehavior: 'Subtle warm or cool wash undertone in the diluted ink mist',
@@ -1702,13 +1856,24 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       preferredCompositionFamilies: ['OPEN_VOID'],
       motifVocabulary: ['diluted ink mist', 'dry brush pressure field', 'untouched washi void'],
       intentionMotifBehavior: 'Shapes the ink concentration and the breath of the open void',
-      prohibitedMotifs: ['calligraphy characters', 'kanji', 'letters', 'splatter effects', 'gold leaf'],
+      prohibitedMotifs: [
+        'calligraphy characters',
+        'kanji',
+        'letters',
+        'splatter effects',
+        'gold leaf',
+      ],
       maxSupportingMotifs: 2,
       directionalBehavior: 'Single decisive sweeping current that flows into open silence',
       densityBehavior: 'Sparse, weighted, dominated by untouched paper',
       focalBehavior: 'Unflinching stillness at the Anchor center',
       atmosphericBehavior: 'Quiet, meditative, contemplative',
-      negativePromptAdditions: ['calligraphy letters', 'readable brush marks', 'decorative script', 'digital brush'],
+      negativePromptAdditions: [
+        'calligraphy letters',
+        'readable brush marks',
+        'decorative script',
+        'digital brush',
+      ],
     },
   },
 
@@ -1735,11 +1900,13 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'subtle tarnish shadows in the outer field',
     ],
     visualLanguage: {
-      coreArtWorld: 'Physical gold leaf gilding, traditional oil size, bole substrate, cracked leaf seams',
+      coreArtWorld:
+        'Physical gold leaf gilding, traditional oil size, bole substrate, cracked leaf seams',
       primaryMedium: 'Hand-applied 23.75k gold leaf, Armenian bole, rabbit-skin glue',
       substrate: 'Matte dark gesso panel with red or soot-black bole',
       edgeBehavior: 'Micro-tears in gold foil, gilded cracks, delicate leaf overlap lines',
-      lineBehavior: 'Anchor geometry gilded or incised through gilded ground with pristine integrity',
+      lineBehavior:
+        'Anchor geometry gilded or incised through gilded ground with pristine integrity',
       spatialBehavior: 'Grounded central presence with dark negative space counterweight',
       lightBehavior: 'Raking directional light reflecting across physical gold leaf planes',
       textureLogic: 'Hammered gold foil wrinkles, fine bole cracks, burnished vs matte zones',
@@ -1747,7 +1914,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       ornamentSystem: 'Subtle leaf seams, antique metallic dust, fine gilding cracks',
       framingLogic: 'Restrained dark perimeter margins with faint leaf falloff',
       signatureTraits: ['Torn gold leaf seams', 'Matte bole ground', 'Physical foil reflectance'],
-      shouldFeelLike: 'An ancient gilded altarpiece or illuminated manuscript leaf, tactile and solemn',
+      shouldFeelLike:
+        'An ancient gilded altarpiece or illuminated manuscript leaf, tactile and solemn',
       mustNotFeelLike: 'Neon yellow glow, digital gradient, Vegas casino glitter, 3D gold render',
       crossStyleAvoidances: ['Gold Leaf must not become neon galaxy art or watercolor softness'],
       paletteBehavior: 'Antique gold, red umber, soot-black, soft bronze, warm ivory',
@@ -1764,7 +1932,14 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Moderate surface detail, disciplined borders',
       focalBehavior: 'Anchor geometry commands the golden ground',
       atmosphericBehavior: 'Solemn, precious, warm, archival',
-      negativePromptAdditions: ['sparkle overlay', 'glitter', 'coins', 'cash', 'yellow neon', '3d metallic render'],
+      negativePromptAdditions: [
+        'sparkle overlay',
+        'glitter',
+        'coins',
+        'cash',
+        'yellow neon',
+        '3d metallic render',
+      ],
     },
   },
 
@@ -1800,12 +1975,20 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       lightBehavior: 'Emitted light from nebular gases and distant starlight, soft volumetric glow',
       textureLogic: 'Fine cosmic dust grains, ionization haze, interstellar clouds',
       depthLogic: 'Immense cosmic scale with multi-layered nebular curtains',
-      ornamentSystem: 'Subtle star-dust currents, faint spectral emission lines (no zodiac/planets)',
+      ornamentSystem:
+        'Subtle star-dust currents, faint spectral emission lines (no zodiac/planets)',
       framingLogic: 'Deep space void extending infinitely beyond the frame',
-      signatureTraits: ['Interstellar gas clouds', 'Diagonal star-dust currents', 'Volumetric deep space'],
+      signatureTraits: [
+        'Interstellar gas clouds',
+        'Diagonal star-dust currents',
+        'Volumetric deep space',
+      ],
       shouldFeelLike: 'An awe-inspiring deep-space photograph captured by an orbital observatory',
-      mustNotFeelLike: 'Horoscope chart, astrology wheel, cheesy fantasy nebula, glowing hippie poster',
-      crossStyleAvoidances: ['Cosmic must not inherit paper grain, runes, or antique manuscript texture'],
+      mustNotFeelLike:
+        'Horoscope chart, astrology wheel, cheesy fantasy nebula, glowing hippie poster',
+      crossStyleAvoidances: [
+        'Cosmic must not inherit paper grain, runes, or antique manuscript texture',
+      ],
       paletteBehavior: 'Midnight teal, deep violet gas, pale gold flare, star-white dust',
       preferredPaletteLanes: ['midnight teal, violet gas, pale gold flare, star-white'],
       categoryColorBehavior: 'Shifts the emission spectrum hue of the secondary gas cloud',
@@ -1820,7 +2003,14 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Rich volumetric atmosphere balanced by black space',
       focalBehavior: 'Anchor stands inviolate against the infinite cosmos',
       atmosphericBehavior: 'Expansive, sublime, boundless, awe-inspiring',
-      negativePromptAdditions: ['planets', 'zodiac signs', 'astrology wheel', 'horoscope', 'astronaut', 'antique paper'],
+      negativePromptAdditions: [
+        'planets',
+        'zodiac signs',
+        'astrology wheel',
+        'horoscope',
+        'astronaut',
+        'antique paper',
+      ],
     },
   },
 
@@ -1903,9 +2093,11 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'small silver glints only at the outer edge behavior',
     ],
     visualLanguage: {
-      coreArtWorld: 'Volcanic glass, polished obsidian stone, graphite luster, light on deep shadow',
+      coreArtWorld:
+        'Volcanic glass, polished obsidian stone, graphite luster, light on deep shadow',
       primaryMedium: 'Polished obsidian stone and graphite carving',
-      substrate: 'Honed black volcanic glass material geometry with micro-beveled facets directly on the Anchor lines and intersections',
+      substrate:
+        'Honed black volcanic glass material geometry with micro-beveled facets directly on the Anchor lines and intersections',
       edgeBehavior: 'Sharp conchoidal fracture edges, crisp specular glints',
       lineBehavior: 'Subtle etched relief or precision silver edge-catches on black ground',
       spatialBehavior: 'Lower-weighted anchored mass, deep tonal absorption',
@@ -1913,19 +2105,32 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Mirror-polished stone planes, matte graphite zones, volcanic micro-texture',
       depthLogic: 'Black-on-black depth separation through variable gloss and reflection',
       ornamentSystem: 'Low reflective shadow shelves, faint graphite calibration lines',
-      framingLogic: 'Pure obsidian material geometry radiating outward into boundless space, no rectangular stone tablet or enclosing borders',
-      signatureTraits: ['Polished black glass reflections', 'Conchoidal fractures', 'Low-weighted anchor mass'],
-      shouldFeelLike: 'A sacred monolithic mark of volcanic glass carved by precision tools, standing free with no enclosing plaque or tablet',
+      framingLogic:
+        'Pure obsidian material geometry radiating outward into boundless space, no rectangular stone tablet or enclosing borders',
+      signatureTraits: [
+        'Polished black glass reflections',
+        'Conchoidal fractures',
+        'Low-weighted anchor mass',
+      ],
+      shouldFeelLike:
+        'A sacred monolithic mark of volcanic glass carved by precision tools, standing free with no enclosing plaque or tablet',
       mustNotFeelLike: 'Flat grayscale vector, sci-fi metallic armor, plastic phone case',
-      crossStyleAvoidances: ['Obsidian Mono must not inherit soft painterly treatment or bright color noise'],
+      crossStyleAvoidances: [
+        'Obsidian Mono must not inherit soft painterly treatment or bright color noise',
+      ],
       paletteBehavior: 'Black glass, graphite, smoke gray, cold silver specular highlight',
       preferredPaletteLanes: ['black glass, graphite, silver edge, smoke gray'],
       categoryColorBehavior: 'Deepest midnight tint perceptible only in specular falloff',
       accentBehavior: 'Small silver glints only at peripheral edge catches',
       allowedCompositionFamilies: ['LOWER_ANCHORED', 'OBJECT_PRESENTATION'],
       preferredCompositionFamilies: ['LOWER_ANCHORED'],
-      motifVocabulary: ['conchoidal fracture planes', 'horizontal reflection shelf', 'graphite polish sheen'],
-      intentionMotifBehavior: 'Determines the hardness of specular light and depth of shadow shelves',
+      motifVocabulary: [
+        'conchoidal fracture planes',
+        'horizontal reflection shelf',
+        'graphite polish sheen',
+      ],
+      intentionMotifBehavior:
+        'Determines the hardness of specular light and depth of shadow shelves',
       prohibitedMotifs: ['colorful halos', 'flames', 'cosmic dust', 'runes', 'flowers'],
       maxSupportingMotifs: 2,
       directionalBehavior: 'Downward settling into rooted gravitational weight',
@@ -2032,7 +2237,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'offset pale-cyan coordinate lines with no text or numbers',
     ],
     visualLanguage: {
-      coreArtWorld: 'Observatory celestial cartography, astrolabe engravings, singular navigation instrument',
+      coreArtWorld:
+        'Observatory celestial cartography, astrolabe engravings, singular navigation instrument',
       primaryMedium: 'Engraved brass and silver on smoked navigational chart board',
       substrate: 'Deep smoked indigo or obsidian celestial paper',
       edgeBehavior: 'Fine instrument-grade lines, minute coordinate tick marks',
@@ -2043,25 +2249,47 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Layered navigational planes, celestial sphere projections',
       ornamentSystem: 'Astrolabe arcs, star-node clusters, non-readable coordinate scales',
       framingLogic: 'Sector-divided navigational margins with calibration marks',
-      signatureTraits: ['Observatory plotting geometry', 'Delicate constellation grids', 'Navigational arcs'],
-      shouldFeelLike: 'A masterwork astronomical navigation plate created by a Renaissance cosmographer',
-      mustNotFeelLike: 'Stock zodiac poster, astrology wheel, horoscope diagram, fantasy magic circle',
-      crossStyleAvoidances: ['Celestial Grid must not become a stock horoscope chart or glowing mandala'],
+      signatureTraits: [
+        'Observatory plotting geometry',
+        'Delicate constellation grids',
+        'Navigational arcs',
+      ],
+      shouldFeelLike:
+        'A masterwork astronomical navigation plate created by a Renaissance cosmographer',
+      mustNotFeelLike:
+        'Stock zodiac poster, astrology wheel, horoscope diagram, fantasy magic circle',
+      crossStyleAvoidances: [
+        'Celestial Grid must not become a stock horoscope chart or glowing mandala',
+      ],
       paletteBehavior: 'Midnight navy, pale cyan, soft violet, pinprick gold, cold silver',
       preferredPaletteLanes: ['midnight navy, pale cyan, soft violet, pinprick gold'],
       categoryColorBehavior: 'Tints one major navigational arc or star cluster',
       accentBehavior: 'Selective star-nodes attaching to meaningful Anchor intersections',
       allowedCompositionFamilies: ['OFFSET_FIELD', 'CENTRED_STILLPOINT'],
       preferredCompositionFamilies: ['OFFSET_FIELD'],
-      motifVocabulary: ['selective star-node clusters', 'observatory measurement arcs', 'coordinate lines'],
+      motifVocabulary: [
+        'selective star-node clusters',
+        'observatory measurement arcs',
+        'coordinate lines',
+      ],
       intentionMotifBehavior: 'Configures coordinate arc curvature and star cluster density',
-      prohibitedMotifs: ['zodiac signs', 'horoscope symbols', 'readable numbers', 'astrology glyphs'],
+      prohibitedMotifs: [
+        'zodiac signs',
+        'horoscope symbols',
+        'readable numbers',
+        'astrology glyphs',
+      ],
       maxSupportingMotifs: 3,
       directionalBehavior: 'Engineered navigational orientation across the sphere',
       densityBehavior: 'Moderate, disciplined, mathematically authored',
       focalBehavior: 'Anchor structure acts as the singular celestial instrument',
       atmosphericBehavior: 'Measured, archival, contemplative, grand',
-      negativePromptAdditions: ['zodiac signs', 'horoscope wheel', 'readable chart labels', 'astrology glyphs'],
+      negativePromptAdditions: [
+        'zodiac signs',
+        'horoscope wheel',
+        'readable chart labels',
+        'astrology glyphs',
+      ],
     },
   },
 
@@ -2292,7 +2520,11 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Multi-layer ink diffusion receding into paper depth',
       ornamentSystem: 'Dendritic ink blooms, pooling sepia margins, capillary traces',
       framingLogic: 'Soft organic bleed toward paper deckle',
-      signatureTraits: ['Living pigment blooms', 'Capillary ink dispersal', 'Bone-wash paper clearing'],
+      signatureTraits: [
+        'Living pigment blooms',
+        'Capillary ink dispersal',
+        'Bone-wash paper clearing',
+      ],
       shouldFeelLike: 'Ink dropped into wet silk paper, unfurling organically like living breath',
       mustNotFeelLike: 'Floral illustration, comic ink splatter, tattoo flash, graffiti',
       crossStyleAvoidances: ['Ink bloom must not become floral clipart or digital grunge'],
@@ -2348,9 +2580,15 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Transparent overlapping glass planes with true optical refraction',
       ornamentSystem: 'Subtle spectral shards, pale refraction bands, pearl highlights',
       framingLogic: 'Asymmetrical faceted boundaries fading into open space',
-      signatureTraits: ['Faceted optical planes', 'Restrained spectral refraction', 'Glasslike hush'],
-      shouldFeelLike: 'High-end optical prism glass refracting clean white light into delicate spectral hues',
-      mustNotFeelLike: 'Cheap rainbow sticker, neon holography, rave laser show, kaleidoscopic clutter',
+      signatureTraits: [
+        'Faceted optical planes',
+        'Restrained spectral refraction',
+        'Glasslike hush',
+      ],
+      shouldFeelLike:
+        'High-end optical prism glass refracting clean white light into delicate spectral hues',
+      mustNotFeelLike:
+        'Cheap rainbow sticker, neon holography, rave laser show, kaleidoscopic clutter',
       crossStyleAvoidances: ['Prism Fold must not become neon rainbow or plastic holographic foil'],
       paletteBehavior: 'Pearl, opal, pale cyan, lavender, faint gold on dark ground',
       preferredPaletteLanes: ['pearl, opal, pale cyan, lavender, faint gold'],
@@ -2358,15 +2596,25 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       accentBehavior: 'A faint gold or pale cyan edge glint along one facet boundary',
       allowedCompositionFamilies: ['OFFSET_FIELD', 'DIAGONAL_TENSION'],
       preferredCompositionFamilies: ['OFFSET_FIELD'],
-      motifVocabulary: ['faceted translucent plane', 'pale spectral refraction band', 'opal surface highlight'],
-      intentionMotifBehavior: 'Alters the angle of the refracting plane and chromatic dispersion spread',
+      motifVocabulary: [
+        'faceted translucent plane',
+        'pale spectral refraction band',
+        'opal surface highlight',
+      ],
+      intentionMotifBehavior:
+        'Alters the angle of the refracting plane and chromatic dispersion spread',
       prohibitedMotifs: ['rainbow gradients', 'hologram stickers', 'crystals as literal objects'],
       maxSupportingMotifs: 2,
       directionalBehavior: 'Angular refraction path cutting gently across the field',
       densityBehavior: 'Sparse to moderate, maintaining crystalline lucidity',
       focalBehavior: 'Anchor geometry remains immutable and distortion-free',
       atmosphericBehavior: 'Silent, crystalline, pristine, refined',
-      negativePromptAdditions: ['neon rainbow', 'cheap holographic sticker', 'plastic iridescence', 'kaleidoscope'],
+      negativePromptAdditions: [
+        'neon rainbow',
+        'cheap holographic sticker',
+        'plastic iridescence',
+        'kaleidoscope',
+      ],
     },
   },
 
@@ -2513,7 +2761,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'bare archival margin void',
     ],
     visualLanguage: {
-      coreArtWorld: 'Pure unadorned structural foundation, clean vector clarity, pristine spatial restraint',
+      coreArtWorld:
+        'Pure unadorned structural foundation, clean vector clarity, pristine spatial restraint',
       primaryMedium: 'Vector line drafting',
       substrate: 'Smooth fine-grain paper or clean digital void',
       edgeBehavior: 'Razor-sharp, continuous, unfeathered geometric contours',
@@ -2524,10 +2773,19 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Flat graphic plane with pure spatial isolation',
       ornamentSystem: 'Zero ornamental filigree, zero secondary emblems',
       framingLogic: 'Spacious open margins, unbordered stillness',
-      signatureTraits: ['Untouched geometric purity', 'Ultra-clean linework', 'Spacious void balance'],
+      signatureTraits: [
+        'Untouched geometric purity',
+        'Ultra-clean linework',
+        'Spacious void balance',
+      ],
       shouldFeelLike: 'A master draft of pure intention, essential, calm, unpolluted',
       mustNotFeelLike: 'Glowy app icon, mystical badge, busy wallpaper',
-      crossStyleAvoidances: ['No cosmic glow', 'No watercolor bleed', 'No metallic leafing', 'No rustic patina'],
+      crossStyleAvoidances: [
+        'No cosmic glow',
+        'No watercolor bleed',
+        'No metallic leafing',
+        'No rustic patina',
+      ],
       paletteBehavior: 'Monochromatic bone on deep charcoal or platinum on obsidian',
       preferredPaletteLanes: ['smoked parchment, bone on charcoal, faint silver'],
       categoryColorBehavior: 'Subtlest tint in background void or single hairline accent',
@@ -2535,7 +2793,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       allowedCompositionFamilies: ['OPEN_VOID', 'CENTRED_STILLPOINT'],
       preferredCompositionFamilies: ['OPEN_VOID'],
       motifVocabulary: ['clean datum line', 'micro calibration tick', 'open negative field'],
-      intentionMotifBehavior: 'Translates intention through spatial breathing room and line tension',
+      intentionMotifBehavior:
+        'Translates intention through spatial breathing room and line tension',
       prohibitedMotifs: ['runes', 'halos', 'mandala circles', 'stars', 'flames'],
       maxSupportingMotifs: 2,
       directionalBehavior: 'Subtle inward organization with wide open release',
@@ -2555,10 +2814,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Archival / Photochemical',
-    description: 'Deep Prussian-blue photographic print, pale exposed forms, analog chemistry artifacts.',
+    description:
+      'Deep Prussian-blue photographic print, pale exposed forms, analog chemistry artifacts.',
     paletteLane: 'deep Prussian blue, cyan tone, unexposed white, raw paper border',
     compositionFamily: 'FULL_FIELD',
-    materialBehavior: 'sun-washed contact borders, chemical brush pooling at edges, solar exposure fringe',
+    materialBehavior:
+      'sun-washed contact borders, chemical brush pooling at edges, solar exposure fringe',
     styleNativeMotif: 'sun-wash bleed, emulsion brush borders, chemical crystallization fringe',
     defaultDensity: 'moderate',
     promptStyleBlock:
@@ -2570,10 +2831,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'sun-bleached white negative space pockets',
     ],
     visualLanguage: {
-      coreArtWorld: 'Deep Prussian-blue sun-print contact process, exposed linen paper, ferric ammonium citrate chemistry',
+      coreArtWorld:
+        'Deep Prussian-blue sun-print contact process, exposed linen paper, ferric ammonium citrate chemistry',
       primaryMedium: 'Traditional cyanotype sun printing',
       substrate: 'Heavy textured watercolor rag paper with hand-brushed chemical borders',
-      edgeBehavior: 'Sun-washed contact borders, chemical brush pooling at edges, solar exposure fringe',
+      edgeBehavior:
+        'Sun-washed contact borders, chemical brush pooling at edges, solar exposure fringe',
       lineBehavior: 'Anchor geometry as pure unexposed white silhouette, sharp contact clarity',
       spatialBehavior: 'Full-field blue saturation with open white breathing structures',
       lightBehavior: 'Natural UV sun exposure, inverted shadow tonality',
@@ -2581,8 +2844,13 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Flat contact-print plane with chemical wash variations in deep blue',
       ornamentSystem: 'Chemical wash strokes along borders, solar exposure artifacts',
       framingLogic: 'Irregular hand-coated emulsion edges revealing raw paper margins',
-      signatureTraits: ['Deep Prussian blue tones', 'Pure white unexposed silhouette', 'Hand-brushed chemical edges'],
-      shouldFeelLike: 'An authentic 19th-century botanical cyanotype plate exposed in bright noon sun',
+      signatureTraits: [
+        'Deep Prussian blue tones',
+        'Pure white unexposed silhouette',
+        'Hand-brushed chemical edges',
+      ],
+      shouldFeelLike:
+        'An authentic 19th-century botanical cyanotype plate exposed in bright noon sun',
       mustNotFeelLike: 'Digital blue filter, blueprint schematic, sci-fi hologram, neon blue',
       crossStyleAvoidances: ['Cyanotype must not inherit cosmic glow, metallic leafing, or neon'],
       paletteBehavior: 'Prussian blue, cyan, bleached white, pale indigo',
@@ -2591,7 +2859,11 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       accentBehavior: 'Hand-coated emulsion brush edge pooling at frame perimeter',
       allowedCompositionFamilies: ['FULL_FIELD', 'OBJECT_PRESENTATION', 'CENTRED_STILLPOINT'],
       preferredCompositionFamilies: ['FULL_FIELD'],
-      motifVocabulary: ['sun-wash bleed', 'emulsion brush borders', 'chemical crystallization fringe'],
+      motifVocabulary: [
+        'sun-wash bleed',
+        'emulsion brush borders',
+        'chemical crystallization fringe',
+      ],
       intentionMotifBehavior: 'Alters the exposure density and chemical border agitation',
       prohibitedMotifs: ['blue neon', 'metallic gold', 'digital grid', 'stars'],
       maxSupportingMotifs: 2,
@@ -2599,7 +2871,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Moderate all-over Prussian blue saturation',
       focalBehavior: 'Anchor stands out as pure crisp unexposed white clarity',
       atmosphericBehavior: 'Archival, sun-drenched, analog, historic',
-      negativePromptAdditions: ['neon blue', 'digital glow', 'metallic gold', 'blueprint technical grid'],
+      negativePromptAdditions: [
+        'neon blue',
+        'digital glow',
+        'metallic gold',
+        'blueprint technical grid',
+      ],
     },
   },
 
@@ -2611,10 +2888,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Tactile / Relief',
-    description: 'Layered physical paper, hard-cut edges, cast shadows, tactile collage construction.',
+    description:
+      'Layered physical paper, hard-cut edges, cast shadows, tactile collage construction.',
     paletteLane: 'warm bone, chalk white, shadow charcoal, soft kraft',
     compositionFamily: 'OBJECT_PRESENTATION',
-    materialBehavior: 'layered heavy cardstock, scalpel-cut edges, natural directional drop shadows',
+    materialBehavior:
+      'layered heavy cardstock, scalpel-cut edges, natural directional drop shadows',
     styleNativeMotif: 'beveled paper edges, negative-space apertures, recessed paper tiers',
     defaultDensity: 'moderate',
     promptStyleBlock:
@@ -2626,7 +2905,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'negative-space aperture cutouts in the supporting ground',
     ],
     visualLanguage: {
-      coreArtWorld: 'Layered physical paper sculpture, precision knife-cut edges, tangible cast shadows',
+      coreArtWorld:
+        'Layered physical paper sculpture, precision knife-cut edges, tangible cast shadows',
       primaryMedium: 'Multi-ply heavy cardstock and archival cotton paper cutouts',
       substrate: 'Recessed shadowbox backing paper with dimensional spacing',
       edgeBehavior: 'Clean beveled scalpel-cut edges with micro drop shadows',
@@ -2636,11 +2916,19 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Heavy cardstock grain, clean paper edges, matte non-reflective fiber',
       depthLogic: '3 to 5 discrete physical paper layers stepping toward the viewer',
       ornamentSystem: 'Layered contour cutouts, negative space apertures, paper bevels',
-      framingLogic: 'Layered dimensional relief with no enclosing shadowbox frame or rectangular border',
-      signatureTraits: ['Scalpel-cut paper edges', 'Tangible directional cast shadows', 'Layered dimensional relief'],
-      shouldFeelLike: 'A handmade museum-grade paper relief sculpture lit by soft studio raking light',
+      framingLogic:
+        'Layered dimensional relief with no enclosing shadowbox frame or rectangular border',
+      signatureTraits: [
+        'Scalpel-cut paper edges',
+        'Tangible directional cast shadows',
+        'Layered dimensional relief',
+      ],
+      shouldFeelLike:
+        'A handmade museum-grade paper relief sculpture lit by soft studio raking light',
       mustNotFeelLike: 'Flat digital vector, painterly smudge, glossy plastic, 3D clay',
-      crossStyleAvoidances: ['Cut Paper must not have painterly blending, gradients, or metallic shine'],
+      crossStyleAvoidances: [
+        'Cut Paper must not have painterly blending, gradients, or metallic shine',
+      ],
       paletteBehavior: 'Warm bone, ivory, soft charcoal, architectural gray with restrained accent',
       preferredPaletteLanes: ['warm bone, chalk white, shadow charcoal, soft kraft'],
       categoryColorBehavior: 'Supplies one single colored paper sheet layer in the mid-ground',
@@ -2655,7 +2943,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Moderate, defined by clean geometric shapes and void cutouts',
       focalBehavior: 'Anchor is the primary elevated tactile layer',
       atmosphericBehavior: 'Tangible, architectural, tactile, handcrafted',
-      negativePromptAdditions: ['painterly blending', 'digital gradients', 'metallic shine', 'plastic gloss'],
+      negativePromptAdditions: [
+        'painterly blending',
+        'digital gradients',
+        'metallic shine',
+        'plastic gloss',
+      ],
     },
   },
 
@@ -2682,7 +2975,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'fine registration cross marks near the print margin',
     ],
     visualLanguage: {
-      coreArtWorld: 'Analog Risograph stencil duplicator printing, spot color inks, halftone screens',
+      coreArtWorld:
+        'Analog Risograph stencil duplicator printing, spot color inks, halftone screens',
       primaryMedium: 'Soy-based spot ink on uncoated paper',
       substrate: 'Warm newsprint or uncoated recycled stock with visible fiber',
       edgeBehavior: 'Slight mechanical ink drag, natural stencil tooth, micro registration shift',
@@ -2693,10 +2987,16 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Overprinting of 2-3 transparent spot color inks (flouro pink, teal, yellow)',
       ornamentSystem: 'Halftone screens, registration crop marks, overprint blends',
       framingLogic: 'Generous print margins with subtle registration alignment marks',
-      signatureTraits: ['Visible dot screen grain', 'Slight misregistration charm', 'Vibrant matte spot inks'],
+      signatureTraits: [
+        'Visible dot screen grain',
+        'Slight misregistration charm',
+        'Vibrant matte spot inks',
+      ],
       shouldFeelLike: 'An indie art book printed on a Riso GR3770 with tactile spot color inks',
       mustNotFeelLike: 'Cinematic 3D lighting, photographic realism, airbrush, glossy poster',
-      crossStyleAvoidances: ['Risograph must not have cinematic lighting, 3D rendering, or digital gradients'],
+      crossStyleAvoidances: [
+        'Risograph must not have cinematic lighting, 3D rendering, or digital gradients',
+      ],
       paletteBehavior: 'Risograph fluorescent pink, cornflower blue, sunflower yellow, flat black',
       preferredPaletteLanes: ['riso teal, warm melon, soot black, cream stock'],
       categoryColorBehavior: 'Determines the secondary spot ink cylinder color',
@@ -2705,13 +3005,23 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       preferredCompositionFamilies: ['OFFSET_FIELD'],
       motifVocabulary: ['halftone screen fields', 'subtle registration ticks', 'spot ink overlaps'],
       intentionMotifBehavior: 'Controls screen frequency and overprint misregistration distance',
-      prohibitedMotifs: ['photorealistic shading', 'metallic leaf', 'cinematic lighting', 'lens flares'],
+      prohibitedMotifs: [
+        'photorealistic shading',
+        'metallic leaf',
+        'cinematic lighting',
+        'lens flares',
+      ],
       maxSupportingMotifs: 2,
       directionalBehavior: 'Graphic rhythmic print flow',
       densityBehavior: 'Moderate, clean separation of graphic planes',
       focalBehavior: 'Anchor anchors the primary ink channel',
       atmosphericBehavior: 'Artisanal, tactile, modern printmaking, indie press',
-      negativePromptAdditions: ['cinematic lighting', '3d render', 'glossy', 'smooth digital gradient'],
+      negativePromptAdditions: [
+        'cinematic lighting',
+        '3d render',
+        'glossy',
+        'smooth digital gradient',
+      ],
     },
   },
 
@@ -2726,8 +3036,10 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     description: 'Serigraphy silkscreen poster, heavy squeegee ink deposit, bold graphic clarity.',
     paletteLane: 'deep charcoal, burnt terracotta, raw ochre, bone paper',
     compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'flat opaque ink deposit, screen mesh weave texture, crisp stencil boundaries',
-    styleNativeMotif: 'solid graphic color blocks, screen mesh texture hints, flat background bands',
+    materialBehavior:
+      'flat opaque ink deposit, screen mesh weave texture, crisp stencil boundaries',
+    styleNativeMotif:
+      'solid graphic color blocks, screen mesh texture hints, flat background bands',
     defaultDensity: 'moderate',
     promptStyleBlock:
       'Hand-pulled serigraph / silkscreen poster print. Thick, flat, opaque ink deposited through mesh onto heavy archival poster board. Bold graphic presence, razor-sharp stencil lines, and subtle screen mesh weave texture in the ink surface. Avoid airbrush blending, watercolor bleed, 3D renders, or soft digital glows.',
@@ -2738,7 +3050,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'unprinted bone paper counter-space framing the motif',
     ],
     visualLanguage: {
-      coreArtWorld: 'Serigraphy / silkscreen poster print, heavy squeegee ink deposit, flat bold graphic clarity',
+      coreArtWorld:
+        'Serigraphy / silkscreen poster print, heavy squeegee ink deposit, flat bold graphic clarity',
       primaryMedium: 'Heavy water-based screenprinting ink',
       substrate: 'Heavyweight French Paper Co. archival poster board',
       edgeBehavior: 'Crisp hand-pulled emulsion edges with micro ink build-up',
@@ -2749,7 +3062,11 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Discrete flat color passes layered in physical print sequence',
       ornamentSystem: 'Flat color blocks, registration crosses, graphic perimeter fields',
       framingLogic: 'Generous open margins with no enclosing border or rectangular matte',
-      signatureTraits: ['Flat opaque ink deposit', 'Screen mesh texture', 'Bold high-contrast graphics'],
+      signatureTraits: [
+        'Flat opaque ink deposit',
+        'Screen mesh texture',
+        'Bold high-contrast graphics',
+      ],
       shouldFeelLike: 'A limited-edition serigraph poster hand-pulled in a master print shop',
       mustNotFeelLike: 'Smooth digital vector, 3D render, watercolor wash, glowing neon',
       crossStyleAvoidances: ['Screenprint must not have watercolor bleed or soft blurred glows'],
@@ -2779,7 +3096,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Printmaking / Expressive',
-    description: 'Unique plate impression, rolled oil ink, spontaneous plate wiping, embossed platemark.',
+    description:
+      'Unique plate impression, rolled oil ink, spontaneous plate wiping, embossed platemark.',
     paletteLane: 'warm bistre, burnt umber, raw sienna, ivory paper',
     compositionFamily: 'OFFSET FIELD',
     materialBehavior: 'biting roller texture, wiping rag striations, plate tone variation',
@@ -2794,20 +3112,27 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'embossed platemark indentation along paper borders',
     ],
     visualLanguage: {
-      coreArtWorld: 'Single unique plate impression, rolled oil ink, spontaneous plate wiping, ghost impressions',
+      coreArtWorld:
+        'Single unique plate impression, rolled oil ink, spontaneous plate wiping, ghost impressions',
       primaryMedium: 'Viscous oil-based etching ink rolled and wiped on plexiglas plate',
       substrate: 'Damp BFK Rives heavyweight printmaking paper',
       edgeBehavior: 'Soft wiped plate edges, roller marks, subtle ink chatter',
-      lineBehavior: 'Anchor incised or masked into the ink field, appearing sharp amidst painterly texture',
+      lineBehavior:
+        'Anchor incised or masked into the ink field, appearing sharp amidst painterly texture',
       spatialBehavior: 'Dynamic, one-of-a-kind plate pressure, asymmetric ink concentration',
       lightBehavior: 'Subtle oil-ink sheen caught at glancing angles',
       textureLogic: 'Biting roller texture, wiping rag striations, rich ink plate tone',
       depthLogic: 'Ghost impressions and varied ink film thicknesses',
       ornamentSystem: 'Plate tone variations, wiping marks, roller passes',
       framingLogic: 'Open paper field with no visible rectangular plate impression or border',
-      signatureTraits: ['Plate tone and wiping striations', 'Unique impression texture', 'Embossed platemark'],
+      signatureTraits: [
+        'Plate tone and wiping striations',
+        'Unique impression texture',
+        'Embossed platemark',
+      ],
       shouldFeelLike: 'A singular, irreplaceable monoprint impression pulled from an etched plate',
-      mustNotFeelLike: 'Repetitive pattern, digital wallpaper, clean vector, corporate illustration',
+      mustNotFeelLike:
+        'Repetitive pattern, digital wallpaper, clean vector, corporate illustration',
       crossStyleAvoidances: ['Monoprint must not become a clean flat vector or digital clipart'],
       paletteBehavior: 'Warm bistre, burnt umber, raw sienna, ivory paper',
       preferredPaletteLanes: ['warm bistre, burnt umber, raw sienna, ivory paper'],
@@ -2835,7 +3160,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Tactile / Expressive',
-    description: 'Vine and willow charcoal, powdered carbon mass, erased light apertures, smudging.',
+    description:
+      'Vine and willow charcoal, powdered carbon mass, erased light apertures, smudging.',
     paletteLane: 'deep carbon black, smoky ash gray, warm bone paper',
     compositionFamily: 'DIAGONAL TENSION',
     materialBehavior: 'charcoal dust grain, smudged stumps, erased light shafts, rough paper tooth',
@@ -2850,11 +3176,13 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'deepest 6B carbon black concentration anchoring one quadrant',
     ],
     visualLanguage: {
-      coreArtWorld: 'Vine and willow charcoal, powdered carbon mass, kneaded eraser lifts, smudging and compression',
+      coreArtWorld:
+        'Vine and willow charcoal, powdered carbon mass, kneaded eraser lifts, smudging and compression',
       primaryMedium: 'Natural willow and compressed charcoal on rough paper',
       substrate: 'Rough heavyweight charcoal paper with prominent tooth',
       edgeBehavior: 'Smudged velvety perimeter with erased razor-clean geometric boundaries',
-      lineBehavior: 'Anchor geometry cleanly carved out with eraser or dense compressed charcoal lines',
+      lineBehavior:
+        'Anchor geometry cleanly carved out with eraser or dense compressed charcoal lines',
       spatialBehavior: 'Profound massing of dark tones balanced by dramatic light apertures',
       lightBehavior: 'Dramatic chiaroscuro, velvety matte carbon light absorption',
       textureLogic: 'Charcoal dust grain, smudged stumps (tortillon), rough paper tooth',
@@ -2864,7 +3192,9 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       signatureTraits: ['Deep velvety black mass', 'Erased light gestures', 'Charcoal dust grain'],
       shouldFeelLike: 'A monumental studio charcoal drawing with intense emotional gravity',
       mustNotFeelLike: 'Digital airbrush, clean pencil sketch, comic book ink, photo render',
-      crossStyleAvoidances: ['Charcoal Field must not have digital polish, crisp colors, or metallic shine'],
+      crossStyleAvoidances: [
+        'Charcoal Field must not have digital polish, crisp colors, or metallic shine',
+      ],
       paletteBehavior: 'Deep carbon black, smoky ash gray, warm bone paper',
       preferredPaletteLanes: ['deep carbon black, smoky ash gray, warm bone paper'],
       categoryColorBehavior: 'Very subtle warm or cool paper tint under the carbon dust',
@@ -2879,7 +3209,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Dense dark massing with striking light contrast',
       focalBehavior: 'Anchor stands luminous amidst deep charcoal depth',
       atmosphericBehavior: 'Emotional, monumental, tactile, dramatic',
-      negativePromptAdditions: ['digital polish', 'bright saturated colors', 'smooth airbrush', 'metallic sheen'],
+      negativePromptAdditions: [
+        'digital polish',
+        'bright saturated colors',
+        'smooth airbrush',
+        'metallic sheen',
+      ],
     },
   },
 
@@ -2891,11 +3226,14 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Precision / Tonal',
-    description: 'Graded graphite pencil drafting, silver sheen, disciplined cross-hatching, atelier study.',
+    description:
+      'Graded graphite pencil drafting, silver sheen, disciplined cross-hatching, atelier study.',
     paletteLane: 'graphite silver, pencil gray, pure paper white, deep lead black',
     compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'fine graphite cross-hatching, metallic pencil luster, smooth plate Bristol tooth',
-    styleNativeMotif: 'cross-hatched value fields, delicate graphite guide ticks, silvery burnished sheen',
+    materialBehavior:
+      'fine graphite cross-hatching, metallic pencil luster, smooth plate Bristol tooth',
+    styleNativeMotif:
+      'cross-hatched value fields, delicate graphite guide ticks, silvery burnished sheen',
     defaultDensity: 'moderate',
     promptStyleBlock:
       'Master atelier graphite drawing on smooth Bristol board. Graded pencils (9H to 9B) create disciplined cross-hatching, delicate tonal transitions, and an authentic silvery metallic graphite luster when light hits the lead. The Anchor geometry is drafted with supreme hand precision. Avoid color of any kind, watercolor runs, rough doodles, or digital vector fills.',
@@ -2906,7 +3244,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'silvery graphite luster along outer cross-hatched value planes',
     ],
     visualLanguage: {
-      coreArtWorld: 'Graded graphite pencil drafting (9H to 9B), silver sheen, cross-hatching, master atelier study',
+      coreArtWorld:
+        'Graded graphite pencil drafting (9H to 9B), silver sheen, cross-hatching, master atelier study',
       primaryMedium: 'Pure graphite pencil on smooth Bristol board',
       substrate: 'Heavy 4-ply plate-finish Bristol board',
       edgeBehavior: 'Precise graphite lines, fine tonal gradations, crisp pencil contour',
@@ -2917,7 +3256,11 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Tonal values ranging from 9H silvery whisper to 9B deep velvety black',
       ornamentSystem: 'Hatching tone fields, delicate guide ticks, tonal density scales',
       framingLogic: 'Spacious study margins with light border guidelines',
-      signatureTraits: ['Silvery graphite luster', 'Masterful cross-hatch shading', 'Atelier study precision'],
+      signatureTraits: [
+        'Silvery graphite luster',
+        'Masterful cross-hatch shading',
+        'Atelier study precision',
+      ],
       shouldFeelLike: 'An exquisite master graphite study from an old European fine art atelier',
       mustNotFeelLike: 'Rough scribble, loose doodle, digital gray gradient, mechanical CAD',
       crossStyleAvoidances: ['Graphite Study must not have color noise, watercolor runs, or glow'],
@@ -2927,7 +3270,11 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       accentBehavior: 'Deepest 9B graphite tone concentrated at key Anchor intersections',
       allowedCompositionFamilies: ['CENTRED_STILLPOINT', 'OPEN_VOID'],
       preferredCompositionFamilies: ['CENTRED_STILLPOINT'],
-      motifVocabulary: ['cross-hatched value fields', 'delicate graphite guide ticks', 'silvery burnished sheen'],
+      motifVocabulary: [
+        'cross-hatched value fields',
+        'delicate graphite guide ticks',
+        'silvery burnished sheen',
+      ],
       intentionMotifBehavior: 'Shapes the density and direction of pencil hatching lines',
       prohibitedMotifs: ['color of any kind', 'watercolor washes', 'neon glow', 'photoreal faces'],
       maxSupportingMotifs: 2,
@@ -2947,7 +3294,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Sculptural / Architectural',
-    description: 'Bas-relief stone carving, limestone and plaster frieze, architectural permanence.',
+    description:
+      'Bas-relief stone carving, limestone and plaster frieze, architectural permanence.',
     paletteLane: 'warm limestone, chalk bone, shadow umber, mineral gray',
     compositionFamily: 'OBJECT_PRESENTATION',
     materialBehavior: 'chiseled V-cut stone grooves, micro mineral chips, shallow relief shadow',
@@ -2962,7 +3310,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'faint calcite veining running through the stone ground',
     ],
     visualLanguage: {
-      coreArtWorld: 'Bas-relief stone carving, limestone and plaster frieze, architectural permanence',
+      coreArtWorld:
+        'Bas-relief stone carving, limestone and plaster frieze, architectural permanence',
       primaryMedium: 'Chiseled limestone or molded plaster relief',
       substrate: 'Honed limestone architectural panel with natural mineral flecks',
       edgeBehavior: 'Chiseled V-cut stone grooves, micro mineral chips, shallow relief shadow',
@@ -2972,18 +3321,29 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Limestone porosity, chisel tool marks, mineral veining',
       depthLogic: 'Shallow bas-relief plane (5mm depth) integrated into solid stone wall',
       ornamentSystem: 'Architectural moldings, shallow carved margins, mineral fossils',
-      framingLogic: 'Carved stone relief mark standing free with no recessed rectangular panel or border',
-      signatureTraits: ['Chiseled bas-relief depth', 'Raking stone shadow', 'Limestone mineral texture'],
+      framingLogic:
+        'Carved stone relief mark standing free with no recessed rectangular panel or border',
+      signatureTraits: [
+        'Chiseled bas-relief depth',
+        'Raking stone shadow',
+        'Limestone mineral texture',
+      ],
       shouldFeelLike: 'An ancient architectural bas-relief carving preserved in a temple wall',
       mustNotFeelLike: 'CGI video game rock, 3D foam prop, plastic casting, magical glowing ruin',
-      crossStyleAvoidances: ['Stone Relief must not have mystical glowing runes or digital fantasy effects'],
+      crossStyleAvoidances: [
+        'Stone Relief must not have mystical glowing runes or digital fantasy effects',
+      ],
       paletteBehavior: 'Warm limestone, chalk bone, shadow umber, mineral gray',
       preferredPaletteLanes: ['warm limestone, chalk bone, shadow umber, mineral gray'],
       categoryColorBehavior: 'Subtle mineral pigment staining deep within carved grooves',
       accentBehavior: 'Deep raking shadow inside the primary carved Anchor channels',
       allowedCompositionFamilies: ['OBJECT_PRESENTATION', 'CENTRED_STILLPOINT', 'LOWER_ANCHORED'],
       preferredCompositionFamilies: ['OBJECT_PRESENTATION'],
-      motifVocabulary: ['chiseled relief bevels', 'mineral grain veining', 'weathered stone border'],
+      motifVocabulary: [
+        'chiseled relief bevels',
+        'mineral grain veining',
+        'weathered stone border',
+      ],
       intentionMotifBehavior: 'Adjusts carving depth and stone surface weathering',
       prohibitedMotifs: ['glowing cracks', 'magic runes', 'flames', 'neon lights'],
       maxSupportingMotifs: 2,
@@ -3018,21 +3378,32 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'subtle cobalt blue bloom settling in glaze depth',
     ],
     visualLanguage: {
-      coreArtWorld: 'High-fire white porcelain, celadon and cobalt glaze, subtle crazing, bone china lucidity',
+      coreArtWorld:
+        'High-fire white porcelain, celadon and cobalt glaze, subtle crazing, bone china lucidity',
       primaryMedium: 'Fine glazed ceramic porcelain',
       substrate: 'Vitreous translucent white porcelain vessel or tile surface',
       edgeBehavior: 'Soft glazed edge meniscus, micro-crazing hairline cracks in glassy coat',
-      lineBehavior: 'Anchor rendered in cobalt blue underglaze or iron oxide slip with vitreous sheen',
+      lineBehavior:
+        'Anchor rendered in cobalt blue underglaze or iron oxide slip with vitreous sheen',
       spatialBehavior: 'Curved or planar ceramic surface, spacious purity',
       lightBehavior: 'Soft vitreous gloss reflections, ceramic translucency',
       textureLogic: 'Smooth glass glaze, subtle craquelure (ice crackle), kaolin clay purity',
       depthLogic: 'Underglaze depth beneath a layer of clear vitreous glass',
       ornamentSystem: 'Fine celadon crackle patterns, iron-spot glaze flecks, subtle rim luster',
-      framingLogic: 'Porcelain ceramic mark with smooth glazed edges, standing free without tile perimeter or box',
-      signatureTraits: ['Vitreous glaze luster', 'Delicate craquelure network', 'Cobalt underglaze purity'],
-      shouldFeelLike: 'An imperial Song Dynasty white porcelain vessel with subtle ice crackle glaze',
-      mustNotFeelLike: 'Cheap plastic plate, glossy kitchen tile, cartoon pottery, 3D ceramic render',
-      crossStyleAvoidances: ['Porcelain must not have rough grunge, metallic leafing, or neon glow'],
+      framingLogic:
+        'Porcelain ceramic mark with smooth glazed edges, standing free without tile perimeter or box',
+      signatureTraits: [
+        'Vitreous glaze luster',
+        'Delicate craquelure network',
+        'Cobalt underglaze purity',
+      ],
+      shouldFeelLike:
+        'An imperial Song Dynasty white porcelain vessel with subtle ice crackle glaze',
+      mustNotFeelLike:
+        'Cheap plastic plate, glossy kitchen tile, cartoon pottery, 3D ceramic render',
+      crossStyleAvoidances: [
+        'Porcelain must not have rough grunge, metallic leafing, or neon glow',
+      ],
       paletteBehavior: 'Kaolin white, celadon tint, cobalt underglaze, soft cream',
       preferredPaletteLanes: ['kaolin white, celadon tint, cobalt underglaze, soft cream'],
       categoryColorBehavior: 'Tints the subtle undertone of the clear celadon glaze',
@@ -3059,7 +3430,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Material / Oxidation',
-    description: 'Aged sheet copper, turquoise verdigris bloom, chemical oxidation, weathered metal.',
+    description:
+      'Aged sheet copper, turquoise verdigris bloom, chemical oxidation, weathered metal.',
     paletteLane: 'verdigris teal, aged copper orange, oxidized turquoise, dark bronze',
     compositionFamily: 'LOWER-ANCHORED',
     materialBehavior: 'oxidized turquoise patina crust, raw copper warmth, acid-etched texture',
@@ -3074,23 +3446,33 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'dark bronze shadow areas grounding the composition',
     ],
     visualLanguage: {
-      coreArtWorld: 'Aged sheet copper, turquoise verdigris bloom, chemical oxidation, atmospheric corrosion',
+      coreArtWorld:
+        'Aged sheet copper, turquoise verdigris bloom, chemical oxidation, atmospheric corrosion',
       primaryMedium: 'Oxidized heavy copper plate and verdigris mineral crust',
       substrate: 'Heavy weathered copper architectural sheeting',
       edgeBehavior: 'Etched copper edges, flaking mineral patina blooms, raised oxide crust',
-      lineBehavior: 'Anchor geometry etched or embossed, holding raw copper warmth amidst cool patina',
+      lineBehavior:
+        'Anchor geometry etched or embossed, holding raw copper warmth amidst cool patina',
       spatialBehavior: 'Lower-anchored or full-field material oxidation',
       lightBehavior: 'Subtle metallic copper glints contrasting with matte powdery patina',
       textureLogic: 'Granular verdigris crust, acid-etched pitting, brushed copper grain',
       depthLogic: 'Layers of turquoise copper carbonate blooming over deep reddish bronze base',
       ornamentSystem: 'Oxidation tide lines, mineral bloom crusts, etched calibration traces',
       framingLogic: 'Weathered copper patina mark standing free without rectangular plate edges',
-      signatureTraits: ['Turquoise-teal verdigris patina', 'Raw copper metallic warmth', 'Mineral oxidation crust'],
+      signatureTraits: [
+        'Turquoise-teal verdigris patina',
+        'Raw copper metallic warmth',
+        'Mineral oxidation crust',
+      ],
       shouldFeelLike: 'A century-old copper dome plate weathered by sea air and rain',
       mustNotFeelLike: 'Gold leaf duplicate, flat green vector, digital camouflage, fantasy slime',
-      crossStyleAvoidances: ['Copper Patina must not be a gold-leaf copy, neon green, or fantasy slime'],
+      crossStyleAvoidances: [
+        'Copper Patina must not be a gold-leaf copy, neon green, or fantasy slime',
+      ],
       paletteBehavior: 'Verdigris teal, aged copper orange, oxidized turquoise, dark bronze',
-      preferredPaletteLanes: ['verdigris teal, aged copper orange, oxidized turquoise, dark bronze'],
+      preferredPaletteLanes: [
+        'verdigris teal, aged copper orange, oxidized turquoise, dark bronze',
+      ],
       categoryColorBehavior: 'Influences the tone of mineral oxidation blooms',
       accentBehavior: 'Warm burnished copper line catching light through the teal patina',
       allowedCompositionFamilies: ['LOWER_ANCHORED', 'FULL_FIELD', 'OBJECT_PRESENTATION'],
@@ -3115,7 +3497,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Precision / Cartographic',
-    description: 'Contour line elevation fields, geodetic survey charts, abstract elevation rhythms.',
+    description:
+      'Contour line elevation fields, geodetic survey charts, abstract elevation rhythms.',
     paletteLane: 'muted slate, topo sepia, pale bone, subtle elevation ochre',
     compositionFamily: 'DIRECTIONAL FLOW',
     materialBehavior: 'flowing elevation contour vectors, geodetic index lines, terraced depth',
@@ -3130,7 +3513,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'micro datum registration ticks along the map margin',
     ],
     visualLanguage: {
-      coreArtWorld: 'Contour line elevation fields, geodetic survey charts, abstract spatial elevation rhythms',
+      coreArtWorld:
+        'Contour line elevation fields, geodetic survey charts, abstract spatial elevation rhythms',
       primaryMedium: 'Fine vector contour lines and elevation wash gradients',
       substrate: 'Heavy geodetic survey vellum or muted slate ground',
       edgeBehavior: 'Smooth continuous contour curves with micro elevation step increments',
@@ -3141,10 +3525,16 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Terraced stepped elevation layers creating non-literal 3D landscape rhythm',
       ornamentSystem: 'Index contour weight variations, spot elevation markers, datum lines',
       framingLogic: 'Topographic contour field without geodetic box frame or border ticks',
-      signatureTraits: ['Flowing elevation contour fields', 'Geodetic line discipline', 'Abstract terrain rhythm'],
+      signatureTraits: [
+        'Flowing elevation contour fields',
+        'Geodetic line discipline',
+        'Abstract terrain rhythm',
+      ],
       shouldFeelLike: 'A master geodetic survey map depicting abstract mathematical landscapes',
       mustNotFeelLike: 'Readable hiking map, GPS screen, fingerprint graphic, zebra stripes',
-      crossStyleAvoidances: ['Topographic must not have readable text/coordinates, GPS icons, or zebra prints'],
+      crossStyleAvoidances: [
+        'Topographic must not have readable text/coordinates, GPS icons, or zebra prints',
+      ],
       paletteBehavior: 'Muted slate, topo sepia, pale bone, subtle elevation ochre',
       preferredPaletteLanes: ['muted slate, topo sepia, pale bone, subtle elevation ochre'],
       categoryColorBehavior: 'Tints the major index contour elevation lines',
@@ -3159,7 +3549,13 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Moderate, rhythmic, ordered',
       focalBehavior: 'Anchor sits as the supreme geodetic summit',
       atmosphericBehavior: 'Expansive, analytical, serene, geographic',
-      negativePromptAdditions: ['readable numbers', 'text labels', 'hiking trails', 'fingerprint', 'zebra stripes'],
+      negativePromptAdditions: [
+        'readable numbers',
+        'text labels',
+        'hiking trails',
+        'fingerprint',
+        'zebra stripes',
+      ],
     },
   },
 
@@ -3171,7 +3567,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Archival / Organic',
-    description: 'Copperplate botanical engraving, 18th-century herbarium plates, delicate venation.',
+    description:
+      'Copperplate botanical engraving, 18th-century herbarium plates, delicate venation.',
     paletteLane: 'faded sage, sepia ink, bone vellum, dried rose, olive gray',
     compositionFamily: 'CENTRED STILLPOINT',
     materialBehavior: 'fine copperplate burr, botanical venation patterns, herbarium plate margins',
@@ -3186,21 +3583,29 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'archival herbarium plate ruling line along paper margin',
     ],
     visualLanguage: {
-      coreArtWorld: 'Copperplate botanical engraving, 18th-century herbarium plates, delicate venation',
+      coreArtWorld:
+        'Copperplate botanical engraving, 18th-century herbarium plates, delicate venation',
       primaryMedium: 'Fine copperplate intaglio engraving and watercolor wash',
       substrate: 'Aged rag herbarium paper with faint foxing',
       edgeBehavior: 'Crisp engraved burr lines, delicate tendril terminations',
-      lineBehavior: 'Anchor geometry central and immutable, echoed by organic tendril and vein logic',
+      lineBehavior:
+        'Anchor geometry central and immutable, echoed by organic tendril and vein logic',
       spatialBehavior: 'Archival specimen balance with generous airy paper margins',
       lightBehavior: 'Soft archival daylight, gentle paper warmth',
       textureLogic: 'Copperplate line bite, faint age foxing spots, organic cellular grain',
       depthLogic: 'Layered botanical linework receding behind the primary structure',
       ornamentSystem: 'Abstract leaf venation patterns, seed pod cross-sections, cellular grids',
       framingLogic: 'Botanical mark standing free without archival ruled plate border',
-      signatureTraits: ['Copperplate botanical linework', 'Cellular venation patterns', 'Archival herbarium paper'],
+      signatureTraits: [
+        'Copperplate botanical linework',
+        'Cellular venation patterns',
+        'Archival herbarium paper',
+      ],
       shouldFeelLike: 'An archival plate from a master 18th-century botanical compendium',
       mustNotFeelLike: 'Clip-art flowers, cartoon leaves, tattoo flash, wallpaper floral print',
-      crossStyleAvoidances: ['Botanical Etching must not become cartoon floral clipart or wallpaper prints'],
+      crossStyleAvoidances: [
+        'Botanical Etching must not become cartoon floral clipart or wallpaper prints',
+      ],
       paletteBehavior: 'Faded sage, sepia ink, bone vellum, dried rose, olive gray',
       preferredPaletteLanes: ['faded sage, sepia ink, bone vellum, dried rose, olive gray'],
       categoryColorBehavior: 'Adds subtle tint to the delicate botanical wash accents',
@@ -3208,14 +3613,25 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       allowedCompositionFamilies: ['CENTRED_STILLPOINT', 'OFFSET_FIELD'],
       preferredCompositionFamilies: ['CENTRED_STILLPOINT'],
       motifVocabulary: ['abstract venation lines', 'seed pod geometry', 'herbarium plate margins'],
-      intentionMotifBehavior: 'Dictates the growth vector and branching density of supporting lines',
-      prohibitedMotifs: ['literal flower bouquets', 'cartoon flowers', 'insects', 'readable Latin names'],
+      intentionMotifBehavior:
+        'Dictates the growth vector and branching density of supporting lines',
+      prohibitedMotifs: [
+        'literal flower bouquets',
+        'cartoon flowers',
+        'insects',
+        'readable Latin names',
+      ],
       maxSupportingMotifs: 3,
       directionalBehavior: 'Organic upward and outward branching growth',
       densityBehavior: 'Moderate, intricate yet disciplined and spacious',
       focalBehavior: 'Anchor stands as the primary structural stem/axis',
       atmosphericBehavior: 'Archival, delicate, living, scholarly',
-      negativePromptAdditions: ['flower bouquets', 'cartoon leaves', 'text labels', 'wallpaper floral'],
+      negativePromptAdditions: [
+        'flower bouquets',
+        'cartoon leaves',
+        'text labels',
+        'wallpaper floral',
+      ],
     },
   },
 
@@ -3227,11 +3643,14 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Geological / Luminous',
-    description: 'Polished agate slice, concentric mineral strata, malachite banding, druzy quartz.',
+    description:
+      'Polished agate slice, concentric mineral strata, malachite banding, druzy quartz.',
     paletteLane: 'malachite green, lapis blue, warm agate amber, quartz white',
     compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'concentric mineral growth bands, crystalline druzy fields, gemstone translucency',
-    styleNativeMotif: 'concentric mineral bands, micro druzy crystal fields, geological strata lines',
+    materialBehavior:
+      'concentric mineral growth bands, crystalline druzy fields, gemstone translucency',
+    styleNativeMotif:
+      'concentric mineral bands, micro druzy crystal fields, geological strata lines',
     defaultDensity: 'rich',
     promptStyleBlock:
       'Polished cross-section of a rare natural agate or malachite geode slab. Concentric undulating mineral bands in deep lapis, malachite, amber, and quartz white radiate around the preserved Anchor. Subsurface gemstone translucency and sparkling druzy micro-crystals frame the central form. Avoid psychedelic tie-dye swirls, resin pours, glitter overlays, or cheap crystal shop props.',
@@ -3242,7 +3661,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'rough volcanic basalt rock crust at the outer tablet edge',
     ],
     visualLanguage: {
-      coreArtWorld: 'Agate geode cross-sections, malachite banding, crystal lattice growth, mineral strata',
+      coreArtWorld:
+        'Agate geode cross-sections, malachite banding, crystal lattice growth, mineral strata',
       primaryMedium: 'Polished mineral slab and translucent gemstone slicing',
       substrate: 'Cross-section of volcanic stone matrix containing crystalline strata',
       edgeBehavior: 'Concentric mineral growth rings, crystalline faceted perimeter',
@@ -3252,18 +3672,30 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Polished agate banding, druzy quartz crystal texture, mineral inclusions',
       depthLogic: 'Translucent mineral strata receding inward into crystalline cavity',
       ornamentSystem: 'Concentric mineral bands, micro crystalline druzy fields, strata lines',
-      framingLogic: 'Crystalline mineral growth radiating outward without rectangular rock crust frame',
-      signatureTraits: ['Agate-like concentric mineral bands', 'Subsurface crystal glow', 'Geological strata'],
+      framingLogic:
+        'Crystalline mineral growth radiating outward without rectangular rock crust frame',
+      signatureTraits: [
+        'Agate-like concentric mineral bands',
+        'Subsurface crystal glow',
+        'Geological strata',
+      ],
       shouldFeelLike: 'A polished cross-section slice of a rare natural agate or malachite geode',
-      mustNotFeelLike: 'Tie-dye swirl, psychedelic fractal, digital fluid simulation, cheap resin pour',
-      crossStyleAvoidances: ['Mineral Bloom must not become psychedelic tie-dye or cheap resin swirl'],
+      mustNotFeelLike:
+        'Tie-dye swirl, psychedelic fractal, digital fluid simulation, cheap resin pour',
+      crossStyleAvoidances: [
+        'Mineral Bloom must not become psychedelic tie-dye or cheap resin swirl',
+      ],
       paletteBehavior: 'Malachite green, deep lapis, warm agate amber, quartz white, dark basalt',
       preferredPaletteLanes: ['malachite green, lapis blue, warm agate amber, quartz white'],
       categoryColorBehavior: 'Dominates the primary crystalline band hue',
       accentBehavior: 'A fine ring of quartz micro-crystals framing the outer field',
       allowedCompositionFamilies: ['CENTRED_STILLPOINT', 'OFFSET_FIELD', 'FULL_FIELD'],
       preferredCompositionFamilies: ['CENTRED_STILLPOINT'],
-      motifVocabulary: ['concentric mineral bands', 'micro druzy crystal fields', 'geological strata lines'],
+      motifVocabulary: [
+        'concentric mineral bands',
+        'micro druzy crystal fields',
+        'geological strata lines',
+      ],
       intentionMotifBehavior: 'Alters banding compression and crystalline facet orientation',
       prohibitedMotifs: ['tie-dye', 'psychedelic swirls', 'glitter', 'cheap resin'],
       maxSupportingMotifs: 3,
@@ -3283,11 +3715,14 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Atmospheric / Surreal',
-    description: 'Surreal architectural abstraction, metaphysical perspective, impossible light, enigmatic hush.',
+    description:
+      'Surreal architectural abstraction, metaphysical perspective, impossible light, enigmatic hush.',
     paletteLane: 'terracotta, muted ochre, twilight cobalt, shadow olive, warm bone',
     compositionFamily: 'OPEN VOID',
-    materialBehavior: 'long metaphysical architectural shadows, impossible spatial perspective, egg tempera ground',
-    styleNativeMotif: 'metaphysical shadow projection, abstract arcade arches, calm infinite horizon',
+    materialBehavior:
+      'long metaphysical architectural shadows, impossible spatial perspective, egg tempera ground',
+    styleNativeMotif:
+      'metaphysical shadow projection, abstract arcade arches, calm infinite horizon',
     defaultDensity: 'sparse',
     promptStyleBlock:
       'Metaphysical surrealism in the tradition of Giorgio de Chirico. The Anchor stands as an impossible architectural monument suspended in a vast, silent square under low late-afternoon sun. Long poetic shadows stretch across warm terracotta ground toward an enigmatic clean horizon. Avoid melting clocks, flying animals, clouds with eyes, fantasy monsters, or cliche surrealism.',
@@ -3298,28 +3733,42 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'serene clean twilight gradient line marking the infinite horizon',
     ],
     visualLanguage: {
-      coreArtWorld: 'Surreal architectural abstraction, metaphysical space, impossible light, Giorgio de Chirico mood',
+      coreArtWorld:
+        'Surreal architectural abstraction, metaphysical space, impossible light, Giorgio de Chirico mood',
       primaryMedium: 'Tempera and oil glaze on smooth archival panel',
       substrate: 'Smooth linen canvas with matte luminous ground',
-      edgeBehavior: 'Sharp metaphysical architectural shadows contrasted with soft atmospheric infinity',
-      lineBehavior: 'Anchor geometry suspended as an impossible monumental structure in surreal space',
+      edgeBehavior:
+        'Sharp metaphysical architectural shadows contrasted with soft atmospheric infinity',
+      lineBehavior:
+        'Anchor geometry suspended as an impossible monumental structure in surreal space',
       spatialBehavior: 'Vast, melancholic, infinite perspective plane with solitary shadows',
       lightBehavior: 'Low eternal late-afternoon sun casting long dramatic shadows',
       textureLogic: 'Smooth tempera surface, fine gesso tooth, dry silent atmosphere',
       depthLogic: 'Deep surreal perspective receding to an enigmatic clean horizon',
       ornamentSystem: 'Abstract arches, solitary shadow projections, quiet geometric solids',
       framingLogic: 'Open metaphysical sky with minimal architectural framing',
-      signatureTraits: ['Long metaphysical shadows', 'Impossible architectural space', 'Enigmatic atmospheric hush'],
+      signatureTraits: [
+        'Long metaphysical shadows',
+        'Impossible architectural space',
+        'Enigmatic atmospheric hush',
+      ],
       shouldFeelLike: 'A surrealist metaphysical painting charged with quiet dream logic',
-      mustNotFeelLike: 'Literal dream fantasy with flying creatures, clouds with faces, Salvador Dali clocks',
-      crossStyleAvoidances: ['Dreamscape must not have literal dream narrative, melting clocks, or fantasy creatures'],
+      mustNotFeelLike:
+        'Literal dream fantasy with flying creatures, clouds with faces, Salvador Dali clocks',
+      crossStyleAvoidances: [
+        'Dreamscape must not have literal dream narrative, melting clocks, or fantasy creatures',
+      ],
       paletteBehavior: 'Terracotta, muted ochre, twilight cobalt, shadow olive, warm bone',
       preferredPaletteLanes: ['terracotta, muted ochre, twilight cobalt, shadow olive, warm bone'],
       categoryColorBehavior: 'Tints the serene infinite horizon gradient',
       accentBehavior: 'One long sharp metaphysical shadow projected across the ground',
       allowedCompositionFamilies: ['OPEN_VOID', 'LOWER_ANCHORED', 'OFFSET_FIELD'],
       preferredCompositionFamilies: ['OPEN_VOID'],
-      motifVocabulary: ['metaphysical shadow projection', 'abstract arcade arches', 'calm infinite horizon'],
+      motifVocabulary: [
+        'metaphysical shadow projection',
+        'abstract arcade arches',
+        'calm infinite horizon',
+      ],
       intentionMotifBehavior: 'Shifts horizon elevation and the angle of surreal perspective lines',
       prohibitedMotifs: ['melting clocks', 'flying fish', 'clouds with eyes', 'surrealist clichés'],
       maxSupportingMotifs: 2,
@@ -3327,7 +3776,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Spacious, silent, enigmatic',
       focalBehavior: 'Anchor stands sovereign in metaphysical stillness',
       atmosphericBehavior: 'Poetic, surreal, melancholic, timeless',
-      negativePromptAdditions: ['melting clocks', 'fantasy animals', 'cliche surrealism', 'face in cloud'],
+      negativePromptAdditions: [
+        'melting clocks',
+        'fantasy animals',
+        'cliche surrealism',
+        'face in cloud',
+      ],
     },
   },
 
@@ -3339,10 +3793,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Sculptural / Monumental',
-    description: 'Brutalist architectural massing, smooth cast concrete, morning mist, noble presence.',
+    description:
+      'Brutalist architectural massing, smooth cast concrete, morning mist, noble presence.',
     paletteLane: 'warm gray concrete, pale limestone, dawn alabaster, soft charcoal',
     compositionFamily: 'LOWER-ANCHORED',
-    materialBehavior: 'smooth cast architectural concrete, formwork grain, soft ambient occlusion shadows',
+    materialBehavior:
+      'smooth cast architectural concrete, formwork grain, soft ambient occlusion shadows',
     styleNativeMotif: 'architectural chamfers, soft dawn mist fields, monumental shadow reveals',
     defaultDensity: 'moderate',
     promptStyleBlock:
@@ -3354,7 +3810,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'clean architectural chamfer line catching soft skylight',
     ],
     visualLanguage: {
-      coreArtWorld: 'Brutalist sculptural massing, cast concrete and soft fog, monolithic presence softened by light',
+      coreArtWorld:
+        'Brutalist sculptural massing, cast concrete and soft fog, monolithic presence softened by light',
       primaryMedium: 'Smooth cast architectural concrete and diffused daylight',
       substrate: 'Honed architectural stone or matte cast concrete wall',
       edgeBehavior: 'Monumental clean edges softened by morning atmospheric haze',
@@ -3365,17 +3822,27 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Monumental scale contrast between massive solids and open atmospheric sky',
       ornamentSystem: 'Architectural form ties, subtle shadow recesses, clean chamfers',
       framingLogic: 'Spacious architectural crop framing massive structural presence',
-      signatureTraits: ['Monumental architectural massing', 'Soft morning light diffusion', 'Cast concrete restraint'],
+      signatureTraits: [
+        'Monumental architectural massing',
+        'Soft morning light diffusion',
+        'Cast concrete restraint',
+      ],
       shouldFeelLike: 'A peaceful monumental architectural pavilion standing in quiet dawn mist',
       mustNotFeelLike: 'Cold dystopian bunker, sci-fi military fort, dark ruin, noisy concrete',
-      crossStyleAvoidances: ['Soft Monument must not be a dark military ruin, prison, or noisy texture'],
+      crossStyleAvoidances: [
+        'Soft Monument must not be a dark military ruin, prison, or noisy texture',
+      ],
       paletteBehavior: 'Warm gray concrete, pale limestone, dawn alabaster, soft charcoal',
       preferredPaletteLanes: ['warm gray concrete, pale limestone, dawn alabaster, soft charcoal'],
       categoryColorBehavior: 'Infuses a delicate dawn color wash into the atmospheric mist',
       accentBehavior: 'Soft ambient shadow pooling in architectural recesses',
       allowedCompositionFamilies: ['LOWER_ANCHORED', 'OBJECT_PRESENTATION'],
       preferredCompositionFamilies: ['LOWER_ANCHORED'],
-      motifVocabulary: ['architectural chamfers', 'soft dawn mist fields', 'monumental shadow reveals'],
+      motifVocabulary: [
+        'architectural chamfers',
+        'soft dawn mist fields',
+        'monumental shadow reveals',
+      ],
       intentionMotifBehavior: 'Dictates the scale, massing weight, and mist density',
       prohibitedMotifs: ['barbed wire', 'military symbols', 'graffiti', 'dark dystopia'],
       maxSupportingMotifs: 2,
@@ -3395,10 +3862,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Tactile / Urban',
-    description: 'Solid paint stick, dry aerosol texture, raw plaster scrape, visceral urban gesture.',
+    description:
+      'Solid paint stick, dry aerosol texture, raw plaster scrape, visceral urban gesture.',
     paletteLane: 'raw chalk white, asphalt black, primer gray, oxidized red',
     compositionFamily: 'FULL_FIELD',
-    materialBehavior: 'dry oil-paint stick drag, scraped weathered wall ground, buffed surface history',
+    materialBehavior:
+      'dry oil-paint stick drag, scraped weathered wall ground, buffed surface history',
     styleNativeMotif: 'scraped paint trails, dry chalk dust fields, buffed wall tone layers',
     defaultDensity: 'moderate',
     promptStyleBlock:
@@ -3410,21 +3879,30 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'scraped wall texture revealing faint older plaster layers',
     ],
     visualLanguage: {
-      coreArtWorld: 'Chalkboard and asphalt mark-making, oil stick gesture, raw urban materiality, Cy Twombly energy',
+      coreArtWorld:
+        'Chalkboard and asphalt mark-making, oil stick gesture, raw urban materiality, Cy Twombly energy',
       primaryMedium: 'Solid paint stick, dry aerosol mark, scraped plaster',
       substrate: 'Matte weathered urban wall or raw plywood hoarding',
       edgeBehavior: 'Scraped edges, dry paint drag, raw gestural bite',
-      lineBehavior: 'Anchor geometry rendered with authoritative paint-stick conviction, completely intact',
+      lineBehavior:
+        'Anchor geometry rendered with authoritative paint-stick conviction, completely intact',
       spatialBehavior: 'Raw urban wall composition with energetic mark distribution',
       lightBehavior: 'Flat daylight on matte distressed urban surfaces',
       textureLogic: 'Dry pigment drag, scraped plaster layers, chalk dust, matte paint residue',
       depthLogic: 'Layered urban mark history with past marks buffed into wall tone',
       ornamentSystem: 'Non-readable paint scrapes, chalk tally traces, textured scuffs',
       framingLogic: 'Raw wall boundary with spontaneous edge abrasions',
-      signatureTraits: ['Solid paint stick texture', 'Raw urban wall ground', 'Scraped gestural energy'],
+      signatureTraits: [
+        'Solid paint stick texture',
+        'Raw urban wall ground',
+        'Scraped gestural energy',
+      ],
       shouldFeelLike: 'An intentional, sacred mark discovered on an ancient urban wall',
-      mustNotFeelLike: 'Messy spray can vandalism, hip hop graffiti, sticker slap, neon paint splatter',
-      crossStyleAvoidances: ['Street Mark must not look like sloppy graffiti tags or sticker bombs'],
+      mustNotFeelLike:
+        'Messy spray can vandalism, hip hop graffiti, sticker slap, neon paint splatter',
+      crossStyleAvoidances: [
+        'Street Mark must not look like sloppy graffiti tags or sticker bombs',
+      ],
       paletteBehavior: 'Raw chalk white, asphalt black, industrial primer gray, oxidized red',
       preferredPaletteLanes: ['raw chalk white, asphalt black, primer gray, oxidized red'],
       categoryColorBehavior: 'Supplies one single industrial primer pigment mark in the field',
@@ -3439,7 +3917,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Moderate, raw, authentic',
       focalBehavior: 'Anchor stands authoritative and immutable as the primary mark',
       atmosphericBehavior: 'Raw, honest, visceral, direct',
-      negativePromptAdditions: ['graffiti tags', 'bubble letters', 'sticker bomb', 'messy spray splatter'],
+      negativePromptAdditions: [
+        'graffiti tags',
+        'bubble letters',
+        'sticker bomb',
+        'messy spray splatter',
+      ],
     },
   },
 
@@ -3451,11 +3934,14 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Archival / Tactile',
-    description: 'Torn archival paper, tactile paper montage, photogravure fragments, catalog boards.',
+    description:
+      'Torn archival paper, tactile paper montage, photogravure fragments, catalog boards.',
     paletteLane: 'manila paper, aged sepia, slate black, bleached linen, faint ochre',
     compositionFamily: 'OFFSET FIELD',
-    materialBehavior: 'hand-torn paper deckles, archival photo fragments, paper tape strips, specimen mounts',
-    styleNativeMotif: 'hand-torn paper deckles, archival mounting corners, subtle paper tape strips',
+    materialBehavior:
+      'hand-torn paper deckles, archival photo fragments, paper tape strips, specimen mounts',
+    styleNativeMotif:
+      'hand-torn paper deckles, archival mounting corners, subtle paper tape strips',
     defaultDensity: 'moderate',
     promptStyleBlock:
       'Curated museum archival montage. Layers of hand-torn fibrous papers, aged catalog board, and subtle photogravure texture fragments are thoughtfully assembled in tactile geometric balance. The Anchor geometry is cleanly printed across the layered surfaces, unifying the montage. Avoid readable text, letters, magazine faces, chaotic scrapbooking, or pop art clipart.',
@@ -3466,7 +3952,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'aged manila cardstock fragment with raw fibrous deckle',
     ],
     visualLanguage: {
-      coreArtWorld: 'Constructivist and Dada collage, torn archival paper, photogravure texture fragments, catalog boards',
+      coreArtWorld:
+        'Constructivist and Dada collage, torn archival paper, photogravure texture fragments, catalog boards',
       primaryMedium: 'Layered torn archival papers, matte gelatin prints, catalog board',
       substrate: 'Smoked manila catalog folder board with age toning',
       edgeBehavior: 'Hand-torn paper fibers, overlapping deckles, glued paper edges',
@@ -3477,17 +3964,28 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       depthLogic: 'Physical paper overlap steps creating 1-2mm archival collage depth',
       ornamentSystem: 'Non-readable catalog grid fragments, paper tape strips, specimen mounts',
       framingLogic: 'Archival mark composition without mounting board border or mounting corners',
-      signatureTraits: ['Hand-torn paper edges', 'Tactile paper montage', 'Archival catalog materiality'],
+      signatureTraits: [
+        'Hand-torn paper edges',
+        'Tactile paper montage',
+        'Archival catalog materiality',
+      ],
       shouldFeelLike: 'An archival museum collage board assembled from rare historical ephemera',
-      mustNotFeelLike: 'Digital Photoshop collage, chaotic scrapbooking, pop art cutout, magazine faces',
-      crossStyleAvoidances: ['Collage Archive must not contain readable text, magazine faces, or messy scrapbooking'],
+      mustNotFeelLike:
+        'Digital Photoshop collage, chaotic scrapbooking, pop art cutout, magazine faces',
+      crossStyleAvoidances: [
+        'Collage Archive must not contain readable text, magazine faces, or messy scrapbooking',
+      ],
       paletteBehavior: 'Manila paper, aged sepia, slate black, bleached linen, faint ochre',
       preferredPaletteLanes: ['manila paper, aged sepia, slate black, bleached linen, faint ochre'],
       categoryColorBehavior: 'Supplies the color of one aged paper fragment in the montage',
       accentBehavior: 'A single Japanese paper tape strip holding one paper boundary',
       allowedCompositionFamilies: ['OFFSET_FIELD', 'OBJECT_PRESENTATION'],
       preferredCompositionFamilies: ['OFFSET_FIELD'],
-      motifVocabulary: ['hand-torn paper deckles', 'archival mounting corners', 'subtle paper tape strips'],
+      motifVocabulary: [
+        'hand-torn paper deckles',
+        'archival mounting corners',
+        'subtle paper tape strips',
+      ],
       intentionMotifBehavior: 'Determines the geometric arrangement and overlap of paper planes',
       prohibitedMotifs: ['readable words', 'human faces', 'magazine photos', 'pop art icons'],
       maxSupportingMotifs: 3,
@@ -3495,7 +3993,13 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Moderate, tactile, layered yet disciplined',
       focalBehavior: 'Anchor geometry integrates and unifies the entire assemblage',
       atmosphericBehavior: 'Archival, tactile, historical, thoughtful',
-      negativePromptAdditions: ['readable text', 'letters', 'magazine faces', 'chaotic scrapbooking', 'pop art'],
+      negativePromptAdditions: [
+        'readable text',
+        'letters',
+        'magazine faces',
+        'chaotic scrapbooking',
+        'pop art',
+      ],
     },
   },
 
@@ -3507,10 +4011,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     collection: 'featured',
     lifecycleStatus: 'ROTATION',
     visualFamily: 'Optical / Luminous',
-    description: 'Pure optical light, Turrell-like luminous installations, controlled gradient fields.',
+    description:
+      'Pure optical light, Turrell-like luminous installations, controlled gradient fields.',
     paletteLane: 'deep twilight indigo, luminous amber-white, soft cobalt gradient',
     compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'pure coherent light emission, zero grain smoothness, Ganzfeld perceptual depth',
+    materialBehavior:
+      'pure coherent light emission, zero grain smoothness, Ganzfeld perceptual depth',
     styleNativeMotif: 'seamless light gradient, subtle optical radiance, pure luminous void',
     defaultDensity: 'sparse',
     promptStyleBlock:
@@ -3522,7 +4028,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       'faint luminous edge contrast without particle flare',
     ],
     visualLanguage: {
-      coreArtWorld: 'Pure optical light, Turrell-like luminous spatial installations, controlled gradient fields',
+      coreArtWorld:
+        'Pure optical light, Turrell-like luminous spatial installations, controlled gradient fields',
       primaryMedium: 'Coherent monochromatic light and ambient illumination',
       substrate: 'Seamless spatial aperture void (Ganzfeld space)',
       edgeBehavior: 'Soft imperceptible luminous gradients, razor-crisp geometric boundary',
@@ -3536,7 +4043,9 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       signatureTraits: ['Pure light gradients', 'Seamless Ganzfeld depth', 'Zero ornamental noise'],
       shouldFeelLike: 'A James Turrell light installation where light itself becomes physical',
       mustNotFeelLike: 'Sci-fi laser glow, neon bar sign, fantasy magic sparkles, rainbow light',
-      crossStyleAvoidances: ['Lightfield must not have planets, mandalas, or fantasy magic sparkles'],
+      crossStyleAvoidances: [
+        'Lightfield must not have planets, mandalas, or fantasy magic sparkles',
+      ],
       paletteBehavior: 'Deep twilight indigo, luminous amber-white, soft cobalt gradient',
       preferredPaletteLanes: ['deep twilight indigo, luminous amber-white, soft cobalt gradient'],
       categoryColorBehavior: 'Sets the chromatic temperature shift of the ambient light field',
@@ -3551,7 +4060,15 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       densityBehavior: 'Ultra-minimal, pure light and void',
       focalBehavior: 'Anchor geometry manifests as pure coherent light',
       atmosphericBehavior: 'Luminous, transcendent, pure, silent',
-      negativePromptAdditions: ['planets', 'mandalas', 'sparkles', 'glitter', 'particles', 'stars', 'neon sign'],
+      negativePromptAdditions: [
+        'planets',
+        'mandalas',
+        'sparkles',
+        'glitter',
+        'particles',
+        'stars',
+        'neon sign',
+      ],
     },
   },
 };
@@ -3577,7 +4094,12 @@ export const SEASONAL_STYLE_IDS = VALID_AI_STYLES.filter(
 function normalizeStyleId(style: string): string {
   if (!style || typeof style !== 'string') return 'watercolor';
   const clean = style.trim().toLowerCase().replace(/-/g, '_');
-  if (clean === '__proto__' || clean === 'tostring' || clean === 'constructor' || clean === 'valueof') {
+  if (
+    clean === '__proto__' ||
+    clean === 'tostring' ||
+    clean === 'constructor' ||
+    clean === 'valueof'
+  ) {
     return 'watercolor';
   }
   if (clean === 'aurora_flow') return 'aurora_glow';

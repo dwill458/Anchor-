@@ -29,7 +29,17 @@ export type WaypointWithOptionalCourse = Pick<
   | 'updatedAt'
 > &
   Partial<
-    Pick<Waypoint, 'kind' | 'metricLabel' | 'metricBaseline' | 'metricTarget' | 'metricCurrent' | 'progressMode' | 'requirements' | 'completionCriteria'>
+    Pick<
+      Waypoint,
+      | 'kind'
+      | 'metricLabel'
+      | 'metricBaseline'
+      | 'metricTarget'
+      | 'metricCurrent'
+      | 'progressMode'
+      | 'requirements'
+      | 'completionCriteria'
+    >
   >;
 
 export type ActiveLink = Pick<
@@ -218,7 +228,8 @@ export function resolveProgressMode(waypoint: {
 }): WaypointProgressMode {
   // A stored measure always wins: a number on screen needs a target behind it.
   if (typeof waypoint.metricTarget === 'number') return 'numeric';
-  if (waypoint.progressMode === 'checklist' || waypoint.progressMode === 'completion') return waypoint.progressMode;
+  if (waypoint.progressMode === 'checklist' || waypoint.progressMode === 'completion')
+    return waypoint.progressMode;
   return waypoint.progressMode === 'none' ? 'none' : 'moves';
 }
 
@@ -237,7 +248,9 @@ export function buildWaypointSummary(
     description: waypoint.description,
     kind: normalizeWaypointKind(waypoint.kind),
     progressMode: resolveProgressMode(waypoint),
-    requirements: Array.isArray(waypoint.requirements) ? waypoint.requirements as unknown as import('../types/chart').WaypointRequirement[] : [],
+    requirements: Array.isArray(waypoint.requirements)
+      ? (waypoint.requirements as unknown as import('../types/chart').WaypointRequirement[])
+      : [],
     completionCriteria: waypoint.completionCriteria ?? null,
     metric:
       typeof waypoint.metricTarget === 'number'

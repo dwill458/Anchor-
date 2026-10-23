@@ -30,7 +30,13 @@ export type ChartAdjustmentReason =
 export type ChartPlanningContext = {
   intention: string;
   category: string;
-  onboarding?: { motivation?: string; customAnswer?: string; desiredChange: string; lifeChanges: string[]; primaryNeed: string } | null;
+  onboarding?: {
+    motivation?: string;
+    customAnswer?: string;
+    desiredChange: string;
+    lifeChanges: string[];
+    primaryNeed: string;
+  } | null;
   startingContext: string | null;
   destinationDescription?: string | null;
   actualStartingPoint?: string | null;
@@ -81,7 +87,8 @@ const CATEGORY_LENS: Record<string, string> = {
   career: 'Think in terms of outcomes others could observe: shipped work, roles, results, numbers.',
   health: 'Think in terms of changes the person would notice in their body, energy and routine.',
   creativity: 'Think in terms of what needs to exist, be finished, or be shared.',
-  relationships: 'Think in terms of observable changes in how people connect and show up for each other.',
+  relationships:
+    'Think in terms of observable changes in how people connect and show up for each other.',
   abundance: 'Think in terms of concrete financial or material states that can be verified.',
   learning: 'Think in terms of demonstrated capability, not hours studied.',
   family: 'Think in terms of observable changes in home life and shared time.',
@@ -92,14 +99,22 @@ const CATEGORY_LENS: Record<string, string> = {
 };
 
 const REASON_GUIDANCE: Record<ChartAdjustmentReason, string> = {
-  SMALLER_STEPS: 'Preserve destination and actual starting point. Identify unrealistic milestones, reduce the first milestone scope, repair missing prerequisites and rebuild affected future milestones and One Moves. Do not merely reword or subdivide large numeric targets. Explain the concrete reduction in effort/resources in analysis.difficultyReduction.',
-  STARTING_FROM_ZERO: 'Assume no relevant experience or equipment unless explicitly supplied. Keep the destination; introduce achievable prerequisite capability milestones. Do not invent a zero financial balance.',
-  CHANGE_APPROACH: 'Keep the original destination and actual starting point. Choose a different method using the feedback, preserving achieved milestones and actions.',
-  TOO_MANY_STEPS: 'The person finds the route too granular. Merge steps into fewer, larger landmarks.',
-  TOO_FEW_STEPS: 'The person needs more visible progress. Add intermediate landmarks where the gaps are largest.',
-  DIFFERENT_MILESTONES: 'The person wants different landmarks. Choose a different, more fitting set of state changes.',
-  FURTHER_ALONG: 'The person is further along than the route assumes. Remove what is already true and start from their real position.',
-  CHANGE_DESTINATION: 'The person wants to change the destination. Use their detail to restate it, then re-plan.',
+  SMALLER_STEPS:
+    'Preserve destination and actual starting point. Identify unrealistic milestones, reduce the first milestone scope, repair missing prerequisites and rebuild affected future milestones and One Moves. Do not merely reword or subdivide large numeric targets. Explain the concrete reduction in effort/resources in analysis.difficultyReduction.',
+  STARTING_FROM_ZERO:
+    'Assume no relevant experience or equipment unless explicitly supplied. Keep the destination; introduce achievable prerequisite capability milestones. Do not invent a zero financial balance.',
+  CHANGE_APPROACH:
+    'Keep the original destination and actual starting point. Choose a different method using the feedback, preserving achieved milestones and actions.',
+  TOO_MANY_STEPS:
+    'The person finds the route too granular. Merge steps into fewer, larger landmarks.',
+  TOO_FEW_STEPS:
+    'The person needs more visible progress. Add intermediate landmarks where the gaps are largest.',
+  DIFFERENT_MILESTONES:
+    'The person wants different landmarks. Choose a different, more fitting set of state changes.',
+  FURTHER_ALONG:
+    'The person is further along than the route assumes. Remove what is already true and start from their real position.',
+  CHANGE_DESTINATION:
+    'The person wants to change the destination. Use their detail to restate it, then re-plan.',
   OTHER: 'Follow the person’s detail.',
 };
 
@@ -161,21 +176,35 @@ export function buildPlanningUserMessage(
   const data: Record<string, unknown> = {
     intention: limit(context.intention, 300),
     category: context.category,
-    ...(context.onboarding ? { onboarding: {
-      ...(context.onboarding.motivation ? { motivation: limit(context.onboarding.motivation, 240) } : {}),
-      ...(context.onboarding.customAnswer ? { customAnswer: limit(context.onboarding.customAnswer, 240) } : {}),
-      desiredChange: limit(context.onboarding.desiredChange, 500),
-      ...(context.onboarding.lifeChanges.length ? { lifeChanges: context.onboarding.lifeChanges.map(value => limit(value, 80)) } : {}),
-      primaryNeed: limit(context.onboarding.primaryNeed, 120),
-    } } : {}),
+    ...(context.onboarding
+      ? {
+          onboarding: {
+            ...(context.onboarding.motivation
+              ? { motivation: limit(context.onboarding.motivation, 240) }
+              : {}),
+            ...(context.onboarding.customAnswer
+              ? { customAnswer: limit(context.onboarding.customAnswer, 240) }
+              : {}),
+            desiredChange: limit(context.onboarding.desiredChange, 500),
+            ...(context.onboarding.lifeChanges.length
+              ? { lifeChanges: context.onboarding.lifeChanges.map(value => limit(value, 80)) }
+              : {}),
+            primaryNeed: limit(context.onboarding.primaryNeed, 120),
+          },
+        }
+      : {}),
     whatWouldMakeItReal: limit(context.destinationDescription ?? context.startingContext, 500),
     actualStartingPoint: limit(context.actualStartingPoint, 500),
     vision: context.vision
       ? {
           title: limit(context.vision.title, 140),
           description: limit(context.vision.description),
-          ...(context.vision.notes?.length ? { notes: context.vision.notes.map(n => limit(n, 140)) } : {}),
-          ...(context.vision.captions?.length ? { sceneCaptions: context.vision.captions.map(c => limit(c, 100)) } : {}),
+          ...(context.vision.notes?.length
+            ? { notes: context.vision.notes.map(n => limit(n, 140)) }
+            : {}),
+          ...(context.vision.captions?.length
+            ? { sceneCaptions: context.vision.captions.map(c => limit(c, 100)) }
+            : {}),
         }
       : null,
     ...(context.progress && context.progress.practiceCount > 0
@@ -193,9 +222,12 @@ export function buildPlanningUserMessage(
       destination: limit(context.adjustment.destination, 140),
       waypoints: context.adjustment.route.map(waypoint => ({
         title: limit(waypoint.title, 60),
-        state: waypoint.state, completionCriteria: limit(waypoint.completionCriteria, 400),
+        state: waypoint.state,
+        completionCriteria: limit(waypoint.completionCriteria, 400),
         ...(waypoint.metric ? { metric: limit(waypoint.metric, 60) } : {}),
-        current: waypoint.metricCurrent ?? null, baseline: waypoint.metricBaseline ?? null, target: waypoint.metricTarget ?? null,
+        current: waypoint.metricCurrent ?? null,
+        baseline: waypoint.metricBaseline ?? null,
+        target: waypoint.metricTarget ?? null,
       })),
       completedMoves: context.adjustment.completedMoves ?? [],
       completedMoveCount: context.adjustment.completedMoveCount,
@@ -211,27 +243,60 @@ export function buildPlanningUserMessage(
   if (refs && (refs.photos.length || refs.places.length || refs.documents.length)) {
     data.references = {
       ...(refs.photos.length
-        ? { photos: refs.photos.map(photo => (photo.role === 'start' ? 'photo of where they are starting now (attached)' : 'reference photo (attached)')) }
+        ? {
+            photos: refs.photos.map(photo =>
+              photo.role === 'start'
+                ? 'photo of where they are starting now (attached)'
+                : 'reference photo (attached)'
+            ),
+          }
         : {}),
       ...(refs.places.length
-        ? { places: refs.places.map(place => ({ label: limit(place.label, 120), ...(place.latitude !== undefined && place.longitude !== undefined ? { latitude: place.latitude, longitude: place.longitude } : {}) })) }
+        ? {
+            places: refs.places.map(place => ({
+              label: limit(place.label, 120),
+              ...(place.latitude !== undefined && place.longitude !== undefined
+                ? { latitude: place.latitude, longitude: place.longitude }
+                : {}),
+            })),
+          }
         : {}),
-      ...(refs.documents.length ? { documents: refs.documents.map(doc => ({ name: limit(doc.name, 80), text: limit(doc.text, 4000) })) } : {}),
+      ...(refs.documents.length
+        ? {
+            documents: refs.documents.map(doc => ({
+              name: limit(doc.name, 80),
+              text: limit(doc.text, 4000),
+            })),
+          }
+        : {}),
     };
   }
 
   const instructions: string[] = [`Lens for this category: ${lens}`];
   const start = context.actualStartingPoint ?? context.followUp?.answer ?? '';
-  if (/net worth|savings|debt|wealth/i.test(context.adjustment?.destination ?? context.destinationDescription ?? context.intention) && /limited|little spare|no (?:income|investments|savings)/i.test(start)) {
-    instructions.push('Constrained financial next stretch: do not guess dollar amounts. Until affordable surplus is explicitly known, output completion or checklist waypoints only; all targetValue, targetMetric and baselineValue fields must be null. Feasible essential-cost planning and a user-chosen affordable contribution are observable milestones. Do not assume an account exists. If smaller steps are requested, make the FIRST criterion cover fewer items or less effort than the current first criterion, and explain that difference.');
+  if (
+    /net worth|savings|debt|wealth/i.test(
+      context.adjustment?.destination ?? context.destinationDescription ?? context.intention
+    ) &&
+    /limited|little spare|no (?:income|investments|savings)/i.test(start)
+  ) {
+    instructions.push(
+      'Constrained financial next stretch: do not guess dollar amounts. Until affordable surplus is explicitly known, output completion or checklist waypoints only; all targetValue, targetMetric and baselineValue fields must be null. Feasible essential-cost planning and a user-chosen affordable contribution are observable milestones. Do not assume an account exists. If smaller steps are requested, make the FIRST criterion cover fewer items or less effort than the current first criterion, and explain that difference.'
+    );
   }
   if (data.references) {
     instructions.push(
       'The person attached references (photos, places, documents). Only a photo explicitly labelled start or explicit written present-day facts provide starting evidence. When a start photo clearly shows relevant numeric values, transcribe those values and their labels into analysis.startingPointSummary so numeric baselines can be checked against the evidence. Do not copy target numbers from Vision or other reference photos into the startingPointSummary. Other references describe aspirations; do not infer budget, skill or available time from any image. Describe only what is plainly visible or written; never identify people or infer private details; if a reference is unclear, ignore it rather than guess.'
     );
   }
-  if (context.onboarding) instructions.push('Onboarding answers may help tailor the explanation or follow-up. The Anchor intention, user-provided destination, and current reality determine the route; never substitute the onboarding wish for them.');
-  if (context.actualStartingPoint) instructions.push("actualStartingPoint describes current reality and constraints. whatWouldMakeItReal and Vision describe the destination. Keep them distinct.");
+  if (context.onboarding)
+    instructions.push(
+      'Onboarding answers may help tailor the explanation or follow-up. The Anchor intention, user-provided destination, and current reality determine the route; never substitute the onboarding wish for them.'
+    );
+  if (context.actualStartingPoint)
+    instructions.push(
+      'actualStartingPoint describes current reality and constraints. whatWouldMakeItReal and Vision describe the destination. Keep them distinct.'
+    );
   if (context.startingContext) {
     instructions.push(REALITY_INSTRUCTION);
   }
@@ -264,9 +329,12 @@ export function buildPlanningUserMessage(
         : 'Return the full revised route.'
     );
   }
-  if (context.adjustment && context.adjustment.reason !== 'CHANGE_DESTINATION') instructions.push('Return the currentRoute destination exactly unchanged.');
+  if (context.adjustment && context.adjustment.reason !== 'CHANGE_DESTINATION')
+    instructions.push('Return the currentRoute destination exactly unchanged.');
   if (!options.allowFollowUp) {
-    instructions.push('Do not ask a follow-up question. Plan with the context given; needsMoreContext must be false.');
+    instructions.push(
+      'Do not ask a follow-up question. Plan with the context given; needsMoreContext must be false.'
+    );
   }
 
   return [

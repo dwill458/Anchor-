@@ -6,13 +6,11 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { GoogleGenAI } from '@google/genai';
-import { RedisStore } from 'rate-limit-redis';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { AuthRequest, authMiddleware, DEV_MASTER_UID } from '../middleware/auth';
+import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
-import { redisClient } from '../../lib/redis';
 import { BackendAnalyticsService } from '../../services/AnalyticsService';
 import { resolveMonetizationAccess } from '../../services/MonetizationAccessService';
 import { logger } from '../../utils/logger';
@@ -323,7 +321,7 @@ async function resolveAnchorArtworkUrls<
     enhancedImageUrl?: string | null;
     threadV2States?: Array<{ strength: number }>;
     threadStrength?: number | null;
-  }
+  },
 >(anchor: T): Promise<T & { threadStrength: number | null }> {
   const existingStrength = anchor.threadStrength;
   const threadStrength =
@@ -1135,7 +1133,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
         throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
       }
       const meta =
-        current.classifierMeta && typeof current.classifierMeta === 'object' && !Array.isArray(current.classifierMeta)
+        current.classifierMeta &&
+        typeof current.classifierMeta === 'object' &&
+        !Array.isArray(current.classifierMeta)
           ? (current.classifierMeta as Prisma.JsonObject)
           : {};
       allowedUpdates.classifierMeta = { ...meta, v2Expression: expression };

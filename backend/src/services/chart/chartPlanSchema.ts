@@ -19,7 +19,13 @@ export type ChartWaypointKind = (typeof CHART_WAYPOINT_KINDS)[number];
  * How a waypoint shows progress. numeric: a real number with a unit and target. moves: the checklist of its
  * moves. none: no progress UI, just the waypoint and its moves.
  */
-export const CHART_PROGRESS_MODES = ['numeric', 'checklist', 'completion', 'moves', 'none'] as const;
+export const CHART_PROGRESS_MODES = [
+  'numeric',
+  'checklist',
+  'completion',
+  'moves',
+  'none',
+] as const;
 export type ChartProgressMode = (typeof CHART_PROGRESS_MODES)[number];
 
 /** Planner never proposes more than this; users may add more afterwards. */
@@ -57,7 +63,10 @@ const RawWaypointSchema = z.object({
   baselineValue: z.number().nullable(),
   completionCriteria: z.string().nullish(),
   requirements: z.array(z.string()).max(12).nullish(),
-  moves: z.array(z.object({ title: z.string(), rationale: z.string().nullable() })).max(4).nullish(),
+  moves: z
+    .array(z.object({ title: z.string(), rationale: z.string().nullable() }))
+    .max(4)
+    .nullish(),
 });
 
 const RawMoveSchema = z.object({
@@ -74,12 +83,26 @@ export const RawGenerationSchema = z.object({
   suggestedOneMove: RawMoveSchema.nullable(),
   personalizedGuidance: z.string().nullable(),
   routeScope: z.enum(['DESTINATION', 'NEXT_STRETCH']).optional(),
-  analysis: z.object({
-    startingPointSummary: z.string(), assumptions: z.array(z.string()).max(8),
-    routeDesign: z.object({ selectedWaypointCount: z.number().int().min(0).max(8), complexityReason: z.string().max(400), countReason: z.string().max(400) }).optional(),
-    firstMilestoneEvidence: z.string(), difficultyReduction: z.string().nullable(),
-    prerequisites: z.array(z.object({ waypointIndex: z.number().int(), requires: z.array(z.number().int()).max(8) })).max(8),
-  }).optional(),
+  analysis: z
+    .object({
+      startingPointSummary: z.string(),
+      assumptions: z.array(z.string()).max(8),
+      routeDesign: z
+        .object({
+          selectedWaypointCount: z.number().int().min(0).max(8),
+          complexityReason: z.string().max(400),
+          countReason: z.string().max(400),
+        })
+        .optional(),
+      firstMilestoneEvidence: z.string(),
+      difficultyReduction: z.string().nullable(),
+      prerequisites: z
+        .array(
+          z.object({ waypointIndex: z.number().int(), requires: z.array(z.number().int()).max(8) })
+        )
+        .max(8),
+    })
+    .optional(),
 });
 export type RawGeneration = z.infer<typeof RawGenerationSchema>;
 
@@ -88,17 +111,43 @@ export const RawMoveSuggestionsSchema = z.object({
 });
 
 const ANALYSIS_JSON_SCHEMA = {
-  type: 'object', additionalProperties: false,
-  required: ['startingPointSummary', 'assumptions', 'routeDesign', 'firstMilestoneEvidence', 'difficultyReduction', 'prerequisites'],
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'startingPointSummary',
+    'assumptions',
+    'routeDesign',
+    'firstMilestoneEvidence',
+    'difficultyReduction',
+    'prerequisites',
+  ],
   properties: {
-    startingPointSummary: { type: 'string' }, assumptions: { type: 'array', items: { type: 'string' } },
-    routeDesign: { type: 'object', additionalProperties: false, required: ['selectedWaypointCount', 'complexityReason', 'countReason'], properties: {
-      selectedWaypointCount: { type: 'integer', minimum: 0, maximum: 8 }, complexityReason: { type: 'string' }, countReason: { type: 'string' },
-    } },
-    firstMilestoneEvidence: { type: 'string' }, difficultyReduction: { type: ['string', 'null'] },
-    prerequisites: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['waypointIndex', 'requires'], properties: {
-      waypointIndex: { type: 'integer' }, requires: { type: 'array', items: { type: 'integer' } },
-    } } },
+    startingPointSummary: { type: 'string' },
+    assumptions: { type: 'array', items: { type: 'string' } },
+    routeDesign: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['selectedWaypointCount', 'complexityReason', 'countReason'],
+      properties: {
+        selectedWaypointCount: { type: 'integer', minimum: 0, maximum: 8 },
+        complexityReason: { type: 'string' },
+        countReason: { type: 'string' },
+      },
+    },
+    firstMilestoneEvidence: { type: 'string' },
+    difficultyReduction: { type: ['string', 'null'] },
+    prerequisites: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['waypointIndex', 'requires'],
+        properties: {
+          waypointIndex: { type: 'integer' },
+          requires: { type: 'array', items: { type: 'integer' } },
+        },
+      },
+    },
   },
 } as const;
 
@@ -114,7 +163,8 @@ export const GENERATION_JSON_SCHEMA = {
     'complexity',
     'waypoints',
     'suggestedOneMove',
-    'personalizedGuidance', 'routeScope',
+    'personalizedGuidance',
+    'routeScope',
   ],
   properties: {
     needsMoreContext: { type: 'boolean' },
@@ -129,7 +179,18 @@ export const GENERATION_JSON_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['title', 'rationale', 'type', 'metricType', 'targetMetric', 'targetValue', 'baselineValue', 'completionCriteria', 'requirements', 'moves'],
+        required: [
+          'title',
+          'rationale',
+          'type',
+          'metricType',
+          'targetMetric',
+          'targetValue',
+          'baselineValue',
+          'completionCriteria',
+          'requirements',
+          'moves',
+        ],
         properties: {
           title: { type: 'string' },
           rationale: { type: ['string', 'null'] },
@@ -141,9 +202,13 @@ export const GENERATION_JSON_SCHEMA = {
           completionCriteria: { type: 'string' },
           requirements: { type: 'array', items: { type: 'string' } },
           moves: {
-            type: 'array', minItems: 3, maxItems: 4,
+            type: 'array',
+            minItems: 3,
+            maxItems: 4,
             items: {
-              type: 'object', additionalProperties: false, required: ['title', 'rationale'],
+              type: 'object',
+              additionalProperties: false,
+              required: ['title', 'rationale'],
               properties: { title: { type: 'string' }, rationale: { type: ['string', 'null'] } },
             },
           },
@@ -227,7 +292,10 @@ function clean(value: string | null | undefined): string {
 
 function cleanTitle(value: string | null | undefined, max: number): string {
   // Titles read as labels, not sentences.
-  return clean(value).replace(/[.;:,]+$/, '').slice(0, max).trim();
+  return clean(value)
+    .replace(/[.;:,]+$/, '')
+    .slice(0, max)
+    .trim();
 }
 
 function cleanOptional(value: string | null | undefined, max: number): string | null {
@@ -268,7 +336,9 @@ function normalizeKind(value: string): ChartWaypointKind {
 
 function normalizeProgressMode(value: string | null | undefined): ChartProgressMode | null {
   const lower = clean(value).toLowerCase();
-  return (CHART_PROGRESS_MODES as readonly string[]).includes(lower) ? (lower as ChartProgressMode) : null;
+  return (CHART_PROGRESS_MODES as readonly string[]).includes(lower)
+    ? (lower as ChartProgressMode)
+    : null;
 }
 
 /**
@@ -283,10 +353,15 @@ export function isSetupWaypointTitle(title: string): boolean {
 }
 
 function finitePositive(value: number | null | undefined): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1e12 ? value : null;
+  return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1e12
+    ? value
+    : null;
 }
 
-function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>, strict: boolean): PlannedWaypoint | null {
+function normalizeWaypoint(
+  raw: z.infer<typeof RawWaypointSchema>,
+  strict: boolean
+): PlannedWaypoint | null {
   const title = cleanTitle(raw.title, TITLE_MAX);
   if (title.length < 3) return null;
   let kind = normalizeKind(raw.type);
@@ -296,9 +371,12 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>, strict: boole
   else if (declared && kind === 'METRIC') kind = 'MILESTONE';
   let metricTarget = finitePositive(raw.targetValue);
   let metricLabel = cleanOptional(raw.targetMetric, METRIC_LABEL_MAX);
-  if (strict && declared === 'numeric' && (metricTarget === null || !metricLabel)) throw new ChartPlanValidationError('numeric_criteria');
+  if (strict && declared === 'numeric' && (metricTarget === null || !metricLabel))
+    throw new ChartPlanValidationError('numeric_criteria');
   let metricBaseline =
-    typeof raw.baselineValue === 'number' && Number.isFinite(raw.baselineValue) && Math.abs(raw.baselineValue) <= 1e12
+    typeof raw.baselineValue === 'number' &&
+    Number.isFinite(raw.baselineValue) &&
+    Math.abs(raw.baselineValue) <= 1e12
       ? raw.baselineValue
       : null;
   // A metric needs a real target. Anything else is a milestone in disguise.
@@ -310,7 +388,8 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>, strict: boole
     metricLabel = null;
     metricBaseline = null;
   }
-  if (metricTarget !== null && metricBaseline === metricTarget) throw new ChartPlanValidationError('empty_metric_span');
+  if (metricTarget !== null && metricBaseline === metricTarget)
+    throw new ChartPlanValidationError('empty_metric_span');
   const seenMoves = new Set<string>();
   const moves: PlannedMove[] = [];
   if (Array.isArray(raw.moves)) {
@@ -325,9 +404,18 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>, strict: boole
     // supplement with deterministic action steps rather than crashing the entire route.
     if (moves.length > 0 && moves.length < 3) {
       const supplements = [
-        { title: `Clarify next milestone requirements for ${title.slice(0, 40)}`, rationale: 'Breaks down the immediate requirements.' },
-        { title: `Complete first action toward ${title.slice(0, 40)}`, rationale: 'Moves the milestone forward.' },
-        { title: `Verify progress toward ${title.slice(0, 40)}`, rationale: 'Confirms completion criteria are met.' },
+        {
+          title: `Clarify next milestone requirements for ${title.slice(0, 40)}`,
+          rationale: 'Breaks down the immediate requirements.',
+        },
+        {
+          title: `Complete first action toward ${title.slice(0, 40)}`,
+          rationale: 'Moves the milestone forward.',
+        },
+        {
+          title: `Verify progress toward ${title.slice(0, 40)}`,
+          rationale: 'Confirms completion criteria are met.',
+        },
       ];
       for (const sup of supplements) {
         if (!seenMoves.has(sup.title.toLowerCase())) {
@@ -341,7 +429,11 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>, strict: boole
   return {
     title,
     completionCriteria: cleanOptional(raw.completionCriteria, 400),
-    requirements: (raw.requirements ?? []).map((text, i) => ({ id: `requirement-${i + 1}`, title: clean(text).slice(0, 140), completed: false })),
+    requirements: (raw.requirements ?? []).map((text, i) => ({
+      id: `requirement-${i + 1}`,
+      title: clean(text).slice(0, 140),
+      completed: false,
+    })),
     rationale: cleanOptional(raw.rationale, RATIONALE_MAX),
     kind,
     progressMode,
@@ -352,7 +444,9 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>, strict: boole
   };
 }
 
-export function normalizeMove(raw: { title: string; rationale: string | null } | null): PlannedMove | null {
+export function normalizeMove(
+  raw: { title: string; rationale: string | null } | null
+): PlannedMove | null {
   if (!raw) return null;
   const title = cleanTitle(raw.title, MOVE_TITLE_MAX);
   if (title.length < 3) return null;
@@ -395,7 +489,12 @@ export function normalizeGenerationResult(
       continue;
     }
     // Legacy setup cleanup predates prerequisite evidence. Keep explicitly evidenced foundation states intact so their prerequisite indices remain valid.
-    if (!raw.analysis && isSetupWaypointTitle(waypoint.title) && raw.waypoints.length - 1 >= MIN_GENERATED_WAYPOINTS) continue;
+    if (
+      !raw.analysis &&
+      isSetupWaypointTitle(waypoint.title) &&
+      raw.waypoints.length - 1 >= MIN_GENERATED_WAYPOINTS
+    )
+      continue;
     const key = waypoint.title.toLowerCase();
     if (seen.has(key)) {
       if (raw.analysis) throw new ChartPlanValidationError('duplicate_waypoint');
@@ -411,7 +510,9 @@ export function normalizeGenerationResult(
   // route, not something to silently truncate into a different plan.
   if (waypoints.length > MAX_GENERATED_WAYPOINTS) throw new ChartPlanValidationError('too_many');
 
-  const claimed = (CHART_COMPLEXITIES as readonly string[]).includes(clean(raw.complexity).toUpperCase())
+  const claimed = (CHART_COMPLEXITIES as readonly string[]).includes(
+    clean(raw.complexity).toUpperCase()
+  )
     ? (clean(raw.complexity).toUpperCase() as ChartComplexity)
     : null;
   // Never turn a compressed complex route into SIMPLE to make its count look valid.
@@ -432,7 +533,10 @@ export function normalizeGenerationResult(
   };
 }
 
-export function normalizeMoveSuggestions(input: unknown, existingTitles: string[] = []): PlannedMove[] {
+export function normalizeMoveSuggestions(
+  input: unknown,
+  existingTitles: string[] = []
+): PlannedMove[] {
   const parsed = RawMoveSuggestionsSchema.safeParse(input);
   if (!parsed.success) throw new ChartPlanValidationError('schema');
   const seen = new Set(existingTitles.map(title => title.toLowerCase()));

@@ -144,7 +144,8 @@ export const chartPlanLimiter = createAiRateLimiter({
   prodLimit: 20,
   devLimit: 150,
   keyPrefix: 'rl:ai:chart:',
-  message: "We couldn't build your route right now. Your progress is saved, so you can try again shortly.",
+  message:
+    "We couldn't build your route right now. Your progress is saved, so you can try again shortly.",
 });
 
 // 2. Chart regeneration / adjustment / suggest-moves:
@@ -166,7 +167,8 @@ export const chartAskLimiter = createAiRateLimiter({
   prodLimit: 40,
   devLimit: 200,
   keyPrefix: 'rl:ai:chart_ask:',
-  message: 'Ask Chart needs a short break. Your conversation is saved, so you can pick it up shortly.',
+  message:
+    'Ask Chart needs a short break. Your conversation is saved, so you can pick it up shortly.',
 });
 
 // 3. Vision image generation (more conservative due to cost):

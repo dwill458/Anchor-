@@ -77,7 +77,7 @@ const INTENTIONS = [
 ];
 const CATEGORIES = [undefined, 'career', 'health', 'abundance', 'relationships', 'custom'];
 
-describe('Anchor 1.5 legacy compatibility (byte-identical to the pre-2.0 snapshot)', () => {
+describe('Existing style compatibility (current category palette)', () => {
   it('still resolves every legacy style ID to its own definition', () => {
     expect(fixture.styleIds).toEqual([...VALID_AI_STYLES]);
     expect(VALID_AI_STYLES).toBe(AI_STYLE_IDS);
@@ -580,7 +580,7 @@ describe('Anchor 2.0 provider wrappers', () => {
 
   it('reference-image wrappers keep geometry exact, no containers, and calm the footprint', () => {
     const tail = getReferenceImageWrapperTail('nanoBanana', 'flash_v2');
-    expect(tail).toContain('exact Anchor structure that must be preserved');
+    expect(tail).toContain('Preserve the exact Anchor lines, circles, intersections, angles, nodes, and geometric relationships');
     expect(tail).toContain('Do not add frames, cards, plaques, medallions, presentation plates, bounding boxes or extra enclosing rings');
     expect(tail).toContain('Keep the area behind and around the geometry calm');
     expect(tail).toContain('perimeter');

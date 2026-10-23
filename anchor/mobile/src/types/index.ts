@@ -5,6 +5,7 @@
  */
 
 import type {
+  GuidanceVoice,
   SessionAudioConfiguration,
   SessionAudioDefaultsByType,
 } from './sessionAudio';
@@ -635,7 +636,7 @@ export type RootStackParamList = {
     anchorId: string;
     durationSeconds: 60 | 180 | 300;
     sceneText: string;
-    guidanceVoice: 'female' | 'male' | 'none';
+    guidanceVoice: GuidanceVoice;
     backgroundAudio: 'ambient' | 'off';
     source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
   };
@@ -952,35 +953,6 @@ export type RootStackParamList = {
   };
 
   // ═══════════════════════════════════════════════════
-  // SHOP / MERCHANDISE
-  // ═══════════════════════════════════════════════════
-  ProductSelection: {
-    anchorId: string;
-    sigilSvg: string;
-    intentionText: string;
-    artworkUri?: string;
-  };
-  ProductMockup: {
-    anchorId: string;
-    sigilSvg: string;
-    intentionText: string;
-    artworkUri?: string;
-    productType: 'print' | 'phone-case' | 'desk-mat';
-  };
-  Checkout: {
-    anchorId: string;
-    sigilSvg: string;
-    intentionText: string;
-    artworkUri?: string;
-    previewUrl?: string;
-    productType: string;
-    size: string;
-    color: string;
-    quantity: number;
-    subtotal: number;
-  };
-
-  // ═══════════════════════════════════════════════════
   // PROFILE & SETTINGS
   // ═══════════════════════════════════════════════════
   Settings: undefined;
@@ -1083,7 +1055,7 @@ export type PracticeStackParamList = {
     anchorId: string;
     durationSeconds: 60 | 180 | 300;
     sceneText: string;
-    guidanceVoice: 'female' | 'male' | 'none';
+    guidanceVoice: GuidanceVoice;
     backgroundAudio: 'ambient' | 'off';
   };
   VisualizeCompletion: {

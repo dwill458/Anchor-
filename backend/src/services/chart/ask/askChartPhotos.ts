@@ -15,7 +15,11 @@ export const MAX_ASK_PHOTO_INPUT_BYTES = 6 * 1024 * 1024;
 export const MAX_ASK_PHOTO_BASE64_LENGTH = Math.ceil((MAX_ASK_PHOTO_INPUT_BYTES * 4) / 3) + 128;
 export const ASK_PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 const MAX_EDGE = 1600;
-const FORMAT_FOR_MIME: Record<string, string> = { 'image/jpeg': 'jpeg', 'image/png': 'png', 'image/webp': 'webp' };
+const FORMAT_FOR_MIME: Record<string, string> = {
+  'image/jpeg': 'jpeg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 /** Accepts a data URL or raw base64; rejects anything that is not exactly what it says it is. */
 export function decodeAskPhoto(value: string, declaredMimeType: string): Buffer {
@@ -23,7 +27,8 @@ export function decodeAskPhoto(value: string, declaredMimeType: string): Buffer 
   const payload = match ? match[2] : value;
   const embedded = match?.[1] === 'image/jpg' ? 'image/jpeg' : match?.[1];
   const declared = declaredMimeType === 'image/jpg' ? 'image/jpeg' : declaredMimeType;
-  if (embedded && embedded !== declared) throw new AppError('Embedded image type does not match mimeType', 400, 'VALIDATION_ERROR');
+  if (embedded && embedded !== declared)
+    throw new AppError('Embedded image type does not match mimeType', 400, 'VALIDATION_ERROR');
   if (!payload || payload.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) {
     throw new AppError('The photo is malformed', 400, 'VALIDATION_ERROR');
   }
@@ -35,11 +40,22 @@ export function decodeAskPhoto(value: string, declaredMimeType: string): Buffer 
 }
 
 /** Validates the real format, applies EXIF orientation, drops all metadata, caps the long edge. Output is always JPEG. */
-export async function normalizeAskPhoto(buffer: Buffer, declaredMimeType: string): Promise<{ data: Buffer; width: number; height: number }> {
+export async function normalizeAskPhoto(
+  buffer: Buffer,
+  declaredMimeType: string
+): Promise<{ data: Buffer; width: number; height: number }> {
   const input = sharp(buffer, { limitInputPixels: 60_000_000, failOn: 'error' });
   const metadata = await input.metadata().catch(() => null);
-  if (!metadata?.format || metadata.format !== FORMAT_FOR_MIME[declaredMimeType === 'image/jpg' ? 'image/jpeg' : declaredMimeType]) {
-    throw new AppError('The photo is not a valid image of the declared type', 400, 'VALIDATION_ERROR');
+  if (
+    !metadata?.format ||
+    metadata.format !==
+      FORMAT_FOR_MIME[declaredMimeType === 'image/jpg' ? 'image/jpeg' : declaredMimeType]
+  ) {
+    throw new AppError(
+      'The photo is not a valid image of the declared type',
+      400,
+      'VALIDATION_ERROR'
+    );
   }
   try {
     const { data, info } = await input
@@ -53,9 +69,20 @@ export async function normalizeAskPhoto(buffer: Buffer, declaredMimeType: string
   }
 }
 
-export async function storeAskPhoto(userId: string, anchorId: string, base64Image: string, mimeType: string) {
-  const { data, width, height } = await normalizeAskPhoto(decodeAskPhoto(base64Image, mimeType), mimeType);
-  const uploaded = await uploadImageAssetFromBuffer(data, userId, 'ask-chart-photos', 0, { visibility: 'private', contentType: 'image/jpeg' });
+export async function storeAskPhoto(
+  userId: string,
+  anchorId: string,
+  base64Image: string,
+  mimeType: string
+) {
+  const { data, width, height } = await normalizeAskPhoto(
+    decodeAskPhoto(base64Image, mimeType),
+    mimeType
+  );
+  const uploaded = await uploadImageAssetFromBuffer(data, userId, 'ask-chart-photos', 0, {
+    visibility: 'private',
+    contentType: 'image/jpeg',
+  });
   const asset = await prisma.asset.create({
     data: {
       userId,
@@ -76,7 +103,13 @@ async function removeAssets(rows: Array<{ id: string; storageKey: string }>): Pr
   for (const row of rows) {
     await deletePrivateImageAsset(row.storageKey);
     const result = await prisma.asset.deleteMany({
-      where: { id: row.id, visionScenes: { none: {} }, visionCandidates: { none: {} }, visionAppearanceReferences: { none: {} }, visionGenerationReferences: { none: {} } },
+      where: {
+        id: row.id,
+        visionScenes: { none: {} },
+        visionCandidates: { none: {} },
+        visionAppearanceReferences: { none: {} },
+        visionGenerationReferences: { none: {} },
+      },
     });
     removed += result.count;
   }
@@ -84,10 +117,16 @@ async function removeAssets(rows: Array<{ id: string; storageKey: string }>): Pr
 }
 
 /** Deletes Ask Chart photos past their lifetime (one person's, or everyone's for the scheduled job). */
-export async function purgeExpiredAskPhotos(options: { now?: Date; userId?: string } = {}): Promise<number> {
+export async function purgeExpiredAskPhotos(
+  options: { now?: Date; userId?: string } = {}
+): Promise<number> {
   const cutoff = new Date((options.now ?? new Date()).getTime() - PHOTO_TTL_MS);
   const rows = await prisma.asset.findMany({
-    where: { createdAt: { lt: cutoff }, metadata: isAskPhoto, ...(options.userId ? { userId: options.userId } : {}) },
+    where: {
+      createdAt: { lt: cutoff },
+      metadata: isAskPhoto,
+      ...(options.userId ? { userId: options.userId } : {}),
+    },
     select: { id: true, storageKey: true },
     take: 200,
   });
@@ -99,6 +138,9 @@ export async function purgeExpiredAskPhotos(options: { now?: Date; userId?: stri
 /** Deletes specific Ask Chart photos belonging to the person (conversation cleared). Other assets are never touched. */
 export async function deleteAskPhotos(userId: string, assetIds: string[]): Promise<number> {
   if (assetIds.length === 0) return 0;
-  const rows = await prisma.asset.findMany({ where: { id: { in: assetIds }, userId, metadata: isAskPhoto }, select: { id: true, storageKey: true } });
+  const rows = await prisma.asset.findMany({
+    where: { id: { in: assetIds }, userId, metadata: isAskPhoto },
+    select: { id: true, storageKey: true },
+  });
   return removeAssets(rows);
 }

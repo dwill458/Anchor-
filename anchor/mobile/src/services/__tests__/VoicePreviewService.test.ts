@@ -45,12 +45,17 @@ describe('VoicePreviewService', () => {
     expect(mockRelease).toHaveBeenCalledTimes(1);
   });
 
-  it('plays the loudness-matched male preview', async () => {
+  it.each([
+    ['male', 1],
+    ['female', 1],
+    ['warm', 1],
+    ['soothing', 0.415],
+  ] as const)('plays the current %s preview at its mastered gain', async (voice, gain) => {
     const { createAudioPlayer } = jest.requireMock('expo-audio');
-    await expect(startVoicePreview('male')).resolves.toBe(true);
+    await expect(startVoicePreview(voice)).resolves.toBe(true);
     expect(createAudioPlayer).toHaveBeenCalledTimes(1);
-    expect(createAudioPlayer.mock.results[0].value.volume).toBe(0.415);
-    expect(getActivePreviewVoice()).toBe('male');
+    expect(createAudioPlayer.mock.results[0].value.volume).toBe(gain);
+    expect(getActivePreviewVoice()).toBe(voice);
   });
 
   it('cleans up when playback finishes', async () => {

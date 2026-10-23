@@ -158,7 +158,12 @@ export class GeminiImageService {
     description: string,
     avoidScenes: string[] = [],
     hasAppearanceReference: boolean = false,
-    onboarding?: { motivation?: string; customAnswer?: string; desiredChange: string; lifeChanges: string[] } | null
+    onboarding?: {
+      motivation?: string;
+      customAnswer?: string;
+      desiredChange: string;
+      lifeChanges: string[];
+    } | null
   ): Promise<VisionScenePlanItem[]> {
     if (!this.isAvailable())
       throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
@@ -253,7 +258,10 @@ export class GeminiImageService {
    * Fills the blank areas of a prepared 9:16 canvas around a real photograph. The caller composites the
    * original pixels back over the result, so the model only ever supplies the surroundings.
    */
-  async extendVisionPhoto(prompt: string, canvas: { buffer: Buffer; mimeType: string }): Promise<Buffer> {
+  async extendVisionPhoto(
+    prompt: string,
+    canvas: { buffer: Buffer; mimeType: string }
+  ): Promise<Buffer> {
     if (!this.isAvailable())
       throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
     const controller = new AbortController();
@@ -261,13 +269,15 @@ export class GeminiImageService {
     try {
       const response = await this.client.models.generateContent({
         model: VISION_IMAGE_MODEL,
-        contents: [{
-          role: 'user',
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType: canvas.mimeType, data: canvas.buffer.toString('base64') } },
-          ],
-        }],
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt },
+              { inlineData: { mimeType: canvas.mimeType, data: canvas.buffer.toString('base64') } },
+            ],
+          },
+        ],
         config: {
           responseModalities: ['IMAGE'],
           imageConfig: { aspectRatio: VISION_IMAGE_ASPECT_RATIO },
@@ -278,7 +288,11 @@ export class GeminiImageService {
         ?.flatMap(candidate => candidate.content?.parts ?? [])
         .find(part => typeof part.inlineData?.data === 'string')?.inlineData?.data;
       if (!data)
-        throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Image provider returned no image', true);
+        throw new GeminiError(
+          GeminiErrorType.INVALID_IMAGE,
+          'Image provider returned no image',
+          true
+        );
       return Buffer.from(data, 'base64');
     } finally {
       clearTimeout(timer);
@@ -311,19 +325,26 @@ export class GeminiImageService {
               params.variationKey
             ),
             styleId: params.styleApproach,
-            referenceImages: [{ buffer: baseImageBuffer, mimeType: 'image/png', role: 'structure' }],
+            referenceImages: [
+              { buffer: baseImageBuffer, mimeType: 'image/png', role: 'structure' },
+            ],
             devImageModel: params.devImageModel,
             numberOfVariations: 1,
           })
         )
       );
       const images = results.map((result, i) => ({
-        base64: result.images[0].buffer.toString('base64'), seed: result.images[0].seed ?? 0, variationIndex: i + 1,
+        base64: result.images[0].buffer.toString('base64'),
+        seed: result.images[0].seed ?? 0,
+        variationIndex: i + 1,
       }));
       const costUSD = results.reduce((total, result) => total + result.costUSD, 0);
       return {
-        images, costUSD, totalTimeSeconds: Math.round((Date.now() - start) / 1000),
-        model: params.devImageModel, tier: params.tier ?? 'premium',
+        images,
+        costUSD,
+        totalTimeSeconds: Math.round((Date.now() - start) / 1000),
+        model: params.devImageModel,
+        tier: params.tier ?? 'premium',
         prompt: this.createPrompt(
           params.intentionText,
           params.styleApproach,
@@ -1794,7 +1815,9 @@ Integration rules:
             geminiPrimaryError instanceof GeminiError
               ? geminiPrimaryError
               : this.parseError(geminiPrimaryError);
-          const fallbackProvider = (process.env.ANCHOR2_FALLBACK_PROVIDER || 'openai').toLowerCase();
+          const fallbackProvider = (
+            process.env.ANCHOR2_FALLBACK_PROVIDER || 'openai'
+          ).toLowerCase();
           if (fallbackProvider !== 'openai' || !openAiKey) throw parsedGeminiError;
 
           logger.warn(
@@ -2012,9 +2035,7 @@ Integration rules:
       // the Anchor by separating it from an empty surround and rejects large filled rectangles as
       // plaques) does not apply to it and would reject valid images.
       const generatedBuffer = Buffer.from(imageData, 'base64');
-      const validation = isAnchor2
-        ? null
-        : await validateAnchorArtwork(generatedBuffer);
+      const validation = isAnchor2 ? null : await validateAnchorArtwork(generatedBuffer);
 
       if (validation && !validation.isValid && retryCount < maxRetries) {
         logger.warn(
@@ -2125,9 +2146,7 @@ The symbol must radiate into open space and fill the frame comfortably without a
         .toBuffer();
 
       // Trim transparent padding to get exact geometry bounding box
-      const trimmed = await sharp(rendered)
-        .trim()
-        .toBuffer({ resolveWithObject: true });
+      const trimmed = await sharp(rendered).trim().toBuffer({ resolveWithObject: true });
 
       // Target geometry size: 80% of 1024 = ~820px
       const TARGET_DIMENSION = 820;

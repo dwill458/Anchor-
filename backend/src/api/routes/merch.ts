@@ -65,7 +65,7 @@ router.post(
       const validationResult = PreviewRequestSchema.safeParse(req.body);
       if (!validationResult.success) {
         const message = validationResult.error.errors
-          .map((error) => `${error.path.join('.')}: ${error.message}`)
+          .map(error => `${error.path.join('.')}: ${error.message}`)
           .join(', ');
         throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
       }
