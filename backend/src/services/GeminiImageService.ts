@@ -1719,10 +1719,15 @@ Integration rules:
     // Route to Nano Banana / OpenAI
     if (modelConfig.useNanoBanana) {
       if (isAnchor2) {
-        // Swapped for testing: Anchor 2.0 uses OpenAI as primary with Gemini (Nano Banana) backup.
+        // Temporary incident routing: Anchor 2.0 uses Nano Banana 2.1 first while OpenAI
+        // connectivity is investigated. Anchor 1.5 keeps its existing Gemini model below.
         const openAiKey = process.env.OPENAI_API_KEY?.trim();
         const primaryIsGemini =
-          (process.env.ANCHOR2_PRIMARY_PROVIDER || 'openai').toLowerCase() === 'gemini';
+          (process.env.ANCHOR2_PRIMARY_PROVIDER || 'gemini').toLowerCase() === 'gemini';
+        const anchor2GeminiConfig = {
+          ...modelConfig,
+          modelId: process.env.ANCHOR2_GEMINI_MODEL?.trim() || 'gemini-nano-banana-2.1',
+        };
 
         if (openAiKey && !primaryIsGemini) {
           try {
@@ -1770,19 +1775,49 @@ Integration rules:
           }
         }
 
-        // If OpenAI is not configured or bypassed, use Gemini backup directly
+        // Gemini/Nano Banana 2.1 is the Anchor 2.0 primary during this incident.
         logger.info(
-          `[GeminiImageService] (Anchor 2.0 testing) OpenAI primary unavailable or bypassed. Using Gemini backup for variation ${variationIndex + 1}.`,
+          `[GeminiImageService] Anchor 2.0 primary provider is Gemini (${anchor2GeminiConfig.modelId}) for variation ${variationIndex + 1}.`,
           { styleId }
         );
-        return await this.generateVariationWithNanoBanana(
-          baseImageBuffer,
-          prompt,
-          variationIndex,
-          modelConfig,
-          retryCount,
-          styleId
-        );
+        try {
+          return await this.generateVariationWithNanoBanana(
+            baseImageBuffer,
+            prompt,
+            variationIndex,
+            anchor2GeminiConfig,
+            retryCount,
+            styleId
+          );
+        } catch (geminiPrimaryError) {
+          const parsedGeminiError =
+            geminiPrimaryError instanceof GeminiError
+              ? geminiPrimaryError
+              : this.parseError(geminiPrimaryError);
+          const fallbackProvider = (process.env.ANCHOR2_FALLBACK_PROVIDER || 'openai').toLowerCase();
+          if (fallbackProvider !== 'openai' || !openAiKey) throw parsedGeminiError;
+
+          logger.warn(
+            `[GeminiImageService] Nano Banana 2.1 failed for Anchor 2.0 variation ${variationIndex + 1}. Falling back to OpenAI.`,
+            { type: parsedGeminiError.type, styleId }
+          );
+          try {
+            return await this.generateVariationWithOpenAI(
+              baseImageBuffer,
+              prompt,
+              variationIndex,
+              anchor2GeminiConfig,
+              styleId,
+              2
+            );
+          } catch (openAiFallbackError) {
+            logger.error(
+              `[GeminiImageService] OpenAI fallback also failed for Anchor 2.0 variation ${variationIndex + 1}: ${openAiFallbackError instanceof Error ? openAiFallbackError.message : String(openAiFallbackError)}`,
+              { styleId }
+            );
+            throw parsedGeminiError;
+          }
+        }
       }
 
       // Legacy Anchor 1.5 styles: Leave on Gemini as primary with OpenAI as backup
