@@ -31,17 +31,44 @@ const encode = (value: string) => encodeURIComponent(value);
 
 const inFlight = new Map<string, Promise<V2RecommendationContext>>();
 
+function abortError(): Error {
+  const error = new Error('Recommendation read aborted.');
+  error.name = 'AbortError';
+  return error;
+}
+
+/** A screen can stop waiting without canceling a read shared by other heroes. */
+function observeSharedContext(request: Promise<V2RecommendationContext>, signal?: AbortSignal): Promise<V2RecommendationContext> {
+  if (!signal) return request;
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(abortError());
+    };
+    signal.addEventListener('abort', onAbort);
+    request.then(value => {
+      signal.removeEventListener('abort', onAbort);
+      resolve(value);
+    }, error => {
+      signal.removeEventListener('abort', onAbort);
+      reject(error);
+    });
+  });
+}
+
 /** GET is deliberately non-consuming: never acknowledge from this read path. */
 export async function fetchV2RecommendationContext(anchorId: string, signal?: AbortSignal): Promise<V2RecommendationContext> {
+  if (signal?.aborted) throw abortError();
   const accountId = useAuthStore.getState().user?.id ?? null;
   const requestKey = `${accountId ?? 'anonymous'}:${anchorId}`;
   const existing = inFlight.get(requestKey);
-  if (existing) return existing;
+  if (existing) return observeSharedContext(existing, signal);
 
   const span = HomeStartupProfiler.start('today_recommendation_request', { anchorId });
   const request = apiClient.get<Envelope<V2RecommendationContext>>(
     `/api/v2/anchors/${encode(anchorId)}/recommendation-context`,
-    { signal, params: { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } },
+    { params: { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } },
   ).then((response) => {
     span({ ok: response.data.success, serverTiming: String(response.headers?.['server-timing'] ?? '') || null });
     if (!response.data.success || !response.data.data) throw new Error(response.data.error?.message ?? 'Recommendation is unavailable.');
@@ -55,7 +82,7 @@ export async function fetchV2RecommendationContext(anchorId: string, signal?: Ab
   });
 
   inFlight.set(requestKey, request);
-  return request;
+  return observeSharedContext(request, signal);
 }
 
 /** Pre-warms cache in the background; never throws on failure. */

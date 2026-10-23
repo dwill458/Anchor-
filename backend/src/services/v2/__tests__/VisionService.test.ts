@@ -8,6 +8,7 @@ const mockPrisma = {
     findFirst: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
   },
   visionScene: {
     findFirst: jest.fn(),
@@ -351,23 +352,27 @@ describe('VisionService (Anchor 2.0 V2)', () => {
     });
 
     it('archives a scene', async () => {
+      mockPrisma.vision.findFirst.mockResolvedValue({ id: VISION_ID, anchorId: ANCHOR_ID, userId: USER_ID, status: 'ACTIVE', updatedAt: new Date('2026-10-23T00:00:00Z') });
       mockPrisma.visionScene.count.mockResolvedValueOnce(2);
       mockPrisma.visionScene.findFirst.mockResolvedValueOnce({
         id: 'scene-1',
         visionId: VISION_ID,
         userId: USER_ID,
+        isArchived: false,
       });
-      mockPrisma.visionScene.update.mockResolvedValueOnce({
-        id: 'scene-1',
-        isArchived: true,
-      });
+      mockPrisma.visionScene.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrisma.vision.updateMany.mockResolvedValueOnce({ count: 1 });
 
       const res = await visionService.archiveScene(USER_ID, VISION_ID, 'scene-1');
       expect(res.success).toBe(true);
-      expect(mockPrisma.visionScene.update).toHaveBeenCalledWith({
-        where: { id: 'scene-1' },
+      expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function));
+      expect(mockPrisma.$queryRaw.mock.calls[0][0].sql).toMatch(/anchors.*FOR UPDATE/s);
+      expect(mockPrisma.visionScene.count.mock.invocationCallOrder[0]).toBeGreaterThan(mockPrisma.$queryRaw.mock.invocationCallOrder[0]);
+      expect(mockPrisma.visionScene.updateMany).toHaveBeenCalledWith({
+        where: { id: 'scene-1', visionId: VISION_ID, userId: USER_ID, isArchived: false },
         data: { isArchived: true },
       });
+      expect(mockPrisma.visionScene.update).not.toHaveBeenCalled();
     });
 
     it('rejects an order that omits an active image', async () => {
@@ -380,10 +385,13 @@ describe('VisionService (Anchor 2.0 V2)', () => {
     });
 
     it('keeps the final image when removal is requested', async () => {
+      mockPrisma.vision.findFirst.mockResolvedValue({ id: VISION_ID, anchorId: ANCHOR_ID, userId: USER_ID, status: 'ACTIVE', updatedAt: new Date('2026-10-23T00:00:00Z') });
       mockPrisma.visionScene.findFirst.mockResolvedValueOnce({ id: 'scene-1', visionId: VISION_ID, userId: USER_ID, isArchived: false });
       mockPrisma.visionScene.count.mockResolvedValueOnce(1);
       await expect(visionService.archiveScene(USER_ID, VISION_ID, 'scene-1')).rejects.toThrow('Keep at least one image');
       expect(mockPrisma.visionScene.update).not.toHaveBeenCalled();
+      expect(mockPrisma.visionScene.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.vision.updateMany).not.toHaveBeenCalled();
     });
   });
 });

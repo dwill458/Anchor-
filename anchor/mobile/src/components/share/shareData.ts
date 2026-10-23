@@ -1,6 +1,6 @@
 import { anchorArtworkSvg, anchorKeptExpression, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { Anchor } from '@/types';
-import type { VisionNote, V2VisionTile } from '@/adapters/v2/vision';
+import type { VisionBoardLayout, VisionNote, V2VisionTile } from '@/adapters/v2/vision';
 import { resolveShareStyleId } from './shareEnvironments';
 import type { ShareExportData } from './shareTypes';
 
@@ -20,6 +20,8 @@ export function buildShareExportData(
     visionTiles?: readonly V2VisionTile[] | null;
     visionNotes?: readonly VisionNote[] | null;
     visionAnnotation?: string | null;
+    visionBoardLayout?: VisionBoardLayout;
+    visionLayoutWidth?: number;
     stateLabel?: string | null;
   } = {},
 ): ShareExportData {
@@ -37,5 +39,7 @@ export function buildShareExportData(
     visionTiles: extras.visionTiles ?? null,
     visionNotes: extras.visionNotes ?? null,
     visionAnnotation: extras.visionAnnotation ?? null,
+    visionBoardLayout: extras.visionBoardLayout ?? 'CLASSIC',
+    visionLayoutWidth: extras.visionLayoutWidth,
   };
 }

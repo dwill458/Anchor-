@@ -20,7 +20,7 @@ import { VisionPolaroidFrame } from '../material/VisionPolaroidFrame';
 import { visionMaterials } from '@/assets/vision/materials/manifest';
 import type { VisionPolaroidVariant } from '@/assets/vision/materials/manifest';
 import { VISION_CAPTION_COLOR, VISION_CAPTION_FONTS, VISION_PHOTO, VISION_SHADOW, VISION_TAPE } from '../material/visionMaterialTokens';
-import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, type BoardTape, type BoardTreatment } from './visionBoardLayouts';
+import { BOARD_CAPTION_BAND_FRACTION, BOARD_FRAME_WINDOW, type BoardCaption, type BoardTape, type BoardTreatment } from './visionBoardLayouts';
 import { boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { boardSlotAtPoint, swapBoardOrder } from './visionBoardReorder';
 import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
@@ -42,6 +42,10 @@ export type VisionBoardPhotoProps = {
   materialMode?: 'legacy' | 'photographic';
   /** Photographic board only: how this print is made. Absent, a photographic print is a polaroid. */
   treatment?: BoardTreatment;
+  captionLayout?: BoardCaption;
+  apertureBottom?: number;
+  /** Reference composition width converted to scene units, independent of camera zoom. */
+  compositionWidth?: number;
   frameVariant?: VisionPolaroidVariant;
   caption?: string;
   /**
@@ -53,6 +57,7 @@ export type VisionBoardPhotoProps = {
   focal?: VisionFocal | null;
   /** While true, dragging the photograph repositions it inside its window instead of moving the print. */
   repositioning?: boolean;
+  dimmed?: boolean;
   onFocalCommit?: (sceneId: string, focal: VisionFocal) => void;
   arriving?: boolean;
   sceneId: string;
@@ -78,6 +83,7 @@ export type VisionBoardPhotoProps = {
   onExited?: (sceneId: string) => void;
   onPhotoAssetReady?: (sceneId: string) => void;
   onPhotoAssetError?: (sceneId: string) => void;
+  onCaptionReady?: (sceneId: string) => void;
   onMove?: (sceneId: string, direction: -1 | 1) => void;
   /** Board only: opens position choosing for this photograph (an accessibility action and the focus control). */
   onMoveRequest?: (sceneId: string) => void;
@@ -113,9 +119,9 @@ function PrintTape({ tape, width, testID, photographic = false }: { tape: BoardT
 
 /** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
-  sceneId, imageUrl, arriving = false, caption, displayScale, focal = null, repositioning = false, onFocalCommit, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
-  interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onPhotoAssetError, onMove, onMoveRequest, onTeachingMotionChange,
-  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken, tapes = [], materialMode = 'legacy', frameVariant = 'classic', treatment: treatmentProp,
+  sceneId, imageUrl, arriving = false, caption, displayScale, focal = null, repositioning = false, dimmed = false, onFocalCommit, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
+  interactive, dragEnabled, onPress, onCaptionEdit, onDragActive, onSwap, onOrderCommit, onExited, onPhotoAssetReady, onPhotoAssetError, onCaptionReady, onMove, onMoveRequest, onTeachingMotionChange,
+  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken, tapes = [], materialMode = 'legacy', frameVariant = 'classic', treatment: treatmentProp, captionLayout, compositionWidth, apertureBottom,
 }: VisionBoardPhotoProps) {
   const photographic = materialMode === 'photographic';
   const treatment: BoardTreatment | 'legacy' = photographic ? treatmentProp ?? 'polaroid' : 'legacy';
@@ -141,6 +147,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   }, [arriving, reduceMotion, setPhase]);
   const pinStyle = useAnimatedStyle(() => ({ opacity: pin.value, transform: reduceMotion ? [] : [{ translateY: -40 * (1 - pin.value) }, { scale: 1.6 - .6 * pin.value }] }));
   const captionStyle = useAnimatedStyle(() => ({ opacity: captionPresence.value }));
+  const sharedLabelStyle=useAnimatedStyle(()=>({opacity:captionLayout?.kind==='label'&&shared.dragging.value!==sceneId?0:1}));
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const failedFallbackReady = useRef<string | null>(null);
   // Signed image URLs change on every read, so a reorder used to hand each photo a new source and reload it,
@@ -173,7 +180,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const imageRef = useRef<ViewInstance>(null);
   // Polaroids always cover their window from a focal point. Torn and thin prints keep the whole photograph (blurred paper
   // beside a portrait in a wide print) until the person sets a position, which they then own.
-  const coverFill = polaroid || treatment === 'legacy' || Boolean(focal) || repositioning;
+  const coverFill = polaroid || treatment === 'legacy' || treatment === 'flat' || treatment === 'snap' || Boolean(focal) || repositioning;
   // The photograph fades in once decoded, so opening the board never pops prints into place or flashes an empty frame.
   const reveal = useSharedValue(reduceMotion || treatment === 'legacy' ? 1 : 0);
   const revealStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
@@ -204,13 +211,12 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const focalX = useSharedValue(focal ? focal.x : -1);
   const focalY = useSharedValue(focal ? focal.y : -1);
   const photoAspect = useSharedValue(0);
-  const windowWidth = useDerivedValue(() => treatment === 'torn' ? width.value : treatment === 'print' ? width.value * (1 - 2 * PRINT_BORDER) : width.value * 0.88);
-  const windowHeight = useDerivedValue(() => treatment === 'torn' ? height.value
-    : treatment === 'print' ? height.value - 2 * PRINT_BORDER * width.value : height.value * (frameVariant === 'wide-bottom' ? 0.64 : 0.72));
+  const windowWidth = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? width.value : treatment === 'print' ? width.value * (1 - 2 * PRINT_BORDER) : treatment === 'snap' ? width.value*.91 : width.value * 0.88);
+  const windowHeight = useDerivedValue(() => treatment === 'torn' || treatment === 'flat' ? height.value
+    : treatment === 'print' ? height.value - 2 * PRINT_BORDER * width.value : treatment === 'snap' ? height.value - width.value*.215 : height.value * (apertureBottom!==undefined?apertureBottom-.06:captionLayout ? .72 : frameVariant === 'wide-bottom' ? 0.64 : 0.72));
   const focalFrame = useMemo<VisionFocalFrame>(() => ({ windowWidth, windowHeight, focalX, focalY, aspect: photoAspect }),
     [windowWidth, windowHeight, focalX, focalY, photoAspect]);
   useEffect(() => {
-    if (repositioning) return;
     focalX.value = focal ? focal.x : -1;
     focalY.value = focal ? focal.y : -1;
   }, [focal?.x, focal?.y, repositioning]);
@@ -219,7 +225,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   // down, so scene units convert by 1 / displayScale. Long captions grow the paper under the print instead of clipping.
   const captionText = caption?.trim() ?? '';
   const editableCaption = interactive && Boolean(onCaptionEdit);
-  const windowBottom = windowBottomFraction(frameVariant);
+  const windowBottom = apertureBottom ?? (captionLayout ? .78 : windowBottomFraction(frameVariant));
   const plan = useMemo(() => {
     if (!boardMode || !initialRect || !polaroid) return null;
     return planCaption(captionText || (editableCaption ? 'Add caption' : ''), initialRect.width * displayScale!, initialRect.height * displayScale! * (1 - windowBottom));
@@ -239,7 +245,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     return { width: boxW, minHeight: boxH, left: Math.max(width.value * 0.05, 0), top: height.value - boxH * 0.62 };
   });
   const toScene = boardMode ? 1 / displayScale! : 1;
-  const extraScene = plan && captionText ? plan.extra * toScene : 0;
+  const extraScene = captionLayout && compositionWidth ? captionLayout.extra * compositionWidth : plan && captionText ? plan.extra * toScene : 0;
   const boardCaptionStyle = useAnimatedStyle(() => {
     if (!plan) return {};
     const textH = plan.textHeight * toScene, pad = CAPTION_PAD * toScene;
@@ -257,7 +263,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     return { height: full, top: -full * windowBottom };
   });
   const frameTopImageStyle = useAnimatedStyle(() => ({ height: height.value }));
-  const frameArt = visionMaterials[`polaroid-${frameVariant}` as const].source;
+  const frameArt = visionMaterials[`polaroid-${captionLayout ? 'classic' : frameVariant}` as const].source;
   const rotation = useSharedValue(start.rotation);
   const z = useSharedValue(start.zIndex);
   const landscape = useSharedValue(kindWeight(0, start.frame));
@@ -270,6 +276,9 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const presenceScale = useSharedValue<number>(entering && !reduceMotion ? MOTION.recompose.enterFromScale : 1);
   const presenceLift = useSharedValue<number>(entering && !reduceMotion ? MOTION.recompose.enterFromLift : 0);
   const orderAtDragStart = useSharedValue('');
+  const versionAtDragStart = useSharedValue(0);
+  const focusOpacity=useSharedValue(dimmed?.24:1);
+  useEffect(()=>{focusOpacity.value=boardTiming(dimmed?.24:1,{duration:reduceMotion?0:220});},[dimmed,reduceMotion]);
   const movedDuringHold = useSharedValue(false);
   const reduced = useSharedValue(reduceMotion);
   // Observe the real animation values; no per-frame JS work and no changes to gesture ownership.
@@ -332,7 +341,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       const move = (to: number) => {
         'worklet';
         if (reduced.value) return boardTiming(to, { duration: recomposing ? MOTION.reduced.recomposeMs : MOTION.reduced.swapMs });
-        return recomposing ? boardTiming(to, { duration: MOTION.recompose.moveMs, easing: boardRecomposeEasing }) : boardSpring(to);
+        return recomposing ? boardTiming(to, { duration: shared.recomposeMs?.value ?? MOTION.recompose.moveMs, easing: boardRecomposeEasing }) : boardSpring(to);
       };
       x.value = move(rect.x);
       y.value = move(rect.y);
@@ -382,10 +391,12 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     .onStart(() => {
       shared.dragging.value = sceneId;
       orderAtDragStart.value = shared.order.value.join('|');
+      versionAtDragStart.value = shared.layoutVersion.value;
       lift.value = reduced.value ? boardTiming(1, { duration: MOTION.reduced.swapMs }) : boardSpring(1);
       if (onDragActive) runOnJS(onDragActive)(true);
     })
     .onUpdate(event => {
+      if(versionAtDragStart.value!==shared.layoutVersion.value)return;
       if (Math.hypot(event.translationX, event.translationY) > 8) movedDuringHold.value = true;
       const scale = shared.cameraScale.value || 1;
       dragX.value = event.translationX / scale;
@@ -402,10 +413,12 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     })
     .onFinalize((_event, success) => {
       if (shared.dragging.value !== sceneId) return;
+      const currentLayout=versionAtDragStart.value===shared.layoutVersion.value;
+      if(!success&&currentLayout)shared.order.value=orderAtDragStart.value.split('|');
       settleIntoSlot();
       if (onDragActive) runOnJS(onDragActive)(false);
       const order = shared.order.value;
-      if (success && onOrderCommit && order.join('|') !== orderAtDragStart.value) runOnJS(onOrderCommit)(order);
+      if (success && currentLayout && onOrderCommit && order.join('|') !== orderAtDragStart.value) runOnJS(onOrderCommit)(order);
     });
 
   const tap = Gesture.Tap()
@@ -428,6 +441,8 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     });
   const focalStart = useSharedValue({ x: 0.5, y: 0.5 });
   const focalMoved = useSharedValue(false);
+  const snapped=useSharedValue(false);
+  const snapHaptic=()=>{void safeHaptics.selection();};
   const commitFocal = (x: number, y: number) => onFocalCommit?.(sceneId, { x, y });
   // Reposition: dragging moves the picture inside its window, in the points the finger moved on screen.
   const repositionPan = repositioning ? Gesture.Pan()
@@ -444,14 +459,20 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       const w = windowWidth.value, h = windowHeight.value;
       const frame = visionCoverFrame(photoAspect.value, w, h, focalStart.value);
       const next = panVisionFocal(focalStart.value, { x: event.translationX / scale, y: event.translationY / scale }, { x: frame.overflowX, y: frame.overflowY });
+      const nearX=Math.abs(next.x-.5)<.035,nearY=Math.abs(next.y-.5)<.035;
+      if(nearX)next.x=.5;if(nearY)next.y=.5;
+      if((nearX||nearY)&&!snapped.value)runOnJS(snapHaptic)();
+      snapped.value=nearX||nearY;
       focalX.value = next.x;
       focalY.value = next.y;
       focalMoved.value = true;
     })
     .onFinalize((_event, success) => {
-      if (success && onDragActive) runOnJS(onDragActive)(false);
-      if (focalMoved.value && onFocalCommit) runOnJS(commitFocal)(focalX.value, focalY.value);
+      if (onDragActive) runOnJS(onDragActive)(false);
+      if (success && focalMoved.value && onFocalCommit) runOnJS(commitFocal)(focalX.value, focalY.value);
+      if (!success) { focalX.value = focal ? focal.x : -1; focalY.value = focal ? focal.y : -1; }
       focalMoved.value = false;
+      snapped.value=false;
     }) : null;
   const gesture = repositionPan ?? Gesture.Race(Gesture.Simultaneous(pan, hold), tap);
 
@@ -459,9 +480,10 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     left: x.value,
     top: y.value,
     width: width.value,
-    height: height.value + (boardMode ? extraScene : interactive && onCaptionEdit ? CAPTION_TOUCH_HEIGHT : 0),
+    height: height.value + (captionLayout || boardMode ? extraScene : interactive && onCaptionEdit ? CAPTION_TOUCH_HEIGHT : 0),
+    transformOrigin: [width.value/2,height.value/2,0],
     zIndex: z.value + (shared.dragging.value === sceneId ? 100 : 0),
-    opacity: presence.value * flightPresence.value * (cinematicOpacity?.value ?? 1),
+    opacity: presence.value * focusOpacity.value * flightPresence.value * (cinematicOpacity?.value ?? 1),
     transform: [
       { translateX: dragX.value },
       { translateY: dragY.value + presenceLift.value },
@@ -474,16 +496,17 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frameStyle = useAnimatedStyle(() => ({
     width: width.value,
     height: height.value,
-    backgroundColor: polaroid ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
+    backgroundColor: polaroid ? 'transparent' : treatment === 'flat' ? 'transparent' : edgeDarken ? interpolateColor(edgeDarken.value, [0, 1], [VISION_PHOTO.mount, colors.ink.deep]) : VISION_PHOTO.mount,
   }));
 
   const windowStyle = useAnimatedStyle(() => {
-    if (treatment === 'torn') return { left: 0, top: 0, width: width.value, height: height.value };
+    if (treatment === 'torn' || treatment === 'flat') return { left: 0, top: 0, width: width.value, height: height.value };
+    if (treatment === 'snap') return { left: width.value*.045, top: width.value*.045, width: width.value*.91, height: height.value-width.value*.215 };
     if (treatment === 'print') {
       const inset = PRINT_BORDER * width.value;
       return { left: inset, top: inset, width: width.value - 2 * inset, height: height.value - 2 * inset };
     }
-    if (polaroid) return { left: width.value * 0.06, top: height.value * 0.06, width: width.value * 0.88, height: height.value * (frameVariant === 'wide-bottom' ? 0.64 : 0.72) };
+    if (polaroid) return { left: width.value * 0.06, top: height.value * 0.06, width: width.value * 0.88, height: height.value * (windowBottom-.06) };
     const total = landscape.value + portrait.value + square.value || 1;
     const blend = (key: 'left' | 'top' | 'right' | 'bottom') =>
       (W.landscape[key] * landscape.value + W.portrait[key] * portrait.value + W.square[key] * square.value) / total;
@@ -497,6 +520,14 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       width: (right - left) * width.value,
       height: (bottom - top) * height.value,
     };
+  });
+  const fullPhotoStyle=useAnimatedStyle(()=>{
+    const w=windowWidth.value,h=windowHeight.value,aspect=photoAspect.value;
+    const focal=resolveVisionFocal(focalX.value,focalY.value,aspect,h>0?w/h:1);
+    const image=visionCoverFrame(aspect,w,h,focal);
+    const insetX=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:polaroid?width.value*.06:0;
+    const insetY=treatment==='snap'?width.value*.045:treatment==='print'?width.value*PRINT_BORDER:polaroid?height.value*.06:0;
+    return {position:'absolute',left:insetX+image.left,top:insetY+image.top,width:image.width,height:image.height,opacity:.18};
   });
 
   const actions = [
@@ -515,7 +546,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const frame = (
     <Animated.View
       testID={testID}
-      style={[styles.photo, polaroid && styles.materialPhoto, treatment === 'torn' && styles.tornPhoto, frameStyle]}
+      style={[styles.photo, polaroid && styles.materialPhoto, treatment === 'torn' && styles.tornPhoto, treatment === 'flat' && { borderWidth: 0, shadowOpacity: 0, elevation: 0 }, frameStyle]}
       accessible={interactive && !exiting}
       accessibilityRole={interactive ? 'imagebutton' : 'image'}
       accessibilityLabel={accessibilityLabel}
@@ -534,10 +565,15 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
           <View style={styles.unavailable}><Text style={styles.unavailableText}>{interactive && imageFailed ? 'Image unavailable. Tap to retry.' : 'Image unavailable'}</Text></View>
         )}
         <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
+        {repositioning?<View pointerEvents="none" testID={`${testID}-reposition-grid`} style={StyleSheet.absoluteFill}>
+          {[1,2].map(line=><View key={`v${line}`} style={{position:'absolute',left:`${line*100/3}%`,top:0,bottom:0,width:StyleSheet.hairlineWidth,backgroundColor:'rgba(255,255,255,.75)'}}/>)}
+          {[1,2].map(line=><View key={`h${line}`} style={{position:'absolute',top:`${line*100/3}%`,left:0,right:0,height:StyleSheet.hairlineWidth,backgroundColor:'rgba(255,255,255,.75)'}}/>)}
+        </View>:null}
         {/* The torn edges of the aperture take the mount's paper colour. */}
         {treatment === 'legacy' || treatment === 'torn' ? <VisionImageEdge hero={hero} brush={detailEdges} color={VISION_PHOTO.mount} darken={edgeDarken} /> : null}
       </Animated.View>
-      {polaroid && extraScene <= 0 ? <VisionPolaroidFrame variant={frameVariant} testID={`${testID}-material-frame`} /> : null}
+      {polaroid && extraScene <= 0 ? <VisionPolaroidFrame variant={captionLayout ? 'classic' : frameVariant} testID={`${testID}-material-frame`} /> : null}
+      {treatment === 'snap' && extraScene > 0 ? <View pointerEvents="none" style={{ position: 'absolute', top: start.height-.5, left: 0, width: start.width, height: extraScene+1, backgroundColor: VISION_PHOTO.mount }} /> : null}
       {polaroid && extraScene > 0 ? <>
         <Animated.View pointerEvents="none" style={[styles.frameSlice, { top: 0 }, frameTopStyle]}>
           <Animated.Image source={frameArt} resizeMode="stretch" fadeDuration={0} style={[styles.frameSliceImage, frameTopImageStyle]} />
@@ -586,8 +622,19 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
 
   const body = (
     <Animated.View pointerEvents={exiting ? 'none' : 'auto'} style={[styles.container, containerStyle]}>
+      {repositioning&&displayUrl&&!imageFailed?<Animated.Image pointerEvents="none" testID={`${testID}-reposition-full-photo`} source={{uri:displayUrl}} fadeDuration={0} resizeMode="stretch" resizeMethod="resize" style={fullPhotoStyle}/>:null}
       {interactive ? <GestureDetector gesture={gesture}>{frame}</GestureDetector> : frame}
-      {boardMode ? (labelled ? labelCaption : boardCaption) : interactive && onCaptionEdit ? (
+      {captionLayout && compositionWidth ? <Animated.View pointerEvents={editableCaption ? 'auto' : 'none'} testID={`${testID}-shared-caption`}
+        style={[sharedLabelStyle,{ position: 'absolute', left: captionLayout.left*compositionWidth, top: captionLayout.top*compositionWidth,
+          zIndex: 6, elevation: 6,
+          width: captionLayout.width*compositionWidth, minHeight: captionLayout.height*compositionWidth, alignItems: 'center', justifyContent: 'center',
+          paddingHorizontal: captionLayout.kind === 'label' ? 9*(displayScale ? 1/displayScale : 1) : 0 }, captionLayout.kind === 'label' && styles.captionLabel]}>
+        <Pressable disabled={!editableCaption || repositioning} accessibilityRole={editableCaption ? 'button' : undefined}
+          accessibilityLabel={editableCaption ? 'Edit photo caption' : undefined} onPress={() => onCaptionEdit?.(sceneId)} style={{ width:'100%' }}>
+          <Text allowFontScaling={false} testID={`${testID}-caption`} onTextLayout={onCaptionReady ? event => { if(event.nativeEvent.lines.length)onCaptionReady(sceneId); } : undefined} style={{ fontFamily: captionLayout.fontFamily,
+            fontSize: captionLayout.fontSize*compositionWidth,lineHeight:captionLayout.lineHeight*compositionWidth,letterSpacing:captionLayout.kind==='editorial'?captionLayout.fontSize*compositionWidth*.1:0,color:VISION_CAPTION_COLOR,textAlign:captionLayout.kind==='editorial'?'left':'center',includeFontPadding:false }}>{captionLayout.text}</Text>
+        </Pressable>
+      </Animated.View> : compositionWidth ? null : boardMode ? (labelled ? labelCaption : boardCaption) : interactive && onCaptionEdit ? (
         <Animated.View style={[styles.captionHitArea, captionPositionStyle, captionStyle]}>
           <Pressable testID={`vision-board-photo-${sceneId}-caption-edit`} accessibilityRole="button" accessibilityLabel="Edit photo caption"
             accessibilityHint="Opens the caption for this photo" onPress={() => onCaptionEdit(sceneId)} hitSlop={6} style={styles.captionPressable}>

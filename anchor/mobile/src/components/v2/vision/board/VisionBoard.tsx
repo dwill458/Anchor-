@@ -1,8 +1,13 @@
 import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Alert, BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePerformanceTier } from '@/hooks/usePerformanceTier';
 import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { Check, Crop, Move, Pencil, Plus, RefreshCw, Replace, RotateCcw, Trash2, Type, X } from 'lucide-react-native';
+import { Check, Crop, Move, Pencil, Plus, RefreshCw, Replace, RotateCcw, MoreHorizontal, PanelsTopLeft, Trash2, Type, X } from 'lucide-react-native';
+import type { VisionBoardLayout, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
+import { useVisionBoardComposition } from './useVisionBoardComposition';
+import { unprojectClassicNote } from './visionBoardComposition';
 import { v2Haptics } from '@/hooks/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
@@ -10,11 +15,11 @@ import type { VisionNote, VisionNotePresentation } from '@/adapters/v2/vision';
 import { VisionBoardScene } from './VisionBoardScene';
 import type { VisionBoardCardArt } from './VisionBoardIntentionCard';
 import { useVisionBoardScene } from './useVisionBoardScene';
-import { detailBoardSizeForWidth, slotBoardHeightRatio, slotBoardSizeForWidth, toSceneRect } from './visionBoardLayouts';
+import { boardCaptionRect, boardPrintRect, detailBoardSizeForWidth, slotBoardHeightRatio, slotBoardSizeForWidth, toSceneRect } from './visionBoardLayouts';
 import { freeSlots, highestOccupiedSlot, mapFromOrder, moveToSlot, orderFromMap, slotLabel, swapScenes, type VisionSlotMap } from './visionBoardSlots';
 import type { VisionFocal } from '../visionPhotoFocus';
 import type { VisionSlotOverlay } from './VisionBoardScene';
-import { focusCamera, photoFocusOptions, restCamera, type CameraState } from './visionBoardCamera';
+import { focusCamera, focusContentRect, photoFocusOptions, restCamera, type CameraState } from './visionBoardCamera';
 import { boardCameraEasing, boardDelay, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { moveBoardOrder } from './visionBoardReorder';
 import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
@@ -48,11 +53,15 @@ export type VisionBoardArrangement = {
 const CAPTION_CLEARANCE = 12;
 
 export type VisionBoardProps = {
+  boardLayout?: VisionBoardLayout;
+  onLayoutPress?: () => void;
+  onInteractionChange?: (active: boolean) => void;
+  onScrollLockChange?: (locked:boolean)=>void;
   arrivingNoteId?: string;
   arrivingSceneId?: string | null;
   tiles: V2VisionTile[];
   notes?: readonly VisionNote[];
-  onNotePresentationChange?: (id: string, presentation: VisionNotePresentation) => Promise<boolean>;
+  onNotePresentationChange?: (id: string, presentation: VisionNotePresentation, layoutPositions?: VisionNoteLayoutPositions) => Promise<boolean>;
   onNoteEdit?: (id: string) => void;
   onNoteDelete?: (id: string) => void;
   onCaptionEdit?: (sceneId: string) => void;
@@ -92,21 +101,32 @@ export type VisionBoardProps = {
  */
 export function VisionBoard({
   tiles, arrangement, notes = [], onNotePresentationChange, onNoteEdit, onNoteDelete, onCaptionEdit, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate, arrivingSceneId, arrivingNoteId,
-  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board', onTeachingIdleChange, teachingTarget,
+  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board', onTeachingIdleChange, teachingTarget, boardLayout, onLayoutPress, onInteractionChange,onScrollLockChange,
 }: VisionBoardProps) {
   const [arrange, setArrange] = useState<ArrangeState>({ kind: 'off' });
+  const {height:screenHeight}=useWindowDimensions(),safeArea=useSafeAreaInsets();
+  const tier=usePerformanceTier(),renderScale=tier==='low'?1.3:MOTION.renderScale;
+  const [visibleRegion,setVisibleRegion]=useState<{top:number;bottom:number}|null>(null);
   const slotMap = arrangement?.slotMap;
   const arranging = arrange.kind !== 'off';
+  const composition = useVisionBoardComposition({ tiles, notes, width, boardLayout, slotMap, reserve: arranging });
+  const sharedComposition = boardLayout !== undefined;
   // Height follows the lowest occupied position, and opens to the whole board while positions are being chosen.
   const heightRatio = useMemo(() => slotMap ? slotBoardHeightRatio(highestOccupiedSlot(slotMap), arranging) : 0, [slotMap, arranging]);
-  const viewport = useMemo(() => slotMap ? slotBoardSizeForWidth(width, heightRatio) : detailBoardSizeForWidth(width, tiles.length), [slotMap, width, heightRatio, tiles.length]);
-  const scene = useMemo(() => slotMap ? slotBoardSizeForWidth(width * MOTION.renderScale, heightRatio) : detailBoardSizeForWidth(width * MOTION.renderScale, tiles.length), [slotMap, width, heightRatio, tiles.length]);
+  const viewport = useMemo(() => sharedComposition ? composition.size : slotMap ? slotBoardSizeForWidth(width, heightRatio) : detailBoardSizeForWidth(width, tiles.length), [sharedComposition, composition.size, slotMap, width, heightRatio, tiles.length]);
+  const scene = useMemo(() => ({ width: viewport.width*renderScale, height: viewport.height*renderScale }), [viewport,renderScale]);
   // Notes stay where they were placed: they use the count-based board height, not the slot board's.
   const noteScene = useMemo(() => detailBoardSizeForWidth(width * MOTION.renderScale, tiles.length), [width, tiles.length]);
   const [captionExtra, setCaptionExtra] = useState(0);
+  const [chipRowHeight, setChipRowHeight] = useState(44);
+  const annotationExtra = annotation.trim() ? captionExtra : 0;
+  // Editing controls live outside the shared artwork bounds. Notes may occupy
+  // the final row; placing controls at the canvas bottom covers their paper.
+  const controlExtra = sharedComposition && onAddImage ? chipRowHeight + spacing[2] : 0;
   const rest = useMemo(() => restCamera(scene, viewport), [scene, viewport]);
-  const board = useVisionBoardScene(tiles, scene, rest.scale, true, slotMap ? { map: slotMap, heightRatio } : undefined);
+  const board = useVisionBoardScene(tiles, scene, rest.scale, true, slotMap ? { map: slotMap, heightRatio } : undefined, sharedComposition ? composition : undefined);
   const { shared, layout, slotRects, order } = board;
+  useEffect(()=>{if(shared.recomposeMs)shared.recomposeMs.value=tier==='low'?600:MOTION.recompose.moveMs;},[shared,tier]);
   // The title sits below the board's lowest print or the Anchor, whichever is lower, and never on top of them.
   const captionTop = useMemo(() => {
     const inked = slotMap ? [...layout.photos.filter((_, slot) => Boolean(slotMap[slot])), layout.card] : [...layout.photos, layout.card];
@@ -131,6 +151,18 @@ export function VisionBoard({
   }, [notes, selectedNoteId]);
   const [dragging, setDragging] = useState(false);
   const [repositioningId, setRepositioningId] = useState<string | null>(null);
+  const repositionOriginal = useRef<VisionFocal | null>(null);
+  const [repositionDraft,setRepositionDraft]=useState<VisionFocal|null|undefined>(undefined);
+  useEffect(() => { onInteractionChange?.(Boolean(focus || selectedNoteId || arranging || dragging || repositioningId)); }, [focus, selectedNoteId, arranging, dragging, repositioningId, onInteractionChange]);
+  useEffect(()=>{onScrollLockChange?.(Boolean(focus));return()=>onScrollLockChange?.(false);},[focus,onScrollLockChange]);
+  const saveNotePresentation = useCallback(async (id: string, p: VisionNotePresentation) => {
+    if (!onNotePresentationChange) return false;
+    if (!sharedComposition) return onNotePresentationChange(id, p);
+    if (boardLayout === 'CLASSIC') return onNotePresentationChange(id, unprojectClassicNote(p, composition));
+    const canonical = notes.find(note => note.id === id)?.presentation;
+    if (!canonical || !boardLayout) return false;
+    return onNotePresentationChange(id, canonical, { [boardLayout]: { x: p.x, y: Math.min(6, p.y*composition.ratio) } });
+  }, [onNotePresentationChange, sharedComposition, boardLayout, composition, notes]);
   const teachingViewportRef = useRef<ViewInstance>(null);
   const [teachingMovingObjects, setTeachingMovingObjects] = useState<ReadonlySet<string>>(() => new Set());
   const [cameraAtRest, setCameraAtRest] = useState(false);
@@ -154,10 +186,13 @@ export function VisionBoard({
       const origin = await measureTeachingTarget(teachingViewportRef.current);
       if (!origin) return null;
       const slot = slotRects[order.indexOf(sceneId ?? '')];
+      const note=(sharedComposition?composition.notes:notes).find(note=>note.id===sceneId);
+      if(note){const p=note.presentation,w=p.width*scene.width*p.scale,h=p.height*scene.height*p.scale;
+        return projectTeachingSlot({x:p.x*scene.width-w/2,y:p.y*scene.height-h/2,width:w,height:h,rotation:p.rotation,zIndex:20},scene,viewport,rest,origin);}
       return slot ? projectTeachingSlot(slot, scene, viewport, rest, origin) : origin;
     };
     return () => { teachingTarget.current = null; };
-  }, [teachingTarget, focus, dragging, cameraAtRest, teachingMovingObjects, order, slotRects, rest, scene, viewport]);
+  }, [teachingTarget, focus, dragging, cameraAtRest, teachingMovingObjects, order, slotRects, rest, scene, viewport,sharedComposition,composition.notes,notes]);
 
   const moveCamera = useCallback((target: CameraState, duration: number) => {
     if (reduceMotion) {
@@ -184,8 +219,12 @@ export function VisionBoard({
     if (!focus) return null;
     if (focus.kind === 'card') return toSceneRect(layout.card, scene);
     const index = order.indexOf(focus.sceneId);
+    if (sharedComposition && index >= 0) {
+      const slot = layout.photos[index], caption = boardCaptionRect(slot, scene);
+      return focusContentRect([boardPrintRect(slot, scene), ...(caption ? [caption] : [])]);
+    }
     return index >= 0 ? slotRects[index] : null;
-  }, [focus, layout.card, order, scene, slotRects]);
+  }, [focus, layout, order, scene, slotRects, sharedComposition]);
 
   useEffect(() => {
     if (arrivingNoteId) { setFocus(null); setSelectedNoteId(null); }
@@ -198,7 +237,9 @@ export function VisionBoard({
       // The Anchor is a small object: zoom in 40% further than a photo so it reads larger.
       const zoomBoost = focus?.kind === 'card' ? 1.4 : 1;
       const focusOptions = {
-        fill: MOTION.focus.fill * zoomBoost, minZoom: MOTION.focus.minZoom * zoomBoost, maxZoom: MOTION.focus.maxZoom * zoomBoost, clamp: true, offsetY: -24,
+        fill: MOTION.focus.fill * zoomBoost, minZoom: MOTION.focus.minZoom * zoomBoost, maxZoom: MOTION.focus.maxZoom * zoomBoost, clamp: !sharedComposition,
+        offsetY:sharedComposition&&visibleRegion?(visibleRegion.top+visibleRegion.bottom)/2-viewport.height/2-60:-24,
+        ...(sharedComposition && visibleRegion ? { fitBounds: { width: viewport.width * .94, height: Math.max(80, visibleRegion.bottom-visibleRegion.top-140) } } : {}),
       };
       const target = focusCamera(focusRect, scene, viewport, focus?.kind === 'photo' ? photoFocusOptions(focusOptions) : focusOptions);
       moveCamera(target, MOTION.focus.moveMs);
@@ -216,7 +257,7 @@ export function VisionBoard({
     }
     // Focus changes and composition changes both re-aim the camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRect, rest]);
+  }, [focusRect, rest,visibleRegion]);
 
   useEffect(() => {
     if (!focus) return;
@@ -247,8 +288,11 @@ export function VisionBoard({
 
   const focusPhoto = useCallback((sceneId: string) => {
     v2Haptics.selection();
-    setFocus(current => (current?.kind === 'photo' && current.sceneId === sceneId ? current : { kind: 'photo', sceneId }));
-  }, []);
+    const apply=()=>setFocus(current => (current?.kind === 'photo' && current.sceneId === sceneId ? current : { kind: 'photo', sceneId }));
+    if(sharedComposition&&teachingViewportRef.current?.measureInWindow)teachingViewportRef.current.measureInWindow((_x,y,_w,h)=>{
+      setVisibleRegion({top:Math.max(0,safeArea.top-y),bottom:Math.min(h,screenHeight-Math.max(34,safeArea.bottom)-12-y)});apply();
+    });else apply();
+  }, [sharedComposition,screenHeight,safeArea.top,safeArea.bottom]);
   const focusCard = useCallback(() => {
     v2Haptics.selection();
     setFocus({ kind: 'card' });
@@ -301,7 +345,7 @@ export function VisionBoard({
     if (!slotMap || arrange.kind === 'off' || focus) return undefined;
     const slots: Array<{ slot: number; kind: 'empty' | 'occupied' }> = empty.map(slot => ({ slot, kind: 'empty' as const }));
     if (arrange.kind === 'move') slotMap.forEach((id, slot) => { if (id && id !== arrange.sceneId) slots.push({ slot, kind: 'occupied' }); });
-    return { slots, emphasis: arrange.kind === 'arrange' ? 'subtle' : 'strong', onPress: choosePosition };
+    return { slots, emphasis: arrange.kind === 'arrange' ? 'subtle' : 'strong', action:arrange.kind==='move'?'move':'add', onPress: choosePosition };
   }, [slotMap, arrange, focus, empty, choosePosition]);
   // The Add chip: with room it asks where; at the limit it goes straight to the add flow (notes still need it).
   const requestAdd = useCallback(() => {
@@ -309,13 +353,26 @@ export function VisionBoard({
     onAddImage?.();
   }, [empty.length, onAddImage, slotMap]);
   const moveFocused = useCallback((sceneId: string) => { setFocus(null); setArrange({ kind: 'move', sceneId }); }, []);
-  const finishReposition = useCallback(() => setRepositioningId(null), []);
-  const commitFocal = useCallback((sceneId: string, focal: VisionFocal) => arrangement?.onFocalChange(sceneId, focal), [arrangement]);
+  const finishReposition = useCallback(() => {
+    if(repositioningId&&repositionDraft!==undefined)arrangement?.onFocalChange(repositioningId,repositionDraft);
+    setRepositioningId(null);setRepositionDraft(undefined);
+  }, [arrangement,repositioningId,repositionDraft]);
+  const commitFocal = useCallback((sceneId: string, focal: VisionFocal) => {
+    if(sceneId===repositioningId)setRepositionDraft(focal);else arrangement?.onFocalChange(sceneId,focal);
+  }, [arrangement,repositioningId]);
+  const renderedFocals=useMemo(()=>{
+    const next={...arrangement?.focals};
+    if(repositioningId&&repositionDraft!==undefined){if(repositionDraft)next[repositioningId]=repositionDraft;else delete next[repositioningId];}
+    return next;
+  },[arrangement?.focals,repositioningId,repositionDraft]);
   useEffect(() => { if (!focus) setRepositioningId(null); }, [focus]);
+  const selectedNote=(sharedComposition?composition.notes:notes).find(note=>note.id===selectedNoteId);
+  const noteActionsPosition=selectedNote?{left:Math.max(8,Math.min(viewport.width-282,selectedNote.presentation.x*viewport.width-132)),top:Math.max(8,selectedNote.presentation.y*viewport.height-selectedNote.presentation.height*viewport.height*selectedNote.presentation.scale/2-48)}:undefined;
 
   return (
     // The board is transparent: the archival paper is one continuous sheet behind the whole Vision screen.
-    <View ref={teachingViewportRef} collapsable={false} testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + (annotation.trim() ? captionExtra : 0) }]}>
+    <View ref={teachingViewportRef} collapsable={false} testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + annotationExtra + controlExtra }]}>
+      {sharedComposition ? composition.measurementView : null}
       <Animated.View style={[styles.scene, {
         width: scene.width, height: scene.height,
         left: (viewport.width - scene.width) / 2, top: (viewport.height - scene.height) / 2,
@@ -334,18 +391,21 @@ export function VisionBoard({
           markAppearance="paper"
           detailEdges
           reduceMotion={reduceMotion}
-          notes={notes}
+          recomposeMs={tier==='low'?600:MOTION.recompose.moveMs}
+          notes={sharedComposition ? composition.notes : notes}
           selectedNoteId={selectedNoteId}
           onNoteSelect={focus ? undefined : selectNote}
-          onNotePresentationChange={focus ? undefined : onNotePresentationChange}
+          onNotePresentationChange={focus || !onNotePresentationChange ? undefined : saveNotePresentation}
           onNoteDragActive={handleDragActive}
           interactive
           dragEnabled={!focus && !busy && (arrangement ? count >= 1 && arrange.kind !== 'add' && arrange.kind !== 'move' : count > 1)}
-          noteScene={slotMap ? noteScene : undefined}
-          slotOrder={slotMap ? order : undefined}
-          displayScale={slotMap ? rest.scale : undefined}
-          focals={arrangement?.focals}
+          noteScene={slotMap && !sharedComposition ? noteScene : undefined}
+          slotOrder={slotMap || sharedComposition ? order : undefined}
+          sharedComposition={sharedComposition}
+          displayScale={slotMap || sharedComposition ? rest.scale : undefined}
+          focals={renderedFocals}
           repositioningId={repositioningId}
+          focusedSceneId={focus?.kind==='photo'?focus.sceneId:focus?'card':null}
           onFocalCommit={commitFocal}
           slotOverlay={slotOverlay}
           onMoveRequest={arrangement ? moveFocused : undefined}
@@ -364,7 +424,7 @@ export function VisionBoard({
       </Animated.View>
 
       {count === 0 ? <View pointerEvents="none" style={styles.empty}><Text style={styles.emptyText}>Bring your future into view.</Text></View> : null}
-      {selectedNoteId && !focus ? <View style={styles.noteActions}>
+      {selectedNoteId && !focus && !dragging ? <View style={[styles.noteActions,noteActionsPosition]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Edit selected note" onPress={() => onNoteEdit?.(selectedNoteId)} style={styles.noteAction}><Text style={styles.noteActionText}>Edit note</Text></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Delete selected note" onPress={() => onNoteDelete?.(selectedNoteId)} style={styles.noteAction}><Text style={styles.noteActionText}>Delete</Text></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Deselect note" onPress={() => setSelectedNoteId(null)} style={styles.noteAction}><Text style={styles.noteActionText}>Done</Text></Pressable>
@@ -373,16 +433,19 @@ export function VisionBoard({
         onLayout={event => setCaptionExtra(Math.max(0, captionTop + event.nativeEvent.layout.height + 16 - viewport.height))}
         style={[styles.annotation, { top: captionTop, width: width * 0.22, fontSize: annotation.length > 40 ? 21 : 24 }]}>{annotation.trim()}</Text> : null}
       {!focus && !dragging && arrange.kind === 'off' && onAddImage ? (
-        <View style={styles.chipRow} pointerEvents="box-none">
+        <View testID={`${testID}-controls`} style={[styles.chipRow, sharedComposition && { top: viewport.height + annotationExtra, bottom: undefined }]}
+          onLayout={sharedComposition ? event => setChipRowHeight(Math.max(44, event.nativeEvent.layout.height)) : undefined} pointerEvents="box-none">
           <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel="Add to Vision"
             onPress={arrangement ? requestAdd : () => onAddImage()} hitSlop={8} style={({ pressed }) => [styles.addChip, styles.chipInRow, pressed && styles.pressed]}>
             <Plus size={14} color={colors.text.primary} />
             <Text style={styles.addText}>Add</Text>
           </Pressable>
+          {onLayoutPress ? <Pressable testID="vision-layout-open" accessibilityRole="button" accessibilityLabel="Board layout" onPress={onLayoutPress}
+            disabled={busy} style={[styles.addChip, styles.chipInRow]}><PanelsTopLeft size={14} color={colors.text.primary}/><Text style={styles.addText}>Layout</Text></Pressable> : null}
         </View>
       ) : null}
       {arrangement && !focus && arrange.kind !== 'off' ? (
-        <View style={styles.arrangeBar} pointerEvents="box-none">
+        <View style={[styles.arrangeBar,sharedComposition&&{top:8,bottom:undefined}]} pointerEvents="box-none">
           <Text accessibilityLiveRegion="polite" style={styles.arrangeHint}>
             {arrange.kind === 'add' ? 'Choose where it goes' : arrange.kind === 'move' ? 'Choose a new position' : empty.length ? 'Tap an empty spot to add a photo' : 'Every position is filled'}
           </Text>
@@ -402,7 +465,7 @@ export function VisionBoard({
       ) : null}
 
       {focus ? (
-        <Animated.View style={[styles.controls, controlsStyle]} pointerEvents="box-none">
+        <Animated.View style={[styles.controls,sharedComposition&&visibleRegion&&{bottom:Math.max(12,viewport.height+annotationExtra+controlExtra-visibleRegion.bottom+12)},controlsStyle]} pointerEvents="box-none">
           {/* The line written at Keep, under the focused photo; it fades in with the focus controls. */}
           {focusedTile?.caption?.trim() ? <Text testID="vision-board-focused-caption" numberOfLines={1} ellipsizeMode="tail" style={styles.focusedCaption}>
             {focusedTile.caption.trim()}</Text> : null}
@@ -412,26 +475,26 @@ export function VisionBoard({
           {repositioningId && focusedTile ? (
             <View style={styles.controlRow}>
               <Text accessibilityLiveRegion="polite" style={styles.repositionHint}>Drag the photo to reposition it</Text>
-              <ControlButton label="Reset" icon={<RotateCcw size={18} color={colors.paper} />} onPress={() => arrangement?.onFocalChange(focusedTile.sceneId, null)} />
-              <ControlButton label="Done" icon={<Check size={18} color={colors.paper} />} onPress={finishReposition} />
+              <ControlButton label="Reset" icon={<RotateCcw size={18} color={colors.paper} />} onPress={() => setRepositionDraft(null)} />
+              <ControlButton label="Cancel" icon={<X size={18} color={colors.paper} />} onPress={() => {setRepositioningId(null);setRepositionDraft(undefined);}} />
+              <ControlButton label="Done" icon={<Check size={18} color={colors.paper} />} disabled={dragging} onPress={finishReposition} />
             </View>
           ) : (
           <View style={styles.controlRow}>
             {focus.kind === 'photo' && focusedTile ? (
               <>
-                {/* DEFERRED: Replace locks at Seal (decision Oct 2026); remove + add remains.
-                  <ControlButton label="Replace" onPress={() => onReplace?.(focusedTile.sceneId)} /> */}
                 {arrangement ? <>
+                  <ControlButton label="Reposition" icon={<Crop size={18} color={colors.paper} />} disabled={busy} onPress={() => { repositionOriginal.current=arrangement.focals[focusedTile.sceneId] ?? null;setRepositionDraft(repositionOriginal.current);setRepositioningId(focusedTile.sceneId); }} />
+                  {onCaptionEdit ? <ControlButton label="Caption" icon={<Type size={18} color={colors.paper} />} disabled={busy} onPress={() => { setFocus(null); onCaptionEdit(focusedTile.sceneId); }} /> : null}
                   <ControlButton label="Move" icon={<Move size={18} color={colors.paper} />} disabled={busy} onPress={() => moveFocused(focusedTile.sceneId)} />
                   {onReplace ? <ControlButton label="Replace" icon={<Replace size={18} color={colors.paper} />} disabled={busy} onPress={() => onReplace(focusedTile.sceneId)} /> : null}
-                  <ControlButton label="Reposition" icon={<Crop size={18} color={colors.paper} />} disabled={busy} onPress={() => setRepositioningId(focusedTile.sceneId)} />
-                  {onCaptionEdit ? <ControlButton label="Caption" icon={<Type size={18} color={colors.paper} />} disabled={busy} onPress={() => { setFocus(null); onCaptionEdit(focusedTile.sceneId); }} /> : null}
                 </> : null}
                 {focusedTile.sourceType === 'AI_GENERATED' ? <ControlButton label="Regenerate" icon={<RefreshCw size={18} color={colors.paper} />} disabled={busy || !canRegenerate}
                   hint={canRegenerate ? undefined : 'No image sets left for this Vision.'}
                   onPress={() => onRegenerate(focusedTile.sceneId)} /> : null}
-                <ControlButton label="Remove" icon={<Trash2 size={18} color="#F1B8AE" />} disabled={busy}
-                  onPress={() => onRemove(focusedTile.sceneId)} />
+                <ControlButton label="More" icon={<MoreHorizontal size={18} color={colors.paper}/>} disabled={busy}
+                  onPress={() => Alert.alert('Photo options', count <= 1 ? 'Keep at least one image in your Vision' : undefined,
+                    [...(count > 1 ? [{ text:'Remove',style:'destructive' as const,onPress:()=>onRemove(focusedTile.sceneId) }] : []),{ text:'Cancel',style:'cancel' }])} />
               </>
             ) : focus.kind === 'card' ? (
               <ControlButton label="Edit Vision" icon={<Pencil size={18} color={colors.paper} />} disabled={busy}
@@ -457,7 +520,7 @@ function ControlButton({ label, icon, onPress, disabled, hint }: {
       disabled={disabled} onPress={onPress} hitSlop={4}
       style={({ pressed }) => [styles.control, disabled && styles.disabled, pressed && styles.pressed]}>
       {icon}
-      <Text style={styles.controlText} numberOfLines={1}>{label}</Text>
+      <Text style={styles.controlText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{label}</Text>
     </Pressable>
   );
 }
@@ -492,14 +555,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: radii.lg, marginBottom: spacing[1] },
   // One compact glass bar: it must fit the narrowest phone's board.
   controlRow: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, borderRadius: 22, maxWidth: '100%',
+    width: '100%', flexDirection: 'row', flexWrap: 'nowrap', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, borderRadius: 22, maxWidth: '100%',
     backgroundColor: INK_GLASS, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(245,240,230,0.22)',
   },
-  control: { minWidth: 62, minHeight: 48, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  controlText: { ...typography.caption, color: colors.paper },
+  control: { flex: 1, minWidth: 44, minHeight: 52, paddingHorizontal: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  controlText: { ...typography.caption, fontSize: 10, lineHeight: 12, color: colors.paper, textAlign: 'center', includeFontPadding: false },
   closeButton: {
-    width: 44, height: 40, marginLeft: 2, alignItems: 'center', justifyContent: 'center',
-    borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: 'rgba(245,240,230,0.22)',
+    position:'absolute',right:0,top:-44,width:44,height:40,alignItems:'center',justifyContent:'center',borderRadius:22,backgroundColor:INK_GLASS,
   },
   focusedCaption: { maxWidth: '100%', fontFamily: VISION_SERIF_ITALIC, fontSize: 15, lineHeight: 20, color: colors.text.primary, textAlign: 'center',
     backgroundColor: 'rgba(244,237,224,0.92)', paddingHorizontal: spacing[3], paddingVertical: 4, borderRadius: radii.lg, marginBottom: spacing[2] },

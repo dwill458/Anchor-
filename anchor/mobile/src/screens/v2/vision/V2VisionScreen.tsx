@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { queueVisionMilestones } from '@/milestones/queueVisionMilestones';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
-import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
+import { resolveSlotMap, placeScene } from '@/components/v2/vision/board/visionBoardSlots';
+import { ActivityIndicator, Alert, Image, Linking, View, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute, UNSTABLE_usePreventRemove as usePreventRemove, type RouteProp } from '@react-navigation/native';
 import { VisionCeremony } from '@/components/v2/vision/ceremony/VisionCeremony';
 import { useVisionPresentationStore } from '@/stores/v2/visionPresentationStore';
@@ -23,7 +24,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
 import { colors } from '@/theme/v2';
-import type { V2VisualizeHandoff, V2VisionTile, VisionNotePresentation } from '@/adapters/v2/vision';
+import type { V2VisualizeHandoff, V2VisionTile, VisionNotePresentation, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
 import { toChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
@@ -59,6 +60,7 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
 }
 
 function VisionScreenContent(props: V2VisionScreenProps) {
+  const {width:windowWidth}=useWindowDimensions();
   const alive = useRef(true);
   const milestoneFocus = useTeachingFocus();
   const milestoneBoundaryActive = useRef(true);
@@ -121,11 +123,18 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [savedSceneId, setSavedSceneId] = useState<string | null>(null);
   // The board position the person chose for the photograph being added; consumed by the add that follows.
   const pendingSlot = useRef<number | null>(null);
-  const recordSaved = (scenes: ReadonlyArray<{ id: string; assetId: string | null; resolvedImageUrl?: string | null }>, assetId?: string) => {
+  const recordSaved = async (scenes: ReadonlyArray<{ id: string; assetId: string | null; resolvedImageUrl?: string | null; slotIndex?:number|null;isArchived?:boolean }>, assetId?: string) => {
     const scene = assetId ? scenes.find(item => item.assetId === assetId) : undefined;
     if (scene && model.vision?.id && pendingSlot.current !== null) {
-      useVisionPresentationStore.getState().placeScene(model.vision.id, scene.id, pendingSlot.current);
+      const target=pendingSlot.current;
       pendingSlot.current = null;
+      const existing=scenes.filter(item=>!item.isArchived&&item.id!==scene.id);
+      const prior=resolveSlotMap(existing.map(item=>item.id),{...useVisionPresentationStore.getState().byVision[model.vision.id]?.slots,...Object.fromEntries(existing.filter(item=>item.slotIndex!=null).map(item=>[item.id,item.slotIndex!]))});
+      const next=placeScene(prior,scene.id,target);
+      if(next){
+        const confirmed=await model.updateSceneSlots(next.flatMap((sceneId,slotIndex)=>sceneId?[{sceneId,slotIndex}]:[]));
+        if(confirmed)useVisionPresentationStore.getState().placeScene(model.vision.id,scene.id,next.indexOf(scene.id));
+      }
     }
     setSavedSceneId(scene?.id ?? null);
     setSavedImages(scene?.resolvedImageUrl ? [{ sceneId: scene.id, url: scene.resolvedImageUrl }] : []);
@@ -149,8 +158,6 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const [photoPickerOpen, setPhotoPickerOpen] = useState(false);
   // Choosing generated images for one place on the board (Regenerate), or for any free places (add).
   const [replaceSceneId, setReplaceSceneId] = useState<string | null>(null);
-  const replacementTarget = useRef<V2VisionTile | null>(null);
-  const replacementProgress = useRef(new Map<string, { sortOrder: number; full: boolean; removed: boolean; added: boolean; url?: string | null }>());
   // The board as it was before leaving to add images, so it can recompose on return.
   const [arrivedFrom, setArrivedFrom] = useState<string[] | null>(null);
   // A photo chosen or taken for the board, previewed until the person confirms it.
@@ -288,7 +295,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     }
     const saved = await model.addScene({ assetId, sourceType: pendingPhoto.sourceType, caption });
     if (!saved) return 'Your photo was uploaded, but could not be added to your Vision. Please try again.';
-    const url = recordSaved(saved.scenes, assetId);
+    const url = await recordSaved(saved.scenes, assetId);
     await warmImage(url);
     setSavedImageUrl(url ?? null);
     setActionError(null);
@@ -342,66 +349,36 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => {
         void model.deleteNote(noteId).then(updated => {
-          if (!updated) return;
-          Alert.alert('Note deleted', 'This note was removed from your Vision.', [
-            { text: 'Undo', onPress: () => { void model.restoreNote(noteId); } },
-            { text: 'Done', style: 'cancel' },
-          ]);
+          if (!updated) setActionError('Your note could not be deleted. Try again.');
         });
       } },
     ]);
   };
 
-  const updateNotePresentation = async (noteId: string, presentation: VisionNotePresentation) =>
-    Boolean(await model.updateNote(noteId, { presentation }));
+  const updateNotePresentation = async (noteId: string, presentation: VisionNotePresentation, layoutPositions?: VisionNoteLayoutPositions) =>
+    Boolean(await model.updateNote(noteId, layoutPositions ? { layoutPositions } : { presentation }));
 
   /** Adds the generated image the person chose. */
   const addGeneratedScene = async (choice: { assetId: string; prompt: string; caption?: string }): Promise<boolean> => {
     const saved = await model.addScene({ assetId: choice.assetId, prompt: choice.prompt, caption: choice.caption, sourceType: 'AI_GENERATED' });
     if (!saved) return false;
-    const destinationUrl = recordSaved(saved.scenes, choice.assetId);
+    const destinationUrl = await recordSaved(saved.scenes, choice.assetId);
     await warmImage(destinationUrl);
     setSavedImageUrl(destinationUrl ?? null);
     setActionError(null);
     return true;
   };
 
-  /**
-   * Puts a new image where an old one was: the new scene takes the old one's
-   * sort order, then the old one is archived. A full board archives first so
-   * the image limit is never exceeded.
-   */
+  /** The existing scene changes atomically; its identity, slot, crop and notes stay intact. */
   const replaceScene = async (
     sceneId: string,
     next: { assetId: string; sourceType: 'USER_UPLOAD' | 'AI_GENERATED' | 'USER_CAMERA'; prompt?: string; caption?: string },
   ): Promise<boolean> => {
-    const key = `${sceneId}:${next.assetId}`;
-    let progress = replacementProgress.current.get(key);
-    if (!progress) {
-      const old = model.tiles.find(tile => tile.sceneId === sceneId) ?? (replacementTarget.current?.sceneId === sceneId ? replacementTarget.current : null);
-      if (!old) return false;
-      progress = { sortOrder: old.sortOrder, full: model.tiles.length >= VISION_BOARD_MAX_IMAGES, removed: false, added: false };
-      replacementProgress.current.set(key, progress);
-    }
-    // A committed retry continues the same replacement, even after tiles become empty on error.
-    if (progress.full && !progress.removed) {
-      if (!(await model.deleteScene(sceneId))) { setActionError('Image could not be replaced.'); return false; }
-      progress.removed = true;
-    }
-    if (!progress.added) {
-      const added = await model.addScene({ ...next, sortOrder: progress.sortOrder });
-      if (!added) { setActionError('The new image could not be added to your Vision. Please try again.'); return false; }
-      progress.added = true; progress.url = recordSaved(added.scenes, next.assetId);
-      // The new image takes the exact board position of the one it replaces.
-      const incoming = added.scenes.find(item => item.assetId === next.assetId);
-      if (incoming && model.vision?.id) useVisionPresentationStore.getState().inheritSlot(model.vision.id, sceneId, incoming.id);
-    }
-    if (!progress.removed) {
-      if (!(await model.deleteScene(sceneId))) { setActionError('The new image was added, but the old one could not be removed.'); return false; }
-      progress.removed = true;
-    }
-    await warmImage(progress.url);
-    setSavedImageUrl(progress.url ?? null);
+    const saved = await model.replaceScene(sceneId, next);
+    if (!saved) { setActionError('The photo could not be replaced. Your original is still on the board.'); return false; }
+    const url = await recordSaved(saved.scenes, next.assetId);
+    await warmImage(url);
+    setSavedImageUrl(url ?? null);
     setActionError(null);
     return true;
   };
@@ -419,8 +396,6 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   /** Regenerating one image: the same two-moments choice, but the pick takes that image's place. */
   const openImageGeneration = (forSceneId: string) => {
     pendingSlot.current = null;
-    replacementTarget.current = model.tiles.find(tile => tile.sceneId === forSceneId) ?? null;
-    replacementProgress.current.clear();
     setActionError(null);
     setSavedImageUrl(null);
     setArrivedFrom(null);
@@ -506,7 +481,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
         if (!asset) return false;
         const saved = await model.addScene({ assetId: asset.assetId, prompt: asset.prompt, sourceType: asset.sourceType, caption: asset.caption });
         if (!saved) return false;
-        const url = recordSaved(saved.scenes, asset.assetId);
+        const url = await recordSaved(saved.scenes, asset.assetId);
         await warmImage(url); setSavedImageUrl(url ?? null); return true;
       }} />
   );
@@ -542,7 +517,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
           })),
         });
         if (!saved) return false;
-        const destination = recordSaved(saved.scenes, arrivingAssetId ?? selectedAssets[0]?.assetId);
+        const destination = await recordSaved(saved.scenes, arrivingAssetId ?? selectedAssets[0]?.assetId);
         setSavedImages(selectedAssets.flatMap(asset => {
           const scene = saved.scenes.find(item => item.assetId === asset.assetId);
           return scene?.resolvedImageUrl ? [{ sceneId: scene.id, url: scene.resolvedImageUrl }] : [];
@@ -563,7 +538,16 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       teachingSceneId={savedSceneId ?? newestVisionScene(model.vision?.scenes ?? [])}
       testID={props.testID ?? 'v2-vision-screen'}
       visionId={model.vision?.id}
-      onSyncPresentation={(sceneId, patch) => { void model.syncScenePresentation(sceneId, patch); }}
+      boardLayout={model.vision?.boardLayout ?? 'CLASSIC'}
+      onUpdateBoardLayout={async layout => {
+        const saved = await model.setBoardLayout(layout);
+        // A successful PATCH response is not proof the server persisted this field.
+        // Older Vision APIs silently ignored boardLayout and returned the prior layout.
+        return saved?.boardLayout === layout;
+      }}
+      onSaveSlots={async slots => Boolean(await model.updateSceneSlots(slots))}
+      mutationFeedback={model.mutationFeedback}
+      onSyncPresentation={async (sceneId, patch) => Boolean(await model.syncScenePresentation(sceneId, patch))}
       anchorIntention={anchorIntention}
       anchorCategory={anchorCategory}
       anchorImageUrl={anchor?.enhancedImageUrl}
@@ -580,6 +564,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       onNoteEdit={openEditNote}
       onNoteDelete={deleteNote}
       error={actionError ?? model.error}
+      onRetrySave={()=>{setActionError(null);void model.refresh();}}
       onBack={handleBack}
       onShare={anchor ? async () => {
         // Vision reads contain short-lived signed image URLs. A freshly mounted
@@ -593,6 +578,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
         if (props.onVisualize) { props.onVisualize(model.visualizeHandoff); return; }
         navigation.navigate('V2Practice', { anchorId, resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision',
           visionEntry: { anchorId, visionId: model.vision!.id, tiles: model.tiles.map(tile => ({ ...tile })),
+            boardLayout: model.vision?.boardLayout ?? 'CLASSIC',
+            layoutWidth:windowWidth-24,
             notes: (model.vision?.notes ?? []).map(note => ({ ...note, content: { ...note.content }, presentation: { ...note.presentation } })),
             ...(sourceFrame ? { sourceFrame } : {}) } });
       }}
@@ -643,6 +630,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   return <View style={{ flex: 1, backgroundColor: onBoard ? colors.canvas : '#14162B' }}>{renderContent()}
     {shareOpen && anchor ? <AnchorShareStudio visible onClose={() => setShareOpen(false)} initialLayout="vision"
       data={buildShareExportData(anchor, { visionTiles: model.tiles, visionNotes: model.vision?.notes ?? [],
+        visionBoardLayout: model.vision?.boardLayout ?? 'CLASSIC',
+        visionLayoutWidth:windowWidth-24,
         visionAnnotation: model.vision?.title ?? '' })} /> : null}
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
     {onBoard ? <VisionAddSceneEntry anchorId={anchorId} onResume={() => { setAddRequest(null); setMode('addScene'); }} visible={addSheetOpen} onClose={() => setAddSheetOpen(false)} anchorIntention={anchorIntention}

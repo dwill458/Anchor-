@@ -81,7 +81,7 @@ describe('route table', () => {
 
 describe('waypointPlacement', () => {
   const table = buildRouteTable();
-  it.each([3, 5, 7, 12])('places N=%i evenly inside the route', (n) => {
+  it.each([2, 3, 4, 5, 6, 7, 8, 12])('places N=%i evenly inside the route', (n) => {
     const p = waypointPlacement(n);
     expect(p.n).toBe(n);
     expect(p.arcs).toHaveLength(n);

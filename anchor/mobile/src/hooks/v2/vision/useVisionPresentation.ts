@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { assignmentsFromMap, resolveSlotMap, type VisionSlotAssignments } from '@/components/v2/vision/board/visionBoardSlots';
 import { parseVisionFocal, visionFocalChanged, type VisionFocal } from '@/components/v2/vision/visionPhotoFocus';
@@ -12,8 +12,8 @@ const sameAssignments = (a: VisionSlotAssignments, b: VisionSlotAssignments) => 
 /**
  * The saved arrangement of a Vision's photographs: the slot each one sits in and where it is positioned in its print.
  *
- * The device's own record wins, since it is what the person last did; a photograph with none falls back to what the
- * server sent, then to the automatic rule (lowest free slot, upper-biased crop). Every photograph the rule places is
+ * Confirmed server positions win; pre-slot records fall back to this device's legacy record,
+ * then to the automatic rule (lowest free slot, upper-biased crop). Every photograph the rule places is
  * written back, so a position the person has been looking at is never recomputed when something else changes.
  */
 export function useVisionPresentation(visionId: string | null | undefined, tiles: readonly V2VisionTile[]) {
@@ -21,12 +21,13 @@ export function useVisionPresentation(visionId: string | null | undefined, tiles
   const hydrated = useVisionPresentationStore(state => state.hydrated);
   const setSlots = useVisionPresentationStore(state => state.setSlots);
   const setFocalInStore = useVisionPresentationStore(state => state.setFocal);
+  const [focalDrafts,setFocalDrafts]=useState<Record<string,{visionId:string;value:VisionFocal|null;basedOn:string}>>({});
 
   const stored = useMemo<VisionSlotAssignments>(() => {
     const merged: Record<string, number> = {};
-    // Server values first, then this device's record over them.
+    // Server values supersede stale device records after a change on another device.
     for (const tile of tiles) if (typeof tile.slotIndex === 'number') merged[tile.sceneId] = tile.slotIndex;
-    return { ...merged, ...(entry?.slots ?? {}) };
+    return { ...(entry?.slots ?? {}), ...merged };
   }, [entry?.slots, tiles]);
   const ids = useMemo(() => tiles.map(tile => tile.sceneId), [tiles]);
   const slotMap = useMemo(() => resolveSlotMap(ids, stored), [ids, stored]);
@@ -40,13 +41,19 @@ export function useVisionPresentation(visionId: string | null | undefined, tiles
   }, [visionId, hydrated, ids, assignments, entry?.slots, setSlots]);
 
   const focals = useMemo(() => {
-    const merged: Record<string, VisionFocal> = {};
-    for (const tile of tiles) {
-      const server = parseVisionFocal(tile.focal);
-      if (server) merged[tile.sceneId] = server;
+    const merged:Record<string,VisionFocal>={...entry?.focals};
+    for(const tile of tiles) {
+      if(tile.focal===undefined)continue;
+      const server=parseVisionFocal(tile.focal);
+      if(server)merged[tile.sceneId]=server;else delete merged[tile.sceneId];
     }
-    return { ...merged, ...(entry?.focals ?? {}) };
-  }, [entry?.focals, tiles]);
+    for(const [id,draft] of Object.entries(focalDrafts)) {
+      const tile=tiles.find(t=>t.sceneId===id);
+      if(draft.visionId!==visionId||draft.basedOn!==JSON.stringify(tile?.focal))continue;
+      if(draft.value)merged[id]=draft.value;else delete merged[id];
+    }
+    return merged;
+  },[entry?.focals,tiles,focalDrafts,visionId]);
 
   const commitSlotMap = useCallback((next: readonly (string | null)[]) => {
     if (!visionId) return;
@@ -55,9 +62,10 @@ export function useVisionPresentation(visionId: string | null | undefined, tiles
 
   const setFocal = useCallback((sceneId: string, focal: VisionFocal | null) => {
     if (!visionId) return;
+    setFocalDrafts(previous=>({...previous,[sceneId]:{visionId,value:focal,basedOn:JSON.stringify(tiles.find(t=>t.sceneId===sceneId)?.focal)}}));
     if (!visionFocalChanged(entry?.focals?.[sceneId], focal)) return;
     setFocalInStore(visionId, sceneId, focal);
-  }, [visionId, entry?.focals, setFocalInStore]);
+  }, [visionId, tiles, entry?.focals, setFocalInStore]);
 
   return { slotMap, assignments, focals, commitSlotMap, setFocal, hydrated };
 }

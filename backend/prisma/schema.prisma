@@ -1021,6 +1021,12 @@ enum VisionSceneSource {
   USER_CAMERA
 }
 
+enum VisionBoardLayout {
+  CLASSIC
+  EDITORIAL
+  SCRAPBOOK
+}
+
 model Vision {
   id          String       @id @default(uuid())
   userId      String       @map("user_id")
@@ -1033,6 +1039,7 @@ model Vision {
   status      VisionStatus @default(ACTIVE)
   firstCommittedAt DateTime? @map("first_committed_at")
   boardCompletedAt DateTime? @map("board_completed_at")
+  boardLayout VisionBoardLayout @default(CLASSIC) @map("board_layout")
 
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
@@ -1084,6 +1091,7 @@ model VisionNote {
   userId          String   @map("user_id")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   clientRequestId String   @map("client_request_id") @db.Uuid
+  layoutPositions Json? @map("layout_positions")
   text            String   @db.VarChar(200)
   styleId         String   @map("style_id") @db.VarChar(64)
   fontId          String?  @map("font_id") @db.VarChar(24)

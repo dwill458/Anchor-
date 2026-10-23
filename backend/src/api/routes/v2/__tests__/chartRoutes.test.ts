@@ -171,6 +171,14 @@ describe('Chart v2 routes', () => {
     expect(tooMany.status).toBe(400);
   });
 
+  it.each([3, 4, 5, 6, 7, 8, 12])('passes all %i reviewed waypoints through the API contract', async count => {
+    const waypoints = Array.from({ length: count }, (_, index) => ({ title: `State ${index + 1}` }));
+    mockChartService.createChart.mockResolvedValue({ id: 'c1', waypoints, waypointCount: count });
+    const response = await request(app()).post('/api/v2/anchors/a1/chart').send({ idempotencyKey: key, destinationText: 'A meaningful destination', waypoints });
+    expect(response.status).toBe(201);
+    expect(mockChartService.createChart.mock.calls[0][1].waypoints).toEqual(waypoints);
+  });
+
   it('completes a Move', async () => {
     mockChartService.completeMove.mockResolvedValue({ replayed: false });
     const response = await request(app()).post('/api/v2/charts/c1/moves/m1/complete');

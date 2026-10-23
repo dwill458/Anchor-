@@ -7,7 +7,7 @@ import { env } from '../../config/env';
  * Chart business logic only ever sees `ChartModelProvider`. Swapping or
  * reordering models is configuration: the primary is OpenAI when a key is
  * present, the fallback is the Gemini text model the backend already uses,
- * and the deterministic template path sits behind both (see ChartPlannerService).
+ * and failed plans surface through the existing retry/error path (see ChartPlannerService).
  */
 
 export type ChartProviderName = 'openai' | 'gemini';
@@ -360,7 +360,9 @@ export class GeminiChartProvider implements ChartModelProvider {
   }
 }
 
-export const DEFAULT_CHART_OPENAI_MODEL = 'gpt-4.1-mini';
+// The route evaluation keeps 3/4/5+ distinct states with the planning summary;
+// gpt-4.1-mini repeatedly compressed complex destinations or invented baselines.
+export const DEFAULT_CHART_OPENAI_MODEL = 'gpt-5.4-mini';
 export const DEFAULT_CHART_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 export type ChartPlannerConfig = {
@@ -386,7 +388,7 @@ export function resolveChartPlannerConfig(source: NodeJS.ProcessEnv = process.en
       new OpenAiChartProvider(openAiKey, source.CHART_OPENAI_MODEL?.trim() || DEFAULT_CHART_OPENAI_MODEL)
     );
   }
-  const googleKey = env.GOOGLE_API_KEY?.trim();
+  const googleKey = source.GOOGLE_API_KEY?.trim() || source.GEMINI_API_KEY?.trim() || env.GOOGLE_API_KEY?.trim();
   if (googleKey) {
     providers.push(
       new GeminiChartProvider(

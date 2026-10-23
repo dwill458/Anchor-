@@ -1,5 +1,5 @@
 import type { AnchorExpression } from '@/constants/v2/creation';
-import type { VisionNote, V2VisionTile } from '@/adapters/v2/vision';
+import type { VisionBoardLayout, VisionNote, V2VisionTile } from '@/adapters/v2/vision';
 import type { ImageSourcePropType } from 'react-native';
 
 export type ShareLayoutId = 'minimal' | 'style' | 'editorial' | 'vision';
@@ -43,6 +43,8 @@ export interface ShareExportData {
   visionNotes?: readonly VisionNote[] | null;
   /** The board's optional handwritten annotation. */
   visionAnnotation?: string | null;
+  visionBoardLayout?: VisionBoardLayout;
+  visionLayoutWidth?: number;
 }
 
 export interface ShareTemplateProps {

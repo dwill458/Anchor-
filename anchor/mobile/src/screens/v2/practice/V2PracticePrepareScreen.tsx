@@ -134,6 +134,7 @@ export function V2PracticePrepareScreen({
         visionId={vision.visionId}
         tiles={vision.tiles ?? []}
         notes={vision.notes}
+        boardLayout={vision.boardLayout ?? 'CLASSIC'}
         entry={visionEntry}
         initialDuration={initialDuration}
         onBack={onBack}

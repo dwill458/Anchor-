@@ -217,6 +217,19 @@ describe('VisionCeremony conversation integration', () => {
     expect(mockSession?.rounds).toEqual(originalSnapshot);
   });
 
+  it('uses the inspected candidate directly from the full-screen viewer', async () => {
+    const view = setup();
+    await continueLatest(view);
+
+    fireEvent.press(view.getByRole('button', { name: 'Inspect Option 2' }));
+    expect(view.getByText('Take a closer look')).toBeTruthy();
+    fireEvent.press(view.getAllByRole('button', { name: 'Use This One' }).at(-1)!);
+
+    expect(view.queryByText('Take a closer look')).toBeNull();
+    expect(view.queryByTestId('vision-conversation-selection')).toBeNull();
+    expect(view.getByText(copy.keep)).toBeTruthy();
+  });
+
   it('refines the exact selected source with EDIT, session, parent candidate and its structured refs', async () => {
     const view = setup();
     await continueLatest(view);

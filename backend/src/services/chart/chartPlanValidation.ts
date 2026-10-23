@@ -3,10 +3,13 @@ import { ChartPlanValidationError, type ChartGenerationResult } from './chartPla
 
 /** Deterministic critical checks complement the model's bounded planning evidence.
  * They reject unsupported plans; they never synthesize personal facts or numbers. */
-export function validatePlanSemantics(plan: ChartGenerationResult, context: ChartPlanningContext, options: { requireAnalysis?: boolean } = {}): ChartGenerationResult {
+export function validatePlanSemantics(plan: ChartGenerationResult, context: ChartPlanningContext, options: { requireAnalysis?: boolean; requireRouteDesign?: boolean } = {}): ChartGenerationResult {
   if (plan.needsMoreContext) return plan;
   const fail = (reason: string): never => { throw new ChartPlanValidationError(reason); };
   if (options.requireAnalysis && !plan.analysis) fail('missing_analysis');
+  if (options.requireRouteDesign && !plan.analysis?.routeDesign) fail('missing_route_design');
+  const design = plan.analysis?.routeDesign;
+  if (design && (design.selectedWaypointCount !== plan.waypoints.length || !design.complexityReason.trim() || !design.countReason.trim())) fail('route_design');
   const adjustment = context.adjustment;
   if (adjustment && adjustment.reason !== 'CHANGE_DESTINATION' && plan.destination !== adjustment.destination) fail('destination_changed');
   if (!plan.suggestedOneMove || !/\S+\s+\S+/.test(plan.suggestedOneMove.title) || /^(make progress|work on|keep going|try harder|believe)\b/i.test(plan.suggestedOneMove.title)) fail('one_move_not_actionable');

@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { CourseAnchorRole, CourseEventType, CourseStatus, Prisma } from '@prisma/client';
 import { AppError } from '../../api/middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import { logger } from '../../utils/logger';
 import { courseEventService } from '../CourseEventService';
 import {
   MAX_COURSE_WAYPOINTS,
@@ -372,7 +373,9 @@ export class ChartService {
             data: { status: 'ACCEPTED', acceptedAt: new Date(), courseId },
           });
         }
-        return projection(await findCourse(tx, userId, courseId));
+        const saved = projection(await findCourse(tx, userId, courseId));
+        logger.info('chart_saved_waypoint_counts', { courseId, reviewedCount: input.waypoints.length, savedCount: saved.waypoints.length, responseCount: saved.waypointCount });
+        return saved;
       });
     } catch (error) {
       if (isUniqueViolation(error)) {

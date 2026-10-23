@@ -35,7 +35,7 @@ import {
 } from './chartPlanSchema';
 import { validatePlanSemantics } from './chartPlanValidation';
 
-export const CHART_PLANNER_VERSION = 'chart-2.1';
+export const CHART_PLANNER_VERSION = 'chart-2.2';
 const REFERENCE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /** A reference the person attached (validated by chartRoutes). Photos are the caller's own Asset ids. */
@@ -62,8 +62,8 @@ export type ChartProposal = {
   suggestedOneMove: PlannedMove | null;
   guidance: string | null;
   /**
-   * `ai` means a model produced the route; `template` means the deterministic
-   * outline. `fallbackUsed` is analytics-only and never names a provider.
+   * `ai` means a model produced the route; `template` keeps historical outlines readable.
+   * New failed requests never substitute an outline. `fallbackUsed` never names a provider.
    */
   generation: { source: 'ai' | 'template'; fallbackUsed: boolean; needsNaming: boolean };
   createdAt: string;
@@ -143,12 +143,30 @@ function parsePersistedWaypoints(value: Prisma.JsonValue): ChartProposalWaypoint
   });
 }
 
+/** Count-only diagnostics keep personal prompt/route text out of operational logs. */
+function validateRouteResponse(raw: unknown, context: ChartPlanningContext, options: { allowFollowUp: boolean; minWaypoints?: number }, provider: ChartModelProvider): ChartGenerationResult {
+  const rawWaypoints = (raw as { waypoints?: unknown } | null)?.waypoints;
+  const rawCount = Array.isArray(rawWaypoints) ? rawWaypoints.length : null;
+  let normalizedCount: number | null = null;
+  try {
+    const normalized = normalizeGenerationResult(raw, options);
+    normalizedCount = normalized.needsMoreContext ? 0 : normalized.waypoints.length;
+    const validated = validatePlanSemantics(normalized, context, { requireAnalysis: true, requireRouteDesign: true });
+    logger.info('chart_planner_waypoint_counts', { phase: context.adjustment ? 'adjust' : 'create', provider: provider.name, model: provider.model, rawCount, normalizedCount, validatedCount: validated.needsMoreContext ? 0 : validated.waypoints.length, outcome: 'accepted' });
+    return validated;
+  } catch (error) {
+    logger.warn('chart_planner_waypoint_counts', { phase: context.adjustment ? 'adjust' : 'create', provider: provider.name, model: provider.model, rawCount, normalizedCount, outcome: describeFailure(error) });
+    throw error;
+  }
+}
+
 export class ChartPlannerService {
   constructor(private readonly configFactory: () => ChartPlannerConfig = () => resolveChartPlannerConfig()) {}
 
   /**
    * Runs the provider chain for one structured request.
-   * PRIMARY → (retry once if fast + transient) → FALLBACK → caller's template.
+   * OpenAI PRIMARY → (retry once if fast + transient) → Gemini FALLBACK.
+   * Both provider and validation failures advance the chain; no template route is substituted.
    */
   private async runChain<T>(
     purpose: 'route' | 'moves',
@@ -396,7 +414,7 @@ export class ChartPlannerService {
           timeoutMs,
           temperature: 0.4,
         });
-        return validatePlanSemantics(normalizeGenerationResult(raw, { allowFollowUp }), context, { requireAnalysis: true });
+        return validateRouteResponse(raw, context, { allowFollowUp }, provider);
       } catch (error) {
         // If image analysis failed with a provider error, gracefully fall back to rich textual context
         if (allImages.length && !imageAnalysisFallback && error instanceof ChartProviderError) {
@@ -411,7 +429,7 @@ export class ChartPlannerService {
             timeoutMs,
             temperature: 0.4,
           });
-          return validatePlanSemantics(normalizeGenerationResult(raw, { allowFollowUp }), textContext, { requireAnalysis: true });
+          return validateRouteResponse(raw, textContext, { allowFollowUp }, provider);
         }
         throw error;
       }
@@ -542,8 +560,9 @@ export class ChartPlannerService {
       hasReached = route.some(waypoint => waypoint.state === 'REACHED');
       completedMoveCount = await prisma.move.count({ where: { courseId: course.id, status: 'COMPLETED' } });
     } else if (input.draft) {
+      if (input.draft.waypoints.length > 12) throw new AppError('A route may contain at most 12 waypoints', 400, 'VALIDATION_ERROR');
       destination = input.draft.destination;
-      route = input.draft.waypoints.slice(0, 12).map(waypoint => ({
+      route = input.draft.waypoints.map(waypoint => ({
         title: waypoint.title, completionCriteria: waypoint.completionCriteria,
         state: 'UPCOMING' as const,
         metricTarget: waypoint.metricTarget, metricBaseline: waypoint.metricBaseline, metricCurrent: waypoint.metricCurrent,
@@ -604,7 +623,7 @@ export class ChartPlannerService {
           temperature: 0.4,
         })
         .then(async raw => {
-          const plan = validatePlanSemantics(normalizeGenerationResult(raw, { allowFollowUp: false, minWaypoints }), context, { requireAnalysis: true });
+          const plan = validateRouteResponse(raw, context, { allowFollowUp: false, minWaypoints }, provider);
           if (!plan.needsMoreContext && context.adjustment?.reason === 'SMALLER_STEPS') {
             // One independent, bounded semantic check for difficulty requests.
             // A refusal advances the existing provider chain; no repair loop.
@@ -770,6 +789,7 @@ export class ChartPlannerService {
           idempotencyKey: input.idempotencyKey,
         },
       });
+      logger.info('chart_proposal_waypoint_counts', { proposalId: row.id, plannedCount: waypoints.length, storedCount: Array.isArray(row.waypoints) ? row.waypoints.length : null });
       return this.toProposal(row);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

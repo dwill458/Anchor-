@@ -33,3 +33,28 @@ it('uses the newly selected Anchor recommendation and mode duration after creati
   unmount();
   invalidateV2RecommendationContext();
 });
+
+it('fills all five cached Thread Strength readings before selecting another Anchor', async () => {
+  const owner = 'five-thread-user';
+  useAuthStore.setState({ user: { id: owner } as never });
+  const anchors = Array.from({ length: 7 }, (_, index) => makeAnchor({ id: `five-${index}`, localId: undefined, userId: owner, threadStrength: 0 }));
+  useAnchorStore.setState({ anchors, currentAnchorId: 'five-0', isLoading: false, persistedHydrated: true, remoteAnchorState: 'confirmed' });
+  invalidateV2RecommendationContext();
+  const { result, unmount } = renderHook(() => useV2HomeModel());
+  await act(async () => {});
+  const ids = [0, 1, 6, 2, 5];
+  act(() => ids.forEach(index => rememberV2RecommendationContext(`five-${index}`, {
+    anchorId: `five-${index}`, completionSignal: null, vision: { exists: false, seenToday: false },
+    thread: { strength: 20 + index, delta7d: index, delta7dStatus: 'AVAILABLE', status: 'AVAILABLE' },
+    recommendation: { action: 'Focus', reason: 'server' },
+  })));
+  expect(result.current.selectedIndex).toBe(0);
+  ids.forEach(index => expect(result.current.anchorList[index].thread).toMatchObject({ value: 20 + index, delta: index }));
+  // Publishing display cache entries must not rewrite the user's Anchor vault.
+  expect(useAnchorStore.getState().anchors.every(anchor => anchor.threadStrength === 0)).toBe(true);
+  act(() => useAnchorStore.setState({ currentAnchorId: 'five-1' }));
+  expect(result.current.thread?.value).toBe(21);
+  expect(result.current.thread?.delta).toBe(1);
+  unmount();
+  invalidateV2RecommendationContext();
+});

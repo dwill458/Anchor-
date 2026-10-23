@@ -543,7 +543,7 @@ export function V2PracticeScreen({
         anchor={fixedAnchor}
         mode={prepareMode}
         vision={visionEntry?.anchorId === fixedAnchor.id ? { state: 'ready', visionId: visionEntry.visionId,
-          previewText: fixedAnchor.intentionText ?? '', seenToday: false, tiles: visionEntry.tiles, notes: visionEntry.notes } : model.vision}
+          previewText: fixedAnchor.intentionText ?? '', seenToday: false, tiles: visionEntry.tiles, notes: visionEntry.notes, boardLayout: visionEntry.boardLayout ?? 'CLASSIC' } : model.vision}
         visionEntry={visionEntry?.anchorId === fixedAnchor.id ? visionEntry : undefined}
         source={prepareSource}
         initialDuration={prepareMode === resumeMode ? resumeDuration ?? undefined : undefined}

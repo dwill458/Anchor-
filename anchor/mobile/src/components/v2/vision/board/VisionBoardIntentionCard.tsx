@@ -28,6 +28,7 @@ type Props = {
   category?: string | null;
   art?: VisionBoardCardArt | null;
   reduceMotion: boolean;
+  recomposeMs?: number;
   onPress?: () => void;
   anchorTestID?: string;
   /** `paper` sets the mark on an ivory medallion; `bare` leaves the strokes free on the card. */
@@ -44,7 +45,7 @@ type Props = {
 /** The persisted Anchor SVG connects the photographs without repeating the intention. */
 export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   rect, intention, category, art, reduceMotion, onPress, anchorTestID, markAppearance = 'bare', hideMark = false, onMarkLayout,
-  paperOpacity, pinOpacity, onTeachingMotionChange,
+  paperOpacity, pinOpacity, onTeachingMotionChange,recomposeMs=MOTION.recompose.moveMs,
 }: Props) {
   const arrival = useVisionImageArrival();
   const markSlot = useRef<ViewInstance>(null);
@@ -74,13 +75,13 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   useEffect(() => {
     const config = reduceMotion
       ? { duration: MOTION.reduced.recomposeMs }
-      : { duration: MOTION.recompose.moveMs, easing: boardRecomposeEasing };
+      : { duration: recomposeMs, easing: boardRecomposeEasing };
     x.value = boardTiming(rect.x, config);
     y.value = boardTiming(rect.y, config);
     width.value = boardTiming(rect.width, config);
     height.value = boardTiming(rect.height, config);
     rotation.value = boardTiming(rect.rotation, config);
-  }, [height, rect, reduceMotion, rotation, width, x, y]);
+  }, [height, rect, reduceMotion, rotation, width, x, y,recomposeMs]);
 
   const style = useAnimatedStyle(() => ({
     left: x.value,

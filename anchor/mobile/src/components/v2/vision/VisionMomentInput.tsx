@@ -364,21 +364,6 @@ export function VisionMomentInput({
         {/* The body beneath the toggle cross-fades as one piece when the path changes: the old fades out, the new follows. Nothing here
             animates layout, so the field never trails its own text while it grows. */}
         <Animated.View key={photoPath ? 'photo-body' : 'words-body'} entering={content.entering} exiting={content.exiting} style={[styles.region, compactEmpty && { gap: spacing[2] }]}>
-          {startPhotoEnabled ? (
-            <View>
-              <AttentionWash level={inputAttention.level} color={VISION_GOLD} />
-              <VisionReferenceStrip
-                references={displayedReferences}
-                onChange={setReferences}
-                onNotice={setLocalNotice}
-                disabled={loading || (hasControlledReferences && !onChangeReferences)}
-                collapsed={inputFocused}
-                compact={inputFocused}
-                testID={`${testID}-references`}
-              />
-            </View>
-          ) : null}
-
           <View>
             <AttentionWash level={inputAttention.level} color={VISION_GOLD} radius={radii.lg} />
             {!inputFocused ? <Text style={styles.fieldLabel}>Describe the moment you want to see</Text> : null}
@@ -403,6 +388,21 @@ export function VisionMomentInput({
             </Text>
             <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
           </View>
+
+          {startPhotoEnabled ? (
+            <View>
+              <AttentionWash level={inputAttention.level} color={VISION_GOLD} />
+              <VisionReferenceStrip
+                references={displayedReferences}
+                onChange={setReferences}
+                onNotice={setLocalNotice}
+                disabled={loading || (hasControlledReferences && !onChangeReferences)}
+                collapsed={inputFocused}
+                compact={inputFocused}
+                testID={`${testID}-references`}
+              />
+            </View>
+          ) : null}
 
           {!inputFocused ? (
             <View style={styles.suggestionGroup}>

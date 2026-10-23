@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Image, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { useVisionBoardComposition } from '@/components/v2/vision/board/useVisionBoardComposition';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { detailBoardSizeForWidth } from '@/components/v2/vision/board/visionBoardLayouts';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
@@ -114,24 +115,27 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
     if (!data.visionImageUrl?.trim()) return data.visionTiles ?? [];
     return [{ id: 'share-legacy-vision', sceneId: 'share-legacy-vision', imageUrl: data.visionImageUrl.trim(), prompt: null, caption: null, sortOrder: 0, isHero: true }];
   }, [data.visionImageUrl, data.visionTiles]);
-  const notes = data.visionNotes ?? [];
+  const rawNotes = data.visionNotes ?? [];
+  const {width:windowWidth}=useWindowDimensions();
+  const composition=useVisionBoardComposition({tiles,notes:rawNotes,width:data.visionLayoutWidth??windowWidth-24,boardLayout:data.visionBoardLayout??'CLASSIC'});
+  const notes=composition.notes;
   const height = VISION_CANVAS_HEIGHT;
   const titleHeight = headingReserve(VISION_CANVAS_WIDTH, data.intention);
   const footerHeight = VISION_CANVAS_WIDTH * 0.15;
   // Enlarged boardWidth and tighter padding makes the photographs ~15% more prominent while remaining safely inside bounds
   const boardWidth = VISION_CANVAS_WIDTH * 0.94;
   const boardAreaHeight = Math.max(VISION_CANVAS_WIDTH * 0.45, height - titleHeight - footerHeight);
-  const boardViewport = useMemo(() => detailBoardSizeForWidth(boardWidth, tiles.length), [boardWidth, tiles.length]);
-  const scene = useMemo(() => detailBoardSizeForWidth(boardWidth * VISION_BOARD_MOTION.renderScale, tiles.length), [boardWidth, tiles.length]);
-  const board = useVisionBoardScene(tiles, scene, 1, true);
+  const boardViewport = useMemo(() => ({width:boardWidth,height:boardWidth*composition.ratio}), [boardWidth,composition.ratio]);
+  const scene = useMemo(() => ({width:boardWidth*VISION_BOARD_MOTION.renderScale,height:boardViewport.height*VISION_BOARD_MOTION.renderScale}), [boardWidth,boardViewport]);
+  const board = useVisionBoardScene(tiles, scene, 1, true,undefined,composition);
   const layout = board.layout;
   const frameViewport = useMemo(() => ({ width: boardWidth, height: boardAreaHeight }), [boardAreaHeight, boardWidth]);
   const annotation = data.visionAnnotation?.trim() ?? '';
   const annotationLayout = useMemo(() => annotation ? annotationGeometry(annotation, boardViewport, scene, tiles.length) : null,
     [annotation, boardViewport, scene, tiles.length]);
   const overlays = useMemo(() => annotationLayout ? [annotationLayout.rect] : [], [annotationLayout]);
-  const frame = useMemo(() => visionBoardExportFrame(scene, layout, notes, frameViewport, boardWidth * 0.02, tiles, overlays),
-    [boardWidth, frameViewport, layout, notes, overlays, scene, tiles]);
+  const frame = useMemo(() => visionBoardExportFrame(scene, layout, notes, frameViewport, boardWidth * 0.02, tiles, overlays,composition.order),
+    [boardWidth, frameViewport, layout, notes, overlays, scene, tiles,composition.order]);
   const artwork: VisionBoardCardArt = {
     svg: data.svg,
     imageUrl: data.imageUrl,
@@ -151,15 +155,19 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
     return [...assets].map(([id, source]) => ({ id, source }));
   }, [bg.id, bg.source, data.imageUrl, notes, showMark]);
   const expectedAssetIds = useMemo(() => [
+    'geometry:captions',
     ...tiles.slice(0, layout.photos.length).filter(tile => Boolean(tile.imageUrl?.trim())).map(tile => `photo:${tile.sceneId}`),
+    ...tiles.filter(tile => Boolean(tile.caption?.trim())).map(tile => `caption:${tile.sceneId}`),
     ...auxiliaryAssets.map(asset => asset.id),
   ], [auxiliaryAssets, layout.photos.length, tiles]);
   const { complete: markAssetReady, fail: markAssetFailed } = useBoardAssetReadiness(expectedAssetIds, onAssetsReady, onAssetsError);
+  React.useEffect(()=>{if(composition.ready)markAssetReady('geometry:captions');},[composition.ready,markAssetReady]);
   const sceneLeft = (VISION_CANVAS_WIDTH - boardWidth) / 2 + frame.left + (frame.scale - 1) * scene.width / 2;
   const sceneTop = titleHeight + frame.top + (frame.scale - 1) * scene.height / 2;
 
   return (
     <ShareCanvas width={width} background={bg.tone === 'dark' ? '#0B0C16' : POSTER_CREAM}>
+      {composition.measurementView}
       {/* Keep the selected artwork visible while its full-resolution asset decodes. */}
       {!onAssetsReady ? <Image source={bg.thumbSource} fadeDuration={0} resizeMode="cover"
         style={[StyleSheet.absoluteFill, { width, height: width * VISION_CANVAS_HEIGHT / VISION_CANVAS_WIDTH }]} /> : null}
@@ -179,8 +187,12 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
       <View pointerEvents="none" style={{ position: 'absolute', left: VISION_CANVAS_WIDTH * 0.08, right: VISION_CANVAS_WIDTH * 0.08, top: VISION_CANVAS_WIDTH * 0.07 }}>
         <VisionIntentionHeading intention={data.intention} category={data.category} tone={bg.tone} />
       </View>
-      <View pointerEvents="none" style={{ position: 'absolute', width: scene.width, height: scene.height, left: sceneLeft, top: sceneTop, transform: [{ scale: frame.scale }] }}>
+      {/* Capture mounts at final measured geometry, so no in-flight recompose can enter a saved file. */}
+      {!onAssetsReady || composition.ready ? <View pointerEvents="none" style={{ position: 'absolute', width: scene.width, height: scene.height, left: sceneLeft, top: sceneTop, transform: [{ scale: frame.scale }] }}>
         <VisionBoardScene
+          materialMode="photographic"
+          sharedComposition slotOrder={composition.order} displayScale={composition.size.width/scene.width}
+          focals={Object.fromEntries(tiles.filter(t=>t.focal).map(t=>[t.sceneId,t.focal!]))}
           scene={scene}
           roster={board.roster}
           entering={new Set()}
@@ -199,9 +211,10 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
           detailEdges
           onPhotoAssetReady={sceneId => markAssetReady(`photo:${sceneId}`)}
           onPhotoAssetError={sceneId => markAssetFailed(`photo:${sceneId}`)}
+          onCaptionReady={sceneId => markAssetReady(`caption:${sceneId}`)}
         />
         {annotationLayout ? <Text pointerEvents="none" style={[{ position: 'absolute', zIndex: 100, fontFamily: 'Allison-Regular' }, annotationLayout.style]}>{annotation}</Text> : null}
-      </View>
+      </View> : null}
       {auxiliaryAssets.filter(asset => !asset.id.startsWith('bg:')).map(asset => <Image key={asset.id} source={asset.source} fadeDuration={0} onLoad={() => markAssetReady(asset.id)} onError={() => markAssetFailed(asset.id)}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />)}
       {showMark ? <ShareBrandMark width={VISION_CANVAS_WIDTH} ground={bg.tone === 'dark' ? 'dark' : 'light'} /> : null}

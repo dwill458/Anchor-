@@ -52,9 +52,14 @@ export const BOARD_CARD_ASPECT = 1;
  * How a print is made. `torn` is a full-bleed photograph with torn paper edges, `print` a thin-bordered editorial print,
  * and `polaroid` the captioned instant-photo frame. The mix is what keeps the board from reading as a uniform gallery.
  */
-export type BoardTreatment = 'torn' | 'print' | 'polaroid';
+export type BoardTreatment = 'torn' | 'print' | 'polaroid' | 'flat' | 'snap';
+
+/** Shared caption geometry, in board-width units. Font metrics come from native Text. */
+export type BoardCaption = { key: string; text: string; fontSize: number; lineHeight: number; width: number; height: number; left: number; top: number; extra: number; fontFamily: string; kind: 'label' | 'band' | 'editorial' };
 
 export type BoardSlot = {
+  /** Polaroid aperture, preserving the original wide-foot Classic print when captionless. */
+  apertureBottom?: number;
   x: number;
   y: number;
   width: number;
@@ -64,6 +69,7 @@ export type BoardSlot = {
   frame: BoardFrameKind;
   /** Set on the Vision board's fixed slots; absent on count-based compositions. */
   treatment?: BoardTreatment;
+  caption?: BoardCaption;
 };
 
 export type BoardCardSlot = Omit<BoardSlot, 'frame'>;
@@ -317,6 +323,32 @@ export function toSceneRect(slot: Pick<BoardSlot, 'x' | 'y' | 'width' | 'aspectR
     rotation: slot.rotation,
     zIndex: slot.zIndex,
   };
+}
+
+/** Crop aperture shared by the native print and the Visualize breakout camera. */
+export function boardPhotoWindow(slot:BoardSlot,scene:Size):SceneRect {
+  const photo=toSceneRect(slot,scene),t=slot.treatment;
+  let x=0,y=0,width=photo.width,height=photo.height;
+  if(t==='print'){x=width*.035;y=x;width-=2*x;height-=2*x;}
+  else if(t==='snap'){x=width*.045;y=x;height-=width*.215;width*=.91;}
+  else if(t==='polaroid'){x=width*.06;y=height*.06;width*=.88;height*=(slot.apertureBottom??.78)-.06;}
+  else if(!t){const f=BOARD_FRAME_WINDOW[slot.frame];x=width*f.left;y=height*f.top;width*=f.right-f.left;height*=f.bottom-f.top;}
+  const a=photo.rotation*Math.PI/180,dx=x+width/2-photo.width/2,dy=y+height/2-photo.height/2;
+  return {x:photo.x+photo.width/2+dx*Math.cos(a)-dy*Math.sin(a)-width/2,y:photo.y+photo.height/2+dx*Math.sin(a)+dy*Math.cos(a)-height/2,width,height,rotation:photo.rotation,zIndex:photo.zIndex};
+}
+
+export function boardCaptionRect(slot:BoardSlot,scene:Size):SceneRect|null {
+  if(!slot.caption)return null;
+  const photo=toSceneRect(slot,scene),c=slot.caption,a=photo.rotation*Math.PI/180;
+  const width=c.width*scene.width,height=c.height*scene.width,dx=(c.left+c.width/2)*scene.width-photo.width/2,dy=(c.top+c.height/2)*scene.width-photo.height/2;
+  return {...photo,x:photo.x+photo.width/2+dx*Math.cos(a)-dy*Math.sin(a)-width/2,y:photo.y+photo.height/2+dx*Math.sin(a)+dy*Math.cos(a)-height/2,width,height};
+}
+
+/** A growing paper foot retains the original photograph's rotation pivot. */
+export function boardPrintRect(slot:BoardSlot,scene:Size):SceneRect {
+  const rect=toSceneRect(slot,scene),extra=slot.caption?.kind==='band'?slot.caption.extra*scene.width:0;
+  const a=rect.rotation*Math.PI/180;
+  return {...rect,x:rect.x-Math.sin(a)*extra/2,y:rect.y+(Math.cos(a)-1)*extra/2,height:rect.height+extra};
 }
 
 /** The board's rendered size for a given width. */

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { Check, GripHorizontal, Lock, Plus, Trash2 } from 'lucide-react-native';
@@ -38,6 +38,19 @@ export function moveItem<T>(list: T[], from: number, to: number): T[] {
   return next;
 }
 
+/** Resolve a drag target against measured row centers, including wrapped titles. */
+export function routeDropIndexFromOffset(from: number, deltaY: number, rowHeights: number[]): number {
+  'worklet';
+  const center = rowHeights.slice(0, from).reduce((sum, height) => sum + height, 0) + rowHeights[from] / 2 + deltaY;
+  let offset = 0;
+  let target = 0;
+  for (let row = 0; row < rowHeights.length; row += 1) {
+    if (center >= offset + rowHeights[row] / 2) target = row;
+    offset += rowHeights[row];
+  }
+  return target;
+}
+
 type Props = {
   waypoints: DraftWaypoint[];
   onChange: (next: DraftWaypoint[]) => void;
@@ -55,6 +68,7 @@ type Props = {
 export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false, testID }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
+  const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
   const dragIndex = useSharedValue(-1);
   const dragY = useSharedValue(0);
   const firstMovable = Math.max(0, waypoints.findIndex((waypoint) => !waypoint.locked));
@@ -136,6 +150,8 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
           dragY={dragY}
           canRemove={waypoints.filter((item) => !item.locked).length > 1}
           showRail={showRail}
+          rowHeights={waypoints.map((item) => rowHeights[item.key] ?? ROW_HEIGHT)}
+          onHeightChange={(height) => setRowHeights((current) => current[waypoint.key] === height ? current : { ...current, [waypoint.key]: height })}
         />
       ))}
       {waypoints.length < MAX_WAYPOINTS ? (
@@ -170,6 +186,8 @@ function Row({
   dragY,
   canRemove,
   showRail,
+  rowHeights,
+  onHeightChange,
 }: {
   waypoint: DraftWaypoint;
   index: number;
@@ -186,6 +204,8 @@ function Row({
   dragY: SharedValue<number>;
   canRemove: boolean;
   showRail: boolean;
+  rowHeights: number[];
+  onHeightChange: (height: number) => void;
 }) {
   const locked = Boolean(waypoint.locked);
   const pan = Gesture.Pan()
@@ -199,8 +219,7 @@ function Row({
       dragY.value = event.translationY;
     })
     .onEnd(() => {
-      const target = Math.round(index + dragY.value / ROW_HEIGHT);
-      runOnJS(onMove)(target);
+      runOnJS(onMove)(routeDropIndexFromOffset(index, dragY.value, rowHeights));
     })
     .onFinalize(() => {
       if (dragIndex.value === index) dragY.value = withTiming(0, { duration: 120 });
@@ -210,10 +229,10 @@ function Row({
     const from = dragIndex.value;
     if (from < 0) return { transform: [{ translateY: 0 }], zIndex: 0 };
     if (from === index) return { transform: [{ translateY: dragY.value }], zIndex: 10 };
-    const target = Math.max(firstMovable, Math.min(total - 1, Math.round(from + dragY.value / ROW_HEIGHT)));
+    const target = Math.max(firstMovable, Math.min(total - 1, routeDropIndexFromOffset(from, dragY.value, rowHeights)));
     let shift = 0;
-    if (from < index && target >= index) shift = -ROW_HEIGHT;
-    if (from > index && target <= index) shift = ROW_HEIGHT;
+    if (from < index && target >= index) shift = -rowHeights[from];
+    if (from > index && target <= index) shift = rowHeights[from];
     return { transform: [{ translateY: withTiming(shift, { duration: 120 }) }], zIndex: 0 };
   });
 
@@ -229,11 +248,11 @@ function Row({
       ];
 
   return (
-    <Animated.View style={[styles.row, animated]}>
+    <Animated.View style={[styles.row, animated]} onLayout={(event: LayoutChangeEvent) => onHeightChange(event.nativeEvent.layout.height)}>
       {showRail && total > 1 ? (
         <View
           pointerEvents="none"
-          style={[styles.rail, { top: index === 0 ? ROW_HEIGHT / 2 : 0, bottom: index === total - 1 ? ROW_HEIGHT / 2 : 0 }]}
+          style={[styles.rail, { top: index === 0 ? rowHeights[index] / 2 : 0, bottom: index === total - 1 ? rowHeights[index] / 2 : 0 }]}
         />
       ) : null}
       <View style={[styles.badge, locked && styles.badgeLocked]}>
@@ -277,7 +296,7 @@ function Row({
             if (name === 'remove') onRemove();
           }}
         >
-          <Text style={[styles.title, !waypoint.title && styles.titlePlaceholder, locked && styles.titleLocked]} numberOfLines={2}>
+          <Text style={[styles.title, !waypoint.title && styles.titlePlaceholder, locked && styles.titleLocked]}>
             {label}
           </Text>
         </Pressable>
@@ -298,10 +317,11 @@ function Row({
 const styles = StyleSheet.create({
   list: { gap: 0 },
   row: {
-    height: ROW_HEIGHT,
+    minHeight: ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[3],
+    paddingVertical: spacing[2],
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border.subtle,
     backgroundColor: colors.canvas,

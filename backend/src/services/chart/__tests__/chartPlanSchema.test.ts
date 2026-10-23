@@ -37,19 +37,19 @@ function route(titles: string[], overrides: Record<string, unknown> = {}) {
 }
 
 describe('complexity → waypoint count rules', () => {
-  it('uses overlapping bands: SIMPLE 2–4, MODERATE 4–6, COMPLEX 6–8', () => {
+  it('uses advisory overlapping bands: SIMPLE 3–4, MODERATE 4–5, COMPLEX 5–7', () => {
     expect(COMPLEXITY_WAYPOINT_BANDS).toEqual({
-      SIMPLE: { min: 2, max: 4 },
-      MODERATE: { min: 4, max: 6 },
-      COMPLEX: { min: 6, max: 8 },
+      SIMPLE: { min: 3, max: 4 },
+      MODERATE: { min: 4, max: 5 },
+      COMPLEX: { min: 5, max: 7 },
     });
     expect(isCountWithinBand('SIMPLE', 4)).toBe(true);
     expect(isCountWithinBand('MODERATE', 4)).toBe(true);
     expect(isCountWithinBand('SIMPLE', 5)).toBe(false);
-    expect(isCountWithinBand('COMPLEX', 5)).toBe(false);
+    expect(isCountWithinBand('COMPLEX', 5)).toBe(true);
   });
 
-  it('derives a complexity from count when the model label disagrees', () => {
+  it('preserves destination complexity independently of the displayed count', () => {
     expect(complexityForCount(2)).toBe('SIMPLE');
     expect(complexityForCount(5)).toBe('MODERATE');
     expect(complexityForCount(7)).toBe('COMPLEX');
@@ -57,7 +57,7 @@ describe('complexity → waypoint count rules', () => {
       allowFollowUp: true,
     });
     expect(result.needsMoreContext).toBe(false);
-    if (!result.needsMoreContext) expect(result.complexity).toBe('SIMPLE');
+    if (!result.needsMoreContext) expect(result.complexity).toBe('COMPLEX');
   });
 
   it('keeps a label that fits its count', () => {
@@ -328,7 +328,7 @@ describe('Structured prerequisite foundation compatibility', () => {
     expect(result.analysis?.prerequisites).toEqual(analysis.prerequisites);
   });
 
-  it('normalizes missing index 0 from provider prerequisites without crashing', () => {
+  it('preserves incomplete provider prerequisites so semantic validation can reject them', () => {
     const titles = ['First Milestone', 'Second Milestone', 'Third Milestone'];
     // Providers like gpt-4.1-mini omit index 0 since it has no prior dependencies
     const providerPrerequisites = [
@@ -344,10 +344,20 @@ describe('Structured prerequisite foundation compatibility', () => {
     };
     const result = normalizeGenerationResult(route(titles, { analysis }), { allowFollowUp: false });
     if (result.needsMoreContext) throw new Error('Unexpected clarification');
-    expect(result.analysis?.prerequisites).toHaveLength(3);
-    expect(result.analysis?.prerequisites[0]).toEqual({ waypointIndex: 0, requires: [] });
-    expect(result.analysis?.prerequisites[1]).toEqual({ waypointIndex: 1, requires: [0] });
-    expect(result.analysis?.prerequisites[2]).toEqual({ waypointIndex: 2, requires: [1] });
+    expect(result.analysis?.prerequisites).toEqual(providerPrerequisites);
+  });
+
+  it('rejects duplicate or missing titles in evidenced plans instead of silently dropping rows', () => {
+    const analysis = { startingPointSummary: 'Current state', assumptions: [], firstMilestoneEvidence: 'Supplied resources', difficultyReduction: null, prerequisites: [] };
+    expect(() => normalizeGenerationResult(route(['First state', 'First state', 'Final state'], { analysis }), { allowFollowUp: false })).toThrow(/duplicate_waypoint/);
+    expect(() => normalizeGenerationResult(route(['First state', '', 'Final state'], { analysis }), { allowFollowUp: false })).toThrow(/waypoint_title/);
+  });
+
+  it('rejects malformed numeric waypoints in new evidenced plans instead of changing their progress mode', () => {
+    const analysis = { startingPointSummary: 'Current state', assumptions: [], firstMilestoneEvidence: 'Supplied resources', difficultyReduction: null, prerequisites: [] };
+    const raw = route(['A numeric state', 'Another state'], { analysis });
+    raw.waypoints[0] = waypoint('A numeric state', { metricType: 'numeric', targetValue: null });
+    expect(() => normalizeGenerationResult(raw, { allowFollowUp: false })).toThrow(/numeric_criteria/);
   });
 
   it('resiliently normalizes waypoints with missing or fewer than 3 moves', () => {
