@@ -25,6 +25,7 @@ jest.mock('@/components/v2/chart/panel/ChartStaticMap', () => {
 import React from 'react';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { V2ChartScreen } from '../V2ChartScreen';
+import { ChartSheet } from '@/components/v2/chart/sheet/ChartSheet';
 import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { resetAnchorChartCache } from '@/hooks/v2/chart/useAnchorChart';
@@ -538,8 +539,12 @@ describe('V2ChartScreen — active Chart', () => {
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
     expect(await screen.findByTestId('chart-waypoint-content')).toBeTruthy();
-    // A tap while the open sequence runs only skips it; wait for it to finish.
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 1000)); });
+    // Skia is mocked, so report its drawn-frame handoff explicitly. A tap
+    // while opening only skips the sequence; wait until the panel unlocks.
+    await act(async () => { fireEvent(screen.getByTestId('chart-hero-map'), 'shown'); });
+    await waitFor(() => {
+      expect(screen.UNSAFE_getByType(ChartSheet).props.busy.value).toBe(false);
+    }, { timeout: 3000 });
     // Fog of war: the undiscovered final waypoint is not on the map at all.
     expect(screen.queryByLabelText(/^Waypoint 3/)).toBeNull();
     // Tapping a reached marker shows that waypoint in the panel, read-only, with a way back.
