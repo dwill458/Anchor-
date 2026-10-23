@@ -340,15 +340,84 @@ describe('GeminiImageService', () => {
       service = new GeminiImageService();
       process.env.GEMINI_API_KEY = 'test-gemini-key';
       process.env.OPENAI_API_KEY = 'test-openai-key';
+      delete process.env.ANCHOR2_PRIMARY_PROVIDER;
+      delete process.env.ANCHOR2_FALLBACK_PROVIDER;
+      delete process.env.ANCHOR2_GEMINI_MODEL;
     });
 
     afterEach(() => {
       delete process.env.GEMINI_API_KEY;
       delete process.env.OPENAI_API_KEY;
       delete process.env.ANCHOR2_PRIMARY_PROVIDER;
+      delete process.env.ANCHOR2_FALLBACK_PROVIDER;
+      delete process.env.ANCHOR2_GEMINI_MODEL;
     });
 
-    it('routes Anchor 2.0 styles to OpenAI as primary provider', async () => {
+    it('routes Anchor 2.0 styles to Nano Banana 2.1 as the primary provider', async () => {
+      const openAiSpy = jest.spyOn(service as any, 'generateVariationWithOpenAI');
+      const nanoBananaSpy = jest
+        .spyOn(service as any, 'generateVariationWithNanoBanana')
+        .mockResolvedValue({ base64: 'gemini_b64', seed: 123, variationIndex: 1 });
+
+      const result = await (service as any).generateVariation(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        { modelId: 'gemini-3.1-flash-image-preview', useNanoBanana: true },
+        0,
+        'woven_v2'
+      );
+
+      expect(nanoBananaSpy).toHaveBeenCalledWith(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        expect.objectContaining({ modelId: 'gemini-nano-banana-2.1' }),
+        0,
+        'woven_v2'
+      );
+      expect(openAiSpy).not.toHaveBeenCalled();
+      expect(result.base64).toBe('gemini_b64');
+    });
+
+    it('falls back to OpenAI when Nano Banana 2.1 fails for Anchor 2.0 styles', async () => {
+      const nanoBananaSpy = jest
+        .spyOn(service as any, 'generateVariationWithNanoBanana')
+        .mockRejectedValue(new GeminiError(GeminiErrorType.NETWORK_ERROR, 'Network error', true));
+      const openAiSpy = jest
+        .spyOn(service as any, 'generateVariationWithOpenAI')
+        .mockResolvedValue({ base64: 'openai_backup_b64', seed: 456, variationIndex: 1 });
+
+      const result = await (service as any).generateVariation(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        { modelId: 'gemini-3.1-flash-image-preview', useNanoBanana: true },
+        0,
+        'velvet_ember_v2'
+      );
+
+      expect(nanoBananaSpy).toHaveBeenCalledWith(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        expect.objectContaining({ modelId: 'gemini-nano-banana-2.1' }),
+        0,
+        'velvet_ember_v2'
+      );
+      expect(openAiSpy).toHaveBeenCalledWith(
+        Buffer.from('test'),
+        'test prompt',
+        0,
+        expect.objectContaining({ modelId: 'gemini-nano-banana-2.1' }),
+        'velvet_ember_v2',
+        2
+      );
+      expect(result.base64).toBe('openai_backup_b64');
+    });
+
+    it('keeps OpenAI as primary when explicitly configured for Anchor 2.0', async () => {
+      process.env.ANCHOR2_PRIMARY_PROVIDER = 'openai';
       const openAiSpy = jest
         .spyOn(service as any, 'generateVariationWithOpenAI')
         .mockResolvedValue({ base64: 'openai_b64', seed: 123, variationIndex: 1 });
@@ -363,45 +432,9 @@ describe('GeminiImageService', () => {
         'woven_v2'
       );
 
-      expect(openAiSpy).toHaveBeenCalledWith(
-        Buffer.from('test'),
-        'test prompt',
-        0,
-        expect.anything(),
-        'woven_v2',
-        1
-      );
+      expect(openAiSpy).toHaveBeenCalledTimes(1);
       expect(nanoBananaSpy).not.toHaveBeenCalled();
       expect(result.base64).toBe('openai_b64');
-    });
-
-    it('falls back to Gemini (Nano Banana) backup when OpenAI fails for Anchor 2.0 styles', async () => {
-      const openAiSpy = jest
-        .spyOn(service as any, 'generateVariationWithOpenAI')
-        .mockRejectedValue(new Error('OpenAI rate limit 429'));
-      const nanoBananaSpy = jest
-        .spyOn(service as any, 'generateVariationWithNanoBanana')
-        .mockResolvedValue({ base64: 'gemini_backup_b64', seed: 456, variationIndex: 1 });
-
-      const result = await (service as any).generateVariation(
-        Buffer.from('test'),
-        'test prompt',
-        0,
-        { modelId: 'gemini-3.1-flash-image-preview', useNanoBanana: true },
-        0,
-        'velvet_ember_v2'
-      );
-
-      expect(openAiSpy).toHaveBeenCalledTimes(1);
-      expect(nanoBananaSpy).toHaveBeenCalledWith(
-        Buffer.from('test'),
-        'test prompt',
-        0,
-        expect.anything(),
-        0,
-        'velvet_ember_v2'
-      );
-      expect(result.base64).toBe('gemini_backup_b64');
     });
 
     it('leaves Anchor 1.5 styles on Gemini as primary provider', async () => {
