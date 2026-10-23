@@ -26,14 +26,14 @@ describe('registry parity with the server', () => {
 
   it('defines exactly the milestone ids the server can award', () => {
     const source = fs.readFileSync(serverFile, 'utf8');
-    const serverIds = [...source.matchAll(/\{ id: '([a-z0-9.]+)', family:/g)].map((m) => m[1]);
+    const serverIds = [...source.matchAll(/\{\s*id:\s*'([a-z0-9.]+)',\s*family:/g)].map((m) => m[1]);
     expect(serverIds.length).toBeGreaterThan(0);
     expect(MILESTONE_SPECS.map((s) => s.id).sort()).toEqual([...serverIds].sort());
   });
 
   it('agrees with the server on each milestone family', () => {
     const source = fs.readFileSync(serverFile, 'utf8');
-    for (const [, id, family] of source.matchAll(/\{ id: '([a-z0-9.]+)', family: '(\w+)'/g)) {
+    for (const [, id, family] of source.matchAll(/\{\s*id:\s*'([a-z0-9.]+)',\s*family:\s*'(\w+)'/g)) {
       expect(getMilestoneSpec(id)?.family).toBe(family);
     }
   });
