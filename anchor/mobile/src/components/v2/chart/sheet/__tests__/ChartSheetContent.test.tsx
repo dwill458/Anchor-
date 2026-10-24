@@ -38,12 +38,12 @@ it('prioritises commit over day closed over One Move and keeps the header intrin
   expect(current.getAllByTestId('chart-one-move-row')).toHaveLength(1);
 });
 
-it('replays teaching from the eyebrow and keeps the row count as short text', () => {
+it('replays teaching from the eyebrow and shows no invented per-move count', () => {
   const replay = jest.fn();
   const screen = setup({ onReplayTeaching: replay });
   fireEvent.press(screen.getByLabelText('Replay move teaching'));
   expect(replay).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('0 of 1 done')).toBeTruthy();
+  expect(screen.queryByText('0 of 1 done')).toBeNull();
 });
 it('keeps the expanded One Move instance and its detail mounted while the sheet changes detent', () => {
   let sheetRef: React.RefObject<ChartSheetHandle | null> | null = null;

@@ -21,6 +21,8 @@ export interface EnvConfig {
   ENABLE_VISUALIZE: boolean;
   ENABLE_CHART: boolean;
   ENABLE_CHART_WRITE: boolean;
+  /** Weekly Insight 2.0 (server-authoritative global recap). Default off; the legacy screen stays live until verified. */
+  ENABLE_WEEKLY_RECAP_V2: boolean;
   ENABLE_CHART_AI_PLANNER: boolean;
   ENABLE_CHART_REFLECTIONS: boolean;
   ENABLE_CHART_NOTIFICATIONS: boolean;
@@ -369,6 +371,11 @@ export function validateEnv(): EnvConfig {
       ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),
       // Chart is deliberately default-off until Workstream G enables it.
       ENABLE_CHART: validateBoolean('ENABLE_CHART', process.env.ENABLE_CHART, false),
+      ENABLE_WEEKLY_RECAP_V2: validateBoolean(
+        'ENABLE_WEEKLY_RECAP_V2',
+        process.env.ENABLE_WEEKLY_RECAP_V2,
+        false
+      ),
       ENABLE_CHART_WRITE: validateBoolean(
         'ENABLE_CHART_WRITE',
         process.env.ENABLE_CHART_WRITE,

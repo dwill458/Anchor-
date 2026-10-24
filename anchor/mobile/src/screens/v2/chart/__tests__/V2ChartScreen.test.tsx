@@ -362,7 +362,7 @@ describe('V2ChartScreen — no Chart', () => {
     // The route and the One Move are different things: four numbered waypoints, then a separate move for waypoint 1.
     expect(screen.getByText('YOUR ROUTE')).toBeTruthy();
     expect(screen.getByText('4 waypoints')).toBeTruthy();
-    expect(screen.getByText('YOUR FIRST MOVE THIS WEEK')).toBeTruthy();
+    expect(screen.getByText('YOUR NEXT MOVE')).toBeTruthy();
     expect(screen.getByTestId('chart-review-one-move-card')).toBeTruthy();
 
     // The existing planner receives exactly what the conversation produced.

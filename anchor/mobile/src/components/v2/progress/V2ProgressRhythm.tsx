@@ -7,6 +7,7 @@ import type {
   V2ProgressModel,
   V2ProgressRange,
 } from '@/adapters/v2/progress/types';
+import { V2ProgressWeekCard } from './V2ProgressWeek';
 import { progressTokens } from './progressTokens';
 
 export interface V2ProgressRhythmProps {
@@ -27,9 +28,6 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
 const LEVEL_ALPHA = [0.05, 0.18, 0.42, 1] as const;
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
-/** Tallest bar, in dp: the 128dp column less the value and day-letter rows. */
-const BAR_AREA = 84;
-
 const dayOfMonth = (dateKey: string) => Number(dateKey.slice(8, 10));
 const monthIndex = (dateKey: string) => Number(dateKey.slice(5, 7)) - 1;
 const shortDate = (dateKey: string) => `${MONTH_NAMES[monthIndex(dateKey)]} ${dayOfMonth(dateKey)}`;
@@ -39,34 +37,6 @@ function chunk<T>(items: T[], size: number): T[][] {
   for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
   return rows;
 }
-
-const WeekBars: React.FC<{ cells: V2ProgressDayCell[]; testID: string }> = ({ cells, testID }) => {
-  const max = Math.max(1, ...cells.map((c) => c.minutes));
-  return (
-    <View style={styles.bars} testID={`${testID}-week`}>
-      {cells.map((cell, index) => (
-        <View
-          key={cell.dateKey}
-          style={styles.barCol}
-          accessible
-          accessibilityLabel={`${DAY_LETTERS[index]}: ${cell.minutes} minutes`}
-        >
-          <Text style={styles.barValue}>{cell.minutes > 0 ? cell.minutes : ''}</Text>
-          <View
-            style={[
-              styles.bar,
-              cell.minutes > 0
-                ? { height: Math.max(8, (cell.minutes / max) * BAR_AREA), backgroundColor: colors.ink.base }
-                : styles.barEmpty,
-              cell.isToday && styles.todayOutline,
-            ]}
-          />
-          <Text style={styles.barLabel}>{DAY_LETTERS[index]}</Text>
-        </View>
-      ))}
-    </View>
-  );
-};
 
 const MonthGrid: React.FC<{ cells: V2ProgressDayCell[]; testID: string }> = ({ cells, testID }) => {
   const rows = chunk(cells, 7);
@@ -158,7 +128,7 @@ const YearGrid: React.FC<{ cells: V2ProgressDayCell[]; testID: string }> = ({ ce
 
 /**
  * Rhythm: practices, minutes and active days from sessions the user actually
- * completed, drawn as bars (week), a calendar (month) or a contribution grid
+ * completed, drawn as practice marks (week), a calendar (month) or a contribution grid
  * (year). Descriptive only: nothing here is a target.
  */
 export const V2ProgressRhythm: React.FC<V2ProgressRhythmProps> = ({
@@ -188,6 +158,9 @@ export const V2ProgressRhythm: React.FC<V2ProgressRhythmProps> = ({
         accessibilityLabel="Rhythm range"
       />
 
+      {range === 'Week' && model.week ? <V2ProgressWeekCard week={model.week} streak={model.streak} longestRhythm={model.rhythm?.Year.bestRun} embedded testID={`${testID}-week`} /> : null}
+      {range === 'Month' ? <MonthGrid cells={cells} testID={testID} /> : null}
+      {range === 'Year' ? <YearGrid cells={cells} testID={testID} /> : null}
       <View style={styles.stats}>
         {statRow.map(([value, label], index) => (
           <View key={label} style={[styles.stat, index > 0 && styles.statDivider]}>
@@ -197,9 +170,6 @@ export const V2ProgressRhythm: React.FC<V2ProgressRhythmProps> = ({
         ))}
       </View>
 
-      {range === 'Week' ? <WeekBars cells={cells} testID={testID} /> : null}
-      {range === 'Month' ? <MonthGrid cells={cells} testID={testID} /> : null}
-      {range === 'Year' ? <YearGrid cells={cells} testID={testID} /> : null}
 
     </View>
   );
@@ -213,24 +183,17 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     padding: 16,
   },
-  stats: { flexDirection: 'row', marginTop: 14, marginBottom: 14 },
-  stat: { flex: 1, alignItems: 'center', paddingVertical: 2 },
+  stats: { flexDirection: 'row', marginTop: 10, marginBottom: 0 },
+  stat: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 2 },
   statDivider: { borderLeftWidth: 1, borderLeftColor: progressTokens.hairline },
-  statValue: { fontFamily: progressTokens.serif, fontSize: 26, lineHeight: 29, letterSpacing: -0.26, color: progressTokens.text },
-  statLabel: { ...typography.labelSM, fontSize: 10, letterSpacing: 1, color: progressTokens.muted, marginTop: 2 },
+  statValue: { fontFamily: progressTokens.serif, fontSize: 22, lineHeight: 26, letterSpacing: -0.26, color: progressTokens.text },
+  statLabel: { textAlign: 'center', ...typography.labelSM, fontSize: 10, letterSpacing: 1, color: progressTokens.muted, marginTop: 2 },
   todayOutline: { borderWidth: 1.5, borderColor: progressTokens.gold },
   todayOutlineThin: { borderWidth: 1, borderColor: progressTokens.gold },
 
-  bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 128, gap: 8 },
-  barCol: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
-  barValue: { ...typography.caption, fontSize: 11, color: progressTokens.text, minHeight: 14 },
-  bar: { width: '100%', borderTopLeftRadius: 8, borderTopRightRadius: 8, borderBottomLeftRadius: 3, borderBottomRightRadius: 3, minHeight: 4 },
-  barEmpty: { height: 4, backgroundColor: progressTokens.inkWash(0.1) },
-  barLabel: { ...typography.labelMD, fontSize: 10, color: progressTokens.muted },
-
-  calHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  calHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, marginTop: 10 },
   calRange: { fontFamily: progressTokens.serif, fontSize: 17, lineHeight: 21, color: progressTokens.text },
-  calRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
+  calRow: { flexDirection: 'row', gap: 4, marginBottom: 4 },
   calDayLetter: { flex: 1, textAlign: 'center', ...typography.labelMD, fontSize: 10, color: progressTokens.muted },
   calCell: { flex: 1, aspectRatio: 1, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   calNumber: { ...typography.caption, fontSize: 11, color: progressTokens.inkWash(0.55) },

@@ -25,10 +25,11 @@ export function useVisionPresentation(visionId: string | null | undefined, tiles
 
   const stored = useMemo<VisionSlotAssignments>(() => {
     const merged: Record<string, number> = {};
-    // Server values supersede stale device records after a change on another device.
+    // Server values supersede stale device records after a change on another device,
+    // unless this device's arrangement has not reached the server yet: then it wins.
     for (const tile of tiles) if (typeof tile.slotIndex === 'number') merged[tile.sceneId] = tile.slotIndex;
-    return { ...(entry?.slots ?? {}), ...merged };
-  }, [entry?.slots, tiles]);
+    return entry?.unsynced ? { ...merged, ...(entry.slots ?? {}) } : { ...(entry?.slots ?? {}), ...merged };
+  }, [entry?.slots, entry?.unsynced, tiles]);
   const ids = useMemo(() => tiles.map(tile => tile.sceneId), [tiles]);
   const slotMap = useMemo(() => resolveSlotMap(ids, stored), [ids, stored]);
   const assignments = useMemo(() => assignmentsFromMap(slotMap), [slotMap]);
@@ -67,5 +68,8 @@ export function useVisionPresentation(visionId: string | null | undefined, tiles
     setFocalInStore(visionId, sceneId, focal);
   }, [visionId, tiles, entry?.focals, setFocalInStore]);
 
-  return { slotMap, assignments, focals, commitSlotMap, setFocal, hydrated };
+  const setUnsyncedInStore = useVisionPresentationStore(state => state.setUnsynced);
+  const setUnsynced = useCallback((value: boolean) => { if (visionId) setUnsyncedInStore(visionId, value); }, [visionId, setUnsyncedInStore]);
+
+  return { slotMap, assignments, focals, commitSlotMap, setFocal, hydrated, unsynced: Boolean(entry?.unsynced), setUnsynced };
 }

@@ -41,7 +41,6 @@ export const V2CommitmentSection: React.FC<V2CommitmentSectionProps> = ({
     <View style={styles.container} testID={testID}>
       <View style={styles.header}>
         <Text style={styles.heading}>YOUR COMMITMENT</Text>
-        <Text style={styles.subtitle}>An honest record of the days you showed up.</Text>
       </View>
 
       {model.unmeasured ? (
@@ -52,28 +51,25 @@ export const V2CommitmentSection: React.FC<V2CommitmentSectionProps> = ({
         />
       ) : (
         <>
-          {model.week ? (
-            <View ref={weekRef} collapsable={false}>
-              <V2ProgressWeekCard
-                week={model.week}
-                streak={model.streak}
-                longestRhythm={model.rhythm?.Year.bestRun}
-                testID={`${testID}-week`}
-              />
-            </View>
-          ) : null}
           {model.rhythm && model.heatmap ? (
-            <View ref={rhythmRef} collapsable={false}>
-              <V2ProgressRhythm
-                model={model}
-                range={range}
-                onRangeChange={onRangeChange}
-                onRangeMotionChange={onRangeMotionChange}
-                testID={`${testID}-rhythm`}
-              />
+            <View ref={weekRef} collapsable={false}>
+              <View ref={rhythmRef} collapsable={false}>
+                <V2ProgressRhythm
+                  model={model}
+                  range={range}
+                  onRangeChange={onRangeChange}
+                  onRangeMotionChange={onRangeMotionChange}
+                  testID={`${testID}-rhythm`}
+                />
+              </View>
             </View>
           ) : null}
 
+          {model.week && !(model.rhythm && model.heatmap) ? (
+            <View ref={weekRef} collapsable={false}>
+              <V2ProgressWeekCard week={model.week} streak={model.streak} testID={`${testID}-week`} />
+            </View>
+          ) : null}
           <Pressable
             onPress={() => setInsightsOpen((open) => !open)}
             accessibilityRole="button"
@@ -96,10 +92,9 @@ export const V2CommitmentSection: React.FC<V2CommitmentSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { gap: 12 },
+  container: { gap: 8 },
   header: { gap: 2 },
   heading: { ...typography.labelSM, fontSize: 11, letterSpacing: 1.6, color: progressTokens.text },
-  subtitle: { ...typography.bodySM, color: progressTokens.muted },
   insightsToggle: {
     flexDirection: 'row',
     alignItems: 'center',

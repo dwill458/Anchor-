@@ -37,7 +37,7 @@ jest.mock('../../sheet/ChartOneMoveTeaching', () => {
       React.useEffect(() => { setBeat(0); }, [replayVersion]);
       React.useEffect(() => { if (visible) onReady(); }, [onReady, visible]);
       if (!visible) return null;
-      const titles = ['This is your one move.', 'The circle is for done.', 'The words open the whole move.'];
+      const titles = ['This is your next move.', 'The circle is for done.', 'The words open the whole move.'];
       return React.createElement(View, { testID: 'chart-one-move-teaching' },
         React.createElement(Text, null, titles[beat]),
         React.createElement(Pressable, { onPress: () => beat === 2 ? onDismiss() : setBeat(beat + 1) }, React.createElement(Text, null, beat === 2 ? 'Got it' : 'Next')));
@@ -194,9 +194,9 @@ describe('ChartActiveView — treasure map composition', () => {
     expect(first.queryByTestId('chart-one-move-teaching-measure')).toBeNull();
     await settle(1400);
     await waitFor(() => expect(first.queryByTestId('chart-one-move-teaching-measure') ?? first.queryByTestId('chart-one-move-teaching')).toBeTruthy(), { timeout: 2500 });
-    await waitFor(() => expect(first.getByText('This is your one move.')).toBeTruthy(), { timeout: 2500 });
+    await waitFor(() => expect(first.getByText('This is your next move.')).toBeTruthy(), { timeout: 2500 });
     fireEvent.press(first.getByLabelText('Replay move teaching'));
-    await waitFor(() => expect(first.getByText('This is your one move.')).toBeTruthy());
+    await waitFor(() => expect(first.getByText('This is your next move.')).toBeTruthy());
     fireEvent.press(first.getByText('Next'));
     expect(first.getByText('The circle is for done.')).toBeTruthy();
     fireEvent.press(first.getByText('Next'));

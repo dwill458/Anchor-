@@ -217,7 +217,7 @@ export function VisionExportTemplate({ data, width, showMark, visionBackgroundId
       </View> : null}
       {auxiliaryAssets.filter(asset => !asset.id.startsWith('bg:')).map(asset => <Image key={asset.id} source={asset.source} fadeDuration={0} onLoad={() => markAssetReady(asset.id)} onError={() => markAssetFailed(asset.id)}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }} />)}
-      {showMark ? <ShareBrandMark width={VISION_CANVAS_WIDTH} ground={bg.tone === 'dark' ? 'dark' : 'light'} /> : null}
+      {showMark ? <ShareBrandMark width={VISION_CANVAS_WIDTH} ground={bg.tone === 'dark' ? 'dark' : 'light'} opacity={1} /> : null}
       </View>
     </ShareCanvas>
   );

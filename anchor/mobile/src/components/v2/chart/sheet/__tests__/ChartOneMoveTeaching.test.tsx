@@ -36,7 +36,7 @@ it('mounts a measurement root before the target can be measured, then announces 
   expect(measureRoot).toBeTruthy();
   fireEvent(measureRoot, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
   await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy());
-  expect(screen.getByText('This is your one move.')).toBeTruthy();
+  expect(screen.getByText('This is your next move.')).toBeTruthy();
   fireEvent.press(screen.getByText('Next'));
   await waitFor(() => expect(screen.getByText('The circle is for done.')).toBeTruthy());
 });

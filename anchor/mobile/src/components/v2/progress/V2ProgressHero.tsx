@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { getCategoryColor, typography } from '@/theme/v2';
 import { formatProgressDate, getProgressVerdict } from '@/adapters/v2/progress/progressAdapter';
@@ -11,6 +11,8 @@ import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchor
 import { useAuraStrength } from '@/stores/devThreadStrengthStore';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
+import { V2_EVOLUTION_MILESTONES } from '@/constants/v2/threadEvents';
+import { ThreadStrengthSheet } from '@/components/ThreadStrengthSheet';
 import { progressTokens } from './progressTokens';
 
 export interface V2ProgressHeroProps {
@@ -21,18 +23,12 @@ export interface V2ProgressHeroProps {
   testID?: string;
 }
 
-const MIN_ARTWORK = 190;
-const MAX_ARTWORK = 256;
-
-/**
- * Anchor artwork size: about 230–260dp on a typical phone, easing down on short screens so the
- * hero stays near 40–45% of the viewport once the header and stats are added.
- */
-export function heroArtworkSize(windowWidth: number, windowHeight: number): number {
-  const byWidth = windowWidth * 0.64;
-  const byHeight = windowHeight * 0.3;
-  return Math.round(Math.max(MIN_ARTWORK, Math.min(MAX_ARTWORK, byWidth, byHeight)));
+/** Compact artwork retains room for the real aura without dominating the viewport. */
+export function heroArtworkSize(windowWidth: number, _windowHeight: number): number {
+  return Math.round(Math.max(100, Math.min(120, windowWidth * 0.28)));
 }
+
+const LEVELS = [{ value: 0, label: 'Surface' }, ...Object.entries(V2_EVOLUTION_MILESTONES).map(([value, label]) => ({ value: Number(value), label }))];
 
 export interface HeroStat {
   key: 'days' | 'time' | 'waypoints' | 'practices';
@@ -60,13 +56,15 @@ export function heroStats(model: V2ProgressModel): HeroStat[] {
 }
 
 /**
- * The dark half of Progress: this Anchor large, with the existing Thread Strength glow as the only
- * strength visual, its number and level, a personal line and three lifetime figures.
+ * The compact navy hero retains real artwork, aura, score, progression and lifetime figures.
  */
 export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, now, testID = 'v2-progress-hero' }) => {
-  const { intention, category, threadStrength, unmeasured, highestEvolutionStage } = model;
+  const { intention, category, threadStrength, unmeasured } = model;
   const currentAnchor = anchor ?? model.anchor;
+  const [explanationOpen, setExplanationOpen] = React.useState(false);
+  const level = [...LEVELS].reverse().find(item => threadStrength !== null && threadStrength >= item.value);
   const { width, height } = useWindowDimensions();
+  React.useEffect(() => setExplanationOpen(false), [model.anchorId]);
   const artworkSize = heroArtworkSize(width, height);
   // Null strength draws no glow, so a zero-strength Anchor never shows artificial strength.
   const glow = useAuraStrength(unmeasured ? null : threadStrength);
@@ -92,7 +90,7 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
       : verdict;
 
   return (
-    <View style={styles.container} testID={testID} accessible accessibilityRole="header">
+    <View style={styles.container} testID={testID}>
       <Animated.View style={[styles.titleBlock, titleReveal]}>
         {category ? (
           <View style={styles.categoryRow}>
@@ -100,57 +98,77 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
             <Text style={styles.eyebrow}>{categoryLabel(category).toUpperCase()}</Text>
           </View>
         ) : null}
-        <Text style={styles.intention} numberOfLines={3}>
+        <Text style={styles.intention}>
           {intention}
         </Text>
       </Animated.View>
 
-      <Animated.View style={[styles.art, { height: artworkSize + 16 }, artReveal]}>
-        {hasVisualArt && currentAnchor ? (
-          <View
-            ref={place.ref}
-            collapsable={false}
-            onLayout={place.onLayout}
-            style={[{ width: artworkSize, height: artworkSize }, place.hidden && styles.artworkHidden]}
-          >
-            <CircularAnchorRenderer
-              {...anchorRenderProps(currentAnchor)}
-              size={artworkSize}
-              appearance="bare"
-              aura={{ anchorId: `${currentAnchor.id}${glow.keySuffix}`, threadStrength: glow.strength, variant: 'details', active: true, reducedMotion: reduceMotion }}
-              accessibilityLabel={`${categoryLabel(category)} Anchor artwork`}
-              testID={`${testID}-artwork`}
-            />
-          </View>
-        ) : null}
-      </Animated.View>
-
-      <Animated.View style={[styles.strengthBlock, copyReveal]}>
-        {!unmeasured && threadStrength !== null ? (
-          <>
-            <Text style={styles.strengthNumber} testID={`${testID}-strength`}>
-              {threadStrength}
-            </Text>
-            <Text style={styles.eyebrow}>THREAD STRENGTH</Text>
-            <View style={styles.levelPill} testID={`${testID}-level`}>
-              <Text style={styles.levelText}>{highestEvolutionStage.toUpperCase()}</Text>
+      <View style={styles.heroRow}>
+        <Animated.View style={[styles.art, { height: artworkSize + 16 }, artReveal]}>
+          {hasVisualArt && currentAnchor ? (
+            <View
+              ref={place.ref}
+              collapsable={false}
+              onLayout={place.onLayout}
+              style={[{ width: artworkSize, height: artworkSize }, place.hidden && styles.artworkHidden]}
+            >
+              <CircularAnchorRenderer
+                {...anchorRenderProps(currentAnchor)}
+                size={artworkSize}
+                appearance="bare"
+                aura={{ anchorId: `${currentAnchor.id}${glow.keySuffix}`, threadStrength: glow.strength, variant: 'details', active: true, reducedMotion: reduceMotion }}
+                accessibilityLabel={`${categoryLabel(category)} Anchor artwork`}
+                testID={`${testID}-artwork`}
+              />
             </View>
-          </>
-        ) : null}
+          ) : null}
+        </Animated.View>
+
+        <Animated.View style={[styles.strengthBlock, copyReveal]}>
+          {!unmeasured && threadStrength !== null ? (
+            <>
+              <Pressable onPress={() => setExplanationOpen(true)} accessibilityRole="button" accessibilityLabel="Explain Thread Strength" style={styles.explain} testID={`${testID}-explain`}>
+                <Text style={styles.eyebrow}>THREAD STRENGTH</Text>
+              </Pressable>
+              <View style={styles.scoreRow}>
+                <Text style={styles.strengthNumber} testID={`${testID}-strength`}>
+                  {threadStrength}
+                </Text>
+                <View style={styles.levelPill} testID={`${testID}-level`}>
+                  <Text style={styles.levelText}>{level?.label.toUpperCase()}</Text>
+                </View>
+              </View>
+              <Text style={styles.support}>7-day change unavailable</Text>
+            </>
+          ) : null}
+        </Animated.View>
+
+      </View>
+      <Animated.View style={copyReveal}>
         <Text style={styles.headline} testID={`${testID}-message`}>{message.headline}</Text>
-        {message.support ? <Text style={styles.support}>{message.support}</Text> : null}
+        {unmeasured && message.support ? <Text style={styles.support}>{message.support}</Text> : null}
         {fullStrengthFact ? (
           <Text style={[styles.support, styles.fact]} testID={`${testID}-full-strength`}>
             {fullStrengthFact}
           </Text>
         ) : null}
       </Animated.View>
-
+      {!unmeasured && threadStrength !== null ? (
+        <View style={styles.levels} accessibilityLabel={`Current level ${level?.label}`}>
+          {LEVELS.map(item => (
+            <View key={item.value} style={styles.levelStep}>
+              <View style={[styles.levelTrack, threadStrength >= item.value && styles.levelReached]} />
+              <Text style={[styles.levelLabel, level?.value === item.value && styles.levelActive]}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {explanationOpen ? <ThreadStrengthSheet visible onClose={() => setExplanationOpen(false)} anchorId={model.anchorId} /> : null}
       <Animated.View style={[styles.stats, statsReveal]} testID={`${testID}-stats`}>
         {stats.map((stat, index) => (
           <View key={stat.key} style={[styles.stat, index > 0 && styles.statDivider]} testID={`${testID}-stat-${stat.key}`}>
             <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel} numberOfLines={1}>
+            <Text style={styles.statLabel}>
               {stat.label}
             </Text>
           </View>
@@ -161,8 +179,8 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
 };
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 22, paddingBottom: 20 },
-  titleBlock: { alignItems: 'center' },
+  container: { paddingHorizontal: 18, paddingBottom: 14 },
+  titleBlock: { alignItems: 'flex-start', marginBottom: 6 },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 2 },
   categoryDot: { width: 7, height: 7, borderRadius: 3.5 },
   eyebrow: {
@@ -173,18 +191,27 @@ const styles = StyleSheet.create({
   },
   intention: {
     fontFamily: progressTokens.serif,
-    fontSize: 24,
-    lineHeight: 29,
+    fontSize: 20,
+    lineHeight: 24,
     letterSpacing: -0.24,
     color: progressTokens.heroText,
-    textAlign: 'center',
-    marginTop: 6,
+    textAlign: 'left',
+    marginTop: 2,
   },
   // Room for the aura, which spills past the artwork; nothing here clips it.
-  art: { alignItems: 'center', justifyContent: 'center', marginTop: 10, overflow: 'visible' },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  art: { alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
   // Hidden in place (never unmounted) while the travelling copy stands in for it.
   artworkHidden: { opacity: 0 },
-  strengthBlock: { alignItems: 'center', marginTop: 4 },
+  strengthBlock: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
+  scoreRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  explain: { minHeight: 44, justifyContent: 'center' },
+  levels: { flexDirection: 'row', gap: 4, marginTop: 8 },
+  levelStep: { flex: 1, minWidth: 0 },
+  levelTrack: { height: 4, borderRadius: 2, backgroundColor: progressTokens.heroTrack, marginBottom: 5 },
+  levelReached: { backgroundColor: progressTokens.gold },
+  levelLabel: { ...typography.caption, fontSize: 9, color: progressTokens.heroMuted, textAlign: 'center' },
+  levelActive: { color: progressTokens.gold },
   strengthNumber: {
     fontFamily: progressTokens.serif,
     fontSize: 40,
@@ -192,9 +219,9 @@ const styles = StyleSheet.create({
     color: progressTokens.heroText,
   },
   levelPill: {
-    marginTop: 8,
-    marginBottom: 10,
-    paddingHorizontal: 14,
+    flexShrink: 1,
+    maxWidth: '100%',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
@@ -204,22 +231,23 @@ const styles = StyleSheet.create({
   headline: {
     ...typography.bodySM,
     color: progressTokens.heroText,
-    textAlign: 'center',
+    textAlign: 'left',
+    marginTop: 4,
     lineHeight: 18,
   },
-  support: { ...typography.bodySM, color: progressTokens.heroMuted, lineHeight: 18, textAlign: 'center' },
+  support: { ...typography.bodySM, color: progressTokens.heroMuted, lineHeight: 18, textAlign: 'left' },
   fact: { marginTop: 6 },
   stats: {
     flexDirection: 'row',
-    marginTop: 16,
-    paddingVertical: 12,
+    marginTop: 12,
+    paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: progressTokens.heroHairline,
     backgroundColor: progressTokens.heroTrack,
   },
-  stat: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
+  stat: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 4 },
   statDivider: { borderLeftWidth: 1, borderLeftColor: progressTokens.heroHairline },
   statValue: { fontFamily: progressTokens.serif, fontSize: 20, lineHeight: 24, color: progressTokens.heroText },
-  statLabel: { ...typography.caption, fontSize: 10.5, color: progressTokens.heroMuted, marginTop: 2 },
+  statLabel: { textAlign: 'center', ...typography.caption, fontSize: 10.5, color: progressTokens.heroMuted, marginTop: 2 },
 });

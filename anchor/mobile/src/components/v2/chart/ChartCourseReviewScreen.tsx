@@ -98,7 +98,7 @@ export function ChartCourseReviewScreen({
           <View style={styles.oneMoveHeader}>
             <View style={styles.oneMoveLabel}>
               <Text style={styles.sparkle}>✦</Text>
-              <Text style={styles.oneMoveEyebrow}>YOUR FIRST MOVE THIS WEEK</Text>
+              <Text style={styles.oneMoveEyebrow}>YOUR NEXT MOVE</Text>
             </View>
             <View style={styles.oneMoveFor}>
               <Text style={styles.oneMoveForText}>FOR WAYPOINT {waypointNumber}</Text>

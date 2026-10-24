@@ -272,10 +272,12 @@ export function V2SavedVision({
     focals: Object.fromEntries(Object.entries({...presentation.focals,...localFocals}).filter((entry):entry is [string,VisionFocal]=>entry[1]!==null)),
     onArrange: map => {
       if(onSaveSlots){
-        setLocalSlots(map);
+        // Local first: the arrangement is kept on this device immediately and never rolled back by a server failure.
+        presentation.commitSlotMap(map);
+        presentation.setUnsynced(true);
         void onSaveSlots(map.flatMap((sceneId,slotIndex)=>sceneId?[{sceneId,slotIndex}]:[])).then(success=>{
-          if(success)presentation.commitSlotMap(map);else setNotice("Couldn't save that move. It's back as it was.");
-        }).catch(()=>setNotice("Couldn't save that move. It's back as it was.")).finally(()=>setLocalSlots(null));
+          if(success)presentation.setUnsynced(false);else setNotice("Saved on this device. It will sync when the server is reachable.");
+        }).catch(()=>setNotice("Saved on this device. It will sync when the server is reachable."));
       }else{
         presentation.commitSlotMap(map);
         map.forEach((id,slot)=>{if(id&&presentation.slotMap[slot]!==id)onSyncPresentation?.(id,{slotIndex:slot});});
@@ -288,7 +290,7 @@ export function V2SavedVision({
       void Promise.resolve(saved).then(success=>{if(success!==false)presentation.setFocal(sceneId,focal);else setNotice("Couldn't save that crop. It's back as it was.");})
         .catch(()=>setNotice("Couldn't save that crop. It's back as it was.")).finally(()=>setLocalFocals(previous=>{const next={...previous};delete next[sceneId];return next;}));
     },
-  } : undefined,[visionId,localSlots,localFocals,presentation.slotMap,presentation.focals,presentation.commitSlotMap,presentation.setFocal,onSaveSlots,onSyncPresentation]);
+  } : undefined,[visionId,localSlots,localFocals,presentation.slotMap,presentation.focals,presentation.commitSlotMap,presentation.setUnsynced,presentation.setFocal,onSaveSlots,onSyncPresentation]);
   const reorderRef = useRef<(sceneIds: string[]) => void>(() => undefined);
 
   const reorder = useCallback((sceneIds: string[]) => {

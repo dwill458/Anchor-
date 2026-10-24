@@ -11,17 +11,20 @@ export const CHART_COPY = {
   sheet: {
     expand: 'Expand panel', collapse: 'Collapse panel',
     helpMeMoveForward: 'Help me move forward', openAnchor: 'Open your Anchor',
+    yourAnchor: 'YOUR ANCHOR', keepStrong: 'Keep your intention strong', practicedToday: 'Practiced today', threadStrength: 'Thread Strength',
     eyebrow: 'Waypoint {n} of {N} · {state}',
     stateCurrent: 'Current', stateReached: 'Reached', stateUpcoming: 'Upcoming',
     routeHeading: 'Your route', reachedOn: 'Reached {date}', backTo: 'Back to waypoint {n}',
     teachingHelp: 'Replay move teaching',
-    oneMove: 'One move this week',
+    oneMove: 'Your next move',
     moveCount: '{done} of {total} done',
     readAll: 'Tap to read it all',
     showLess: 'Show less',
     whyThisMove: 'Why this move',
     doneMeans: 'Done means',
     toward: 'Toward',
+    waypointReachedWhen: 'This waypoint is reached when',
+    viewRoute: 'View your route',
     helperIncomplete: "Tap the circle when it's done. Tap the words to see the detail.",
     moveDoneToast: 'Move done. Your route is holding.',
     completeMove: 'Mark this move done',
@@ -33,8 +36,8 @@ export const CHART_COPY = {
     oneMove: {
       beats: [
         {
-          title: 'This is your one move.',
-          body: 'Each waypoint has one small thing to do this week. It is the only thing that moves your route forward.',
+          title: 'This is your next move.',
+          body: 'Each waypoint has a next move: one small, real step you can take now. Finish it at your own pace, and the next one is ready.',
         },
         {
           title: 'The circle is for done.',
@@ -135,6 +138,14 @@ export const CHART_COPY = {
     youSaid: 'You',
     subtitle: (intention: string) => `Your ${intention}`,
     messages: 'Conversation',
+    startersLabel: 'Ask for help with',
+    starters: {
+      breakDown: 'Break this move down',
+      planWeek: 'Plan my week',
+      anotherWay: 'Find another way',
+      question: 'Ask a question',
+    },
+    contextLine: (waypoint: string, move: string | null) => (move ? `${waypoint} · ${move}` : waypoint),
   },
   followUp: {
     headline: 'One more thing.',
@@ -169,7 +180,7 @@ export const CHART_COPY = {
     routeLabel: 'YOUR ROUTE',
     destinationLabel: 'DESTINATION',
     oneMoveLabel: 'ONE MOVE',
-    oneMoveFor: (waypointTitle: string) => `Something you can do this week toward ${waypointTitle ? `“${waypointTitle}”` : 'your first waypoint'}.`,
+    oneMoveFor: (waypointTitle: string) => `A small, real step you can take now toward ${waypointTitle ? `“${waypointTitle}”` : 'your first waypoint'}.`,
     oneMoveHint: 'Your first move',
   },
   revealed: {

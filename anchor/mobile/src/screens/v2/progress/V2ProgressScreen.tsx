@@ -28,7 +28,6 @@ import {
   V2JourneySection,
   V2CommitmentSection,
   V2MilestoneShelf,
-  V2ProgressWeeklyInsight,
   V2ProgressAnchorSheet,
   V2ThreadEventTimeline,
   V2ThreadEventDetailSheet,
@@ -57,7 +56,7 @@ export interface V2ProgressScreenProps {
   onNavigateToMilestones?: (anchorId: string) => void;
   /** Opens one milestone's detail (and its replay). */
   onNavigateToMilestone?: (anchorId: string, definitionId: string) => void;
-  /** Opens the full Weekly Insight. Without it the insight card is read-only. */
+  /** Retained host contract; account-level Weekly Insight is no longer presented here. */
   onNavigateToWeeklyInsight?: (anchorId: string) => void;
   testID?: string;
 }
@@ -70,7 +69,6 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   onNavigateToVision,
   onNavigateToMilestones,
   onNavigateToMilestone,
-  onNavigateToWeeklyInsight,
   testID = 'v2-progress-screen',
 }) => {
   const insets = useSafeAreaInsets();
@@ -197,7 +195,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
         onScrollEndDrag={() => setScrolling(false)}
         onMomentumScrollBegin={() => { if (!controlledScroll.current) setScrolling(true); }}
         onMomentumScrollEnd={() => setScrolling(false)}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, spacing.xxl) }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -303,22 +301,12 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
           {/* Course log */}
           <View style={styles.section}>
             <V2ThreadEventTimeline
+              key={model.anchorId}
               events={historyEvents}
               onSelectEvent={handleSelectEvent}
               testID={`${testID}-timeline`}
             />
           </View>
-
-          {/* Weekly Insight: an interpretation of this week; it opens the full view when the host can. */}
-          {model.insight ? (
-            <View style={styles.section}>
-              <V2ProgressWeeklyInsight
-                insight={model.insight}
-                onPress={onNavigateToWeeklyInsight ? () => onNavigateToWeeklyInsight(model.anchorId) : undefined}
-                testID={`${testID}-weekly-insight`}
-              />
-            </View>
-          ) : null}
 
           {/* DEFERRED: Vision/Chart "triangle" shortcut pills. Chart is reached from the route card; the Vision pill is not part of the redesign.
           {onNavigateToVision && (
@@ -404,7 +392,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 22,
     paddingTop: spacing.sm,
-    paddingBottom: 18,
+    paddingBottom: 8,
   },
   iconButton: {
     width: 36,
@@ -416,7 +404,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerSpacer: { width: 36 },
-  titleColumn: { alignItems: 'center', gap: 8 },
+  titleColumn: { alignItems: 'center', gap: 4 },
   screenTitle: { ...typography.labelSM, fontSize: 11, letterSpacing: 3, color: progressTokens.heroText },
   switcher: {
     flexDirection: 'row',
@@ -431,6 +419,6 @@ const styles = StyleSheet.create({
     borderColor: progressTokens.heroHairline,
   },
   switcherText: { ...typography.labelMD, color: progressTokens.heroText, flexShrink: 1 },
-  body: { paddingHorizontal: 18, paddingTop: 22 },
-  section: { marginBottom: 26 },
+  body: { paddingHorizontal: 18, paddingTop: 12 },
+  section: { marginBottom: 12 },
 });

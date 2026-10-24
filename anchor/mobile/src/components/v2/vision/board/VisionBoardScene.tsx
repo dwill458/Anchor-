@@ -224,6 +224,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
           : <OccupiedSlotTarget key={`slot-${item.slot}`} rect={rect} slot={item.slot} onPress={slotOverlay.onPress} />;
       }) : null}
       {showIntentionCard ? <Animated.View pointerEvents={interactive ? 'box-none' : 'none'} style={[styles.fill, { zIndex: 40 }, cardFadeStyle]}><VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
+        dimmed={Boolean(focusedSceneId && focusedSceneId !== 'card')}
         onTeachingMotionChange={onTeachingMotionChange}
         reduceMotion={reduceMotion} recomposeMs={recomposeMs} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={cinematic?.bridgeOpacity ? 'paper' : markAppearance}
         hideMark={!showAnchorMark || (Boolean(cinematic) && !cinematic?.bridgeOpacity)} onMarkLayout={cinematic?.onMarkLayout}

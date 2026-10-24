@@ -15,8 +15,8 @@ export interface V2MilestoneShelfProps {
   testID?: string;
 }
 
-const CARD_WIDTH = 92;
-const ART = 72;
+const CARD_WIDTH = 76;
+const ART = 56;
 
 const shortDate = (iso: string): string => {
   const date = new Date(iso);
@@ -24,8 +24,7 @@ const shortDate = (iso: string): string => {
 };
 
 /**
- * "Milestones": what this Anchor has earned, most recent first. Earned only: a locked milestone is
- * never drawn here (the full collection shows them), and an Anchor with none says so plainly.
+ * Earned milestones lead the compact shelf; the canonical model supplies locked artwork too.
  */
 export const V2MilestoneShelf: React.FC<V2MilestoneShelfProps> = ({
   records,
@@ -34,21 +33,21 @@ export const V2MilestoneShelf: React.FC<V2MilestoneShelfProps> = ({
   onOpenCollection,
   testID = 'v2-progress-milestones',
 }) => {
-  const items = React.useMemo(() => buildMilestoneItems(records, 'all', { includeLocked: false }), [records]);
+  const items = React.useMemo(() => buildMilestoneItems(records, 'all', { includeLocked: true }), [records]);
 
   const renderItem = React.useCallback(
     ({ item }: { item: MilestoneItem }) => {
-      const record = item.record!;
+      const record = item.record;
       const body = (
         <View style={styles.card}>
-          <MilestoneArtwork definitionId={item.spec.id} state="earned" size={ART} categoryColor={categoryColor} />
+          <MilestoneArtwork definitionId={item.spec.id} state={item.state} size={ART} categoryColor={categoryColor} />
           <Text style={styles.cardTitle} numberOfLines={2}>
             {item.spec.title}
           </Text>
-          <Text style={styles.cardDate}>{shortDate(record.earnedAt)}</Text>
+          <Text style={styles.cardDate}>{record ? shortDate(record.earnedAt) : 'Locked'}</Text>
         </View>
       );
-      return onOpenMilestone ? (
+      return record && onOpenMilestone ? (
         <Pressable
           onPress={() => onOpenMilestone(record)}
           accessibilityRole="button"
@@ -68,57 +67,51 @@ export const V2MilestoneShelf: React.FC<V2MilestoneShelfProps> = ({
     <View style={styles.container} testID={testID}>
       <View style={styles.header}>
         <Text style={styles.heading}>MILESTONES</Text>
-        <Text style={styles.subtitle}>Celebrations you’ve earned.</Text>
+        {onOpenCollection ? (
+          <Pressable
+            onPress={onOpenCollection}
+            accessibilityRole="button"
+            style={styles.viewAll}
+            testID={`${testID}-view-all`}
+          >
+            <Text style={styles.viewAllText}>View all</Text>
+            <ChevronRight size={16} color={progressTokens.muted} />
+          </Pressable>
+        ) : null}
       </View>
 
-      {items.length === 0 ? (
+      {records.length === 0 ? (
         <Text style={styles.empty} testID={`${testID}-empty`}>
           Your first milestone will appear here.
         </Text>
-      ) : (
+      ) : null}
         <FlatList
           horizontal
           data={items}
-          keyExtractor={(item) => item.record!.id}
+          keyExtractor={(item) => item.record?.id ?? item.spec.id}
           renderItem={renderItem}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.list}
           initialNumToRender={4}
           windowSize={5}
         />
-      )}
 
-      {onOpenCollection ? (
-        <Pressable
-          onPress={onOpenCollection}
-          accessibilityRole="button"
-          style={styles.viewAll}
-          testID={`${testID}-view-all`}
-        >
-          <Text style={styles.viewAllText}>View all milestones</Text>
-          <ChevronRight size={16} color={progressTokens.muted} />
-        </Pressable>
-      ) : null}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { gap: 12 },
-  header: { gap: 2 },
+  container: { gap: 4 },
+  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   heading: { ...typography.labelSM, fontSize: 11, letterSpacing: 1.6, color: progressTokens.text },
-  subtitle: { ...typography.bodySM, color: progressTokens.muted },
-  list: { gap: 10 },
+  list: { gap: 4 },
   card: {
     width: CARD_WIDTH,
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
+    gap: 4,
+    paddingVertical: 4,
     paddingHorizontal: 6,
     borderRadius: radii.xl,
-    backgroundColor: progressTokens.card,
-    borderWidth: 1,
-    borderColor: progressTokens.cardBorder,
   },
   cardTitle: { ...typography.labelMD, fontSize: 11, color: progressTokens.text, textAlign: 'center' },
   cardDate: { ...typography.caption, fontSize: 10, color: progressTokens.muted },
@@ -127,10 +120,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    minHeight: 44,
+    gap: 4,
     borderRadius: radii.pill,
-    backgroundColor: progressTokens.chip,
   },
   viewAllText: { ...typography.labelMD, color: progressTokens.text },
 });

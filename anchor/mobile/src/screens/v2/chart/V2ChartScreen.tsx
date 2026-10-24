@@ -21,6 +21,7 @@ import revenueCatService from '@/services/RevenueCatService';
 // DEFERRED: import { ChartJourneyWorld } from '@/components/v2/chart/ChartJourneyWorld';
 import { ChartStaticMap } from '@/components/v2/chart/panel/ChartStaticMap';
 import { queueMilestoneAction } from '@/milestones/queueMilestoneAction';
+import { toThreadPresentation } from '@/adapters/v2/home/threadAdapter';
 
 export interface V2ChartRouteParams {
   anchorId?: string;
@@ -241,6 +242,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         view={view}
         identity={identity}
         anchorArt={context.anchorArt}
+        threadStrength={context.anchor ? toThreadPresentation(context.anchor).value : null}
         vision={context.vision}
         stale={chart.stale}
         busyKey={chart.busy}
