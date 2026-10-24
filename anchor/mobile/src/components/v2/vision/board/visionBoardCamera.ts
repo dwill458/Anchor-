@@ -56,7 +56,22 @@ export type FocusOptions = {
   clamp: boolean;
   /** Shifts the focal point up (negative) or down in viewport px, e.g. to clear controls. */
   offsetY?: number;
+  /** Actual visible space after safe areas and editing controls, when fitting is required. */
+  fitBounds?: Size;
 };
+
+/** The complete focused artwork, including captions outside a print. */
+export function focusContentRect(rects: readonly SceneRect[]): SceneRect {
+  const bounds = rects.map(rect => {
+    const angle = Math.abs(rect.rotation) * Math.PI / 180;
+    const width = rect.width * Math.cos(angle) + rect.height * Math.sin(angle);
+    const height = rect.height * Math.cos(angle) + rect.width * Math.sin(angle);
+    return { left: rect.x + rect.width / 2 - width / 2, top: rect.y + rect.height / 2 - height / 2, width, height };
+  });
+  const x = Math.min(...bounds.map(rect => rect.left)), y = Math.min(...bounds.map(rect => rect.top));
+  return { x, y, width: Math.max(...bounds.map(rect => rect.left + rect.width)) - x,
+    height: Math.max(...bounds.map(rect => rect.top + rect.height)) - y, rotation: 0, zIndex: rects[0]?.zIndex ?? 0 };
+}
 
 /** Adds the requested 35% zoom to photo focus while keeping its focal point and camera policy. */
 export function photoFocusOptions(options: FocusOptions): FocusOptions {
@@ -79,7 +94,8 @@ export function focusCamera(rect: SceneRect, scene: Size, viewport: Size, option
   const boundsW = rect.width * Math.cos(radians) + rect.height * Math.sin(radians);
   const boundsH = rect.width * Math.sin(radians) + rect.height * Math.cos(radians);
   const fitting = Math.min((viewport.width * options.fill) / boundsW, (viewport.height * options.fill) / boundsH);
-  const scale = Math.max(rest * options.minZoom, Math.min(rest * options.maxZoom, fitting));
+  const requested = Math.max(rest * options.minZoom, Math.min(rest * options.maxZoom, fitting));
+  const scale = options.fitBounds ? Math.min(requested, options.fitBounds.width / boundsW, options.fitBounds.height / boundsH) : requested;
   const centreX = rect.x + rect.width / 2 - scene.width / 2;
   const centreY = rect.y + rect.height / 2 - scene.height / 2 - (options.offsetY ?? 0) / scale;
   const camera = { x: centreX, y: centreY, scale };

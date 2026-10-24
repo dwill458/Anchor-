@@ -15,7 +15,10 @@ const WORK_MAX_EDGE = 1600;
 const FEATHER_PX = 6;
 const GRAY = { r: 128, g: 128, b: 128 };
 
-export type ExpandGeometry = { canvas: { width: number; height: number }; offset: { x: number; y: number } };
+export type ExpandGeometry = {
+  canvas: { width: number; height: number };
+  offset: { x: number; y: number };
+};
 
 /** Null when the photo already fits, or when more than 60% of the frame would be invented. */
 export function planPhotoExpansion(width: number, height: number): ExpandGeometry | null {
@@ -23,10 +26,17 @@ export function planPhotoExpansion(width: number, height: number): ExpandGeometr
   const aspect = width / height;
   if (Math.abs(aspect - TARGET) / TARGET <= TOLERANCE) return null;
   if (1 - Math.min(aspect / TARGET, TARGET / aspect) > MAX_INVENTED) return null;
-  const canvas = aspect > TARGET
-    ? { width, height: Math.round(width / TARGET) }
-    : { width: Math.round(height * TARGET), height };
-  return { canvas, offset: { x: Math.round((canvas.width - width) / 2), y: Math.round((canvas.height - height) / 2) } };
+  const canvas =
+    aspect > TARGET
+      ? { width, height: Math.round(width / TARGET) }
+      : { width: Math.round(height * TARGET), height };
+  return {
+    canvas,
+    offset: {
+      x: Math.round((canvas.width - width) / 2),
+      y: Math.round((canvas.height - height) / 2),
+    },
+  };
 }
 
 export const VISION_EXPAND_PROMPT = [
@@ -41,20 +51,31 @@ export type ExpandProvider = {
 };
 
 export class PhotoExpandError extends Error {
-  constructor(public readonly code: 'NOT_NEEDED' | 'TOO_WIDE' | 'UNREADABLE', message: string) { super(message); }
+  constructor(
+    public readonly code: 'NOT_NEEDED' | 'TOO_WIDE' | 'UNREADABLE',
+    message: string
+  ) {
+    super(message);
+  }
 }
 
 /** Alpha mask for the original: opaque, with a short ramp on the sides that touch generated area. */
-function featherMask(width: number, height: number, sides: { left: boolean; right: boolean; top: boolean; bottom: boolean }): Buffer {
+function featherMask(
+  width: number,
+  height: number,
+  sides: { left: boolean; right: boolean; top: boolean; bottom: boolean }
+): Buffer {
   const mask = Buffer.alloc(width * height, 255);
-  const ramp = (distance: number) => Math.min(255, Math.round(((distance + 1) / (FEATHER_PX + 1)) * 255));
+  const ramp = (distance: number) =>
+    Math.min(255, Math.round(((distance + 1) / (FEATHER_PX + 1)) * 255));
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       let alpha = 255;
       if (sides.left && x < FEATHER_PX) alpha = Math.min(alpha, ramp(x));
       if (sides.right && width - 1 - x < FEATHER_PX) alpha = Math.min(alpha, ramp(width - 1 - x));
       if (sides.top && y < FEATHER_PX) alpha = Math.min(alpha, ramp(y));
-      if (sides.bottom && height - 1 - y < FEATHER_PX) alpha = Math.min(alpha, ramp(height - 1 - y));
+      if (sides.bottom && height - 1 - y < FEATHER_PX)
+        alpha = Math.min(alpha, ramp(height - 1 - y));
       mask[y * width + x] = alpha;
     }
   }
@@ -65,13 +86,24 @@ function featherMask(width: number, height: number, sides: { left: boolean; righ
  * Returns the expanded photograph as a 9:16 JPEG (at most 1080x1920). Nothing is stored: the caller shows it as a
  * preview and the person decides.
  */
-export async function expandPhotoToVision(original: Buffer, provider: ExpandProvider): Promise<{ image: Buffer; width: number; height: number }> {
+export async function expandPhotoToVision(
+  original: Buffer,
+  provider: ExpandProvider
+): Promise<{ image: Buffer; width: number; height: number }> {
   let oriented: Buffer;
   let info: sharp.OutputInfo;
   try {
-    ({ data: oriented, info } = await sharp(original).rotate()
-      .resize({ width: WORK_MAX_EDGE, height: WORK_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
-      .removeAlpha().png().toBuffer({ resolveWithObject: true }));
+    ({ data: oriented, info } = await sharp(original)
+      .rotate()
+      .resize({
+        width: WORK_MAX_EDGE,
+        height: WORK_MAX_EDGE,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .removeAlpha()
+      .png()
+      .toBuffer({ resolveWithObject: true }));
   } catch {
     throw new PhotoExpandError('UNREADABLE', 'The photo could not be read.');
   }
@@ -80,18 +112,34 @@ export async function expandPhotoToVision(original: Buffer, provider: ExpandProv
     const aspect = info.width / info.height;
     throw Math.abs(aspect - TARGET) / TARGET <= TOLERANCE
       ? new PhotoExpandError('NOT_NEEDED', 'This photo already fits.')
-      : new PhotoExpandError('TOO_WIDE', 'This photo is too far from the Vision frame to expand naturally.');
+      : new PhotoExpandError(
+          'TOO_WIDE',
+          'This photo is too far from the Vision frame to expand naturally.'
+        );
   }
   const { canvas, offset } = plan;
-  const grayCanvas = await sharp({ create: { width: canvas.width, height: canvas.height, channels: 3, background: GRAY } })
-    .composite([{ input: oriented, left: offset.x, top: offset.y }]).png().toBuffer();
+  const grayCanvas = await sharp({
+    create: { width: canvas.width, height: canvas.height, channels: 3, background: GRAY },
+  })
+    .composite([{ input: oriented, left: offset.x, top: offset.y }])
+    .png()
+    .toBuffer();
 
-  const generated = await provider.extendVisionPhoto(VISION_EXPAND_PROMPT, { buffer: grayCanvas, mimeType: 'image/png' });
-  const filled = await sharp(generated).rotate().resize({ width: canvas.width, height: canvas.height, fit: 'fill' }).removeAlpha().toBuffer();
+  const generated = await provider.extendVisionPhoto(VISION_EXPAND_PROMPT, {
+    buffer: grayCanvas,
+    mimeType: 'image/png',
+  });
+  const filled = await sharp(generated)
+    .rotate()
+    .resize({ width: canvas.width, height: canvas.height, fit: 'fill' })
+    .removeAlpha()
+    .toBuffer();
 
   const sides = {
-    left: offset.x > 0, right: offset.x + info.width < canvas.width,
-    top: offset.y > 0, bottom: offset.y + info.height < canvas.height,
+    left: offset.x > 0,
+    right: offset.x + info.width < canvas.width,
+    top: offset.y > 0,
+    bottom: offset.y + info.height < canvas.height,
   };
   const rgb = await sharp(oriented).removeAlpha().raw().toBuffer();
   const mask = featherMask(info.width, info.height, sides);
@@ -102,14 +150,22 @@ export async function expandPhotoToVision(original: Buffer, provider: ExpandProv
     withAlpha[i * 4 + 2] = rgb[i * 3 + 2];
     withAlpha[i * 4 + 3] = mask[i];
   }
-  const restored = await sharp(withAlpha, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
-  const composed = await sharp(filled).composite([{ input: restored, left: offset.x, top: offset.y }]).raw().toBuffer({ resolveWithObject: true });
+  const restored = await sharp(withAlpha, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+  const composed = await sharp(filled)
+    .composite([{ input: restored, left: offset.x, top: offset.y }])
+    .raw()
+    .toBuffer({ resolveWithObject: true });
   // Scaled down to the stored Vision size when larger; never upscaled.
   const shrink = canvas.height > VISION_IMAGE_HEIGHT;
   const width = shrink ? VISION_IMAGE_WIDTH : canvas.width;
   const height = shrink ? VISION_IMAGE_HEIGHT : canvas.height;
   const image = await sharp(composed.data, { raw: composed.info })
     .resize({ width, height, fit: 'fill' })
-    .jpeg({ quality: 88 }).toBuffer();
+    .jpeg({ quality: 88 })
+    .toBuffer();
   return { image, width, height };
 }

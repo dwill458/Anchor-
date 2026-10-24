@@ -5,12 +5,7 @@ import { AppError } from '../../api/middleware/errorHandler';
 export type ThreadPracticeType = 'focus' | 'deep_prime' | 'visualize' | 'release';
 export type ThreadAuthorityMode = 'shadow' | 'authoritative';
 
-export type ThreadStrengthStatus =
-  | 'unestablished'
-  | 'active'
-  | 'grace'
-  | 'decaying'
-  | 'dormant';
+export type ThreadStrengthStatus = 'unestablished' | 'active' | 'grace' | 'decaying' | 'dormant';
 
 export type ThreadMovement = {
   beforeStrength: number;
@@ -71,7 +66,10 @@ export function resolveLocalDateKeyFromDate(date: Date, timeZone: string = 'UTC'
   }
 }
 
-export function calendarDaysBetweenDateKeys(fromLocalDateKey: string, toLocalDateKey: string): number {
+export function calendarDaysBetweenDateKeys(
+  fromLocalDateKey: string,
+  toLocalDateKey: string
+): number {
   const [fromY, fromM, fromD] = fromLocalDateKey.split('-').map(Number);
   const [toY, toM, toD] = toLocalDateKey.split('-').map(Number);
   const fromUtc = Date.UTC(fromY, fromM - 1, fromD);
@@ -162,10 +160,7 @@ export function countDecayEligibleDays(
   return count;
 }
 
-export function applyDecay(
-  score: number | null,
-  missedDays: number
-): number | null {
+export function applyDecay(score: number | null, missedDays: number): number | null {
   if (score === null) return null;
   const decayAmount = calculateThreadDecay(missedDays);
   if (decayAmount <= 0) return score;
@@ -294,7 +289,7 @@ export class ThreadStrengthService {
     // Resolve date keys for all session IDs using practiceSession rows where available
     const sessionIds = priorMovements.map(m => m.sessionId);
     const sessions =
-      sessionIds.length > 0 && typeof (tx as any).practiceSession?.findMany === 'function'
+      sessionIds.length > 0 && typeof tx.practiceSession?.findMany === 'function'
         ? await tx.practiceSession.findMany({
             where: { id: { in: sessionIds } },
             select: { id: true, localDateKey: true, timeZone: true, completedAt: true },
@@ -631,7 +626,11 @@ export class ThreadStrengthService {
     if (cursorDateKey) {
       const targetDateKey = resolveLocalDateKeyFromDate(targetDate, timeZone);
       if (targetDateKey > cursorDateKey) {
-        const missedDays = countDecayEligibleDaysBetweenDateKeys(cursorDateKey, targetDateKey, restDays);
+        const missedDays = countDecayEligibleDaysBetweenDateKeys(
+          cursorDateKey,
+          targetDateKey,
+          restDays
+        );
         strength = applyDecay(strength, missedDays);
       }
     }

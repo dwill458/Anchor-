@@ -28,7 +28,7 @@ import { MilestoneCelebrationHost } from '@/components/v2/milestones/MilestoneCe
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
 import { V2ReleaseScreen } from '@/screens/v2/release';
 import { createReleaseContinuations, releaseHomeScreenOptions } from './releaseNavigation';
-import { V2WeeklyInsightScreen } from '@/screens/v2/weeklyInsight';
+import { V2WeeklyInsightEntry } from '@/screens/v2/weeklyInsight/V2WeeklyInsightEntry';
 import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -404,7 +404,7 @@ function V2VisionRouteScreen() {
 function V2WeeklyInsightRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2WeeklyInsight'>>();
-  return <V2WeeklyInsightScreen route={route} navigation={navigation} onBack={() => navigation.goBack()} />;
+  return <V2WeeklyInsightEntry route={route} navigation={navigation} onBack={() => navigation.goBack()} />;
 }
 
 function V2MilestoneCollectionRouteScreen() {

@@ -1,0 +1,369 @@
+{
+  "label": "adaptive-gemini-flash",
+  "generatedAt": "2026-10-23T22:07:02.332Z",
+  "providers": [
+    {
+      "name": "gemini",
+      "model": "gemini-3.5-flash"
+    }
+  ],
+  "promptHash": "bc4af3d80103066db4a207e4d1d3df1784307cfb014afc383a731746e63058f5",
+  "note": "Illustrative stated starting points; live provider calls, no user Chart writes.",
+  "results": [
+    {
+      "scenario": "simple",
+      "context": {
+        "intention": "I maintain a consistent workout routine.",
+        "category": "health",
+        "actualStartingPoint": "I exercise sporadically. I can use three 30-minute slots each week for bodyweight exercise at home.",
+        "startingContext": null,
+        "destinationDescription": "I maintain a consistent workout routine.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "gemini",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash",
+          "latencyMs": 14093,
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Exercises sporadically with three available 30-minute weekly slots for home bodyweight workouts.",
+              "assumptions": [
+                "No specialized equipment or gym membership required.",
+                "The three 30-minute time slots are currently available in the user's weekly schedule."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 3,
+                "complexityReason": "Establishing a habit starting from sporadic exercise using explicitly available home time slots.",
+                "countReason": "Three waypoints cover the necessary stages of habit formation: establishing a first workable week, proving adaptability through disruption, and sustaining consistency over time."
+              },
+              "firstMilestoneEvidence": "Completing all three 30-minute bodyweight sessions in a single week.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    0,
+                    1
+                  ]
+                }
+              ]
+            },
+            "destination": "Maintain a consistent bodyweight workout routine with three 30-minute home sessions per week.",
+            "complexity": "SIMPLE",
+            "waypoints": [
+              {
+                "title": "Complete three bodyweight workouts in a single week",
+                "rationale": "Proves that three 30-minute home slots fit your actual weekly schedule.",
+                "type": "CAPABILITY",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Three 30-minute bodyweight sessions completed in one calendar week.",
+                "requirements": [
+                  "First 30-minute workout completed",
+                  "Second 30-minute workout completed",
+                  "Third 30-minute workout completed"
+                ],
+                "moves": [
+                  {
+                    "title": "Block out three 30-minute slots in your calendar",
+                    "rationale": "Secures dedicated time in advance so workouts are scheduled rather than spontaneous."
+                  },
+                  {
+                    "title": "Choose 3-4 basic bodyweight exercises",
+                    "rationale": "Keeps the workout straightforward without requiring extensive planning."
+                  },
+                  {
+                    "title": "Clear a dedicated workout space at home",
+                    "rationale": "Removes physical friction before your first session starts."
+                  }
+                ]
+              },
+              {
+                "title": "Adapt workouts through a disrupted week",
+                "rationale": "Tests habit resilience when routine schedules or energy levels shift.",
+                "type": "MILESTONE",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "All three workouts completed during a week with schedule interruptions.",
+                "requirements": [
+                  "Identify backup workout timeslots for the week",
+                  "Complete a session using a backup time or adjusted format"
+                ],
+                "moves": [
+                  {
+                    "title": "Define two alternative 30-minute slots for busy days",
+                    "rationale": "Provides an immediate fallback if a primary slot gets canceled."
+                  },
+                  {
+                    "title": "Execute a modified 30-minute session during a busy day",
+                    "rationale": "Maintains momentum even when circumstances are less than ideal."
+                  },
+                  {
+                    "title": "Log completed sessions immediately after finishing",
+                    "rationale": "Reinforces consistency and provides immediate feedback."
+                  }
+                ]
+              },
+              {
+                "title": "Sustain three weekly workouts for four weeks",
+                "rationale": "Solidifies bodyweight exercise as an automatic rhythm in your life.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "consecutive weeks",
+                "targetValue": 4,
+                "baselineValue": null,
+                "completionCriteria": "Four consecutive weeks of completing three 30-minute workouts each week.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Review weekly workout performance every Sunday",
+                    "rationale": "Helps identify patterns and adjust time slots for the upcoming week."
+                  },
+                  {
+                    "title": "Prepare workout clothes and space the night before",
+                    "rationale": "Lowers resistance on scheduled workout days."
+                  },
+                  {
+                    "title": "Keep a visual log of completed weeks",
+                    "rationale": "Provides clear feedback on ongoing consistency."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Block out three 30-minute slots in your calendar",
+              "rationale": "Secures dedicated time in advance so workouts are scheduled rather than spontaneous."
+            },
+            "personalizedGuidance": "Focus on locking in your three weekly 30-minute slots at home before building intensity.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 3,
+          "normalizedCount": 3,
+          "validatedCount": 3
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Exercises sporadically with three available 30-minute weekly slots for home bodyweight workouts.",
+          "assumptions": [
+            "No specialized equipment or gym membership required.",
+            "The three 30-minute time slots are currently available in the user's weekly schedule."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 3,
+            "complexityReason": "Establishing a habit starting from sporadic exercise using explicitly available home time slots.",
+            "countReason": "Three waypoints cover the necessary stages of habit formation: establishing a first workable week, proving adaptability through disruption, and sustaining consistency over time."
+          },
+          "firstMilestoneEvidence": "Completing all three 30-minute bodyweight sessions in a single week.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0,
+                1
+              ]
+            }
+          ]
+        },
+        "destination": "Maintain a consistent bodyweight workout routine with three 30-minute home sessions per week",
+        "complexity": "SIMPLE",
+        "waypoints": [
+          {
+            "title": "Complete three bodyweight workouts in a single week",
+            "completionCriteria": "Three 30-minute bodyweight sessions completed in one calendar week.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "First 30-minute workout completed",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Second 30-minute workout completed",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Third 30-minute workout completed",
+                "completed": false
+              }
+            ],
+            "rationale": "Proves that three 30-minute home slots fit your actual weekly schedule.",
+            "kind": "CAPABILITY",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Block out three 30-minute slots in your calendar",
+                "rationale": "Secures dedicated time in advance so workouts are scheduled rather than spontaneous."
+              },
+              {
+                "title": "Choose 3-4 basic bodyweight exercises",
+                "rationale": "Keeps the workout straightforward without requiring extensive planning."
+              },
+              {
+                "title": "Clear a dedicated workout space at home",
+                "rationale": "Removes physical friction before your first session starts."
+              }
+            ]
+          },
+          {
+            "title": "Adapt workouts through a disrupted week",
+            "completionCriteria": "All three workouts completed during a week with schedule interruptions.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Identify backup workout timeslots for the week",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Complete a session using a backup time or adjusted format",
+                "completed": false
+              }
+            ],
+            "rationale": "Tests habit resilience when routine schedules or energy levels shift.",
+            "kind": "MILESTONE",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Define two alternative 30-minute slots for busy days",
+                "rationale": "Provides an immediate fallback if a primary slot gets canceled."
+              },
+              {
+                "title": "Execute a modified 30-minute session during a busy day",
+                "rationale": "Maintains momentum even when circumstances are less than ideal."
+              },
+              {
+                "title": "Log completed sessions immediately after finishing",
+                "rationale": "Reinforces consistency and provides immediate feedback."
+              }
+            ]
+          },
+          {
+            "title": "Sustain three weekly workouts for four weeks",
+            "completionCriteria": "Four consecutive weeks of completing three 30-minute workouts each week.",
+            "requirements": [],
+            "rationale": "Solidifies bodyweight exercise as an automatic rhythm in your life.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "consecutive weeks",
+            "metricTarget": 4,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Review weekly workout performance every Sunday",
+                "rationale": "Helps identify patterns and adjust time slots for the upcoming week."
+              },
+              {
+                "title": "Prepare workout clothes and space the night before",
+                "rationale": "Lowers resistance on scheduled workout days."
+              },
+              {
+                "title": "Keep a visual log of completed weeks",
+                "rationale": "Provides clear feedback on ongoing consistency."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Block out three 30-minute slots in your calendar",
+          "rationale": "Secures dedicated time in advance so workouts are scheduled rather than spontaneous."
+        },
+        "personalizedGuidance": "Focus on locking in your three weekly 30-minute slots at home before building intensity."
+      }
+    },
+    {
+      "scenario": "moderate",
+      "context": {
+        "intention": "I successfully complete my first half marathon.",
+        "category": "health",
+        "actualStartingPoint": "I run 5 km comfortably twice a week. I can train three days each week. I have never completed a half marathon.",
+        "startingContext": null,
+        "destinationDescription": "I successfully complete my first half marathon.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash",
+          "latencyMs": 20012,
+          "rawCount": null,
+          "normalizedCount": null,
+          "error": "chart_provider_timeout"
+        }
+      ],
+      "error": "All providers failed validation or generation"
+    },
+    {
+      "scenario": "complex",
+      "context": {
+        "intention": "Anchor has 10,000 paying users.",
+        "category": "career",
+        "actualStartingPoint": "Anchor is launched with 20 paying users. I am the solo developer, with 10 hours a week for growth and no paid advertising budget. I can contact current users and have subscription analytics.",
+        "startingContext": null,
+        "destinationDescription": "Anchor has 10,000 paying users.",
+        "vision": {
+          "title": "A sustainable Anchor business",
+          "description": "10,000 paying users who continue using Anchor",
+          "notes": [
+            "Prioritize retention and repeatable acquisition"
+          ]
+        },
+        "followUp": null,
+        "adjustment": null
+      },
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash",
+          "latencyMs": 20012,
+          "rawCount": null,
+          "normalizedCount": null,
+          "error": "chart_provider_timeout"
+        }
+      ],
+      "error": "All providers failed validation or generation"
+    }
+  ]
+}

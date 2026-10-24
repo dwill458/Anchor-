@@ -5,32 +5,36 @@ export const OnboardingContextSchema = z
   .object({
     // `focusCategory` remains readable for accounts created by the earlier V2
     // onboarding; the current flow records human motivation instead.
-    focusCategory: z.enum([
-      'desire',
-      'health',
-      'career',
-      'relationships',
-      'creativity',
-      'spirituality',
-      'abundance',
-      'family',
-      'learning',
-      'adventure',
-      'custom',
-    ]).optional(),
-    selectedCategory: z.enum([
-      'desire',
-      'health',
-      'career',
-      'relationships',
-      'creativity',
-      'spirituality',
-      'abundance',
-      'family',
-      'learning',
-      'adventure',
-      'custom',
-    ]).optional(),
+    focusCategory: z
+      .enum([
+        'desire',
+        'health',
+        'career',
+        'relationships',
+        'creativity',
+        'spirituality',
+        'abundance',
+        'family',
+        'learning',
+        'adventure',
+        'custom',
+      ])
+      .optional(),
+    selectedCategory: z
+      .enum([
+        'desire',
+        'health',
+        'career',
+        'relationships',
+        'creativity',
+        'spirituality',
+        'abundance',
+        'family',
+        'learning',
+        'adventure',
+        'custom',
+      ])
+      .optional(),
     motivation: z.string().trim().min(1).max(240).optional(),
     desiredChange: z.string().trim().min(1).max(500),
     selectedOutcome: z.string().trim().max(500).optional(),
@@ -56,7 +60,7 @@ export const OnboardingContextSchema = z
     customDesiredChange: z.string().trim().max(120).optional(),
   })
   .strict()
-  .refine((value) => Boolean(value.motivation || value.focusCategory), {
+  .refine(value => Boolean(value.motivation || value.focusCategory), {
     message: 'Onboarding motivation is required.',
   });
 

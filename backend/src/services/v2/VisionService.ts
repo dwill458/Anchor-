@@ -13,6 +13,8 @@ import {
   AssetReadModel,
   CreateVisionSchema,
   UpdateVisionSchema,
+  UpdateVisionSceneSlotsSchema,
+  VisionNoteLayoutPositions,
   CreateVisionSceneSchema,
   ReorderScenesSchema,
   VISION_MAX_IMAGES,
@@ -68,9 +70,34 @@ function toVisionNoteColumns(presentation: VisionNotePresentation) {
   };
 }
 
-function sameVisionNotePayload(note: { text: string; styleId: string; fontId?: string | null; x: number; y: number; width: number; height: number; rotation: number; scale: number; layerOrder: number }, input: z.infer<typeof CreateVisionNoteSchema>): boolean {
+function sameVisionNotePayload(
+  note: {
+    text: string;
+    styleId: string;
+    fontId?: string | null;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation: number;
+    scale: number;
+    layerOrder: number;
+  },
+  input: z.infer<typeof CreateVisionNoteSchema>
+): boolean {
   const p = input.presentation;
-  return note.text === input.content.text && note.styleId === p.styleId && (note.fontId ?? undefined) === p.fontId && note.x === p.x && note.y === p.y && note.width === p.width && note.height === p.height && note.rotation === p.rotation && note.scale === p.scale && note.layerOrder === p.layerOrder;
+  return (
+    note.text === input.content.text &&
+    note.styleId === p.styleId &&
+    (note.fontId ?? undefined) === p.fontId &&
+    note.x === p.x &&
+    note.y === p.y &&
+    note.width === p.width &&
+    note.height === p.height &&
+    note.rotation === p.rotation &&
+    note.scale === p.scale &&
+    note.layerOrder === p.layerOrder
+  );
 }
 
 export class VisionService {
@@ -133,7 +160,10 @@ export class VisionService {
           prompt: scene.prompt,
           caption: scene.caption ?? null,
           slotIndex: scene.slotIndex ?? null,
-          focal: scene.focalX != null && scene.focalY != null ? { x: scene.focalX, y: scene.focalY } : null,
+          focal:
+            scene.focalX != null && scene.focalY != null
+              ? { x: scene.focalX, y: scene.focalY }
+              : null,
           sortOrder: scene.sortOrder,
           isArchived: scene.isArchived,
           createdAt: scene.createdAt.toISOString(),
@@ -146,9 +176,12 @@ export class VisionService {
       id: note.id,
       visionId: note.visionId,
       content: { text: note.text },
+      layoutPositions: (note.layoutPositions ?? null) as VisionNoteLayoutPositions | null,
       presentation: {
         styleId: note.styleId as VisionNotePresentation['styleId'],
-        ...(note.fontId ? { fontId: note.fontId as NonNullable<VisionNotePresentation['fontId']> } : {}),
+        ...(note.fontId
+          ? { fontId: note.fontId as NonNullable<VisionNotePresentation['fontId']> }
+          : {}),
         x: note.x,
         y: note.y,
         width: note.width,
@@ -168,6 +201,7 @@ export class VisionService {
       title: vision.title,
       description: vision.description,
       status: vision.status as 'ACTIVE' | 'ARCHIVED',
+      boardLayout: vision.boardLayout ?? 'CLASSIC',
       scenes,
       notes,
       seenToday,
@@ -181,114 +215,282 @@ export class VisionService {
     userId: string,
     anchorId: string,
     input: z.infer<typeof CreateVisionNoteSchema>,
-    clientTimeZone: string = 'UTC',
+    clientTimeZone: string = 'UTC'
   ): Promise<VisionReadModel> {
     const presentation = input.presentation;
-    const anchor = await prisma.anchor.findFirst({ where: { id: anchorId, userId, isArchived: false }, select: { id: true } });
+    const anchor = await prisma.anchor.findFirst({
+      where: { id: anchorId, userId, isArchived: false },
+      select: { id: true },
+    });
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
 
-    const persistForVision = async (visionId: string) => prisma.$transaction(async tx => {
-      // Serialize active-note count checks with note writes for this Anchor.
-      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${anchorId} FOR UPDATE`);
-      const activeVision = await tx.vision.findFirst({ where: { id: visionId, anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
-      if (!activeVision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
-      const duplicate = await tx.visionNote.findUnique({ where: { visionId_clientRequestId: { visionId, clientRequestId: input.clientRequestId } } });
-      if (duplicate) {
-        if (!sameVisionNotePayload(duplicate, input)) throw new AppError('Request id was already used for a different note', 409, 'IDEMPOTENCY_CONFLICT');
+    const persistForVision = async (visionId: string) =>
+      prisma.$transaction(async tx => {
+        // Serialize active-note count checks with note writes for this Anchor.
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${anchorId} FOR UPDATE`
+        );
+        const activeVision = await tx.vision.findFirst({
+          where: { id: visionId, anchorId, userId, status: 'ACTIVE' },
+          select: { id: true },
+        });
+        if (!activeVision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
+        const duplicate = await tx.visionNote.findUnique({
+          where: { visionId_clientRequestId: { visionId, clientRequestId: input.clientRequestId } },
+        });
+        if (duplicate) {
+          if (!sameVisionNotePayload(duplicate, input))
+            throw new AppError(
+              'Request id was already used for a different note',
+              409,
+              'IDEMPOTENCY_CONFLICT'
+            );
+          return visionId;
+        }
+        const count = await tx.visionNote.count({ where: { visionId, userId, isArchived: false } });
+        if (count >= VISION_NOTE_MAX_ACTIVE)
+          throw new AppError(
+            `A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`,
+            400,
+            'VISION_NOTE_LIMIT'
+          );
+        const saved = await tx.visionNote.create({
+          data: {
+            id: randomUUID(),
+            visionId,
+            userId,
+            clientRequestId: input.clientRequestId,
+            text: input.content.text,
+            ...toVisionNoteColumns(presentation),
+            isArchived: false,
+          },
+        });
+        await tx.vision.updateMany({
+          where: { id: visionId, userId, firstCommittedAt: null },
+          data: { firstCommittedAt: saved.createdAt },
+        });
         return visionId;
-      }
-      const count = await tx.visionNote.count({ where: { visionId, userId, isArchived: false } });
-      if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
-      const saved = await tx.visionNote.create({ data: { id: randomUUID(), visionId, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
-      await tx.vision.updateMany({ where: { id: visionId, userId, firstCommittedAt: null }, data: { firstCommittedAt: saved.createdAt } });
-      return visionId;
-    });
+      });
 
-    let active = await prisma.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
+    let active = await prisma.vision.findFirst({
+      where: { anchorId, userId, status: 'ACTIVE' },
+      select: { id: true },
+    });
     let visionId: string;
     if (active) {
       visionId = await persistForVision(active.id);
     } else {
       try {
         visionId = await prisma.$transaction(async tx => {
-          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${anchorId} FOR UPDATE`);
-          const nowActive = await tx.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
+          await tx.$queryRaw(
+            Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${anchorId} FOR UPDATE`
+          );
+          const nowActive = await tx.vision.findFirst({
+            where: { anchorId, userId, status: 'ACTIVE' },
+            select: { id: true },
+          });
           if (nowActive) {
-            const duplicate = await tx.visionNote.findUnique({ where: { visionId_clientRequestId: { visionId: nowActive.id, clientRequestId: input.clientRequestId } } });
+            const duplicate = await tx.visionNote.findUnique({
+              where: {
+                visionId_clientRequestId: {
+                  visionId: nowActive.id,
+                  clientRequestId: input.clientRequestId,
+                },
+              },
+            });
             if (duplicate) {
-              if (!sameVisionNotePayload(duplicate, input)) throw new AppError('Request id was already used for a different note', 409, 'IDEMPOTENCY_CONFLICT');
+              if (!sameVisionNotePayload(duplicate, input))
+                throw new AppError(
+                  'Request id was already used for a different note',
+                  409,
+                  'IDEMPOTENCY_CONFLICT'
+                );
               return nowActive.id;
             }
-            const count = await tx.visionNote.count({ where: { visionId: nowActive.id, userId, isArchived: false } });
-            if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
-            const saved = await tx.visionNote.create({ data: { id: randomUUID(), visionId: nowActive.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
-            await tx.vision.updateMany({ where: { id: nowActive.id, userId, firstCommittedAt: null }, data: { firstCommittedAt: saved.createdAt } });
+            const count = await tx.visionNote.count({
+              where: { visionId: nowActive.id, userId, isArchived: false },
+            });
+            if (count >= VISION_NOTE_MAX_ACTIVE)
+              throw new AppError(
+                `A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`,
+                400,
+                'VISION_NOTE_LIMIT'
+              );
+            const saved = await tx.visionNote.create({
+              data: {
+                id: randomUUID(),
+                visionId: nowActive.id,
+                userId,
+                clientRequestId: input.clientRequestId,
+                text: input.content.text,
+                ...toVisionNoteColumns(presentation),
+                isArchived: false,
+              },
+            });
+            await tx.vision.updateMany({
+              where: { id: nowActive.id, userId, firstCommittedAt: null },
+              data: { firstCommittedAt: saved.createdAt },
+            });
             return nowActive.id;
           }
-          const created = await tx.vision.create({ data: { id: randomUUID(), userId, anchorId, title: null, description: null, status: 'ACTIVE' }, select: { id: true } });
-          const count = await tx.visionNote.count({ where: { visionId: created.id, userId, isArchived: false } });
-          if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
-          const saved = await tx.visionNote.create({ data: { id: randomUUID(), visionId: created.id, userId, clientRequestId: input.clientRequestId, text: input.content.text, ...toVisionNoteColumns(presentation), isArchived: false } });
-          await tx.vision.updateMany({ where: { id: created.id, userId, firstCommittedAt: null }, data: { firstCommittedAt: saved.createdAt } });
+          const created = await tx.vision.create({
+            data: {
+              id: randomUUID(),
+              userId,
+              anchorId,
+              title: null,
+              description: null,
+              status: 'ACTIVE',
+            },
+            select: { id: true },
+          });
+          const count = await tx.visionNote.count({
+            where: { visionId: created.id, userId, isArchived: false },
+          });
+          if (count >= VISION_NOTE_MAX_ACTIVE)
+            throw new AppError(
+              `A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`,
+              400,
+              'VISION_NOTE_LIMIT'
+            );
+          const saved = await tx.visionNote.create({
+            data: {
+              id: randomUUID(),
+              visionId: created.id,
+              userId,
+              clientRequestId: input.clientRequestId,
+              text: input.content.text,
+              ...toVisionNoteColumns(presentation),
+              isArchived: false,
+            },
+          });
+          await tx.vision.updateMany({
+            where: { id: created.id, userId, firstCommittedAt: null },
+            data: { firstCommittedAt: saved.createdAt },
+          });
           return created.id;
         });
       } catch (error) {
         if (!isPrismaUniqueViolation(error)) throw error;
-        active = await prisma.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' }, select: { id: true } });
+        active = await prisma.vision.findFirst({
+          where: { anchorId, userId, status: 'ACTIVE' },
+          select: { id: true },
+        });
         if (!active) throw error;
         visionId = await persistForVision(active.id);
       }
     }
     const result = await this.getAnchorVision(userId, anchorId, clientTimeZone);
-    if (!result || result.id !== visionId) throw new AppError('Failed to load created note', 500, 'VISION_NOTE_ERROR');
-    void milestoneService.evaluateQuietly(userId, anchorId, { kind: 'vision', sourceEntityId: visionId });
+    if (!result || result.id !== visionId)
+      throw new AppError('Failed to load created note', 500, 'VISION_NOTE_ERROR');
+    void milestoneService.evaluateQuietly(userId, anchorId, {
+      kind: 'vision',
+      sourceEntityId: visionId,
+    });
     return result;
   }
 
-  async updateNote(userId: string, visionId: string, noteId: string, input: z.infer<typeof UpdateVisionNoteSchema>, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
+  async updateNote(
+    userId: string,
+    visionId: string,
+    noteId: string,
+    input: z.infer<typeof UpdateVisionNoteSchema>,
+    clientTimeZone = 'UTC'
+  ): Promise<VisionReadModel> {
     const vision = await this.getActiveVisionForNote(userId, visionId);
-    const note = await prisma.visionNote.findFirst({ where: { id: noteId, visionId, userId, isArchived: false } });
+    const note = await prisma.visionNote.findFirst({
+      where: { id: noteId, visionId, userId, isArchived: false },
+    });
     if (!note) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
     const data: Prisma.VisionNoteUpdateManyMutationInput = {};
     if (input.content) data.text = input.content.text;
+    if (input.expectedUpdatedAt)
+      data.updatedAt = new Date(Math.max(Date.now(), Date.parse(input.expectedUpdatedAt) + 1));
     if (input.presentation) Object.assign(data, toVisionNoteColumns(input.presentation));
-    const changed = await prisma.visionNote.updateMany({ where: { id: noteId, visionId, userId, isArchived: false }, data });
-    if (!changed.count) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
+    if (input.layoutPositions) {
+      const previous = (note.layoutPositions ?? {}) as VisionNoteLayoutPositions;
+      data.layoutPositions = { ...previous, ...input.layoutPositions } as Prisma.InputJsonValue;
+    }
+    const changed = await prisma.visionNote.updateMany({
+      where: {
+        id: noteId,
+        visionId,
+        userId,
+        isArchived: false,
+        ...(input.expectedUpdatedAt ? { updatedAt: new Date(input.expectedUpdatedAt) } : {}),
+      },
+      data,
+    });
+    if (!changed.count)
+      throw new AppError(
+        'This note changed on another device. Reopen it before saving.',
+        409,
+        'VISION_CONFLICT'
+      );
     const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
     if (!result) throw new AppError('Failed to load updated note', 500, 'VISION_NOTE_ERROR');
     return result;
   }
 
-  async deleteNote(userId: string, visionId: string, noteId: string, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
+  async deleteNote(
+    userId: string,
+    visionId: string,
+    noteId: string,
+    clientTimeZone = 'UTC'
+  ): Promise<VisionReadModel> {
     const vision = await this.getActiveVisionForNote(userId, visionId);
     const note = await prisma.visionNote.findFirst({ where: { id: noteId, visionId, userId } });
     if (!note) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
-    if (!note.isArchived) await prisma.visionNote.updateMany({ where: { id: noteId, visionId, userId, isArchived: false }, data: { isArchived: true } });
+    if (!note.isArchived)
+      await prisma.visionNote.updateMany({
+        where: { id: noteId, visionId, userId, isArchived: false },
+        data: { isArchived: true },
+      });
     const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
     if (!result) throw new AppError('Failed to load deleted note', 500, 'VISION_NOTE_ERROR');
     return result;
   }
 
-  async restoreNote(userId: string, visionId: string, noteId: string, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
+  async restoreNote(
+    userId: string,
+    visionId: string,
+    noteId: string,
+    clientTimeZone = 'UTC'
+  ): Promise<VisionReadModel> {
     const vision = await this.getActiveVisionForNote(userId, visionId);
     const note = await prisma.visionNote.findFirst({ where: { id: noteId, visionId, userId } });
     if (!note) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
-    if (note.isArchived) await prisma.$transaction(async tx => {
-      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`);
-      const currentNote = await tx.visionNote.findFirst({ where: { id: noteId, visionId, userId } });
-      if (!currentNote) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
-      if (!currentNote.isArchived) return;
-      const count = await tx.visionNote.count({ where: { visionId, userId, isArchived: false } });
-      if (count >= VISION_NOTE_MAX_ACTIVE) throw new AppError(`A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`, 400, 'VISION_NOTE_LIMIT');
-      await tx.visionNote.updateMany({ where: { id: noteId, visionId, userId, isArchived: true }, data: { isArchived: false } });
-    });
+    if (note.isArchived)
+      await prisma.$transaction(async tx => {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`
+        );
+        const currentNote = await tx.visionNote.findFirst({
+          where: { id: noteId, visionId, userId },
+        });
+        if (!currentNote) throw new AppError('Vision note not found', 404, 'VISION_NOTE_NOT_FOUND');
+        if (!currentNote.isArchived) return;
+        const count = await tx.visionNote.count({ where: { visionId, userId, isArchived: false } });
+        if (count >= VISION_NOTE_MAX_ACTIVE)
+          throw new AppError(
+            `A Vision can contain up to ${VISION_NOTE_MAX_ACTIVE} active notes`,
+            400,
+            'VISION_NOTE_LIMIT'
+          );
+        await tx.visionNote.updateMany({
+          where: { id: noteId, visionId, userId, isArchived: true },
+          data: { isArchived: false },
+        });
+      });
     const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
     if (!result) throw new AppError('Failed to load restored note', 500, 'VISION_NOTE_ERROR');
     return result;
   }
 
   private async getActiveVisionForNote(userId: string, visionId: string) {
-    const vision = await prisma.vision.findFirst({ where: { id: visionId, userId, status: 'ACTIVE' } });
+    const vision = await prisma.vision.findFirst({
+      where: { id: visionId, userId, status: 'ACTIVE' },
+    });
     if (!vision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
     return vision;
   }
@@ -317,7 +519,13 @@ export class VisionService {
         throw new AppError('Choose distinct images', 400, 'VALIDATION_ERROR');
       }
       for (const scene of input.scenes) {
-        await this.validateSceneAsset(userId, anchorId, scene.assetId, scene.sourceType, existing?.id);
+        await this.validateSceneAsset(
+          userId,
+          anchorId,
+          scene.assetId,
+          scene.sourceType,
+          existing?.id
+        );
       }
     }
 
@@ -336,18 +544,28 @@ export class VisionService {
       try {
         const created = await prisma.vision.create({
           data: {
-            id: randomUUID(), userId, anchorId,
-            title: input.title ?? null, description: input.description ?? null, status: 'ACTIVE',
+            id: randomUUID(),
+            userId,
+            anchorId,
+            title: input.title ?? null,
+            description: input.description ?? null,
+            status: 'ACTIVE',
           },
         });
         visionId = created.id;
       } catch (error) {
-        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
-        const concurrent = await prisma.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' } });
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'))
+          throw error;
+        const concurrent = await prisma.vision.findFirst({
+          where: { anchorId, userId, status: 'ACTIVE' },
+        });
         if (!concurrent) throw error;
         const updated = await prisma.vision.update({
           where: { id: concurrent.id },
-          data: { title: input.title ?? concurrent.title, description: input.description ?? concurrent.description },
+          data: {
+            title: input.title ?? concurrent.title,
+            description: input.description ?? concurrent.description,
+          },
         });
         visionId = updated.id;
       }
@@ -356,11 +574,17 @@ export class VisionService {
     // If scenes were supplied, add only assets not already selected. Replayed saves are idempotent.
     if (input.scenes && input.scenes.length > 0) {
       const alreadySelected = await prisma.visionScene.findMany({
-        where: { visionId, isArchived: false }, select: { assetId: true },
+        where: { visionId, isArchived: false },
+        select: { assetId: true },
       });
       const selectedIds = new Set(alreadySelected.map(scene => scene.assetId));
       const missing = input.scenes.filter(scene => !selectedIds.has(scene.assetId));
-      if (alreadySelected.length + missing.length > VISION_MAX_IMAGES) throw new AppError(`A Vision can contain up to ${VISION_MAX_IMAGES} images`, 400, 'VISION_IMAGE_LIMIT');
+      if (alreadySelected.length + missing.length > VISION_MAX_IMAGES)
+        throw new AppError(
+          `A Vision can contain up to ${VISION_MAX_IMAGES} images`,
+          400,
+          'VISION_IMAGE_LIMIT'
+        );
       for (let i = 0; i < input.scenes.length; i++) {
         const scene = input.scenes[i];
         if (selectedIds.has(scene.assetId)) continue;
@@ -369,15 +593,22 @@ export class VisionService {
             await tx.$queryRaw`SELECT id FROM visions WHERE id = ${visionId} FOR UPDATE`;
             await tx.visionScene.create({
               data: {
-                id: randomUUID(), visionId, userId, sourceType: scene.sourceType,
-                assetId: scene.assetId ?? null, prompt: scene.prompt ?? null, caption: scene.caption ?? null,
-                sortOrder: scene.sortOrder ?? i, isArchived: false,
+                id: randomUUID(),
+                visionId,
+                userId,
+                sourceType: scene.sourceType,
+                assetId: scene.assetId ?? null,
+                prompt: scene.prompt ?? null,
+                caption: scene.caption ?? null,
+                sortOrder: scene.sortOrder ?? i,
+                isArchived: false,
               },
             });
             await milestoneService.captureVisionCommit(userId, anchorId, visionId, tx);
           });
         } catch (error) {
-          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
+          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'))
+            throw error;
         }
         selectedIds.add(scene.assetId);
       }
@@ -387,7 +618,10 @@ export class VisionService {
     if (!result) {
       throw new AppError('Failed to load created vision', 500, 'VISION_ERROR');
     }
-    void milestoneService.evaluateQuietly(userId, anchorId, { kind: 'vision', sourceEntityId: visionId });
+    void milestoneService.evaluateQuietly(userId, anchorId, {
+      kind: 'vision',
+      sourceEntityId: visionId,
+    });
     return result;
   }
 
@@ -408,14 +642,43 @@ export class VisionService {
     if (input.title !== undefined) updateData.title = input.title;
     if (input.description !== undefined) updateData.description = input.description;
     if (input.status !== undefined) updateData.status = input.status;
+    if (input.boardLayout !== undefined) updateData.boardLayout = input.boardLayout;
+    if (input.expectedUpdatedAt)
+      updateData.updatedAt = new Date(
+        Math.max(Date.now(), Date.parse(input.expectedUpdatedAt) + 1)
+      );
 
     if (input.status !== undefined) {
       await prisma.$transaction(async tx => {
-        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`);
-        await tx.vision.update({ where: { id: visionId }, data: updateData });
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`
+        );
+        if (input.expectedUpdatedAt) {
+          const changed = await tx.vision.updateMany({
+            where: { id: visionId, userId, updatedAt: new Date(input.expectedUpdatedAt) },
+            data: updateData,
+          });
+          if (!changed.count)
+            throw new AppError(
+              'Vision changed on another device. Refresh before saving.',
+              409,
+              'VISION_CONFLICT'
+            );
+        } else await tx.vision.update({ where: { id: visionId }, data: updateData });
       });
     } else {
-      await prisma.vision.update({ where: { id: visionId }, data: updateData });
+      if (input.expectedUpdatedAt) {
+        const changed = await prisma.vision.updateMany({
+          where: { id: visionId, userId, updatedAt: new Date(input.expectedUpdatedAt) },
+          data: updateData,
+        });
+        if (!changed.count)
+          throw new AppError(
+            'Vision changed on another device. Refresh before saving.',
+            409,
+            'VISION_CONFLICT'
+          );
+      } else await prisma.vision.update({ where: { id: visionId }, data: updateData });
     }
 
     const refreshed = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
@@ -436,6 +699,76 @@ export class VisionService {
     return refreshed;
   }
 
+  /** All current slots commit together, so another device never sees half a swap. */
+  async updateSceneSlots(
+    userId: string,
+    visionId: string,
+    input: z.infer<typeof UpdateVisionSceneSlotsSchema>,
+    clientTimeZone = 'UTC'
+  ): Promise<VisionReadModel> {
+    input = UpdateVisionSceneSlotsSchema.parse(input);
+    const vision = await prisma.vision.findFirst({
+      where: { id: visionId, userId, status: 'ACTIVE' },
+      select: { anchorId: true },
+    });
+    if (!vision) throw new AppError('Active Vision not found', 404, 'VISION_NOT_FOUND');
+    try {
+      await prisma.$transaction(
+        async tx => {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`
+          );
+          const current = await tx.vision.findFirst({
+            where: { id: visionId, userId, status: 'ACTIVE' },
+            include: { scenes: { where: { isArchived: false } } },
+          });
+          if (!current) throw new AppError('Active Vision not found', 404, 'VISION_NOT_FOUND');
+          const requested = input.slots.map(item => item.sceneId).sort();
+          if (
+            JSON.stringify(requested) !==
+            JSON.stringify(current.scenes.map(scene => scene.id).sort())
+          )
+            throw new AppError(
+              'Your photos changed. Refresh the board before moving them.',
+              409,
+              'VISION_CONFLICT'
+            );
+          const changed = await tx.vision.updateMany({
+            where: {
+              id: visionId,
+              userId,
+              status: 'ACTIVE',
+              ...(input.expectedUpdatedAt ? { updatedAt: new Date(input.expectedUpdatedAt) } : {}),
+            },
+            data: { updatedAt: new Date(Math.max(Date.now(), current.updatedAt.getTime() + 1)) },
+          });
+          if (!changed.count)
+            throw new AppError(
+              'Your board changed on another device. Refresh before saving.',
+              409,
+              'VISION_CONFLICT'
+            );
+          for (const [sortOrder, item] of [...input.slots]
+            .sort((a, b) => a.slotIndex - b.slotIndex)
+            .entries())
+            await tx.visionScene.updateMany({
+              where: { id: item.sceneId, visionId, userId, isArchived: false },
+              data: { slotIndex: item.slotIndex, sortOrder },
+            });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034')
+        throw new AppError('Your board changed. Refresh and try again.', 409, 'VISION_CONFLICT');
+      throw error;
+    }
+    const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
+    if (!result)
+      throw new AppError('Reopen Vision to check your saved board.', 409, 'VISION_CONFLICT');
+    return result;
+  }
+
   async archiveVision(userId: string, visionId: string): Promise<{ success: boolean }> {
     const vision = await prisma.vision.findFirst({
       where: { id: visionId, userId },
@@ -445,7 +778,9 @@ export class VisionService {
     }
 
     await prisma.$transaction(async tx => {
-      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`);
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`
+      );
       await tx.vision.update({ where: { id: visionId }, data: { status: 'ARCHIVED' } });
     });
 
@@ -470,18 +805,38 @@ export class VisionService {
     });
     if (existing) {
       await milestoneService.captureVisionCommit(userId, vision.anchorId, visionId);
-      const resolvedImageUrl = existing.asset?.storageKey ? await resolveStorageKeyUrl(existing.asset.storageKey) : null;
+      const resolvedImageUrl = existing.asset?.storageKey
+        ? await resolveStorageKeyUrl(existing.asset.storageKey)
+        : null;
       return {
-        id: existing.id, visionId, sourceType: existing.sourceType as VisionSceneSource,
-        assetId: existing.assetId, resolvedImageUrl: resolvedImageUrl ?? null, prompt: existing.prompt, caption: existing.caption ?? null,
-        sortOrder: existing.sortOrder, isArchived: false,
-        createdAt: existing.createdAt.toISOString(), updatedAt: existing.updatedAt.toISOString(),
+        id: existing.id,
+        visionId,
+        sourceType: existing.sourceType as VisionSceneSource,
+        assetId: existing.assetId,
+        resolvedImageUrl: resolvedImageUrl ?? null,
+        prompt: existing.prompt,
+        caption: existing.caption ?? null,
+        sortOrder: existing.sortOrder,
+        isArchived: false,
+        createdAt: existing.createdAt.toISOString(),
+        updatedAt: existing.updatedAt.toISOString(),
       };
     }
 
     const count = await prisma.visionScene.count({ where: { visionId, isArchived: false } });
-    if (count >= VISION_MAX_IMAGES) throw new AppError(`A Vision can contain up to ${VISION_MAX_IMAGES} images`, 400, 'VISION_IMAGE_LIMIT');
-    await this.validateSceneAsset(userId, vision.anchorId, input.assetId, input.sourceType, vision.id);
+    if (count >= VISION_MAX_IMAGES)
+      throw new AppError(
+        `A Vision can contain up to ${VISION_MAX_IMAGES} images`,
+        400,
+        'VISION_IMAGE_LIMIT'
+      );
+    await this.validateSceneAsset(
+      userId,
+      vision.anchorId,
+      input.assetId,
+      input.sourceType,
+      vision.id
+    );
 
     let sortOrder = input.sortOrder;
     if (sortOrder === undefined) {
@@ -513,7 +868,10 @@ export class VisionService {
       return committed;
     });
 
-    void milestoneService.evaluateQuietly(userId, vision.anchorId, { kind: 'vision', sourceEntityId: visionId });
+    void milestoneService.evaluateQuietly(userId, vision.anchorId, {
+      kind: 'vision',
+      sourceEntityId: visionId,
+    });
     const resolvedImageUrl = scene.asset?.storageKey
       ? await resolveStorageKeyUrl(scene.asset.storageKey)
       : null;
@@ -525,7 +883,7 @@ export class VisionService {
       assetId: scene.assetId,
       resolvedImageUrl: resolvedImageUrl ?? null,
       prompt: scene.prompt,
-          caption: scene.caption ?? null,
+      caption: scene.caption ?? null,
       sortOrder: scene.sortOrder,
       isArchived: scene.isArchived,
       createdAt: scene.createdAt.toISOString(),
@@ -533,14 +891,26 @@ export class VisionService {
     };
   }
 
-  private async validateSceneAsset(userId: string, anchorId: string, assetId: string, sourceType: VisionSceneSource, visionId?: string): Promise<void> {
+  private async validateSceneAsset(
+    userId: string,
+    anchorId: string,
+    assetId: string,
+    sourceType: VisionSceneSource,
+    visionId?: string
+  ): Promise<void> {
     const asset = await prisma.asset.findFirst({ where: { id: assetId, userId } });
     if (!asset) throw new AppError('Asset not found or not owned by user', 404, 'ASSET_NOT_FOUND');
     if (sourceType === 'AI_GENERATED') {
       const candidate = await prisma.visionGenerationCandidate.findFirst({
-        where: { assetId, generation: { userId, anchorId, visionId: visionId ?? '' } }, select: { id: true },
+        where: { assetId, generation: { userId, anchorId, visionId: visionId ?? '' } },
+        select: { id: true },
       });
-      if (!candidate) throw new AppError('Generated image does not belong to this Anchor', 400, 'INVALID_VISION_CANDIDATE');
+      if (!candidate)
+        throw new AppError(
+          'Generated image does not belong to this Anchor',
+          400,
+          'INVALID_VISION_CANDIDATE'
+        );
     } else if (!asset.storageKey.includes('vision-assets')) {
       throw new AppError('Uploaded image is not a Vision asset', 400, 'INVALID_VISION_ASSET');
     }
@@ -559,14 +929,21 @@ export class VisionService {
     }
 
     const activeScenes = await prisma.visionScene.findMany({
-      where: { visionId, userId, isArchived: false }, select: { id: true },
+      where: { visionId, userId, isArchived: false },
+      select: { id: true },
     });
     const existingIds = activeScenes.map(scene => scene.id).sort();
     const requestedIds = input.sceneOrders.map(item => item.id).sort();
     const requestedOrders = input.sceneOrders.map(item => item.sortOrder).sort((a, b) => a - b);
-    if (JSON.stringify(existingIds) !== JSON.stringify(requestedIds) ||
-        requestedOrders.some((order, index) => order !== index)) {
-      throw new AppError('Image order must include every active image exactly once', 400, 'INVALID_VISION_ORDER');
+    if (
+      JSON.stringify(existingIds) !== JSON.stringify(requestedIds) ||
+      requestedOrders.some((order, index) => order !== index)
+    ) {
+      throw new AppError(
+        'Image order must include every active image exactly once',
+        400,
+        'INVALID_VISION_ORDER'
+      );
     }
 
     await prisma.$transaction(
@@ -611,36 +988,99 @@ export class VisionService {
     visionId: string,
     sceneId: string
   ): Promise<{ success: boolean }> {
-    const scene = await prisma.visionScene.findFirst({
-      where: { id: sceneId, visionId, userId },
+    const vision = await prisma.vision.findFirst({
+      where: { id: visionId, userId, status: 'ACTIVE' },
+      select: { anchorId: true },
     });
-    if (!scene) {
-      throw new AppError('Scene not found', 404, 'SCENE_NOT_FOUND');
-    }
-
-    if (!scene.isArchived) {
-      const count = await prisma.visionScene.count({ where: { visionId, userId, isArchived: false } });
-      if (count <= 1) throw new AppError('Keep at least one image in your Vision', 400, 'VISION_IMAGE_MINIMUM');
-    }
-
-    await prisma.visionScene.update({
-      where: { id: sceneId },
-      data: { isArchived: true },
+    if (!vision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
+    await prisma.$transaction(async tx => {
+      // Share the existing Anchor lock with board writes and Vision archival. Two devices
+      // removing the final pair must not both pass a count made before either commit.
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "anchors" WHERE "id" = ${vision.anchorId} FOR UPDATE`
+      );
+      const active = await tx.vision.findFirst({
+        where: { id: visionId, userId, status: 'ACTIVE' },
+        select: { id: true, updatedAt: true },
+      });
+      if (!active) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
+      const scene = await tx.visionScene.findFirst({ where: { id: sceneId, visionId, userId } });
+      if (!scene) throw new AppError('Scene not found', 404, 'SCENE_NOT_FOUND');
+      if (scene.isArchived) return;
+      const count = await tx.visionScene.count({ where: { visionId, userId, isArchived: false } });
+      if (count <= 1)
+        throw new AppError('Keep at least one image in your Vision', 400, 'VISION_IMAGE_MINIMUM');
+      await tx.visionScene.updateMany({
+        where: { id: sceneId, visionId, userId, isArchived: false },
+        data: { isArchived: true },
+      });
+      await tx.vision.updateMany({
+        where: { id: visionId, userId, status: 'ACTIVE' },
+        data: { updatedAt: new Date(Math.max(Date.now(), active.updatedAt.getTime() + 1)) },
+      });
     });
 
     return { success: true };
   }
 
-  async updateSceneCaption(userId: string, visionId: string, sceneId: string, input: z.infer<typeof UpdateVisionSceneCaptionSchema>, clientTimeZone = 'UTC'): Promise<VisionReadModel> {
-    const vision = await prisma.vision.findFirst({ where: { id: visionId, userId, status: 'ACTIVE' }, select: { id: true, anchorId: true } });
+  async updateSceneCaption(
+    userId: string,
+    visionId: string,
+    sceneId: string,
+    input: z.infer<typeof UpdateVisionSceneCaptionSchema>,
+    clientTimeZone = 'UTC'
+  ): Promise<VisionReadModel> {
+    const vision = await prisma.vision.findFirst({
+      where: { id: visionId, userId, status: 'ACTIVE' },
+      select: { id: true, anchorId: true },
+    });
     if (!vision) throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
-    const scene = await prisma.visionScene.findFirst({ where: { id: sceneId, visionId, userId, isArchived: false }, select: { id: true } });
+    const scene = await prisma.visionScene.findFirst({
+      where: { id: sceneId, visionId, userId, isArchived: false },
+      select: { id: true },
+    });
     if (!scene) throw new AppError('Active Vision image not found', 404, 'SCENE_NOT_FOUND');
-    const data: { caption?: string | null; slotIndex?: number | null; focalX?: number | null; focalY?: number | null } = {};
+    const data: Prisma.VisionSceneUpdateManyMutationInput = {};
+    if (input.expectedUpdatedAt)
+      data.updatedAt = new Date(Math.max(Date.now(), Date.parse(input.expectedUpdatedAt) + 1));
+    if (input.replacement) {
+      const replacement = input.replacement;
+      await this.validateSceneAsset(
+        userId,
+        vision.anchorId,
+        replacement.assetId,
+        replacement.sourceType,
+        visionId
+      );
+      Object.assign(data, {
+        assetId: replacement.assetId,
+        sourceType: replacement.sourceType,
+        prompt: replacement.prompt ?? null,
+      });
+      if (replacement.caption !== undefined) data.caption = replacement.caption?.trim() || null;
+    }
     if (input.caption !== undefined) data.caption = input.caption?.trim() || null;
     if (input.slotIndex !== undefined) data.slotIndex = input.slotIndex;
-    if (input.focal !== undefined) { data.focalX = input.focal?.x ?? null; data.focalY = input.focal?.y ?? null; }
-    await prisma.visionScene.updateMany({ where: { id: sceneId, visionId, userId, isArchived: false }, data });
+    if (input.focal !== undefined) {
+      data.focalX = input.focal?.x ?? null;
+      data.focalY = input.focal?.y ?? null;
+    }
+    const changed = await prisma.visionScene.updateMany({
+      where: {
+        id: sceneId,
+        visionId,
+        userId,
+        isArchived: false,
+        ...(input.expectedUpdatedAt ? { updatedAt: new Date(input.expectedUpdatedAt) } : {}),
+      },
+      data,
+    });
+    if (input.expectedUpdatedAt && !changed?.count)
+      throw new AppError(
+        'This photo changed on another device. Refresh before saving.',
+        409,
+        'VISION_CONFLICT'
+      );
     const result = await this.getAnchorVision(userId, vision.anchorId, clientTimeZone);
     if (!result) throw new AppError('Failed to load updated Vision image', 500, 'VISION_ERROR');
     return result;

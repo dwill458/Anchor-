@@ -7,14 +7,13 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   useWindowDimensions,
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { ArrowRight, X } from 'lucide-react-native';
+import { ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { safeHaptics } from '@/utils/haptics';
 import { V2Button } from '@/components/v2/primitives/V2Button';
@@ -42,6 +41,7 @@ import {
 } from './ChartChrome';
 import { ChartGenerationStage } from './ChartGenerationStage';
 import { ChartKeyboardFrame } from './ChartKeyboardFrame';
+import { ChartCourseReviewScreen } from './ChartCourseReviewScreen';
 import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
 // DEFERRED: import { ChartJourneyWorld } from './ChartJourneyWorld';
 import { ChartStaticMap } from './panel/ChartStaticMap';
@@ -56,7 +56,7 @@ import { getChartIntroSeen } from './chartIntroSeen';
 import { MAP_H, MAP_W } from './map/chartMapContracts';
 import { ChartCreationAsk, type AskPlanSource } from './ask/ChartCreationAsk';
 import type { AskPlanInput } from '@/services/v2/askChartApi';
-import { ChartRouteEditor, type DraftWaypoint } from './ChartRouteEditor';
+import type { DraftWaypoint } from './ChartRouteEditor';
 import { CHART_EASING, CHART_INTRO_TIMING, CHART_TRANSITION_TIMING as TT, chartTiming } from './chartMotion';
 
 export type ChartCreationVision = {
@@ -661,6 +661,7 @@ export function ChartCreationFlow({
   const panelStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: panelOffset.value * (stageHeight + 40) }],
   }));
+  const showCourseReview = phase === 'review' || (phase === 'revealed' && panelMounted);
   const mapStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: explore.value * exploreDelta.value }],
   }));
@@ -672,7 +673,7 @@ export function ChartCreationFlow({
   return (
     <ChartInkScreen testID={testID ?? 'chart-creation'} paper={paper} onLayout={onScreenLayout}>
       {/* DEFERRED: <ChartTopBar title={title} onBack={phase === 'generating' || exploring ? undefined : goBack} identity={identity} tone={paper ? 'dark' : 'light'} /> */}
-      {phase === 'ask' ? null : <Animated.View style={introStyle}><ChartMapHeader
+      {phase === 'ask' || phase === 'review' ? null : <Animated.View style={introStyle}><ChartMapHeader
         inline tone={paper ? 'paper' : 'ink'}
         categoryLabel={(identity.category ?? 'custom').toUpperCase()}
         category={identity.category} accent={panelAccent(identity.category)}
@@ -788,7 +789,7 @@ export function ChartCreationFlow({
             />
           </Animated.View>
 
-          <Animated.View
+          {phase !== 'review' ? <Animated.View
             style={[styles.hero, styles.stageHero, heroStyle, chromeStyle, phase === 'revealed' && styles.hidden]}
             // DEFERRED: onLayout={(event) => setHeroHeight(event.nativeEvent.layout.height)}
             pointerEvents="none"
@@ -799,101 +800,38 @@ export function ChartCreationFlow({
             {heroCopy[shownHero].support ? <Text style={[styles.support, styles.supportPaper, compact && shownHero !== 'generating' && styles.supportCompact]}>
               {heroCopy[shownHero].support}
             </Text> : null}
-          </Animated.View>
+          </Animated.View> : null}
 
           {/* DEFERRED: measured heroHeight positioned this panel before staged copy finished changing. Flow layout owns the boundary now. */}
-          {panelMounted ? (
+          {showCourseReview ? (
+            <Animated.View style={[StyleSheet.absoluteFill, styles.reviewSurface, panelStyle]} pointerEvents={phase === 'review' ? 'auto' : 'none'}>
+              <ChartCourseReviewScreen
+                destination={destinationLabel}
+                waypoints={draft}
+                oneMove={oneMove}
+                onOneMoveChange={setOneMove}
+                onWaypointsChange={setDraft}
+                onEdit={(kind) => trackChart(kind === 'add' ? 'chart_waypoint_added' : 'chart_waypoint_edited', { stage: 'review', kind })}
+                guidance={proposal?.guidance && !needsNaming ? proposal.guidance : null}
+                needsNaming={needsNaming}
+                saveError={saveError}
+                saving={saving}
+                canConfirm={namedCount > 0 && (!needsNaming || namedCount >= draft.length)}
+                onAdjust={() => setPhase('adjusting')}
+                onConfirm={() => void save()}
+                topInset={insets.top}
+              />
+            </Animated.View>
+          ) : null}
+          {panelMounted && phase === 'adjusting' ? (
             <Animated.View style={[styles.panelWrap, panelStyle]}>
               <ChartCreamPanel style={styles.reviewPanel}>
                 <ChartKeyboardFrame
                   contentContainerStyle={styles.reviewScroll}
                   restingBottom={spacing[3]}
-                  footer={
-                    phase === 'review' ? (
-                      <View style={styles.reviewActions}>
-                        <V2Button
-                          variant="secondary"
-                          size="large"
-                          onPress={() => setPhase('adjusting')}
-                          style={styles.actionHalf}
-                          testID="chart-review-adjust"
-                          accessibilityLabel={CHART_COPY.review.adjust}
-                          disabled={saving}
-                        >
-                          {CHART_COPY.review.adjust}
-                        </V2Button>
-                        <V2Button
-                          size="large"
-                          onPress={() => void save()}
-                          loading={saving}
-                          disabled={namedCount === 0 || (needsNaming && namedCount < draft.length)}
-                          iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
-                          style={styles.actionHalf}
-                          testID="chart-review-confirm"
-                          accessibilityLabel={CHART_COPY.review.confirm}
-                        >
-                          {CHART_COPY.review.confirm}
-                        </V2Button>
-                      </View>
-                    ) : null
-                  }
+                  footer={null}
                 >
-                  {phase === 'adjusting' ? (
-                    <ChartAdjustPanel onSubmit={submitAdjust} loading={adjusting} error={adjustError} testID="chart-adjust-panel" />
-                  ) : (
-                    <>
-                      {/* One Move is an action toward Waypoint 1 — never a stand-in for it. */}
-                      <View style={styles.oneMoveCard} testID="chart-review-one-move-card">
-                        <View style={styles.oneMoveHeader}>
-                          <ChartEyebrow tone="cream">{CHART_COPY.review.oneMoveLabel}</ChartEyebrow>
-                          <View style={styles.oneMoveFor}>
-                            <Text style={styles.oneMoveForText}>For waypoint 1</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.oneMoveExplainer}>
-                          {CHART_COPY.review.oneMoveFor(draft.find((waypoint) => waypoint.title.trim())?.title ?? '')}
-                        </Text>
-                        <View style={styles.oneMoveRow}>
-                          <TextInput
-                            value={oneMove}
-                            onChangeText={setOneMove}
-                            placeholder={CHART_COPY.active.noMove}
-                            placeholderTextColor={colors.text.tertiary}
-                            maxLength={120}
-                            accessibilityLabel="Your first move"
-                            style={styles.oneMoveInput}
-                            testID="chart-review-one-move"
-                          />
-                          {oneMove ? (
-                            <Pressable accessibilityRole="button" accessibilityLabel="Clear first move" hitSlop={8} onPress={() => setOneMove('')}>
-                              <X size={16} color={colors.text.secondary} />
-                            </Pressable>
-                          ) : null}
-                        </View>
-                      </View>
-                      <View style={styles.routeHeader}>
-                        <ChartEyebrow tone="cream">{CHART_COPY.review.routeLabel}</ChartEyebrow>
-                        <Text style={styles.routeCount}>
-                          {draft.length} waypoint{draft.length === 1 ? '' : 's'}
-                        </Text>
-                      </View>
-                      {proposal?.guidance && !needsNaming ? <Text style={styles.guidance}>{proposal.guidance}</Text> : null}
-                      <ChartRouteEditor
-                        waypoints={draft}
-                        onChange={setDraft}
-                        onEdit={(kind) => trackChart(kind === 'add' ? 'chart_waypoint_added' : 'chart_waypoint_edited', { stage: 'review', kind })}
-                        showRail
-                        testID="chart-route-editor"
-                      />
-                      <Text style={styles.evolve}>{CHART_COPY.review.evolve}</Text>
-
-                      {saveError ? (
-                        <Text style={styles.saveError} accessibilityLiveRegion="polite">
-                          {saveError}
-                        </Text>
-                      ) : null}
-                    </>
-                  )}
+                  <ChartAdjustPanel onSubmit={submitAdjust} loading={adjusting} error={adjustError} testID="chart-adjust-panel" />
                 </ChartKeyboardFrame>
               </ChartCreamPanel>
             </Animated.View>
@@ -963,39 +901,9 @@ const styles = StyleSheet.create({
   },
   visionLinkText: { ...typography.labelMD, color: colors.text.primary },
   panelWrap: { flex: 1, marginTop: spacing[3] },
+  reviewSurface: { zIndex: 5, backgroundColor: colors.canvas },
   reviewPanel: { flex: 1, paddingTop: spacing[4], borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
   reviewScroll: { paddingBottom: spacing[4] },
-  routeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[2] },
-  routeCount: { ...typography.labelMD, color: colors.text.secondary },
-  reviewActions: { flexDirection: 'row', gap: spacing[3], paddingTop: spacing[3] },
-  actionHalf: { flex: 1 },
-  evolve: { ...typography.bodySM, color: colors.text.secondary, marginTop: spacing[3] },
-  oneMoveCard: {
-    marginTop: 0,
-    marginBottom: spacing[4],
-    padding: spacing[4],
-    gap: spacing[2],
-    borderRadius: radii.lg,
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.default,
-  },
-  oneMoveHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  oneMoveFor: { paddingHorizontal: spacing[2], paddingVertical: 2, borderRadius: radii.pill, backgroundColor: colors.grouped },
-  oneMoveForText: { ...typography.labelSM, color: colors.text.secondary },
-  oneMoveExplainer: { ...typography.bodySM, color: colors.text.secondary },
-  oneMoveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing[3],
-    backgroundColor: colors.canvas,
-  },
-  oneMoveInput: { flex: 1, ...typography.bodyMD, color: colors.text.primary, minHeight: 46 },
-  saveError: { ...typography.bodySM, color: colors.semantic.error, marginTop: spacing[2] },
   revealFooter: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing[5], paddingTop: spacing[3] },
   pressed: { opacity: 0.8 },
 });

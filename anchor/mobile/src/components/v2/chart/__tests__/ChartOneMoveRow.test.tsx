@@ -19,12 +19,14 @@ const move: MoveSummary = {
   createdAt: '2026-10-08T00:00:00Z',
 };
 
-function rowElement(onCheck: () => Promise<boolean>, currentMove: MoveSummary = move, checked = false) {
+function rowElement(onCheck: () => Promise<boolean>, currentMove: MoveSummary = move, checked = false, criteria: string | null = null, progress: string | null = null) {
   return (
     <ChartOneMoveRow
       accent={panelAccent('desire')}
       move={currentMove}
       waypointTitle="Establish a consistent gym routine"
+      waypointCriteria={criteria}
+      progressText={progress}
       checked={checked}
       busy={false}
       reducedMotion
@@ -75,6 +77,22 @@ describe('ChartOneMoveRow', () => {
     expect(screen.getByText('The three events are saved.')).toBeTruthy();
   });
 
+  it('uses the move’s own rationale as the reason, and shows what reaching the waypoint means', () => {
+    const withReason = { ...move, rationale: 'A calendar makes the plan visible.' };
+    const screen = render(rowElement(jest.fn(async () => true), withReason, false, 'Three workouts logged in one week.'));
+    fireEvent.press(screen.getByTestId('chart-one-move-body'));
+    expect(screen.getByText('A calendar makes the plan visible.')).toBeTruthy();
+    expect(screen.getByText(CHART_COPY.sheet.waypointReachedWhen)).toBeTruthy();
+    expect(screen.getByTestId('chart-one-move-criteria').props.children).toBe('Three workouts logged in one week.');
+  });
+
+  it('does not invent a count of its own: no progress text means no count', () => {
+    const screen = renderRow();
+    expect(screen.queryByTestId('chart-one-move-progress')).toBeNull();
+    expect(screen.queryByText(/of 1 done/)).toBeNull();
+    expect(screen.getByText('Your next move')).toBeTruthy();
+  });
+
   it('resets expansion when the server-selected One Move changes and exposes no undo affordance', async () => {
     const screen = renderRow();
     fireEvent.press(screen.getByTestId('chart-one-move-body'));
@@ -84,8 +102,8 @@ describe('ChartOneMoveRow', () => {
     screen.rerender(rowElement(jest.fn(async () => true), nextMove));
     await waitFor(() => expect(screen.queryByTestId('chart-one-move-details')).toBeNull());
 
-    screen.rerender(rowElement(jest.fn(async () => true), nextMove, true));
-    expect(screen.getByText('1 of 1 done')).toBeTruthy();
+    screen.rerender(rowElement(jest.fn(async () => true), nextMove, true, null, '1 of 3 done'));
+    expect(screen.getByText('1 of 3 done')).toBeTruthy();
     expect(screen.queryByText(CHART_COPY.sheet.helperIncomplete)).toBeNull();
     expect(screen.getByTestId('chart-one-move-check').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByTestId('chart-one-move-check').props.accessibilityLabel).toBe(CHART_COPY.sheet.markMoveUndone);

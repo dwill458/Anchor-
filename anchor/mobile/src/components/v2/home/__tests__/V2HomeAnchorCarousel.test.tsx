@@ -3,6 +3,8 @@ import { act, render, fireEvent, screen } from '@testing-library/react-native';
 
 let mockTier: 'high' | 'medium' | 'low' = 'high';
 jest.mock('@/hooks/useAppPerformanceTier', () => ({ useAppPerformanceTier: () => mockTier }));
+jest.mock('@/hooks/v2/home/useHomePrewarm', () => ({ useHomePrewarm: jest.fn() }));
+import { useHomePrewarm } from '@/hooks/v2/home/useHomePrewarm';
 
 const artworkRenders: string[] = [];
 jest.mock('@/components/v2', () => {
@@ -208,6 +210,14 @@ describe('committing a switch', () => {
     expect(onSelect).not.toHaveBeenCalled();
     act(() => { jest.advanceTimersByTime(1); });
     expect(onSelect).toHaveBeenCalledWith('a1');
+  });
+
+  it('warms the new visual window before the deferred selection commits', () => {
+    const onSelect = jest.fn();
+    render(<V2HomeAnchorCarousel anchors={summaries(7, 0)} selectedIndex={0} onSelect={onSelect} reduceMotion />);
+    fireEvent.press(screen.getByTestId('v2-home-carousel-next'));
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(useHomePrewarm).toHaveBeenLastCalledWith(expect.any(Array), 1, mockTier);
   });
 
   it('chains rapid taps into one commit, three Anchors on', () => {

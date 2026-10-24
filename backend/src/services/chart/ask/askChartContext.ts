@@ -30,7 +30,12 @@ export type AskChartState = {
 
 export type AskContext = {
   anchor: { id: string; intention: string; category: string };
-  vision: { title: string | null; description: string | null; notes: string[]; captions: string[] } | null;
+  vision: {
+    title: string | null;
+    description: string | null;
+    notes: string[];
+    captions: string[];
+  } | null;
   onboarding: Awaited<ReturnType<typeof getOnboardingContext>>;
   practice: { practiceCount: number; lastPracticedAt: string | null } | null;
   chart: AskChartState | null;
@@ -39,11 +44,17 @@ export type AskContext = {
 };
 
 export async function loadCoachStyle(userId: string): Promise<CoachStyle> {
-  const profile = await prisma.chartCoachProfile.findUnique({ where: { userId }, select: { style: true } });
+  const profile = await prisma.chartCoachProfile.findUnique({
+    where: { userId },
+    select: { style: true },
+  });
   return COACH_STYLES.find(style => style === profile?.style) ?? DEFAULT_COACH_STYLE;
 }
 
-export async function loadChartState(userId: string, anchorId: string): Promise<AskChartState | null> {
+export async function loadChartState(
+  userId: string,
+  anchorId: string
+): Promise<AskChartState | null> {
   const course = await prisma.course.findFirst({
     where: { userId, anchorId, status: 'ACTIVE', deletedAt: null },
     orderBy: { plottedAt: 'desc' },
@@ -89,13 +100,21 @@ export async function loadChartState(userId: string, anchorId: string): Promise<
     waypoints: course.waypoints.map(waypoint => ({
       id: waypoint.id,
       title: waypoint.title,
-      state: waypoint.reachedAt ? 'REACHED' : waypoint.id === course.currentWaypointId ? 'CURRENT' : 'UPCOMING',
+      state: waypoint.reachedAt
+        ? 'REACHED'
+        : waypoint.id === course.currentWaypointId
+          ? 'CURRENT'
+          : 'UPCOMING',
       completionCriteria: waypoint.completionCriteria,
       metric:
         waypoint.metricTarget !== null
           ? `${waypoint.metricCurrent ?? 'unknown'} of ${waypoint.metricTarget}${waypoint.metricLabel ? ` ${waypoint.metricLabel}` : ''}`
           : null,
-      moves: waypoint.moves.map(move => ({ id: move.id, title: move.title, status: move.status as AskMove['status'] })),
+      moves: waypoint.moves.map(move => ({
+        id: move.id,
+        title: move.title,
+        status: move.status as AskMove['status'],
+      })),
     })),
     recentCompletedMoves: recent.map(move => move.title),
   };
@@ -124,12 +143,16 @@ export async function loadAskContext(userId: string, anchorId: string): Promise<
   return {
     anchor: { id: anchor.id, intention: anchor.intentionText, category: anchor.category },
     vision:
-      vision && (vision.title || vision.description || vision.notes?.length || vision.scenes?.length)
+      vision &&
+      (vision.title || vision.description || vision.notes?.length || vision.scenes?.length)
         ? {
             title: vision.title,
             description: vision.description,
             notes: vision.notes?.map(note => note.text).filter(Boolean) ?? [],
-            captions: (vision.scenes?.map(scene => scene.caption || scene.prompt).filter(Boolean) as string[]) ?? [],
+            captions:
+              (vision.scenes
+                ?.map(scene => scene.caption || scene.prompt)
+                .filter(Boolean) as string[]) ?? [],
           }
         : null,
     onboarding,

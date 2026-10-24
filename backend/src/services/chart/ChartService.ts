@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { CourseAnchorRole, CourseEventType, CourseStatus, Prisma } from '@prisma/client';
 import { AppError } from '../../api/middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import { logger } from '../../utils/logger';
 import { courseEventService } from '../CourseEventService';
 import {
   MAX_COURSE_WAYPOINTS,
@@ -113,7 +114,8 @@ function metricInput(waypoint: RouteWaypointInput) {
     metricBaseline: waypoint.metricBaseline,
     metricTarget: waypoint.metricTarget,
     progressMode: waypoint.progressMode,
-    requirements: waypoint.requirements, completionCriteria: waypoint.completionCriteria,
+    requirements: waypoint.requirements,
+    completionCriteria: waypoint.completionCriteria,
   };
 }
 
@@ -154,7 +156,10 @@ export class ChartService {
         OR: [
           { anchorId },
           // Pre-2.0 Courses reached their Anchor only through a DESTINATION link.
-          { anchorId: null, anchorLinks: { some: { anchorId, role: CourseAnchorRole.DESTINATION } } },
+          {
+            anchorId: null,
+            anchorLinks: { some: { anchorId, role: CourseAnchorRole.DESTINATION } },
+          },
         ],
       },
       orderBy: { updatedAt: 'desc' },
@@ -164,7 +169,9 @@ export class ChartService {
       courses.find(course => course.status === CourseStatus.ACTIVE) ??
       courses
         .filter(course => course.status === CourseStatus.COMPLETED)
-        .sort((left, right) => (right.completedAt?.getTime() ?? 0) - (left.completedAt?.getTime() ?? 0))[0] ??
+        .sort(
+          (left, right) => (right.completedAt?.getTime() ?? 0) - (left.completedAt?.getTime() ?? 0)
+        )[0] ??
       null;
 
     let chart: CourseDetail | null = null;
@@ -181,7 +188,9 @@ export class ChartService {
     }
     const historyIds = courses.filter(course => course.id !== live?.id).map(course => course.id);
     const history = historyIds.length
-      ? await Promise.all(historyIds.slice(0, 10).map(async id => toSummary(await findCourse(prisma, userId, id))))
+      ? await Promise.all(
+          historyIds.slice(0, 10).map(async id => toSummary(await findCourse(prisma, userId, id)))
+        )
       : [];
     return {
       anchor: {
@@ -286,7 +295,8 @@ export class ChartService {
               ...waypointMetricCreateData(metricInput(waypoint)),
             },
           });
-          const firstMoveTitle = index === 0 ? cleanTitle(input.oneMove?.title ?? '', 120).toLowerCase() : '';
+          const firstMoveTitle =
+            index === 0 ? cleanTitle(input.oneMove?.title ?? '', 120).toLowerCase() : '';
           let movePosition = index === 0 && firstMoveTitle ? 200 : 100;
           const seenTitles = new Set<string>(firstMoveTitle ? [firstMoveTitle] : []);
           for (const move of waypoint.suggestedMoves ?? []) {
@@ -372,7 +382,14 @@ export class ChartService {
             data: { status: 'ACCEPTED', acceptedAt: new Date(), courseId },
           });
         }
-        return projection(await findCourse(tx, userId, courseId));
+        const saved = projection(await findCourse(tx, userId, courseId));
+        logger.info('chart_saved_waypoint_counts', {
+          courseId,
+          reviewedCount: input.waypoints.length,
+          savedCount: saved.waypoints.length,
+          responseCount: saved.waypointCount,
+        });
+        return saved;
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -382,7 +399,8 @@ export class ChartService {
           where: { idempotencyKey: input.idempotencyKey },
           select: { id: true, userId: true },
         });
-        if (replay?.userId === userId) return projection(await findCourse(prisma, userId, replay.id));
+        if (replay?.userId === userId)
+          return projection(await findCourse(prisma, userId, replay.id));
         throw new AppError('This Anchor already has a Chart', 409, 'ACTIVE_COURSE_EXISTS');
       }
       throw error;
@@ -419,7 +437,11 @@ export class ChartService {
       assertCourseActive(row);
       const waypoint = assertWaypointBelongs(row, input.waypointId);
       if (isTerminal(waypoint)) {
-        throw new AppError('This waypoint is already behind you', 409, 'WAYPOINT_TRANSITION_INVALID');
+        throw new AppError(
+          'This waypoint is already behind you',
+          409,
+          'WAYPOINT_TRANSITION_INVALID'
+        );
       }
       const status = input.status ?? 'ACTIVE';
       const moveId = randomUUID();
@@ -461,7 +483,11 @@ export class ChartService {
       assertCourseActive(row);
       const waypoint = assertWaypointBelongs(row, waypointId);
       if (isTerminal(waypoint)) {
-        throw new AppError('This waypoint is already behind you', 409, 'WAYPOINT_TRANSITION_INVALID');
+        throw new AppError(
+          'This waypoint is already behind you',
+          409,
+          'WAYPOINT_TRANSITION_INVALID'
+        );
       }
       const now = new Date();
       await tx.move.updateMany({
@@ -510,7 +536,9 @@ export class ChartService {
         where: { id: moveId },
         data: {
           ...(title !== undefined ? { title } : {}),
-          ...(input.rationale !== undefined ? { rationale: cleanOptional(input.rationale, 280) } : {}),
+          ...(input.rationale !== undefined
+            ? { rationale: cleanOptional(input.rationale, 280) }
+            : {}),
           status,
         },
       });
@@ -532,13 +560,22 @@ export class ChartService {
       const move = row.moves.find(item => item.id === moveId);
       if (!move) throw new AppError('Move not found', 404, 'MOVE_NOT_FOUND');
       if (move.status === 'COMPLETED') {
-        throw new AppError('Completed Moves are part of your history', 409, 'MOVE_TRANSITION_INVALID');
+        throw new AppError(
+          'Completed Moves are part of your history',
+          409,
+          'MOVE_TRANSITION_INVALID'
+        );
       }
       if (move.status !== 'DISMISSED') {
-        await tx.move.update({ where: { id: moveId }, data: { status: 'DISMISSED', dismissedAt: new Date() } });
+        await tx.move.update({
+          where: { id: moveId },
+          data: { status: 'DISMISSED', dismissedAt: new Date() },
+        });
       }
       const replacement =
-        row.currentMoveId === moveId ? selectNextActiveMove(row.moves, row.currentWaypointId, moveId) : undefined;
+        row.currentMoveId === moveId
+          ? selectNextActiveMove(row.moves, row.currentWaypointId, moveId)
+          : undefined;
       await tx.course.update({
         where: { id: courseId },
         data: {
@@ -555,7 +592,11 @@ export class ChartService {
    * the current Chart without new events, so double taps cannot duplicate
    * Progress evidence. Never completes the waypoint.
    */
-  async completeMove(userId: string, courseId: string, moveId: string): Promise<MoveCompletionResult> {
+  async completeMove(
+    userId: string,
+    courseId: string,
+    moveId: string
+  ): Promise<MoveCompletionResult> {
     return runSerializable(async tx => {
       const row = await findCourse(tx, userId, courseId);
       const move = row.moves.find(item => item.id === moveId);
@@ -573,9 +614,14 @@ export class ChartService {
         throw new AppError('This Move was removed', 409, 'MOVE_TRANSITION_INVALID');
       }
       const now = new Date();
-      await tx.move.update({ where: { id: moveId }, data: { status: 'COMPLETED', completedAt: now } });
+      await tx.move.update({
+        where: { id: moveId },
+        data: { status: 'COMPLETED', completedAt: now },
+      });
       const wasCurrent = row.currentMoveId === moveId;
-      const nextMove = wasCurrent ? selectNextActiveMove(row.moves, row.currentWaypointId, moveId) : null;
+      const nextMove = wasCurrent
+        ? selectNextActiveMove(row.moves, row.currentWaypointId, moveId)
+        : null;
       await tx.course.update({
         where: { id: courseId },
         data: {
@@ -602,7 +648,12 @@ export class ChartService {
         courseEventId: event.id,
         courseId,
         occurredAt: now,
-        metadata: { courseId, moveId, moveTitle: move.title.slice(0, 120), waypointId: move.waypointId },
+        metadata: {
+          courseId,
+          moveId,
+          moveTitle: move.title.slice(0, 120),
+          waypointId: move.waypointId,
+        },
       });
       return {
         chart: projection(await findCourse(tx, userId, courseId)),
@@ -619,9 +670,18 @@ export class ChartService {
     userId: string,
     courseId: string,
     waypointId: string,
-    input: { expectedCourseVersion: number; metricCurrent?: number | null; requirementId?: string; completed?: boolean }
+    input: {
+      expectedCourseVersion: number;
+      metricCurrent?: number | null;
+      requirementId?: string;
+      completed?: boolean;
+    }
   ): Promise<CourseDetail> {
-    if (input.metricCurrent !== undefined && input.metricCurrent !== null && !(Number.isFinite(input.metricCurrent) && Math.abs(input.metricCurrent) <= 1e12)) {
+    if (
+      input.metricCurrent !== undefined &&
+      input.metricCurrent !== null &&
+      !(Number.isFinite(input.metricCurrent) && Math.abs(input.metricCurrent) <= 1e12)
+    ) {
       throw new AppError('Progress must be a finite number', 422, 'VALIDATION_ERROR');
     }
     return runSerializable(async tx => {
@@ -630,20 +690,46 @@ export class ChartService {
       assertCourseActive(row);
       const waypoint = assertWaypointBelongs(row, waypointId);
       if (isTerminal(waypoint)) {
-        throw new AppError('This waypoint is already behind you', 409, 'WAYPOINT_TRANSITION_INVALID');
+        throw new AppError(
+          'This waypoint is already behind you',
+          409,
+          'WAYPOINT_TRANSITION_INVALID'
+        );
       }
       if (input.requirementId !== undefined) {
-        const requirements = Array.isArray(waypoint.requirements) ? waypoint.requirements as unknown as Array<{ id: string; title: string; completed: boolean }> : [];
-        if (waypoint.progressMode !== 'checklist' || !requirements.some(r => r.id === input.requirementId) || input.completed === undefined) throw new AppError('Checklist item not found', 422, 'VALIDATION_ERROR');
-        await tx.waypoint.update({ where: { id: waypointId }, data: { requirements: requirements.map(r => r.id === input.requirementId ? { ...r, completed: input.completed! } : r) } });
+        const requirements = Array.isArray(waypoint.requirements)
+          ? (waypoint.requirements as unknown as Array<{
+              id: string;
+              title: string;
+              completed: boolean;
+            }>)
+          : [];
+        if (
+          waypoint.progressMode !== 'checklist' ||
+          !requirements.some(r => r.id === input.requirementId) ||
+          input.completed === undefined
+        )
+          throw new AppError('Checklist item not found', 422, 'VALIDATION_ERROR');
+        await tx.waypoint.update({
+          where: { id: waypointId },
+          data: {
+            requirements: requirements.map(r =>
+              r.id === input.requirementId ? { ...r, completed: input.completed! } : r
+            ),
+          },
+        });
         await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
         return projection(await findCourse(tx, userId, courseId));
       }
-      if (input.metricCurrent === undefined) throw new AppError('Progress value required', 422, 'VALIDATION_ERROR');
+      if (input.metricCurrent === undefined)
+        throw new AppError('Progress value required', 422, 'VALIDATION_ERROR');
       if (waypoint.metricTarget === null) {
         throw new AppError('This waypoint has no measure', 422, 'VALIDATION_ERROR');
       }
-      await tx.waypoint.update({ where: { id: waypointId }, data: { metricCurrent: input.metricCurrent } });
+      await tx.waypoint.update({
+        where: { id: waypointId },
+        data: { metricCurrent: input.metricCurrent },
+      });
       await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
       return projection(await findCourse(tx, userId, courseId));
     });
@@ -681,43 +767,89 @@ export class ChartService {
       }
       const row = await findCourse(tx, userId, courseId);
       assertExpectedVersion(row, input.expectedCourseVersion);
-      const extendingStretch = !row.deletedAt && row.status === 'COMPLETED' && row.routeScope === 'NEXT_STRETCH';
-      if (!extendingStretch) { assertCourseWritable(row); assertCourseActive(row); }
+      const extendingStretch =
+        !row.deletedAt && row.status === 'COMPLETED' && row.routeScope === 'NEXT_STRETCH';
+      if (!extendingStretch) {
+        assertCourseWritable(row);
+        assertCourseActive(row);
+      }
       ensureNoCorruption(row);
       if (input.proposalId) {
-        const proposal = await tx.aIPlanProposal.findFirst({ where: { id: input.proposalId, userId, courseId, status: 'PENDING' } });
-        if (!proposal || proposal.expiresAt <= new Date()) throw new AppError('Proposal is unavailable', 409, 'PROPOSAL_UNAVAILABLE');
-        if (proposal.baseCourseVersion !== row.version) throw new AppError('Route changed since review', 409, 'COURSE_VERSION_CONFLICT');
+        const proposal = await tx.aIPlanProposal.findFirst({
+          where: { id: input.proposalId, userId, courseId, status: 'PENDING' },
+        });
+        if (!proposal || proposal.expiresAt <= new Date())
+          throw new AppError('Proposal is unavailable', 409, 'PROPOSAL_UNAVAILABLE');
+        if (proposal.baseCourseVersion !== row.version)
+          throw new AppError('Route changed since review', 409, 'COURSE_VERSION_CONFLICT');
       }
 
       const reached = row.waypoints.filter(waypoint => waypoint.reachedAt);
       const ahead = row.waypoints.filter(waypoint => !isTerminal(waypoint));
       validateRoute(input.waypoints, 1);
-      if (!extendingStretch && reached.filter(w => w.position >= (row.routeStartPosition ?? 0)).length + input.waypoints.length > MAX_COURSE_WAYPOINTS) {
+      if (
+        !extendingStretch &&
+        reached.filter(w => w.position >= (row.routeStartPosition ?? 0)).length +
+          input.waypoints.length >
+          MAX_COURSE_WAYPOINTS
+      ) {
         throw new AppError(
           `A route may contain at most ${MAX_COURSE_WAYPOINTS} waypoints`,
           400,
           'VALIDATION_ERROR'
         );
       }
-      const keptIds = new Set(input.waypoints.map(waypoint => waypoint.id).filter(Boolean) as string[]);
+      const keptIds = new Set(
+        input.waypoints.map(waypoint => waypoint.id).filter(Boolean) as string[]
+      );
       for (const id of keptIds) {
         const existing = row.waypoints.find(waypoint => waypoint.id === id);
         if (!existing) throw new AppError('Waypoint not found', 404, 'WAYPOINT_NOT_FOUND');
         const candidate = input.waypoints.find(w => w.id === id)!;
         const recorded = existing.metricCurrent !== null && existing.metricCurrent !== undefined;
-        const checked = Array.isArray(existing.requirements) && existing.requirements.some(r => typeof r === 'object' && r && 'completed' in r && r.completed === true);
-        if ((recorded && ((candidate.metricTarget !== undefined && candidate.metricTarget !== existing.metricTarget) || (candidate.metricBaseline !== undefined && candidate.metricBaseline !== existing.metricBaseline) || (candidate.metricLabel !== undefined && candidate.metricLabel !== existing.metricLabel) || (candidate.progressMode !== undefined && candidate.progressMode !== existing.progressMode))) || (checked && candidate.requirements !== undefined && JSON.stringify(candidate.requirements) !== JSON.stringify(existing.requirements))) {
-          throw new AppError('Recorded progress must stay attached to its original measure. Replace this waypoint to keep it in history.', 409, 'ROUTE_PROGRESS_CONFLICT');
+        const checked =
+          Array.isArray(existing.requirements) &&
+          existing.requirements.some(
+            r => typeof r === 'object' && r && 'completed' in r && r.completed === true
+          );
+        if (
+          (recorded &&
+            ((candidate.metricTarget !== undefined &&
+              candidate.metricTarget !== existing.metricTarget) ||
+              (candidate.metricBaseline !== undefined &&
+                candidate.metricBaseline !== existing.metricBaseline) ||
+              (candidate.metricLabel !== undefined &&
+                candidate.metricLabel !== existing.metricLabel) ||
+              (candidate.progressMode !== undefined &&
+                candidate.progressMode !== existing.progressMode))) ||
+          (checked &&
+            candidate.requirements !== undefined &&
+            JSON.stringify(candidate.requirements) !== JSON.stringify(existing.requirements))
+        ) {
+          throw new AppError(
+            'Recorded progress must stay attached to its original measure. Replace this waypoint to keep it in history.',
+            409,
+            'ROUTE_PROGRESS_CONFLICT'
+          );
         }
         if (isTerminal(existing)) {
-          throw new AppError('Reached waypoints are part of your history', 409, 'WAYPOINT_TRANSITION_INVALID');
+          throw new AppError(
+            'Reached waypoints are part of your history',
+            409,
+            'WAYPOINT_TRANSITION_INVALID'
+          );
         }
       }
       const removed = ahead.filter(waypoint => !keptIds.has(waypoint.id));
       const removesCurrent = removed.some(waypoint => waypoint.id === row.currentWaypointId);
-      const removesWorkedWaypoint = removed.some(waypoint =>
-        (waypoint.metricCurrent !== null && waypoint.metricCurrent !== undefined) || (Array.isArray(waypoint.requirements) && waypoint.requirements.some(r => typeof r === 'object' && r && 'completed' in r && r.completed === true)) || row.moves.some(move => move.waypointId === waypoint.id && move.status === 'COMPLETED')
+      const removesWorkedWaypoint = removed.some(
+        waypoint =>
+          (waypoint.metricCurrent !== null && waypoint.metricCurrent !== undefined) ||
+          (Array.isArray(waypoint.requirements) &&
+            waypoint.requirements.some(
+              r => typeof r === 'object' && r && 'completed' in r && r.completed === true
+            )) ||
+          row.moves.some(move => move.waypointId === waypoint.id && move.status === 'COMPLETED')
       );
       if ((removesCurrent || removesWorkedWaypoint) && !input.confirmRewrite) {
         throw new AppError(
@@ -751,7 +883,9 @@ export class ChartService {
       // Two-phase positions keep (courseId, position) unique while reordering.
       const terminalMax = Math.max(
         0,
-        ...row.waypoints.filter(waypoint => isTerminal(waypoint)).map(waypoint => waypoint.position),
+        ...row.waypoints
+          .filter(waypoint => isTerminal(waypoint))
+          .map(waypoint => waypoint.position),
         ...removed.map(waypoint => waypoint.position)
       );
       const orderedIds: string[] = [];
@@ -773,9 +907,15 @@ export class ChartService {
               data: { status: 'DISMISSED', dismissedAt: now },
             });
             let movePosition = await nextMovePosition(tx, waypoint.id);
-            const seenTitles = new Set<string>(row.moves
-              .filter(move => move.waypointId === waypoint.id && (move.status === 'ACTIVE' || move.status === 'COMPLETED'))
-              .map(move => move.title.toLowerCase()));
+            const seenTitles = new Set<string>(
+              row.moves
+                .filter(
+                  move =>
+                    move.waypointId === waypoint.id &&
+                    (move.status === 'ACTIVE' || move.status === 'COMPLETED')
+                )
+                .map(move => move.title.toLowerCase())
+            );
             for (const move of generatedMoves) {
               const title = cleanTitle(move.title, 120);
               if (!title || seenTitles.has(title.toLowerCase())) continue;
@@ -844,13 +984,19 @@ export class ChartService {
         }
       }
       for (const [index, id] of orderedIds.entries()) {
-        await tx.waypoint.update({ where: { id }, data: { position: terminalMax + (index + 1) * 100 } });
+        await tx.waypoint.update({
+          where: { id },
+          data: { position: terminalMax + (index + 1) * 100 },
+        });
       }
 
       // The first waypoint ahead is current. If it changed, the One Move follows it.
       const nextCurrentId = orderedIds[0];
       const currentMoveStillValid = row.moves.some(
-        move => move.id === row.currentMoveId && move.waypointId === nextCurrentId && move.status === 'ACTIVE'
+        move =>
+          move.id === row.currentMoveId &&
+          move.waypointId === nextCurrentId &&
+          move.status === 'ACTIVE'
       );
       const refreshedMoves = await tx.move.findMany({ where: { courseId } });
       const nextMove = currentMoveStillValid
@@ -859,7 +1005,19 @@ export class ChartService {
       let revisedMoveId: string | null = null;
       if (input.oneMove && !nextMove) {
         revisedMoveId = randomUUID();
-        await tx.move.create({ data: { id: revisedMoveId, userId, courseId, waypointId: nextCurrentId, title: cleanTitle(input.oneMove.title, 120), rationale: cleanOptional(input.oneMove.rationale, 280), source: 'AI', status: 'ACTIVE', position: await nextMovePosition(tx, nextCurrentId) } });
+        await tx.move.create({
+          data: {
+            id: revisedMoveId,
+            userId,
+            courseId,
+            waypointId: nextCurrentId,
+            title: cleanTitle(input.oneMove.title, 120),
+            rationale: cleanOptional(input.oneMove.rationale, 280),
+            source: 'AI',
+            status: 'ACTIVE',
+            position: await nextMovePosition(tx, nextCurrentId),
+          },
+        });
       }
       const destinationText = input.destinationText ? cleanTitle(input.destinationText, 140) : null;
       await tx.course.update({
@@ -867,9 +1025,17 @@ export class ChartService {
         data: {
           currentWaypointId: nextCurrentId,
           currentMoveId: nextMove?.id ?? revisedMoveId,
-          ...(extendingStretch ? { status: CourseStatus.ACTIVE, completedAt: null, routeStartPosition: terminalMax + 100 } : {}),
+          ...(extendingStretch
+            ? {
+                status: CourseStatus.ACTIVE,
+                completedAt: null,
+                routeStartPosition: terminalMax + 100,
+              }
+            : {}),
           ...(input.routeScope ? { routeScope: input.routeScope } : {}),
-          ...(destinationText && destinationText !== row.destinationText ? { destinationText } : {}),
+          ...(destinationText && destinationText !== row.destinationText
+            ? { destinationText }
+            : {}),
           version: { increment: 1 },
         },
       });
@@ -892,7 +1058,9 @@ export class ChartService {
         sourceEntityId: courseId,
         snapshot: {
           waypointCount: reached.length + orderedIds.length,
-          ...(input.adjustmentReason ? { adjustmentReason: input.adjustmentReason.slice(0, 32) } : {}),
+          ...(input.adjustmentReason
+            ? { adjustmentReason: input.adjustmentReason.slice(0, 32) }
+            : {}),
         },
         occurredAt: now,
         idempotencyKey: adjustedKey,
@@ -912,7 +1080,8 @@ export class ChartService {
     target: { courseId?: string; anchorId?: string },
     expectedCourseVersion?: number
   ): Promise<CourseDetail> {
-    const courseId = target.courseId ?? (await this.resolveActiveCourseId(userId, target.anchorId!));
+    const courseId =
+      target.courseId ?? (await this.resolveActiveCourseId(userId, target.anchorId!));
     return courseService.archiveCourse(userId, courseId, expectedCourseVersion);
   }
 
@@ -921,7 +1090,8 @@ export class ChartService {
     target: { courseId?: string; anchorId?: string },
     expectedCourseVersion?: number
   ): Promise<{ deleted: true }> {
-    const courseId = target.courseId ?? (await this.resolveActiveCourseId(userId, target.anchorId!));
+    const courseId =
+      target.courseId ?? (await this.resolveActiveCourseId(userId, target.anchorId!));
     await courseService.softDeleteCourse(userId, courseId, expectedCourseVersion);
     return { deleted: true };
   }
@@ -935,7 +1105,10 @@ export class ChartService {
         status: { in: [CourseStatus.ACTIVE, CourseStatus.COMPLETED, CourseStatus.DRAFT] },
         OR: [
           { anchorId },
-          { anchorId: null, anchorLinks: { some: { anchorId, role: CourseAnchorRole.DESTINATION } } },
+          {
+            anchorId: null,
+            anchorLinks: { some: { anchorId, role: CourseAnchorRole.DESTINATION } },
+          },
         ],
       },
       orderBy: { updatedAt: 'desc' },

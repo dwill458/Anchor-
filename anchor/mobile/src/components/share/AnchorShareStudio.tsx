@@ -48,7 +48,9 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
   const reduceMotion = useV2ReduceMotion();
   const { isPro } = useSubscription();
   const { renderPng, release, exportNode } = useShareExportRenderer(data);
-  const { visionBackgroundId, setVisionBackgroundId } = useSharePrefsStore();
+  const { visionBackgroundId: savedBackgroundId, setVisionBackgroundId, visionBackgroundSource, useSuggestedVisionBackground } = useSharePrefsStore();
+  const visionBackgroundId = (visionBackgroundSource ?? 'suggested') === 'manual' ? savedBackgroundId :
+    data.visionBoardLayout === 'EDITORIAL' ? 'editorial' : data.visionBoardLayout === 'SCRAPBOOK' ? 'scrapbook' : 'canvas';
 
   const layouts = useMemo(() => availableShareLayouts(data), [data]);
   const [index, setIndex] = useState(() => initialLayout ? Math.max(0, layouts.indexOf(initialLayout)) : 0);
@@ -114,7 +116,6 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
 
   const selectVisionBackground = useCallback(
     (nextBg: VisionShareBackgroundId) => {
-      if (nextBg === visionBackgroundId) return;
       setVisionBackgroundId(nextBg);
       void v2Haptics.selection();
     },
@@ -226,10 +227,13 @@ export function AnchorShareStudio({ visible, onClose, data, initialLayout }: Pro
             />
 
             {layout === 'vision' ? (
+              <View>
               <VisionBackgroundPicker
                 selected={visionBackgroundId}
                 onSelect={selectVisionBackground}
               />
+              {(visionBackgroundSource ?? 'suggested') === 'manual' ? <Pressable accessibilityRole="button" onPress={useSuggestedVisionBackground} style={{minHeight:44,justifyContent:'center',alignSelf:'center'}}><Text style={styles.markHelp}>Use suggested</Text></Pressable> : null}
+              </View>
             ) : null}
 
             <View style={styles.markRow}>

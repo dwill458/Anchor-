@@ -10,10 +10,11 @@ export interface V2ProgressWeekProps {
   streak?: V2ProgressStreak;
   /** The longest run of practice days this Anchor has on record, shown as "Longest rhythm". */
   longestRhythm?: number;
+  embedded?: boolean;
   testID?: string;
 }
 
-const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
+const DAY_LETTERS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
 /**
@@ -25,13 +26,14 @@ export const V2ProgressWeekCard: React.FC<V2ProgressWeekProps> = ({
   week,
   streak,
   longestRhythm = 0,
+  embedded = false,
   testID = 'v2-progress-week',
 }) => {
   const activeDays = week.days.filter(Boolean).length;
   const hasHistory = activeDays > 0 || longestRhythm > 0;
 
   return (
-    <View style={styles.card} testID={testID}>
+    <View style={embedded ? styles.embedded : styles.card} testID={testID}>
       <View style={styles.week}>
         {DAY_LETTERS.map((letter, index) => {
           const done = week.days[index] === true;
@@ -43,13 +45,13 @@ export const V2ProgressWeekCard: React.FC<V2ProgressWeekProps> = ({
               accessible
               accessibilityLabel={`${DAY_NAMES[index]}${today ? ', today' : ''}: ${done ? 'practiced' : 'no practice'}`}
             >
+              <Text style={styles.dayLetter}>{letter}</Text>
               <View
                 testID={`${testID}-dot-${index}`}
                 style={[styles.dot, done && styles.dotDone, today && styles.dotToday]}
               >
                 {done ? <Check size={15} color={colors.cream} strokeWidth={2.6} /> : null}
               </View>
-              <Text style={styles.dayLetter}>{letter}</Text>
             </View>
           );
         })}
@@ -70,9 +72,10 @@ export const V2ProgressWeekCard: React.FC<V2ProgressWeekProps> = ({
   );
 };
 
-const DOT = 34;
+const DOT = 24;
 
 const styles = StyleSheet.create({
+  embedded: { paddingTop: 12 },
   card: {
     backgroundColor: progressTokens.card,
     borderWidth: 1,
@@ -81,7 +84,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   week: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  day: { alignItems: 'center', gap: 7 },
+  day: { flex: 1, minWidth: 0, alignItems: 'center', gap: 6 },
   dot: {
     width: DOT,
     height: DOT,
@@ -100,8 +103,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
-    marginTop: 14,
-    paddingTop: 13,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: progressTokens.hairline,
   },

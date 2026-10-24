@@ -22,6 +22,8 @@ export interface V2WeeklyInsightRouteParams {
   snapshotId?: string;
   /** Optional week offset (0 = latest completed week, 1 = prior week, etc.). */
   weekOffset?: number;
+  /** Weekly Insight 2.0: open this week (a Monday, 'YYYY-MM-DD'). Weekly Insight is global; `anchorId` only sets context. */
+  weekKey?: string;
 }
 
 /**

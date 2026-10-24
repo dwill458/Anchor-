@@ -57,7 +57,11 @@ export function buildAskUserMessage(input: {
             state: waypoint.state,
             completionCriteria: limit(waypoint.completionCriteria, 200),
             metric: waypoint.metric,
-            moves: waypoint.moves.map(move => ({ id: move.id, title: move.title, status: move.status })),
+            moves: waypoint.moves.map(move => ({
+              id: move.id,
+              title: move.title,
+              status: move.status,
+            })),
           })),
           recentCompletedMoves: chart.recentCompletedMoves,
         }

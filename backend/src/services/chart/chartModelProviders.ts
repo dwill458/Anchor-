@@ -7,7 +7,7 @@ import { env } from '../../config/env';
  * Chart business logic only ever sees `ChartModelProvider`. Swapping or
  * reordering models is configuration: the primary is OpenAI when a key is
  * present, the fallback is the Gemini text model the backend already uses,
- * and the deterministic template path sits behind both (see ChartPlannerService).
+ * and failed plans surface through the existing retry/error path (see ChartPlannerService).
  */
 
 export type ChartProviderName = 'openai' | 'gemini';
@@ -78,7 +78,9 @@ function classifyStatus(status: number | undefined): ChartProviderFailure {
 function isAbort(error: unknown): boolean {
   return (
     error instanceof Error &&
-    (error.name === 'AbortError' || error.name === 'TimeoutError' || /aborted|timeout/i.test(error.message))
+    (error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      /aborted|timeout/i.test(error.message))
   );
 }
 
@@ -109,7 +111,10 @@ export function toOpenAiStrictSchema(schema: unknown): unknown {
 }
 
 /** gpt-5 and o-series models only accept the default temperature; sending one is a 400. */
-export function openAiTemperature(model: string, temperature: number | undefined): { temperature?: number } {
+export function openAiTemperature(
+  model: string,
+  temperature: number | undefined
+): { temperature?: number } {
   return temperature === undefined || /^(gpt-5|o\d)/.test(model) ? {} : { temperature };
 }
 
@@ -134,7 +139,10 @@ export function toOpenAiMessages(request: ChartModelRequest): Array<Record<strin
 }
 
 /** Calls `onData` with the payload of every `data:` line of a server-sent-event body, however the chunks split. */
-export async function readSseData(body: ReadableStream<Uint8Array>, onData: (data: string) => void): Promise<void> {
+export async function readSseData(
+  body: ReadableStream<Uint8Array>,
+  onData: (data: string) => void
+): Promise<void> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let pending = '';
@@ -192,7 +200,10 @@ export class OpenAiChartProvider implements ChartModelProvider {
     }
     if (!response.ok) throw new ChartProviderError(classifyStatus(response.status), this.name);
     let body: {
-      choices?: Array<{ finish_reason?: string; message?: { content?: string | null; refusal?: string | null } }>;
+      choices?: Array<{
+        finish_reason?: string;
+        message?: { content?: string | null; refusal?: string | null };
+      }>;
     };
     try {
       body = (await response.json()) as typeof body;
@@ -232,7 +243,11 @@ async function streamOpenAiJson(
         messages: toOpenAiMessages(request),
         response_format: {
           type: 'json_schema',
-          json_schema: { name: request.schemaName, strict: true, schema: toOpenAiStrictSchema(request.jsonSchema) },
+          json_schema: {
+            name: request.schemaName,
+            strict: true,
+            schema: toOpenAiStrictSchema(request.jsonSchema),
+          },
         },
       }),
     });
@@ -246,7 +261,12 @@ async function streamOpenAiJson(
   try {
     await readSseData(response.body, data => {
       if (!data || data === '[DONE]') return;
-      let event: { choices?: Array<{ finish_reason?: string; delta?: { content?: string | null; refusal?: string | null } }> };
+      let event: {
+        choices?: Array<{
+          finish_reason?: string;
+          delta?: { content?: string | null; refusal?: string | null };
+        }>;
+      };
       try {
         event = JSON.parse(data);
       } catch {
@@ -278,7 +298,9 @@ export function toGeminiContents(request: ChartModelRequest) {
       role: 'user' as const,
       parts: [
         { text: request.user },
-        ...(request.images ?? []).map(image => ({ inlineData: { mimeType: image.mimeType, data: image.base64 } })),
+        ...(request.images ?? []).map(image => ({
+          inlineData: { mimeType: image.mimeType, data: image.base64 },
+        })),
       ],
     },
   ];
@@ -288,7 +310,10 @@ export class GeminiChartProvider implements ChartModelProvider {
   readonly name = 'gemini' as const;
   private readonly client: GoogleGenAI;
 
-  constructor(apiKey: string, readonly model: string) {
+  constructor(
+    apiKey: string,
+    readonly model: string
+  ) {
     this.client = new GoogleGenAI({ apiKey });
   }
 
@@ -325,7 +350,10 @@ export class GeminiChartProvider implements ChartModelProvider {
     return parseJson(text, this.name);
   }
 
-  async streamJson(request: ChartModelRequest, onText: (accumulated: string) => void): Promise<unknown> {
+  async streamJson(
+    request: ChartModelRequest,
+    onText: (accumulated: string) => void
+  ): Promise<unknown> {
     let accumulated = '';
     try {
       const stream = await this.client.models.generateContentStream({
@@ -340,7 +368,8 @@ export class GeminiChartProvider implements ChartModelProvider {
         },
       });
       for await (const chunk of stream) {
-        if (chunk.promptFeedback?.blockReason) throw new ChartProviderError('safety_blocked', this.name);
+        if (chunk.promptFeedback?.blockReason)
+          throw new ChartProviderError('safety_blocked', this.name);
         const piece = chunk.text;
         if (piece) {
           accumulated += piece;
@@ -354,13 +383,18 @@ export class GeminiChartProvider implements ChartModelProvider {
         typeof error === 'object' && error !== null && 'status' in error
           ? Number((error as { status?: unknown }).status)
           : undefined;
-      throw new ChartProviderError(Number.isFinite(status) ? classifyStatus(status) : 'unavailable', this.name);
+      throw new ChartProviderError(
+        Number.isFinite(status) ? classifyStatus(status) : 'unavailable',
+        this.name
+      );
     }
     return parseJson(accumulated, this.name);
   }
 }
 
-export const DEFAULT_CHART_OPENAI_MODEL = 'gpt-4.1-mini';
+// The route evaluation keeps 3/4/5+ distinct states with the planning summary;
+// gpt-4.1-mini repeatedly compressed complex destinations or invented baselines.
+export const DEFAULT_CHART_OPENAI_MODEL = 'gpt-5.4-mini';
 export const DEFAULT_CHART_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 export type ChartPlannerConfig = {
@@ -378,20 +412,28 @@ function positiveInt(value: string | undefined, fallback: number): number {
  * Provider order is resolved from configuration, never hardcoded into Chart
  * logic. Reports model names only (never keys) so it is safe to log.
  */
-export function resolveChartPlannerConfig(source: NodeJS.ProcessEnv = process.env): ChartPlannerConfig {
+export function resolveChartPlannerConfig(
+  source: NodeJS.ProcessEnv = process.env
+): ChartPlannerConfig {
   const providers: ChartModelProvider[] = [];
   const openAiKey = source.OPENAI_API_KEY?.trim();
   if (openAiKey) {
     providers.push(
-      new OpenAiChartProvider(openAiKey, source.CHART_OPENAI_MODEL?.trim() || DEFAULT_CHART_OPENAI_MODEL)
+      new OpenAiChartProvider(
+        openAiKey,
+        source.CHART_OPENAI_MODEL?.trim() || DEFAULT_CHART_OPENAI_MODEL
+      )
     );
   }
-  const googleKey = env.GOOGLE_API_KEY?.trim();
+  const googleKey =
+    source.GOOGLE_API_KEY?.trim() || source.GEMINI_API_KEY?.trim() || env.GOOGLE_API_KEY?.trim();
   if (googleKey) {
     providers.push(
       new GeminiChartProvider(
         googleKey,
-        source.CHART_GEMINI_MODEL?.trim() || source.GOOGLE_SCENE_MODEL?.trim() || DEFAULT_CHART_GEMINI_MODEL
+        source.CHART_GEMINI_MODEL?.trim() ||
+          source.GOOGLE_SCENE_MODEL?.trim() ||
+          DEFAULT_CHART_GEMINI_MODEL
       )
     );
   }
@@ -448,7 +490,9 @@ export function resolveAskChartConfig(source: NodeJS.ProcessEnv = process.env): 
   const order = (source.CHART_ASK_PROVIDER_ORDER?.split(',') ?? ['openai', 'gemini'])
     .map(name => name.trim() as ChartProviderName)
     .filter(name => name === 'openai' || name === 'gemini');
-  const providers = [...new Set(order)].flatMap(name => (byName.has(name) ? [byName.get(name)!] : []));
+  const providers = [...new Set(order)].flatMap(name =>
+    byName.has(name) ? [byName.get(name)!] : []
+  );
   return {
     providers,
     primaryTimeoutMs: positiveInt(source.CHART_ASK_PRIMARY_TIMEOUT_MS, 25_000),

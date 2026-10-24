@@ -43,53 +43,40 @@ describe('V2ThreadEventTimeline dates', () => {
   });
 });
 
-describe('V2ThreadEventTimeline routine toggle', () => {
-  const at = (day: number) => `2026-08-${String(day).padStart(2, '0')}T10:00:00.000Z`;
-  const waypoint = stageItem({ id: 'wp', type: 'WAYPOINT_REACHED', title: 'Prototype validated', occurredAt: at(15), formattedDate: 'Aug 15' });
-  const milestone = stageItem({ id: 'ms', type: 'MILESTONE_EARNED', title: 'First Practice', occurredAt: at(14), formattedDate: 'Aug 14' });
-  const practices = Array.from({ length: 4 }, (_, i) =>
-    stageItem({ id: `p${i}`, type: 'PRACTICE_COMPLETED', title: 'Practice completed', occurredAt: at(10 + i), formattedDate: `Aug ${10 + i}` }),
-  );
+describe('V2ThreadEventTimeline recent activity', () => {
+  const events = Array.from({ length: 14 }, (_, i) => stageItem({
+    id: `p${i}`, type: i % 2 ? 'PRACTICE_COMPLETED' : 'WAYPOINT_REACHED',
+    title: `Activity ${i}`, occurredAt: `2026-08-${String(i + 1).padStart(2, '0')}T10:00:00.000Z`,
+    formattedDate: `Aug ${i + 1}`,
+  }));
 
-  it('leads with meaningful events and keeps repeated practice behind a toggle', () => {
-    const { getByTestId, queryByTestId, getByText } = render(
-      <V2ThreadEventTimeline events={[waypoint, milestone, ...practices]} onSelectEvent={jest.fn()} now={now} />,
-    );
-    expect(getByTestId('thread-event-item-wp')).toBeTruthy();
-    expect(getByTestId('thread-event-item-ms')).toBeTruthy();
-    expect(queryByTestId('thread-event-item-p0')).toBeNull();
-    expect(getByText('Show all activity (4 routine)')).toBeTruthy();
+  it('shows exactly the latest three events across all categories, newest first', () => {
+    const { getAllByTestId, queryByTestId } = render(<V2ThreadEventTimeline events={events} onSelectEvent={jest.fn()} now={now} />);
+    expect(getAllByTestId(/^thread-event-item-/).map(row => row.props.testID)).toEqual([
+      'thread-event-item-p13', 'thread-event-item-p12', 'thread-event-item-p11',
+    ]);
+    expect(queryByTestId('thread-event-item-p10')).toBeNull();
   });
 
-  it('shows every routine entry on request and hides them again, losing nothing', () => {
-    const { getByTestId, queryByTestId, getByText } = render(
-      <V2ThreadEventTimeline events={[waypoint, milestone, ...practices]} onSelectEvent={jest.fn()} now={now} />,
-    );
-    fireEvent.press(getByTestId('v2-thread-event-timeline-routine-toggle'));
-    expect(getByTestId('thread-event-item-p0')).toBeTruthy();
-    expect(getByTestId('thread-event-item-p3')).toBeTruthy();
-    expect(getByText('Hide routine activity')).toBeTruthy();
-    fireEvent.press(getByTestId('v2-thread-event-timeline-routine-toggle'));
-    expect(queryByTestId('thread-event-item-p0')).toBeNull();
+  it('opens the complete history and can return to the compact view', () => {
+    const { getByText, getAllByTestId } = render(<V2ThreadEventTimeline events={events} onSelectEvent={jest.fn()} now={now} />);
+    fireEvent.press(getByText('View all activity'));
+    expect(getAllByTestId(/^thread-event-item-/)).toHaveLength(13);
+    fireEvent.press(getByText('Show earlier'));
+    expect(getAllByTestId(/^thread-event-item-/)).toHaveLength(14);
+    fireEvent.press(getByText('Show recent'));
+    expect(getAllByTestId(/^thread-event-item-/)).toHaveLength(3);
   });
 
-  it('has no toggle when there is no routine activity', () => {
-    const { queryByTestId } = render(<V2ThreadEventTimeline events={[waypoint]} onSelectEvent={jest.fn()} now={now} />);
-    expect(queryByTestId('v2-thread-event-timeline-routine-toggle')).toBeNull();
-  });
-
-  it('says where the practices are when only routine entries exist', () => {
-    const { getByTestId, queryByTestId } = render(<V2ThreadEventTimeline events={practices} onSelectEvent={jest.fn()} now={now} />);
-    expect(getByTestId('v2-thread-event-timeline-quiet')).toBeTruthy();
-    expect(queryByTestId('thread-event-item-p0')).toBeNull();
-    fireEvent.press(getByTestId('v2-thread-event-timeline-routine-toggle'));
-    expect(getByTestId('thread-event-item-p0')).toBeTruthy();
-  });
-
-  it('selects an event on press', () => {
+  it('keeps detail navigation for practices and meaningful events', () => {
     const onSelect = jest.fn();
-    const { getByTestId } = render(<V2ThreadEventTimeline events={[milestone]} onSelectEvent={onSelect} now={now} />);
-    fireEvent.press(getByTestId('thread-event-item-ms'));
-    expect(onSelect).toHaveBeenCalledWith(milestone);
+    const { getByTestId } = render(<V2ThreadEventTimeline events={events} onSelectEvent={onSelect} now={now} />);
+    fireEvent.press(getByTestId('thread-event-item-p13'));
+    expect(onSelect).toHaveBeenCalledWith(events[13]);
+  });
+
+  it('does not offer expansion for three or fewer events', () => {
+    const { queryByText } = render(<V2ThreadEventTimeline events={events.slice(0, 3)} onSelectEvent={jest.fn()} now={now} />);
+    expect(queryByText('View all activity')).toBeNull();
   });
 });

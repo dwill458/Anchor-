@@ -7,6 +7,8 @@ import { colors } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
+import type { VisionBoardCardArt } from '@/components/v2/vision/board/VisionBoardIntentionCard';
+import type { VisionBoardComposition } from '@/components/v2/vision/board/visionBoardComposition';
 import { type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
 import { coverRect, projectPoint, type Rect as GeometryRect } from './prototype/cinematicGeometry';
 import { cinematicSessionFrame, CINEMATIC_MARK_BRIDGE_MS, type CinematicSessionGeometry } from './cinematicSessionMotion';
@@ -75,6 +77,7 @@ const MomentImage = memo(function MomentImage({ image, motion, backdrop, softIma
 });
 
 type Props = {
+  composition?: VisionBoardComposition; anchorArt?:VisionBoardCardArt;
   tiles: V2VisionTile[]; images: SkImage[]; intention: string; category: string; svgText: string; enhancedImageUrl?: string | null;
   focalPoints?: Array<PhotoFocus | null>;
   backdrops?: Array<SkImage | null>;
@@ -92,9 +95,9 @@ type Props = {
 
 /** Production scene: the board, saved photos and enhanced Anchor share one camera. */
 export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles, images, intention, category, svgText,
-  enhancedImageUrl, focalPoints, backdrops, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, sequenceCount, activeIndex, watermark, onMarkLayout }: Props) {
-  const board = useVisionBoardScene(tiles, scene, 1, true);
-  const sessionLayout = preserveVisualizeAnchorLayout(board.layout, tiles.length, scene);
+  enhancedImageUrl, focalPoints, backdrops, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, sequenceCount, activeIndex, watermark, onMarkLayout,composition,anchorArt }: Props) {
+  const board = useVisionBoardScene(tiles, scene, 1, true,undefined,composition);
+  const sessionLayout = composition?board.layout:preserveVisualizeAnchorLayout(board.layout, tiles.length, scene);
   const state = useDerivedValue(() => cinematicSessionFrame(elapsed.value, timeline, geometry, reduced));
   const backgroundStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(state.value.ambientDarkness,
     [0, 1], [colors.canvas, colors.ink.deep]) }));
@@ -197,9 +200,10 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
     <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.canvas }, backgroundStyle]} />
     <Animated.View style={[{ position: 'absolute', left: (viewport.width - scene.width) / 2,
       top: (viewport.height - scene.height) / 2, width: scene.width, height: scene.height }, cameraStyle]}>
-      <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={sessionLayout}
+      <VisionBoardScene materialMode="photographic" sharedComposition={Boolean(composition)} slotOrder={composition?.order} notes={composition?.notes}
+        displayScale={composition?composition.size.width/scene.width:undefined} focals={Object.fromEntries(tiles.filter(t=>t.focal).map(t=>[t.sceneId,t.focal!]))} scene={scene} roster={board.roster} entering={board.entering} layout={sessionLayout}
         shared={board.shared} initialRectFor={board.initialRectFor} intention={intention} category={category}
-        art={{ svg: svgText, imageUrl: enhancedImageUrl }} reduceMotion cinematic={cinematic} />
+        art={anchorArt??{svg:svgText,imageUrl:enhancedImageUrl}} reduceMotion cinematic={cinematic} />
     </Animated.View>
     <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.ink.deep }, boardDimStyle]} />
     <Canvas style={StyleSheet.absoluteFill}>

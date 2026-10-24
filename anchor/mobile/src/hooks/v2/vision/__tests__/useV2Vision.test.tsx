@@ -190,7 +190,7 @@ describe('useV2Vision', () => {
     const { result } = renderHook(() => useV2Vision('anchor-a'));
     await waitFor(() => expect(result.current.vision?.id).toBe(initial.id));
     await act(async () => { await result.current.updateSceneCaption('scene-vision-anchor-a', '   '); });
-    expect(mockPatch).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/scenes/scene-vision-anchor-a', { caption: null });
+    expect(mockPatch).toHaveBeenCalledWith('/api/v2/visions/vision-anchor-a/scenes/scene-vision-anchor-a', { caption: null, expectedUpdatedAt: initial.scenes[0].updatedAt });
     expect(result.current.vision?.scenes[0].caption).toBeNull();
   });
 

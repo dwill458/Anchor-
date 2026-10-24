@@ -73,6 +73,8 @@ export const GOOGLE_IOS_CLIENT_ID =
 export const ENABLE_GOOGLE_SIGN_IN = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_IN !== 'false';
 export const ENABLE_LEGACY_SUPABASE_SYNC =
   process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';
+/** Weekly Insight 2.0. Off by default; the server must also enable it (it answers FEATURE_DISABLED otherwise). */
+export const ENABLE_WEEKLY_RECAP_V2 = process.env.EXPO_PUBLIC_ENABLE_WEEKLY_RECAP_V2 === 'true';
 export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
 export const ENABLE_VISUALIZE = process.env.EXPO_PUBLIC_ENABLE_VISUALIZE === 'true';
 // Chart is deliberately default-off. The server flag is consumed separately

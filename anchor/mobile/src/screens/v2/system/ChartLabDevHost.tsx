@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { DeviceEventEmitter, DevSettings, Linking, Modal, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { V2ChartPreview } from './V2ChartPreview';
+import { ChartCourseReviewFixture } from './ChartCourseReviewFixture';
 import { resetAllTeachingSeen } from '@/hooks/v2/teaching/teachingSeen';
 import { resetChartTaughtState } from '@/hooks/v2/chart/chartTaughtState';
 import { useTeachingStore } from '@/stores/teachingStore';
@@ -15,6 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
  */
 export function ChartLabDevHost() {
   const [open, setOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const accountId = useAuthStore(state => state.user?.id ?? null);
   const resetTeaching = async (replay: boolean) => {
     await resetAllTeachingSeen(accountId);
@@ -43,6 +45,7 @@ export function ChartLabDevHost() {
     // Dev-only: `adb shell am start -a android.intent.action.VIEW -d anchor://chart-lab` opens the lab
     // (the Expo dev menu keeps only the last registered lab, so this is the reliable way in).
     const linkSub = __DEV__ ? Linking.addEventListener('url', ({ url }) => {
+      if (url.includes('chart-review-lab')) setReviewOpen(true);
       if (url.includes('chart-lab')) openLab();
     }) : null;
     return () => {
@@ -51,6 +54,12 @@ export function ChartLabDevHost() {
     };
   }, []);
   return (
+    <>
+    <Modal visible={reviewOpen} animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setReviewOpen(false)}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {reviewOpen ? <ChartCourseReviewFixture onClose={() => setReviewOpen(false)} /> : null}
+      </GestureHandlerRootView>
+    </Modal>
     <Modal visible={open} animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setOpen(false)}>
       {/* Android Modals render outside the app root, so gestures need their own root here. */}
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -61,5 +70,6 @@ export function ChartLabDevHost() {
         </View> : null}
       </GestureHandlerRootView>
     </Modal>
+    </>
   );
 }

@@ -12,7 +12,7 @@ import {
   toFramePoint,
   waypointFractions,
 } from '../chartRouteGeometry';
-import { moveItem } from '../ChartRouteEditor';
+import { moveItem, routeDropIndexFromOffset } from '../ChartRouteEditor';
 import { CHART_COPY, CHART_THOUGHT_STARTERS, chartRealityGuide, chartRealityTheme } from '@/constants/v2/chartCopy';
 import { manualOutline, toDraft } from '../ChartCreationFlow';
 import { journeyRows } from '../ChartDestinationReached';
@@ -118,11 +118,25 @@ describe('"What would make this real?" teaching', () => {
 });
 
 describe('route editing', () => {
+  it.each([3, 4, 5, 6, 7, 8, 12])('maps and reorders all %i waypoints without dropping their stable identities', (count) => {
+    const draft = toDraft(proposal(Array.from({ length: count }, (_, index) => `State ${index + 1}`)));
+    const reordered = moveItem(draft, count - 1, 0);
+    expect(reordered).toHaveLength(count);
+    expect(reordered[0].key).toBe(`k${count - 1}`);
+    expect(new Set(reordered.map(w => w.key)).size).toBe(count);
+  });
   it('moves an item and ignores out-of-range moves', () => {
     expect(moveItem(['a', 'b', 'c'], 0, 2)).toEqual(['b', 'c', 'a']);
     expect(moveItem(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b']);
     const same = ['a', 'b'];
     expect(moveItem(same, 0, 5)).toBe(same);
+  });
+
+  it('resolves reorder targets from measured heights when waypoint titles wrap', () => {
+    const heights = [58, 94, 58];
+    expect(routeDropIndexFromOffset(0, 110, heights)).toBe(1);
+    expect(routeDropIndexFromOffset(0, 160, heights)).toBe(2);
+    expect(routeDropIndexFromOffset(2, -130, heights)).toBe(0);
   });
 
   it('builds a plain outline for manual creation, ending at the intention', () => {

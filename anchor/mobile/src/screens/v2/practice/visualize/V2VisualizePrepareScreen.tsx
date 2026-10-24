@@ -9,6 +9,8 @@ import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupL
 import { resolvePracticeSetupMetrics } from '@/components/v2/practice/practiceSetupLayout';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
+import { useVisionBoardComposition } from '@/components/v2/vision/board/useVisionBoardComposition';
+import type { VisionBoardLayout } from '@/adapters/v2/vision';
 import { v2PracticeDurationLabel } from '@/constants/v2/practice';
 import { useSessionAudioSetup, useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
 import { V2PracticeAudioSheet } from '@/components/v2/practice/V2PracticeAudioSheet';
@@ -43,6 +45,7 @@ type Props = {
   /** The Vision's images in their one display order (`getOrderedVisionImages`). */
   tiles: V2VisionTile[];
   notes?: readonly VisionNote[];
+  boardLayout?: VisionBoardLayout;
   initialDuration?: number;
   onBack: () => void;
   onOpenVision?: (anchorId: string) => void;
@@ -71,7 +74,7 @@ const PHOTO_WARM_MAX_MS = 800;
  * order), their real Anchor sits on it, and Begin darkens the page into the
  * session without a cut. Sound and haptics apply to this session only.
  */
-export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, notes, initialDuration, onBack, onOpenVision, onBegin, entry, entitled = true }: Props) {
+export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, notes, boardLayout, initialDuration, onBack, onOpenVision, onBegin, entry, entitled = true }: Props) {
   const accountId = useAuthStore(state => state.user?.id ?? null);
   const viewport = useV2Responsive();
   const metrics = resolvePracticeSetupMetrics(viewport, 'hero');
@@ -142,9 +145,10 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
   const sourceSceneHeight = entry?.sourceFrame?.sceneHeight;
   const sceneWidth = Number.isFinite(sourceSceneWidth) && (sourceSceneWidth ?? 0) > 0 ? sourceSceneWidth! : contentWidth;
   const entranceNotes = notes ?? entry?.notes;
-  const photoFrame = useMemo(() => fitVisualizePhotoFrame(sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, sourceSceneHeight,
-    { anchor: true, notes: entranceNotes }),
-    [sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, sourceSceneHeight, entranceNotes]);
+  const composition=useVisionBoardComposition({tiles:boardTiles,notes:entranceNotes,width:entry?.layoutWidth??width-24,boardLayout:boardLayout??entry?.boardLayout??'CLASSIC'});
+  const photoFrame = useMemo(() => fitVisualizePhotoFrame(sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, sceneWidth*composition.ratio,
+    { anchor: true, notes: composition.notes,layout:composition.layout,order:composition.order }),
+    [sceneWidth, boardTiles.length, contentWidth, availablePhotoHeight, composition.ratio,composition.notes,composition.layout,composition.order]);
   const scene = photoFrame.scene;
 
   // Keep the real setup board visible while the exact session textures and geometry prepare.
@@ -160,7 +164,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
   const ready = prepared !== null && preparedKey.current === preparationKey;
   // Keep source Vision URLs stable in setup; frozen Skia assets are for the guided session. Swapping native photo
   // sources at readiness can turn a cached image into a failed reload.
-  const board = useVisionBoardScene(boardTiles, scene, 1, true);
+  const board = useVisionBoardScene(boardTiles, scene, 1, true,undefined,composition);
   const retry = () => { setPreparationIssue(null); setPrepared(null); setAttempt(value => value + 1); };
 
   const sessionVoice: GuidanceVoice = soundSetup.voice;
@@ -302,7 +306,8 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
     <Animated.View testID="v2-visualize-entry-overlay" pointerEvents="none" style={entryFrameStyle}>
       <View style={{ flex: 1 }}>
         <Animated.View style={[{ position: 'absolute', width: scene.width, height: scene.height }, entrySceneStyle]}>
-          <VisionBoardScene materialMode="photographic" notes={notes ?? entry?.notes} notesOpacity={entryNotesOpacity} intentionCardOpacity={entryCardOpacity}
+          <VisionBoardScene materialMode="photographic" sharedComposition slotOrder={composition.order} displayScale={composition.size.width/scene.width}
+            focals={Object.fromEntries(boardTiles.filter(t=>t.focal).map(t=>[t.sceneId,t.focal!]))} notes={composition.notes} notesOpacity={entryNotesOpacity} intentionCardOpacity={entryCardOpacity}
             scene={scene} roster={board.roster} entering={board.entering} layout={board.layout} shared={board.shared}
             initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement} category={anchor.category}
             art={art} markAppearance="paper" reduceMotion />
@@ -363,7 +368,8 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
               {entryActive ? null : (
                 <View style={{ position: 'absolute', left: photoFrame.sceneLayoutLeft, top: photoFrame.sceneLayoutTop,
                   width: scene.width, height: scene.height, transform: [{ scale: photoFrame.scale }] }}>
-                <VisionBoardScene materialMode="photographic" notes={notes ?? entry?.notes} scene={scene} roster={board.roster} entering={board.entering} layout={board.layout}
+                <VisionBoardScene materialMode="photographic" sharedComposition slotOrder={composition.order} displayScale={composition.size.width/scene.width}
+                  focals={Object.fromEntries(boardTiles.filter(t=>t.focal).map(t=>[t.sceneId,t.focal!]))} notes={composition.notes} scene={scene} roster={board.roster} entering={board.entering} layout={board.layout}
                   shared={board.shared} initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement}
                   category={anchor.category} art={art} showAnchorMark showIntentionCard markAppearance="paper" reduceMotion />
                 </View>
@@ -419,9 +425,10 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
         </Animated.View>
       </View>
       <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.preparationSurface}>
+        {composition.measurementView}
         {/* Mounted after the entry has settled, so its texture decode never runs inside the fade. */}
         {boardTiles.length > 0 && entrySettled ? <V2CinematicSessionScreen key={preparationKey} anchor={anchor} accountId={accountId}
-          tiles={boardTiles} notes={notes} statement={statement} visionId={visionId} durationSeconds={180} voice="none" ambient={false}
+          tiles={boardTiles} notes={notes} boardLayout={composition.boardLayout} layoutWidth={composition.size.width} statement={statement} visionId={visionId} durationSeconds={180} voice="none" ambient={false}
           haptics={false} source="practice_hub" prepareOnly onPrepared={onPrepared} onPreparationIssue={reportIssue}
           onExit={onBack} onContinue={() => undefined} /> : null}
       </View>

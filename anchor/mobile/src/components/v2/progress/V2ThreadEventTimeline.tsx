@@ -4,7 +4,6 @@ import { ChevronRight } from 'lucide-react-native';
 import { colors, getPracticeColor, radii, typography } from '@/theme/v2';
 import { V2SectionHeader } from '@/components/v2/primitives';
 import { groupThreadEventsByDay } from '@/adapters/v2/progress/progressAdapter';
-import { isRoutineEvent } from '@/adapters/v2/progress/milestoneEvents';
 import type { V2ThreadEventItem, ThreadEventSignificance } from '@/adapters/v2/progress/types';
 import { V2ProgressGhostCard } from './V2ProgressGhostCard';
 import { progressTokens } from './progressTokens';
@@ -16,10 +15,6 @@ export interface V2ThreadEventTimelineProps {
   now?: Date;
   testID?: string;
 }
-
-/** How many of the latest events show first, and how many each "Show earlier" adds. */
-const INITIAL_COUNT = 6;
-const PAGE_SIZE = 10;
 
 /** Gold stays reserved for active states, so significance is told apart by ink weight and the two semantic hues. */
 function getDotColor(event: V2ThreadEventItem): string {
@@ -36,33 +31,22 @@ function getDotColor(event: V2ThreadEventItem): string {
   }
 }
 
-/**
- * Your story: the moments that mattered first (Anchor created, strength levels, milestones,
- * waypoints, your own words, the goal). Routine entries (each practice, route tweaks) are all
- * still here, one tap away behind the toggle, so no history is hidden or lost.
- */
+/** The latest three real events, with the complete history available on demand. */
 export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
   events,
   onSelectEvent,
   now,
   testID = 'v2-thread-event-timeline',
 }) => {
-  const [shown, setShown] = React.useState(INITIAL_COUNT);
-  const [showRoutine, setShowRoutine] = React.useState(false);
-  const routineCount = React.useMemo(() => events.filter(isRoutineEvent).length, [events]);
-  const listed = React.useMemo(
-    () => (showRoutine ? events : events.filter((event) => !isRoutineEvent(event))),
-    [events, showRoutine],
-  );
-  const toggleRoutine = () => {
-    setShowRoutine((value) => !value);
-    setShown(INITIAL_COUNT);
-  };
+  const [shown, setShown] = React.useState(3);
+  const expanded = shown > 3;
+  const listed = React.useMemo(() => [...events].sort((a, b) =>
+    (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0)), [events]);
 
   if (events.length === 0) {
     return (
       <View style={styles.container} testID={`${testID}-empty`}>
-        <V2SectionHeader title="Course log" />
+        <V2SectionHeader title="Your story" />
         <V2ProgressGhostCard title="Your course log starts with your first practice." />
       </View>
     );
@@ -70,17 +54,17 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
 
   const visible = listed.slice(0, shown);
   const groups = groupThreadEventsByDay(visible, now);
-  const hiddenCount = listed.length - visible.length;
 
   return (
     <View style={styles.container} testID={testID}>
-      <V2SectionHeader title="Your story" />
-
-      {listed.length === 0 ? (
-        <Text style={styles.quiet} testID={`${testID}-quiet`}>
-          Your milestones and moments will gather here. Your practices are recorded under all activity.
-        </Text>
-      ) : null}
+      <View style={styles.header}>
+        <Text accessibilityRole="header" style={styles.heading}>YOUR STORY</Text>
+        {events.length > 3 ? (
+          <Pressable accessibilityRole="button" onPress={() => setShown(expanded ? 3 : 13)} style={styles.more}>
+            <Text style={styles.moreText}>{expanded ? 'Show recent' : 'View all activity'}</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       <View>
         {groups.map((group) => (
@@ -99,7 +83,7 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
                 <View style={[styles.dot, { backgroundColor: getDotColor(event) }]} />
                 <View style={styles.text}>
                   <View style={styles.titleRow}>
-                    <Text style={styles.title} numberOfLines={1}>
+                    <Text style={styles.title}>
                       {event.title}
                     </Text>
                     {event.formattedTime ? <Text style={styles.time}>{event.formattedTime}</Text> : null}
@@ -115,28 +99,8 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
         ))}
       </View>
 
-      {routineCount > 0 ? (
-        <Pressable
-          onPress={toggleRoutine}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showRoutine }}
-          testID={`${testID}-routine-toggle`}
-          style={styles.more}
-        >
-          <Text style={styles.moreText}>
-            {showRoutine ? 'Hide routine activity' : `Show all activity (${routineCount} routine)`}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {hiddenCount > 0 ? (
-        <Pressable
-          onPress={() => setShown((count) => count + PAGE_SIZE)}
-          accessibilityRole="button"
-          accessibilityLabel="Show earlier"
-          testID={`${testID}-show-earlier`}
-          style={styles.more}
-        >
+      {expanded && shown < listed.length ? (
+        <Pressable onPress={() => setShown(count => count + 10)} accessibilityRole="button" style={styles.more}>
           <Text style={styles.moreText}>Show earlier</Text>
         </Pressable>
       ) : null}
@@ -146,26 +110,29 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
 
 const styles = StyleSheet.create({
   container: { gap: 4 },
-  dayHeader: { ...typography.labelMD, fontSize: 11, color: progressTokens.muted, paddingTop: 12, paddingBottom: 6, paddingHorizontal: 4 },
+  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  heading: { ...typography.labelSM, fontSize: 11, letterSpacing: 1.6, color: progressTokens.text },
+  more: { alignItems: 'center', minHeight: 44, justifyContent: 'center' },
+  moreText: { ...typography.labelMD, color: progressTokens.text },
+  dayHeader: { ...typography.labelMD, fontSize: 11, color: progressTokens.muted, paddingTop: 6, paddingBottom: 4, paddingHorizontal: 4 },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    padding: 14,
-    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    minHeight: 56,
+    marginBottom: 4,
     backgroundColor: progressTokens.card,
     borderWidth: 1,
     borderColor: progressTokens.cardBorder,
     borderRadius: radii.lg,
   },
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
-  text: { flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 2 },
+  text: { flex: 1, minWidth: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginBottom: 2 },
   title: { ...typography.labelLG, color: colors.text.primary, flexShrink: 1 },
   chevron: { alignSelf: 'center' },
   subtitle: { ...typography.bodySM, color: progressTokens.muted },
   time: { ...typography.caption, color: progressTokens.muted },
-  more: { alignItems: 'center', paddingVertical: 12 },
-  quiet: { ...typography.bodySM, color: progressTokens.muted, paddingVertical: 8, paddingHorizontal: 4 },
-  moreText: { ...typography.labelMD, color: progressTokens.text, opacity: 0.7 },
 });

@@ -21,9 +21,10 @@ jest.mock('@react-navigation/native', () => {
 });
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => true }));
 const mockCommitChart = jest.fn();
+let mockCourse: Record<string, unknown> = { id: 'course-1' };
 jest.mock('@/hooks/v2/chart/useAnchorChart', () => ({
   trackChart: jest.fn(),
-  useAnchorChart: () => ({ data: { anchor: { intentionText: 'Restore my Buick Regal', category: 'career' }, chart: { id: 'course-1' } }, commitChart: mockCommitChart }),
+  useAnchorChart: () => ({ data: { anchor: { intentionText: 'Restore my Buick Regal', category: 'career' }, chart: mockCourse }, commitChart: mockCommitChart }),
 }));
 jest.mock('../chartScreenSupport', () => ({
   useChartContext: () => ({ identity: { intention: 'Restore my Buick Regal', category: 'career', art: null }, anchorArt: null, vision: null }),
@@ -123,6 +124,33 @@ describe('V2ChartAskScreen', () => {
     expect(mockAsk.syncActions).not.toHaveBeenCalled();
     act(() => mockFocusCallbacks[mockFocusCallbacks.length - 1]());
     expect(mockAsk.syncActions).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('V2ChartAskScreen — starters', () => {
+  const course = {
+    id: 'course-1', currentMoveId: 'm1', currentWaypointId: 'w1',
+    waypoints: [{ id: 'w1', title: 'Prepare the exterior' }],
+    moves: [{ id: 'm1', waypointId: 'w1', title: 'Gather materials', status: 'ACTIVE' }],
+  };
+  beforeEach(() => { mockCourse = course; mockParams = { anchorId: 'anchor-1' }; mockAsk.state.messages = []; mockAsk.send.mockClear(); });
+  afterEach(() => { mockCourse = { id: 'course-1' }; });
+
+  it('shows where the person is, and sends each skill with the current move', () => {
+    const screen = render(<V2ChartAskScreen />);
+    expect(screen.getByText('Prepare the exterior · Gather materials')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('ask-starter-break'));
+    expect(mockAsk.send).toHaveBeenCalledWith('Break this move down', { skill: 'BREAK_DOWN', targetMoveId: 'm1' });
+    fireEvent.press(screen.getByTestId('ask-starter-week'));
+    expect(mockAsk.send).toHaveBeenLastCalledWith('Plan my week', { skill: 'PLAN_WEEK' });
+  });
+
+  it('hides the starters once the person has said something, and when a seeded prompt opens the screen', () => {
+    mockAsk.state.messages = [{ id: 'u1', key: 'u1', role: 'USER', text: 'hi', attachments: [], status: 'sent' }];
+    expect(render(<V2ChartAskScreen />).queryByTestId('ask-starters')).toBeNull();
+    mockAsk.state.messages = [];
+    mockParams = { anchorId: 'anchor-1', prompt: { text: 'x' } };
+    expect(render(<V2ChartAskScreen />).queryByTestId('ask-starters')).toBeNull();
   });
 });
 

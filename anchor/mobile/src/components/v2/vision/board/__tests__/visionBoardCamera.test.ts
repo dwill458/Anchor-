@@ -1,4 +1,4 @@
-import { focusCamera, photoFocusOptions, type FocusOptions } from '../visionBoardCamera';
+import { focusCamera, focusContentRect, photoFocusOptions, type FocusOptions } from '../visionBoardCamera';
 
 const scene = { width: 1000, height: 800 };
 const viewport = { width: 400, height: 600 };
@@ -22,4 +22,18 @@ it('preserves camera behavior options while scaling the photo zoom factors', () 
   expect(boosted.maxZoom).toBeCloseTo(2.7, 8);
   expect(boosted.clamp).toBe(true);
   expect(boosted.offsetY).toBe(-24);
+});
+
+it('keeps a wide captioned hero inside the visible space even when the usual minimum zoom would clip it', () => {
+  const hero = { ...photo, width: 950, height: 800, rotation: 5 };
+  const space = { width: 376, height: 420 };
+  const focused = focusCamera(hero, scene, viewport, { ...photoFocusOptions(options), fitBounds: space });
+  const angle = 5 * Math.PI / 180;
+  expect((hero.width * Math.cos(angle) + hero.height * Math.sin(angle)) * focused.scale).toBeLessThanOrEqual(space.width + .001);
+  expect((hero.height * Math.cos(angle) + hero.width * Math.sin(angle)) * focused.scale).toBeLessThanOrEqual(space.height + .001);
+});
+
+it('includes the rotated print and its separate paper caption when focusing', () => {
+  const content = focusContentRect([photo, { ...photo, x: 220, y: 440, width: 360, height: 90, rotation: 0 }]);
+  expect(content).toMatchObject({ x: 220, y: 230, width: 360, height: 300, rotation: 0 });
 });

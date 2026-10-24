@@ -379,17 +379,24 @@ export async function enhanceSigilWithAI(
   const hasGeminiKey = geminiService.isAvailable();
   const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY?.trim());
   const isAvailable = request.devImageModel
-    ? (devImageModelProvider(request.devImageModel) === 'openai' ? hasOpenAiKey : hasGeminiKey)
-    : isAnchor2 ? (hasOpenAiKey || hasGeminiKey) : hasGeminiKey;
+    ? devImageModelProvider(request.devImageModel) === 'openai'
+      ? hasOpenAiKey
+      : hasGeminiKey
+    : isAnchor2
+      ? hasOpenAiKey || hasGeminiKey
+      : hasGeminiKey;
 
   // Try primary provider (OpenAI for Anchor 2.0 testing, Gemini 3 for 1.5 styles)
   if (isAvailable) {
     try {
       if (isAnchor2) {
-        logger.info('[AIEnhancer] (Anchor 2.0 testing) Generating Anchor 2.0 with OpenAI primary (Gemini backup)', {
-          tier,
-          style: request.styleChoice,
-        });
+        logger.info(
+          '[AIEnhancer] (Anchor 2.0 testing) Generating Anchor 2.0 with OpenAI primary (Gemini backup)',
+          {
+            tier,
+            style: request.styleChoice,
+          }
+        );
       } else {
         logger.info('[AIEnhancer] Using Gemini image model as primary provider', {
           tier,

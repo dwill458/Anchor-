@@ -98,6 +98,8 @@ export type ChartWaypointContentProps = {
   oneMoveRowRef?: React.RefObject<ViewInstance | null>;
   oneMoveCircleRef?: React.RefObject<ViewInstance | null>;
   oneMoveBodyRef?: React.RefObject<ViewInstance | null>;
+  /** The sheet shows the Anchor card (real Anchor, Thread Strength, Focus), so the generic Practice row is not repeated. */
+  hidePracticeRow?: boolean;
 };
 
 export type ChartWaypointTiers = {
@@ -105,6 +107,8 @@ export type ChartWaypointTiers = {
   value: string | null; isCurrent: boolean; peek: React.ReactNode;
   oneMove?: React.ReactNode;
   half: React.ReactNode; full: React.ReactNode; edit: React.ReactNode;
+  /** Practiced today, from the same source the Practice row uses. */
+  practiced: boolean;
 };
 export { OneMoveCard, DayClosedCard, CommitCard, MoveListRow, PanelButton, DestinationCard, CourseLogCard } from './panel/ChartPanelCards';
 
@@ -155,7 +159,7 @@ export function ChartWaypointContent({
   dayClosedHold = false,
   arrived = false,
   entrance = 'open',
-  testID, renderTiers, onExpandSheet, oneMoveRowRef, oneMoveCircleRef, oneMoveBodyRef,
+  testID, renderTiers, onExpandSheet, oneMoveRowRef, oneMoveCircleRef, oneMoveBodyRef, hidePracticeRow = false,
 }: ChartWaypointContentProps) {
   const waypoint = view.waypoints.find((item) => item.id === waypointId) ?? null;
   const accent = useMemo(() => panelAccent(category), [category]);
@@ -399,6 +403,7 @@ export function ChartWaypointContent({
         accent={accent}
         move={rowMove}
         waypointTitle={moveWaypointTitle}
+        waypointCriteria={view.waypoints.find((item) => item.id === rowMove.waypointId)?.completionCriteria ?? null}
         checked={Boolean(retainedCompletedMove) || rowMove.status === 'COMPLETED'}
         busy={Boolean(checkingMove === rowMove.id || chart.busy === `move:${rowMove.id}`)}
         reducedMotion={reducedMotion}
@@ -416,7 +421,7 @@ export function ChartWaypointContent({
   const peek = arrived ? <Text style={styles.why} numberOfLines={2}>{view.destination}</Text> : isCurrent && commit ? <CommitCard accent={accent} number={commit.number} onCommit={onCommitDismiss ?? noop} /> : isCurrent && dayClosed ? <DayClosedCard accent={accent} practiced={practiced} hasNext={hasNextMove} onFocus={() => onOpenPractice?.('focus')} onDeepFocus={() => onOpenPractice?.('deep_prime')} onAnother={showNextMove} /> : isCurrent && !rowMove ? <OneMoveCard accent={accent} variant={waypoint.moves.some(move => move.status === 'COMPLETED') && incompleteMoves.length === 0 ? 'allDone' : 'empty'} title={null} emptyLabel={CHART_COPY.active.noMove} checked={false} busy={false} expanded={false} reducedMotion={reducedMotion} otherMovesCount={otherMoves.length} onCheck={noop} onToggle={onExpandSheet ?? (() => setExpanded(value => !value))} /> : isCurrent ? null : <View style={styles.viewingPeek}><Text style={[styles.why, styles.flex]} numberOfLines={2}>{waypoint.rationale}</Text><PanelButton label={CHART_COPY.sheet.backTo.replace('{n}', String(view.currentIndex + 1))} accent={accent} onPress={onBack} testID="chart-back-to-current" /></View>;
   const half = isCurrent && !arrived ? <>
     {progressBlock}
-    <PracticeRow accent={accent} practiced={practiced} onOpenPractice={onOpenPractice} />
+    {hidePracticeRow ? null : <PracticeRow accent={accent} practiced={practiced} onOpenPractice={onOpenPractice} />}
     <PanelButton label={waypoint.isDestination ? COPY.ctaMarkDestination : COPY.ctaMark} variant={ready ? 'primary' : 'outline'} accent={accent} loading={chart.busy === `reach:${waypoint.id}`} onPress={() => { setReachError(null); setConfirmOpen(true); }} testID="chart-mark-waypoint-cta" style={styles.reachCta} />
     {reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-reach-error">{reachError}</Text> : null}
     {actionError && !reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-action-error">{actionError}</Text> : null}
@@ -598,7 +603,7 @@ export function ChartWaypointContent({
 
   return (
     <View testID={testID ?? 'chart-waypoint-content'} style={renderTiers ? styles.sheetRoot : [styles.root, { paddingBottom: bottomInset + 24 }]}>
-      {renderTiers ? renderTiers({ waypoint, value: valueText, isCurrent, peek, oneMove, half, full, edit }) : <Animated.View style={[styles.stack, fade]} testID={isCurrent && !arrived ? 'chart-current-waypoint' : 'chart-panel-body'}>
+      {renderTiers ? renderTiers({ waypoint, value: valueText, isCurrent, peek, oneMove, half, full, edit, practiced }) : <Animated.View style={[styles.stack, fade]} testID={isCurrent && !arrived ? 'chart-current-waypoint' : 'chart-panel-body'}>
         {body}
       </Animated.View>}
       <V2SheetModal

@@ -45,7 +45,18 @@ const UpdateCourseSchema = z
 const ExpectedVersionSchema = z.object({ expectedCourseVersion: CourseVersion }).strict();
 const MetricFields = {
   completionCriteria: z.string().trim().max(400).nullable().optional(),
-  requirements: z.array(z.object({ id: z.string().min(1).max(80), title: z.string().trim().min(1).max(140), completed: z.boolean() }).strict()).max(12).optional(),
+  requirements: z
+    .array(
+      z
+        .object({
+          id: z.string().min(1).max(80),
+          title: z.string().trim().min(1).max(140),
+          completed: z.boolean(),
+        })
+        .strict()
+    )
+    .max(12)
+    .optional(),
   kind: z.enum(['MILESTONE', 'METRIC', 'CAPABILITY']).optional(),
   progressMode: z.enum(['numeric', 'checklist', 'completion', 'moves', 'none']).optional(),
   metricLabel: z.string().trim().max(40).nullable().optional(),
@@ -365,7 +376,11 @@ router.post(
         validate(CompleteSchema, req.body ?? {})
       );
       // Awards never block the Chart action; the next Progress read reconciles a failure.
-      void milestoneService.evaluateQuietly(userId, result.course?.anchorId, { kind: 'chart', sourceEntityId: req.params.courseId, eventId: req.params.waypointId });
+      void milestoneService.evaluateQuietly(userId, result.course?.anchorId, {
+        kind: 'chart',
+        sourceEntityId: req.params.courseId,
+        eventId: req.params.waypointId,
+      });
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

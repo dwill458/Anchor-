@@ -13,6 +13,7 @@ import { CHART_MAP_TOKENS } from '../map/chartMapTokens';
 import type { ChartAnchorArt } from '../ChartLandscape';
 import { AskComposer } from './AskComposer';
 import { AskMessageRow, type AskRowItem } from './AskMessageRow';
+import { AskStarters, type AskStarter } from './AskStarters';
 import { AskSuggestions } from './AskSuggestions';
 import { useAskAccent } from './askChartTheme';
 
@@ -48,6 +49,10 @@ type Props = {
   /** Content shown above the suggestions inside the footer (attachment preview, recording state). */
   footerExtra?: React.ReactNode;
   renderExtra?: (message: AskUiMessage) => React.ReactNode;
+  /** Where the person is on the Chart (waypoint · move), shown under the intention. */
+  contextLine?: string | null;
+  /** Skill starters. Shown only before the person has said anything, so they never compete with real suggestions. */
+  starters?: AskStarter[];
   testID?: string;
 };
 
@@ -82,7 +87,7 @@ function errorLine(kind: string | undefined): string {
  */
 export function AskChartView({
   ask, intention, category, anchorArt, reducedMotion, onBack, headerRight, primaryAction, secondaryAction,
-  composerValue, onComposerChange, onSend, composerLeading, composerTrailing, canSendEmpty, sendBlocked, composerReplacement, overlay, footerExtra, renderExtra, testID,
+  composerValue, onComposerChange, onSend, composerLeading, composerTrailing, canSendEmpty, sendBlocked, composerReplacement, overlay, footerExtra, renderExtra, contextLine, starters, testID,
 }: Props) {
   const insets = useSafeAreaInsets();
   const accent = useAskAccent(category);
@@ -152,6 +157,8 @@ export function AskChartView({
   const pickSuggestion = useCallback((text: string) => ask.send(text), [ask]);
   const error = state.error;
   const showSuggestions = ask.suggestions.length > 0 && !primaryAction;
+  const hasSpoken = state.messages.some(message => message.role === 'USER');
+  const showStarters = Boolean(starters?.length) && !hasSpoken && state.turn === 'idle' && state.status !== 'load_failed' && !primaryAction;
 
   return (
     <View style={styles.root} testID={testID ?? 'ask-chart'}>
@@ -166,6 +173,7 @@ export function AskChartView({
         <View style={styles.headerCenter} accessibilityRole="header">
           <Text style={styles.title}>{COPY.title}</Text>
           <Text style={styles.subtitle} numberOfLines={1}>{intention}</Text>
+          {contextLine ? <Text style={styles.context} numberOfLines={1} testID="ask-context">{contextLine}</Text> : null}
         </View>
         <View style={[styles.headerSide, styles.headerRight]}>{headerRight}</View>
       </View>
@@ -220,6 +228,8 @@ export function AskChartView({
           </View>
         ) : null}
 
+        {showStarters ? <AskStarters starters={starters!} accent={accent} reducedMotion={reducedMotion} /> : null}
+
         {showSuggestions ? <AskSuggestions key={ask.state.messages[ask.state.messages.length - 1]?.key} suggestions={ask.suggestions} accent={accent} reducedMotion={reducedMotion} onPick={pickSuggestion} /> : null}
 
         {primaryAction || secondaryAction ? (
@@ -266,6 +276,7 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center', gap: 2 },
   title: { ...typography.headingMD, fontFamily: CHART_MAP_TOKENS.serif, fontSize: 21, lineHeight: 26, color: colors.text.primary },
   subtitle: { ...typography.bodySM, color: colors.text.secondary, maxWidth: '100%' },
+  context: { ...typography.labelSM, color: colors.text.secondary, maxWidth: '100%' },
   list: { flex: 1 },
   listContent: { paddingHorizontal: spacing[4], paddingTop: spacing[3], paddingBottom: spacing[4] },
   separator: { height: spacing[4] },

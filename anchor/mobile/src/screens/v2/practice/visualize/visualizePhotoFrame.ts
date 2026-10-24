@@ -1,4 +1,4 @@
-import { boardSizeForWidth, detailBoardSizeForWidth, selectBoardLayout, selectDetailBoardLayout, toSceneRect, VISION_BOARD_PAPER_MARK_SCALE,
+import { boardSizeForWidth, boardPrintRect, boardCaptionRect, detailBoardSizeForWidth, selectBoardLayout, selectDetailBoardLayout, toSceneRect, VISION_BOARD_PAPER_MARK_SCALE,
   type BoardLayout, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
 import type { VisionNote } from '@/adapters/v2/vision';
 
@@ -55,11 +55,14 @@ export function visualizeEntrySceneTransform(progress: number, sourceFrame: Visu
   return { scale, left: -photoFrame.scene.width * (1 - scale) / 2, top: -photoFrame.scene.height * (1 - scale) / 2 };
 }
 
-type EntranceDecor = { anchor?: boolean; notes?: readonly VisionNote[] };
+type EntranceDecor = { anchor?: boolean; notes?: readonly VisionNote[]; layout?: BoardLayout; order?: readonly string[] };
 
 function photoCompositionBounds(imageCount: number, scene: Size, decor?: EntranceDecor) {
-  const layout = selectDetailBoardLayout(imageCount);
-  const rectangles = layout.photos.map(photo => toSceneRect(photo, scene));
+  const layout = decor?.layout ?? selectDetailBoardLayout(imageCount);
+  const rectangles = layout.photos.filter((_,i)=>!decor?.order||decor.order[i]).flatMap(photo => {
+    const caption=boardCaptionRect(photo,scene);
+    return caption?[boardPrintRect(photo,scene),caption]:[boardPrintRect(photo,scene)];
+  });
   if (decor?.anchor) {
     const rect = toSceneRect(layout.card, scene);
     const diameter = rect.width * VISION_BOARD_PAPER_MARK_SCALE;

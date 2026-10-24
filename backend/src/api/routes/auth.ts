@@ -310,7 +310,9 @@ const UpdateSettingsSchema = z.object({
   focusSessionDuration: z.number().min(10).max(120).optional(),
   focusSessionAudio: z.enum(['silent', 'ambient']).optional(),
   primeSessionDuration: z.number().min(120).max(7200).optional(),
-  visualizeSessionDuration: z.union([z.literal(60), z.literal(180), z.literal(300), z.literal(600)]).optional(),
+  visualizeSessionDuration: z
+    .union([z.literal(60), z.literal(180), z.literal(300), z.literal(600)])
+    .optional(),
   primeSessionAudio: z.enum(['silent', 'ambient']).optional(),
   sessionAudioDefaults: SessionAudioDefaultsByTypeSchema.optional(),
   hapticIntensity: z.number().min(1).max(5).optional(),
@@ -970,31 +972,57 @@ router.put(
 );
 
 /** Personalization is recorded only after the authenticated account owns its first Anchor. */
-router.put('/onboarding-context', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    const context = validate(OnboardingContextSchema, req.body);
-    const user = await prisma.user.findUnique({ where: { authUid: req.user.uid }, select: { id: true } });
-    if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
-    const anchor = await prisma.anchor.findFirst({ where: { userId: user.id, isArchived: false }, select: { id: true } });
-    if (!anchor) throw new AppError('Create your first Anchor before saving onboarding.', 409, 'FIRST_ANCHOR_REQUIRED');
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: { onboardingContext: context as Prisma.InputJsonValue, hasCompletedOnboarding: true },
-      select: { onboardingContext: true, hasCompletedOnboarding: true },
-    });
-    res.json({ success: true, data: updated });
-  } catch (error) { next(error); }
-});
+router.put(
+  '/onboarding-context',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      const context = validate(OnboardingContextSchema, req.body);
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        select: { id: true },
+      });
+      if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
+      const anchor = await prisma.anchor.findFirst({
+        where: { userId: user.id, isArchived: false },
+        select: { id: true },
+      });
+      if (!anchor)
+        throw new AppError(
+          'Create your first Anchor before saving onboarding.',
+          409,
+          'FIRST_ANCHOR_REQUIRED'
+        );
+      const updated = await prisma.user.update({
+        where: { id: user.id },
+        data: { onboardingContext: context as Prisma.InputJsonValue, hasCompletedOnboarding: true },
+        select: { onboardingContext: true, hasCompletedOnboarding: true },
+      });
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-router.get('/onboarding-context', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
-    const user = await prisma.user.findUnique({ where: { authUid: req.user.uid }, select: { onboardingContext: true } });
-    if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
-    res.json({ success: true, data: user.onboardingContext });
-  } catch (error) { next(error); }
-});
+router.get(
+  '/onboarding-context',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user.uid },
+        select: { onboardingContext: true },
+      });
+      if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
+      res.json({ success: true, data: user.onboardingContext });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 /**
  * PUT /api/auth/settings
@@ -1166,7 +1194,7 @@ router.put(
         throw new AppError('No fields to update', 400, 'VALIDATION_ERROR');
       }
 
-      const updated = await prisma.$transaction(async (tx) => {
+      const updated = await prisma.$transaction(async tx => {
         if (pushTokens) {
           // Disassociate non-null device tokens from any other user to prevent cross-account push contamination
           if (pushTokens.expoPushToken) {
@@ -1225,7 +1253,12 @@ router.put(
         next(error);
         return;
       }
-      if ((error as any)?.code === 'P2002' || (error as any)?.code === '23505') {
+      if (
+        error !== null &&
+        typeof error === 'object' &&
+        'code' in error &&
+        (error.code === 'P2002' || error.code === '23505')
+      ) {
         next(new AppError('Push token conflict detected', 409, 'TOKEN_CONFLICT'));
         return;
       }

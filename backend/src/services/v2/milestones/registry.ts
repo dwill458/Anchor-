@@ -29,18 +29,73 @@ export interface MilestoneDefinition {
 }
 
 export const MILESTONE_DEFINITIONS: readonly MilestoneDefinition[] = [
-  { id: 'strength.building', family: 'strength', version: 1, rule: { kind: 'strength', threshold: 25 } },
-  { id: 'strength.established', family: 'strength', version: 1, rule: { kind: 'strength', threshold: 50 } },
-  { id: 'strength.integrated', family: 'strength', version: 1, rule: { kind: 'strength', threshold: 75 } },
-  { id: 'strength.reinforced', family: 'strength', version: 1, rule: { kind: 'strength', threshold: 90 } },
-  { id: 'strength.full', family: 'strength', version: 1, rule: { kind: 'strength', threshold: 100 } },
+  {
+    id: 'strength.building',
+    family: 'strength',
+    version: 1,
+    rule: { kind: 'strength', threshold: 25 },
+  },
+  {
+    id: 'strength.established',
+    family: 'strength',
+    version: 1,
+    rule: { kind: 'strength', threshold: 50 },
+  },
+  {
+    id: 'strength.integrated',
+    family: 'strength',
+    version: 1,
+    rule: { kind: 'strength', threshold: 75 },
+  },
+  {
+    id: 'strength.reinforced',
+    family: 'strength',
+    version: 1,
+    rule: { kind: 'strength', threshold: 90 },
+  },
+  {
+    id: 'strength.full',
+    family: 'strength',
+    version: 1,
+    rule: { kind: 'strength', threshold: 100 },
+  },
 
-  { id: 'commitment.practices.1', family: 'commitment', version: 1, rule: { kind: 'practices', count: 1 } },
-  { id: 'commitment.practices.10', family: 'commitment', version: 1, rule: { kind: 'practices', count: 10 } },
-  { id: 'commitment.practices.30', family: 'commitment', version: 1, rule: { kind: 'practices', count: 30 } },
-  { id: 'commitment.practices.100', family: 'commitment', version: 1, rule: { kind: 'practices', count: 100 } },
-  { id: 'commitment.minutes.100', family: 'commitment', version: 1, rule: { kind: 'minutes', minutes: 100 } },
-  { id: 'commitment.minutes.500', family: 'commitment', version: 1, rule: { kind: 'minutes', minutes: 500 } },
+  {
+    id: 'commitment.practices.1',
+    family: 'commitment',
+    version: 1,
+    rule: { kind: 'practices', count: 1 },
+  },
+  {
+    id: 'commitment.practices.10',
+    family: 'commitment',
+    version: 1,
+    rule: { kind: 'practices', count: 10 },
+  },
+  {
+    id: 'commitment.practices.30',
+    family: 'commitment',
+    version: 1,
+    rule: { kind: 'practices', count: 30 },
+  },
+  {
+    id: 'commitment.practices.100',
+    family: 'commitment',
+    version: 1,
+    rule: { kind: 'practices', count: 100 },
+  },
+  {
+    id: 'commitment.minutes.100',
+    family: 'commitment',
+    version: 1,
+    rule: { kind: 'minutes', minutes: 100 },
+  },
+  {
+    id: 'commitment.minutes.500',
+    family: 'commitment',
+    version: 1,
+    rule: { kind: 'minutes', minutes: 500 },
+  },
 
   { id: 'journey.waypoint.first', family: 'journey', version: 1, rule: { kind: 'firstWaypoint' } },
   { id: 'journey.halfway', family: 'journey', version: 1, rule: { kind: 'halfway' } },
@@ -48,9 +103,24 @@ export const MILESTONE_DEFINITIONS: readonly MilestoneDefinition[] = [
   { id: 'journey.goal', family: 'journey', version: 1, rule: { kind: 'goal' } },
   { id: 'vision.first', family: 'vision', version: 1, rule: { kind: 'visionCreated' } },
   { id: 'vision.board.complete', family: 'vision', version: 1, rule: { kind: 'visionBoard' } },
-  { id: 'vision.visualize.1', family: 'vision', version: 1, rule: { kind: 'guidedVisualize', count: 1 } },
-  { id: 'vision.visualize.10', family: 'vision', version: 1, rule: { kind: 'guidedVisualize', count: 10 } },
-  { id: 'vision.visualize.30', family: 'vision', version: 1, rule: { kind: 'guidedVisualize', count: 30 } },
+  {
+    id: 'vision.visualize.1',
+    family: 'vision',
+    version: 1,
+    rule: { kind: 'guidedVisualize', count: 1 },
+  },
+  {
+    id: 'vision.visualize.10',
+    family: 'vision',
+    version: 1,
+    rule: { kind: 'guidedVisualize', count: 10 },
+  },
+  {
+    id: 'vision.visualize.30',
+    family: 'vision',
+    version: 1,
+    rule: { kind: 'guidedVisualize', count: 30 },
+  },
 ];
 
 export const MILESTONE_IDS: ReadonlySet<string> = new Set(MILESTONE_DEFINITIONS.map(d => d.id));
@@ -89,7 +159,10 @@ export interface MilestoneAward {
   metadata: Record<string, number | string>;
 }
 
-const byTimeThenId = <T extends { completedAt: Date; id?: string; sessionId?: string }>(a: T, b: T) =>
+const byTimeThenId = <T extends { completedAt: Date; id?: string; sessionId?: string }>(
+  a: T,
+  b: T
+) =>
   a.completedAt.getTime() - b.completedAt.getTime() ||
   (a.id ?? a.sessionId ?? '').localeCompare(b.id ?? b.sessionId ?? '');
 
@@ -115,15 +188,33 @@ export function evaluateMilestones(facts: MilestoneFacts): MilestoneAward[] {
     const rule = def.rule;
 
     if (rule.kind === 'visionCreated' || rule.kind === 'visionBoard') {
-      const hit = earliest((facts.visions ?? []).flatMap(v => {
-        const at = rule.kind === 'visionCreated' ? v.firstCommittedAt : v.boardCompletedAt;
-        return at ? [{ at, id: v.id }] : [];
-      }));
-      if (hit) awards.push({ ...base, earnedAt: hit.at, sourceKind: 'VISION_COMMIT', sourceEntityId: hit.id, metadata: rule.kind === 'visionBoard' ? { images: 8 } : {} });
+      const hit = earliest(
+        (facts.visions ?? []).flatMap(v => {
+          const at = rule.kind === 'visionCreated' ? v.firstCommittedAt : v.boardCompletedAt;
+          return at ? [{ at, id: v.id }] : [];
+        })
+      );
+      if (hit)
+        awards.push({
+          ...base,
+          earnedAt: hit.at,
+          sourceKind: 'VISION_COMMIT',
+          sourceEntityId: hit.id,
+          metadata: rule.kind === 'visionBoard' ? { images: 8 } : {},
+        });
     } else if (rule.kind === 'guidedVisualize') {
-      const guided = [...new Map(sessions.filter(s => s.guidedVisualize).map(s => [s.id, s])).values()];
+      const guided = [
+        ...new Map(sessions.filter(s => s.guidedVisualize).map(s => [s.id, s])).values(),
+      ];
       const hit = guided[rule.count - 1];
-      if (hit) awards.push({ ...base, earnedAt: hit.completedAt, sourceKind: 'PRACTICE_COMPLETION', sourceEntityId: hit.id, metadata: { sessions: rule.count } });
+      if (hit)
+        awards.push({
+          ...base,
+          earnedAt: hit.completedAt,
+          sourceKind: 'PRACTICE_COMPLETION',
+          sourceEntityId: hit.id,
+          metadata: { sessions: rule.count },
+        });
     } else if (rule.kind === 'strength') {
       const hit = movements.find(m => m.afterStrength >= rule.threshold);
       if (hit) {
@@ -166,7 +257,13 @@ export function evaluateMilestones(facts: MilestoneFacts): MilestoneAward[] {
         )
       );
       if (hit) {
-        awards.push({ ...base, earnedAt: hit.at, sourceKind: 'COURSE_EVENT', sourceEntityId: hit.id, metadata: {} });
+        awards.push({
+          ...base,
+          earnedAt: hit.at,
+          sourceKind: 'COURSE_EVENT',
+          sourceEntityId: hit.id,
+          metadata: {},
+        });
       }
     } else if (rule.kind === 'halfway') {
       const hits = facts.courses
@@ -198,7 +295,13 @@ export function evaluateMilestones(facts: MilestoneFacts): MilestoneAward[] {
           .map(c => ({ at: c.completedAt as Date, id: c.id }))
       );
       if (hit) {
-        awards.push({ ...base, earnedAt: hit.at, sourceKind: 'COURSE_EVENT', sourceEntityId: hit.id, metadata: {} });
+        awards.push({
+          ...base,
+          earnedAt: hit.at,
+          sourceKind: 'COURSE_EVENT',
+          sourceEntityId: hit.id,
+          metadata: {},
+        });
       }
     } else if (rule.kind === 'goal') {
       if (facts.intentionCompletedAt) {

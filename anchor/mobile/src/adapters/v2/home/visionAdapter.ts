@@ -1,5 +1,5 @@
 import type { VisualizationScene } from '@/types/practice';
-import type { V2VisionPresentationState, V2VisionTile, VisionNote } from '@/adapters/v2/vision';
+import type { V2VisionPresentationState, V2VisionTile, VisionNote, VisionBoardLayout } from '@/adapters/v2/vision';
 
 /**
  * Honest Vision state for Home. The Vision domain currently persists only a
@@ -18,6 +18,7 @@ export type HomeVisionState =
       title?: string | null;
       tiles?: V2VisionTile[];
       notes?: VisionNote[];
+      boardLayout?: VisionBoardLayout;
       featuredTileId?: string;
       /**
        * Server-computed against the client's IANA timezone, so it is a real
@@ -94,6 +95,7 @@ export function toV2HomeVisionState(
   return {
     state: 'ready',
     visionId: presentation.visionId,
+    boardLayout: presentation.raw.boardLayout ?? 'CLASSIC',
     previewText,
     title: presentation.title,
     tiles,

@@ -20,6 +20,7 @@ import { useAnchorTransitionPlace, useProgressiveFocusTransition, type AnchorWin
 import { HERO_ENTRANCE, hasHeroEntrancePlayed, markHeroEntrancePlayed } from './homeHeroPresence';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
 import { HandDrawnPercentage, handDrawnPercentageWidth } from './HandDrawnPercentage';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
 const PAPER_ARTWORK_SHARE = 0.72;
@@ -89,7 +90,7 @@ export function consistencyDeltaLabel(delta: number): string {
   return 'Steady this week';
 }
 
-function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2ThreadPresentation; accent: string; active: boolean; teachingRef?: React.RefObject<ViewInstance | null> }) {
+function ThreadReading({ thread, accent, active, eager, teachingRef }: { thread: V2ThreadPresentation; accent: string; active: boolean; eager: boolean; teachingRef?: React.RefObject<ViewInstance | null> }) {
   const measured = thread.value !== null;
   const delta = thread.delta;
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
@@ -99,8 +100,8 @@ function ThreadReading({ thread, accent, active, teachingRef }: { thread: V2Thre
       <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
         <View style={styles.threadValueContainer}>
-          {/* Neighbours reserve the digits' footprint; the SVG mounts only on the centred slot. */}
-          {active ? <HandDrawnPercentage value={thread.value as number} color={accent} height={20} /> : <View style={{ width: handDrawnPercentageWidth(thread.value as number, 20), height: 20 }} />}
+          {/* Medium/high devices draw all five mounted readings before they travel into view. */}
+          {active || eager ? <HandDrawnPercentage testID="v2-home-thread-percentage" value={thread.value as number} color={accent} height={20} /> : <View style={{ width: handDrawnPercentageWidth(thread.value as number, 20), height: 20 }} />}
           <Text
             testID={active ? 'v2-home-thread-value' : undefined}
             style={styles.threadValueHidden}
@@ -187,7 +188,7 @@ function useHeroEntrance(
   return { entrance, onImageLoad };
 }
 
-function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
+function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, eagerThreadValues, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
@@ -203,6 +204,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
   artworkBoxHeight: number;
   constructionSize: number;
   thread: V2ThreadPresentation;
+  eagerThreadValues: boolean;
   reduceMotion: boolean;
   auraActive: boolean;
   onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
@@ -418,7 +420,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
           disabled={!onOpenProgress}
           style={({ pressed }) => (pressed && onOpenProgress ? styles.pressed : undefined)}
         >
-          <ThreadReading thread={thread} accent={accent} active={slot === 0} teachingRef={teachingThreadRef} />
+          <ThreadReading thread={thread} accent={accent} active={slot === 0} eager={eagerThreadValues} teachingRef={teachingThreadRef} />
         </Pressable>
       ) : null}
       {/* The lineage line owns a row only during the evolved arrival. */}
@@ -430,6 +432,7 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
 
 /** The entire visible hero is one of five mounted items on a shared track. */
 function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, auraActive = true, onMotionChange, testID, teachingThreadRef }: Props) {
+  const eagerThreadValues = useAppPerformanceTier() !== 'low';
   const { width, height, fontScale } = useWindowDimensions();
   const arrival = useHomeArrivalContext();
   const arrivalKind = useHomeArrivalStore((state) => state.arrival?.kind);
@@ -454,10 +457,10 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
     return (
       <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} isSelectedCenterSlot={slot === 0} heroActive={heroActive} glowEnabled={!arrivalActive} offset={offset} spacing={spacing} gutter={layout.gutter}
         anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
-        thread={index === selectedIndex && thread ? thread : summary.thread} reduceMotion={Boolean(reduceMotion)} auraActive={auraActive}
+        thread={index === selectedIndex && thread ? thread : summary.thread} eagerThreadValues={eagerThreadValues} reduceMotion={Boolean(reduceMotion)} auraActive={auraActive}
         onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} teachingThreadRef={teachingThreadRef} />
     );
-  }, [anchors.length, arrivalActive, auraActive, carouselCentered, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, teachingThreadRef, thread]);
+  }, [anchors.length, arrivalActive, auraActive, carouselCentered, eagerThreadValues, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, layout.gutter, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, teachingThreadRef, thread]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} onMotionChange={handleMotionChange} onCentered={setCarouselCentered} renderHero={renderHero} />

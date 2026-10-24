@@ -9,6 +9,7 @@ import { toSceneRect, type BoardLayout, type Size } from './visionBoardLayouts';
 import type { BoardRosterEntry } from './visionBoardReorder';
 import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
 import { VisionBoardPhoto } from './VisionBoardPhoto';
+import { VisionBoardCaption } from './VisionBoardCaption';
 import { VisionBoardIntentionCard, type VisionBoardCardArt } from './VisionBoardIntentionCard';
 import type { VisionNote } from '@/adapters/v2/vision';
 import type { VisionFocal } from '../visionPhotoFocus';
@@ -22,23 +23,24 @@ export type VisionSlotOverlay = {
   slots: ReadonlyArray<{ slot: number; kind: 'empty' | 'occupied' }>;
   /** `subtle` while arranging; `strong` while a position is being chosen for an add or a move. */
   emphasis: 'subtle' | 'strong';
+  action?: 'add' | 'move';
   onPress: (slot: number) => void;
 };
 
 type SlotRect = { x: number; y: number; width: number; height: number; rotation: number };
 
 /** An empty position: a faint dashed outline and a plus where a photograph could go. */
-function EmptySlotMarker({ rect, slot, emphasis, onPress }: { rect: SlotRect; slot: number; emphasis: 'subtle' | 'strong'; onPress: (slot: number) => void }) {
+function EmptySlotMarker({ rect, slot, emphasis, onPress, action='add' }: { rect: SlotRect; slot: number; emphasis: 'subtle' | 'strong'; onPress: (slot: number) => void; action?: 'add'|'move' }) {
   const strong = emphasis === 'strong';
   return (
     <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(140)}
       style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height, transform: [{ rotate: `${rect.rotation}deg` }], zIndex: 6 }}>
-      <Pressable testID={`vision-board-slot-${slot}`} accessibilityRole="button" accessibilityLabel={`Add a photo to ${slotLabel(slot)}`}
+      <Pressable testID={`vision-board-slot-${slot}`} accessibilityRole="button" accessibilityLabel={action==='move'?`Move photo to ${slotLabel(slot)}`:`Add a photo to ${slotLabel(slot)}`}
         onPress={() => onPress(slot)} style={[styles.slot, strong ? styles.slotStrong : styles.slotSubtle]}>
         <View style={[styles.slotPlus, strong && styles.slotPlusStrong]}>
           <Plus size={Math.max(18, Math.min(rect.width, rect.height) * 0.16)} color={strong ? '#6B5330' : '#8D7C63'} strokeWidth={1.6} />
         </View>
-        {strong ? <Text allowFontScaling={false} style={[styles.slotNumber, { fontSize: Math.max(14, rect.width * 0.07) }]}>{slot + 1}</Text> : null}
+        {strong ? <Text allowFontScaling={false} style={[styles.slotNumber, { fontSize: Math.max(18, rect.width * 0.09) }]}>{action==='move'?'Move here':slot + 1}</Text> : null}
       </Pressable>
     </Animated.View>
   );
@@ -49,7 +51,9 @@ function OccupiedSlotTarget({ rect, slot, onPress }: { rect: SlotRect; slot: num
   return (
     <Pressable testID={`vision-board-slot-${slot}`} accessibilityRole="button" accessibilityLabel={`Swap with the photo in ${slotLabel(slot)}`} onPress={() => onPress(slot)}
       style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height, transform: [{ rotate: `${rect.rotation}deg` }], zIndex: 36,
-        borderWidth: 2, borderColor: 'rgba(176,138,74,0.7)', borderStyle: 'dashed', borderRadius: 3 }} />
+        borderWidth: 2, borderColor: 'rgba(176,138,74,0.7)', borderStyle: 'dashed', borderRadius: 3,alignItems:'center',justifyContent:'center' }}>
+      <Text allowFontScaling={false} style={{fontFamily:'Inter-SemiBold',fontSize:Math.max(18,rect.width*.09),color:'#6B5330',backgroundColor:'#FBF7EC',paddingHorizontal:12,paddingVertical:7,borderRadius:22}}>Swap</Text>
+    </Pressable>
   );
 }
 
@@ -61,8 +65,10 @@ export type VisionBoardSceneProps = {
   slotOrder?: readonly string[];
   /** On-screen size of the scene at rest (scene px to points). Switches on the board's caption sizing. */
   displayScale?: number;
+  sharedComposition?: boolean;
   focals?: Readonly<Record<string, VisionFocal>>;
   repositioningId?: string | null;
+  focusedSceneId?: string | null;
   onFocalCommit?: (sceneId: string, focal: VisionFocal) => void;
   slotOverlay?: VisionSlotOverlay;
   onMoveRequest?: (sceneId: string) => void;
@@ -85,6 +91,7 @@ export type VisionBoardSceneProps = {
   category?: string | null;
   art?: VisionBoardCardArt | null;
   reduceMotion: boolean;
+  recomposeMs?: number;
   notes?: readonly VisionNote[];
   selectedNoteId?: string | null;
   onNoteSelect?: (id: string) => void;
@@ -97,6 +104,7 @@ export type VisionBoardSceneProps = {
   /** Share/export readiness signal when an image asset has finished decoding. */
   onPhotoAssetReady?: (sceneId: string) => void;
   onPhotoAssetError?: (sceneId: string) => void;
+  onCaptionReady?: (sceneId: string) => void;
   onCardPress?: () => void;
   onBackgroundPress?: () => void;
   onDragActive?: (active: boolean) => void;
@@ -133,9 +141,9 @@ export type VisionBoardSceneProps = {
  * camera; whoever renders it moves the view it sits in.
  */
 export const VisionBoardScene = memo(function VisionBoardScene({
-  scene, roster, entering, layout, shared, initialRectFor, intention, slotOrder, displayScale, focals, repositioningId = null, onFocalCommit, slotOverlay, onMoveRequest, noteScene, category, art, reduceMotion, arrivingSceneId, arrivingNoteId, notes = [], selectedNoteId = null, onNoteSelect, onNotePresentationChange, materialMode = 'legacy',
-  interactive = false, dragEnabled = false, onPhotoPress, onCaptionEdit, onPhotoAssetReady, onPhotoAssetError, onCardPress, onBackgroundPress, onDragActive, onNoteDragActive, onSwap,
-  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, showAnchorMark = true, showIntentionCard = true, notesOpacity, intentionCardOpacity, markAppearance, detailEdges, edgeDarken, cinematic, onTeachingMotionChange,
+  scene, roster, entering, layout, shared, initialRectFor, intention, slotOrder, displayScale, sharedComposition, focals, repositioningId = null, focusedSceneId = null, onFocalCommit, slotOverlay, onMoveRequest, noteScene, category, art, reduceMotion, arrivingSceneId, arrivingNoteId, notes = [], selectedNoteId = null, onNoteSelect, onNotePresentationChange, materialMode = 'legacy',
+  interactive = false, dragEnabled = false, onPhotoPress, onCaptionEdit, onPhotoAssetReady, onPhotoAssetError, onCaptionReady, onCardPress, onBackgroundPress, onDragActive, onNoteDragActive, onSwap,
+  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, showAnchorMark = true, showIntentionCard = true, notesOpacity, intentionCardOpacity, markAppearance, detailEdges, edgeDarken, cinematic, onTeachingMotionChange,recomposeMs,
 }: VisionBoardSceneProps) {
   const activeCount = roster.filter(entry => !entry.exiting).length;
   const cardRect = useMemo(() => toSceneRect(layout.card, scene), [layout.card, scene]);
@@ -144,7 +152,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
   const cardFadeStyle = useAnimatedStyle(() => ({ opacity: intentionCardOpacity?.value ?? 1 }));
   const renderedNotes = [...notes].filter(note => !note.isArchived).sort((a, b) => a.presentation.layerOrder - b.presentation.layerOrder).map(note =>
     onNoteSelect && onNotePresentationChange ? <VisionBoardNoteElement materialMode={materialMode} key={note.id} note={note} arriving={arrivingNoteId === note.id} sceneWidth={noteSize.width} sceneHeight={noteSize.height}
-      cameraScale={shared.cameraScale} onDragActive={onNoteDragActive} reduceMotion={reduceMotion} selected={selectedNoteId === note.id} onSelect={onNoteSelect} onPresentationChange={onNotePresentationChange} /> :
+      cameraScale={shared.cameraScale} onDragActive={onNoteDragActive} reduceMotion={reduceMotion} recomposeMs={recomposeMs} selected={selectedNoteId === note.id} onSelect={onNoteSelect} onPresentationChange={onNotePresentationChange} /> :
       <VisionNoteRenderer materialMode={materialMode} key={note.id} styleId={note.presentation.styleId} fontId={note.presentation.fontId} text={note.content.text} width={noteSize.width} height={noteSize.height}
       presentation={{ ...note.presentation, layerOrder: visionNoteZIndex(note.presentation.layerOrder) }} scrollText />);
   return (
@@ -156,7 +164,11 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         return (
           <VisionBoardPhoto
             materialMode={materialMode}
-            frameVariant={index === 3 ? 'wide-bottom' : index === 2 ? 'torn-bottom' : index === 1 ? 'rough-edge' : 'classic'}
+            treatment={slotOrder && index >= 0 ? layout.photos[index]?.treatment : undefined}
+            captionLayout={layout.photos[index]?.caption}
+            apertureBottom={layout.photos[index]?.apertureBottom}
+            compositionWidth={sharedComposition ? scene.width : undefined}
+            frameVariant={index === 3 ? 'wide-bottom' : index === 7 ? 'torn-bottom' : slotOrder ? 'classic' : index === 2 ? 'torn-bottom' : index === 1 ? 'rough-edge' : 'classic'}
             key={tile.sceneId}
             testID={`vision-board-photo-${tile.sceneId}`}
             tapes={index >= 0 ? layout.decor.filter(tape => tape.photo === index) : []}
@@ -173,6 +185,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             displayScale={displayScale}
             focal={focals?.[tile.sceneId] ?? null}
             repositioning={repositioningId === tile.sceneId}
+            dimmed={Boolean(focusedSceneId && focusedSceneId!==tile.sceneId)}
             onFocalCommit={onFocalCommit}
             onMoveRequest={slotOrder ? onMoveRequest : undefined}
             initialRect={initialRectFor(tile.sceneId)}
@@ -187,6 +200,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             onCaptionEdit={onCaptionEdit}
             onPhotoAssetReady={onPhotoAssetReady}
             onPhotoAssetError={onPhotoAssetError}
+            onCaptionReady={layout.photos[index]?.caption?.kind !== 'label' ? onCaptionReady : undefined}
             onDragActive={onDragActive}
             onSwap={onSwap}
             onOrderCommit={onOrderCommit}
@@ -198,15 +212,21 @@ export const VisionBoardScene = memo(function VisionBoardScene({
           />
         );
       })}
+      {sharedComposition ? roster.filter(entry=>!entry.exiting).map(({tile})=>{
+        const index=slotOrder?.indexOf(tile.sceneId)??-1,caption=layout.photos[index]?.caption,rect=initialRectFor(tile.sceneId);
+        return caption?.kind==='label'&&rect?<VisionBoardCaption key={`caption-${tile.sceneId}`} sceneId={tile.sceneId} caption={caption} initialRect={rect}
+          sceneWidth={scene.width} referenceScale={displayScale??1} shared={shared} reduced={reduceMotion} dimmed={Boolean(focusedSceneId&&focusedSceneId!==tile.sceneId)} onReady={onCaptionReady} onEdit={interactive&&!repositioningId?onCaptionEdit:undefined}/>:null;
+      }):null}
       {slotOverlay ? slotOverlay.slots.filter(item => item.slot < VISION_SLOT_COUNT && layout.photos[item.slot]).map(item => {
         const rect = toSceneRect(layout.photos[item.slot], scene);
         return item.kind === 'empty'
-          ? <EmptySlotMarker key={`slot-${item.slot}`} rect={rect} slot={item.slot} emphasis={slotOverlay.emphasis} onPress={slotOverlay.onPress} />
+          ? <EmptySlotMarker key={`slot-${item.slot}`} rect={rect} slot={item.slot} emphasis={slotOverlay.emphasis} action={slotOverlay.action} onPress={slotOverlay.onPress} />
           : <OccupiedSlotTarget key={`slot-${item.slot}`} rect={rect} slot={item.slot} onPress={slotOverlay.onPress} />;
       }) : null}
       {showIntentionCard ? <Animated.View pointerEvents={interactive ? 'box-none' : 'none'} style={[styles.fill, { zIndex: 40 }, cardFadeStyle]}><VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
+        dimmed={Boolean(focusedSceneId && focusedSceneId !== 'card')}
         onTeachingMotionChange={onTeachingMotionChange}
-        reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={cinematic?.bridgeOpacity ? 'paper' : markAppearance}
+        reduceMotion={reduceMotion} recomposeMs={recomposeMs} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={cinematic?.bridgeOpacity ? 'paper' : markAppearance}
         hideMark={!showAnchorMark || (Boolean(cinematic) && !cinematic?.bridgeOpacity)} onMarkLayout={cinematic?.onMarkLayout}
         paperOpacity={cinematic?.bridgeOpacity ?? cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} /></Animated.View> : null}
     </View>

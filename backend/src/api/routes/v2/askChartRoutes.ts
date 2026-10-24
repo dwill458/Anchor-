@@ -9,8 +9,17 @@ import { askChartService } from '../../../services/chart/ask/AskChartService';
 import { askChartStore } from '../../../services/chart/ask/askChartStore';
 import { ASK_SKILLS, COACH_STYLES } from '../../../services/chart/ask/chartAgent';
 import { MEMORY_KEYS } from '../../../services/chart/ask/askChartSchema';
-import { ASK_PHOTO_MIME_TYPES, MAX_ASK_PHOTO_BASE64_LENGTH, purgeExpiredAskPhotos, storeAskPhoto } from '../../../services/chart/ask/askChartPhotos';
-import { globalAiCeilingLimiter, chartAskLimiter, chartAskConcurrencyGuard } from '../../middleware/aiRateLimit';
+import {
+  ASK_PHOTO_MIME_TYPES,
+  MAX_ASK_PHOTO_BASE64_LENGTH,
+  purgeExpiredAskPhotos,
+  storeAskPhoto,
+} from '../../../services/chart/ask/askChartPhotos';
+import {
+  globalAiCeilingLimiter,
+  chartAskLimiter,
+  chartAskConcurrencyGuard,
+} from '../../middleware/aiRateLimit';
 
 /**
  * Ask Chart API. Conversations belong to an Anchor (and its current Chart); proposals are applied to a Chart by
@@ -48,7 +57,9 @@ const TurnSchema = z
 function validate<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) {
-    const message = result.error.errors.map(error => `${error.path.join('.')}: ${error.message}`).join(', ');
+    const message = result.error.errors
+      .map(error => `${error.path.join('.')}: ${error.message}`)
+      .join(', ');
     throw new AppError(`Validation error: ${message}`, 400, 'VALIDATION_ERROR');
   }
   return result.data;
@@ -84,19 +95,33 @@ async function activeCourseId(userId: string, anchorId: string): Promise<string 
   return course?.id ?? null;
 }
 
-function errorBody(error: unknown): { code: string; message: string; status: number; retryable: boolean } {
+function errorBody(error: unknown): {
+  code: string;
+  message: string;
+  status: number;
+  retryable: boolean;
+} {
   if (error instanceof AppError) {
     return {
       code: error.code,
       message: error.message,
       status: error.statusCode,
-      retryable: error.statusCode >= 500 || error.statusCode === 429 || error.code === 'ASK_TURN_IN_PROGRESS',
+      retryable:
+        error.statusCode >= 500 ||
+        error.statusCode === 429 ||
+        error.code === 'ASK_TURN_IN_PROGRESS',
     };
   }
-  return { code: 'ASK_FAILED', message: 'Ask Chart could not answer right now', status: 500, retryable: true };
+  return {
+    code: 'ASK_FAILED',
+    message: 'Ask Chart could not answer right now',
+    status: 500,
+    retryable: true,
+  };
 }
 
-const wantsStream = (req: AuthRequest) => String(req.headers.accept ?? '').includes('text/event-stream');
+const wantsStream = (req: AuthRequest) =>
+  String(req.headers.accept ?? '').includes('text/event-stream');
 
 router.post(
   '/anchors/:anchorId/chart/ask',
@@ -161,7 +186,10 @@ router.post(
 );
 
 const PhotoSchema = z
-  .object({ base64Image: z.string().min(1).max(MAX_ASK_PHOTO_BASE64_LENGTH), mimeType: z.enum(ASK_PHOTO_MIME_TYPES).default('image/jpeg') })
+  .object({
+    base64Image: z.string().min(1).max(MAX_ASK_PHOTO_BASE64_LENGTH),
+    mimeType: z.enum(ASK_PHOTO_MIME_TYPES).default('image/jpeg'),
+  })
   .strict();
 
 router.post(
@@ -171,10 +199,18 @@ router.post(
     const userId = await writeUser(req);
     const body = validate(PhotoSchema, req.body);
     await askChartStore.assertOwnsAnchor(userId, req.params.anchorId);
-    const stored = await storeAskPhoto(userId, req.params.anchorId, body.base64Image, body.mimeType);
+    const stored = await storeAskPhoto(
+      userId,
+      req.params.anchorId,
+      body.base64Image,
+      body.mimeType
+    );
     // Housekeeping on the way through: this person's photos past their lifetime go now, without waiting for the job.
     void purgeExpiredAskPhotos({ userId }).catch(() => undefined);
-    res.status(201).json({ success: true, data: { assetId: stored.assetId, width: stored.width, height: stored.height } });
+    res.status(201).json({
+      success: true,
+      data: { assetId: stored.assetId, width: stored.width, height: stored.height },
+    });
   })
 );
 
@@ -185,7 +221,10 @@ router.get(
     await askChartStore.assertOwnsAnchor(userId, req.params.anchorId);
     const courseId = await activeCourseId(userId, req.params.anchorId);
     const conversation = await askChartStore.getConversation(userId, req.params.anchorId, courseId);
-    res.json({ success: true, data: { ...conversation, mode: courseId ? 'ONGOING' : 'CREATE', courseId } });
+    res.json({
+      success: true,
+      data: { ...conversation, mode: courseId ? 'ONGOING' : 'CREATE', courseId },
+    });
   })
 );
 
@@ -195,7 +234,12 @@ router.delete(
     const userId = await writeUser(req);
     await askChartStore.assertOwnsAnchor(userId, req.params.anchorId);
     const courseId = await activeCourseId(userId, req.params.anchorId);
-    res.json({ success: true, data: { cleared: await askChartStore.clearConversation(userId, req.params.anchorId, courseId) } });
+    res.json({
+      success: true,
+      data: {
+        cleared: await askChartStore.clearConversation(userId, req.params.anchorId, courseId),
+      },
+    });
   })
 );
 
@@ -215,8 +259,20 @@ router.put(
   handle(async (req, res) => {
     const userId = await writeUser(req);
     const key = validate(MemoryKeySchema, req.params.key);
-    const body = validate(z.object({ value: z.string().trim().min(1).max(200) }).strict(), req.body);
-    res.json({ success: true, data: await askChartStore.upsertMemory(userId, req.params.anchorId, key, body.value, 'USER_EDITED') });
+    const body = validate(
+      z.object({ value: z.string().trim().min(1).max(200) }).strict(),
+      req.body
+    );
+    res.json({
+      success: true,
+      data: await askChartStore.upsertMemory(
+        userId,
+        req.params.anchorId,
+        key,
+        body.value,
+        'USER_EDITED'
+      ),
+    });
   })
 );
 
@@ -224,7 +280,11 @@ router.delete(
   '/anchors/:anchorId/chart/ask/memory/:key',
   handle(async (req, res) => {
     const userId = await writeUser(req);
-    await askChartStore.deleteMemory(userId, req.params.anchorId, validate(MemoryKeySchema, req.params.key));
+    await askChartStore.deleteMemory(
+      userId,
+      req.params.anchorId,
+      validate(MemoryKeySchema, req.params.key)
+    );
     res.json({ success: true, data: { deleted: true } });
   })
 );
@@ -233,7 +293,10 @@ router.delete(
   '/anchors/:anchorId/chart/ask/memory',
   handle(async (req, res) => {
     const userId = await writeUser(req);
-    res.json({ success: true, data: { deleted: await askChartStore.deleteAllMemories(userId, req.params.anchorId) } });
+    res.json({
+      success: true,
+      data: { deleted: await askChartStore.deleteAllMemories(userId, req.params.anchorId) },
+    });
   })
 );
 
@@ -250,7 +313,11 @@ router.post(
   '/charts/:courseId/ask/:messageId/approve',
   handle(async (req, res) => {
     const userId = await writeUser(req);
-    const result = await askChartService.approveMoves(userId, req.params.courseId, req.params.messageId);
+    const result = await askChartService.approveMoves(
+      userId,
+      req.params.courseId,
+      req.params.messageId
+    );
     res.json({ success: true, data: result });
   })
 );

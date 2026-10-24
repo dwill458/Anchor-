@@ -12,7 +12,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
 import { V2HomeChartSection, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
 import { buildTodayForDisplay, planTodaySwap, resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel, type TodaySwapPlan } from '@/adapters/v2/home';
-import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
 import { VisualProfiler } from '@/utils/visualProfiler';
@@ -290,8 +289,6 @@ export function V2HomeScreen() {
     refreshedForArrival.current = practiceArrivalId;
     refreshHomeContext();
   }, [practiceArrivalId, refreshHomeContext]);
-
-  useHomePrewarm(model.anchorList, model.selectedIndex);
 
   const selectedId = model.selectedAnchor?.id ?? null;
   const selectedCategory = model.selectedAnchor?.category?.toLowerCase() ?? '';

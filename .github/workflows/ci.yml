@@ -61,7 +61,8 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Native persistence test drivers use node:sqlite; match local Node 24 QA.
+          node-version: 24
           cache: npm
           cache-dependency-path: anchor/mobile/package-lock.json
 
@@ -72,7 +73,9 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run tests
-        run: npm test -- --ci --coverage --watchAll=false --forceExit
+        # Coverage-instrumented Vision renders are memory-heavy; keep one worker
+        # so parallel React trees do not starve cleanup hooks on hosted runners.
+        run: npm test -- --ci --coverage --runInBand --watchAll=false --forceExit
         env:
           CI: true
           EXPO_PUBLIC_APP_ENV: test

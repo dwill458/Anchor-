@@ -492,7 +492,7 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
       suggestedOneMove: { title: 'Finish onboarding redesign', rationale: null },
       personalizedGuidance: null,
       routeScope: 'DESTINATION',
-      analysis: { startingPointSummary: 'App launched with 100 users.', assumptions: [], firstMilestoneEvidence: 'Existing users can provide product feedback without new resources.', difficultyReduction: null, prerequisites: [0, 1, 2, 3].map(waypointIndex => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) },
+      analysis: { startingPointSummary: 'App launched with 100 users.', assumptions: [], routeDesign: { selectedWaypointCount: 4, complexityReason: 'Multiple outcomes remain.', countReason: 'Four distinct states cover the remaining route.' }, firstMilestoneEvidence: 'Existing users can provide product feedback without new resources.', difficultyReduction: null, prerequisites: [0, 1, 2, 3].map(waypointIndex => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) },
     };
     goodRoute.waypoints = goodRoute.waypoints.map(waypoint => ({ ...waypoint, metricType: 'completion', completionCriteria: waypoint.title, requirements: [] }));
 
@@ -636,7 +636,7 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
       await chartService.updateWaypointProgress(userId, financial.id, previousId, { expectedCourseVersion: financial.version, metricCurrent: 20 });
       financial = await courseService.getCourse(userId, financial.id);
       const oldEvents = await prisma.courseEvent.findMany({ where: { courseId: financial.id }, orderBy: { id: 'asc' } });
-      const evidence = { startingPointSummary: 'Limited savings and little spare income.', assumptions: [], firstMilestoneEvidence: 'Reviewing essential costs requires no investment capital.', difficultyReduction: 'Replace an unsupported $22,200 jump with prerequisite states grounded in available income.', prerequisites: [0, 1, 2].map(waypointIndex => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) };
+      const evidence = { startingPointSummary: 'Limited savings and little spare income.', assumptions: [], routeDesign: { selectedWaypointCount: 3, complexityReason: 'A constrained first stretch.', countReason: 'Three feasible prerequisite states.' }, firstMilestoneEvidence: 'Reviewing essential costs requires no investment capital.', difficultyReduction: 'Replace an unsupported $22,200 jump with prerequisite states grounded in available income.', prerequisites: [0, 1, 2].map(waypointIndex => ({ waypointIndex, requires: waypointIndex ? [waypointIndex - 1] : [] })) };
       const arithmetic = provider('openai', async () => ({ ...goodRoute, destination: 'Reach $111,000 net worth', routeScope: 'NEXT_STRETCH', analysis: { ...evidence, prerequisites: [0, 1, 2, 3, 4].map(waypointIndex => ({ waypointIndex, requires: [] })) }, waypoints: [11100, 22200, 44400, 66600, 111000].map(targetValue => ({ title: `Reach $${targetValue} net worth`, rationale: null, type: 'METRIC', metricType: 'numeric', targetMetric: 'USD net worth', targetValue, baselineValue: 20, completionCriteria: 'Recorded net worth reaches target', requirements: [] })) }));
       await expect(planner(arithmetic.instance).adjust(userId, { anchorId: financialAnchor.id, courseId: financial.id, idempotencyKey: key('financial-bad'), reason: 'SMALLER_STEPS' })).rejects.toMatchObject({ code: 'CHART_ADJUST_UNAVAILABLE' });
       expect((await courseService.getCourse(userId, financial.id)).version).toBe(financial.version);
@@ -668,7 +668,7 @@ maybeDescribe('Chart 2.0 (real Postgres, opt-in)', () => {
       const revising = provider('openai', async () => ({
         ...goodRoute,
         waypoints: [goodRoute.waypoints[3]],
-        analysis: { ...goodRoute.analysis, prerequisites: [{ waypointIndex: 0, requires: [] }] },
+        analysis: { ...goodRoute.analysis, routeDesign: { ...goodRoute.analysis.routeDesign, selectedWaypointCount: 1 }, prerequisites: [{ waypointIndex: 0, requires: [] }] },
       }));
       const result = await planner(revising.instance).adjust(userId, {
         idempotencyKey: key('plan-adjust'),

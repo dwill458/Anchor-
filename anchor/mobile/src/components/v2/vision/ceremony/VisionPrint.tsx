@@ -5,6 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useV2ReduceMotion } from '@/hooks/v2';
+import { usePerformanceTier } from '@/hooks/usePerformanceTier';
 import { playCreationSound } from '@/services/CreationSounds';
 import { safeHaptics } from '@/utils/haptics';
 import { ImpactFeedbackStyle } from 'expo-haptics';
@@ -95,6 +96,7 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
   reframe, onReframe, empty = false, active = true, revealDelayMs = 0, onDeveloped, onImageError, onRevealStart, imageRef, pressed = false,
   label, captionStripPts, captionHint = false, revealMs, inkRevealMs, opaque = false, silent = false, instant = false, retryToken = 0, testID = 'vision-print' }: VisionPrintProps) {
   const reduced = useV2ReduceMotion();
+  const lowPerformance=usePerformanceTier()==='low';
   const uri = uriProp ?? sourceUri(source);
   const imageSource = source ?? (uri ? { uri } : undefined);
   const strip = captionStripPts ?? CEREMONY.captionStripPts;
@@ -154,13 +156,13 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
     if (pressed) press.value = reduced ? 1 : withSequence(withTiming(.975, { duration: 150 }), withTiming(1, { duration: 350 }));
   }, [pressed, reduced]);
   useEffect(() => {
-    if (reduced || !active) { cancelAnimation(sheen); cancelAnimation(march); return; }
+    if (reduced || lowPerformance || !active) { cancelAnimation(sheen); cancelAnimation(march); return; }
     // One slow, soft pass every ~4.8s instead of a constant sweep (read as flicker on device).
     if (developing && !canReveal) sheen.value = withRepeat(withSequence(withTiming(-1, { duration: 0 }),
       withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }), withDelay(3900, withTiming(1, { duration: 0 }))), -1, false);
     if (empty) march.value = withRepeat(withTiming(-180, { duration: CEREMONY.frameMarchMs, easing: Easing.linear }), -1, false);
     return () => { cancelAnimation(sheen); cancelAnimation(march); };
-  }, [developing, canReveal, empty, active, reduced]);
+  }, [developing, canReveal, empty, active, reduced,lowPerformance]);
   const paperStyle = useAnimatedStyle(() => ({ opacity: paper.value, transform: [
     { translateY: instant && !reduced ? 18 * (1 - photoSettle.value) : 0 },
     { scale: press.value * (instant && !reduced ? .96 + .04 * photoSettle.value : 1) },
@@ -171,6 +173,7 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
   const captionStyle = useAnimatedStyle(() => ({ opacity: (inset.value - 8) / Math.max(1, strip - 8) }));
   const inkStyle = useAnimatedStyle(() => ({ opacity: ink.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: blur.value }));
+  const fadeStyle=useAnimatedStyle(()=>({opacity:lowPerformance&&!instant?1-blur.value:1}));
   // DEFERRED: caption-beat overscan (1.16) returns with persisted reframe; the arrival flight measures the unzoomed window.
   const imageStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offsetX.value }, { translateY: offsetY.value }, { scale: scale.value }] }));
   const sheenStyle = useAnimatedStyle(() => ({ opacity: canReveal ? 0 : 1, transform: [{ translateX: sheen.value * 280 }] }));
@@ -192,9 +195,9 @@ export function VisionPrint({ uri: uriProp, source, developing, revealed, showCa
       {/* Deterministic fine paper flecks, no remote texture or placeholder photography. */}
       <View pointerEvents="none" style={styles.grain}>{Array.from({ length: 28 }, (_, i) => <View key={i} style={[styles.fleck, { left: `${(i * 37) % 100}%`, top: `${(i * 23) % 100}%` }]} />)}</View>
       <GestureDetector gesture={pan}><Animated.View ref={imageRef} collapsable={false} style={[styles.window, instant && { backgroundColor: '#F7F1E6' }, windowStyle]}>
-        {uri ? <Animated.View style={[styles.fill, imageStyle]}>
+        {uri ? <Animated.View style={[styles.fill, imageStyle,fadeStyle]}>
           <Image key={`${uri}:${retryToken}`} testID={`${testID}-sharp`} source={imageSource!} resizeMode="cover" resizeMethod="resize" style={styles.photo} onLoad={() => setLoadedUri(uri)} onError={() => { setFailedUri(uri); if (uri) onImageError?.(uri); }} accessible={false} />
-          {instant || settledUri === uri ? null : <Animated.View pointerEvents="none" style={[styles.fill, blurStyle]}><Image key={`blur:${uri}:${retryToken}`} source={imageSource!} blurRadius={24} resizeMode="cover" resizeMethod="resize" style={styles.photo} accessible={false} /></Animated.View>}
+          {instant || lowPerformance || settledUri === uri ? null : <Animated.View pointerEvents="none" style={[styles.fill, blurStyle]}><Image key={`blur:${uri}:${retryToken}`} source={imageSource!} blurRadius={24} resizeMode="cover" resizeMethod="resize" style={styles.photo} accessible={false} /></Animated.View>}
         </Animated.View> : null}
         {!instant ? <Animated.View pointerEvents="none" testID={`${testID}-ink`} style={[styles.fill, styles.ink, inkStyle]} /> : null}
         {developing ? <Animated.View pointerEvents="none" style={[styles.fill, sheenStyle]}><LinearGradient colors={['transparent', '#FFFFFF14', 'transparent']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.fill} /></Animated.View> : null}

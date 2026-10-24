@@ -11,6 +11,7 @@ import { ChartSheetGrabZone, ChartSheetScrollArea, ChartSheetTier, type ChartShe
 import { ChartRouteSegments } from './ChartRouteSegments';
 import { ChartRouteList } from './ChartRouteList';
 import { ChartSheetHelpRow } from './ChartSheetHelpRow';
+import { ChartSheetAnchorCard } from './ChartSheetAnchorCard';
 import type { ChartAnchorArt } from '../ChartLandscape';
 
 type Props = ChartWaypointContentProps & {
@@ -23,12 +24,15 @@ type Props = ChartWaypointContentProps & {
   anchorArt?: ChartAnchorArt | null;
   onOpenAnchor?: () => void;
   onAskChart?: () => void;
+  /** The Anchor's stored Thread Strength (0–100), shown on the Anchor card. Display only. */
+  threadStrength?: number | null;
 };
 
 /** The handler/modal owner and all three tier frames survive a content swap. */
 const Content = memo(function Content({ snapshot }: { snapshot: Props }) {
   const accent = panelAccent(snapshot.category);
   const compose = useCallback((parts: ChartWaypointTiers) => {
+    const showAnchorCard = parts.isCurrent && !snapshot.arrived && Boolean(snapshot.anchorArt?.svg);
     const state = snapshot.arrived ? CHART_COPY.sheet.stateReached : parts.waypoint.state === 'current' ? CHART_COPY.sheet.stateCurrent : parts.waypoint.state === 'completed' ? CHART_COPY.sheet.stateReached : CHART_COPY.sheet.stateUpcoming;
     const eyebrow = CHART_COPY.sheet.eyebrow.replace('{n}', String(parts.waypoint.number)).replace('{N}', String(snapshot.view.total)).replace('{state}', state);
     return <View style={styles.root} testID={parts.isCurrent && !snapshot.arrived ? 'chart-current-waypoint' : 'chart-panel-body'}>
@@ -46,7 +50,8 @@ const Content = memo(function Content({ snapshot }: { snapshot: Props }) {
         {parts.oneMove}
         <ChartSheetTier tier="half">
           {snapshot.stillRight}
-          {parts.isCurrent && !snapshot.arrived ? <ChartSheetHelpRow category={snapshot.category} anchorArt={snapshot.anchorArt ?? null} onOpenAnchor={snapshot.onOpenAnchor} onAskChart={snapshot.onAskChart} /> : null}
+          {showAnchorCard ? <ChartSheetAnchorCard category={snapshot.category} anchorArt={snapshot.anchorArt!} threadStrength={snapshot.threadStrength ?? null} practiced={parts.practiced} onOpenAnchor={snapshot.onOpenAnchor} onOpenPractice={snapshot.onOpenPractice} /> : null}
+          {parts.isCurrent && !snapshot.arrived ? <ChartSheetHelpRow category={snapshot.category} onAskChart={snapshot.onAskChart} onViewRoute={snapshot.onExpandSheet} /> : null}
           {parts.isCurrent ? <ChartRouteSegments view={snapshot.view} inputs={snapshot.inputs} hw={snapshot.hw} color={accent.text} reducedMotion={snapshot.reducedMotion} /> : null}
           {parts.half}
           {parts.edit}
@@ -58,7 +63,7 @@ const Content = memo(function Content({ snapshot }: { snapshot: Props }) {
       </ChartSheetScrollArea>
     </View>;
   }, [snapshot, accent.text]);
-  return <ChartWaypointContent {...snapshot} renderTiers={compose} />;
+  return <ChartWaypointContent {...snapshot} hidePracticeRow={Boolean(snapshot.anchorArt?.svg)} renderTiers={compose} />;
 });
 
 export function ChartSheetContent(props: Props) {

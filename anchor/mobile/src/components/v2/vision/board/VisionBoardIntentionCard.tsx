@@ -28,7 +28,9 @@ type Props = {
   category?: string | null;
   art?: VisionBoardCardArt | null;
   reduceMotion: boolean;
+  recomposeMs?: number;
   onPress?: () => void;
+  dimmed?: boolean;
   anchorTestID?: string;
   /** `paper` sets the mark on an ivory medallion; `bare` leaves the strokes free on the card. */
   markAppearance?: 'bare' | 'paper';
@@ -43,8 +45,8 @@ type Props = {
 
 /** The persisted Anchor SVG connects the photographs without repeating the intention. */
 export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
-  rect, intention, category, art, reduceMotion, onPress, anchorTestID, markAppearance = 'bare', hideMark = false, onMarkLayout,
-  paperOpacity, pinOpacity, onTeachingMotionChange,
+  rect, intention, category, art, reduceMotion, onPress, dimmed = false, anchorTestID, markAppearance = 'bare', hideMark = false, onMarkLayout,
+  paperOpacity, pinOpacity, onTeachingMotionChange,recomposeMs=MOTION.recompose.moveMs,
 }: Props) {
   const arrival = useVisionImageArrival();
   const markSlot = useRef<ViewInstance>(null);
@@ -66,6 +68,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   const width = useSharedValue(rect.width);
   const height = useSharedValue(rect.height);
   const rotation = useSharedValue(rect.rotation);
+  const focusOpacity = useSharedValue(dimmed ? 0.24 : 1);
   useAnimatedReaction(() => Boolean(onTeachingMotionChange) && (
     Math.abs(x.value - rect.x) > 0.1 || Math.abs(y.value - rect.y) > 0.1 ||
     Math.abs(width.value - rect.width) > 0.1 || Math.abs(height.value - rect.height) > 0.1 || Math.abs(rotation.value - rect.rotation) > 0.05
@@ -74,13 +77,16 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   useEffect(() => {
     const config = reduceMotion
       ? { duration: MOTION.reduced.recomposeMs }
-      : { duration: MOTION.recompose.moveMs, easing: boardRecomposeEasing };
+      : { duration: recomposeMs, easing: boardRecomposeEasing };
     x.value = boardTiming(rect.x, config);
     y.value = boardTiming(rect.y, config);
     width.value = boardTiming(rect.width, config);
     height.value = boardTiming(rect.height, config);
     rotation.value = boardTiming(rect.rotation, config);
-  }, [height, rect, reduceMotion, rotation, width, x, y]);
+  }, [height, rect, reduceMotion, rotation, width, x, y,recomposeMs]);
+  useEffect(() => {
+    focusOpacity.value = boardTiming(dimmed ? 0.24 : 1, { duration: reduceMotion ? 0 : 220 });
+  }, [dimmed, focusOpacity, reduceMotion]);
 
   const style = useAnimatedStyle(() => ({
     left: x.value,
@@ -89,6 +95,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
     height: height.value,
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
+  const focusStyle = useAnimatedStyle(() => ({ opacity: focusOpacity.value }));
   const paperStyle = useAnimatedStyle(() => ({ opacity: arrival?.setActive ? 0 : paperOpacity?.value ?? 1 }));
 
   // Type is laid out for the target size; the card's own motion is small.
@@ -114,7 +121,7 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   </Animated.View>;
 
   return (
-    <Animated.View style={[styles.card, style]}>
+    <Animated.View style={[styles.card, style, focusStyle]}>
       {onPress ? (
         <Pressable style={styles.fill} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}
           accessibilityHint="Double tap to bring your Anchor forward and edit your Vision.">

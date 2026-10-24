@@ -19,7 +19,11 @@ function stablePart(value: string): string {
 
 type RecommendationTiming = (stage: string, durationMs: number) => void;
 
-async function timed<T>(stage: string, work: () => Promise<T>, onTiming?: RecommendationTiming): Promise<T> {
+async function timed<T>(
+  stage: string,
+  work: () => Promise<T>,
+  onTiming?: RecommendationTiming
+): Promise<T> {
   const startedAt = performance.now();
   try {
     return await work();
@@ -58,18 +62,23 @@ export class RecommendationService {
     anchorId: string,
     clientTimeZone: string = 'UTC',
     delta7d: number | null = null,
-    onTiming?: RecommendationTiming,
+    onTiming?: RecommendationTiming
   ): Promise<RecommendationContextResponse> {
-    const anchor = await timed('anchor-lookup', () => prisma.anchor.findFirst({
-      where: { id: anchorId, userId, isArchived: false },
-      select: {
-        id: true,
-        intentionText: true,
-        category: true,
-        intentionCompletedAt: true,
-        createdAt: true,
-      },
-    }), onTiming);
+    const anchor = await timed(
+      'anchor-lookup',
+      () =>
+        prisma.anchor.findFirst({
+          where: { id: anchorId, userId, isArchived: false },
+          select: {
+            id: true,
+            intentionText: true,
+            category: true,
+            intentionCompletedAt: true,
+            createdAt: true,
+          },
+        }),
+      onTiming
+    );
 
     if (!anchor) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
@@ -80,36 +89,44 @@ export class RecommendationService {
     // sum of completion signal, Vision, and Thread Strength work.
     const [completionSignal, vision, threadContext] = await Promise.all([
       timed('completion-signal', () => this.getPendingCompletionSignal(userId, anchor), onTiming),
-      timed('vision-context', () => visionService.getAnchorVision(userId, anchorId, clientTimeZone), onTiming),
+      timed(
+        'vision-context',
+        () => visionService.getAnchorVision(userId, anchorId, clientTimeZone),
+        onTiming
+      ),
       delta7d !== null
         ? Promise.resolve<RecommendationThreadContext>({
             delta7d,
             delta7dStatus: 'AVAILABLE',
             status: 'AVAILABLE',
           })
-        : timed('thread-strength', async () => {
-            try {
-              const threadState = await threadStrengthService.getAnchorThreadState(
-                userId,
-                anchorId,
-                new Date(),
-                clientTimeZone,
-              );
-              return {
-                strength: threadState.strength ?? undefined,
-                delta7d: threadState.delta7d,
-                delta7dStatus: 'AVAILABLE',
-                status: 'AVAILABLE',
-              } satisfies RecommendationThreadContext;
-            } catch {
-              return {
-                delta7d: null,
-                delta7dStatus: 'UNAVAILABLE',
-                status: 'UNAVAILABLE',
-                blockerReason: 'THREAD_STRENGTH_UNAVAILABLE',
-              } satisfies RecommendationThreadContext;
-            }
-          }, onTiming),
+        : timed(
+            'thread-strength',
+            async () => {
+              try {
+                const threadState = await threadStrengthService.getAnchorThreadState(
+                  userId,
+                  anchorId,
+                  new Date(),
+                  clientTimeZone
+                );
+                return {
+                  strength: threadState.strength ?? undefined,
+                  delta7d: threadState.delta7d,
+                  delta7dStatus: 'AVAILABLE',
+                  status: 'AVAILABLE',
+                } satisfies RecommendationThreadContext;
+              } catch {
+                return {
+                  delta7d: null,
+                  delta7dStatus: 'UNAVAILABLE',
+                  status: 'UNAVAILABLE',
+                  blockerReason: 'THREAD_STRENGTH_UNAVAILABLE',
+                } satisfies RecommendationThreadContext;
+              }
+            },
+            onTiming
+          ),
     ]);
     const visionContext = {
       exists: Boolean(vision && vision.status === 'ACTIVE'),

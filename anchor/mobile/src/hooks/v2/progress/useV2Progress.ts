@@ -24,7 +24,7 @@ export interface UseV2ProgressReturn {
   selectedEvent: V2ThreadEventItem | null;
   setSelectedEvent: (event: V2ThreadEventItem | null) => void;
   refresh: () => Promise<void>;
-  /** Rhythm range. Defaults to Month. */
+  /** Rhythm range. Defaults to Week. */
   range: V2ProgressRange;
   setRange: (range: V2ProgressRange) => void;
   /** Non-archived Anchors for the switcher. */
@@ -36,7 +36,7 @@ export interface UseV2ProgressReturn {
 export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2ProgressReturn {
   const [selectedEvent, setSelectedEvent] = useState<V2ThreadEventItem | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [range, setRange] = useState<V2ProgressRange>('Month');
+  const [range, setRange] = useState<V2ProgressRange>('Week');
   const [pickedAnchorId, setPickedAnchorId] = useState<string | null>(null);
 
   const anchors = useAnchorStore((s) => s.anchors);

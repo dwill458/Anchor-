@@ -12,6 +12,10 @@ type ChartOneMoveRowProps = {
   accent: PanelAccent;
   move: MoveSummary;
   waypointTitle: string;
+  /** What reaching the whole waypoint means (its completion criteria). Shown under "Toward". */
+  waypointCriteria?: string | null;
+  /** The waypoint's own progress ("1 of 3 done"). The row never invents a count of its own. */
+  progressText?: string | null;
   checked: boolean;
   busy: boolean;
   reducedMotion: boolean;
@@ -29,7 +33,7 @@ function optionalMoveDetail(move: MoveSummary, key: 'why' | 'doneWhen'): string 
 
 /** The One Move has separate completion and reading targets. */
 export function ChartOneMoveRow({
-  accent, move, waypointTitle, checked, busy, reducedMotion, onCheck, onExpandSheet,
+  accent, move, waypointTitle, waypointCriteria = null, progressText = null, checked, busy, reducedMotion, onCheck, onExpandSheet,
   rowRef, circleRef, bodyRef,
 }: ChartOneMoveRowProps) {
   const [expanded, setExpanded] = useState(false);
@@ -39,7 +43,8 @@ export function ChartOneMoveRow({
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const checkScale = useSharedValue(1);
   const checkStyle = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
-  const why = optionalMoveDetail(move, 'why') ?? waypointTitle;
+  // The move's own reason (`rationale` is what the server stores) comes first; the waypoint is only the fallback.
+  const why = optionalMoveDetail(move, 'why') ?? (move.rationale?.trim() || null) ?? waypointTitle;
   const doneMeans = optionalMoveDetail(move, 'doneWhen') ?? CHART_COPY.sheet.doneFallback;
   useEffect(() => {
     setExpanded(false);
@@ -88,9 +93,7 @@ export function ChartOneMoveRow({
     <View ref={rowRef} collapsable={false} style={styles.wrap} testID="chart-one-move-row">
       <View style={styles.moveLabelRow}>
         <Text style={[styles.moveLabel, { color: accent.text }]}>{CHART_COPY.sheet.oneMove}</Text>
-        <Text style={styles.count}>
-          {CHART_COPY.sheet.moveCount.replace('{done}', checked ? '1' : '0').replace('{total}', '1')}
-        </Text>
+        {progressText ? <Text style={styles.count} testID="chart-one-move-progress">{progressText}</Text> : null}
       </View>
       <View style={[styles.card, checked && styles.cardDone]}>
         <View ref={circleRef} collapsable={false} style={styles.checkTarget}>
@@ -130,6 +133,12 @@ export function ChartOneMoveRow({
               <Text style={styles.detailText}>{doneMeans}</Text>
               <Text style={styles.detailLabel}>{CHART_COPY.sheet.toward}</Text>
               <Text style={styles.detailText}>{waypointTitle}</Text>
+              {waypointCriteria?.trim() ? (
+                <>
+                  <Text style={styles.detailLabel}>{CHART_COPY.sheet.waypointReachedWhen}</Text>
+                  <Text style={styles.detailText} testID="chart-one-move-criteria">{waypointCriteria.trim()}</Text>
+                </>
+              ) : null}
             </View>
           ) : null}
           <View style={styles.hintRow}>

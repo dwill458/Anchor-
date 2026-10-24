@@ -1,8 +1,10 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import { VisionBoardPhoto } from '../VisionBoardPhoto';
 import { planCaption } from '../visionCaptionLayout';
+import { composeVisionBoard } from '../visionBoardComposition';
+import type { V2VisionTile } from '@/adapters/v2/vision';
 
 const mockGestures: Record<string, any> = {};
 jest.mock('react-native-gesture-handler', () => {
@@ -44,6 +46,29 @@ function mount(caption: string | undefined, rect: any, extra: Record<string, unk
 const captionStyle = (view: ReturnType<typeof render>) => StyleSheet.flatten(view.getByTestId('photo-caption').props.style);
 
 describe('caption readability on the Vision board', () => {
+  it('draws a shared Scrapbook caption above the elevated paper in Android captures', () => {
+    const composition = composeVisionBoard({ tiles: [{ id:'p1',sceneId:'p1',imageUrl:'https://x.test/a.jpg',caption:'A future worth seeing',prompt:null,sortOrder:0,isHero:true }], boardLayout:'SCRAPBOOK',width:366 });
+    const slot = composition.layout.photos[0];
+    const view = mount('A future worth seeing', rectFor(slot.width*366,slot.aspectRatio), { treatment:slot.treatment,captionLayout:slot.caption,compositionWidth:366/REST,interactive:false });
+    expect(StyleSheet.flatten(view.getByTestId('photo-shared-caption').props.style).elevation).toBeGreaterThan(5);
+  });
+  it('keeps Classic slot 3 original .64 aperture without a caption and uses .72 when captioned', () => {
+    const photographs: V2VisionTile[] = Array.from({ length: 4 }, (_, i) => ({
+      id: `p${i}`, sceneId: `p${i}`, imageUrl: `https://cdn.test/${i}.jpg`, prompt: null,
+      caption: null, slotIndex: i, sortOrder: i, isHero: i === 0,
+    }));
+    for (const [caption, expectedHeight, expectedBottom] of [[undefined, .64, .7], ['My saved caption', .72, .78]] as const) {
+      const input = photographs.map((tile, i) => ({ ...tile, caption: i === 3 ? caption : null }));
+      const composition = composeVisionBoard({ tiles: input, boardLayout: 'CLASSIC', width: 366 });
+      const slot = composition.layout.photos[3];
+      expect(slot.apertureBottom).toBe(expectedBottom);
+      const rect = rectFor(slot.width * 366, slot.aspectRatio);
+      const view = mount(caption, rect, { sceneId: 'p3', frameVariant: 'wide-bottom', treatment: slot.treatment,
+        apertureBottom: slot.apertureBottom, captionLayout: slot.caption, compositionWidth: 366 / REST });
+      expect(mockFocalFrame.windowHeight.value / rect.height).toBeCloseTo(expectedHeight, 8);
+      view.unmount();
+    }
+  });
   it.each([['hero', 0.64 * 374, 1.18], ['flank', 0.34 * 374, 1.05], ['320pt phone flank', 0.34 * 296, 1.05]])('shows a short caption at 14-16 displayed points on the %s print', (_name, displayWidth, aspect) => {
     const view = mount('I did it.', rectFor(displayWidth as number, aspect as number));
     const style = captionStyle(view);
@@ -95,6 +120,31 @@ describe('caption readability on the Vision board', () => {
     expect(text.props.numberOfLines).toBe(1);
     expect(StyleSheet.flatten(text.props.style)).toMatchObject({ fontFamily: 'Allison-Regular', fontSize: 15 });
     expect(view.queryByTestId('photo-caption-paper')).toBeNull();
+  });
+});
+
+describe('torn and thin editorial prints', () => {
+  const rect = rectFor(0.43 * 374, 0.76);
+  it('carry a caption on a paper label in the same readable handwriting, and stay clean without one', () => {
+    const withCaption = mount('My baby at the gym', rect, { treatment: 'torn' });
+    expect(withCaption.getByTestId('photo-caption-label')).toBeTruthy();
+    expect(captionStyle(withCaption).fontFamily).toBe('Caveat-SemiBold');
+    expect(captionStyle(withCaption).fontSize * REST).toBeGreaterThanOrEqual(14 - 1e-6);
+    expect(withCaption.queryByTestId('photo-caption-paper')).toBeNull();
+    const bare = mount(undefined, rect, { treatment: 'print' });
+    expect(bare.queryByText('Add caption')).toBeNull(); expect(bare.queryByTestId('photo-caption-label')).toBeNull();
+  });
+  it('keeps the label editable', () => {
+    const onCaptionEdit = jest.fn();
+    const view = mount('Cole concert', rect, { treatment: 'print', onCaptionEdit });
+    fireEvent.press(view.getByTestId('vision-board-photo-p1-caption-edit'));
+    expect(onCaptionEdit).toHaveBeenCalledWith('p1');
+  });
+  it('keeps the whole photograph until the person sets a position, then covers the window from their focal point', () => {
+    mount('x', rect, { treatment: 'torn' });
+    expect(mockFocalFrame).toBeUndefined();
+    mount('x', rect, { treatment: 'torn', focal: { x: 0.4, y: 0.2 } });
+    expect(mockFocalFrame).toBeTruthy();
   });
 });
 
