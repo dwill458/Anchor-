@@ -16,6 +16,7 @@ import { AskMessageRow, type AskRowItem } from './AskMessageRow';
 import { AskStarters, type AskStarter } from './AskStarters';
 import { AskSuggestions } from './AskSuggestions';
 import { useAskAccent } from './askChartTheme';
+import { askReveal, useAnyRevealing } from './askReveal';
 
 const COPY = CHART_COPY.ask;
 
@@ -156,7 +157,11 @@ export function AskChartView({
 
   const pickSuggestion = useCallback((text: string) => ask.send(text), [ask]);
   const error = state.error;
-  const showSuggestions = ask.suggestions.length > 0 && !primaryAction;
+  // Replies wait until the question has been fully said (a tap on the bubble skips ahead).
+  useAnyRevealing();
+  const lastMessage = state.messages[state.messages.length - 1];
+  const stillSpeaking = Boolean(lastMessage && lastMessage.role === 'ASSISTANT' && lastMessage.animate && !reducedMotion && !askReveal.isDone(lastMessage.key));
+  const showSuggestions = ask.suggestions.length > 0 && !primaryAction && !stillSpeaking;
   const hasSpoken = state.messages.some(message => message.role === 'USER');
   const showStarters = Boolean(starters?.length) && !hasSpoken && state.turn === 'idle' && state.status !== 'load_failed' && !primaryAction;
 
@@ -193,6 +198,7 @@ export function AskChartView({
           style={styles.list}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={Separator}
+          ListFooterComponent={showSuggestions ? <AskSuggestions key={lastMessage?.key} inline suggestions={ask.suggestions} accent={accent} reducedMotion={reducedMotion} onPick={pickSuggestion} /> : undefined}
           onScroll={onScroll}
           scrollEventThrottle={32}
           onContentSizeChange={onContentSizeChange}
@@ -230,9 +236,7 @@ export function AskChartView({
 
         {showStarters ? <AskStarters starters={starters!} accent={accent} reducedMotion={reducedMotion} /> : null}
 
-        {showSuggestions ? <AskSuggestions key={ask.state.messages[ask.state.messages.length - 1]?.key} suggestions={ask.suggestions} accent={accent} reducedMotion={reducedMotion} onPick={pickSuggestion} /> : null}
-
-        {primaryAction || secondaryAction ? (
+                {primaryAction || secondaryAction ? (
           <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(200)} style={styles.actions}>
             {primaryAction ? (
               <V2Button size="large" onPress={primaryAction.onPress} loading={primaryAction.loading} disabled={primaryAction.disabled} testID={primaryAction.testID ?? 'ask-primary'}>

@@ -348,7 +348,7 @@ model ThreadV2State {
   anchor          Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
   strength        Float    @default(50)
   lastCompletedAt DateTime? @map("last_completed_at")
-  ruleVersion     String   @default("legacy-v1-defaults") @map("rule_version")
+  ruleVersion     String   @default("v2.0-authoritative") @map("rule_version")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -973,6 +973,11 @@ model UserSettings {
   // Explicit consent gate. A profile image is never sent to an image provider
   // unless this preference is true and the current generation opts in.
   useProfilePhotoForVision Boolean @default(false) @map("use_profile_photo_for_vision")
+
+  // Thread Strength 2.0
+  threadStrengthSensitivity String   @default("balanced") @map("thread_strength_sensitivity")
+  decayPreferencesHistory   Json?    @map("decay_preferences_history")
+  restDays                  Int[]    @default([]) @map("rest_days")
 
   updatedAt DateTime @updatedAt
 

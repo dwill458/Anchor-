@@ -31,39 +31,42 @@ export const ChartSheetAnchorCard = memo(function ChartSheetAnchorCard({ categor
   const accent = panelAccent(category);
   const strength = typeof threadStrength === 'number' && Number.isFinite(threadStrength) ? Math.min(100, Math.max(0, Math.round(threadStrength))) : null;
   const mark = (
-    <CircularAnchorRenderer svg={anchorArt.svg} imageUrl={anchorArt.imageUrl} category={anchorArt.category ?? category} expression={anchorArt.expression ?? undefined} size={56} appearance="dark" accessibilityLabel="Your Anchor" />
+    <CircularAnchorRenderer svg={anchorArt.svg} imageUrl={anchorArt.imageUrl} category={anchorArt.category ?? category} expression={anchorArt.expression ?? undefined} size={48} appearance="dark" accessibilityLabel="Your Anchor" />
   );
+  const label = practiced ? COPY.deepFocus : COPY.focus;
   return (
     <View style={styles.card} testID="chart-anchor-card">
-      <View style={styles.top}>
-        {onOpenAnchor ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.openAnchor} onPress={onOpenAnchor} hitSlop={6} style={styles.mark} testID="chart-open-anchor">
-            {mark}
-          </Pressable>
-        ) : (
-          <View style={styles.mark}>{mark}</View>
-        )}
-        <View style={styles.copy}>
-          <Text style={[styles.eyebrow, { color: accent.text }]}>{CHART_COPY.sheet.yourAnchor}</Text>
-          <Text style={styles.line}>{practiced ? CHART_COPY.sheet.practicedToday : CHART_COPY.sheet.keepStrong}</Text>
-          {strength !== null ? (
-            <Text style={styles.strength} accessibilityLabel={`Thread Strength ${strength} percent`} testID="chart-anchor-strength">
-              {CHART_COPY.sheet.threadStrength} · {strength}%
-            </Text>
-          ) : null}
-        </View>
-        {practiced ? <Check size={18} color={accent.text} strokeWidth={2.5} /> : null}
+      {onOpenAnchor ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.openAnchor} onPress={onOpenAnchor} hitSlop={6} style={styles.mark} testID="chart-open-anchor">
+          {mark}
+        </Pressable>
+      ) : (
+        <View style={styles.mark}>{mark}</View>
+      )}
+      <View style={styles.copy}>
+        {/* DEFERRED: the YOUR ANCHOR eyebrow; the compact row reads without it. */}
+        <Text style={styles.line} numberOfLines={2}>{practiced ? CHART_COPY.sheet.practicedToday : CHART_COPY.sheet.keepStrong}</Text>
+        {strength !== null ? (
+          <View style={styles.strengthBlock} accessible accessibilityLabel={`Thread Strength ${strength} percent`} testID="chart-anchor-strength">
+            <View style={styles.strengthRow}>
+              <Text style={styles.strength} numberOfLines={1}>{CHART_COPY.sheet.threadStrength}</Text>
+              <Text style={styles.strength}>{strength}%</Text>
+            </View>
+            <View style={styles.track}><View style={[styles.fill, { width: `${strength}%`, backgroundColor: accent.text }]} /></View>
+          </View>
+        ) : null}
       </View>
+      {/* DEFERRED: the check beside the pill; "Practiced today" already says it and the row had no room. */}
       {onOpenPractice ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={practiced ? COPY.deepFocus : COPY.focus}
+          accessibilityLabel={label}
           onPress={() => onOpenPractice(practiced ? 'deep_prime' : 'focus')}
           style={({ pressed }) => [styles.focus, { backgroundColor: accent.fill }, pressed && styles.pressed]}
           testID="chart-practice-row"
         >
-          <Play size={16} color={accent.onFill} fill={accent.onFill} />
-          <Text style={[styles.focusText, { color: accent.onFill }]}>{practiced ? COPY.deepFocus : COPY.focus}</Text>
+          <Play size={13} color={accent.onFill} fill={accent.onFill} />
+          <Text style={[styles.focusText, { color: accent.onFill }]} numberOfLines={1}>{label}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -71,14 +74,16 @@ export const ChartSheetAnchorCard = memo(function ChartSheetAnchorCard({ categor
 });
 
 const styles = StyleSheet.create({
-  card: { gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: T.line, backgroundColor: T.panel },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  mark: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
-  copy: { flex: 1, gap: 2 },
-  eyebrow: { fontFamily: T.sansStrong, fontSize: 10, lineHeight: 14, letterSpacing: 1.1 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 18, borderWidth: 1, borderColor: T.line, backgroundColor: T.panel },
+  mark: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  copy: { flex: 1, minWidth: 0, gap: 4 },
   line: { fontFamily: T.sansStrong, fontSize: 15, lineHeight: 20, color: T.light },
+  strengthBlock: { gap: 4 },
+  strengthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   strength: { fontFamily: T.sans, fontSize: 12, lineHeight: 16, color: T.muted },
-  focus: { minHeight: 48, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 16 },
+  track: { alignSelf: 'stretch', height: 6, borderRadius: 3, backgroundColor: '#2C3449', overflow: 'hidden' },
+  fill: { height: 6, borderRadius: 3 },
+  focus: { minHeight: 44, borderRadius: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 14, flexShrink: 0 },
   pressed: { opacity: 0.85 },
   focusText: { fontFamily: T.sansStrong, fontSize: 15, lineHeight: 20 },
 });

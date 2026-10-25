@@ -13,6 +13,7 @@ import {
   type TextInputInstance,
   TouchableOpacity,
   useWindowDimensions,
+  ScrollView,
   View,
 } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -95,6 +96,26 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   const signedInUser = useAuthStore((state) => state.user);
   const emailRef = useRef<TextInputInstance>(null);
   const passwordRef = useRef<TextInputInstance>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const willShowSub = Platform.OS === 'ios'
+      ? Keyboard.addListener('keyboardWillShow', () => setIsKeyboardVisible(true))
+      : null;
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    const willHideSub = Platform.OS === 'ios'
+      ? Keyboard.addListener('keyboardWillHide', () => setIsKeyboardVisible(false))
+      : null;
+
+    return () => {
+      showSub.remove();
+      willShowSub?.remove();
+      hideSub.remove();
+      willHideSub?.remove();
+    };
+  }, []);
 
   // Segment width: total width minus padding (20 * 2) minus container inner padding (3 * 2) divided by 2
   const segmentContainerWidth = width - 40;
@@ -279,15 +300,19 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
     <View style={styles.root}>
       <V2Screen
         scroll
+        scrollViewRef={scrollViewRef}
         keyboardAvoiding
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         edges={['top']}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isKeyboardVisible && styles.scrollContentKeyboard,
+        ]}
         testID="v2-auth-screen"
       >
         {/* UPPER WORLD: Warm Paper Hero with Centered Brand & Landscape */}
-        <View style={styles.heroContainer}>
+        <View style={[styles.heroContainer, isKeyboardVisible && styles.heroContainerKeyboard]}>
           {/* Top Navigation Row: Back chevron & Contextual Auth label */}
           <View style={styles.topNavRow}>
             <Pressable
@@ -313,42 +338,50 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
             </Pressable>
           </View>
 
-          {/* Centered Brand Block */}
-          <Animated.View
-            entering={FadeInDown.duration(AnchorMotion.duration.expressive)}
-            style={[styles.brandBlock, isCompact && styles.brandBlockCompact]}
-          >
-            <Image
-              source={require('@/assets/home/anchor-brand-mark.png')}
-              resizeMode="contain"
-              style={[styles.brandMark, isCompact && styles.brandMarkCompact]}
-            />
-            <Text style={styles.wordmark}>ANCHOR</Text>
-            <Text style={styles.brandDescriptor}>VISUAL GOAL SETTING</Text>
+          {!isKeyboardVisible ? (
+            <>
+              {/* Centered Brand Block */}
+              <Animated.View
+                entering={FadeInDown.duration(AnchorMotion.duration.expressive)}
+                style={[styles.brandBlock, isCompact && styles.brandBlockCompact]}
+              >
+                <Image
+                  source={require('@/assets/home/anchor-brand-mark.png')}
+                  resizeMode="contain"
+                  style={[styles.brandMark, isCompact && styles.brandMarkCompact]}
+                />
+                <Text style={styles.wordmark}>ANCHOR</Text>
+                <Text style={styles.brandDescriptor}>VISUAL GOAL SETTING</Text>
 
-            <View style={styles.editorialDivider} />
+                <View style={styles.editorialDivider} />
 
-            <Text style={styles.editorialCopy}>
-              {saveProgress ? 'Your work now exists.\nCreate an account to save it.' : mode === 'signin'
-                ? 'Return to what matters.'
-                : 'A stronger tomorrow\nstarts with what you create today.'}
-            </Text>
-          </Animated.View>
+                <Text style={styles.editorialCopy}>
+                  {saveProgress ? 'Your work now exists.\nCreate an account to save it.' : mode === 'signin'
+                    ? 'Return to what matters.'
+                    : 'A stronger tomorrow\nstarts with what you create today.'}
+                </Text>
+              </Animated.View>
 
-          {/* Engraved Mountain Valley Landscape Transition */}
-          <View style={styles.landscapeWrapper} pointerEvents="none">
-            <Image
-              source={require('@/assets/images/auth-landscape-valley.png')}
-              resizeMode="cover"
-              style={[styles.landscapeImage, isCompact && styles.landscapeImageCompact]}
-            />
-          </View>
+              {/* Engraved Mountain Valley Landscape Transition */}
+              <View style={styles.landscapeWrapper} pointerEvents="none">
+                <Image
+                  source={require('@/assets/images/auth-landscape-valley.png')}
+                  resizeMode="cover"
+                  style={[styles.landscapeImage, isCompact && styles.landscapeImageCompact]}
+                />
+              </View>
+            </>
+          ) : null}
         </View>
 
         {/* LOWER WORLD: Deep Ink Auth Surface */}
         <Animated.View
           layout={LinearTransition.duration(AnchorMotion.duration.standard)}
-          style={[styles.inkRegion, { paddingBottom: Math.max(insets.bottom + 10, 20) }]}
+          style={[
+            styles.inkRegion,
+            isKeyboardVisible && styles.inkRegionKeyboard,
+            { paddingBottom: Math.max(insets.bottom + 10, 20) },
+          ]}
         >
           {/* Subtle Background Engraved Linework Watermark */}
           <AuthEngravedLinework width={width} height={150} />
@@ -414,6 +447,11 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
               onChangeText={(value) => {
                 setPassword(value);
                 setError(null);
+              }}
+              onFocus={() => {
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 120);
               }}
               secureTextEntry={!passwordVisible}
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
@@ -716,6 +754,15 @@ const styles = StyleSheet.create({
   },
   landscapeImageCompact: {
     height: 118,
+  },
+  heroContainerKeyboard: {
+    paddingBottom: 6,
+  },
+  inkRegionKeyboard: {
+    marginTop: 0,
+  },
+  scrollContentKeyboard: {
+    paddingBottom: 32,
   },
 
   /* DARK AUTH PANEL */

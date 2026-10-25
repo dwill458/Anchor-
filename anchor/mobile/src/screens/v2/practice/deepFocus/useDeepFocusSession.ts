@@ -13,11 +13,13 @@ const now = () => typeof performance?.now === 'function' ? performance.now() : D
 
 export type DeepFocusSessionState = 'running' | 'paused' | 'complete' | 'ended_early';
 
-export function useDeepFocusSession({ duration, showTime, onSample, onComplete }: {
+export function useDeepFocusSession({ duration, showTime, onSample, onComplete, readPlaybackElapsed }: {
   duration: DeepFocusDuration;
   showTime: boolean;
   onSample: (elapsedSeconds: number) => void;
   onComplete: (data: DeepFocusSessionData) => void;
+  /** Finished mixes own their clock so buffering cannot consume the session. */
+  readPlaybackElapsed?: () => number;
 }) {
   const [state, setState] = useState<DeepFocusSessionState>(
     AppState.currentState == null || AppState.currentState === 'active' ? 'running' : 'paused',
@@ -33,10 +35,15 @@ export function useDeepFocusSession({ duration, showTime, onSample, onComplete }
   const finishAt = useRef<number>(duration);
   const manualEndAt = useRef<number | null>(null);
   const done = useRef(false);
-  const latest = useRef({ showTime, onSample, onComplete });
-  latest.current = { showTime, onSample, onComplete };
-  const readElapsed = useCallback(() => Math.min(finishAt.current,
-    accumulated.current + (resumedAt.current == null ? 0 : Math.max(0, now() - resumedAt.current) / 1000)), []);
+  const latest = useRef({ showTime, onSample, onComplete, readPlaybackElapsed });
+  latest.current = { showTime, onSample, onComplete, readPlaybackElapsed };
+  const readElapsed = useCallback(() => {
+    if (resumedAt.current == null) return Math.min(finishAt.current, accumulated.current);
+    const playback = latest.current.readPlaybackElapsed?.();
+    return Math.min(finishAt.current, playback != null && Number.isFinite(playback)
+      ? Math.max(0, playback)
+      : accumulated.current + Math.max(0, now() - resumedAt.current) / 1000);
+  }, []);
 
   const pause = useCallback((reason = 'user') => {
     if (stateRef.current !== 'running' || done.current) return;

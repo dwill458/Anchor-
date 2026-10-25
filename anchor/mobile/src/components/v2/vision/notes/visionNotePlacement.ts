@@ -102,15 +102,29 @@ export function nextVisionNotePresentation(
   };
 }
 
-export function clampVisionNotePresentationForAspect(p: VisionNotePresentation, boardAspectRatio: number): VisionNotePresentation {
+export function clampVisionNotePresentationForAspect(p: VisionNotePresentation, boardAspectRatio = 1): VisionNotePresentation {
   const angle = p.rotation * Math.PI / 180;
   // Retain the existing API envelope, and extend it to the actual measured canvas.
   // Caption growth and the new layouts may be taller than the legacy compositions.
-  const aspect=Number.isFinite(boardAspectRatio)&&boardAspectRatio>0?boardAspectRatio:1;
-  const scale=Math.min(p.scale,maximumVisionNoteScale(p,aspect));
-  const halfWidth = (Math.abs(p.width * scale * Math.cos(angle)) + Math.abs(p.height * Math.max(2.65,aspect) * scale * Math.sin(angle))) / 2;
-  const halfHeight = (Math.abs(p.height * scale * Math.cos(angle)) + Math.abs(p.width / Math.min(0.45,aspect) * scale * Math.sin(angle))) / 2;
-  return { ...p,scale, x: Math.min(1 - halfWidth, Math.max(halfWidth, p.x)), y: Math.min(1 - halfHeight, Math.max(halfHeight, p.y)) };
+  const aspect = Number.isFinite(boardAspectRatio) && boardAspectRatio > 0 ? boardAspectRatio : 1;
+  const scale = Math.min(Math.max(0.5, p.scale), maximumVisionNoteScale(p, aspect));
+  const width = Math.min(0.65, Math.max(0.12, p.width));
+  const height = Math.min(0.65, Math.max(0.12, p.height));
+  const halfWidth = (Math.abs(width * scale * Math.cos(angle)) + Math.abs(height * Math.max(2.65, aspect) * scale * Math.sin(angle))) / 2;
+  const halfHeight = (Math.abs(height * scale * Math.cos(angle)) + Math.abs(width / Math.min(0.45, aspect) * scale * Math.sin(angle))) / 2;
+  const eps = 1e-5;
+  const minX = Math.min(0.5, halfWidth + eps);
+  const maxX = Math.max(0.5, 1 - halfWidth - eps);
+  const minY = Math.min(0.5, halfHeight + eps);
+  const maxY = Math.max(0.5, 1 - halfHeight - eps);
+  return {
+    ...p,
+    width,
+    height,
+    scale,
+    x: Math.min(maxX, Math.max(minX, p.x)),
+    y: Math.min(maxY, Math.max(minY, p.y)),
+  };
 }
 
 /** Conservative scale cap matching the server's supported board-aspect range. */

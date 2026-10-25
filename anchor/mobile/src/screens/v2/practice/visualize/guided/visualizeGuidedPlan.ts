@@ -176,10 +176,13 @@ export function buildGuidedPlan(params: { durationSeconds: GuidedDurationSeconds
     .filter(span => span.endMs - span.startMs > 2000);
 
   const captions: GuidedCaption[] = [];
-  for (const phrase of beatMap.phrases) {
-    const inAnchorChapter = phrase.startMs >= anchorStartMs && phrase.startMs < returnStartMs;
-    const text = captionFor(phrase.text);
-    if (!inAnchorChapter && text) captions.push({ phraseId: phrase.id, startMs: phrase.startMs, endMs: phrase.endMs + CAPTION_TAIL_MS, text });
+  for (const [index, phrase] of beatMap.phrases.entries()) {
+    const spans = phrase.captionSpans ?? [phrase];
+    for (const [spanIndex, span] of spans.entries()) {
+      const text = captionFor(span.text);
+      const endMs = Math.min(span.endMs + CAPTION_TAIL_MS, spans[spanIndex + 1]?.startMs ?? beatMap.phrases[index + 1]?.startMs ?? durationMs);
+      if (text) captions.push({ phraseId: phrase.id, startMs: span.startMs, endMs, text });
+    }
   }
 
   return {

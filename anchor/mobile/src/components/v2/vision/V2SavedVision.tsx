@@ -1,7 +1,7 @@
 import type { ViewInstance, ScrollViewInstance } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
-import { Alert, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, Easing, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 // Gesture Handler's ScrollView takes part in gesture arbitration, so a lifted photo keeps the touch on Android.
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -153,8 +153,13 @@ export function V2SavedVision({
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const imageArrival = useVisionImageArrival();
   const contextualBlocked=mode!=='view'||boardInteracting||dragging||busy||layoutSheetOpen||menuOpen||addSheetOpen||nativeAlertOpen||Boolean(captionSceneId)||manageImages||Boolean(teachingBlocked);
-  const dock=useVisionBeginDock({blocked:contextualBlocked,
+  const dock=useVisionBeginDock({blocked:contextualBlocked,dockHeight:insets.bottom+12+52+8,
     newBoard:Boolean(justAdded),landed:!imageArrival?.url&&!imageArrival?.setActive});
+  // Over the photos the floating button turns to dark glass so the board stays the hero; clear of them it is solid ink.
+  const dockGlass=useRef(new Animated.Value(0)).current;
+  useEffect(()=>{Animated.timing(dockGlass,{toValue:dock.overBoard?1:0,duration:reduceMotion?0:220,easing:Easing.out(Easing.quad),useNativeDriver:false}).start();},[dock.overBoard,dockGlass,reduceMotion]);
+  const dockBackground=dockGlass.interpolate({inputRange:[0,1],outputRange:['rgba(17,28,35,1)','rgba(17,28,35,0.46)']});
+  const dockBorder=dockGlass.interpolate({inputRange:[0,1],outputRange:['rgba(251,249,244,0)','rgba(251,249,244,0.45)']});
   const beginVisualize=()=>{
     const begin=(bounds=canvasBounds.current)=>{const projection=canvasCapture.current?.();onVisualize(bounds&&projection?{...projection,x:bounds.x+projection.x,y:bounds.y+projection.y}:bounds);};
     if(canvasRef.current?.measureInWindow)canvasRef.current.measureInWindow((x,y,width,height)=>begin({x,y,width,height}));else begin();
@@ -392,10 +397,10 @@ export function V2SavedVision({
             <StatusBar barStyle="dark-content" />
             <View style={styles.bandContent}>
               {header}
-              <VisionIntentionHeading intention={anchorIntention} category={anchorCategory} />
+              <VisionIntentionHeading intention={anchorIntention} category={anchorCategory} align="left" />
             </View>
             {mode === 'view' ? (
-              <View style={styles.boardWrap}>
+              <View ref={dock.boardRef} collapsable={false} onLayout={dock.measure} style={styles.boardWrap}>
                 <View ref={canvasRef} collapsable={false} onLayout={measureCanvas}><VisionBoard
                   tiles={boardTiles}
                   boardLayout={previewLayout??boardLayout}
@@ -501,10 +506,13 @@ export function V2SavedVision({
       {pinnedBelow&&!contextualBlocked?<Pressable testID="vision-pinned-below" accessibilityRole="button" accessibilityLabel="Pinned further down. Show me" onPress={()=>{void revealPinned();}}
         style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,paddingHorizontal:20,borderRadius:30,backgroundColor:'#111C23',justifyContent:'center',zIndex:46}}>
         <Text style={{fontFamily:'Inter-Medium',fontSize:13,color:'#FBF9F4'}}>Pinned further down · Show me</Text>
-      </Pressable>:dock.visible&&visualizeReady?<Pressable testID="vision-begin-dock" accessibilityRole="button" accessibilityLabel="Begin Visualize" onPress={beginVisualize}
-        style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,paddingHorizontal:24,borderRadius:30,backgroundColor:'#111C23',justifyContent:'center',zIndex:45}}>
-        <Text style={{fontFamily:'EBGaramond-Medium',fontSize:18,color:'#FBF9F4'}}>{justAdded?'Sit with it now · Begin':'Begin Visualize'}</Text>
-      </Pressable>:null}
+      </Pressable>:dock.visible&&visualizeReady?<Animated.View testID="vision-begin-dock-surface" pointerEvents="box-none"
+        style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,borderRadius:30,borderWidth:1,borderColor:dockBorder,backgroundColor:dockBackground,zIndex:45}}>
+        <Pressable testID="vision-begin-dock" accessibilityRole="button" accessibilityLabel="Begin Visualize" onPress={beginVisualize}
+          style={{height:52,paddingHorizontal:24,justifyContent:'center'}}>
+          <Text style={{fontFamily:'EBGaramond-Medium',fontSize:18,color:'#FBF9F4',textShadowColor:'rgba(0,0,0,0.55)',textShadowRadius:4,textShadowOffset:{width:0,height:1}}}>{justAdded?'Sit with it now · Begin':'Begin Visualize'}</Text>
+        </Pressable>
+      </Animated.View>:null}
       {mutationFeedback?.message||error?<View testID="vision-mutation-feedback" accessibilityLiveRegion="polite" style={{position:'absolute',bottom:insets.bottom+(dock.visible||boardInteracting?78:14),alignSelf:'center',maxWidth:'94%',paddingLeft:16,paddingRight:6,paddingVertical:4,minHeight:44,borderRadius:26,backgroundColor:'#17232A',flexDirection:'row',alignItems:'center',gap:8,zIndex:50}}>
         <Text style={{color:'#FBF9F4',fontFamily:'Inter-Medium',fontSize:12,flexShrink:1}}>{mutationFeedback?.pending?'Saving…':error??mutationFeedback?.message}</Text>
         {error&&onRetrySave&&!mutationFeedback?.pending?<Pressable accessibilityRole="button" accessibilityLabel="Retry saving Vision" onPress={onRetrySave} style={{minWidth:54,minHeight:38,alignItems:'center',justifyContent:'center'}}><Text style={{color:'#FFF'}}>Retry</Text></Pressable>:null}

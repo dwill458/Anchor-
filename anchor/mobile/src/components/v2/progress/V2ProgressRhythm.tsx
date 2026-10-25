@@ -110,7 +110,11 @@ const YearGrid: React.FC<{ cells: V2ProgressDayCell[]; testID: string }> = ({ ce
         {columns.map((column, index) => {
           const month = monthIndex(column[0].dateKey);
           const previous = index > 0 ? monthIndex(columns[index - 1][0].dateKey) : -1;
-          const show = month !== previous && index <= columns.length - 3;
+          const isMonthChange = month !== previous;
+          const nextMonthIndex = columns.findIndex((c, idx) => idx > index && monthIndex(c[0].dateKey) !== month);
+          const hasRoomBeforeNextMonth = nextMonthIndex === -1 || nextMonthIndex - index >= 3;
+          const hasRoomBeforeEnd = columns.length - index >= 3;
+          const show = isMonthChange && hasRoomBeforeNextMonth && hasRoomBeforeEnd;
           return (
             <View key={column[0].dateKey} style={styles.yearMonthSlot}>
               {show ? (
@@ -199,7 +203,7 @@ const styles = StyleSheet.create({
   calNumber: { ...typography.caption, fontSize: 11, color: progressTokens.inkWash(0.55) },
   calNumberOnInk: { color: colors.cream },
 
-  yearGrid: { flexDirection: 'row', gap: 3 },
+  yearGrid: { flexDirection: 'row', gap: 3, marginTop: 12 },
   yearColumn: { flex: 1, gap: 3 },
   yearCell: { width: '100%', aspectRatio: 1, borderRadius: 3 },
   yearMonths: { flexDirection: 'row', gap: 3, marginTop: 8 },

@@ -98,7 +98,7 @@ function describeFailure(error: unknown): string {
 
 /** What the model is told when there is no user message. The agent file explains it. */
 const OPENING_MESSAGE =
-  '(opening: the person has just opened Ask Chart and has not said anything yet)';
+  '(opening: the person has just opened Ask Chart for the first time and has not said anything yet. Begin with a short greeting and introduce yourself as their Anchor, speaking as the outcome they are building toward, then say your purpose is to help them build a route they can follow, then ask one discovery question as its own final paragraph.)';
 
 const normalizeTitle = (value: string) =>
   value

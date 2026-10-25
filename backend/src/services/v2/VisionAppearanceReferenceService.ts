@@ -18,14 +18,18 @@ const MAX_BYTES = 5 * 1024 * 1024;
 const CUSTOM_REFERENCE_TTL_MS = 2 * 60 * 60 * 1000;
 
 function decode(dataUri: string, mimeType: string): Buffer {
-  const match = dataUri.match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]*={0,2})$/);
-  if (!match || match[1] !== mimeType)
+  const sanitized = dataUri.trim();
+  const normalizedMimeType = mimeType === 'image/jpg' ? 'image/jpeg' : mimeType;
+  const match = sanitized.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=\s]*)$/);
+  const embeddedMime = match?.[1] === 'image/jpg' ? 'image/jpeg' : match?.[1];
+  if (!match || (embeddedMime && embeddedMime !== normalizedMimeType))
     throw new AppError('Reference image is invalid', 400, 'INVALID_VISION_REFERENCE');
-  const buffer = Buffer.from(match[2], 'base64');
+  const cleanPayload = match[2].replace(/\s+/g, '');
+  const buffer = Buffer.from(cleanPayload, 'base64');
   if (
     !buffer.length ||
     buffer.length > MAX_BYTES ||
-    buffer.toString('base64').replace(/=+$/, '') !== match[2].replace(/=+$/, '')
+    buffer.toString('base64').replace(/=+$/, '') !== cleanPayload.replace(/=+$/, '')
   ) {
     throw new AppError('Reference image is invalid', 400, 'INVALID_VISION_REFERENCE');
   }

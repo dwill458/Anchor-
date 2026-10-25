@@ -324,9 +324,9 @@ describe('V2ChartScreen — no Chart', () => {
     const screen = await openConversation();
     expect(await screen.findByText('Where is Anchor today?')).toBeTruthy();
     expect(screen.getByText('Just launched')).toBeTruthy();
-    // No route yet, and drafting early is already possible.
+    // No route yet, and drafting early waits until the person has answered twice.
     expect(screen.queryByTestId('ask-build-route')).toBeNull();
-    expect(screen.getByTestId('ask-draft-now')).toBeTruthy();
+    expect(screen.queryByTestId('ask-draft-now')).toBeNull();
 
     fireEvent.changeText(screen.getByTestId('ask-input'), 'App is launched but only has 100 users.');
     fireEvent.press(screen.getByTestId('ask-send'));
@@ -399,15 +399,19 @@ describe('V2ChartScreen — no Chart', () => {
 
   it('“Draft my route now” plans from what the person wrote, without waiting for the assistant', async () => {
     serve({ chart: readModel(null), vision: null });
-    serveCreation({ replies: [assistantMessage('Where is Anchor today?'), assistantMessage('Tell me a bit more?')] });
+    serveCreation({ replies: [assistantMessage('Where is Anchor today?'), assistantMessage('Tell me a bit more?'), assistantMessage('And what is in the way?')] });
     const screen = await openConversation();
     await screen.findByText('Where is Anchor today?');
     fireEvent.changeText(screen.getByTestId('ask-input'), 'Launched, 100 users.');
     fireEvent.press(screen.getByTestId('ask-send'));
     await screen.findByText('Tell me a bit more?');
+    expect(screen.queryByTestId('ask-draft-now')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'Mostly evenings.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    await screen.findByText('And what is in the way?');
     fireEvent.press(screen.getByTestId('ask-draft-now'));
     expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();
-    expect(planCalls()[0]).toMatchObject({ actualStartingPoint: 'Launched, 100 users.', followUp: null });
+    expect(planCalls()[0]).toMatchObject({ actualStartingPoint: 'Launched, 100 users. Mostly evenings.', followUp: null });
     expect(planCalls()[0].startingContext).toBeNull();
   });
 
@@ -445,9 +449,15 @@ describe('V2ChartScreen — no Chart', () => {
 
   it('never strands the user: when generation fails, an outline can be named and saved', async () => {
     serve({ chart: readModel(null), vision: null });
-    serveCreation({ plan: new Error('Network error. Please check your connection.') });
+    serveCreation({ plan: new Error('Network error. Please check your connection.'), replies: [assistantMessage('Where is Anchor today?'), assistantMessage('And what is in the way?'), assistantMessage('Got it.')] });
     const screen = await openConversation();
-    await screen.findByText('You’re working toward ten thousand users. Where is Anchor today?');
+    await screen.findByText('Where is Anchor today?');
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'Launched.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    await screen.findByText('And what is in the way?');
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'Time.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    await screen.findByText('Got it.');
     fireEvent.press(screen.getByTestId('ask-draft-now'));
     expect(await screen.findByTestId('chart-generation-failed')).toBeTruthy();
     expect(screen.getByText('You’re offline. Chart needs a connection for this.')).toBeTruthy();
@@ -465,7 +475,7 @@ describe('V2ChartScreen — active Chart', () => {
     const screen = render(<V2ChartScreen />);
     const current = await screen.findByTestId('chart-current-waypoint');
     expect(within(current).getByText('Waypoint 2 of 3 · Current')).toBeTruthy();
-    expect(within(current).getByText('Reach 1,000 active users')).toBeTruthy();
+    expect(within(current).getAllByText('Reach 1,000 active users').length).toBeGreaterThanOrEqual(1);
     await openFullSheet(screen);
     expect(screen.getByText(/^642 \/ 1,000\s*$/)).toBeTruthy();
     expect(within(screen.getByTestId('chart-one-move-row')).getByText('Finish onboarding redesign')).toBeTruthy();

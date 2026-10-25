@@ -362,7 +362,8 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     setGenerationPending(true); setGenerationAttempt(value => value + 1);
     requestTime.current = Date.now(); setBeat('develop');
     const structured = selectedReferences ?? (conversation ? references : undefined);
-    const started = await actions.generate(text, structured ? null : referenceId, structured ? null : photo, structured, options);
+    const hasStructured = Boolean(structured && structured.length > 0);
+    const started = await actions.generate(text, hasStructured ? null : referenceId, hasStructured ? null : photo, hasStructured ? structured : undefined, options);
     generationStarting.current = false;
     if (!alive.current) return false;
     setGenerationPending(false);

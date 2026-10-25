@@ -1,6 +1,6 @@
 import React from 'react';
-import { Alert } from 'react-native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert, Keyboard } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { V2AuthScreen } from '../V2AuthScreen';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
@@ -256,5 +256,33 @@ describe('V2AuthScreen', () => {
 
     fireEvent.press(screen.getByTestId('v2-auth-switch-account'));
     expect(AuthService.signOut).toHaveBeenCalled();
+  });
+
+  it('collapses decorative hero when keyboard opens and restores when dismissed', () => {
+    const listeners = new Map<string, (...args: never[]) => void>();
+    jest.spyOn(Keyboard, 'addListener').mockImplementation((event, listener) => {
+      listeners.set(event, listener as (...args: never[]) => void);
+      return { remove: jest.fn() } as any;
+    });
+
+    render(<V2AuthScreen onBack={jest.fn()} />);
+
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
+    expect(screen.getByLabelText('Email')).toBeTruthy();
+    expect(screen.getByLabelText('Password')).toBeTruthy();
+
+    act(() => {
+      listeners.get('keyboardDidShow')?.();
+    });
+
+    expect(screen.queryByText('Return to what matters.')).toBeNull();
+    expect(screen.getByLabelText('Email')).toBeTruthy();
+    expect(screen.getByLabelText('Password')).toBeTruthy();
+
+    act(() => {
+      listeners.get('keyboardDidHide')?.();
+    });
+
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
   });
 });

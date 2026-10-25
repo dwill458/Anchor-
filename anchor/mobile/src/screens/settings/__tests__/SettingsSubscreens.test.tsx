@@ -1,10 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PracticeSubscreen } from '../PracticeSubscreen';
-import { AppExperienceSubscreen } from '../AppExperienceSubscreen';
-import { PrivacySupportSubscreen } from '../PrivacySupportSubscreen';
+import { SoundFeelSubscreen } from '../SoundFeelSubscreen';
+import { HelpAboutSubscreen } from '../HelpAboutSubscreen';
+import { DataPrivacySubscreen } from '../DataPrivacySubscreen';
 
-const mockUpdateSetting = jest.fn(() => Promise.resolve());
 const mockTeachingReset = jest.fn(async (_accountId: string | null) => undefined);
 const mockToastInfo = jest.fn();
 jest.mock('@/hooks/v2/teaching/teachingSeen', () => ({ resetAllTeachingSeen: (accountId: string | null) => mockTeachingReset(accountId) }));
@@ -15,26 +15,20 @@ const mockSetThreadStrengthSensitivity = jest.fn();
 const mockSetTraceDefaultEnabled = jest.fn();
 const mockSetGuideMode = jest.fn();
 const mockSetReduceIntentionVisibility = jest.fn();
+const mockSetOpenDailyAnchorAutomatically = jest.fn();
 const mockSetReduceMotion = jest.fn();
+const mockSetHapticIntensity = jest.fn();
+const mockSetSoundEffectsEnabled = jest.fn();
 const mockSetAnalyticsEnabled = jest.fn();
 const mockSetFocusSessionDuration = jest.fn();
 const mockSetPrimeSessionDuration = jest.fn();
 const mockSetVisualizeSessionDuration = jest.fn();
 const mockSetLastSessionDuration = jest.fn();
 const mockSetSessionAudioDefaults = jest.fn();
-const mockSetWeeklySummaryEnabled = jest.fn();
+const mockApiPut = jest.fn(() => Promise.resolve({}));
 
 const mockStartVoicePreview = jest.fn((_voice?: any) => Promise.resolve(true));
 const mockStopVoicePreview = jest.fn();
-
-const mockUpdateNotificationPreferences = jest.fn(() => Promise.resolve());
-const mockToggleNotifications = jest.fn(() => Promise.resolve());
-
-const mockSettings = {
-  hapticFeedback: 'medium' as const,
-  soundEffectsEnabled: true,
-  openDailyAnchorAutomatically: false,
-};
 
 const mockSettingsStoreState = {
   traceDefaultEnabled: true,
@@ -43,6 +37,8 @@ const mockSettingsStoreState = {
   setGuideMode: mockSetGuideMode,
   reduceIntentionVisibility: false,
   setReduceIntentionVisibility: mockSetReduceIntentionVisibility,
+  openDailyAnchorAutomatically: false,
+  setOpenDailyAnchorAutomatically: mockSetOpenDailyAnchorAutomatically,
   dailyPracticeGoal: 1,
   dailyPracticeGoalPreset: 'once',
   setDailyPracticeGoal: mockSetDailyPracticeGoal,
@@ -62,34 +58,15 @@ const mockSettingsStoreState = {
     visualize: { guidanceVoice: 'none', backgroundAudio: 'off' },
   },
   setSessionAudioDefaults: mockSetSessionAudioDefaults,
+  hapticIntensity: 55,
+  setHapticIntensity: mockSetHapticIntensity,
+  soundEffectsEnabled: true,
+  setSoundEffectsEnabled: mockSetSoundEffectsEnabled,
   reduceMotion: 'system' as const,
   setReduceMotion: mockSetReduceMotion,
   analyticsEnabled: true,
   setAnalyticsEnabled: mockSetAnalyticsEnabled,
-  weeklySummaryEnabled: false,
-  setWeeklySummaryEnabled: mockSetWeeklySummaryEnabled,
 };
-
-const mockNotifState = {
-  notification_enabled: false,
-  dailyPrimeTime: '21:00',
-  dailyPrimeEnabled: true,
-  personalDailyReminderOptedIn: true,
-  threadStrengthAlertsEnabled: true,
-  threadStrengthThreshold: 70,
-  unfinishedAnchorRemindersEnabled: false,
-  notificationTone: 'encouraging',
-  weeklyRecapEnabled: false,
-  notificationPermissionStatus: 'granted' as 'granted' | 'denied' | 'undetermined',
-};
-
-jest.mock('@/hooks/useSettings', () => ({
-  useSettingsState: () => ({
-    settings: mockSettings,
-    updateSetting: mockUpdateSetting,
-    isLoading: false,
-  }),
-}));
 
 jest.mock('@/stores/settingsStore', () => {
   const hook = (selector?: (state: typeof mockSettingsStoreState) => unknown) =>
@@ -100,14 +77,6 @@ jest.mock('@/stores/settingsStore', () => {
   };
 });
 
-jest.mock('@/stores/profileStore', () => ({
-  useProfileStore: () => ({
-    timezone: 'America/Chicago',
-    updateProfile: jest.fn(),
-  }),
-  TIMEZONE_OPTIONS: ['America/Chicago', 'America/New_York'],
-}));
-
 jest.mock('@/stores/authStore', () => ({
   useAuthStore: (selector?: (state: { isAuthenticated: boolean; user: { id: string } }) => unknown) =>
     selector ? selector({ isAuthenticated: true, user: { id: 'account-a' } }) : { isAuthenticated: true, user: { id: 'account-a' } },
@@ -115,6 +84,7 @@ jest.mock('@/stores/authStore', () => ({
 
 jest.mock('@/services/ApiClient', () => ({
   updateUserSettings: jest.fn(() => Promise.resolve({})),
+  apiClient: { put: (...args: unknown[]) => (mockApiPut as any)(...args), get: jest.fn() },
 }));
 
 jest.mock('@/services/VoicePreviewService', () => ({
@@ -127,230 +97,271 @@ jest.mock('@/services/VoicePreviewService', () => ({
   },
 }));
 
-jest.mock('@/hooks/useNotificationController', () => ({
-  useNotificationController: () => ({
-    notifState: mockNotifState,
-    toggleNotifications: mockToggleNotifications,
-    updateNotificationPreferences: mockUpdateNotificationPreferences,
-  }),
-}));
-
-jest.mock('@/services/NotificationService', () => ({
-  __esModule: true,
-  default: {
-    requestPermissions: jest.fn(() => Promise.resolve(true)),
-    getLastError: jest.fn(() => null),
-  },
-}));
-
 jest.mock('@/services/AnalyticsService', () => ({
   AnalyticsService: { track: jest.fn(), setEnabled: jest.fn() },
+  AnalyticsEvents: {},
 }));
+
+jest.mock('@/services/AuthService', () => ({
+  AuthService: { deleteAccount: jest.fn(() => Promise.resolve()) },
+}));
+
+jest.mock('@/services/reviewPromptService', () => ({ openStoreListing: jest.fn(() => Promise.resolve()) }));
 
 describe('PracticeSubscreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-  it('resets app tips for the current account and confirms using the existing toast', async () => {
-    render(<PracticeSubscreen onBack={jest.fn()} />);
-    expect(screen.getByText('Show the quick tips again on every screen.')).toBeTruthy();
-    fireEvent.press(screen.getByText('Replay app tips'));
-    await waitFor(() => expect(mockTeachingReset).toHaveBeenCalledWith('account-a'));
-    await waitFor(() => expect(mockToastInfo).toHaveBeenCalledWith('App tips reset.'));
-    expect(mockSetGuideMode).not.toHaveBeenCalled();
-  });
-
-  it('renders session defaults, goal, thread behavior, and practice behavior rows', () => {
-    render(<PracticeSubscreen onBack={jest.fn()} />);
-
-    expect(screen.getByText('Practice')).toBeTruthy();
-    expect(screen.getByText('Session defaults')).toBeTruthy();
-    expect(screen.getByText('Daily practice goal')).toBeTruthy();
-    expect(screen.getByText('Thread Strength behavior')).toBeTruthy();
-    expect(screen.getByText('Guide Mode')).toBeTruthy();
-    expect(screen.getByText('Hide Intention Text')).toBeTruthy();
-    expect(screen.getByText('Anchor Tracing')).toBeTruthy();
-    expect(screen.getByText('Timezone')).toBeTruthy();
-  });
-
-  it('navigates into Session Defaults and allows switching practice mode tabs with correct durations', () => {
-    render(<PracticeSubscreen onBack={jest.fn()} />);
-
-    fireEvent.press(screen.getByText('Session defaults'));
-    expect(screen.getByText('Guidance Voice')).toBeTruthy();
-
-    // Focus mode durations
-    expect(screen.getByText('10 sec')).toBeTruthy();
-    expect(screen.getByText('30 sec')).toBeTruthy();
-    expect(screen.getByText('1 min')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('10 sec'));
-    expect(mockSetFocusSessionDuration).toHaveBeenCalledWith(10);
-
-    // Deep Prime mode durations
-    fireEvent.press(screen.getByText('Deep Prime'));
-    expect(screen.getByText('2 min')).toBeTruthy();
-    expect(screen.getByText('5 min')).toBeTruthy();
-    expect(screen.getByText('10 min')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('10 min'));
-    expect(mockSetPrimeSessionDuration).toHaveBeenCalledWith(600);
-
-    // Visualize mode durations
-    fireEvent.press(screen.getByText('Visualize'));
-    expect(screen.getByText('1 min')).toBeTruthy();
-    expect(screen.getByText('3 min')).toBeTruthy();
-    expect(screen.getByText('5 min')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('Save defaults'));
-    expect(screen.getByText('Practice')).toBeTruthy();
-  });
-
-  it('handles guidance voice radio selection and preview correctly', () => {
-    render(<PracticeSubscreen onBack={jest.fn()} />);
-    fireEvent.press(screen.getByText('Session defaults'));
-
-    // Grounded selection
-    fireEvent.press(screen.getByLabelText('Grounded. Steady, measured, reassuring'));
-    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith('focus', expect.objectContaining({
-      guidanceVoice: 'male',
-    }));
-
-    // No guidance selection
-    fireEvent.press(screen.getByLabelText('No guidance. No spoken instruction'));
-    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith('focus', expect.objectContaining({
-      guidanceVoice: 'none',
-    }));
-
-    // Preview button plays without changing voice selection
-    fireEvent.press(screen.getByLabelText('Preview Serene'));
-    expect(mockStartVoicePreview).toHaveBeenCalledWith('female');
-  });
-
-  it('handles audio mode single-select (Ambient vs Silence)', () => {
-    render(<PracticeSubscreen onBack={jest.fn()} />);
-    fireEvent.press(screen.getByText('Session defaults'));
-
-    fireEvent.press(screen.getByText('Silence'));
-    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith('focus', expect.objectContaining({
-      backgroundAudio: 'off',
-    }));
-
-    fireEvent.press(screen.getByText('Ambient'));
-    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith('focus', expect.objectContaining({
-      backgroundAudio: 'ambient',
-    }));
-  });
-
-  it('navigates into Daily Practice Goal and updates preset to once, three, five, or custom', () => {
-    render(<PracticeSubscreen onBack={jest.fn()} />);
-
-    fireEvent.press(screen.getByText('Daily practice goal'));
-    expect(screen.getByText('Daily practice goal')).toBeTruthy();
-
-    // Once shows recommended
-    expect(screen.getByText('Recommended')).toBeTruthy();
-    fireEvent.press(screen.getByText('Once'));
-    expect(mockSetDailyPracticeGoalPreset).toHaveBeenCalledWith('once');
-    expect(mockSetDailyPracticeGoal).toHaveBeenCalledWith(1);
-
-    fireEvent.press(screen.getByText('Three'));
-    expect(mockSetDailyPracticeGoalPreset).toHaveBeenCalledWith('three');
-    expect(mockSetDailyPracticeGoal).toHaveBeenCalledWith(3);
-
-    fireEvent.press(screen.getByText('Five'));
-    expect(mockSetDailyPracticeGoalPreset).toHaveBeenCalledWith('five');
-    expect(mockSetDailyPracticeGoal).toHaveBeenCalledWith(5);
-
-    fireEvent.press(screen.getByText('Custom'));
-    expect(mockSetDailyPracticeGoalPreset).toHaveBeenCalledWith('custom');
-
-    fireEvent.press(screen.getByText('Save goal'));
-    expect(screen.getByText('Practice')).toBeTruthy();
-  });
-
-  it('renders custom stepper and respects boundaries when custom is active', () => {
-    mockSettingsStoreState.dailyPracticeGoalPreset = 'custom';
     mockSettingsStoreState.dailyPracticeGoal = 1;
-    render(<PracticeSubscreen onBack={jest.fn()} />);
-
-    fireEvent.press(screen.getByText('Daily practice goal'));
-    expect(screen.getByLabelText('Decrease custom goal').props.accessibilityState.disabled).toBe(true);
-
-    fireEvent.press(screen.getByLabelText('Increase custom goal'));
-    expect(mockSetDailyPracticeGoal).toHaveBeenCalledWith(2);
-
-    mockSettingsStoreState.dailyPracticeGoalPreset = 'once';
   });
 
-  it('navigates into Thread Strength and updates sensitivity', () => {
+  it('renders goal, thread, session defaults, practice behavior and launch rows', () => {
     render(<PracticeSubscreen onBack={jest.fn()} />);
 
-    fireEvent.press(screen.getByText('Thread Strength behavior'));
-    expect(screen.getByText('Thread Strength')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('Lenient'));
-    expect(mockSetThreadStrengthSensitivity).toHaveBeenCalledWith('lenient');
-
-    fireEvent.press(screen.getByText('Strict'));
-    expect(mockSetThreadStrengthSensitivity).toHaveBeenCalledWith('strict');
-
-    fireEvent.press(screen.getByText('Save'));
     expect(screen.getByText('Practice')).toBeTruthy();
+    expect(screen.getByText('Daily goal')).toBeTruthy();
+    expect(screen.getByText('Thread Strength')).toBeTruthy();
+    expect(screen.getByText('What happens when you miss a day')).toBeTruthy();
+    expect(screen.getByText('Session defaults')).toBeTruthy();
+    expect(screen.getByText('Guide mode')).toBeTruthy();
+    expect(screen.getByText('Hide intention text')).toBeTruthy();
+    expect(screen.getByText('Anchor tracing')).toBeTruthy();
+    expect(screen.getByText('Open to Practice')).toBeTruthy();
   });
 
-  it('toggles Guide Mode, Hide Intention Text, and Anchor Tracing', () => {
+  it('keeps settings that now live elsewhere out of Practice', () => {
     render(<PracticeSubscreen onBack={jest.fn()} />);
 
-    fireEvent.press(screen.getByTestId('settings-row-Guide Mode'));
+    expect(screen.queryByText('Timezone')).toBeNull();
+    expect(screen.queryByText('Replay app tips')).toBeNull();
+  });
+
+  it('steps the daily goal with plus and minus and respects the lower bound', () => {
+    render(<PracticeSubscreen onBack={jest.fn()} />);
+
+    expect(screen.getByLabelText('Decrease daily goal').props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(screen.getByLabelText('Increase daily goal'));
+    expect(mockSetDailyPracticeGoal).toHaveBeenCalledWith(2);
+    expect(mockSetDailyPracticeGoalPreset).toHaveBeenCalledWith('custom');
+  });
+
+  it('maps the stepper onto the existing once, three and five presets', () => {
+    mockSettingsStoreState.dailyPracticeGoal = 2;
+    render(<PracticeSubscreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByLabelText('Increase daily goal'));
+    expect(mockSetDailyPracticeGoal).toHaveBeenCalledWith(3);
+    expect(mockSetDailyPracticeGoalPreset).toHaveBeenCalledWith('three');
+  });
+
+  it('opens Thread Strength and saves as soon as a behavior is chosen', () => {
+    render(<PracticeSubscreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByText('Thread Strength'));
+    expect(screen.getByText('Saved as soon as you choose.')).toBeTruthy();
+    expect(screen.getByText('Missed, thread holds')).toBeTruthy();
+    expect(screen.getByText('Thread thins')).toBeTruthy();
+    expect(screen.queryByText('Save')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Lenient'));
+    expect(mockSetThreadStrengthSensitivity).toHaveBeenCalledWith('lenient');
+    expect(mockApiPut).toHaveBeenCalledWith('/api/auth/settings', { threadStrengthSensitivity: 'lenient' });
+
+    fireEvent.press(screen.getByLabelText('Strict'));
+    expect(mockSetThreadStrengthSensitivity).toHaveBeenCalledWith('strict');
+  });
+
+  it('toggles Guide mode, Hide intention text, Anchor tracing and Open to Practice', () => {
+    render(<PracticeSubscreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByLabelText('Guide mode'));
     expect(mockSetGuideMode).toHaveBeenCalledWith(false);
 
-    fireEvent.press(screen.getByTestId('settings-row-Hide Intention Text'));
+    fireEvent.press(screen.getByLabelText('Hide intention text'));
     expect(mockSetReduceIntentionVisibility).toHaveBeenCalledWith(true);
 
-    fireEvent.press(screen.getByTestId('settings-row-Anchor Tracing'));
+    fireEvent.press(screen.getByLabelText('Anchor tracing'));
     expect(mockSetTraceDefaultEnabled).toHaveBeenCalledWith(false);
+
+    fireEvent.press(screen.getByLabelText('Open to Practice'));
+    expect(mockSetOpenDailyAnchorAutomatically).toHaveBeenCalledWith(true);
   });
 });
 
-// NotificationsSubscreen cases migrated to screens/v2/notifications/__tests__/NotificationSettingsScreen.test.tsx
+describe('Session defaults', () => {
+  const openSessionDefaults = () => {
+    render(<PracticeSubscreen onBack={jest.fn()} />);
+    fireEvent.press(screen.getByText('Session defaults'));
+  };
 
-describe('AppExperienceSubscreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('renders interface options and toggles openDailyAnchorAutomatically', () => {
-    render(<AppExperienceSubscreen onBack={jest.fn()} />);
+  it('autosaves: no save button, with a per-mode reset', () => {
+    openSessionDefaults();
 
-    expect(screen.getByText('App experience')).toBeTruthy();
-    expect(screen.getByText('Haptic feedback')).toBeTruthy();
-    expect(screen.getByText('Sound effects')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('settings-row-Open to Practice'));
-    expect(mockUpdateSetting).toHaveBeenCalledWith('openDailyAnchorAutomatically', true);
+    expect(screen.getByText('Changes save automatically.')).toBeTruthy();
+    expect(screen.getByText('Reset Focus to original defaults')).toBeTruthy();
+    expect(screen.queryByText('Save defaults')).toBeNull();
+    expect(screen.getByText('Each mode keeps its own.', { exact: false })).toBeTruthy();
   });
 
-  it('resets teaching tips from the confirmation sheet and shows toast confirmation', async () => {
-    render(<AppExperienceSubscreen onBack={jest.fn()} />);
+  it('switches mode tabs and writes the matching duration setter immediately', () => {
+    openSessionDefaults();
 
-    fireEvent.press(screen.getByTestId('settings-row-Reset Teaching Tips'));
-    fireEvent.press(screen.getByText('Reset'));
+    fireEvent.press(screen.getByLabelText('10 sec'));
+    expect(mockSetFocusSessionDuration).toHaveBeenCalledWith(10);
 
-    await waitFor(() => expect(mockTeachingReset).toHaveBeenCalledWith('account-a'));
-    await waitFor(() => expect(mockToastInfo).toHaveBeenCalledWith('App tips reset.'));
+    fireEvent.press(screen.getByLabelText('Deep Focus'));
+    expect(screen.getByText('Reset Deep Focus to original defaults')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('10 min'));
+    expect(mockSetPrimeSessionDuration).toHaveBeenCalledWith(600);
+
+    fireEvent.press(screen.getByLabelText('Visualize'));
+    expect(screen.getByLabelText('3 min')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('1 min'));
+    expect(mockSetVisualizeSessionDuration).toHaveBeenCalledWith(60);
+  });
+
+  it('writes voice choices to the active mode only and previews without selecting', () => {
+    openSessionDefaults();
+
+    fireEvent.press(screen.getByLabelText('Grounded'));
+    expect(mockSetSessionAudioDefaults).toHaveBeenCalledTimes(1);
+    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith(
+      'focus',
+      expect.objectContaining({ guidanceVoice: 'male' })
+    );
+
+    fireEvent.press(screen.getByLabelText('No guidance'));
+    expect(mockSetSessionAudioDefaults).toHaveBeenLastCalledWith(
+      'focus',
+      expect.objectContaining({ guidanceVoice: 'none' })
+    );
+
+    mockSetSessionAudioDefaults.mockClear();
+    fireEvent.press(screen.getByLabelText('Preview Serene'));
+    expect(mockStartVoicePreview).toHaveBeenCalledWith('female');
+    expect(mockSetSessionAudioDefaults).not.toHaveBeenCalled();
+  });
+
+  it('shows the plain voice descriptions and hides voices Visualize does not ship', () => {
+    openSessionDefaults();
+    expect(screen.getByText('Friendly, like a guide beside you')).toBeTruthy();
+    expect(screen.getByText('Slow and softly paced')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Visualize'));
+    expect(screen.queryByText('Slow and softly paced')).toBeNull();
+    expect(screen.getByText('Steady and measured')).toBeTruthy();
+  });
+
+  it('sets background audio to Silence or Ambient', () => {
+    openSessionDefaults();
+
+    fireEvent.press(screen.getByLabelText('Silence'));
+    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith(
+      'focus',
+      expect.objectContaining({ backgroundAudio: 'off' })
+    );
+
+    fireEvent.press(screen.getByLabelText('Ambient'));
+    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith(
+      'focus',
+      expect.objectContaining({ backgroundAudio: 'ambient' })
+    );
+  });
+
+  it('resets the active mode to its original duration and audio', () => {
+    openSessionDefaults();
+
+    fireEvent.press(screen.getByText('Reset Focus to original defaults'));
+    expect(mockSetFocusSessionDuration).toHaveBeenCalledWith(30);
+    expect(mockSetSessionAudioDefaults).toHaveBeenCalledWith(
+      'focus',
+      expect.objectContaining({ guidanceVoice: 'female', backgroundAudio: 'ambient' })
+    );
   });
 });
 
-describe('PrivacySupportSubscreen', () => {
-  it('renders privacy, support, and legal sections and toggles analytics', () => {
-    render(<PrivacySupportSubscreen onBack={jest.fn()} />);
+describe('SoundFeelSubscreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-    expect(screen.getByText('Privacy & support')).toBeTruthy();
-    expect(screen.getByText('Help & support')).toBeTruthy();
+  it('shows haptics, sound and motion groups with plain labels', () => {
+    render(<SoundFeelSubscreen onBack={jest.fn()} />);
+
+    expect(screen.getByText('Sound & feel')).toBeTruthy();
+    expect(screen.getByText('Haptics')).toBeTruthy();
+    expect(screen.getByText('Balanced tactile feedback.')).toBeTruthy();
+    expect(screen.getByLabelText('Match device')).toBeTruthy();
+    expect(screen.queryByText('Device setting')).toBeNull();
+  });
+
+  it('writes haptics, sound effects and motion straight to the store', () => {
+    render(<SoundFeelSubscreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByLabelText('Strong'));
+    expect(mockSetHapticIntensity).toHaveBeenCalledWith(80);
+
+    fireEvent.press(screen.getByLabelText('Sound effects'));
+    expect(mockSetSoundEffectsEnabled).toHaveBeenCalledWith(false);
+
+    fireEvent.press(screen.getByLabelText('Full'));
+    expect(mockSetReduceMotion).toHaveBeenCalledWith('off');
+  });
+});
+
+describe('HelpAboutSubscreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('groups support, app tips, rating and legal', () => {
+    render(<HelpAboutSubscreen onBack={jest.fn()} />);
+
+    expect(screen.getByText('Help & about')).toBeTruthy();
+    expect(screen.getByText('Contact support')).toBeTruthy();
+    expect(screen.getByText('Replay app tips')).toBeTruthy();
+    expect(screen.getByText('Rate Anchor')).toBeTruthy();
     expect(screen.getByText('Privacy policy')).toBeTruthy();
+    expect(screen.getByText('Terms of service')).toBeTruthy();
+  });
 
-    fireEvent.press(screen.getByTestId('settings-row-Analytics'));
+  it('replays app tips for the current account after confirming, and confirms with the existing toast', async () => {
+    render(<HelpAboutSubscreen onBack={jest.fn()} />);
+
+    fireEvent.press(screen.getByTestId('settings-row-Replay app tips'));
+    fireEvent.press(screen.getByLabelText('Replay'));
+
+    await waitFor(() => expect(mockTeachingReset).toHaveBeenCalledWith('account-a'));
+    await waitFor(() => expect(mockToastInfo).toHaveBeenCalledWith('App tips reset.'));
+    expect(mockSetGuideMode).not.toHaveBeenCalled();
+  });
+});
+
+describe('DataPrivacySubscreen', () => {
+  it('toggles anonymous analytics and offers backup, export and delete', () => {
+    render(
+      <DataPrivacySubscreen onBack={jest.fn()} onOpenBackup={jest.fn()} onResetToOnboarding={jest.fn()} />
+    );
+
+    expect(screen.getByText('Data & privacy')).toBeTruthy();
+    expect(screen.getByText('Backup & recovery')).toBeTruthy();
+    expect(screen.getByText('Export my data')).toBeTruthy();
+    expect(screen.getByText('Delete account')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Share anonymous analytics'));
     expect(mockSetAnalyticsEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it('opens Backup & recovery from the Your data group', () => {
+    const onOpenBackup = jest.fn();
+    render(
+      <DataPrivacySubscreen onBack={jest.fn()} onOpenBackup={onOpenBackup} onResetToOnboarding={jest.fn()} />
+    );
+
+    fireEvent.press(screen.getByTestId('settings-row-Backup & recovery'));
+    expect(onOpenBackup).toHaveBeenCalled();
   });
 });

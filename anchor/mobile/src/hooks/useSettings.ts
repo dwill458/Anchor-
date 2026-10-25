@@ -14,6 +14,10 @@ import type {
   PrimingMode,
 } from '@/types/settings';
 import { DEFAULT_SETTINGS } from '@/types/settings';
+import {
+  mapFeedbackToHapticIntensity,
+  mapHapticIntensityToFeedback,
+} from '@/utils/hapticFeedbackLevel';
 
 const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
 const LEGACY_OPEN_DAILY_ANCHOR_KEY = 'anchor:settings:openDailyAnchorAuto';
@@ -64,33 +68,6 @@ const mapPrimingDurationToChargePreset = (duration: PrimingDuration): ChargeDura
     return '2m';
   }
   return '5m';
-};
-
-const mapHapticIntensityToFeedback = (intensity: number): AnchorSettings['hapticFeedback'] => {
-  if (intensity <= 0) {
-    return 'none';
-  }
-  if (intensity <= 33) {
-    return 'light';
-  }
-  if (intensity <= 66) {
-    return 'medium';
-  }
-  return 'strong';
-};
-
-const mapFeedbackToHapticIntensity = (feedback: AnchorSettings['hapticFeedback']): number => {
-  switch (feedback) {
-    case 'none':
-      return 0;
-    case 'light':
-      return 25;
-    case 'medium':
-      return 55;
-    case 'strong':
-    default:
-      return 80;
-  }
 };
 
 const mapDefaultActivationToFocusDuration = (): FocusDuration => {

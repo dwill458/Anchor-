@@ -319,6 +319,13 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       (anchorIntention.trim().length >= 6 ? anchorIntention : 'A meaningful moment from my future.') });
     setMode('addScene');
   };
+  const boardReferencePhotos = useMemo(() => model.tiles.flatMap(tile => tile.assetId && tile.imageUrl ? [{
+    id: `board-reference:${tile.sceneId}`,
+    assetId: tile.assetId,
+    uri: tile.imageUrl,
+    mimeType: 'image/jpeg',
+    role: 'world' as const,
+  }] : []), [model.tiles]);
 
   // The composer pops to this existing route after the confirmed mutation.
   // Local Add mode must be cleared even though initialMode does not change.
@@ -636,6 +643,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     {picker.state ? <VisionPickerHolding anchorArt={anchorArt} retrying={picker.state === 'retry'} onRetry={picker.retry} onBack={picker.dismiss} /> : null}
     {onBoard ? <VisionAddSceneEntry anchorId={anchorId} onResume={() => { setAddRequest(null); setMode('addScene'); }} visible={addSheetOpen} onClose={() => setAddSheetOpen(false)} anchorIntention={anchorIntention}
       restoreDraft={addDraft} onDraftRestored={() => setAddDraft(null)}
+      boardReferencePhotos={boardReferencePhotos}
       onSubmit={startAddScene} onAddOwnPhoto={source => { void startAddPhoto(source); }} onAddNote={openNoteComposer}
       canAddImage={model.tiles.length < VISION_BOARD_MAX_IMAGES} /> : null}
   </View>;

@@ -210,7 +210,7 @@ describe('Visualize prepares behind its real setup board', () => {
       expect(mockPreparation.prepareOnly).toBe(true);
       act(() => mockPreparation.onPrepared(prepared));
       expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
-      fireEvent.press(view.getByLabelText('1 min'));
+      fireEvent.press(view.getByLabelText('1 minute 5 seconds'));
       fireEvent.press(view.getByLabelText('Begin Visualize'));
       fireEvent.press(view.getByLabelText('Begin Visualize'));
       act(() => { jest.advanceTimersByTime(1500); });
@@ -222,14 +222,14 @@ describe('Visualize prepares behind its real setup board', () => {
     }
   });
 
-  it('offers 1, 3 and 10 minutes every time, defaulting to 3, and carries the choice into the session', () => {
+  it('offers 1, 3 and 10 minutes 15 secondsutes every time, defaulting to 3, and carries the choice into the session', () => {
     jest.useFakeTimers();
     try {
-      for (const [label, seconds] of [['1 min', 60], ['3 min', 180], ['10 min', 600]] as const) {
+      for (const [label, seconds] of [['1 minute 5 seconds', 60], ['3 minutes 20 seconds', 180], ['10 minutes 15 seconds', 600]] as const) {
         const view = setup();
-        expect(view.getByLabelText('3 min, selected')).toBeTruthy();
+        expect(view.getByLabelText('3 minutes 20 seconds, selected')).toBeTruthy();
         act(() => mockPreparation.onPrepared(prepared));
-        fireEvent.press(view.getByLabelText(label.startsWith('3') ? '3 min, selected' : label));
+        fireEvent.press(view.getByLabelText(label.startsWith('3') ? '3 minutes 20 seconds, selected' : label));
         fireEvent.press(view.getByLabelText('Begin Visualize'));
         act(() => { jest.advanceTimersByTime(1500); });
         expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: seconds }));
@@ -267,7 +267,7 @@ describe('Visualize prepares behind its real setup board', () => {
       act(() => mockPreparation.onPrepared(prepared));
       fireEvent.press(view.getByLabelText('Begin Visualize'));
       expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
-      fireEvent.press(view.getByLabelText('10 min'));
+      fireEvent.press(view.getByLabelText('10 minutes 15 seconds'));
       act(() => { jest.advanceTimersByTime(1500); });
       expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 180 }));
     } finally {

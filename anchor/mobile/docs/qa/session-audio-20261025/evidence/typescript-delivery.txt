@@ -1,0 +1,36 @@
+src/components/v2/primitives/V2Screen.tsx(9,40): error TS2322: Type 'Ref<((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<...>> | undefined' is not assignable to type 'Ref<ScrollViewInstance> | undefined'.
+  Type '(instance: (((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<...>) | null) => void | (() => VoidOrUndefinedOnly)' is not assignable to type 'Ref<ScrollViewInstance> | undefined'.
+    Type '(instance: (((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<...>) | null) => void | (() => VoidOrUndefinedOnly)' is not assignable to type '(instance: ScrollViewInstance | null) => void | (() => VoidOrUndefinedOnly)'.
+      Types of parameters 'instance' and 'instance' are incompatible.
+        Type 'ScrollViewInstance | null' is not assignable to type '(((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<{ ...; }>) | null'.
+          Type 'ScrollViewInstance' is not assignable to type '((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<{ Context: Context<...>; }>'.
+            Type 'ScrollViewInstance' is not assignable to type '(props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode'.
+              Type 'ScrollViewInstance' provides no match for the signature '(props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }): ReactNode'.
+src/hooks/v2/vision/useVisionAppearanceReference.ts(150,15): error TS2322: Type '{ useProfilePhotoForVision: boolean; userId?: string | undefined; notificationsEnabled?: boolean | undefined; dailyReminderTime?: string | undefined; streakProtection?: boolean | undefined; ... 10 more ...; updatedAt?: Date | undefined; }' is not assignable to type 'UserSettings'.
+  Types of property 'userId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/hooks/v2/vision/useVisionAppearanceReference.ts(162,13): error TS2322: Type '{ useProfilePhotoForVision: boolean; userId?: string | undefined; notificationsEnabled?: boolean | undefined; dailyReminderTime?: string | undefined; streakProtection?: boolean | undefined; ... 10 more ...; updatedAt?: Date | undefined; }' is not assignable to type 'UserSettings'.
+  Types of property 'userId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/hooks/v2/weeklyRecap/useWeeklyRecap.ts(6,10): error TS2305: Module '"@/adapters/v2/weeklyRecap/weeklyRecapApi"' has no exported member 'fetchLatestRecap'.
+src/hooks/v2/weeklyRecap/useWeeklyRecap.ts(6,28): error TS2305: Module '"@/adapters/v2/weeklyRecap/weeklyRecapApi"' has no exported member 'fetchRecapForWeek'.
+src/hooks/v2/weeklyRecap/useWeeklyRecap.ts(6,47): error TS2305: Module '"@/adapters/v2/weeklyRecap/weeklyRecapApi"' has no exported member 'fetchRecapList'.
+src/hooks/v2/weeklyRecap/useWeeklyRecap.ts(6,63): error TS2305: Module '"@/adapters/v2/weeklyRecap/weeklyRecapApi"' has no exported member 'postRecapFeedback'.
+src/hooks/v2/weeklyRecap/useWeeklyRecap.ts(6,87): error TS2305: Module '"@/adapters/v2/weeklyRecap/weeklyRecapApi"' has no exported member 'RecapListItem'.
+src/screens/auth/LoginScreen.tsx(525,11): error TS2322: Type 'Ref<TextInputType> | undefined' is not assignable to type 'Ref<_TextInputInstance> | undefined'.
+  Type 'RefObject<TextInputType | null>' is not assignable to type 'Ref<_TextInputInstance> | undefined'.
+    Type 'RefObject<TextInputType | null>' is not assignable to type 'RefObject<_TextInputInstance | null>'.
+      Type 'TextInputType | null' is not assignable to type '_TextInputInstance | null'.
+        Type 'TextInputType' is not assignable to type '_TextInputInstance | null'.
+src/screens/auth/LoginScreen.tsx(547,40): error TS2339: Property 'scrollToEnd' does not exist on type '((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<{ Context: Context<...>; }>'.
+src/screens/auth/LoginScreen.tsx(582,11): error TS2322: Type 'RefObject<(((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<...>) | null>' is not assignable to type 'Ref<ScrollViewInstance> | undefined'.
+  Type 'RefObject<(((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<...>) | null>' is not assignable to type 'RefObject<ScrollViewInstance | null>'.
+    Type '(((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<{ ...; }>) | null' is not assignable to type 'ScrollViewInstance | null'.
+      Type '((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<{ Context: Context<...>; }>' is not assignable to type 'ScrollViewInstance | null'.
+src/screens/auth/LoginScreen.tsx(694,67): error TS2339: Property 'focus' does not exist on type 'TextInputType'.
+src/screens/auth/LoginScreen.tsx(712,68): error TS2339: Property 'focus' does not exist on type 'TextInputType'.
+src/screens/v2/auth/V2AuthScreen.tsx(453,42): error TS2339: Property 'scrollToEnd' does not exist on type '((props: Omit<ScrollViewProps, "ref"> & { ref?: Ref<ScrollViewInstance> | undefined; }) => ReactNode) & Readonly<{ Context: Context<...>; }>'.
+src/screens/v2/weeklyRecap/V2WeeklyRecapScreen.tsx(42,92): error TS2339: Property 'anchorId' does not exist on type '{ mode: "VERIFIED"; anchorId: string | null; routeStatus: "active" | "complete"; waypointIndex: number; waypointTotal: number; reachedMask: boolean[]; } | { mode: "NONE"; reason: "UNVERIFIED" | "NO_COURSE"; }'.
+  Property 'anchorId' does not exist on type '{ mode: "NONE"; reason: "UNVERIFIED" | "NO_COURSE"; }'.

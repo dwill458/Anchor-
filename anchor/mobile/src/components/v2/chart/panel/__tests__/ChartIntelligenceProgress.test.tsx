@@ -100,7 +100,9 @@ describe('Chart intelligence progress interactions', () => {
     const detail = withTracking({ progressMode: 'completion', state, reachedAt, completionCriteria: 'The app is publicly available in the store.' });
     if (state === 'REACHED') { detail.currentWaypointId = 'w3'; detail.currentMoveId = 'm3'; detail.reachedCount = 2; }
     const screen = render(content(detail, chartActions(), true));
-    expect(screen.getByText(`${label} · The app is publicly available in the store.`)).toBeTruthy();
+    // The sheet no longer prints "Not reached · {criteria}" (the route list and card carry reached-when); a reached waypoint still says so.
+    if (state === 'CURRENT') expect(screen.queryByText(/Not reached/)).toBeNull();
+    else expect(screen.getByText(`${label} · The app is publicly available in the store.`)).toBeTruthy();
     expect(screen.queryByTestId('chart-waypoint-bar')).toBeNull();
     expect(screen.queryByText(/\d+%/)).toBeNull();
     expect(screen.queryByTestId('chart-update-progress-button')).toBeNull();

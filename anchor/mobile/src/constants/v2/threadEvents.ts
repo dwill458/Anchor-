@@ -18,11 +18,37 @@ export type V2ThreadEventReceiptStatus = 'CLAIMED' | 'PRESENTED' | 'ACKNOWLEDGED
 export type V2PracticeCompletionType = 'FOCUS_SESSION' | 'DEEP_PRIME_SESSION' | 'VISUALIZE_SESSION';
 
 export const V2_EVOLUTION_MILESTONES = {
-  10: 'Grounded',
-  25: 'Rooted',
-  50: 'Embedded',
-  100: 'Sovereign',
+  20: 'Grounded',
+  40: 'Rooted',
+  60: 'Embedded',
+  80: 'Sovereign',
 } as const;
+
+export type ThreadStrengthLevel = 'Surface' | 'Grounded' | 'Rooted' | 'Embedded' | 'Sovereign';
+
+export const THREAD_STRENGTH_LEVELS: ReadonlyArray<{
+  level: ThreadStrengthLevel;
+  minStrength: number;
+  maxStrength: number;
+}> = [
+  { level: 'Surface', minStrength: 0, maxStrength: 19 },
+  { level: 'Grounded', minStrength: 20, maxStrength: 39 },
+  { level: 'Rooted', minStrength: 40, maxStrength: 59 },
+  { level: 'Embedded', minStrength: 60, maxStrength: 79 },
+  { level: 'Sovereign', minStrength: 80, maxStrength: 100 },
+];
+
+export function getThreadStrengthLevel(
+  strength: number | null | undefined
+): ThreadStrengthLevel {
+  if (strength === null || strength === undefined) return 'Surface';
+  const clamped = Math.min(100, Math.max(0, Math.round(strength)));
+  if (clamped >= 80) return 'Sovereign';
+  if (clamped >= 60) return 'Embedded';
+  if (clamped >= 40) return 'Rooted';
+  if (clamped >= 20) return 'Grounded';
+  return 'Surface';
+}
 
 export type V2EvolutionStage = (typeof V2_EVOLUTION_MILESTONES)[keyof typeof V2_EVOLUTION_MILESTONES];
 export const V2_PRACTICE_MILESTONE_COUNTS = [10, 25, 50] as const;

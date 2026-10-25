@@ -11,7 +11,11 @@ import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchor
 import { useAuraStrength } from '@/stores/devThreadStrengthStore';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
-import { V2_EVOLUTION_MILESTONES } from '@/constants/v2/threadEvents';
+import {
+  THREAD_STRENGTH_LEVELS,
+  getThreadStrengthLevel,
+  type ThreadStrengthLevel,
+} from '@/constants/v2/threadEvents';
 import { ThreadStrengthSheet } from '@/components/ThreadStrengthSheet';
 import { progressTokens } from './progressTokens';
 
@@ -28,7 +32,39 @@ export function heroArtworkSize(windowWidth: number, _windowHeight: number): num
   return Math.round(Math.max(100, Math.min(120, windowWidth * 0.28)));
 }
 
-const LEVELS = [{ value: 0, label: 'Surface' }, ...Object.entries(V2_EVOLUTION_MILESTONES).map(([value, label]) => ({ value: Number(value), label }))];
+export const LEVELS: { value: number; label: ThreadStrengthLevel }[] = [
+  { value: 0, label: 'Surface' },
+  { value: 20, label: 'Grounded' },
+  { value: 40, label: 'Rooted' },
+  { value: 60, label: 'Embedded' },
+  { value: 80, label: 'Sovereign' },
+];
+
+export function format7DayChange(
+  model: V2ProgressModel,
+  anchor?: Anchor,
+  now: Date = new Date(),
+): string {
+  if (model.delta7dStatus === 'FIRST_WEEK') {
+    return 'Building your first week';
+  }
+  const currentAnchor = anchor ?? model.anchor;
+  if (currentAnchor?.createdAt) {
+    const createdTime = new Date(currentAnchor.createdAt).getTime();
+    if (!Number.isNaN(createdTime)) {
+      const nowTime = now.getTime();
+      const diffDays = (nowTime - createdTime) / (1000 * 60 * 60 * 24);
+      if (diffDays < 7) {
+        return 'Building your first week';
+      }
+    }
+  }
+  if (typeof model.delta7d === 'number' && Number.isFinite(model.delta7d)) {
+    const signed = model.delta7d > 0 ? `+${model.delta7d}` : `${model.delta7d}`;
+    return `${signed} this week`;
+  }
+  return '7-day change unavailable';
+}
 
 export interface HeroStat {
   key: 'days' | 'time' | 'waypoints' | 'practices';
@@ -62,7 +98,8 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
   const { intention, category, threadStrength, unmeasured } = model;
   const currentAnchor = anchor ?? model.anchor;
   const [explanationOpen, setExplanationOpen] = React.useState(false);
-  const level = [...LEVELS].reverse().find(item => threadStrength !== null && threadStrength >= item.value);
+  const levelLabel = threadStrength !== null ? getThreadStrengthLevel(threadStrength) : 'Surface';
+  const activeLevel = LEVELS.find((item) => item.label === levelLabel) ?? LEVELS[0];
   const { width, height } = useWindowDimensions();
   React.useEffect(() => setExplanationOpen(false), [model.anchorId]);
   const artworkSize = heroArtworkSize(width, height);
@@ -135,10 +172,10 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
                   {threadStrength}
                 </Text>
                 <View style={styles.levelPill} testID={`${testID}-level`}>
-                  <Text style={styles.levelText}>{level?.label.toUpperCase()}</Text>
+                  <Text style={styles.levelText}>{levelLabel.toUpperCase()}</Text>
                 </View>
               </View>
-              <Text style={styles.support}>7-day change unavailable</Text>
+              <Text style={styles.support}>{format7DayChange(model, currentAnchor, now ?? new Date())}</Text>
             </>
           ) : null}
         </Animated.View>
@@ -154,11 +191,11 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
         ) : null}
       </Animated.View>
       {!unmeasured && threadStrength !== null ? (
-        <View style={styles.levels} accessibilityLabel={`Current level ${level?.label}`}>
+        <View style={styles.levels} accessibilityLabel={`Current level ${levelLabel}`}>
           {LEVELS.map(item => (
             <View key={item.value} style={styles.levelStep}>
               <View style={[styles.levelTrack, threadStrength >= item.value && styles.levelReached]} />
-              <Text style={[styles.levelLabel, level?.value === item.value && styles.levelActive]}>{item.label}</Text>
+              <Text style={[styles.levelLabel, activeLevel.value === item.value && styles.levelActive]}>{item.label}</Text>
             </View>
           ))}
         </View>

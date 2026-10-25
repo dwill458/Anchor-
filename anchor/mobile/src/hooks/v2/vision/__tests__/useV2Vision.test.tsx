@@ -132,6 +132,75 @@ describe('useV2Vision', () => {
     expect(created).toMatchObject({ id: initial.id });
   });
 
+  it('retries note movement without expectedUpdatedAt when older backend rejects with unrecognized key', async () => {
+    const initial = { ...vision('vision-anchor-a'), anchorId: 'anchor-a', notes: [{
+      id: 'note-1',
+      visionId: 'vision-anchor-a',
+      content: { text: 'Move me' },
+      presentation: { styleId: 'sticky_blush_pink', x: .5, y: .5, width: .34, height: .34, rotation: 0, scale: 1, layerOrder: 0 },
+      createdAt: '2026-10-25T00:00:00.000Z',
+      updatedAt: '2026-10-25T01:00:00.000Z',
+    }] };
+    const moved = {
+      ...initial,
+      notes: [{
+        ...initial.notes[0],
+        presentation: { ...initial.notes[0].presentation, x: .6, y: .7 },
+        updatedAt: '2026-10-25T02:00:00.000Z',
+      }],
+    };
+    mockGet.mockResolvedValue(envelope(initial));
+    const { result } = renderHook(() => useV2Vision('anchor-a'));
+    await waitFor(() => expect(result.current.vision?.id).toBe(initial.id));
+
+    mockPatch
+      .mockRejectedValueOnce(new Error("Validation error: : Unrecognized key(s) in object: 'expectedUpdatedAt'"))
+      .mockResolvedValueOnce(envelope(moved));
+
+    await act(async () => {
+      await result.current.updateNote('note-1', {
+        presentation: moved.notes[0].presentation as never,
+      });
+    });
+
+    expect(mockPatch).toHaveBeenCalledTimes(2);
+    expect(mockPatch).toHaveBeenNthCalledWith(1, '/api/v2/visions/vision-anchor-a/notes/note-1', {
+      presentation: moved.notes[0].presentation,
+      expectedUpdatedAt: '2026-10-25T01:00:00.000Z',
+    });
+    expect(mockPatch).toHaveBeenNthCalledWith(2, '/api/v2/visions/vision-anchor-a/notes/note-1', {
+      presentation: moved.notes[0].presentation,
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.vision?.notes?.[0].presentation.x).toBe(0.6);
+  });
+
+  it('clamps note presentation coordinates to valid server bounds when moving note', async () => {
+    const initial = { ...vision('vision-anchor-a'), anchorId: 'anchor-a', notes: [{
+      id: 'note-1',
+      visionId: 'vision-anchor-a',
+      content: { text: 'Move me' },
+      presentation: { styleId: 'sticky_blush_pink', x: .5, y: .5, width: .34, height: .34, rotation: 0, scale: 1, layerOrder: 0 },
+      createdAt: '2026-10-25T00:00:00.000Z',
+      updatedAt: '2026-10-25T01:00:00.000Z',
+    }] };
+    mockGet.mockResolvedValue(envelope(initial));
+    const { result } = renderHook(() => useV2Vision('anchor-a'));
+    await waitFor(() => expect(result.current.vision?.id).toBe(initial.id));
+
+    mockPatch.mockResolvedValueOnce(envelope(initial));
+
+    await act(async () => {
+      await result.current.updateNote('note-1', {
+        presentation: { ...initial.notes[0].presentation, y: 1.15 } as never,
+      });
+    });
+
+    const sentPresentation = mockPatch.mock.calls[0][1].presentation;
+    expect(sentPresentation.y).toBeLessThan(1);
+    expect(sentPresentation.y).toBeGreaterThan(0);
+  });
+
   it('does not let an older GET erase a confirmed note on either mounted surface', async () => {
     const initial = { ...vision('vision-anchor-a'), anchorId: 'anchor-a', notes: [] };
     mockGet.mockResolvedValue(envelope(initial));

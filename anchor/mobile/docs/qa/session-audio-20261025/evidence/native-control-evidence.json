@@ -1,0 +1,341 @@
+[
+  {
+    "case": "Focus native source failure/retry",
+    "passed": true,
+    "failure": {
+      "event": "status",
+      "playerId": "6686a0b6-6f8a-4d90-92d0-f94fd1ae0feb",
+      "status": {
+        "id": "6686a0b6-6f8a-4d90-92d0-f94fd1ae0feb",
+        "currentTime": 0,
+        "playbackState": "idle",
+        "timeControlStatus": "paused",
+        "reasonForWaitingToPlay": null,
+        "mute": false,
+        "duration": 0,
+        "playing": false,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": false,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": "Source error"
+      },
+      "wallTime": "2026-10-25T13:41:58.283Z"
+    },
+    "heldPastNominalSeconds": 12,
+    "result": {
+      "id": "audio-focus-10-male-ambient-controls-retry-delivery1",
+      "completed": true,
+      "events": [
+        {
+          "runId": "audio-focus-10-male-ambient-controls-retry-delivery1",
+          "event": "mounted",
+          "wallTime": "2026-10-25T13:41:54.617Z",
+          "elapsedMs": 534,
+          "mode": "focus",
+          "duration": 10,
+          "voice": "male",
+          "ambient": true,
+          "fixture": true,
+          "persistence": false
+        },
+        {
+          "runId": "audio-focus-10-male-ambient-controls-retry-delivery1",
+          "event": "completed",
+          "wallTime": "2026-10-25T13:42:26.233Z",
+          "elapsedMs": 32150,
+          "data": {
+            "plannedDurationSeconds": 10,
+            "actualDurationSeconds": 10,
+            "startedAt": "2026-10-25T13:41:54.704Z",
+            "completedAt": "2026-10-25T13:42:26.233Z"
+          }
+        }
+      ],
+      "recording": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\audio-focus-10-male-ambient-controls-retry-delivery1.flac",
+      "recorderExit": 2,
+      "recordingBytes": 154595
+    }
+  },
+  {
+    "case": "Deep Focus mute/pause/resume",
+    "passed": true,
+    "mutedAt": {
+      "event": "status",
+      "playerId": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+      "status": {
+        "id": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+        "currentTime": 23.099,
+        "playbackState": "ready",
+        "timeControlStatus": "playing",
+        "reasonForWaitingToPlay": null,
+        "mute": false,
+        "duration": 120.032,
+        "playing": true,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": true,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": null
+      },
+      "wallTime": "2026-10-25T13:45:51.920Z"
+    },
+    "mutedLater": {
+      "event": "status",
+      "playerId": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+      "status": {
+        "id": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+        "currentTime": 28.08,
+        "playbackState": "ready",
+        "timeControlStatus": "playing",
+        "reasonForWaitingToPlay": null,
+        "mute": true,
+        "duration": 120.032,
+        "playing": true,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": true,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": null
+      },
+      "wallTime": "2026-10-25T13:45:56.897Z"
+    },
+    "paused": {
+      "event": "status",
+      "playerId": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+      "status": {
+        "id": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+        "currentTime": 56.222,
+        "playbackState": "ready",
+        "timeControlStatus": "paused",
+        "reasonForWaitingToPlay": null,
+        "mute": false,
+        "duration": 120.032,
+        "playing": false,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": true,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": null
+      },
+      "wallTime": "2026-10-25T13:46:25.051Z"
+    },
+    "resumed": {
+      "event": "status",
+      "playerId": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+      "status": {
+        "id": "8fb8cba1-36b2-4eb4-bd1e-b033a9f653f0",
+        "currentTime": 56.231,
+        "playbackState": "ready",
+        "timeControlStatus": "playing",
+        "reasonForWaitingToPlay": null,
+        "mute": false,
+        "duration": 120.032,
+        "playing": true,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": true,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": null
+      },
+      "wallTime": "2026-10-25T13:46:33.620Z"
+    },
+    "result": {
+      "id": "audio-deep_prime-120-female-ambient-controls-deep-delivery3",
+      "completed": true,
+      "events": [
+        {
+          "runId": "audio-deep_prime-120-female-ambient-controls-deep-delivery3",
+          "event": "mounted",
+          "wallTime": "2026-10-25T13:45:28.614Z",
+          "elapsedMs": 383,
+          "mode": "deep_prime",
+          "duration": 120,
+          "voice": "female",
+          "ambient": true,
+          "fixture": true,
+          "persistence": false
+        },
+        {
+          "runId": "audio-deep_prime-120-female-ambient-controls-deep-delivery3",
+          "event": "completed",
+          "wallTime": "2026-10-25T13:47:37.570Z",
+          "elapsedMs": 129339,
+          "data": {
+            "plannedDurationSeconds": 120,
+            "actualDurationSeconds": 120,
+            "startedAt": "2026-10-25T13:45:28.542Z",
+            "completedAt": "2026-10-25T13:47:37.569Z"
+          }
+        }
+      ],
+      "recording": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\audio-deep_prime-120-female-ambient-controls-deep-delivery3.flac",
+      "recorderExit": 2,
+      "recordingBytes": 1399410
+    }
+  },
+  {
+    "case": "Visualize background/resume",
+    "passed": true,
+    "paused": {
+      "event": "status",
+      "playerId": "214748fb-51af-4c8e-8e33-8862102a31aa",
+      "status": {
+        "id": "214748fb-51af-4c8e-8e33-8862102a31aa",
+        "currentTime": 8.526,
+        "playbackState": "ready",
+        "timeControlStatus": "paused",
+        "reasonForWaitingToPlay": null,
+        "mute": false,
+        "duration": 65.28,
+        "playing": false,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": true,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": null
+      },
+      "wallTime": "2026-10-25T13:48:01.650Z"
+    },
+    "resumed": {
+      "event": "status",
+      "playerId": "214748fb-51af-4c8e-8e33-8862102a31aa",
+      "status": {
+        "id": "214748fb-51af-4c8e-8e33-8862102a31aa",
+        "currentTime": 8.695,
+        "playbackState": "ready",
+        "timeControlStatus": "playing",
+        "reasonForWaitingToPlay": null,
+        "mute": false,
+        "duration": 65.28,
+        "playing": true,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": true,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": null
+      },
+      "wallTime": "2026-10-25T13:48:11.996Z"
+    },
+    "result": {
+      "id": "audio-visualize-60-male-ambient-controls-visualize-delivery4",
+      "completed": true,
+      "events": [
+        {
+          "runId": "audio-visualize-60-male-ambient-controls-visualize-delivery4",
+          "event": "mounted",
+          "wallTime": "2026-10-25T13:47:50.662Z",
+          "elapsedMs": 141,
+          "mode": "visualize",
+          "duration": 60,
+          "voice": "male",
+          "ambient": true,
+          "fixture": true,
+          "persistence": false
+        },
+        {
+          "runId": "audio-visualize-60-male-ambient-controls-visualize-delivery4",
+          "event": "completed",
+          "wallTime": "2026-10-25T13:49:08.370Z",
+          "elapsedMs": 77849,
+          "data": {
+            "record": null,
+            "saved": false
+          }
+        }
+      ],
+      "recording": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\audio-visualize-60-male-ambient-controls-visualize-delivery4.flac",
+      "recorderExit": 2,
+      "recordingBytes": 1824382
+    }
+  },
+  {
+    "case": "Focus modular cue progression while muted",
+    "passed": true,
+    "closingAlreadyPlaying": {
+      "event": "status",
+      "playerId": "0ff2b050-473f-42a5-a946-05b2a4aa8ac2",
+      "status": {
+        "id": "0ff2b050-473f-42a5-a946-05b2a4aa8ac2",
+        "currentTime": 1.023,
+        "playbackState": "ready",
+        "timeControlStatus": "playing",
+        "reasonForWaitingToPlay": null,
+        "mute": true,
+        "duration": 5.694,
+        "playing": true,
+        "loop": false,
+        "didJustFinish": false,
+        "isLoaded": true,
+        "playbackRate": 1,
+        "shouldCorrectPitch": true,
+        "isBuffering": false,
+        "isLive": false,
+        "currentOffsetFromLive": null,
+        "error": null
+      },
+      "wallTime": "2026-10-25T13:50:46.574Z"
+    },
+    "result": {
+      "id": "audio-focus-30-soothing-ambient-controls-focus-muted-delivery6",
+      "completed": true,
+      "events": [
+        {
+          "runId": "audio-focus-30-soothing-ambient-controls-focus-muted-delivery6",
+          "event": "mounted",
+          "wallTime": "2026-10-25T13:50:22.236Z",
+          "elapsedMs": 229,
+          "mode": "focus",
+          "duration": 30,
+          "voice": "soothing",
+          "ambient": true,
+          "fixture": true,
+          "persistence": false
+        },
+        {
+          "runId": "audio-focus-30-soothing-ambient-controls-focus-muted-delivery6",
+          "event": "completed",
+          "wallTime": "2026-10-25T13:50:52.469Z",
+          "elapsedMs": 30462,
+          "data": {
+            "plannedDurationSeconds": 30,
+            "actualDurationSeconds": 30,
+            "startedAt": "2026-10-25T13:50:22.320Z",
+            "completedAt": "2026-10-25T13:50:52.469Z"
+          }
+        }
+      ],
+      "recording": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\audio-focus-30-soothing-ambient-controls-focus-muted-delivery6.flac",
+      "recorderExit": 2,
+      "recordingBytes": 227956
+    }
+  }
+]

@@ -19,6 +19,11 @@ import { hasLegacyMigrationAccess } from '../../services/MonetizationAccessServi
 import { getTrialState, type TrialState } from '../../services/v2/TrialLifecycleService';
 import { OnboardingContextSchema } from '../../services/v2/OnboardingContextService';
 import { getChartCapabilities } from '../../services/ChartCapabilityService';
+import {
+  resolveLocalDateKeyFromDate,
+  type ThreadStrengthSensitivity,
+  type DecayPreferenceHistoryEntry,
+} from '../../services/v2/ThreadStrengthService';
 
 const router = Router();
 
@@ -219,6 +224,9 @@ function buildSettingsUpsertData(settings: {
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
   useProfilePhotoForVision?: boolean;
+  threadStrengthSensitivity?: 'lenient' | 'balanced' | 'strict';
+  decayPreferencesHistory?: Prisma.InputJsonValue;
+  restDays?: number[];
 }): {
   notificationsEnabled?: boolean;
   dailyReminderTime?: string;
@@ -234,6 +242,9 @@ function buildSettingsUpsertData(settings: {
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
   useProfilePhotoForVision?: boolean;
+  threadStrengthSensitivity?: string;
+  decayPreferencesHistory?: Prisma.InputJsonValue;
+  restDays?: number[];
 } {
   const {
     notificationsEnabled,
@@ -250,6 +261,9 @@ function buildSettingsUpsertData(settings: {
     hapticIntensity,
     vaultViewType,
     useProfilePhotoForVision,
+    threadStrengthSensitivity,
+    decayPreferencesHistory,
+    restDays,
   } = settings;
 
   return {
@@ -267,6 +281,9 @@ function buildSettingsUpsertData(settings: {
     ...(hapticIntensity !== undefined && { hapticIntensity }),
     ...(vaultViewType && { vaultViewType }),
     ...(useProfilePhotoForVision !== undefined && { useProfilePhotoForVision }),
+    ...(threadStrengthSensitivity && { threadStrengthSensitivity }),
+    ...(decayPreferencesHistory !== undefined && { decayPreferencesHistory }),
+    ...(restDays !== undefined && { restDays }),
   };
 }
 
@@ -318,6 +335,8 @@ const UpdateSettingsSchema = z.object({
   hapticIntensity: z.number().min(1).max(5).optional(),
   vaultViewType: z.enum(['grid', 'list']).optional(),
   useProfilePhotoForVision: z.boolean().optional(),
+  threadStrengthSensitivity: z.enum(['lenient', 'balanced', 'strict']).optional(),
+  restDays: z.array(z.number().int().min(0).max(6)).optional(),
 });
 
 const PushTokensSchema = z.object({
@@ -1070,24 +1089,9 @@ router.put(
         hapticIntensity,
         vaultViewType,
         useProfilePhotoForVision,
+        threadStrengthSensitivity,
+        restDays,
       } = validate(UpdateSettingsSchema, req.body);
-
-      const settingsData = buildSettingsUpsertData({
-        notificationsEnabled,
-        dailyReminderTime,
-        streakProtection,
-        defaultChargeDuration,
-        focusSessionMode,
-        focusSessionDuration,
-        focusSessionAudio,
-        primeSessionDuration,
-        visualizeSessionDuration,
-        primeSessionAudio,
-        sessionAudioDefaults,
-        hapticIntensity,
-        vaultViewType,
-        useProfilePhotoForVision,
-      });
 
       const settings = await prisma.$transaction(async tx => {
         const user = await tx.user.findUnique({
@@ -1097,6 +1101,71 @@ router.put(
         if (!user) {
           throw new AppError('User not found', 404, 'USER_NOT_FOUND');
         }
+
+        let decayPreferencesHistory: Prisma.InputJsonValue | undefined = undefined;
+
+        if (threadStrengthSensitivity) {
+          const existing = await tx.userSettings.findUnique({
+            where: { userId: user.id },
+            select: { threadStrengthSensitivity: true, decayPreferencesHistory: true },
+          });
+
+          const currentHistory: DecayPreferenceHistoryEntry[] = Array.isArray(existing?.decayPreferencesHistory)
+            ? (existing?.decayPreferencesHistory as DecayPreferenceHistoryEntry[])
+            : [];
+
+          const clientTimeZone = (req.headers['x-timezone'] as string) || 'UTC';
+          const tomorrow = new Date(Date.now() + 86_400_000);
+          const tomorrowKey = resolveLocalDateKeyFromDate(tomorrow, clientTimeZone);
+
+          // If no history exists, seed initial baseline with current/default policy
+          if (currentHistory.length === 0) {
+            const initialSensitivity = (existing?.threadStrengthSensitivity as ThreadStrengthSensitivity) || 'balanced';
+            currentHistory.push({
+              sensitivity: initialSensitivity,
+              effectiveFromLocalDateKey: '1970-01-01',
+              createdAt: new Date().toISOString(),
+            });
+          }
+
+          // A newly selected preference takes effect on the next calendar day
+          const existingEntryIndex = currentHistory.findIndex(h => h.effectiveFromLocalDateKey === tomorrowKey);
+          if (existingEntryIndex >= 0) {
+            currentHistory[existingEntryIndex] = {
+              sensitivity: threadStrengthSensitivity,
+              effectiveFromLocalDateKey: tomorrowKey,
+              createdAt: new Date().toISOString(),
+            };
+          } else {
+            currentHistory.push({
+              sensitivity: threadStrengthSensitivity,
+              effectiveFromLocalDateKey: tomorrowKey,
+              createdAt: new Date().toISOString(),
+            });
+          }
+
+          decayPreferencesHistory = currentHistory as unknown as Prisma.InputJsonValue;
+        }
+
+        const settingsData = buildSettingsUpsertData({
+          notificationsEnabled,
+          dailyReminderTime,
+          streakProtection,
+          defaultChargeDuration,
+          focusSessionMode,
+          focusSessionDuration,
+          focusSessionAudio,
+          primeSessionDuration,
+          visualizeSessionDuration,
+          primeSessionAudio,
+          sessionAudioDefaults,
+          hapticIntensity,
+          vaultViewType,
+          useProfilePhotoForVision,
+          threadStrengthSensitivity,
+          decayPreferencesHistory,
+          restDays,
+        });
 
         return tx.userSettings.upsert({
           where: { userId: user.id },

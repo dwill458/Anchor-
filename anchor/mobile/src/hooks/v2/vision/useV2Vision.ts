@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { visionApiData } from './visionApi';
 import { resolveSlotMap } from '@/components/v2/vision/board/visionBoardSlots';
+import { clampVisionNotePresentationForAspect } from '@/components/v2/vision/notes/visionNotePlacement';
 import { retainPendingVisionWrite,clearPendingVisionWrite,takePendingVisionWrites,releasePendingVisionWrites } from './visionPendingWrites';
 import { enqueueVisionMutation, getVisionMutationFeedback, subscribeVisionMutations, resetVisionMutationQueues, type VisionMutationFeedback } from './visionMutationQueue';
 import type { VisionBoardLayout, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
@@ -498,8 +499,29 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     if(accountId&&(method==='patch'||method==='put')){
       try {await retainPendingVisionWrite(accountId,anchorId,method,path,payload);retained=true;}catch{/* Online saves may still succeed when local storage is unavailable. */}
     }
+    let activePayload = payload;
     try {
-      const response = method === 'delete' ? await apiClient.delete<VisionReadModel>(path, { timeout: 15_000 }) : await apiClient[method]<VisionReadModel>(path, payload);
+      let response: any;
+      try {
+        response = method === 'delete' ? await apiClient.delete<VisionReadModel>(path, { timeout: 15_000 }) : await apiClient[method]<VisionReadModel>(path, activePayload);
+      } catch (reqErr) {
+        // Older deployed Vision APIs (e.g. Railway production) reject expectedUpdatedAt with a strict validation error.
+        // Strip it and retry once so note moves and scene updates succeed against older backend revisions.
+        if (
+          (method === 'patch' || method === 'put') &&
+          activePayload &&
+          typeof activePayload === 'object' &&
+          'expectedUpdatedAt' in activePayload &&
+          reqErr instanceof Error &&
+          /expectedupdatedat/i.test(reqErr.message)
+        ) {
+          const { expectedUpdatedAt: _ignored, ...stripped } = activePayload as Record<string, unknown>;
+          activePayload = stripped;
+          response = await apiClient[method]<VisionReadModel>(path, activePayload);
+        } else {
+          throw reqErr;
+        }
+      }
       const updated=visionApiData<VisionReadModel>(response);
       if(confirms && !confirms(updated)) {
         const local=visionReadCache.get(key);
@@ -512,7 +534,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     } catch(err) {
       if(accountId&&(method==='patch'||method==='put')&&err instanceof Error&&/network|timeout|timed out|offline|connection|fetch/i.test(err.message)) {
         setIsOffline(true);
-        try { if(!retained)await retainPendingVisionWrite(accountId,anchorId,method,path,payload); }
+        try { if(!retained)await retainPendingVisionWrite(accountId,anchorId,method,path,activePayload); }
         catch { if(isMountedRef.current&&currentCacheKey.current===key)setError('Your change could not be saved or retained for retry. Please keep your draft and try again.');return null; }
       }
       // Validation/conflict rejections require a deliberate edit after refresh; never replay them automatically.
@@ -624,16 +646,20 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     return result;
   },[key,anchorId,commitMutation]);
 
-  const updateNote = useCallback((noteId:string,input:{content?:{text:string};presentation?:VisionNotePresentation;layoutPositions?:VisionNoteLayoutPositions})=>
-    queueChange(input.content?'Note saved':'Note moved',before=>sendChange('patch',`/api/v2/visions/${encodeURIComponent(before.id)}/notes/${encodeURIComponent(noteId)}`,
-      {...input,expectedUpdatedAt:before.notes?.find(n=>n.id===noteId)?.updatedAt}),
+  const updateNote = useCallback((noteId:string,input:{content?:{text:string};presentation?:VisionNotePresentation;layoutPositions?:VisionNoteLayoutPositions})=>{
+    const sanitizedInput = input.presentation
+      ? { ...input, presentation: clampVisionNotePresentationForAspect(input.presentation, 1) }
+      : input;
+    return queueChange(input.content?'Note saved':'Note moved',before=>sendChange('patch',`/api/v2/visions/${encodeURIComponent(before.id)}/notes/${encodeURIComponent(noteId)}`,
+      {...sanitizedInput,expectedUpdatedAt:before.notes?.find(n=>n.id===noteId)?.updatedAt}),
       (before,result)=>{
         const old=before.notes?.find(n=>n.id===noteId), saved=result.notes?.find(n=>n.id===noteId);
         if(!old||!saved) return Promise.resolve(null);
         const positions=input.layoutPositions ? Object.fromEntries(Object.keys(input.layoutPositions).map(layout=>[layout,old.layoutPositions?.[layout as 'EDITORIAL'|'SCRAPBOOK']??null])) : undefined;
         return sendChange('patch',`/api/v2/visions/${encodeURIComponent(result.id)}/notes/${encodeURIComponent(noteId)}`,{
           ...(input.content?{content:old.content}:{}),...(input.presentation?{presentation:old.presentation}:{}),...(positions?{layoutPositions:positions}:{}),expectedUpdatedAt:saved.updatedAt});
-      }),[queueChange,sendChange]);
+      });
+  },[queueChange,sendChange]);
   const mutateNoteState = useCallback((noteId:string,restore:boolean)=>queueChange(restore?'Note restored':'Note deleted',
     before=>sendChange(restore?'post':'delete',`/api/v2/visions/${encodeURIComponent(before.id)}/notes/${encodeURIComponent(noteId)}${restore?'/restore':''}`),
     (_before,result)=>sendChange(restore?'delete':'post',`/api/v2/visions/${encodeURIComponent(result.id)}/notes/${encodeURIComponent(noteId)}${restore?'':'/restore'}`)),[queueChange,sendChange]);

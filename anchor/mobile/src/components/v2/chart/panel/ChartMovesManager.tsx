@@ -14,6 +14,8 @@ type Props = {
   oneMoveId: string | null;
   accent: PanelAccent;
   chart: Pick<UseAnchorChartResult, 'busy' | 'addMove' | 'acceptMove' | 'dismissMove' | 'suggestMoves'>;
+  /** 'pills': the sheet's route layout. No eyebrow; Suggest moves and Add a move are two ghost pills on one row. */
+  variant?: 'default' | 'pills';
 };
 
 /**
@@ -21,14 +23,16 @@ type Props = {
  * that live in the expanded move list of the ink panel (they are not dropped by
  * the redesign). AI suggestions stay suggestions until the person accepts one.
  */
-export function ChartMovesManager({ waypoint, isCurrent, oneMoveId, accent, chart }: Props) {
+export function ChartMovesManager({ waypoint, isCurrent, oneMoveId, accent, chart, variant = 'default' }: Props) {
+  const pills = variant === 'pills';
+  const [addOpen, setAddOpen] = useState(false);
   const [newMove, setNewMove] = useState('');
   const [suggestState, setSuggestState] = useState<'idle' | 'unavailable'>('idle');
 
   const submitMove = async () => {
     const title = newMove.trim();
     if (!title) return;
-    if (await chart.addMove(waypoint.id, title, { makeCurrent: isCurrent && !oneMoveId })) setNewMove('');
+    if (await chart.addMove(waypoint.id, title, { makeCurrent: isCurrent && !oneMoveId })) { setNewMove(''); if (pills) setAddOpen(false); }
   };
 
   const suggest = async () => {
@@ -40,7 +44,7 @@ export function ChartMovesManager({ waypoint, isCurrent, oneMoveId, accent, char
 
   return (
     <View style={styles.root}>
-      <CardKey color={accent.text}>{CHART_COPY.labels.suggestedMoves}</CardKey>
+      {pills ? null : <CardKey color={accent.text}>{CHART_COPY.labels.suggestedMoves}</CardKey>}
       {waypoint.suggestedMoves.map((move) => (
         <View key={move.id} style={styles.suggestion}>
           <Pressable
@@ -62,7 +66,18 @@ export function ChartMovesManager({ waypoint, isCurrent, oneMoveId, accent, char
           </Pressable>
         </View>
       ))}
-      {waypoint.suggestedMoves.length === 0 ? (
+      {pills ? (
+        <View style={styles.pillRow} testID="chart-move-pills">
+          <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.waypoint.suggest} onPress={() => void suggest()} disabled={suggesting} style={styles.pill} testID="chart-suggest-moves">
+            <Sparkles size={16} color={T.light} />
+            <Text style={styles.suggestText}>{suggesting ? 'Finding moves…' : CHART_COPY.waypoint.suggest}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.waypoint.addMove} accessibilityState={{ expanded: addOpen }} onPress={() => setAddOpen(value => !value)} style={styles.pill} testID="chart-add-move-pill">
+            <Plus size={16} color={T.light} />
+            <Text style={styles.suggestText}>{CHART_COPY.waypoint.addMove}</Text>
+          </Pressable>
+        </View>
+      ) : waypoint.suggestedMoves.length === 0 ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={CHART_COPY.waypoint.suggest}
@@ -76,7 +91,7 @@ export function ChartMovesManager({ waypoint, isCurrent, oneMoveId, accent, char
         </Pressable>
       ) : null}
       {suggestState === 'unavailable' ? <Text style={styles.hint}>{CHART_COPY.waypoint.suggestUnavailable}</Text> : null}
-      <View style={styles.addRow}>
+      {pills && !addOpen ? null : <View style={styles.addRow}>
         <Plus size={18} color={T.light} />
         <TextInput
           value={newMove}
@@ -95,7 +110,7 @@ export function ChartMovesManager({ waypoint, isCurrent, oneMoveId, accent, char
             <Check size={18} color={T.light} />
           </Pressable>
         ) : null}
-      </View>
+      </View>}
     </View>
   );
 }
@@ -107,6 +122,8 @@ const styles = StyleSheet.create({
   box: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5 },
   moveText: { flex: 1, fontFamily: T.sans, fontSize: 15, lineHeight: 21, color: T.light },
   icon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 6 },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: T.line, backgroundColor: 'rgba(239,234,223,.04)' },
   suggestButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 22, borderWidth: 1, borderColor: T.line, alignSelf: 'flex-start' },
   suggestText: { fontFamily: T.sansStrong, fontSize: 14, color: T.light },
   hint: { fontFamily: T.sans, fontSize: 13, color: T.muted },

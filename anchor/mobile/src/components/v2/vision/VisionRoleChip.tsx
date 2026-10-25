@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { MapPin, Package, Sparkles, UserRound } from 'lucide-react-native';
+import { Images, MapPin, Package, Sparkles, UserRound } from 'lucide-react-native';
 import { colors, typography } from '@/theme/v2';
 import type { VisionReferenceRole } from '@/types/visionConversation';
 import { VisionChoiceSheet, type VisionChoiceAction } from './VisionChoiceSheet';
@@ -11,6 +11,7 @@ const ROLE_LABELS: Record<VisionReferenceRole, string> = {
   place: 'Place',
   object: 'Object',
   inspiration: 'Inspiration',
+  world: 'Vision board',
 };
 
 const ROLE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
@@ -18,6 +19,7 @@ const ROLE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
   { key: 'place', label: 'Place', detail: 'Use a location as visual context', Icon: MapPin },
   { key: 'object', label: 'Object', detail: 'Include a specific item', Icon: Package },
   { key: 'inspiration', label: 'Inspiration', detail: 'Guide the look or feeling', Icon: Sparkles },
+  { key: 'world', label: 'Vision board', detail: 'Continue relevant details from this Vision', Icon: Images },
 ];
 
 type Props = {

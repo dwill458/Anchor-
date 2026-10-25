@@ -89,7 +89,7 @@ describe('V2ProgressHero Header Redesign', () => {
     const { getByText } = render(<V2ProgressHero model={model} anchor={styledAnchor} now={now} />);
     expect(getByText('25')).toBeTruthy();
     expect(getByText('THREAD STRENGTH')).toBeTruthy();
-    expect(getByText('ROOTED')).toBeTruthy();
+    expect(getByText('GROUNDED')).toBeTruthy();
   });
 
   it('with no practices uses the existing contextual message', () => {
@@ -150,12 +150,33 @@ describe('heroStats', () => {
 });
 
 describe('compact hero data and access', () => {
-  it.each([[0, 'SURFACE'], [10, 'GROUNDED'], [25, 'ROOTED'], [50, 'EMBEDDED'], [100, 'SOVEREIGN']])('shows persisted strength %i and level %s', (value, level) => {
+  it.each([[0, 'SURFACE'], [18, 'SURFACE'], [20, 'GROUNDED'], [27, 'GROUNDED'], [40, 'ROOTED'], [45, 'ROOTED'], [60, 'EMBEDDED'], [65, 'EMBEDDED'], [80, 'SOVEREIGN'], [100, 'SOVEREIGN']])('shows persisted strength %i and level %s', (value, level) => {
     const model = toV2ProgressModel({ ...anchor, threadStrength: value } as Anchor, [], [], { now })!;
     const { getByTestId, getByText } = render(<V2ProgressHero model={model} now={now} />);
     expect(getByTestId('v2-progress-hero-strength').props.children).toBe(value);
     expect(getByText(level)).toBeTruthy();
     expect(getByText('7-day change unavailable')).toBeTruthy();
+  });
+
+  it('displays Building your first week if the Anchor is less than 7 days old or delta7dStatus is FIRST_WEEK', () => {
+    const youngAnchor = { ...anchor, createdAt: new Date('2026-08-18T10:00:00.000Z') } as unknown as Anchor;
+    const model = toV2ProgressModel(youngAnchor, [], [], { now })!;
+    const { getByText } = render(<V2ProgressHero model={model} anchor={youngAnchor} now={now} />);
+    expect(getByText('Building your first week')).toBeTruthy();
+  });
+
+  it('displays signed delta when 7-day change is available', () => {
+    const modelWithGain = { ...toV2ProgressModel(anchor, [], [], { now })!, delta7d: 4, delta7dStatus: 'AVAILABLE' as const };
+    const { getByText: getGain } = render(<V2ProgressHero model={modelWithGain} now={now} />);
+    expect(getGain('+4 this week')).toBeTruthy();
+
+    const modelWithLoss = { ...toV2ProgressModel(anchor, [], [], { now })!, delta7d: -2, delta7dStatus: 'AVAILABLE' as const };
+    const { getByText: getLoss } = render(<V2ProgressHero model={modelWithLoss} now={now} />);
+    expect(getLoss('-2 this week')).toBeTruthy();
+
+    const modelZero = { ...toV2ProgressModel(anchor, [], [], { now })!, delta7d: 0, delta7dStatus: 'AVAILABLE' as const };
+    const { getByText: getZero } = render(<V2ProgressHero model={modelZero} now={now} />);
+    expect(getZero('0 this week')).toBeTruthy();
   });
 
   it('keeps a long intention readable and opens the existing sheet for the selected Anchor', () => {

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reminders</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.p{width:390px;background:#F4F0E8;color:#14162B;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.3}
+.hd{display:flex;align-items:center;gap:4px;padding:12px 12px 8px}
+.bk{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#14162B;border-radius:22px;text-decoration:none}
+.gl{margin:28px 20px 8px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#655F54}
+.g{margin:0 16px;background:#FBF9F4;border:1px solid #E4DDD0;border-radius:18px;overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:12px 16px;min-height:66px;color:#14162B;border-top:1px solid #E4DDD0}
+button.row{width:100%;background:none;border:0;border-top:1px solid #E4DDD0;font:inherit;text-align:left;cursor:pointer}
+.g>.row:first-child{border-top:0}
+.ic{width:36px;height:36px;border-radius:10px;background:#F3E9C8;color:#7A5A0C;display:flex;align-items:center;justify-content:center;flex:none}
+.tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.t{font-weight:600;font-size:16px}
+.s{font-size:14px;color:#655F54}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ch{color:#8A8272}
+.gold{font-size:16px;font-weight:700;color:#7A5A0C}
+.sw{position:relative;width:52px;height:32px;border-radius:16px;border:2px solid #14162B;background:#14162B;flex:none;padding:0;cursor:pointer}
+.sw::before{content:'';position:absolute;inset:-8px -4px}
+.sw .kn{position:absolute;top:2px;left:22px;width:24px;height:24px;border-radius:12px;background:#FBF9F4}
+.sw.off{background:#EFE9DC;border-color:#8A8272}
+.sw.off .kn{left:2px;background:#8A8272}
+.note{margin:10px 20px 0;font-size:14px;color:#655F54;line-height:1.4}
+</style>
+</helmet>
+<div class="p" style="height:900px;overflow:hidden">
+
+<div class="hd">
+<a class="bk" href="Main.dc.html" aria-label="Back to settings"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+<h1 style="margin:0;font-size:22px;font-weight:600">Reminders</h1>
+</div>
+
+<div class="gl" style="margin-top:12px">Daily reminder</div>
+<div class="g">
+<div class="row">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0"/></svg></span>
+<span class="tx"><span class="t">Daily reminder</span><span class="s">One nudge a day, at a time you choose</span></span>
+<button class="sw" role="switch" aria-checked="true" aria-label="Daily reminder"><span class="kn"></span></button>
+</div>
+<button class="row" style="min-height:60px">
+<span class="tx"><span class="t">Remind me at</span></span>
+<span class="gold">8:00 AM</span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</button>
+</div>
+<p class="note">Sends every day, even after you've practiced.</p>
+
+<div class="gl">Gentle nudges</div>
+<div class="g">
+<div class="row">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.500-7 10-7 10z"/></svg></span>
+<span class="tx"><span class="t">Momentum check-ins</span><span class="s">A gentle nudge after time away</span></span>
+<button class="sw" role="switch" aria-checked="true" aria-label="Momentum check-ins"><span class="kn"></span></button>
+</div>
+<div class="row">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.500" y="5" width="17" height="15" rx="2.500"/><path d="M3.500 10h17M8 3v4M16 3v4"/></svg></span>
+<span class="tx"><span class="t">Weekly recap</span><span class="s">A look back at your week of practice</span></span>
+<button class="sw" role="switch" aria-checked="true" aria-label="Weekly recap"><span class="kn"></span></button>
+</div>
+</div>
+
+<div class="gl">Tone</div>
+<div class="g">
+<button class="row">
+<span class="tx"><span class="t">Notification tone</span><span class="s">Applies to check-ins and your weekly recap</span></span>
+<span class="gold" style="font-size:15px">Reflective</span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</button>
+<div style="padding:0 16px 16px">
+<div style="background:#F0EADC;border-radius:14px;padding:12px 14px">
+<div class="s" style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sample</div>
+<div style="font-size:15px;margin-top:4px;line-height:1.4">“[Sample message in the chosen tone]”</div>
+</div>
+</div>
+</div>
+
+<div class="gl">Time zone</div>
+<div class="g">
+<div class="row">
+<span class="tx"><span class="t">Set automatically</span><span class="s">Following your device · Chicago (UTC−5)</span></span>
+<button class="sw" role="switch" aria-checked="true" aria-label="Set time zone automatically"><span class="kn"></span></button>
+</div>
+</div>
+<p class="note">Used for your reminders and for what counts as a day.</p>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

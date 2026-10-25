@@ -64,8 +64,14 @@ describe('normalizeAskTurn', () => {
   it('trims, dedupes and caps suggestions, and keeps the reply', () => {
     const turn = normalizeAskTurn(validTurn);
     expect(turn.reply).toBe(validTurn.reply);
-    expect(turn.suggestions).toEqual(['Mostly myself', 'Mix of both', 'Body shop', 'A']);
+    expect(turn.suggestions).toEqual(['Mostly myself', 'Mix of both', 'Body shop', 'Not sure yet']);
     expect(turn.action).toBeNull();
+  });
+
+  it('adds one not-sure reply, and never to an empty or already-covered set', () => {
+    expect(normalizeAskTurn({ ...validTurn, suggestions: ['Under a year', 'A few years'] }).suggestions).toEqual(['Under a year', 'A few years', 'Not sure yet']);
+    expect(normalizeAskTurn({ ...validTurn, suggestions: ['Soon', "I'm not sure"] }).suggestions).toEqual(['Soon', "I'm not sure"]);
+    expect(normalizeAskTurn({ ...validTurn, suggestions: [] }).suggestions).toEqual([]);
   });
 
   it('rejects an empty reply and malformed shapes instead of repairing them', () => {

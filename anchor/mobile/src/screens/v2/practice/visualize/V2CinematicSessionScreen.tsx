@@ -216,16 +216,17 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, boardLayo
     let outcome: 'queued' | 'failed' | 'not_recorded' = 'not_recorded';
     if (accountId) try {
       const record = await PracticeCompletionService.commitVisualizeCompletion({
-        id: sessionId.current, accountId, anchor, durationSeconds, startedAt, completedAt,
+        id: sessionId.current, accountId, anchor, durationSeconds, actualDurationSeconds: Math.round(plan.durationMs / 1000), startedAt, completedAt,
         guidanceVoice: voice, backgroundAudio, sceneSnapshot, source: 'practice_screen',
         metadata: { v2_entry_source: source, guided_visualize_version: 1, ...(visionId ? { vision_id: visionId } : {}) },
       }); completionResult.current = { record, saved: true }; outcome = 'queued';
     } catch { outcome = 'failed'; }
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_COMPLETED, {
       practice_mode: 'visualize', session_id: sessionId.current, anchor_id: anchor.id, duration_seconds: durationSeconds,
+      actual_duration_seconds: Math.round(plan.durationMs / 1000),
       guidance_voice: voice, background_audio: backgroundAudio, sync_outcome: outcome, completed_at: completedAt, v2: true,
     });
-  }, [accountId, anchor, backgroundAudio, durationSeconds, sceneSnapshot, source, visionId, voice]);
+  }, [accountId, anchor, backgroundAudio, durationSeconds, plan.durationMs, sceneSnapshot, source, visionId, voice]);
   // The guided track's playback position is the only clock. `elapsed` mirrors it for the UI thread.
   const elapsed = useSharedValue(0);
   const engine = useGuidedPlayback({ asset: guidedAsset, enabled: !prepareOnly, muted: voice === 'none', durationMs: plan.durationMs,
@@ -319,13 +320,25 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, boardLayo
     (segment.kind === 'return' && segmentProgress > 0.55) || segment.kind === 'arrival' || (segment.kind === 'breakout' && segmentProgress < 0.6);
   const ambientLight = engine.positionMs < 1000 || engine.positionMs > (timeline.lightReturnMs ?? plan.durationMs) + 1500;
   const onPaper = boardShowing && ambientLight && cinematicGradeAt(timeline, engine.positionMs).dim < 0.35;
-  const [displayLine, setDisplayLine] = useState<string | null>(null);
+  const [lastLine, setLastLine] = useState<string | null>(null);
+  // Show a newly spoken line in this commit; the retained line only serves its fade-out.
+  const displayLine = line ?? lastLine;
   const textOpacity = useSharedValue(0);
   useEffect(() => {
     if (engine.state === 'paused') { cancelAnimation(textOpacity); return; }
-    if (line) setDisplayLine(line);
+    if (line) setLastLine(line);
     textOpacity.value = withTiming(line ? 1 : 0, { duration: reduced ? 0 : line ? 260 : 360 });
   }, [line, engine.state, reduced, textOpacity]);
+  const reportedCaption = useRef<string | null>(null);
+  useEffect(() => {
+    const key = `${resolved.caption?.phraseId}:${line}`;
+    if (!__DEV__ || process.env.JEST_WORKER_ID || !line || displayLine !== line || key === reportedCaption.current) return;
+    reportedCaption.current = key;
+    console.info('[SESSION_AUDIO_CAPTION]', JSON.stringify({
+      positionMs: engine.positionMs, phraseId: resolved.caption?.phraseId, text: displayLine,
+      chapter: resolved.chapter, segment: segment.kind, voice, durationSeconds,
+    }));
+  }, [displayLine, line, engine.positionMs, resolved.caption?.phraseId, resolved.chapter, segment.kind, voice, durationSeconds]);
   const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value }));
 
   if (engine.state === 'failed') return <View testID="v2-visualize-session" style={styles.root}>

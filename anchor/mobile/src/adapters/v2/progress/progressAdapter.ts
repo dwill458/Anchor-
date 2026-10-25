@@ -887,6 +887,8 @@ export function toV2ProgressModel(
     waypointsReachedCount,
     events,
     fullStrengthAt: recordedDate(extras?.celebrations?.fullStrengthAt),
+    delta7d: (anchor as any).delta7d ?? null,
+    delta7dStatus: (anchor as any).delta7dStatus ?? null,
   };
   if (!extras) return base;
 

@@ -156,7 +156,8 @@ describe('Waypoint detail', () => {
     // All moves, and the suggestions, live in the expanded ONE MOVE card.
     expect(screen.getByTestId('chart-one-move-row')).toBeTruthy();
     await openFullSheet(screen);
-    expect(screen.getByText('SUGGESTED MOVES')).toBeTruthy();
+    // DEFERRED: expect(screen.getByText('SUGGESTED MOVES')).toBeTruthy();  (the eyebrow is gone; suggestions sit above the Suggest/Add pills)
+    expect(screen.queryByText('SUGGESTED MOVES')).toBeNull();
     // DEFERRED: expect(screen.getByTestId('chart-one-move-title').props.children).toBe('Finish onboarding redesign');
     expect(screen.getByTestId('chart-one-move-title').props.children).toBe('Finish onboarding redesign');
     expect(screen.getByLabelText('Add suggested move: Launch creator campaign')).toBeTruthy();
@@ -173,6 +174,7 @@ describe('Waypoint detail', () => {
     post.mockResolvedValue({ data: { success: true, data: chart() } });
     const screen = render(<V2ChartWaypointScreen />);
     await openFullSheet(screen);
+    fireEvent.press(await screen.findByTestId('chart-add-move-pill'));
     fireEvent.changeText(await screen.findByTestId('chart-add-move'), 'Email three creators');
     fireEvent(screen.getByTestId('chart-add-move'), 'submitEditing');
     await waitFor(() => expect(post).toHaveBeenCalled());

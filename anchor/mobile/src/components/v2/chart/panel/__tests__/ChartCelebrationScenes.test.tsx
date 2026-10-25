@@ -267,8 +267,10 @@ describe('Waypoint reached (W1)', () => {
     // The menu's confirm and the sheet's own Mark confirm are both open, then both answer Yes in the same tick.
     fireEvent.press(screen.getByTestId('chart-menu-button'));
     fireEvent.press(screen.getByTestId('chart-mark-waypoint'));
+    // peek -> half -> full, where the route list (and its reach button) is reachable
     fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
-    fireEvent.press(screen.getByTestId('chart-mark-waypoint-cta'));
+    fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
+    fireEvent.press(screen.getByTestId('chart-route-reach'));
     const yes = screen.getAllByTestId('chart-reach-yes');
     expect(yes.length).toBeGreaterThanOrEqual(2);
     const reach = jest.spyOn(sequences, 'reachSequence');

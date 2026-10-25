@@ -373,7 +373,7 @@ describe('sessionStore', () => {
       expect(result.current.threadStrength).toBe(60);
     });
 
-    it('applies 30-point decay on the second missed day with balanced sensitivity', () => {
+    it('applies 3-point decay on the second missed day with balanced sensitivity', () => {
       const twoDaysAgo = localDateString(new Date(Date.now() - 2 * 86400000));
       const { result } = renderHook(() => useSessionStore());
       act(() => {
@@ -384,22 +384,22 @@ describe('sessionStore', () => {
         });
         result.current.applyDecay();
       });
-      expect(result.current.threadStrength).toBe(30);
+      expect(result.current.threadStrength).toBe(57);
     });
 
-    it('does not drop below 10 on the first decay day', () => {
+    it('does not drop below 0 on the first decay day', () => {
       mockSettingsStoreState.threadStrengthSensitivity = 'strict';
       const yesterday = localDateString(new Date(Date.now() - 86400000));
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({
           lastPrimedAt: yesterday,
-          threadStrength: 15,
+          threadStrength: 2,
           lastDecayDate: null,
         });
         result.current.applyDecay();
       });
-      expect(result.current.threadStrength).toBe(10); // floored at 10
+      expect(result.current.threadStrength).toBe(0); // floored at 0
     });
 
     it('skips decay for lenient sensitivity until the third missed day', () => {
@@ -529,7 +529,7 @@ describe('sessionStore', () => {
       expect(result.current.lastPrimedAt).toBe(
         localDateString(new Date(secondCompletedAt)),
       );
-      expect(result.current.threadStrength).toBe(100);
+      expect(result.current.threadStrength).toBe(65);
     });
 
     it('replays a restored Visualize session as a +40 Thread Strength gain', () => {
@@ -558,7 +558,7 @@ describe('sessionStore', () => {
         });
       });
 
-      expect(result.current.threadStrength).toBe(90);
+      expect(result.current.threadStrength).toBe(40);
     });
 
     it('rebinds locally-persisted legacy-owned practice history to the authenticated account even when no new backend progress arrives', () => {

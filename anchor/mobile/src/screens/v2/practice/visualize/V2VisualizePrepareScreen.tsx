@@ -11,7 +11,6 @@ import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene'
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
 import { useVisionBoardComposition } from '@/components/v2/vision/board/useVisionBoardComposition';
 import type { VisionBoardLayout } from '@/adapters/v2/vision';
-import { v2PracticeDurationLabel } from '@/constants/v2/practice';
 import { useSessionAudioSetup, useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
 import { V2PracticeAudioSheet } from '@/components/v2/practice/V2PracticeAudioSheet';
 import { V2PracticeSettingsCard } from '@/components/v2/practice/V2PracticeSettingsCard';
@@ -27,7 +26,7 @@ import { getVisualizeMonotonicNow } from '@/screens/visualize/useVisualizeSessio
 import { useAuthStore } from '@/stores/authStore';
 import { useRemoteAudioReady } from '@/hooks/useRemoteAudioReady';
 import { getGuidedTrackAsset } from '@/services/visualizeGuidedTracks';
-import { guideForVoice, trackForDuration, type GuidedDurationSeconds } from './guided/visualizeBeatMap';
+import { guideForVoice, trackForDuration, v2VisualizeDurationLabel, type GuidedDurationSeconds } from './guided/visualizeBeatMap';
 import { availableVisualizePhotoHeight, fitVisualizePhotoFrame, VISUALIZE_PHOTO_MAX_HEIGHT_FRACTION, visualizeEntrySceneTransform, visualizePhotoSceneTarget } from './visualizePhotoFrame';
 
 export type V2VisualizeBeginConfig = {
@@ -392,12 +391,13 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, n
           <View style={styles.durations}>
             {V2_VISUALIZE_DURATIONS.map(option => {
               const selected = option === duration;
+              const durationLabel = v2VisualizeDurationLabel(option);
               return (
                 <Pressable key={option} accessibilityRole="button" accessibilityState={{ selected }}
-                  accessibilityLabel={`${v2PracticeDurationLabel(option)}${selected ? ', selected' : ''}`}
+                  accessibilityLabel={`${v2VisualizeDurationLabel(option, true)}${selected ? ', selected' : ''}`}
                   onPress={() => setDuration(option)}
                   style={[styles.duration, selected && { borderColor: ACCENT, backgroundColor: `${ACCENT}1F` }]}>
-                  <Text style={[styles.durationText, selected && { color: ACCENT, fontFamily: 'Inter-SemiBold' }]}>{v2PracticeDurationLabel(option)}</Text>
+                  <Text style={[styles.durationText, selected && { color: ACCENT, fontFamily: 'Inter-SemiBold' }]}>{durationLabel}</Text>
                 </Pressable>
               );
             })}

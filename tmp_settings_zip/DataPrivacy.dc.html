@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Data and privacy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.p{width:390px;background:#F4F0E8;color:#14162B;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.3}
+.hd{display:flex;align-items:center;gap:4px;padding:12px 12px 8px}
+.bk{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#14162B;border-radius:22px;text-decoration:none}
+.gl{margin:28px 20px 8px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#655F54}
+.g{margin:0 16px;background:#FBF9F4;border:1px solid #E4DDD0;border-radius:18px;overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:12px 16px;min-height:66px;text-decoration:none;color:#14162B;border-top:1px solid #E4DDD0}
+.g>.row:first-child{border-top:0}
+.ic{width:36px;height:36px;border-radius:10px;background:#F3E9C8;color:#7A5A0C;display:flex;align-items:center;justify-content:center;flex:none}
+.tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.t{font-weight:600;font-size:16px}
+.s{font-size:14px;color:#655F54;line-height:1.4}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ch{color:#8A8272}
+.sw{position:relative;width:52px;height:32px;border-radius:16px;border:2px solid #14162B;background:#14162B;flex:none;padding:0;cursor:pointer}
+.sw::before{content:'';position:absolute;inset:-8px -4px}
+.sw .kn{position:absolute;top:2px;left:22px;width:24px;height:24px;border-radius:12px;background:#FBF9F4}
+.warn{font-size:13px;font-weight:600;color:#7A5A0C;background:#F3E9C8;border-radius:12px;padding:6px 12px}
+</style>
+</helmet>
+<div class="p" style="height:760px;overflow:hidden">
+
+<div class="hd">
+<a class="bk" href="Main.dc.html" aria-label="Back to settings"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+<h1 style="margin:0;font-size:22px;font-weight:600">Data &amp; privacy</h1>
+</div>
+
+<div style="display:flex;gap:14px;margin:12px 16px 0;padding:16px;background:#F3E9C8;border-radius:18px">
+<span style="color:#7A5A0C"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6l8-3z"/></svg></span>
+<span style="font-size:15px;line-height:1.45">Your Anchors, practice progress and drafts are stored locally on this device.</span>
+</div>
+
+<div class="gl">Your data</div>
+<div class="g">
+<a class="row" href="Backup.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 01-.5-8A6 6 0 0118 9a4.500 4.500 0 01-.5 9H7M12 12v6M9.500 14.500L12 12l2.500 2.500"/></svg></span>
+<span class="tx"><span class="t">Backup &amp; recovery</span><span class="s">Never backed up</span></span>
+<span class="warn">Set up</span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+<a class="row" href="DataPrivacy.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.500 10.500L12 15l4.500-4.500M5 20h14"/></svg></span>
+<span class="tx"><span class="t">Export my data</span><span class="s">Create a copy of your Anchor data</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+</div>
+
+<div class="gl">Privacy</div>
+<div class="g">
+<div class="row">
+<span class="tx"><span class="t">Share anonymous analytics</span><span class="s">Anonymous usage data helps us improve Anchor.</span></span>
+<button class="sw" role="switch" aria-checked="true" aria-label="Share anonymous analytics"><span class="kn"></span></button>
+</div>
+</div>
+
+<div class="gl">Danger zone</div>
+<div class="g">
+<a class="row" href="Main.dc.html">
+<span class="tx"><span class="t" style="color:#A8451F">Delete account</span><span class="s">Permanently remove your account and all data</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

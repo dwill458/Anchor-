@@ -7,6 +7,8 @@ const mockRequestPermissions = jest.fn(() => Promise.resolve(true));
 const mockToggleNotifications = jest.fn(() => Promise.resolve());
 const mockUpdateNotificationPreferences = jest.fn(() => Promise.resolve());
 const mockSetReduceMotion = jest.fn();
+const mockSetHapticIntensity = jest.fn();
+const mockSetSoundEffectsEnabled = jest.fn();
 const mockResetTeaching = jest.fn();
 const mockRestorePurchases = jest.fn();
 const mockNavigate = jest.fn();
@@ -28,6 +30,23 @@ const mockSettings = {
 const mockSettingsStoreState = {
   traceDefaultEnabled: true,
   setTraceDefaultEnabled: jest.fn(),
+  guideMode: true,
+  setGuideMode: jest.fn(),
+  reduceIntentionVisibility: false,
+  setReduceIntentionVisibility: jest.fn(),
+  openDailyAnchorAutomatically: false,
+  setOpenDailyAnchorAutomatically: jest.fn(),
+  hapticIntensity: 80,
+  setHapticIntensity: mockSetHapticIntensity,
+  soundEffectsEnabled: true,
+  setSoundEffectsEnabled: mockSetSoundEffectsEnabled,
+  sessionAudioDefaults: {
+    focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+  },
+  setSessionAudioDefaults: jest.fn(),
+  setLastSessionDuration: jest.fn(),
   reduceMotion: 'system' as const,
   setReduceMotion: mockSetReduceMotion,
   analyticsEnabled: true,
@@ -155,6 +174,7 @@ describe('SettingsScreen', () => {
     mockNotifState.notification_enabled = false;
     mockNotifState.weeklyRecapEnabled = false;
     mockNotifState.dailyPrimeTime = '21:00';
+    mockTrialStatus = { isSubscribed: false, isTrialActive: true, daysRemaining: 4 };
     mockAuthStoreState.user = { id: 'user-1', email: 'member@anchor.test', displayName: 'Mara Vale' };
     mockAuthStoreState.isAuthenticated = true;
     mockAuthStoreState.isGuest = false;
@@ -169,36 +189,36 @@ describe('SettingsScreen', () => {
   it('renders the canonical editorial settings hub with profile header and categories', () => {
     const screen = render(<SettingsScreen />);
 
-    expect(screen.getByText('Profile & Settings')).toBeTruthy();
+    expect(screen.getByText('Settings')).toBeTruthy();
     expect(screen.getByText('Mara Vale')).toBeTruthy();
     expect(screen.getByText('TRIAL')).toBeTruthy();
     expect(screen.getByText('Anchors')).toBeTruthy();
     expect(screen.getByText('Sessions')).toBeTruthy();
+    expect(screen.getByText('Reminders')).toBeTruthy();
+    expect(screen.getByText('Sound & feel')).toBeTruthy();
+    expect(screen.getByText('Backup & recovery')).toBeTruthy();
+    expect(screen.getByText('Data & privacy')).toBeTruthy();
+    expect(screen.getByText('Account & subscription')).toBeTruthy();
+    expect(screen.getByText('Help & about')).toBeTruthy();
+    expect(screen.getByText('Not backed up')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Practice')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Notifications & reminders')).toBeTruthy();
     expect(screen.getByTestId('settings-row-App experience')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Account & data')).toBeTruthy();
+    expect(screen.getByTestId('settings-row-Subscription')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Privacy & support')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Sign Out')).toBeTruthy();
   });
 
-  it('opens the Chart opening lab from Settings in an enabled staging V2 preview', () => {
-    process.env.EXPO_PUBLIC_APP_ENV = 'staging';
-    process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED = 'true';
-    const emitSpy = jest.spyOn(DeviceEventEmitter, 'emit');
+  it('summarises real settings on the hub rows', () => {
+    const screen = render(<SettingsScreen />);
 
-    try {
-      const screen = render(<SettingsScreen />);
-      fireEvent.press(screen.getByTestId('settings-row-Chart opening preview'));
-
-      expect(emitSpy).toHaveBeenCalledWith('openChartLab');
-    } finally {
-      emitSpy.mockRestore();
-    }
+    expect(screen.getByText('3 a day \u00b7 Balanced \u00b7 Serene voice')).toBeTruthy();
+    expect(screen.getByText('Strong haptics \u00b7 Sound effects on')).toBeTruthy();
   });
 
-  it('hides the Chart opening lab row in production, even with V2 enabled', () => {
-    process.env.EXPO_PUBLIC_APP_ENV = 'production';
+  it('keeps release-only screens free of developer tools: no Chart opening preview row', () => {
+    process.env.EXPO_PUBLIC_APP_ENV = 'staging';
     process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED = 'true';
 
     const screen = render(<SettingsScreen />);
@@ -206,68 +226,67 @@ describe('SettingsScreen', () => {
     expect(screen.queryByTestId('settings-row-Chart opening preview')).toBeNull();
   });
 
-  it('navigates to App Experience and persists an interface preference', () => {
+  it('navigates to Sound & feel and persists an interface preference', () => {
     const screen = render(<SettingsScreen />);
 
-    // Tap into App Experience subscreen
     fireEvent.press(screen.getByTestId('settings-row-App experience'));
-    expect(screen.getByText('App experience')).toBeTruthy();
+    expect(screen.getByText('Sound & feel')).toBeTruthy();
 
-    // Toggle Sound Effects
-    fireEvent.press(screen.getByTestId('settings-row-Sound Effects'));
-    expect(mockUpdateSetting).toHaveBeenCalledWith('soundEffectsEnabled', false);
+    fireEvent.press(screen.getByLabelText('Sound effects'));
+    expect(mockSetSoundEffectsEnabled).toHaveBeenCalledWith(false);
   });
 
-  it('navigates to the redesigned Notifications screen (permission flows live in its own suite)', async () => {
+  it('navigates to the redesigned Reminders screen (permission flows live in its own suite)', async () => {
     const screen = render(<SettingsScreen />);
 
     fireEvent.press(screen.getByTestId('settings-row-Notifications & reminders'));
-    expect(screen.getByText('Notifications & reminders')).toBeTruthy();
-    expect(screen.getByText('YOUR DAILY MOMENT')).toBeTruthy();
+    expect(screen.getByText('Reminders')).toBeTruthy();
+    expect(screen.getByText('Gentle nudges')).toBeTruthy();
+    expect(screen.getByText('Time zone')).toBeTruthy();
     expect(screen.getByLabelText('Daily reminder')).toBeTruthy();
   });
 
   it('notifications back returns to the main settings list', async () => {
     const screen = render(<SettingsScreen />);
     fireEvent.press(screen.getByTestId('settings-row-Notifications & reminders'));
-    expect(screen.getByText('YOUR DAILY MOMENT')).toBeTruthy();
+    expect(screen.getByText('Gentle nudges')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Back'));
-    expect(screen.queryByText('YOUR DAILY MOMENT')).toBeNull();
+    expect(screen.queryByText('Gentle nudges')).toBeNull();
     expect(screen.getByTestId('settings-row-Notifications & reminders')).toBeTruthy();
   });
 
-  it('persists picker choices for haptics and reduced motion in App Experience', async () => {
+  it('persists segmented choices for haptics and reduced motion in Sound & feel', () => {
     const screen = render(<SettingsScreen />);
 
     fireEvent.press(screen.getByTestId('settings-row-App experience'));
 
-    fireEvent.press(screen.getByTestId('settings-row-Haptic Feedback'));
     fireEvent.press(screen.getByLabelText('Soft'));
-    await waitFor(() => expect(mockUpdateSetting).toHaveBeenCalledWith('hapticFeedback', 'light'));
+    expect(mockSetHapticIntensity).toHaveBeenCalledWith(25);
 
-    fireEvent.press(screen.getByTestId('settings-row-Reduce Motion'));
     fireEvent.press(screen.getByLabelText('Reduced'));
     expect(mockSetReduceMotion).toHaveBeenCalledWith('on');
   });
 
-  it('uses confirmation before resetting teaching tips in App Experience', () => {
+  it('uses confirmation before replaying app tips in Help & about', () => {
     const screen = render(<SettingsScreen />);
 
-    fireEvent.press(screen.getByTestId('settings-row-App experience'));
+    fireEvent.press(screen.getByTestId('settings-row-Privacy & support'));
+    expect(screen.getByText('Legal')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('settings-row-Reset Teaching Tips'));
-    expect(screen.getByText('Reset teaching tips?')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Reset'));
+    fireEvent.press(screen.getByTestId('settings-row-Replay app tips'));
+    expect(screen.getByText('Replay app tips?')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Replay'));
 
     expect(mockResetTeaching).toHaveBeenCalled();
   });
 
-  it('navigates to Account & Data, restores purchases and keeps store errors user-facing', async () => {
+  it('navigates to Account & subscription, restores purchases and keeps store errors user-facing', async () => {
     const alert = jest.spyOn(Alert, 'alert');
     mockRestorePurchases.mockResolvedValueOnce({ hasActiveEntitlement: false });
     const screen = render(<SettingsScreen />);
 
-    fireEvent.press(screen.getByTestId('settings-row-Account & data'));
+    fireEvent.press(screen.getByTestId('settings-row-Subscription'));
+    expect(screen.getByText('member@anchor.test')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('settings-row-Restore Purchases'));
 
@@ -275,6 +294,28 @@ describe('SettingsScreen', () => {
       expect(mockRestorePurchases).toHaveBeenCalled();
       expect(alert).toHaveBeenCalledWith('No subscription found', expect.stringContaining('No active subscription'));
     });
+  });
+
+  it('puts export, analytics and delete account under Data & privacy', () => {
+    const screen = render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByTestId('settings-row-Account & data'));
+
+    expect(screen.getByText('Your Anchors, practice progress and drafts are stored locally on this device.')).toBeTruthy();
+    expect(screen.getByTestId('settings-row-Export my data')).toBeTruthy();
+    expect(screen.getByLabelText('Share anonymous analytics')).toBeTruthy();
+    expect(screen.getByTestId('settings-row-Delete account')).toBeTruthy();
+  });
+
+  it('opens Edit profile as a screen with the Vision photo toggle inside it', () => {
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.queryByTestId('settings-toggle-vision-profile-photo')).toBeNull();
+    fireEvent.press(screen.getByTestId('settings-row-Edit profile'));
+
+    expect(screen.getByTestId('edit-profile-screen')).toBeTruthy();
+    expect(screen.getByTestId('settings-toggle-vision-profile-photo')).toBeTruthy();
+    expect(screen.getByText('Add a profile photo first to turn this on.')).toBeTruthy();
   });
 
   it('navigates to Login when Sign In row is pressed by unauthenticated user', () => {
@@ -294,15 +335,29 @@ describe('SettingsScreen', () => {
 
     // Enter Practice subscreen
     fireEvent.press(screen.getByTestId('settings-row-Practice'));
-    expect(screen.getByText('Practice')).toBeTruthy();
+    expect(screen.getByText('Daily goal')).toBeTruthy();
     expect(screen.getByText('Session defaults')).toBeTruthy();
+    expect(screen.getByText('Open to Practice')).toBeTruthy();
 
     // Tap back button
     fireEvent.press(screen.getByLabelText('Back'));
 
     // Returns to main Hub
-    expect(screen.getByText('Profile & Settings')).toBeTruthy();
+    expect(screen.getByText('Settings')).toBeTruthy();
     expect(screen.getByTestId('settings-row-Practice')).toBeTruthy();
+  });
+
+  it('autosaves Session defaults per mode without a save button', () => {
+    const screen = render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByTestId('settings-row-Practice'));
+    fireEvent.press(screen.getByTestId('settings-row-Session defaults'));
+
+    expect(screen.getByText('Changes save automatically.')).toBeTruthy();
+    expect(screen.getByText('Reset Focus to original defaults')).toBeTruthy();
+    expect(screen.queryByText('Save defaults')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Deep Focus'));
+    expect(screen.getByText('Reset Deep Focus to original defaults')).toBeTruthy();
   });
 
   it('renders PRO badge and summary when user is subscribed', () => {
@@ -310,7 +365,7 @@ describe('SettingsScreen', () => {
     const screen = render(<SettingsScreen />);
 
     expect(screen.getByText('PRO')).toBeTruthy();
-    expect(screen.getByText('Pro')).toBeTruthy();
+    expect(screen.getByText('Anchor Pro \u00b7 Active')).toBeTruthy();
   });
 
   it('renders FREE badge and summary when user has no active subscription or trial', () => {
@@ -318,7 +373,7 @@ describe('SettingsScreen', () => {
     const screen = render(<SettingsScreen />);
 
     expect(screen.getByText('FREE')).toBeTruthy();
-    expect(screen.getByText('Free')).toBeTruthy();
+    expect(screen.getByText('Anchor Free')).toBeTruthy();
   });
 
   it('renders Developer Tools row under __DEV__ environment', () => {
@@ -338,10 +393,10 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Clear')).toBeTruthy();
   });
 
-  it('renders header title for Notifications & reminders cleanly without truncation', () => {
+  it('renders the Reminders header cleanly without truncation', () => {
     const screen = render(<SettingsScreen />);
     fireEvent.press(screen.getByTestId('settings-row-Notifications & reminders'));
-    expect(screen.getByText('Notifications & reminders')).toBeTruthy();
+    expect(screen.getByText('Reminders')).toBeTruthy();
   });
 });
 jest.mock('@/components/ToastProvider', () => ({ useToast: () => ({ info: jest.fn() }) }));

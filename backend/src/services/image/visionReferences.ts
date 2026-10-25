@@ -46,6 +46,8 @@ export function visionReferenceInstructions(
           return `${title} supplies a selected place. Use its relevant features as the scene requests, without forcing its viewpoint, camera, lighting, or layout onto a new composition.${label}`;
         case 'object':
           return `${title} supplies a selected object. Keep that object's recognizable details; its background and viewpoint are not constraints.${label}`;
+        case 'world':
+          return `${title} is already part of the person's saved Vision board. Continue recognizable details from it when they are relevant to the described scene, while the scene description controls the setting, action, composition, lighting and camera. Do not force unrelated subjects from this photo into the new scene.${label}`;
         default:
           return `${title} is inspiration for mood, colours, style or lighting only. Do not copy its subjects, geometry or composition unless explicitly requested.${label}`;
       }

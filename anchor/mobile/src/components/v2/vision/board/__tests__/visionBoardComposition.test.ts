@@ -48,4 +48,21 @@ describe('shared Vision board composition', () => {
     expect(result.slotMap.slice(0, 2)).toEqual(['p1', 'p0']);
     expect(input.map(p => p.sceneId)).toEqual(['p0', 'p1']);
   });
+
+  it('limits row shifts on boards with notes to avoid excessive vertical space', () => {
+    const fourTiles = tiles(4, 'A lovely caption here');
+    const note1: VisionNote = {
+      id: 'n1', visionId: 'v', content: { text: 'I am so grateful...' },
+      presentation: { styleId: 'sticky_butter_yellow', x: 0.8, y: 0.65, width: 0.2, height: 0.12, rotation: 3, scale: 1, layerOrder: 2 },
+      createdAt: '', updatedAt: '',
+    };
+    const note2: VisionNote = {
+      id: 'n2', visionId: 'v', content: { text: 'I love my beautiful home' },
+      presentation: { styleId: 'sticky_butter_yellow', x: 0.4, y: 0.75, width: 0.22, height: 0.14, rotation: -2, scale: 1, layerOrder: 3 },
+      createdAt: '', updatedAt: '',
+    };
+    const result = composeVisionBoard({ tiles: fourTiles, notes: [note1, note2], width: 366, boardLayout: 'CLASSIC' });
+    expect(result.shifts[2] - result.shifts[1]).toBeLessThanOrEqual(0.5);
+    expect(result.ratio).toBeLessThan(3.0);
+  });
 });

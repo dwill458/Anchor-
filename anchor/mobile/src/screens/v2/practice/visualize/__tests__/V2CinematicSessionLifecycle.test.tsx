@@ -255,7 +255,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockConfirm).not.toHaveBeenCalled();
   });
 
-  it('renders the caption for the phrase the audio position is in, and none through the Anchor chapter', () => {
+  it('renders the caption for the current spoken phrase, including the Anchor chapter', () => {
     const plan = buildGuidedPlan({ durationSeconds: 60, guide: 'lina', imageCount: 1 });
     const view = renderReadySession();
     measureMark();
@@ -264,7 +264,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(view.getByTestId('v2-visualize-caption').props.children).toBe('Don’t just see the picture. Step into it.');
     const anchorPhrase = plan.beatMap.phrases.find(item => item.chapter === 'ANCHOR')!;
     mockEngine.positionMs = anchorPhrase.startMs + 300; rerenderSession(view);
-    expect(plan.captions.some(item => item.startMs <= mockEngine.positionMs && mockEngine.positionMs < item.endMs)).toBe(false);
+    expect(view.getByTestId('v2-visualize-caption').props.children).toBe(plan.captions.find(item => item.phraseId === anchorPhrase.id)?.text);
   });
 
   it('drives the stage from the audio clock it hands the playback hook, not from a timer of its own', () => {
@@ -272,7 +272,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     measureMark();
     const params = mockEngineHook.mock.calls[0][0];
     expect(params.positionSV).toBeDefined();
-    expect(params.durationMs).toBe(64_800);
+    expect(params.durationMs).toBe(65_120);
     expect(params.muted).toBe(true);
   });
 
@@ -297,7 +297,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockCompletion).toHaveBeenCalledTimes(1);
     mockEngine.state = 'completing';
     mockEngine.remainingSeconds = 0;
-    mockEngine.positionMs = 64_800;
+    mockEngine.positionMs = 65_120;
     view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
       statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
       source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
@@ -327,7 +327,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
       statement="Changed later" durationSeconds={600} voice="male" ambient haptics
       source="recommended_today" onExit={view.onExit} onContinue={view.onContinue} />);
     const last = mockEngineHook.mock.calls[mockEngineHook.mock.calls.length - 1][0];
-    expect(last.durationMs).toBe(64_800);
+    expect(last.durationMs).toBe(65_120);
     expect(last.muted).toBe(true);
     await act(async () => { await last.onComplete({ startedAt: '2026-09-30T10:00:00.000Z', completedAt: '2026-09-30T10:01:00.000Z' }); });
     expect(mockCompletion).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'user-1', anchor, durationSeconds: 60, guidanceVoice: 'none', backgroundAudio: 'off' }));
@@ -436,7 +436,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
       voice="male" ambient haptics source="practice_hub" onExit={onExit} onContinue={onContinue} />);
     expect(mockCinematicStageProps.composition).toBe(composition);
     expect(mockCinematicStageProps.focalPoints).toEqual(assets.focalPoints);
-    expect(mockEngineHook.mock.calls.at(-1)![0]).toMatchObject({ durationMs: 64_800, muted: true });
+    expect(mockEngineHook.mock.calls.at(-1)![0]).toMatchObject({ durationMs: 65_120, muted: true });
     expect(JSON.stringify({ photographs, note })).toBe(before);
   });
 

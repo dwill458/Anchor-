@@ -45,7 +45,10 @@ export function ChartOneMoveRow({
   const checkStyle = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
   // The move's own reason (`rationale` is what the server stores) comes first; the waypoint is only the fallback.
   const why = optionalMoveDetail(move, 'why') ?? (move.rationale?.trim() || null) ?? waypointTitle;
-  const doneMeans = optionalMoveDetail(move, 'doneWhen') ?? CHART_COPY.sheet.doneFallback;
+  // DEFERRED: const doneMeans = optionalMoveDetail(move, 'doneWhen') ?? CHART_COPY.sheet.doneFallback;
+  // The detail only shows a "done when" the move actually carries; there is no filler.
+  const doneWhen = optionalMoveDetail(move, 'doneWhen');
+  const criteria = waypointCriteria?.trim() || null;
   useEffect(() => {
     setExpanded(false);
     setShowToast(false);
@@ -125,29 +128,32 @@ export function ChartOneMoveRow({
           <Text numberOfLines={expanded || checked ? undefined : 2} style={[styles.title, checked && styles.titleDone]} testID="chart-one-move-title">
             {move.title}
           </Text>
-          {expanded ? (
+          <Text numberOfLines={expanded ? undefined : 2} style={styles.why} testID="chart-one-move-why">{why}</Text>
+          {expanded && (doneWhen || criteria) ? (
             <View style={styles.details} testID="chart-one-move-details">
-              <Text style={styles.detailLabel}>{CHART_COPY.sheet.whyThisMove}</Text>
-              <Text style={styles.detailText}>{why}</Text>
-              <Text style={styles.detailLabel}>{CHART_COPY.sheet.doneMeans}</Text>
-              <Text style={styles.detailText}>{doneMeans}</Text>
-              <Text style={styles.detailLabel}>{CHART_COPY.sheet.toward}</Text>
-              <Text style={styles.detailText}>{waypointTitle}</Text>
-              {waypointCriteria?.trim() ? (
+              {doneWhen ? (
+                <>
+                  <Text style={styles.detailLabel}>{CHART_COPY.sheet.doneWhen}</Text>
+                  <Text style={styles.detailText} testID="chart-one-move-done-when">{doneWhen}</Text>
+                </>
+              ) : null}
+              {criteria ? (
                 <>
                   <Text style={styles.detailLabel}>{CHART_COPY.sheet.waypointReachedWhen}</Text>
-                  <Text style={styles.detailText} testID="chart-one-move-criteria">{waypointCriteria.trim()}</Text>
+                  <Text style={styles.detailText} testID="chart-one-move-criteria">{criteria}</Text>
                 </>
               ) : null}
             </View>
           ) : null}
+          {/* DEFERRED: the "Tap to read it all" hint row; the chevron below carries the affordance.
           <View style={styles.hintRow}>
             <Text style={styles.hint}>{expanded ? CHART_COPY.sheet.showLess : CHART_COPY.sheet.readAll}</Text>
             {expanded ? <ChevronUp size={16} color={T.muted} /> : <ChevronDown size={16} color={T.muted} />}
-          </View>
+          </View> */}
         </Pressable>
+        <View pointerEvents="none" style={styles.chevron}>{expanded ? <ChevronUp size={18} color={T.muted} /> : <ChevronDown size={18} color={T.muted} />}</View>
       </View>
-      {!checked ? <Text style={styles.helper}>{CHART_COPY.sheet.helperIncomplete}</Text> : null}
+      {/* DEFERRED: helper line "Tap the circle when it's done..."; the first-time teaching and the ? replay cover it. */}
       {showToast ? <Text accessibilityLiveRegion="polite" style={styles.toast} testID="chart-one-move-toast">{CHART_COPY.sheet.moveDoneToast}</Text> : null}
     </View>
   );
@@ -155,7 +161,7 @@ export function ChartOneMoveRow({
 
 const SAGE = '#6F8F74';
 const styles = StyleSheet.create({
-  wrap: { gap: 4 },
+  wrap: { gap: 4, marginTop: 10 },
   moveLabelRow: { minHeight: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 },
   moveLabel: { fontFamily: T.sansStrong, fontSize: 10, lineHeight: 14, letterSpacing: 1.1, textTransform: 'uppercase', flexShrink: 1 },
   count: { flexShrink: 0, fontFamily: T.sansStrong, fontSize: 11, lineHeight: 14, color: T.light },
@@ -165,9 +171,11 @@ const styles = StyleSheet.create({
   checkHit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   checkCircle: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   checkCircleDone: { borderColor: SAGE, backgroundColor: SAGE },
-  body: { flex: 1, minWidth: 0, paddingTop: 2, paddingBottom: 2 },
+  body: { flex: 1, minWidth: 0, paddingTop: 8, paddingBottom: 8 },
   title: { fontFamily: T.sans, fontSize: 14, lineHeight: 19, color: T.light },
   titleDone: { color: T.light },
+  why: { marginTop: 2, fontFamily: T.sans, fontSize: 12, lineHeight: 17, color: T.muted },
+  chevron: { width: 20, height: 44, alignItems: 'center', justifyContent: 'center' },
   hintRow: { minHeight: 20, flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
   hint: { fontFamily: T.sans, fontSize: 11, lineHeight: 16, color: T.muted },
   details: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(239,234,223,.18)', marginTop: 7, paddingTop: 8, paddingBottom: 3 },

@@ -1,7 +1,7 @@
 import type { VisionGenerationJob } from '@/hooks/v2/vision/useV2VisionGeneration';
 
 export type VisionOperation = 'CREATE' | 'EDIT' | 'COMPOSE' | 'VARIATE';
-export type VisionReferenceRole = 'identity' | 'place' | 'object' | 'inspiration';
+export type VisionReferenceRole = 'identity' | 'place' | 'object' | 'inspiration' | 'world';
 export interface VisionReferenceInput {
   assetId: string;
   role: VisionReferenceRole;

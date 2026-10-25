@@ -33,3 +33,18 @@ export function askAccent(category: string | null | undefined): AskAccent {
 export function useAskAccent(category: string | null | undefined): AskAccent {
   return useMemo(() => askAccent(category), [category]);
 }
+
+/** The conversation's fixed surfaces: ivory bubbles on the cream page, navy for the person's own words. */
+export const ASK_TOKENS = {
+  ivory: '#FBF8F2',
+  ink: '#1B2433',
+  navy: '#1F2A3D',
+  onNavy: '#F7F3EA',
+  shadow: {
+    shadowColor: '#2B2A28',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+} as const;

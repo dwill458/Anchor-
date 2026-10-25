@@ -8,6 +8,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 
+let mockAudioEpoch = 0;
+
 jest.mock('@/services/PracticeCompletionService', () => ({
   PracticeCompletionService: {
     completePracticeSession: jest.fn().mockResolvedValue(undefined),
@@ -24,7 +26,9 @@ jest.mock('@/hooks/useSessionAudio', () => ({
       seekTo: jest.fn().mockResolvedValue(undefined),
       setVolume: jest.fn(),
       isLoaded: jest.fn().mockReturnValue(true),
-      getCurrentTime: jest.fn().mockReturnValue(0),
+      // These integration tests drive completion with the shared virtual clock.
+      // Buffering and paused native positions have dedicated component regressions.
+      getCurrentTime: () => Math.max(0, (performance.now() - mockAudioEpoch) / 1000),
     })),
     cleanupAllPlayers: jest.fn(),
   }),
@@ -73,6 +77,7 @@ function emitAppState(nextState: 'active' | 'background') {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockAudioEpoch = performance.now();
 
     useAuthStore.setState({
       user: { id: accountId, email: 'test@example.com' } as any,

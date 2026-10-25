@@ -6,7 +6,8 @@ import { V2DeepFocusActiveScreen } from '../V2DeepFocusActiveScreen';
 import { safeHaptics } from '@/utils/haptics';
 
 const mockAmbient = { play: jest.fn(), pause: jest.fn(), stop: jest.fn(), setVolume: jest.fn() };
-const mockVoice = { play: jest.fn(), pause: jest.fn(), stop: jest.fn(), setVolume: jest.fn(), seekTo: jest.fn() };
+let mockPlaybackTime = 0;
+const mockVoice = { play: jest.fn(), pause: jest.fn(), stop: jest.fn(), setVolume: jest.fn(), seekTo: jest.fn(), getCurrentTime: () => mockPlaybackTime };
 const mockCreate = jest.fn((_asset, options) => options.loop ? mockAmbient : mockVoice);
 jest.mock('@/hooks/useSessionAudio', () => ({ useSessionAudio: () => ({ createSessionAudioPlayer: mockCreate }) }));
 jest.mock('expo-keep-awake', () => ({ useKeepAwake: jest.fn() }));
@@ -16,11 +17,58 @@ jest.mock('@/services/AnalyticsService', () => ({ AnalyticsEvents: {}, Analytics
 describe('Deep Focus interaction and audio', () => {
   beforeEach(() => {
     jest.useFakeTimers(); jest.clearAllMocks();
+    mockPlaybackTime = 0;
     Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
   });
   afterEach(() => jest.useRealTimers());
   const advance = (ms: number) => act(() => jest.advanceTimersByTime(ms));
   const anchor = makeAnchor({ id: 'deep-anchor', intentionText: 'Stay with the work I choose.', category: 'career' });
+
+  it('keeps the complete mix on its playback clock through cold buffering and mute', () => {
+    const onComplete = jest.fn();
+    render(<V2DeepFocusActiveScreen anchor={anchor} durationSeconds={120} voice="female" ambient onComplete={onComplete} />);
+    advance(22_000);
+    expect(onComplete).not.toHaveBeenCalled();
+    mockPlaybackTime = 98;
+    advance(120_000);
+    expect(onComplete).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText('Show Deep Focus controls'));
+    mockVoice.pause.mockClear();
+    fireEvent.press(screen.getByLabelText('Sound: On'));
+    expect(mockVoice.setVolume).toHaveBeenCalledWith(0);
+    expect(mockVoice.pause).not.toHaveBeenCalled();
+    mockPlaybackTime = 120;
+    advance(250);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds a failed guidance stream and retries before completing', () => {
+    const onComplete = jest.fn();
+    render(<V2DeepFocusActiveScreen anchor={anchor} durationSeconds={120} voice="female" ambient onComplete={onComplete} />);
+    act(() => mockCreate.mock.calls[0][1].onFailure());
+    advance(150_000);
+    expect(onComplete).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText('Retry guidance'), { stopPropagation: jest.fn() });
+    advance(250);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    mockPlaybackTime = 120;
+    advance(250);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('schedules the current modular cue while muted without replaying earlier narration on unmute', () => {
+    render(<V2DeepFocusActiveScreen anchor={anchor} durationSeconds={120} voice="soothing" ambient onComplete={jest.fn()} />);
+    advance(1_000);
+    fireEvent.press(screen.getByLabelText('Show Deep Focus controls'));
+    fireEvent.press(screen.getByLabelText('Sound: On'));
+    advance(104_250);
+    const cueCount = mockCreate.mock.calls.length;
+    expect(mockCreate.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({ volume: 0 }));
+    fireEvent.press(screen.getByLabelText('Show Deep Focus controls'));
+    fireEvent.press(screen.getByLabelText('Sound: Off'));
+    expect(mockCreate).toHaveBeenCalledTimes(cueCount);
+    expect(mockVoice.setVolume).toHaveBeenLastCalledWith(0.443);
+  });
 
   it('hides controls until requested, pauses and resolves one intentional exit', () => {
     const onComplete = jest.fn();

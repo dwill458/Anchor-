@@ -422,6 +422,8 @@ export function ChartActiveView({
     // The first render decides; later focus changes come from taps.
   }, []);
   const [viewIdx, setViewIdx] = useState(initialIndex);
+  // A route-list row selects its marker and aims the camera without swapping the panel or moving the sheet.
+  const [routeFocusIdx, setRouteFocusIdx] = useState<number | null>(null);
   const [arrived, setArrived] = useState(view.isFinished);
   const [commit, setCommit] = useState<{ number: number } | null>(null);
   const [ceremony, setCeremony] = useState<Ceremony | null>(null);
@@ -743,6 +745,7 @@ export function ChartActiveView({
     [anim, placement, reducedMotion, runner]
   );
   const goOverview = useCallback(() => {
+    setRouteFocusIdx(null);
     zoomedRef.current = false;
     if (reducedMotion) return;
     void runner.run(waypointTapSequence({ anim, point: null, toOverview: true, reducedMotion }));
@@ -750,6 +753,7 @@ export function ChartActiveView({
 
   const backToCurrent = useCallback(() => {
     const target = Math.max(0, currentIndex);
+    setRouteFocusIdx(null);
     setViewIdx(target);
     sheetRef.current?.snapTo('peek');
     goOverview();
@@ -783,8 +787,21 @@ export function ChartActiveView({
     // DEFERRED: if (same) goOverview();
     // DEFERRED: else focusOn(index);
     sheetRef.current?.snapTo('peek');
+    setRouteFocusIdx(null);
     if (index === currentIndex) backToCurrent();
     else { setViewIdx(index); focusOn(index); }
+  };
+
+  /** Route-list row tap: same camera call and marker highlight as a marker tap, but the sheet and its panel stay put. */
+  const focusRouteWaypoint = (index: number) => {
+    if (!view.waypoints[index]) return;
+    if (runner.isBusy()) {
+      runner.skip();
+      return;
+    }
+    if (arrived) return;
+    setRouteFocusIdx(index);
+    focusOn(index);
   };
 
   const handleMapPress = () => {
@@ -1160,11 +1177,11 @@ export function ChartActiveView({
           number: waypoint.number,
           title: waypoint.title,
           state,
-          selected: !arrived && index === viewIdx,
+          selected: !arrived && index === (routeFocusIdx ?? viewIdx),
           accessibilityLabel: `Waypoint ${waypoint.number}: ${waypoint.title}, ${word}`,
         };
       }),
-    [view.waypoints, ceremony, reachEvent, arrived, viewIdx]
+    [view.waypoints, ceremony, reachEvent, arrived, viewIdx, routeFocusIdx]
   );
 
   // Route revised (R1): until the new waypoint appears, the revised markers ahead of the current one stay back.
@@ -1330,7 +1347,7 @@ export function ChartActiveView({
       <ChartMap testID="chart-hero-map" width={width} height={height} frame={frame} table={table} placement={placement} anim={anim} markers={markersShown} categoryColor={categoryColor} category={identity.category ?? undefined} reducedMotion={reducedMotion} arrived={arrived} clouds weather="living" continuous={entrance === 'reveal'} onShown={onMapShown} revision={revision} summitArt={summitArt} plantedFlag={flagPlanted} onMarkerPress={handleMarkerPress} onMapPress={handleMapPress} />
       {ceremony && !ceremony.isLast && view.waypoints[ceremony.index] ? <ChartReachBeat visible={ceremony.filled && !ceremony.advanced} number={view.waypoints[ceremony.index].number} title={view.waypoints[ceremony.index].title} category={identity.category} reducedMotion={reducedMotion} bottom={height - sheetPositions.peek + 12} /> : null}
       <ChartSheet ref={sheetRef} reducedMotion={reducedMotion} busy={sequenceBusy} onDetentChange={onDetentChange} overlay={<ChartOneMoveTeaching visible={teachingVisible} replayVersion={teachingReplayVersion} reducedMotion={reducedMotion} detent={sheetDetent} targets={teachingTargets} viewportRef={oneMoveViewportRef} viewportLayoutRevision={teachingViewportRevision} onRequestVisible={requestTeachingVisibility} onReady={markTeachingShown} onDismiss={dismissTeaching} />}>
-        <ChartSheetContent view={view} waypointId={panelWaypointId} chart={panelActions} category={identity.category} reducedMotion={reducedMotion} actionError={actionError} bottomInset={insets.bottom} onBack={backToCurrent} onReached={handleReached} inputs={inputs} hw={effectiveHw} vision={vision} onOpenVision={onOpenVision} onOpenLog={onOpenLog} onRelease={onRelease ?? onAdjust} onOpenPractice={onOpenPractice} anchorArt={anchorArt} onOpenAnchor={onOpenAnchor} onAskChart={onAskChart} threadStrength={threadStrength} onCompleteMove={handleCompleteMove} oneMoveRowRef={oneMoveRowRef} oneMoveCircleRef={oneMoveCircleRef} oneMoveBodyRef={oneMoveBodyRef} scrollViewportRef={oneMoveViewportRef} onScrollViewportLayout={onTeachingViewportLayout} onReplayTeaching={replayTeaching} commit={commit} onCommitDismiss={dismissCommit} onContentApplied={onChartContentApplied} dayClosedHold={dayHold} arrived={arrived} entrance={entrance} stale={stale} viewWaypoint={handleMarkerPress} onExpandSheet={() => { if (!runner.isBusy()) sheetRef.current?.snapTo('full'); }} swapRevision={swapRevision} isContentLocked={isContentLocked} stillRight={showStillRight ? <ChartInkCard testID="chart-still-right" style={styles.stillRight}><Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text><View style={styles.row}><ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} /><ChartInkButton label={CHART_COPY.review.adjust} onPress={() => { setShowStillRight(false); onAdjust(); }} style={styles.flex} /></View></ChartInkCard> : null} />
+        <ChartSheetContent view={view} waypointId={panelWaypointId} chart={panelActions} category={identity.category} reducedMotion={reducedMotion} actionError={actionError} bottomInset={insets.bottom} onBack={backToCurrent} onReached={handleReached} inputs={inputs} hw={effectiveHw} vision={vision} onOpenVision={onOpenVision} onOpenLog={onOpenLog} onRelease={onRelease ?? onAdjust} onOpenPractice={onOpenPractice} anchorArt={anchorArt} onOpenAnchor={onOpenAnchor} onAskChart={onAskChart} threadStrength={threadStrength} onCompleteMove={handleCompleteMove} oneMoveRowRef={oneMoveRowRef} oneMoveCircleRef={oneMoveCircleRef} oneMoveBodyRef={oneMoveBodyRef} scrollViewportRef={oneMoveViewportRef} onScrollViewportLayout={onTeachingViewportLayout} onReplayTeaching={replayTeaching} commit={commit} onCommitDismiss={dismissCommit} onContentApplied={onChartContentApplied} dayClosedHold={dayHold} arrived={arrived} entrance={entrance} stale={stale} viewWaypoint={focusRouteWaypoint} onExpandSheet={() => { if (!runner.isBusy()) sheetRef.current?.snapTo('full'); }} swapRevision={swapRevision} isContentLocked={isContentLocked} stillRight={showStillRight ? <ChartInkCard testID="chart-still-right" style={styles.stillRight}><Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text><View style={styles.row}><ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} /><ChartInkButton label={CHART_COPY.review.adjust} onPress={() => { setShowStillRight(false); onAdjust(); }} style={styles.flex} /></View></ChartInkCard> : null} />
       </ChartSheet>
 
       {/* Only while the waypoint scene is the active skippable scene: a tap lands it on its settled state. */}

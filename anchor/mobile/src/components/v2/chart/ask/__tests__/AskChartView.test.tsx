@@ -87,8 +87,9 @@ describe('AskChartView', () => {
     expect(thinking.screen.getByTestId('ask-thinking')).toBeTruthy();
     thinking.screen.unmount();
     const streaming = view(stub({ turn: 'streaming', draft: { key: 'd', text: 'Start with the' } }));
-    expect(streaming.screen.queryByTestId('ask-thinking')).toBeNull();
-    expect(streaming.screen.getByText('Start with the')).toBeTruthy();
+    // The Anchor keeps glowing while its words arrive.
+    expect(streaming.screen.getByTestId('ask-thinking')).toBeTruthy();
+    expect(streaming.screen.getByText(/Start with the/)).toBeTruthy();
   });
 
   it('keeps the reply being written directly under the message it answers', () => {

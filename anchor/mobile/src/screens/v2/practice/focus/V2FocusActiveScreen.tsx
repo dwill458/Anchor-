@@ -32,7 +32,7 @@ import type { Anchor } from '@/types';
 import { resolveFocusSessionGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSessionAudio, type ManagedSessionAudioPlayer } from '@/hooks/useSessionAudio';
-import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { FULL_MIX_PHASE_ID, resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
@@ -146,6 +146,8 @@ export function V2FocusActiveScreen({
   const [isPaused, setIsPaused] = useState<boolean>(initialPaused);
   const [isResolving, setIsResolving] = useState<boolean>(initialResolving);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(ambient || voice !== 'none');
+  const [fullMixReady, setFullMixReady] = useState(false);
+  const [guidanceFailed, setGuidanceFailed] = useState(false);
   const hasConfiguredSound = ambient || voice !== 'none';
   const [controlsVisible, setControlsVisible] = useState(false);
   const [entryTargetCenterY, setEntryTargetCenterY] = useState<number | null>(null);
@@ -222,7 +224,10 @@ export function V2FocusActiveScreen({
   const { createSessionAudioPlayer } = useSessionAudio();
   const ambientPlayerRef = useRef<ManagedSessionAudioPlayer | null>(null);
   const voicePlayerRef = useRef<ManagedSessionAudioPlayer | null>(null);
+  const voiceGainRef = useRef(1);
   const playedCuePhasesRef = useRef<Set<string>>(new Set());
+  const fullMixPositionMsRef = useRef(initialElapsedMs);
+  const fullMixFinishedAtRef = useRef<number | null>(null);
 
   const audioPlan = useMemo(() => {
     return resolveSessionAudioPlan({
@@ -235,6 +240,7 @@ export function V2FocusActiveScreen({
       },
     });
   }, [ambient, durationSeconds, voice]);
+  const fullMixCue = audioPlan.voiceCues.find(cue => cue.phaseId === FULL_MIX_PHASE_ID);
 
   // Read monotonic clock
   const readClock = useCallback(() => {
@@ -246,6 +252,17 @@ export function V2FocusActiveScreen({
   const calculateElapsed = useCallback(
     (now = readClock()): number => {
       if (startedAtMonotonicRef.current == null) return initialElapsedMs;
+      if (fullMixCue) {
+        if (pausedAtMonotonicRef.current != null) return elapsedMsRef.current;
+        if (fullMixFinishedAtRef.current != null) {
+          return fullMixPositionMsRef.current + Math.max(0, now - fullMixFinishedAtRef.current);
+        }
+        try {
+          const time = voicePlayerRef.current?.getCurrentTime();
+          if (time != null && Number.isFinite(time)) fullMixPositionMsRef.current = Math.max(fullMixPositionMsRef.current, time * 1000);
+        } catch { /* The last native sample survives removal of a finished player. */ }
+        return fullMixPositionMsRef.current;
+      }
       if (pausedAtMonotonicRef.current != null) {
         return Math.max(
           0,
@@ -263,7 +280,7 @@ export function V2FocusActiveScreen({
           initialElapsedMs
       );
     },
-    [initialElapsedMs, readClock]
+    [fullMixCue, initialElapsedMs, readClock]
   );
 
   const activateFocusedClock = useCallback(() => {
@@ -418,30 +435,45 @@ export function V2FocusActiveScreen({
   // Trigger voice cues based on remaining time
   const checkVoiceCues = useCallback(
     (remainingMs: number) => {
-      if (!soundEnabled || !audioPlan.shouldPlayVoice) return;
+      if (!audioPlan.shouldPlayVoice) return;
 
       for (const cue of audioPlan.voiceCues) {
         if (playedCuePhasesRef.current.has(cue.phaseId)) continue;
         if (remainingMs <= cue.triggerAtRemainingMs + 200) {
           playedCuePhasesRef.current.add(cue.phaseId);
           voicePlayerRef.current?.stop();
+          voiceGainRef.current = cue.track.playbackGain;
+          const isFullMix = cue.phaseId === FULL_MIX_PHASE_ID;
           const player = createSessionAudioPlayer(cue.track.asset, {
             loop: false,
-            volume: cue.track.playbackGain,
+            volume: soundEnabled ? cue.track.playbackGain : 0,
+            onStatus: isFullMix ? status => {
+              if (status.isLoaded) setFullMixReady(true);
+              if (pausedAtMonotonicRef.current != null && status.playing) {
+                voicePlayerRef.current?.pause();
+                return;
+              }
+              if (Number.isFinite(status.currentTime)) fullMixPositionMsRef.current = Math.max(fullMixPositionMsRef.current, status.currentTime * 1000);
+            } : undefined,
+            onFinish: isFullMix ? () => { fullMixFinishedAtRef.current = readClock(); } : undefined,
+            onFailure: isFullMix ? () => { setGuidanceFailed(true); setFullMixReady(false); } : undefined,
           });
           if (player) {
             voicePlayerRef.current = player;
             // Full-length mixes must stay aligned with the session clock when
             // sound is switched on after the session has begun.
             const lateBySeconds = (cue.triggerAtRemainingMs - remainingMs) / 1000;
-            if (lateBySeconds > 1) void player.seekTo(lateBySeconds);
-            player.play();
-          }
+            if (isFullMix && lateBySeconds > 1) {
+              void player.seekTo(lateBySeconds).then(() => {
+                if (voicePlayerRef.current === player && !doneRef.current && pausedAtMonotonicRef.current == null) player.play();
+              });
+            } else player.play();
+          } else if (isFullMix) setGuidanceFailed(true);
           break;
         }
       }
     },
-    [audioPlan, createSessionAudioPlayer, soundEnabled]
+    [audioPlan, createSessionAudioPlayer, readClock, soundEnabled]
   );
 
   const handleEndEarly = useCallback(() => {
@@ -638,15 +670,19 @@ export function V2FocusActiveScreen({
   const toggleSound = useCallback(() => {
     const next = !soundEnabled;
     setSoundEnabled(next);
-    if (next) {
-      if (ambient) ambientPlayerRef.current?.play();
-      voicePlayerRef.current?.play();
-    } else {
-      ambientPlayerRef.current?.pause();
-      voicePlayerRef.current?.pause();
-    }
+    if (next && ambient) ambientPlayerRef.current?.play();
+    else ambientPlayerRef.current?.pause();
+    voicePlayerRef.current?.setVolume(next ? voiceGainRef.current : 0);
+    if (!isPaused && audioPlan.shouldPlayVoice) voicePlayerRef.current?.play();
     showControls();
-  }, [ambient, showControls, soundEnabled]);
+  }, [ambient, audioPlan.shouldPlayVoice, isPaused, showControls, soundEnabled]);
+
+  const retryGuidance = () => {
+    voicePlayerRef.current?.stop();
+    voicePlayerRef.current = null;
+    playedCuePhasesRef.current.delete(FULL_MIX_PHASE_ID);
+    setGuidanceFailed(false);
+  };
 
   // The setup screen owns duration and audio selection. Active controls are
   // intentionally hidden until requested, then fade away after inactivity.
@@ -663,8 +699,8 @@ export function V2FocusActiveScreen({
     (reason: string = 'user') => {
       if (stage !== 'focus' || isPaused || isResolving || doneRef.current) return;
       const now = readClock();
-      pausedAtMonotonicRef.current = now;
       const pausedElapsed = Math.min(totalMs, calculateElapsed(now));
+      pausedAtMonotonicRef.current = now;
       elapsedMsRef.current = pausedElapsed;
       cancelAnimation(sessionProgress);
       sessionProgress.value = Math.min(1, pausedElapsed / totalMs);
@@ -688,19 +724,18 @@ export function V2FocusActiveScreen({
     if (!isPaused) return;
     const now = readClock();
     if (pausedAtMonotonicRef.current != null) {
+      if (fullMixFinishedAtRef.current != null) fullMixFinishedAtRef.current += now - pausedAtMonotonicRef.current;
       accumulatedPausedMsRef.current += now - pausedAtMonotonicRef.current;
       pausedAtMonotonicRef.current = null;
     }
     setIsPaused(false);
-    if (soundEnabled) {
-      ambientPlayerRef.current?.play();
-      voicePlayerRef.current?.play();
-    }
+    if (soundEnabled) ambientPlayerRef.current?.play();
+    if (soundEnabled || audioPlan.shouldPlayVoice) voicePlayerRef.current?.play();
 
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_RESUMED, {
       practice_mode: 'focus',
     });
-  }, [isPaused, readClock, soundEnabled]);
+  }, [audioPlan.shouldPlayVoice, isPaused, readClock, soundEnabled]);
 
   // AppState background handling
   useEffect(() => {
@@ -743,6 +778,13 @@ export function V2FocusActiveScreen({
       }}
     >
       <StatusBar barStyle={stage === 'entry' && !anchorHandoff ? 'dark-content' : 'light-content'} animated />
+      {fullMixCue && !fullMixReady && !guidanceFailed && stage === 'focus' ? <Text style={{ position: 'absolute', bottom: insets.bottom + 92,
+        left: 24, right: 24, textAlign: 'center', fontFamily: 'Inter-Regular', fontSize: 12, color: '#B9BDC7' }}>Preparing guidance…</Text> : null}
+      {guidanceFailed && stage === 'focus' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry guidance"
+        onPress={event => { event.stopPropagation(); retryGuidance(); }}
+        style={{ position: 'absolute', zIndex: 20, bottom: insets.bottom + 92, left: 24, right: 24, padding: 16 }}>
+        <Text style={{ textAlign: 'center', color: '#B9BDC7', fontFamily: 'Inter-Regular', fontSize: 13 }}>Guidance couldn’t load. Tap to retry.</Text>
+      </Pressable> : null}
       <Reanimated.View
         pointerEvents="none"
         testID="focus-completion-scrim"

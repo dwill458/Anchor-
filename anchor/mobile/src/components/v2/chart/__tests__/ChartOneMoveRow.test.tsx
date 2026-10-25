@@ -43,7 +43,7 @@ function renderRow(onCheck = jest.fn(async () => true), currentMove = move) {
 describe('ChartOneMoveRow', () => {
   it('keeps the circle and the move text as separate actions', async () => {
     const onCheck = jest.fn(async () => true);
-    const screen = renderRow(onCheck);
+    const screen = render(rowElement(onCheck, move, false, 'Three workouts logged in one week.'));
 
     fireEvent.press(screen.getByTestId('chart-one-move-body'));
     expect(screen.getByTestId('chart-one-move-details')).toBeTruthy();
@@ -55,18 +55,25 @@ describe('ChartOneMoveRow', () => {
     expect(screen.getByTestId('chart-one-move-body').props.accessibilityState.expanded).toBe(true);
   });
 
-  it('clamps the collapsed title to two lines and reveals full text with the three fallback details', () => {
+  it('collapsed: two-line title, one short why, no helper line; the waypoint title appears once', () => {
     const screen = renderRow();
     expect(screen.getByTestId('chart-one-move-title').props.numberOfLines).toBe(2);
+    expect(screen.getByTestId('chart-one-move-why').props.numberOfLines).toBe(2);
+    expect(screen.getAllByText('Establish a consistent gym routine')).toHaveLength(1);
+    expect(screen.queryByText(/Tap the circle when/)).toBeNull();
+    expect(screen.queryByTestId('chart-one-move-details')).toBeNull();
+  });
 
+  it('expanded: full why only; no DONE MEANS filler, no TOWARD line, and DONE WHEN only when the move has one', () => {
+    const screen = renderRow();
     fireEvent.press(screen.getByTestId('chart-one-move-body'));
     expect(screen.getByTestId('chart-one-move-title').props.numberOfLines).toBeUndefined();
-    expect(screen.getByText(CHART_COPY.sheet.whyThisMove)).toBeTruthy();
-    expect(screen.getAllByText('Establish a consistent gym routine')).toHaveLength(2);
-    expect(screen.getByText(CHART_COPY.sheet.doneMeans)).toBeTruthy();
-    expect(screen.getByText(CHART_COPY.sheet.doneFallback)).toBeTruthy();
-    expect(screen.getByText(CHART_COPY.sheet.toward)).toBeTruthy();
-    expect(screen.getByText('Tap the circle when it\'s done. Tap the words to see the detail.')).toBeTruthy();
+    expect(screen.getByTestId('chart-one-move-why').props.numberOfLines).toBeUndefined();
+    expect(screen.queryByText(/done means/i)).toBeNull();
+    expect(screen.queryByText(/^toward$/i)).toBeNull();
+    expect(screen.queryByText(/Mark this move done when/)).toBeNull();
+    expect(screen.queryByText(CHART_COPY.sheet.doneWhen)).toBeNull();
+    expect(screen.getAllByText('Establish a consistent gym routine')).toHaveLength(1);
   });
 
   it('uses why and doneWhen only when the move record provides non-empty strings', () => {
@@ -74,6 +81,7 @@ describe('ChartOneMoveRow', () => {
     const screen = renderRow(jest.fn(async () => true), detailsMove);
     fireEvent.press(screen.getByTestId('chart-one-move-body'));
     expect(screen.getByText('A calendar makes the plan visible.')).toBeTruthy();
+    expect(screen.getByText(CHART_COPY.sheet.doneWhen)).toBeTruthy();
     expect(screen.getByText('The three events are saved.')).toBeTruthy();
   });
 
@@ -94,7 +102,7 @@ describe('ChartOneMoveRow', () => {
   });
 
   it('resets expansion when the server-selected One Move changes and exposes no undo affordance', async () => {
-    const screen = renderRow();
+    const screen = render(rowElement(jest.fn(async () => true), move, false, 'Three workouts logged in one week.'));
     fireEvent.press(screen.getByTestId('chart-one-move-body'));
     expect(screen.getByTestId('chart-one-move-details')).toBeTruthy();
 
@@ -104,7 +112,6 @@ describe('ChartOneMoveRow', () => {
 
     screen.rerender(rowElement(jest.fn(async () => true), nextMove, true, null, '1 of 3 done'));
     expect(screen.getByText('1 of 3 done')).toBeTruthy();
-    expect(screen.queryByText(CHART_COPY.sheet.helperIncomplete)).toBeNull();
     expect(screen.getByTestId('chart-one-move-check').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByTestId('chart-one-move-check').props.accessibilityLabel).toBe(CHART_COPY.sheet.markMoveUndone);
   });

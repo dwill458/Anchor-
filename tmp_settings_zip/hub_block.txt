@@ -1,0 +1,296 @@
+  const displayInitial = (resolvedName.charAt(0) || 'P').toUpperCase();
+
+  const hubGroups: HubGroup[] = [
+    {
+      label: 'Make Anchor yours',
+      rows: [
+        {
+          key: 'Practice',
+          title: 'Practice',
+          subtitle: 'Defaults, daily goals, and behavior',
+          keywords: 'session defaults thread strength goal focus priming rest days',
+          icon: <IconTarget size={20} color={T.ink2} />,
+          onPress: () => setActiveSubscreen('practice'),
+        },
+        {
+          key: 'Notifications & reminders',
+          title: 'Reminders',
+          subtitle: 'Daily reminder, optional reminders, and recap',
+          keywords: 'reminder time notifications recap tone',
+          icon: <IconBell size={20} color={T.ink2} />,
+          onPress: () => setActiveSubscreen('notifications'),
+        },
+        {
+          key: 'App experience',
+          title: 'Sound & feel',
+          subtitle: 'Haptics, sound, motion, and tips',
+          keywords: 'haptics sound effects reduce motion teaching tips',
+          icon: <IconSliders size={20} color={T.ink2} />,
+          onPress: () => setActiveSubscreen('experience'),
+        },
+      ],
+    },
+    {
+      label: 'Your data',
+      rows: [
+        {
+          key: 'Back up my data',
+          title: 'Backup & recovery',
+          subtitle: 'Encrypted copy of your Anchors',
+          keywords: 'back up backup restore recovery',
+          icon: <IconLock size={20} color={T.ink2} />,
+          onPress: () => setActiveSubscreen('backup'),
+        },
+        {
+          key: 'Account & data',
+          title: 'Data & privacy',
+          subtitle: 'Export, analytics, delete data',
+          keywords: 'export analytics delete account danger privacy',
+          icon: <IconShield size={20} color={T.ink2} />,
+          onPress: () => setActiveSubscreen('account'),
+        },
+      ],
+    },
+    {
+      label: 'Account & help',
+      rows: [
+        {
+          key: 'Subscription',
+          title: 'Account & subscription',
+          subtitle: `Anchor ${subscriptionSummary}`,
+          keywords: 'email restore purchases subscription pro trial',
+          icon: <IconBadge size={20} color={T.ink2} />,
+          onPress: handlePaywall,
+        },
+        {
+          key: 'Privacy & support',
+          title: 'Help & about',
+          subtitle: 'Support, app tips, legal',
+          keywords: 'help support rate privacy policy terms legal',
+          icon: <IconShield size={20} color={T.ink2} />,
+          onPress: () => setActiveSubscreen('privacy'),
+        },
+      ],
+    },
+  ];
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visibleGroups = hubGroups
+    .map((group) => ({
+      ...group,
+      rows: normalizedQuery
+        ? group.rows.filter((row) =>
+            `${row.title} ${row.subtitle} ${row.keywords}`.toLowerCase().includes(normalizedQuery)
+          )
+        : group.rows,
+    }))
+    .filter((group) => group.rows.length > 0);
+
+  /* ── Main Settings Hub ── */
+  return (
+    <View style={styles.container} onLayout={markReady}>
+      <StatusBar style="dark" />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        {/* Navigation Bar */}
+        <View style={styles.navBar}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={handleBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.navButton}
+            activeOpacity={0.65}
+          >
+            <IconBack size={22} color={T.ink} />
+          </TouchableOpacity>
+          <Text style={styles.navTitle} numberOfLines={1} accessibilityRole="header">
+            Settings
+          </Text>
+          <View style={styles.navButtonPlaceholder} />
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Profile card */}
+          <View style={styles.profileCard}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Edit profile"
+              onPress={() => setEditSheetOpen(true)}
+              activeOpacity={0.85}
+              style={styles.identityRow}
+              testID="settings-row-Edit profile"
+            >
+              <View style={styles.avatarCircle}>
+                {profilePhotoUri ? (
+                  <Image source={{ uri: profilePhotoUri }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitial}>{displayInitial}</Text>
+                )}
+              </View>
+              <View style={styles.identityTextGroup}>
+                <Text style={styles.displayName} numberOfLines={1}>
+                  {resolvedName}
+                </Text>
+                <View style={styles.metaRow}>
+                  <View style={[styles.badgeContainer, isSubscribed && styles.badgeContainerPro]}>
+                    <Text style={[styles.badgeText, isSubscribed && styles.badgeTextPro]}>{subscriptionTierBadge}</Text>
+                  </View>
+                  <Text style={styles.memberSinceText}>{`Member since ${memberSinceLabel}`}</Text>
+                </View>
+              </View>
+              <IconChevron size={20} color={T.ink3} />
+            </TouchableOpacity>
+            <View style={styles.metricsContainer}>
+              <View style={styles.metricCell}>
+                <SettingsMetric value={createdAnchorCount} label="Anchors" />
+              </View>
+              <View style={[styles.metricCell, styles.metricCellDivider]}>
+                <SettingsMetric value={totalSessionsCount} label="Sessions" />
+              </View>
+            </View>
+          </View>
+
+          {/* Search */}
+          <TextInput
+            accessibilityLabel="Search settings"
+            placeholder="Search settings"
+            placeholderTextColor={T.ink2}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            returnKeyType="search"
+            style={styles.searchInput}
+            testID="settings-search"
+          />
+          {!normalizedQuery ? (
+            <View style={styles.chipRow}>
+              {SEARCH_SHORTCUTS.map((chip) => (
+                <TouchableOpacity
+                  key={chip}
+                  accessibilityRole="button"
+                  accessibilityLabel={chip}
+                  onPress={() => setSearchQuery(chip)}
+                  style={styles.chip}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.chipText}>{chip}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+
+          {normalizedQuery && visibleGroups.length === 0 ? (
+            <Text style={styles.emptySearch}>{`No settings match "${searchQuery.trim()}".`}</Text>
+          ) : null}
+
+          {visibleGroups.map((group) => (
+            <View key={group.label}>
+              <SectionLabel>{group.label}</SectionLabel>
+              <View style={styles.groupCard}>
+                {group.rows.map((row) => (
+                  <SettingsRow
+                    key={row.key}
+                    icon={row.icon}
+                    label={row.title}
+                    desc={row.subtitle}
+                    onPress={row.onPress}
+                    testID={`settings-row-${row.key}`}
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
+
+          {!normalizedQuery ? (
+            <SettingsToggleRow
+              label="Use profile photo for Vision"
+              desc={photo ? 'Use it as an appearance reference only when you choose to appear in a Vision.' : 'Add a profile photo to make it available as an appearance reference.'}
+              on={visionAppearance.enabledByPreference}
+              disabled={!photo || visionAppearance.saving}
+              onToggle={(next) => { void visionAppearance.setProfilePreference(next); }}
+              testID="settings-toggle-vision-profile-photo"
+            />
+          ) : null}
+
+          {/* Developer Tools Section (DEV ONLY) */}
+          {isChartOpeningPreviewEnabled() ? (
+            <SettingsRow
+              icon={<IconDev size={20} color={T.ink2} />}
+              label="Chart opening preview"
+              desc="Replay the Full or Short opening"
+              onPress={() => DeviceEventEmitter.emit('openChartLab')}
+              testID="settings-row-Chart opening preview"
+            />
+          ) : null}
+          {__DEV__ || process.env.NODE_ENV === 'test' ? (
+            <View style={styles.devSection}>
+              <SectionLabel>Developer</SectionLabel>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Developer Tools"
+                onPress={() => setActiveSubscreen('developer')}
+                style={styles.devRow}
+                activeOpacity={0.7}
+                testID="settings-row-Developer Tools"
+              >
+                <View style={styles.devIconWrapper}>
+                  <IconDev size={20} color={T.devGreen} />
+                </View>
+                <View style={styles.devRowContent}>
+                  <View style={styles.devTitleRow}>
+                    <Text style={styles.devRowTitle}>Developer Tools</Text>
+                    <View style={styles.devOnlyBadge}>
+                      <Text style={styles.devOnlyBadgeText}>DEV ONLY</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.devRowDesc}>Internal testing controls & simulator</Text>
+                </View>
+                <IconBack size={14} color={T.devGreen} style={{ transform: [{ rotate: '180deg' }] }} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {/* Account Actions / Footer */}
+          <View style={styles.accountActionsContainer}>
+            {isAuthenticated ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+                onPress={() => setConfirmSignOutOpen(true)}
+                style={styles.signOutBtn}
+                activeOpacity={0.65}
+                testID="settings-row-Sign Out"
+              >
+                <Text style={styles.signOutBtnText}>Sign out</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Sign in"
+                onPress={handleSignIn}
+                style={styles.signOutBtn}
+                activeOpacity={0.65}
+                testID="settings-row-Sign In"
+              >
+                <Text style={styles.signOutBtnText}>Sign in</Text>
+              </TouchableOpacity>
+            )}
+            {isSfxLogEnabled() ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Version ${appVersion}. Long press to open audio log.`}
+                onLongPress={() => setAudioLogVisible(true)}
+                delayLongPress={500}
+                testID="settings-open-audio-log"
+              >
+                <Text style={styles.versionFooter}>{`Version ${appVersion}`}</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.versionFooter}>{`Version ${appVersion}`}</Text>
+            )}
+          </View>
+        </ScrollView>

@@ -17,6 +17,7 @@ import {
 } from './visionBoardLayouts';
 import { estimateCaptionLines } from './visionCaptionLayout';
 import { VISION_CAPTION_FONTS } from '../material/visionMaterialTokens';
+import { clampVisionNotePresentationForAspect } from '../notes/visionNotePlacement';
 
 const ROW = [0, 1, 1, 2, 2, 3, 4, 4];
 const ROW_Y = [0.37, 0.95, 1.445, 1.75, 2.12];
@@ -313,7 +314,7 @@ export function composeVisionBoard(input: Input) {
                     n.height * noteRatio * n.scale,
                     n.rotation,
                   );
-                if (ROW[i] < 4 && y > ROW_Y[ROW[i]]) movableNotes.add(rect);
+                if (ROW[i] < 4 && y >= ROW_Y[ROW[i]] + 0.35 * (ROW_Y[ROW[i] + 1] - ROW_Y[ROW[i]])) movableNotes.add(rect);
                 return { rect, row: -1 };
               }),
           );
@@ -336,9 +337,9 @@ export function composeVisionBoard(input: Input) {
         for (const fraction of [0.78, 0.64, 0.52]) {
           const variant = captions(i, p.width, h, 'torn', fraction)!;
           const positions = [
-            h - variant.height * 0.12,
-            h + variant.height * 0.22,
             h + variant.height * 0.5 - 0.012,
+            h + variant.height * 0.22,
+            h - variant.height * 0.12,
           ];
           for (
             let cy = h - variant.height * 0.47;
@@ -361,8 +362,16 @@ export function composeVisionBoard(input: Input) {
               };
               const rect = localBounds(p, candidate);
               const hits = obstacles.filter((o) => intersects(o.rect, rect));
+              // Covering the photograph is heavily penalized: it must never beat pushing rows/notes down.
+              const covered = Math.min(1, Math.max(0, h - candidate.top) / candidate.height);
+              const hitCost = hits.reduce(
+                (sum, o) => sum + (o.row > ROW[i] || movableNotes.has(o.rect) ? 1 : 50),
+                0,
+              );
+              const coverCost = covered > 0.35 ? 15 + covered * 5 : covered * 0.5;
               const score =
-                hits.reduce((sum, o) => sum + (o.row > ROW[i] ? 1 : 10), 0) +
+                coverCost +
+                hitCost +
                 (rect.left < 0 || rect.right > 1 || rect.top < 0 ? 100 : 0);
               if (!best || score < best.score)
                 best = { caption: candidate, rect, hits, score };
@@ -370,21 +379,22 @@ export function composeVisionBoard(input: Input) {
             }
             if (best?.score === 0) break;
           }
-          if (best && best.score < 10) break;
+          if (best && best.score < 1) break;
         }
         if (best) {
           original.caption = best.caption;
           placed.push(best.rect);
           // Only grow for a note when every available position remains blocked;
           // prefer existing clear caption positions before changing row spacing.
-          const blockedByMovableNotes = best.hits.length > 0 && best.hits.some(o => movableNotes.has(o.rect)) &&
-            best.hits.every(o => o.row > ROW[i] || movableNotes.has(o.rect));
-          if (best.hits.some((o) => o.row > ROW[i]) || blockedByMovableNotes)
+          const blockedByMovableNotes =
+            best.hits.length > 0 && best.hits.some((o) => movableNotes.has(o.rect));
+          const hitsBelow = best.hits.some((o) => o.row > ROW[i]);
+          if (hitsBelow || blockedByMovableNotes)
             push = push < 0 ? ROW[i] : Math.min(push, ROW[i]);
         }
       }
       if (push < 0) break;
-      for (let row = push + 1; row < 5; row++) shifts[row] += 0.03;
+      for (let row = push + 1; row < 5; row++) shifts[row] += 0.04;
     }
     photos = photos.map((p, i) => ({ ...p, y: p.y + shifts[ROW[i]] }));
     card.y += shifts[1];
@@ -674,9 +684,10 @@ export function unprojectClassicNote(
     if (mid + shift < target) low = mid;
     else high = mid;
   }
-  return {
+  const unprojected = {
     ...p,
     y: (low + high) / 2 / composition.noteBaseRatio,
     height: (p.height * composition.ratio) / composition.noteBaseRatio,
   };
+  return clampVisionNotePresentationForAspect(unprojected, 1);
 }

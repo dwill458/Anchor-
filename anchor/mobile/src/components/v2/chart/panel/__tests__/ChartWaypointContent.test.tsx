@@ -190,8 +190,10 @@ describe('ChartWaypointContent — ink panel', () => {
     expect(getByText("Today's move is done.")).toBeTruthy();
     expect(queryByText('Do another move now')).toBeNull();
     expect(queryByText('Every move on this waypoint is done.')).toBeNull();
-    expect(getByText('Finish onboarding redesign')).toBeTruthy();
-    expect(queryByTestId('chart-one-move-check')?.props.accessibilityState.checked).toBe(true);
+    // Every move is done: the One Move card gives way to the all-done card (its button is the same reach action).
+    expect(getByText('Every move is done.')).toBeTruthy();
+    expect(getByTestId('chart-all-done-reach')).toBeTruthy();
+    expect(queryByTestId('chart-one-move-check')).toBeNull();
     expect(getByTestId('chart-day-closed')).toBeTruthy();
   });
 
@@ -264,8 +266,9 @@ describe('ChartWaypointContent — ink panel', () => {
     });
     const { getByText, getByTestId, queryByTestId } = renderContent(viewOf(noActiveMove), { renderTiers: rowScrollTiers });
     expect(queryByTestId('chart-day-closed')).toBeNull();
-    expect(getByText('Completed earlier move')).toBeTruthy();
-    expect(getByTestId('chart-one-move-check').props.accessibilityState.checked).toBe(true);
+    expect(getByText('Every move is done.')).toBeTruthy();
+    expect(queryByTestId('chart-one-move-check')).toBeNull();
+    expect(getByTestId('chart-all-done-reach')).toBeTruthy();
   });
 
   it('a day-closed card never outlives midnight (the clock refreshes on its own)', async () => {

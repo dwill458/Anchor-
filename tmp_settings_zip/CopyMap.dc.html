@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>What moved and what changed</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.p{width:1440px;background:#F4F0E8;color:#14162B;font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.4;padding:56px 64px}
+.h{margin:0 0 4px;font-size:24px;font-weight:700}
+.sub{margin:0 0 20px;color:#655F54;font-size:15px}
+.th{display:grid;gap:20px;padding:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#655F54}
+.r{display:grid;gap:20px;padding:12px 0;border-top:1px solid #DDD5C4}
+.a{grid-template-columns:1.1fr 1.1fr 1.2fr}
+.b{grid-template-columns:1.2fr 1.2fr 1fr}
+.old{color:#655F54}
+.new{font-weight:600}
+.rm{color:#A8451F;font-weight:600}
+a{color:#7A5A0C}a:hover{color:#14162B}
+</style>
+</helmet>
+<div class="p" style="height:1240px;overflow:hidden">
+
+<h1 style="margin:0 0 32px;font-size:36px;font-weight:700">What moved and what changed</h1>
+
+<div style="display:flex;gap:64px;align-items:flex-start">
+
+<div style="flex:1;min-width:0">
+<h2 class="h">Where things moved</h2>
+<p class="sub">Every setting now lives in one obvious place.</p>
+<div class="th a"><span>Setting</span><span>Was</span><span>Now</span></div>
+<div class="r a"><span>Profile photo for Vision</span><span class="old">Hub › Preferences, as a disabled toggle</span><span class="new">Edit profile</span></div>
+<div class="r a"><span>Back up my data</span><span class="old">Hub › More</span><span class="new">Your data › Backup &amp; recovery</span></div>
+<div class="r a"><span>Export my data</span><span class="old">Account &amp; data</span><span class="new">Data &amp; privacy</span></div>
+<div class="r a"><span>Analytics</span><span class="old">Privacy &amp; support</span><span class="new">Data &amp; privacy</span></div>
+<div class="r a"><span>Delete account</span><span class="old">Account &amp; data › Danger zone</span><span class="new">Data &amp; privacy › Danger zone</span></div>
+<div class="r a"><span>Email, Restore purchases</span><span class="old">Account &amp; data</span><span class="new">Account &amp; subscription</span></div>
+<div class="r a"><span>Subscription</span><span class="old">Hub › Account</span><span class="new">Account &amp; subscription</span></div>
+<div class="r a"><span>Help &amp; support, Rate Anchor</span><span class="old">Privacy &amp; support</span><span class="new">Help &amp; about</span></div>
+<div class="r a"><span>Privacy policy, Terms</span><span class="old">Privacy &amp; support</span><span class="new">Help &amp; about › Legal</span></div>
+<div class="r a"><span>Replay app tips</span><span class="old">Practice, and again as “Reset teaching tips” in App experience</span><span class="new">Help &amp; about, once</span></div>
+<div class="r a"><span>Timezone</span><span class="old">Practice › Local time</span><span class="new">Reminders › Time zone</span></div>
+<div class="r a"><span>Open to Practice</span><span class="old">App experience</span><span class="new">Practice › When you open Anchor</span></div>
+<div class="r a"><span>Chart opening preview</span><span class="old">Hub › More</span><span class="rm">Removed. Dev-only tool; keep it out of release builds.</span></div>
+</div>
+
+<div style="flex:1;min-width:0">
+<h2 class="h">Copy changes</h2>
+<p class="sub">Plain words, sentence case, and no repeated descriptions.</p>
+<div class="th b"><span>Was</span><span>Now</span><span>Why</span></div>
+<div class="r b"><span class="old">Profile &amp; Settings</span><span class="new">Settings</span><span>The profile lives in the card</span></div>
+<div class="r b"><span class="old">Notifications &amp; reminders</span><span class="new">Reminders</span><span>Shorter, fits the hub row</span></div>
+<div class="r b"><span class="old">App experience</span><span class="new">Sound &amp; feel</span><span>Names what's inside</span></div>
+<div class="r b"><span class="old">Thread Strength behavior<br>How missed days affect strength</span><span class="new">Thread Strength<br>What happens when you miss a day</span><span>Plain language</span></div>
+<div class="r b"><span class="old">Missed, no effect · Decaying</span><span class="new">Missed, thread holds · Thread thins</span><span>Matches the thread idea</span></div>
+<div class="r b"><span class="old">Warm: Warm, calm guidance<br>Soothing: Soothing, steady guidance</span><span class="new">Friendly, like a guide beside you<br>Slow and softly paced</span><span>Old lines repeated the name. Check against the real voices.</span></div>
+<div class="r b"><span class="old">Device setting</span><span class="new">Match device</span><span>Clearer than “setting”</span></div>
+<div class="r b"><span class="old">Keep a copy of your Anchor life.</span><span class="new">Back up your Anchors</span><span>Says the action</span></div>
+<div class="r b"><span class="old">Guide Mode · Hide Intention Text</span><span class="new">Guide mode · Hide intention text</span><span>Sentence case everywhere</span></div>
+<div class="r b"><span class="old">Save defaults · Save</span><span class="new">Saves automatically, plus “Reset Focus to original defaults”</span><span>One pattern, no lost changes</span></div>
+<div class="r b"><span class="old">Reminder default 2:30 AM</span><span class="new">8:00 AM (suggested)</span><span>Confirm the real default in code</span></div>
+<div class="r b"><span class="old">UTC−12 … UTC−6 list</span><span class="new">Set automatically, Chicago (UTC−5)</span><span>People know their city, not an offset</span></div>
+<div class="r b"><span class="old">Session defaults (no mode shown)</span><span class="new">Mode tabs: Focus · [Mode 2] · [Mode 3]</span><span>The old footer mentioned “Focus” with no way to switch</span></div>
+</div>
+
+</div>
+
+<div style="margin-top:36px;padding-top:20px;border-top:1px solid #DDD5C4;color:#655F54;font-size:14px">
+Mobbin references:
+<a href="https://mobbin.com/screens/ceadd2a0-aff0-4fdb-9b06-ddd07feecaf5">Fitbit</a> (grouped hub),
+<a href="https://mobbin.com/screens/895c4e82-d3ed-4401-a39b-44ec3875088b">Ten Percent Happier</a> (support and legal last),
+<a href="https://mobbin.com/screens/03752fe4-9206-4d27-882c-44990ce2b6f2">Visible</a> (toggle plus “Remind me at” row),
+<a href="https://mobbin.com/screens/ffb21a35-0864-494b-968b-633079e453db">Pillow</a> (manage data),
+<a href="https://mobbin.com/screens/c7c496e0-364e-4412-8206-848b30d0f3d0">Lifesum</a> (account first).
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

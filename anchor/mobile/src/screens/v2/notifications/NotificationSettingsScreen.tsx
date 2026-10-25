@@ -37,6 +37,9 @@ import {
 import { NotificationCoordinator } from '@/services/notifications/NotificationCoordinator';
 import type { NotificationPermissionStatus, NotificationTone } from '@/services/notifications/notificationTypes';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { detectTimezoneLabel, TIMEZONE_OPTIONS, useProfileStore } from '@/stores/profileStore';
+import { NOTIFICATION_TEMPLATES } from '@/services/notifications/notificationTemplates';
+import { deviceTimezoneSummary } from '@/utils/deviceTimezone';
 import { safeHaptics } from '@/utils/haptics';
 import { logger } from '@/utils/logger';
 import { deviceUses24Hour, formatDisplay } from '@/utils/reminderTime';
@@ -128,7 +131,7 @@ const SpringSwitch: React.FC<{ on: boolean; disabled?: boolean }> = ({ on, disab
 };
 
 interface ToggleRowProps {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
   subtitle: string;
   on: boolean;
@@ -158,7 +161,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
     style={({ pressed }) => [styles.row, showDivider && styles.rowDivider, pressed && styles.rowPressed]}
     testID={testID ?? `settings-row-${title}`}
   >
-    <IconDisc>{icon}</IconDisc>
+    {icon ? <IconDisc>{icon}</IconDisc> : null}
     <View style={styles.rowText}>
       <Text style={[styles.rowTitle, disabled && styles.rowTitleDisabled]}>{title}</Text>
       <Text style={styles.rowSubtitle}>{subtitle}</Text>
@@ -219,6 +222,9 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
   const [optimisticDaily, setOptimisticDaily] = useState<boolean | null>(null);
   const [timeSheetOpen, setTimeSheetOpen] = useState(false);
   const [tonePickerOpen, setTonePickerOpen] = useState(false);
+  const [timezonePickerOpen, setTimezonePickerOpen] = useState(false);
+  const timezone = useProfileStore((state) => state.timezone);
+  const updateProfile = useProfileStore((state) => state.updateProfile);
 
   const mounted = useRef(true);
   const readSeq = useRef(0);
@@ -379,11 +385,25 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
   const chartOn = Boolean(effective?.chartRemindersEnabled);
   const weeklyOn = Boolean(effective?.weeklyRecapEnabled);
   const timeValue = dailyShown ? formatDisplay(dailyPrimeTime, use24h) : 'Off';
+  const deviceTimezoneLabel = useMemo(() => detectTimezoneLabel(), []);
+  const timezoneIsAutomatic = !timezone || timezone === deviceTimezoneLabel;
+  const toneForSample = (effective?.notificationTone ?? 'encouraging') as NotificationTone;
+  const sampleTemplate =
+    NOTIFICATION_TEMPLATES.thread_strength.find((template) => template.tone === toneForSample) ??
+    NOTIFICATION_TEMPLATES.thread_strength[0];
+  const handleTimezoneAutomatic = (next: boolean) => {
+    safeHaptics.selection();
+    if (next) {
+      updateProfile({ timezone: deviceTimezoneLabel });
+    } else {
+      setTimezonePickerOpen(true);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <SafeAreaView edges={['top']} style={styles.safeArea} {...behindSheetA11yProps(timeSheetOpen)}>
-        <SettingsHeader title="Notifications & reminders" onBack={onBack} />
+        <SettingsHeader title="Reminders" onBack={onBack} />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -405,12 +425,12 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
           ) : null}
 
           <Reveal index={0}>
-            <Caption title="YOUR DAILY MOMENT" first />
+            <Caption title="Daily reminder" first />
             <View style={styles.card}>
               <ToggleRow
                 icon={<IconBell size={20} color={GOLD} />}
                 title="Daily reminder"
-                subtitle="Reconnect at a time you choose."
+                subtitle="One nudge a day, at a time you choose"
                 on={dailyShown}
                 disabled={dailyDisabled}
                 onToggle={(next) => void handleDailyToggle(next)}
@@ -431,7 +451,6 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
                     <Text style={styles.timeValue}>{timeValue}</Text>
                     <IconChevron size={12} color={T.ink3} />
                   </TouchableOpacity>
-                  <Text style={styles.note}>Every day, even if you&apos;ve already practiced earlier.</Text>
                 </View>
               </Drawer>
               {showEnrollmentFeedback ? (
@@ -455,17 +474,18 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
                 </View>
               ) : null}
             </View>
+            <Text style={styles.note}>Sends every day, even after you&apos;ve practiced.</Text>
           </Reveal>
 
           <Reveal index={1}>
-            <Caption title="OPTIONAL REMINDERS" hint="Gentle encouragement based on your goals." />
+            <Caption title="Gentle nudges" />
             <View style={styles.card}>
               {model.showVisionChart ? (
                 <>
                   <ToggleRow
                     icon={<IconEye color={GOLD} />}
                     title="Vision reminders"
-                    subtitle="Reconnect with the future you're building."
+                    subtitle="Reconnect with the future you're building"
                     on={visionOn}
                     disabled={othersDisabled}
                     onToggle={(next) =>
@@ -475,7 +495,7 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
                   <ToggleRow
                     icon={<IconTarget size={20} color={GOLD} />}
                     title="Chart reminders"
-                    subtitle="Stay connected to your next move."
+                    subtitle="Stay connected to your next move"
                     on={chartOn}
                     disabled={othersDisabled}
                     onToggle={(next) =>
@@ -487,24 +507,17 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
               <ToggleRow
                 icon={<IconSliders size={20} color={GOLD} />}
                 title="Momentum check-ins"
-                subtitle="Gentle encouragement after time away."
+                subtitle="A gentle nudge after time away"
                 on={model.momentumOn}
                 disabled={othersDisabled}
                 onToggle={(next) =>
                   void handleCategory('momentum', model.momentumOn, next, momentumPatch(next))
                 }
-                showDivider={false}
               />
-            </View>
-          </Reveal>
-
-          <Reveal index={2}>
-            <Caption title="YOUR PROGRESS" />
-            <View style={styles.card}>
               <ToggleRow
                 icon={<IconCalendar color={GOLD} />}
                 title="Weekly recap"
-                subtitle="A look at what you've accomplished."
+                subtitle="A look back at your week of practice"
                 on={weeklyOn}
                 disabled={othersDisabled}
                 onToggle={(next) =>
@@ -521,30 +534,70 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
             </View>
           </Reveal>
 
-          <Reveal index={3}>
-            <Caption title="DELIVERY" />
+          <Reveal index={2}>
+            <Caption title="Tone" />
             <View style={styles.card}>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Notification tone"
-                accessibilityHint="Applies to momentum check-ins and your weekly recap."
+                accessibilityHint="Applies to check-ins and your weekly recap."
                 disabled={othersDisabled}
                 onPress={() => setTonePickerOpen(true)}
                 activeOpacity={0.65}
                 style={[styles.row, othersDisabled && styles.rowDisabled]}
                 testID="settings-row-Notification tone"
               >
-                <IconDisc>
-                  <IconVolume color={GOLD} />
-                </IconDisc>
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle}>Notification tone</Text>
-                  <Text style={styles.rowSubtitle}>For momentum check-ins and your weekly recap.</Text>
+                  <Text style={styles.rowSubtitle}>Applies to check-ins and your weekly recap</Text>
                 </View>
                 <Text style={styles.timeValue}>{toneLabel(effective?.notificationTone)}</Text>
                 <IconChevron size={12} color={T.ink3} />
               </TouchableOpacity>
+              <View style={styles.sampleWrap}>
+                <View style={styles.sample} testID="notification-tone-sample">
+                  <Text style={styles.sampleLabel}>Sample</Text>
+                  <Text style={styles.sampleText}>
+                    {`\u201c${sampleTemplate.title}. ${sampleTemplate.body}\u201d`}
+                  </Text>
+                </View>
+              </View>
             </View>
+          </Reveal>
+
+          <Reveal index={3}>
+            <Caption title="Time zone" />
+            <View style={styles.card}>
+              <ToggleRow
+                title="Set automatically"
+                subtitle={
+                  timezoneIsAutomatic
+                    ? `Following your device \u00b7 ${deviceTimezoneSummary()}`
+                    : `Using ${timezone}`
+                }
+                on={timezoneIsAutomatic}
+                onToggle={handleTimezoneAutomatic}
+                testID="settings-row-Set time zone automatically"
+                showDivider={!timezoneIsAutomatic}
+              />
+              {!timezoneIsAutomatic ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose time zone"
+                  onPress={() => setTimezonePickerOpen(true)}
+                  activeOpacity={0.65}
+                  style={styles.row}
+                  testID="settings-row-Choose time zone"
+                >
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowTitle}>Time zone</Text>
+                  </View>
+                  <Text style={styles.timeValue}>{timezone}</Text>
+                  <IconChevron size={12} color={T.ink3} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <Text style={styles.note}>Used for your reminders and for what counts as a day.</Text>
           </Reveal>
         </ScrollView>
       </SafeAreaView>
@@ -556,6 +609,15 @@ export const NotificationSettingsScreen: React.FC<Props> = ({ onBack }) => {
         value={effective?.notificationTone ?? 'encouraging'}
         onPick={(val) => void updateNotificationPreferences({ notificationTone: val as NotificationTone }).then(readStored)}
         onClose={() => setTonePickerOpen(false)}
+      />
+
+      <CompactPickerSheet
+        open={timezonePickerOpen}
+        title="Time zone"
+        options={TIMEZONE_OPTIONS.map((zone) => ({ label: zone, value: zone }))}
+        value={timezoneIsAutomatic ? '' : timezone}
+        onPick={(zone) => updateProfile({ timezone: zone })}
+        onClose={() => setTimezonePickerOpen(false)}
       />
 
       <ReminderTimeSheet
@@ -578,8 +640,9 @@ const styles = StyleSheet.create({
   captionFirst: { marginTop: 14 },
   caption: {
     fontFamily: settingsTypography.bodyBold,
-    fontSize: 11.5,
-    letterSpacing: 1.1,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     color: T.ink2,
   },
   captionHint: {
@@ -666,12 +729,22 @@ const styles = StyleSheet.create({
   timeValue: { fontFamily: settingsTypography.bodySemiBold, fontSize: 15, color: GOLD },
   note: {
     fontFamily: settingsTypography.body,
-    fontSize: 12.5,
-    lineHeight: 17,
-    color: T.ink3,
+    fontSize: 14,
+    lineHeight: 20,
+    color: T.ink2,
     marginTop: 10,
     paddingHorizontal: 4,
   },
+  sampleWrap: { paddingBottom: 16 },
+  sample: { backgroundColor: '#F0EADC', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 },
+  sampleLabel: {
+    fontFamily: settingsTypography.bodySemiBold,
+    fontSize: 12,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    color: T.ink2,
+  },
+  sampleText: { fontFamily: settingsTypography.body, fontSize: 15, lineHeight: 21, color: T.ink, marginTop: 4 },
   banner: {
     marginTop: 12,
     padding: 14,

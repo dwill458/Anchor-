@@ -39,7 +39,10 @@ const Content = memo(function Content({ snapshot }: { snapshot: Props }) {
       <ChartSheetGrabZone><View style={styles.peek} testID="chart-sheet-peek">
         <View style={styles.row}>
           <Text style={[styles.eyebrow, { color: parts.isCurrent ? accent.text : T.muted }]}>{eyebrow}</Text>
-          {parts.isCurrent && snapshot.onReplayTeaching ? <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.teachingHelp} onPress={snapshot.onReplayTeaching} hitSlop={8} style={styles.help}><Text style={styles.helpText}>?</Text></Pressable> : null}
+          <View style={styles.actions}>
+            {parts.edit}
+            {parts.isCurrent && snapshot.onReplayTeaching ? <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.teachingHelp} onPress={snapshot.onReplayTeaching} hitSlop={8} style={styles.help}><Text style={styles.helpText}>?</Text></Pressable> : null}
+          </View>
         </View>
         {parts.isCurrent && parts.value && !parts.oneMove ? <Text style={styles.value}>{parts.value}</Text> : null}
         {snapshot.stale ? <Text style={styles.offline} testID="chart-offline">{CHART_COPY.active.offline}</Text> : null}
@@ -51,13 +54,13 @@ const Content = memo(function Content({ snapshot }: { snapshot: Props }) {
         <ChartSheetTier tier="half">
           {snapshot.stillRight}
           {showAnchorCard ? <ChartSheetAnchorCard category={snapshot.category} anchorArt={snapshot.anchorArt!} threadStrength={snapshot.threadStrength ?? null} practiced={parts.practiced} onOpenAnchor={snapshot.onOpenAnchor} onOpenPractice={snapshot.onOpenPractice} /> : null}
-          {parts.isCurrent && !snapshot.arrived ? <ChartSheetHelpRow category={snapshot.category} onAskChart={snapshot.onAskChart} onViewRoute={snapshot.onExpandSheet} /> : null}
+          {parts.isCurrent && !snapshot.arrived ? <ChartSheetHelpRow category={snapshot.category} onAskChart={snapshot.onAskChart} /> : null}
           {parts.isCurrent ? <ChartRouteSegments view={snapshot.view} inputs={snapshot.inputs} hw={snapshot.hw} color={accent.text} reducedMotion={snapshot.reducedMotion} /> : null}
           {parts.half}
-          {parts.edit}
+          {/* DEFERRED: the pencil sat alone under the route segments; it now lives in the header row beside the ? button. */}
         </ChartSheetTier>
         <ChartSheetTier tier="full">
-          <ChartRouteList view={snapshot.view} inputs={snapshot.inputs} hw={snapshot.hw} color={accent.text} viewWaypoint={snapshot.viewWaypoint} />
+          <ChartRouteList view={snapshot.view} inputs={snapshot.inputs} hw={snapshot.hw} color={accent.text} viewWaypoint={snapshot.viewWaypoint} onReach={parts.requestReach} reachBusy={parts.reachBusy} reachError={parts.reachError} reachLabel={parts.waypoint.isDestination ? COPY.ctaMarkDestination : COPY.ctaMark} />
           {parts.full}
         </ChartSheetTier>
       </ChartSheetScrollArea>
@@ -104,4 +107,4 @@ export function ChartSheetContent(props: Props) {
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return <Animated.View style={[styles.root, style]} testID="chart-sheet-content"><Content snapshot={snapshot} /></Animated.View>;
 }
-const styles = StyleSheet.create({ root: { flex: 1 }, peek: { gap: 2 }, row: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }, eyebrow: { flex: 1, flexShrink: 1, fontFamily: T.sansStrong, fontSize: 11, lineHeight: 16 }, help: { width: 26, height: 26, borderWidth: 1, borderColor: 'rgba(239,234,223,.28)', borderRadius: 13, alignItems: 'center', justifyContent: 'center' }, helpText: { color: T.muted, fontFamily: T.sansStrong, fontSize: 14 }, value: { alignSelf: 'flex-start', fontFamily: T.sansStrong, fontSize: 11, lineHeight: 14, color: T.light, flexWrap: 'wrap' }, title: { fontFamily: T.serif, fontSize: 24, lineHeight: 26, color: T.light }, offline: { fontFamily: T.sans, fontSize: 10, lineHeight: 12, color: T.muted } });
+const styles = StyleSheet.create({ root: { flex: 1 }, actions: { flexDirection: 'row', alignItems: 'center', gap: 8 }, peek: { gap: 2 }, row: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }, eyebrow: { flex: 1, flexShrink: 1, fontFamily: T.sansStrong, fontSize: 11, lineHeight: 16 }, help: { width: 26, height: 26, borderWidth: 1, borderColor: 'rgba(239,234,223,.28)', borderRadius: 13, alignItems: 'center', justifyContent: 'center' }, helpText: { color: T.muted, fontFamily: T.sansStrong, fontSize: 14 }, value: { alignSelf: 'flex-start', fontFamily: T.sansStrong, fontSize: 11, lineHeight: 14, color: T.light, flexWrap: 'wrap' }, title: { fontFamily: T.serif, fontSize: 24, lineHeight: 26, color: T.light }, offline: { fontFamily: T.sans, fontSize: 10, lineHeight: 12, color: T.muted } });

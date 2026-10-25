@@ -17,7 +17,8 @@ describe('ChartSheetAnchorCard', () => {
     const screen = render(<ChartSheetAnchorCard category="career" anchorArt={art} threadStrength={53} practiced={false} onOpenAnchor={onOpenAnchor} onOpenPractice={onOpenPractice} />);
     expect(screen.getByLabelText('avatar:<svg id="mine"/>:career')).toBeTruthy();
     expect(screen.getByTestId('chart-anchor-strength').props.accessibilityLabel).toBe('Thread Strength 53 percent');
-    expect(screen.getByText('Thread Strength · 53%')).toBeTruthy();
+    expect(screen.getByText('Thread Strength')).toBeTruthy();
+    expect(screen.getByText('53%')).toBeTruthy();
     fireEvent.press(screen.getByTestId('chart-open-anchor'));
     fireEvent.press(screen.getByTestId('chart-practice-row'));
     expect(onOpenAnchor).toHaveBeenCalledTimes(1);
@@ -25,8 +26,8 @@ describe('ChartSheetAnchorCard', () => {
   });
 
   it('rounds and clamps the stored value, and hides the line while the Anchor is unmeasured', () => {
-    expect(render(<ChartSheetAnchorCard category="career" anchorArt={art} threadStrength={53.6} practiced={false} />).getByText('Thread Strength · 54%')).toBeTruthy();
-    expect(render(<ChartSheetAnchorCard category="career" anchorArt={art} threadStrength={140} practiced={false} />).getByText('Thread Strength · 100%')).toBeTruthy();
+    expect(render(<ChartSheetAnchorCard category="career" anchorArt={art} threadStrength={53.6} practiced={false} />).getByText('54%')).toBeTruthy();
+    expect(render(<ChartSheetAnchorCard category="career" anchorArt={art} threadStrength={140} practiced={false} />).getByText('100%')).toBeTruthy();
     expect(render(<ChartSheetAnchorCard category="career" anchorArt={art} threadStrength={null} practiced={false} />).queryByTestId('chart-anchor-strength')).toBeNull();
   });
 

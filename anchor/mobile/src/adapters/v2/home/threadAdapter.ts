@@ -43,20 +43,16 @@ export function toThreadPresentation(
   };
 }
 
+import { getThreadStrengthLevel } from '@/constants/v2/threadEvents';
+
 /**
  * Qualitative label for a strength value, shown beside it as Consistency
- * ("26% - Building"). Labels only; the bands never feed any calculation.
+ * ("27% - Grounded"). Uses the central Thread Strength 2.0 level resolver so
+ * one value never carries different names across screens.
  */
 export function threadQualitativeLabel(value: number | null, unmeasured: boolean): string {
   if (unmeasured || value === null) return 'Not established yet';
-  // Same bands as Anchor Details (`resolveEvolutionStage`) so one value never
-  // carries two names. There is no separate "Dormant" band: a low but active
-  // Consistency is still forming.
-  if (value < 25) return 'Forming';
-  if (value < 50) return 'Building';
-  if (value < 75) return 'Established';
-  if (value < 90) return 'Integrated';
-  return 'Reinforced';
+  return getThreadStrengthLevel(value);
 }
 
 export function threadStatusSublabel(value: number | null, status?: string): string {

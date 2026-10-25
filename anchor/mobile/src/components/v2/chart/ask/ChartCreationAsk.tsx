@@ -9,6 +9,7 @@ import { AskChartView } from './AskChartView';
 import { useAskMedia } from './useAskMedia';
 
 const COPY = CHART_COPY.ask;
+const MIN_ANSWERS_TO_DRAFT = 2;
 
 export type AskPlanSource = 'assistant_ready' | 'draft_early';
 
@@ -36,16 +37,19 @@ export function ChartCreationAsk({ anchorId, identity, anchorArt, reducedMotion,
 
   const { planInput } = ask;
   const hasGreeting = ask.state.messages.some(message => message.role === 'ASSISTANT');
+  // Drafting early is offered once the person has actually answered twice; before that the Anchor is still listening.
+  const answers = ask.state.messages.filter(message => message.role === 'USER' && message.status !== 'failed' && message.text.trim().length > 0).length;
+  const canDraftEarly = answers >= MIN_ANSWERS_TO_DRAFT || ask.state.status === 'load_failed' || ask.state.openingFailed;
   const primaryAction = useMemo(
     () => (planInput ? { label: COPY.buildRoute, onPress: () => onPlan(planInput, 'assistant_ready'), testID: 'ask-build-route' } : null),
     [onPlan, planInput]
   );
   const secondaryAction = useMemo(
     () =>
-      !planInput && !ask.busy && (hasGreeting || ask.state.status === 'load_failed' || ask.state.openingFailed)
+      !planInput && !ask.busy && (hasGreeting || ask.state.status === 'load_failed' || ask.state.openingFailed) && canDraftEarly
         ? { label: COPY.draftNow, onPress: () => onPlan(draftPlanInput(ask.state.messages, identity.intention), 'draft_early'), testID: 'ask-draft-now' }
         : null,
-    [ask.busy, ask.state.messages, ask.state.openingFailed, ask.state.status, hasGreeting, identity.intention, onPlan, planInput]
+    [ask.busy, canDraftEarly, ask.state.messages, ask.state.openingFailed, ask.state.status, hasGreeting, identity.intention, onPlan, planInput]
   );
 
   return (

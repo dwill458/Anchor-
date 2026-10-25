@@ -1,0 +1,6 @@
+
+Test Suites: 34 passed, 34 total
+Tests:       456 passed, 456 total
+Snapshots:   0 total
+Time:        69.227 s, estimated 72 s
+Ran all test suites matching src/screens/v2/practice/__tests__|src/screens/v2/practice/focus/__tests__|src/screens/v2/practice/deepFocus/__tests__|src/screens/v2/practice/visualize/__tests__|src/services/__tests__/SessionAudioManifest.test.ts|src/services/__tests__/VoicePreviewService.test.ts|src/services/__tests__/PracticeCompletionService.test.ts|src/hooks/v2/__tests__/useSessionAudioSetup.test.ts|src/hooks/__tests__/useSessionAudio.test.ts.

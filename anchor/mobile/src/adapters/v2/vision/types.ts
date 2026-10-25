@@ -81,6 +81,8 @@ export interface VisionReadModel {
 export interface V2VisionTile {
   id: string;
   sceneId: string;
+  /** The owned private asset used when an existing board photo guides generation. */
+  assetId?: string | null;
   imageUrl: string | null;
   prompt: string | null;
   caption?: string | null;

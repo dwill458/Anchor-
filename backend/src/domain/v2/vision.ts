@@ -321,7 +321,7 @@ export const StartVisionGenerationSchema = z
  * limit matches it.
  */
 export const VISION_SCENE_DESCRIPTION_MAX = 2000;
-export const VISION_REFERENCE_ROLES = ['identity', 'place', 'object', 'inspiration'] as const;
+export const VISION_REFERENCE_ROLES = ['identity', 'place', 'object', 'inspiration', 'world'] as const;
 export const VISION_OPERATIONS = ['CREATE', 'EDIT', 'COMPOSE', 'VARIATE'] as const;
 export const VisionReferenceSchema = z
   .object({

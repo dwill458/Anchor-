@@ -12,9 +12,9 @@ jest.mock('../../../middleware/auth', () => ({
 jest.mock('../../../../lib/prisma', () => ({ prisma: { $queryRawUnsafe: jest.fn(), user: { findUnique: jest.fn() } } }));
 
 import { createWeeklyRecapRouter } from '../weeklyRecapRoutes';
-import { RecapError } from '../../../../services/v2/WeeklyRecapService';
+import { WeeklyRecapError } from '../../../../services/v2/WeeklyRecapService';
 
-const service = { getRecap: jest.fn(), submitFeedback: jest.fn(), listRecaps: jest.fn() };
+const service = { get: jest.fn(), history: jest.fn() };
 const app = express();
 app.use(express.json());
 app.use('/api/v2', createWeeklyRecapRouter(service as any));
@@ -37,7 +37,7 @@ describe('weekly recap routes', () => {
     const res = await request(app).get('/api/v2/weekly-recap/latest?timeZone=UTC');
     expect(res.status).toBe(403);
     expect(res.body.error?.code ?? res.body.code).toBe('FEATURE_DISABLED');
-    expect(service.getRecap).not.toHaveBeenCalled();
+    expect(service.get).not.toHaveBeenCalled();
   });
 
   it('does not gate or authenticate unrelated routes mounted after it (flag off)', async () => {
@@ -48,38 +48,31 @@ describe('weekly recap routes', () => {
   });
 
   it('GET latest passes the authenticated user and the device time zone', async () => {
-    service.getRecap.mockResolvedValue({ available: false });
+    service.get.mockResolvedValue({ kind: 'NO_HISTORY', weekKey: '2026-10-19', timeZone: 'America/New_York' });
     const res = await request(app).get('/api/v2/weekly-recap/latest?timeZone=America/New_York');
     expect(res.status).toBe(200);
-    expect(service.getRecap).toHaveBeenCalledWith('db-user-1', { timeZone: 'America/New_York' });
+    expect(res.body.data).toMatchObject({ recap: null, reason: 'NO_HISTORY' });
+    expect(service.get).toHaveBeenCalledWith('db-user-1', { weekKey: 'latest', timeZone: 'America/New_York' });
   });
 
-  it('GET by week key forwards the key', async () => {
-    service.getRecap.mockResolvedValue({ available: true });
-    await request(app).get('/api/v2/weekly-recap/2026-10-12?timeZone=UTC');
-    expect(service.getRecap).toHaveBeenCalledWith('db-user-1', { weekKey: '2026-10-12', timeZone: 'UTC' });
+  it('GET by week key forwards the key and returns the stored recap', async () => {
+    service.get.mockResolvedValue({ kind: 'RECAP', id: 'r1', recap: { weekKey: '2026-10-12' }, feedback: null, updatedAt: new Date('2026-10-20T12:00:00Z') });
+    const res = await request(app).get('/api/v2/weekly-recap/2026-10-12?timeZone=UTC');
+    expect(service.get).toHaveBeenCalledWith('db-user-1', { weekKey: '2026-10-12', timeZone: 'UTC' });
+    expect(res.body.data).toEqual({ id: 'r1', recap: { weekKey: '2026-10-12' }, feedback: null, updatedAt: '2026-10-20T12:00:00.000Z' });
   });
 
-  it('translates domain errors to HTTP statuses', async () => {
-    service.getRecap.mockRejectedValue(new RecapError('INVALID_TIME_ZONE'));
-    expect((await request(app).get('/api/v2/weekly-recap/latest?timeZone=nope')).status).toBe(400);
-    service.submitFeedback.mockRejectedValue(new RecapError('NOT_FINAL'));
-    expect((await request(app).post('/api/v2/weekly-recap/2026-10-12/feedback').send({ rating: 'Yes' })).status).toBe(409);
-    service.submitFeedback.mockRejectedValue(new RecapError('NOT_FOUND'));
-    expect((await request(app).post('/api/v2/weekly-recap/2026-10-12/feedback').send({ rating: 'Yes' })).status).toBe(404);
+  it('keeps the service error code and status for the client', async () => {
+    service.get.mockRejectedValue(new WeeklyRecapError('That week is not available yet.', 404, 'WEEK_NOT_AVAILABLE'));
+    const res = await request(app).get('/api/v2/weekly-recap/2026-12-28?timeZone=UTC');
+    expect(res.status).toBe(404);
+    expect(res.body.error?.code ?? res.body.code).toBe('WEEK_NOT_AVAILABLE');
   });
 
-  it('feedback posts the rating for the week', async () => {
-    service.submitFeedback.mockResolvedValue({ feedback: 'Mostly' });
-    const res = await request(app).post('/api/v2/weekly-recap/2026-10-12/feedback').send({ rating: 'Mostly' });
-    expect(res.status).toBe(200);
-    expect(service.submitFeedback).toHaveBeenCalledWith('db-user-1', '2026-10-12', 'Mostly');
-  });
-
-  it('lists recaps in the mobile-facing camelCase shape', async () => {
-    service.listRecaps.mockResolvedValue([{ week_key: '2026-10-12', time_zone: 'UTC', status: 'FINAL', headline: 'h', hero_kind: 'QUIET', has_feedback: false }]);
-    const res = await request(app).get('/api/v2/weekly-recaps?limit=5');
-    expect(res.body.data[0]).toEqual({ weekKey: '2026-10-12', timeZone: 'UTC', status: 'FINAL', headline: 'h', heroKind: 'QUIET', hasFeedback: false });
-    expect(service.listRecaps).toHaveBeenCalledWith('db-user-1', 5);
+  it('lists history with the cursor', async () => {
+    service.history.mockResolvedValue({ items: [], nextCursor: null });
+    const res = await request(app).get('/api/v2/weekly-recaps?limit=10&before=2026-10-12');
+    expect(res.body.data).toEqual({ items: [], nextCursor: null });
+    expect(service.history).toHaveBeenCalledWith('db-user-1', { before: '2026-10-12', limit: 10 });
   });
 });

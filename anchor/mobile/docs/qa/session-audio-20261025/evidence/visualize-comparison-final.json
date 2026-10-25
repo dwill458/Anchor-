@@ -1,0 +1,116 @@
+[
+  {
+    "id": "audio-visualize-60-male-ambient-confirmed-captions-v5",
+    "sessionCompleted": true,
+    "recordedSeconds": 73.216,
+    "ambient": null,
+    "cues": [
+      {
+        "phase": "mix",
+        "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Glimpse_Dominic_V4.mp3",
+        "sourceSeconds": 65.2454375,
+        "recordedOffset": 3.8620625,
+        "correlation": 0.9975792320231299,
+        "gain": 0.03341347724199295,
+        "minimumHalfSecondCorrelation": 0.9806657354929076,
+        "weakWindows": [],
+        "localMixWindows": []
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-60-female-ambient-confirmed-captions-v5",
+    "sessionCompleted": true,
+    "recordedSeconds": 71.2533125,
+    "ambient": null,
+    "cues": [
+      {
+        "phase": "mix",
+        "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Glimpse_Lina_V4.mp3",
+        "sourceSeconds": 65.1198125,
+        "recordedOffset": 2.17675,
+        "correlation": 0.9999565555150025,
+        "gain": 0.033493101596832275,
+        "minimumHalfSecondCorrelation": 0.9993178762259293,
+        "weakWindows": [],
+        "localMixWindows": []
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-180-male-ambient-confirmed-captions-v5",
+    "sessionCompleted": true,
+    "recordedSeconds": 206.2506875,
+    "ambient": null,
+    "cues": [
+      {
+        "phase": "mix",
+        "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Dominic_3min_V4.mp3",
+        "sourceSeconds": 200.0,
+        "recordedOffset": 2.1980625,
+        "correlation": 0.9970597745640806,
+        "gain": 0.03339611366391182,
+        "minimumHalfSecondCorrelation": 0.9630252494271848,
+        "weakWindows": [],
+        "localMixWindows": []
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-180-female-ambient-confirmed-captions-v5",
+    "sessionCompleted": true,
+    "recordedSeconds": 206.4213125,
+    "ambient": null,
+    "cues": [
+      {
+        "phase": "mix",
+        "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Lina_3min_V4.mp3",
+        "sourceSeconds": 200.0,
+        "recordedOffset": 2.3900625,
+        "correlation": 0.995012008505397,
+        "gain": 0.03332753852009773,
+        "minimumHalfSecondCorrelation": 0.9187077339919801,
+        "weakWindows": [],
+        "localMixWindows": []
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-600-male-ambient-confirmed-captions-v5",
+    "sessionCompleted": true,
+    "recordedSeconds": 621.7386875,
+    "ambient": null,
+    "cues": [
+      {
+        "phase": "mix",
+        "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_10min15_V5.mp3",
+        "sourceSeconds": 615.0,
+        "recordedOffset": 2.43275,
+        "correlation": 0.9999960407741797,
+        "gain": 0.03349458426237106,
+        "minimumHalfSecondCorrelation": 0.9981956526497193,
+        "weakWindows": [],
+        "localMixWindows": []
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-600-female-ambient-confirmed-captions-v5",
+    "sessionCompleted": true,
+    "recordedSeconds": 622.7626875,
+    "ambient": null,
+    "cues": [
+      {
+        "phase": "mix",
+        "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_Lina_10min15_V5.mp3",
+        "sourceSeconds": 615.0,
+        "recordedOffset": 3.0514375,
+        "correlation": 0.9991727137133593,
+        "gain": 0.03346700221300125,
+        "minimumHalfSecondCorrelation": 0.8839095304010741,
+        "weakWindows": [],
+        "localMixWindows": []
+      }
+    ]
+  }
+]

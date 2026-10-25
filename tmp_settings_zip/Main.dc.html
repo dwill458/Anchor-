@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.p{width:390px;background:#F4F0E8;color:#14162B;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.3}
+.hd{display:flex;align-items:center;gap:4px;padding:12px 12px 8px}
+.bk{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#14162B;border-radius:22px;text-decoration:none}
+.gl{margin:28px 20px 8px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#655F54}
+.g{margin:0 16px;background:#FBF9F4;border:1px solid #E4DDD0;border-radius:18px;overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:12px 16px;min-height:66px;text-decoration:none;color:#14162B;border-top:1px solid #E4DDD0}
+.g>.row:first-child{border-top:0}
+.ic{width:36px;height:36px;border-radius:10px;background:#F3E9C8;color:#7A5A0C;display:flex;align-items:center;justify-content:center;flex:none}
+.tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.t{font-weight:600;font-size:16px}
+.s{font-size:14px;color:#655F54}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ch{color:#8A8272}
+.chip{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border-radius:22px;border:1.5px solid #B3AA97;background:#FBF9F4;color:#14162B;font-size:15px;font-weight:500;text-decoration:none}
+.pill{font-size:11px;font-weight:700;letter-spacing:.06em;color:#7A5A0C;background:#F3E9C8;border:1px solid #C9A227;border-radius:8px;padding:2px 7px}
+.warn{font-size:13px;font-weight:600;color:#7A5A0C;background:#F3E9C8;border-radius:12px;padding:6px 12px}
+</style>
+</helmet>
+<div class="p" style="height:1320px;overflow:hidden">
+
+<div class="hd">
+<a class="bk" href="Main.dc.html" aria-label="Back"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+<h1 style="margin:0;font-size:28px;font-weight:700">Settings</h1>
+</div>
+
+<a href="EditProfile.dc.html" style="display:block;margin:8px 16px 0;background:#FBF9F4;border:1px solid #E4DDD0;border-radius:20px;text-decoration:none;color:#14162B">
+<div style="display:flex;align-items:center;gap:16px;padding:16px">
+<div style="width:64px;height:64px;border-radius:32px;background:#14162B;color:#F4F0E8;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:600;flex:none">D</div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+<span style="font-size:20px;font-weight:700">Deontrez Williams</span>
+<span style="display:flex;align-items:center;gap:8px;font-size:14px;color:#655F54"><span class="pill">PRO</span>Member since May 2026</span>
+</div>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</div>
+<div style="display:flex;border-top:1px solid #E4DDD0">
+<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column"><span style="font-size:22px;font-weight:700">106</span><span class="s">Anchors</span></div>
+<div style="flex:1;padding:12px 16px;display:flex;flex-direction:column;border-left:1px solid #E4DDD0"><span style="font-size:22px;font-weight:700">230</span><span class="s">Sessions</span></div>
+</div>
+</a>
+
+<div style="position:relative;margin:16px 16px 0">
+<svg class="i" viewBox="0 0 24 24" aria-hidden="true" style="position:absolute;left:16px;top:16px;color:#655F54"><path d="M11 19a8 8 0 100-16 8 8 0 000 16M21 21l-4.3-4.3"/></svg>
+<input type="search" aria-label="Search settings" placeholder="Search settings" style="width:100%;height:52px;border-radius:16px;border:1.5px solid #B3AA97;background:#FBF9F4;padding:0 16px 0 46px;font:500 16px 'Inter',system-ui,sans-serif;color:#14162B">
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 16px 0">
+<a class="chip" href="Reminders.dc.html">Reminder time</a>
+<a class="chip" href="ThreadStrength.dc.html">Thread Strength</a>
+<a class="chip" href="Backup.dc.html">Back up</a>
+<a class="chip" href="SoundFeel.dc.html">Haptics</a>
+</div>
+
+<div class="gl">Make Anchor yours</div>
+<div class="g">
+<a class="row" href="Practice.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12h.01"/></svg></span>
+<span class="tx"><span class="t">Practice</span><span class="s">1 a day · Balanced · Serene voice</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+<a class="row" href="Reminders.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0"/></svg></span>
+<span class="tx"><span class="t">Reminders</span><span class="s">Daily at 8:00 AM · Reflective tone</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+<a class="row" href="SoundFeel.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 010 7M19 5a10 10 0 010 14"/></svg></span>
+<span class="tx"><span class="t">Sound &amp; feel</span><span class="s">Strong haptics · Sound effects on</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+</div>
+
+<div class="gl">Your data</div>
+<div class="g">
+<a class="row" href="Backup.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 01-.5-8A6 6 0 0118 9a4.5 4.5 0 01-.5 9H7M12 12v6M9.5 14.5L12 12l2.5 2.5"/></svg></span>
+<span class="tx"><span class="t">Backup &amp; recovery</span><span class="s">Encrypted copy of your Anchors</span></span>
+<span class="warn">Not backed up</span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+<a class="row" href="DataPrivacy.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg></span>
+<span class="tx"><span class="t">Data &amp; privacy</span><span class="s">Export, analytics, delete data</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+</div>
+
+<div class="gl">Account &amp; help</div>
+<div class="g">
+<a class="row" href="Account.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 100-8 4 4 0 000 8M4 21a8 8 0 0116 0"/></svg></span>
+<span class="tx"><span class="t">Account &amp; subscription</span><span class="s">Anchor Pro · Active</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+<a class="row" href="Help.dc.html">
+<span class="ic"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-1 .7-1.5 1.2-1.5 2.5M12 17h.01"/></svg></span>
+<span class="tx"><span class="t">Help &amp; about</span><span class="s">Support, app tips, legal</span></span>
+<svg class="i ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</a>
+</div>
+
+<div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:28px">
+<a href="Main.dc.html" style="display:flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;font-size:16px;font-weight:600;color:#655F54;text-decoration:none">Sign out</a>
+<span style="font-size:13px;color:#655F54">Anchor 2.0.0</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1320}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

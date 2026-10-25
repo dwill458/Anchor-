@@ -451,7 +451,7 @@ describe('ChartActiveView — reach ceremony', () => {
   it('a failed reach plays no ceremony, shows no commit card, and keeps the error on screen', async () => {
     const onWaypointReached = jest.fn();
     const onMilestoneBoundary = jest.fn();
-    const { getByTestId, queryByTestId, getByText } = render(
+    const { getByTestId, queryByTestId, getByText, getAllByText } = render(
       <Harness next={null} onWaypointReached={onWaypointReached} onMilestoneBoundary={onMilestoneBoundary} actionError="That didn’t go through. Try again." />
     );
     await settle(300);
@@ -467,7 +467,8 @@ describe('ChartActiveView — reach ceremony', () => {
     expect(getByText('That didn’t go through. Try again.')).toBeTruthy();
     await settle(200);
     expect(getByText(/Waypoint [23] of 3 · Current/)).toBeTruthy();
-    expect(getByText('Reach 1,000 active users')).toBeTruthy();
+    // The title is the header's; a move without its own reason falls back to it on the One Move card.
+    expect(getAllByText('Reach 1,000 active users').length).toBeGreaterThanOrEqual(1);
   });
 
   it('reaching the last waypoint plays the summit and ends on the arrival panel with View Vision and Release', async () => {

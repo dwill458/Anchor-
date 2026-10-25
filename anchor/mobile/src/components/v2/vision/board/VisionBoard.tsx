@@ -25,6 +25,9 @@ import { moveBoardOrder } from './visionBoardReorder';
 import { VISION_SERIF_ITALIC } from '../VisionPaperChrome';
 import { measureTeachingTarget, type TeachingRect } from '@/components/v2/teaching/scrollToTarget';
 import { projectTeachingSlot } from '@/hooks/v2/teaching/visionTeaching';
+import { useAuthStore } from '@/stores/authStore';
+import { useProfileStore } from '@/stores/profileStore';
+import { persistProfilePhoto } from '@/services/ProfileMediaService';
 
 export type VisionBoardFocus = { kind: 'photo'; sceneId: string } | { kind: 'card' } | null;
 
@@ -353,6 +356,21 @@ export function VisionBoard({
     onAddImage?.();
   }, [empty.length, onAddImage, slotMap]);
   const moveFocused = useCallback((sceneId: string) => { setFocus(null); setArrange({ kind: 'move', sceneId }); }, []);
+  const handleSetAsProfilePhoto = async (imageUrl: string | null | undefined) => {
+    if (!imageUrl) return;
+    try {
+      const user = useAuthStore.getState().user;
+      const currentPhoto = useProfileStore.getState().photo;
+      const persisted = user?.id
+        ? await persistProfilePhoto({ userId: user.id, photoUri: imageUrl, previousPhotoUri: currentPhoto })
+        : imageUrl;
+      useProfileStore.getState().updateProfile({ photo: persisted });
+      Alert.alert('Profile photo updated', 'This Vision photo is now your profile picture.');
+    } catch {
+      Alert.alert('Update failed', 'Could not set this image as your profile photo.');
+    }
+  };
+
   const finishReposition = useCallback(() => {
     if(repositioningId&&repositionDraft!==undefined)arrangement?.onFocalChange(repositioningId,repositionDraft);
     setRepositioningId(null);setRepositionDraft(undefined);
@@ -494,7 +512,11 @@ export function VisionBoard({
                   onPress={() => onRegenerate(focusedTile.sceneId)} /> : null}
                 <ControlButton label="More" icon={<MoreHorizontal size={18} color={colors.paper}/>} disabled={busy}
                   onPress={() => Alert.alert('Photo options', count <= 1 ? 'Keep at least one image in your Vision' : undefined,
-                    [...(count > 1 ? [{ text:'Remove',style:'destructive' as const,onPress:()=>onRemove(focusedTile.sceneId) }] : []),{ text:'Cancel',style:'cancel' }])} />
+                    [
+                      ...(focusedTile.imageUrl ? [{ text: 'Set as profile photo', onPress: () => void handleSetAsProfilePhoto(focusedTile.imageUrl) }] : []),
+                      ...(count > 1 ? [{ text: 'Remove', style: 'destructive' as const, onPress: () => onRemove(focusedTile.sceneId) }] : []),
+                      { text: 'Cancel', style: 'cancel' },
+                    ])} />
               </>
             ) : focus.kind === 'card' ? (
               <ControlButton label="Edit Vision" icon={<Pencil size={18} color={colors.paper} />} disabled={busy}

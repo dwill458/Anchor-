@@ -4,6 +4,7 @@ import { AnalyticsService } from '../AnalyticsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
+import type { Anchor } from '@/types';
 
 const input = (accountId: string, sessionId = 'stable-session') => ({
   sessionId,
@@ -26,6 +27,18 @@ describe('PracticeCompletionService', () => {
     jest.restoreAllMocks();
     useSessionStore.getState().reset();
     useAuthStore.setState({ user: { id: 'account-completion-test' } as any });
+  });
+
+  it.each([200, undefined])('records guided Visualize playback duration %s while retaining its nominal selection', async actualDurationSeconds => {
+    jest.spyOn(PracticeCompletionService, 'flush').mockResolvedValue(undefined);
+    const record = await PracticeCompletionService.commitVisualizeCompletion({
+      id: `visualize-duration-${actualDurationSeconds ?? 'legacy'}`, accountId: 'account-completion-test',
+      anchor: { id: 'audio-duration-anchor', localId: 'audio-duration-anchor', intentionText: 'Audio verification.', category: 'desire' } as Anchor,
+      durationSeconds: 180, actualDurationSeconds, startedAt: '2026-10-25T10:00:00.000Z', completedAt: '2026-10-25T10:03:20.000Z',
+      guidanceVoice: 'male', backgroundAudio: 'ambient', sceneSnapshot: 'Audio verification.',
+    });
+    expect(record.plannedDurationSeconds).toBe(180);
+    expect(record.completedDurationSeconds).toBe(actualDurationSeconds ?? 180);
   });
 
   it('records and queues one durable event for repeated completion callbacks', async () => {

@@ -13,7 +13,7 @@ jest.mock('@/services/AnalyticsService', () => ({
   AnalyticsService: { track: jest.fn() },
 }));
 
-type FakeStatus = { playing: boolean; isBuffering: boolean; didJustFinish: boolean };
+type FakeStatus = { playing: boolean; isBuffering: boolean; didJustFinish: boolean; error?: string | null };
 const mockFake: { positionSeconds: number; options: null | { onStatus?: (status: FakeStatus) => void; onFinish?: () => void; onFailure?: () => void; volume?: number }; player: Record<string, jest.Mock | (() => boolean)>; fail: boolean } = {
   positionSeconds: 0,
   options: null,
@@ -200,5 +200,20 @@ describe('guided playback: the audio position is the clock', () => {
     const loaded = setup();
     act(() => { mockFake.options?.onFailure?.(); });
     expect(loaded.result.current.state).toBe('failed');
+  });
+
+  it.each(['running', 'paused'] as const)('surfaces a source failure during %s instead of offering to resume a removed player', state => {
+    const { result, onComplete } = setup();
+    act(() => result.current.start());
+    afterSettle();
+    fake_play();
+    fake_pos(20); tick();
+    if (state === 'paused') act(() => result.current.pause());
+    act(() => {
+      mockFake.options?.onStatus?.({ playing: false, isBuffering: false, didJustFinish: false, error: 'Source error' });
+      mockFake.options?.onFailure?.();
+    });
+    expect(result.current.state).toBe('failed');
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });

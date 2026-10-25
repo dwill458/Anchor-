@@ -131,6 +131,9 @@ export class AskTurnInvalidError extends Error {
   }
 }
 
+const NOT_SURE = /(not sure|unsure|don'?t know|no idea)/i;
+const NOT_SURE_REPLY = 'Not sure yet';
+
 /** Validates and cleans a model response. Anything that cannot be made safe is rejected, never patched up. */
 export function normalizeAskTurn(raw: unknown): AskTurn {
   const parsed = RawTurn.safeParse(raw);
@@ -146,6 +149,11 @@ export function normalizeAskTurn(raw: unknown): AskTurn {
     seen.add(key);
     suggestions.push(value);
     if (suggestions.length === 4) break;
+  }
+  // Every set of quick replies leaves room for "I'm not sure": the person is never forced to pick something untrue.
+  if (suggestions.length > 0 && !suggestions.some(value => NOT_SURE.test(value))) {
+    if (suggestions.length === 4) suggestions.pop();
+    suggestions.push(NOT_SURE_REPLY);
   }
   const action = turn.action
     ? {

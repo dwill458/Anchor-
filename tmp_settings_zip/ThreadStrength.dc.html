@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thread Strength</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.p{width:390px;background:#F4F0E8;color:#14162B;font-family:'Inter',system-ui,sans-serif;font-size:16px;line-height:1.3}
+.hd{display:flex;align-items:center;gap:4px;padding:12px 12px 8px}
+.bk{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#14162B;border-radius:22px;text-decoration:none}
+.g{margin:0 16px;background:#FBF9F4;border:1px solid #E4DDD0;border-radius:18px;overflow:hidden}
+button.row{display:flex;align-items:flex-start;gap:14px;padding:18px 16px;width:100%;background:none;border:0;border-top:1px solid #E4DDD0;font:inherit;color:#14162B;text-align:left;cursor:pointer}
+.g>.row:first-child{border-top:0}
+.row.on{background:#F7F0DA}
+.tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.t{font-weight:600;font-size:17px}
+.s{font-size:14px;color:#655F54;line-height:1.4}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.rd{width:24px;height:24px;border-radius:12px;border:2px solid #8A8272;flex:none;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.rd.on{border-color:#14162B}
+.rd.on::after{content:'';width:12px;height:12px;border-radius:6px;background:#14162B}
+.wk{display:flex;gap:4px;margin-top:10px}
+.dc{width:30px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;color:#655F54}
+.d{width:14px;height:14px;border-radius:7px;background:#14162B}
+.d.m{background:transparent;border:2px solid #655F54}
+.d.x{background:#B4532A}
+.lg{display:flex;align-items:center;gap:6px;font-size:13px;color:#655F54}
+</style>
+</helmet>
+<div class="p" style="height:760px;overflow:hidden">
+
+<div class="hd">
+<a class="bk" href="Practice.dc.html" aria-label="Back to Practice"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></a>
+<h1 style="margin:0;font-size:22px;font-weight:600">Thread Strength</h1>
+</div>
+
+<p style="margin:12px 20px 0;font-size:16px;color:#655F54;line-height:1.4">Choose what happens to your thread when you miss a day. Each example shows the same week.</p>
+
+<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 20px 20px">
+<span class="lg"><span class="d" style="width:12px;height:12px"></span>Practiced</span>
+<span class="lg"><span class="d m" style="width:12px;height:12px"></span>Missed, thread holds</span>
+<span class="lg"><span class="d x" style="width:12px;height:12px"></span>Thread thins</span>
+</div>
+
+<div class="g" role="radiogroup" aria-label="Thread Strength behavior">
+<button class="row" role="radio" aria-checked="false">
+<span class="rd"></span>
+<span class="tx"><span class="t">Lenient</span><span class="s">Miss up to 2 days and your thread holds. Any thinning is gradual.</span>
+<span class="wk"><span class="dc"><span class="d"></span>M</span><span class="dc"><span class="d"></span>T</span><span class="dc"><span class="d"></span>W</span><span class="dc"><span class="d m"></span>T</span><span class="dc"><span class="d m"></span>F</span><span class="dc"><span class="d"></span>S</span><span class="dc"><span class="d"></span>S</span></span></span>
+</button>
+<button class="row on" role="radio" aria-checked="true">
+<span class="rd on"></span>
+<span class="tx"><span class="t">Balanced</span><span class="s">One missed day pauses your thread. Two in a row and it starts to thin.</span>
+<span class="wk"><span class="dc"><span class="d"></span>M</span><span class="dc"><span class="d"></span>T</span><span class="dc"><span class="d"></span>W</span><span class="dc"><span class="d m"></span>T</span><span class="dc"><span class="d x"></span>F</span><span class="dc"><span class="d"></span>S</span><span class="dc"><span class="d"></span>S</span></span></span>
+</button>
+<button class="row" role="radio" aria-checked="false">
+<span class="rd"></span>
+<span class="tx"><span class="t">Strict</span><span class="s">Every missed day thins your thread.</span>
+<span class="wk"><span class="dc"><span class="d"></span>M</span><span class="dc"><span class="d"></span>T</span><span class="dc"><span class="d"></span>W</span><span class="dc"><span class="d x"></span>T</span><span class="dc"><span class="d x"></span>F</span><span class="dc"><span class="d"></span>S</span><span class="dc"><span class="d"></span>S</span></span></span>
+</button>
+</div>
+
+<p style="margin:16px 20px 0;font-size:14px;color:#655F54;text-align:center">Saved as soon as you choose.</p>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":760}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

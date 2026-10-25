@@ -30,7 +30,7 @@ interface EditProfileSheetProps {
 
 type ImagePickerModule = typeof import('expo-image-picker');
 
-function getImagePickerModule(): ImagePickerModule | null {
+export function getImagePickerModule(): ImagePickerModule | null {
   if (!requireOptionalNativeModule('ExponentImagePicker')) {
     logger.warn('[EditProfileSheet] ExponentImagePicker native module is unavailable in this build');
     return null;

@@ -61,15 +61,35 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
   const ambientPlayer = useRef<ManagedSessionAudioPlayer | null>(null);
   const ambientAttempted = useRef(false);
   const voicePlayer = useRef<ManagedSessionAudioPlayer | null>(null);
+  const voiceGain = useRef(1);
   const fullMixFinished = useRef(false);
+  const fullMixPosition = useRef(0);
+  const fullMixPlaying = useRef(false);
+  const playbackMayRun = useRef(false);
+  const [fullMixReady, setFullMixReady] = useState(false);
+  const [guidanceFailed, setGuidanceFailed] = useState(false);
   const played = useRef(new Set<string>());
   const settled = useRef(false);
   const plan = useMemo(() => resolveSessionAudioPlan({
     sessionType: 'deep_prime', durationSeconds,
     configuration: { guidanceVoice: voice, backgroundAudio: ambient ? 'ambient' : 'off', source: 'default' },
   }), [ambient, durationSeconds, voice]);
+  const fullMixCue = plan.voiceCues.find(item => item.phaseId === FULL_MIX_PHASE_ID);
+  const readPlaybackElapsed = useCallback(() => {
+    if (fullMixFinished.current) return durationSeconds;
+    try {
+      const time = voicePlayer.current?.getCurrentTime();
+      if (time != null && Number.isFinite(time)) fullMixPosition.current = Math.max(fullMixPosition.current, time);
+    } catch { /* A finished native player keeps its last sampled position. */ }
+    return fullMixPosition.current;
+  }, [durationSeconds]);
 
   const sampleAudio = useCallback((time: number) => {
+    if (fullMixCue) {
+      seconds.value = withTiming(Math.min(durationSeconds, time + (fullMixPlaying.current ? .25 : 0)), {
+        duration: fullMixPlaying.current ? 250 : 0, easing: Easing.linear, reduceMotion: ReduceMotion.Never,
+      });
+    }
     if (!settled.current) {
       settled.current = true;
       if (haptics) void safeHaptics.selection();
@@ -86,45 +106,55 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
     ambientPlayer.current?.setVolume(gain);
     // The finished mix is one full-length recording (voice and bed together),
     // played once from the session start. Sound switched on late seeks to the clock.
-    const fullMixCue = plan.voiceCues.find(item => item.phaseId === FULL_MIX_PHASE_ID);
     if (fullMixCue) {
       if (voicePlayer.current) {
         if (endFade <= 0) {
           voicePlayer.current.stop();
           voicePlayer.current = null;
         } else {
-          voicePlayer.current.setVolume(fullMixCue.track.playbackGain * endFade);
+          voicePlayer.current.setVolume(soundRef.current ? fullMixCue.track.playbackGain * endFade : 0);
         }
         return;
       }
-      if (!soundRef.current || played.current.has(fullMixCue.phaseId) || manualStart.value >= 0) return;
+      if (played.current.has(fullMixCue.phaseId) || manualStart.value >= 0) return;
       played.current.add(fullMixCue.phaseId);
+      voiceGain.current = fullMixCue.track.playbackGain;
       const player = createSessionAudioPlayer(fullMixCue.track.asset, {
-        volume: fullMixCue.track.playbackGain,
+        volume: soundRef.current ? fullMixCue.track.playbackGain : 0,
         onFinish: () => { fullMixFinished.current = true; },
+        onFailure: () => { setGuidanceFailed(true); setFullMixReady(false); },
+        onStatus: status => {
+          fullMixPlaying.current = status.playing && !status.isBuffering;
+          if (status.isLoaded) setFullMixReady(true);
+          if (status.playing && !playbackMayRun.current) voicePlayer.current?.pause();
+        },
       });
-      if (time > 1) void player?.seekTo(time);
       voicePlayer.current = player;
-      player?.play();
+      if (!player) setGuidanceFailed(true);
+      else if (time > 1) void player.seekTo(time).then(() => {
+        if (voicePlayer.current === player && playbackMayRun.current) player.play();
+      });
+      else player.play();
       return;
     }
 
     // Modular cues (Warm / Soothing 1.5 audio)
-    if (!soundRef.current || manualStart.value >= 0) return;
+    if (manualStart.value >= 0) return;
     const remainingMs = Math.max(0, (durationSeconds - time) * 1000);
     for (const cue of plan.voiceCues) {
       if (remainingMs <= cue.triggerAtRemainingMs + 200 && !played.current.has(cue.phaseId)) {
         played.current.add(cue.phaseId);
         voicePlayer.current?.stop();
+        voiceGain.current = cue.track.playbackGain;
         const player = createSessionAudioPlayer(cue.track.asset, {
-          volume: cue.track.playbackGain * endFade,
+          volume: soundRef.current ? cue.track.playbackGain * endFade : 0,
         });
         voicePlayer.current = player;
         player?.play();
         break;
       }
     }
-  }, [createSessionAudioPlayer, durationSeconds, haptics, manualStart, plan]);
+  }, [createSessionAudioPlayer, durationSeconds, fullMixCue, haptics, manualStart, plan, seconds]);
   const complete = useCallback((data: DeepFocusSessionData) => {
     ambientPlayer.current?.stop();
     voicePlayer.current?.stop();
@@ -139,8 +169,10 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
     if (haptics) void safeHaptics.selection();
     onComplete(data);
   }, [haptics, onComplete, plan]);
-  const session = useDeepFocusSession({ duration: durationSeconds, showTime: controls, onSample: sampleAudio, onComplete: complete });
+  const session = useDeepFocusSession({ duration: durationSeconds, showTime: controls, onSample: sampleAudio, onComplete: complete,
+    readPlaybackElapsed: fullMixCue ? readPlaybackElapsed : undefined });
   const { state, phase, ending, readElapsed, pause, resume, end } = session;
+  playbackMayRun.current = state === 'running';
 
   const handleEndEarly = useCallback(() => {
     session.end();
@@ -153,23 +185,23 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
     cancelAnimation(seconds);
     seconds.value = readElapsed();
     if (ending && manualStart.value < 0) manualStart.value = session.manualEndAt.current ?? seconds.value;
-    if (state === 'running') {
+    if (state === 'running' && !fullMixCue) {
       seconds.value = withTiming(session.finishAt.current, {
         duration: Math.max(0, session.finishAt.current - seconds.value) * 1000,
         easing: Easing.linear,
         // Opacity timelines still run in reduced motion; spatial motion is removed.
         reduceMotion: ReduceMotion.Never,
       });
-      if (soundRef.current) {
-        ambientPlayer.current?.play();
-        voicePlayer.current?.play();
-      }
+    }
+    if (state === 'running') {
+      if (soundRef.current) ambientPlayer.current?.play();
+      if (soundRef.current || plan.shouldPlayVoice) voicePlayer.current?.play();
     } else {
       ambientPlayer.current?.pause();
       voicePlayer.current?.pause();
     }
     return () => cancelAnimation(seconds);
-  }, [ending, manualStart, readElapsed, seconds, session.finishAt, session.manualEndAt, state]);
+  }, [ending, fullMixCue, manualStart, plan.shouldPlayVoice, readElapsed, seconds, session.finishAt, session.manualEndAt, state]);
 
   const reveal = useCallback(() => {
     if (state !== 'running' || ending) return;
@@ -226,13 +258,18 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
     const next = !soundRef.current;
     soundRef.current = next;
     setSound(next);
-    if (next && state === 'running') {
-      ambientPlayer.current?.play(); voicePlayer.current?.play();
-    } else {
-      ambientPlayer.current?.pause(); voicePlayer.current?.pause();
-    }
+    if (next && state === 'running') ambientPlayer.current?.play();
+    else ambientPlayer.current?.pause();
+    voicePlayer.current?.setVolume(next ? voiceGain.current : 0);
+    if (state === 'running' && plan.shouldPlayVoice) voicePlayer.current?.play();
   };
   const remaining = Math.max(0, Math.ceil(durationSeconds - readElapsed()));
+  const retryGuidance = () => {
+    voicePlayer.current?.stop();
+    voicePlayer.current = null;
+    played.current.delete(FULL_MIX_PHASE_ID);
+    setGuidanceFailed(false);
+  };
 
   return (
     <Pressable testID="v2-deep-focus-active-screen" style={styles.screen} onPress={reveal}
@@ -242,6 +279,13 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
       accessibilityActions={[{ name: 'activate', label: 'Show Deep Focus controls' }]}
       onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'activate') reveal(); }}>
       <StatusBar barStyle="light-content" />
+      {fullMixCue && !fullMixReady && !guidanceFailed && state === 'running' ? <Text style={{ position: 'absolute', top: insets.top + 28,
+        left: 24, right: 24, textAlign: 'center', fontFamily: 'Inter-Regular', fontSize: 12, color: '#B9BDC7' }}>Preparing guidance…</Text> : null}
+      {guidanceFailed && state === 'running' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry guidance"
+        onPress={event => { event.stopPropagation(); retryGuidance(); }}
+        style={{ position: 'absolute', zIndex: 20, bottom: insets.bottom + 92, left: 24, right: 24, padding: 16 }}>
+        <Text style={{ textAlign: 'center', color: '#B9BDC7', fontFamily: 'Inter-Regular', fontSize: 13 }}>Guidance couldn’t load. Tap to retry.</Text>
+      </Pressable> : null}
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.black, darknessStyle]} />
       {phase === 'arrive' && <Animated.View pointerEvents="none"
         style={[styles.copy, { top: isLandscape ? Math.max(insets.top + 8, 34) : insets.top + 54 }, guidanceStyle]}
