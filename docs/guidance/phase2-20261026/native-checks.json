@@ -1,0 +1,35 @@
+{
+  "device": "Moto g play (2024), Android 14 / API 34",
+  "package": "com.anchorintentions.app",
+  "runtime": "2.0-sqlcipher-v1-owner-pilot",
+  "build": "Expo development client, Metro 8081",
+  "actualChecks": [
+    "Authenticated Home eventually rendered. No Today introduction appeared for this existing account; device-side eligibility was not inspected.",
+    "Actual Progress and Chart navigation rendered.",
+    "Injected Android Back from actual Progress without teaching exited to launcher; cause unresolved.",
+    "Chart grabber expanded peek to half; tapping actual move words expanded details without completing a move.",
+    "Chart scoped replay was invoked; no lesson appeared. Device-side eligibility reason unverified."
+  ],
+  "startupSamples": {
+    "guidanceEnabled": {
+      "appReadyMs": 21062,
+      "finalHomeHydrationMs": 29763.8
+    },
+    "temporaryGuidanceBypass": {
+      "appReadyMs": 18127,
+      "finalHomeHydrationMs": 26427.5
+    },
+    "interpretation": "Single development samples, not a controlled performance benchmark. Delay persists without guidance. Exact source restored before final checks."
+  },
+  "notVerified": [
+    "Integrated Home/Chart teaching appearance and highlighted-target touch-through",
+    "TalkBack focus, announcements and reading order",
+    "System Back gesture and release-like Back behavior",
+    "Integrated real celebration overlap",
+    "Restart persistence on device",
+    "Account transitions on device",
+    "Increased font scale and narrow teaching layout in integrated app",
+    "iOS VoiceOver, native hit testing, placement, safe areas and dismissal"
+  ],
+  "privacy": "No raw account screenshots, UI trees, credentials, or personal content included. No account reset, sign-out, business-data completion, system setting changes, or global teaching reset."
+}

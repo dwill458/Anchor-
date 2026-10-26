@@ -1,0 +1,7 @@
+
+
+Test Suites: 2 failed, 677 passed, 679 total
+Tests:       2 failed, 1 skipped, 7748 passed, 7751 total
+Snapshots:   16 passed, 16 total
+Time:        511.888 s
+Test results written to: ..\..\docs\guidance\phase2-final-results.json

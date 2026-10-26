@@ -1,0 +1,52 @@
+{
+  "source": "Shared working tree, source unchanged during final full sweep",
+  "jest": {
+    "numTotalTestSuites": 679,
+    "numPassedTestSuites": 677,
+    "numFailedTestSuites": 2,
+    "numTotalTests": 7751,
+    "numPassedTests": 7748,
+    "numFailedTests": 2,
+    "numPendingTests": 1
+  },
+  "snapshots": {
+    "passed": 16,
+    "total": 16
+  },
+  "failedTests": [
+    {
+      "file": "src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx",
+      "test": "V2ChartAskScreen does not seed into a conversation that already has messages"
+    },
+    {
+      "file": "src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx",
+      "test": "Waypoint detail asks before completing a waypoint, uses one stable key, and reverses into the shared Chart"
+    }
+  ],
+  "command": "npm.cmd test -- --maxWorkers=2 --workerIdleMemoryLimit=768MB --silent --json --outputFile=../../docs/guidance/phase2-final-results.json",
+  "durationSeconds": 511.888,
+  "typescript": {
+    "command": "node node_modules/typescript/bin/tsc --noEmit --pretty false",
+    "exitCode": 0
+  },
+  "focusedFoundationLifecycle": {
+    "suites": 3,
+    "testsPassed": 44
+  },
+  "reconstructedBaseline": {
+    "suites": 3,
+    "passedTests": 54,
+    "failedTests": 2,
+    "note": "Exact original snapshots for edited modules; current dependencies and unmodified shared-tree files."
+  },
+  "boundary": {
+    "originalFlaggedFiles": 39,
+    "finalFlaggedFiles": 39,
+    "addedFlaggedFiles": [],
+    "removedFlaggedFiles": [],
+    "note": "Reconstructed pre-task source uses exact original file snapshots for task-edited files, current unchanged files elsewhere. File-level checker, not an import-edge policy proof."
+  },
+  "rawResultsSha256": "b8edeccb115c393355bf500a0bd0d278606ea36f1601859961d21e001eb8a28f",
+  "rawLogSha256": "1e78a05676367a9076fabe7e3ea50d3440545037986bda1c0fb306670cca0ba1",
+  "rawEvidenceDirectory": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-guidance-phase2-verification"
+}
