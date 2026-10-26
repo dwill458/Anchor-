@@ -775,22 +775,17 @@ describe('V2AnchorDetailsScreen options menu', () => {
       expect(onOpenProgress).not.toHaveBeenCalled();
     });
 
-    it('shows the one-time education only after the first practice flagged it, and dismissal persists', async () => {
+    it('does not resurrect automatic Details education from retained legacy pending history', async () => {
       stubThread();
       useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
       useTeachingStore.getState().reset();
-      const first = renderDetails();
-      await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
-      expect(screen.queryByTestId('thread-strength-education')).toBeNull();
-      first.unmount();
-
       act(() => useTeachingStore.getState().setUserFlag('threadStrengthEducationPending', true));
       renderDetails();
-      await waitFor(() => expect(screen.getByTestId('thread-strength-education')).toBeTruthy());
-      expect(screen.getByText('Your Anchor is taking hold.')).toBeTruthy();
-      fireEvent.press(screen.getByTestId('thread-strength-education-dismiss'));
+      await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
       expect(screen.queryByTestId('thread-strength-education')).toBeNull();
-      expect(useTeachingStore.getState().userFlags.hasSeenThreadStrengthEducation).toBe(true);
+      expect(useTeachingStore.getState().userFlags.threadStrengthEducationPending).toBe(true);
+      fireEvent.press(screen.getByTestId('v2-anchor-thread-explain'));
+      await waitFor(() => expect(screen.getByText('Your Thread Strength')).toBeTruthy());
     });
   });
 

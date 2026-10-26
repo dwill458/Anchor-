@@ -37,7 +37,6 @@ import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2
 import { useAnchorStore } from '@/stores/anchorStore';
 import { detailsFonts, detailsPalette, withAlpha } from '@/components/v2/anchors/anchorDetailsTokens';
 import { ThreadStrengthExplainerSheet } from '@/components/v2/thread/ThreadStrengthExplainerSheet';
-import { ThreadStrengthEducationCard, useThreadStrengthEducation } from '@/components/v2/thread/ThreadStrengthEducationCard';
 import {
   PRACTICE_CARD_HEIGHT,
   SHEET_HANDLE_HEIGHT,
@@ -59,9 +58,6 @@ import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeomet
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
 import { useAuthStore } from '@/stores/authStore';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useGuidanceSurfaceLocks } from '@/stores/v2/guidanceSurfaceLocks';
-import { useCelebrationActive } from '@/hooks/v2/teaching/useCelebrationActive';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { DETAILS_BEATS_PER_VISIT, detailsTeachingBeats } from '@/hooks/v2/teaching/detailsTeaching';
@@ -942,15 +938,7 @@ export function V2AnchorDetailsScreen() {
   const realThreadValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
   const devStrength = useDevThreadStrengthStore();
   const threadValue = useThreadStrengthPreview(realThreadValue);
-  const education = useThreadStrengthEducation(realThreadValue);
-  const showTips = useSettingsStore(state => state.showTips !== false);
-  const guidanceCelebration = useCelebrationActive();
-  const educationShown = education.visible && showTips && teachingFocus.isFocused && !guidanceCelebration && !explainerOpen;
-  const educationLockKey = React.useId();
-  React.useLayoutEffect(() => {
-    useGuidanceSurfaceLocks.getState().set(educationLockKey, educationShown);
-    return () => useGuidanceSurfaceLocks.getState().set(educationLockKey, false);
-  }, [educationLockKey, educationShown]);
+
 
   if (!anchor) {
     return (
@@ -1176,14 +1164,6 @@ export function V2AnchorDetailsScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: SHEET_GUTTER, paddingBottom: 150 + insets.bottom }}
               >
-                {educationShown && threadValue !== null ? (
-                  <ThreadStrengthEducationCard
-                    strength={threadValue}
-                    accentColor={accent}
-                    onDismiss={education.dismiss}
-                    onLearnMore={() => { education.dismiss(); setExplainerOpen(true); }}
-                  />
-                ) : null}
                 <Animated.View style={[styles.practiceWrap, practiceWrapStyle]}>
                   <View style={styles.practiceInner}>
                     <TodayCard recommended={recommended} onPress={handlePracticePress} />

@@ -493,7 +493,7 @@ export function usePracticeCompletionScene({
   eligible,
   reduceMotion,
 }: PracticeCompletionSceneArgs): PracticeCompletionScene {
-  const [educationResult, setEducationResult] = useState<{ from: number; to: number } | null>(null);
+  const [educationResult, setEducationResult] = useState<{ key: string; from: number; to: number } | null>(null);
   const from = clampStrength(fromValue);
   const to = clampStrength(toValue);
   const [mountKey] = useState(() => {
@@ -622,7 +622,7 @@ export function usePracticeCompletionScene({
         playSettle(sessionId, timing, kind, to, reduceMotion);
       };
       const finishScene = () => {
-        setEducationResult({ from, to });
+        setEducationResult({ key: sceneKey, from, to });
         clearTimers();
         useCelebrationStore.getState().finish(sceneKey);
       };
@@ -638,8 +638,7 @@ export function usePracticeCompletionScene({
         if (kind === 'first') {
           const teaching = useTeachingStore.getState();
           teaching.setUserFlag('hasSeenFirstPracticeScene', true);
-          // Flags only: the one-time Thread Strength explanation appears later, on Anchor Details.
-          if (!teaching.userFlags.hasSeenThreadStrengthEducation) teaching.setUserFlag('threadStrengthEducationPending', true);
+          // Thread education is now owned by the completion Guidance host.
         }
         setScene({ kind, phase: 'playing' });
         applyValues(practiceSceneValues(kind, from, to, 'start'));
@@ -801,7 +800,7 @@ export function usePracticeCompletionScene({
   return {
     kind: scene.kind,
     phase: scene.phase,
-    educationReady: educationResult?.from === from && educationResult?.to === to,
+    educationReady: educationResult?.key === sceneKey && educationResult?.from === from && educationResult?.to === to,
     barProgress,
     glowOpacity,
     glowScale,
