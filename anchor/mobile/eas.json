@@ -294,6 +294,18 @@
         "EXPO_PUBLIC_ENABLE_CHART": "true"
       }
     },
+    "sqlcipher-app-preview": {
+      "extends": "preview",
+      "channel": "sqlcipher-app-preview",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease --project-prop expo.sqlite.useSQLCipher=true",
+        "resourceClass": "large"
+      },
+      "env": {
+        "ANCHOR_SQLCIPHER_APP_PREVIEW": "1"
+      }
+    },
     "sqlcipher-owner-pilot": {
       "distribution": "store",
       "channel": "sqlcipher-owner-pilot",

@@ -112,7 +112,7 @@ android {
         versionName "2.0.0"
         resValue "string", "app_name", isExpo58Qa ? "Anchor Expo 58 QA" : (isSqlCipherProductionQa ? "Anchor 2.0 SQLCipher QA" : "Anchor: Visual Goal Setting")
         resValue "string", "expo_runtime_version", isExpo58Qa ? "2.0-expo58-sqlcipher-qa" : (isSqlCipherProductionQa ? "2.0-sqlcipher-v2-realdata-qa" : "2.0")
-        resValue "bool", "expo_updates_enabled", isExpo58Qa || isSqlCipherProductionQa ? "false" : "true"
+        resValue "bool", "expo_updates_enabled", System.getenv('ANCHOR_SQLCIPHER_APP_PREVIEW') == '1' ? "true" : "false"
         manifestPlaceholders = [
             appScheme: isExpo58Qa ? "anchor-expo58-qa" : (isSqlCipherProductionQa ? "anchor-sqlcipher-qa" : "anchor"),
             expoUpdateUrl: isExpo58Qa || isSqlCipherProductionQa ? "" : "https://u.expo.dev/8fc5bf55-b18f-41c9-a8ce-767b307debb7",

@@ -10,6 +10,16 @@ module.exports = ({ config = staticConfig } = {}) => {
     ...config,
     orientation: isProductionCohort ? 'portrait' : 'default',
   };
+  if (process.env.ANCHOR_SQLCIPHER_APP_PREVIEW === '1') {
+    return {
+      ...base,
+      runtimeVersion: '2.0',
+      updates: { ...base.updates, enabled: true },
+      android: { ...base.android, allowBackup: false },
+      extra: { ...base.extra, sqlCipherOwnerPilot: true, sqlCipherOwnerPilotMigrationEnabled: true },
+      plugins: [...base.plugins, ['expo-sqlite', { useSQLCipher: true, enableFTS: false }]],
+    };
+  }
   // SDK 58 QA uses its own package/runtime and compiles SQLCipher. This test
   // identity is distinct from both public Anchor and the working SQLCipher QA app.
   if (process.env.ANCHOR_EXPO58_QA === '1') {
