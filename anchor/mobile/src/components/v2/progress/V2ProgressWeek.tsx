@@ -61,11 +61,7 @@ export const V2ProgressWeekCard: React.FC<V2ProgressWeekProps> = ({
         <View style={styles.runLine} testID={`${testID}-run`}>
           <Text style={styles.run}>{`${activeDays} active ${activeDays === 1 ? 'day' : 'days'}`}</Text>
           {longestRhythm > 0 ? <Text style={styles.best}>{`Longest rhythm ${longestRhythm}`}</Text> : null}
-          {streak ? (
-            <View style={styles.grace}>
-              <Text style={styles.graceText}>{streak.graceAvailable ? 'Grace day ready' : 'Grace day used'}</Text>
-            </View>
-          ) : null}
+
         </View>
       ) : null}
     </View>

@@ -178,8 +178,8 @@ describe('V2AnchorDetailsScreen', () => {
     fireEvent.press(screen.getByLabelText('Vision'));
     expect(onOpenVision).toHaveBeenCalledWith('a');
 
-    expect(screen.getByLabelText('Create Chart. Map the path from here.')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Create Chart. Map the path from here.'));
+    expect(screen.getByLabelText('Create Chart. Turn this into waypoints and a next move.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Create Chart. Turn this into waypoints and a next move.'));
     expect(onOpenChart).toHaveBeenCalledWith('a', undefined);
   });
 
@@ -695,7 +695,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
               expect(screen.getByTestId('v2-details-vision')).toBeTruthy();
             } else {
               expect(screen.getByText('Add Vision')).toBeTruthy();
-              expect(screen.getByText('See where this leads.')).toBeTruthy();
+              expect(screen.getByText('Picture where this leads.')).toBeTruthy();
             }
 
             // 3. Chart section
@@ -703,7 +703,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
               expect(screen.getByTestId('v2-details-chart')).toBeTruthy();
             } else {
               expect(screen.getByText('Create Chart')).toBeTruthy();
-              expect(screen.getByText('Map the path from here.')).toBeTruthy();
+              expect(screen.getByText('Turn this into waypoints and a next move.')).toBeTruthy();
             }
 
             // 4. Recent practice
@@ -734,7 +734,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
       // Verify no cream background fill
       expect(visionStyle.backgroundColor).not.toBe('#F4EDE0');
 
-      const emptyChartBtn = screen.getByLabelText('Create Chart. Map the path from here.');
+      const emptyChartBtn = screen.getByLabelText('Create Chart. Turn this into waypoints and a next move.');
       const chartStyle = StyleSheet.flatten(emptyChartBtn.props.style);
       expect(chartStyle).toMatchObject({
         minHeight: 76,

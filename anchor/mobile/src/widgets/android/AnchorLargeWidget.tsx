@@ -446,7 +446,7 @@ export function AnchorLargeWidget({
           <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
           <Metric value={String(longestStreak)} label="PRIME RECORD" />
           <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
-          <Metric value={`${deepPrimePercent}%`} label="DEEP PRIMES" color="#D4AF37" />
+          <Metric value={`${deepPrimePercent}%`} label="DEEP FOCUS" color="#D4AF37" />
         </FlexWidget>
 
         {/* ── Sensitivity + session breakdown ── */}
@@ -480,7 +480,7 @@ export function AnchorLargeWidget({
               style={{ fontFamily: FONT_DISPLAY, fontSize: 7, letterSpacing: 1.05, color: SILVER_LABEL }}
             />
             <TextWidget
-              text={`${deepPrimeSessions} DEEP PRIMES`}
+              text={`${deepPrimeSessions} DEEP FOCUS`}
               style={{ fontFamily: FONT_DISPLAY, fontSize: 6.5, letterSpacing: 0.55, color: '#D4AF37' }}
             />
           </FlexWidget>
@@ -566,7 +566,7 @@ export function AnchorLargeWidget({
             />
             <LegendSwatch color={GOLD} marginLeft={15} />
             <TextWidget
-              text="DEEP PRIME"
+              text="DEEP FOCUS"
               style={{
                 fontFamily: FONT_DISPLAY,
                 fontSize: 7,

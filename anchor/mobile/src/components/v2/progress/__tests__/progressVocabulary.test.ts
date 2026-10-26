@@ -5,7 +5,7 @@ import path from 'path';
  * Anchor 2.0 language rules for the Progress surface. Internal identifiers keep
  * the data names (`deepPrimeCount`, `deep_prime`); only text a user can read
  * is checked, so this scans string literals and JSX text, never identifiers or
- * comments. "Deep Prime" is the mode's name here; bare "prime"/"priming" and Consistency are not. A word-boundary match leaves `deepPrime` and `deep_prime` alone.
+ * comments. "Deep Focus" is the mode's name here; bare "prime"/"priming" and Consistency are not. A word-boundary match leaves `deepPrime` and `deep_prime` alone.
  */
 const SRC = path.resolve(__dirname, '../../../..');
 const DIRS = [
@@ -55,8 +55,8 @@ describe('Progress vocabulary', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('labels the deep-practice mode "Deep Prime" in the mix card', () => {
+  it('labels the deep-practice mode "Deep Focus" in the mix card', () => {
     const source = fs.readFileSync(path.join(SRC, 'components/v2/progress/progressTokens.ts'), 'utf8');
-    expect(source).toMatch(/deepPrime: 'Deep Prime'/);
+    expect(source).toMatch(/deepPrime: 'Deep Focus'/);
   });
 });

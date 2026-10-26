@@ -48,10 +48,10 @@ export const progressTokens = {
   current: colors.semantic.info,
 } as const;
 
-/** User-facing practice labels for this screen (Deep Prime, as the mode is named in the app's own vocabulary). */
+/** User-facing practice labels for this screen (Deep Focus). */
 export const PROGRESS_MODE_LABELS = {
   focus: 'Focus',
-  deepPrime: 'Deep Prime',
+  deepPrime: 'Deep Focus',
   visualize: 'Visualize',
   release: 'Release',
 } as const;

@@ -211,7 +211,7 @@ export function AnchorMediumWidget({
           <FlexWidget style={{ width: 1, height: 24, backgroundColor: '#FFFFFF12' }} />
           <Metric value={String(anchorDayStreak)} label="DAY THREAD" />
           <FlexWidget style={{ width: 1, height: 24, backgroundColor: '#FFFFFF12' }} />
-          <Metric value={String(anchorDeepPrimeSessions)} label="DEEP PRIMES" color={GOLD} />
+          <Metric value={String(anchorDeepPrimeSessions)} label="DEEP FOCUS" color={GOLD} />
         </FlexWidget>
 
         {/* ── CTA — deep-links to the Practice tab in both states ── */}

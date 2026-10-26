@@ -134,7 +134,7 @@ function sessionModeKey(s: AnyProgressSession): SessionModeKey {
 
 const MODE_COPY: Record<SessionModeKey, string> = {
   focus: 'Focus',
-  deepPrime: 'Deep Prime',
+  deepPrime: 'Deep Focus',
   visualize: 'Visualize',
   release: 'Release',
 };

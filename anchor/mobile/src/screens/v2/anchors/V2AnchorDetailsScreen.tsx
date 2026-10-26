@@ -69,9 +69,9 @@ type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 
 const DETAIL_ACTION_COPY = {
   visionTitle: 'Add Vision',
-  visionPayoff: 'See where this leads.',
+  visionPayoff: 'Picture where this leads.',
   chartTitle: 'Create Chart',
-  chartPayoff: 'Map the path from here.',
+  chartPayoff: 'Turn this into waypoints and a next move.',
 };
 
 const SNAP_MS = 420;
@@ -501,7 +501,7 @@ function ChartCreateRow({ onPress }: { onPress: () => void }) {
       payoff={DETAIL_ACTION_COPY.chartPayoff}
       onPress={onPress}
       onPressIn={prefetch}
-      accessibilityLabel="Create Chart. Map the path from here."
+      accessibilityLabel={`${DETAIL_ACTION_COPY.chartTitle}. ${DETAIL_ACTION_COPY.chartPayoff}`}
     />
   );
 }

@@ -1,0 +1,75 @@
+import { THREAD_STRENGTH_LEVELS, type ThreadStrengthLevel } from './threadEvents';
+
+/** The mobile mirror of the server's locked Thread Strength 2.1 scoring constants (display only). */
+export const THREAD_STRENGTH_RULES = {
+  activationBonus: 12,
+  dailyReturnBonus: 1.5,
+  pointsPerMinute: 0.5,
+  dailyDurationCapMinutes: 10,
+  dailyDecay: 3,
+} as const;
+
+export type ThreadStrengthSensitivity = 'lenient' | 'balanced' | 'strict';
+
+export const THREAD_STRENGTH_EXPLAINER_COPY = {
+  title: 'Your Thread Strength',
+  summary: [
+    "Thread Strength reflects the time and consistency you've invested in your Anchor.",
+    'Each completed practice strengthens your thread. Returning regularly helps it grow, while extended time away may cause it to soften.',
+    "As your Thread Strength increases, your Anchor's glow becomes more vibrant.",
+  ],
+  growth: [
+    'Your first practice gives your Anchor a starting boost.',
+    'Each day you return, you earn Strength for showing up and for the time you practice.',
+    'Practicing longer can strengthen your thread faster, up to the daily earning limit.',
+  ],
+  disclaimer:
+    'Thread Strength reflects your engagement with this intention through practice. It is not a prediction of how things will turn out.',
+} as const;
+
+export const THREAD_STRENGTH_EDUCATION_COPY = {
+  title: 'Your Anchor is taking hold.',
+  body: "Every time you return to practice, your Thread Strength grows. As it strengthens, your Anchor's glow becomes more vibrant.",
+  support: 'Consistency helps your thread grow stronger.',
+} as const;
+
+export const THREAD_STRENGTH_SENSITIVITY_LABEL: Record<ThreadStrengthSensitivity, string> = {
+  lenient: 'Lenient',
+  balanced: 'Balanced',
+  strict: 'Strict',
+};
+
+/** Plain-English decay explanations. Rest days and the 3-point rate are shared by every setting. */
+export const THREAD_STRENGTH_DECAY_COPY: Record<ThreadStrengthSensitivity, string> = {
+  lenient:
+    'Strength Buffer: 2 days away. After that, your thread softens by 3 points for each additional day.',
+  balanced:
+    'Strength Buffer: 1 day away. After that, your thread softens by 3 points for each additional day.',
+  strict: 'No Strength Buffer. Your thread softens by 3 points for each day away.',
+};
+
+export function normalizeSensitivity(value: unknown): ThreadStrengthSensitivity {
+  return value === 'lenient' || value === 'strict' ? value : 'balanced';
+}
+
+export interface ThreadStrengthLevelProgress {
+  level: ThreadStrengthLevel;
+  nextLevel: ThreadStrengthLevel | null;
+  /** Whole points still needed to reach the next level; null at the top level. */
+  pointsToNext: number | null;
+}
+
+export function getLevelProgress(strength: number): ThreadStrengthLevelProgress {
+  const value = Math.min(100, Math.max(0, strength));
+  const index = Math.max(
+    0,
+    THREAD_STRENGTH_LEVELS.findIndex((item) => Math.round(value) >= item.minStrength && Math.round(value) <= item.maxStrength),
+  );
+  const current = THREAD_STRENGTH_LEVELS[index];
+  const next = THREAD_STRENGTH_LEVELS[index + 1] ?? null;
+  return {
+    level: current.level,
+    nextLevel: next ? next.level : null,
+    pointsToNext: next ? Math.max(1, Math.ceil(next.minStrength - value)) : null,
+  };
+}

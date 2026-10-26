@@ -108,7 +108,7 @@ describe('Course log events', () => {
     const practice = events.filter((e) => e.type === 'PRACTICE_COMPLETED');
     expect(practice.map((e) => e.copy)).toEqual([
       '10 minute Focus session',
-      '2 minute Deep Prime session',
+      '2 minute Deep Focus session',
       '30 second Visualize session',
     ]);
     expect(practice[0].title).toBe('Practice completed');

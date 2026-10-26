@@ -11,6 +11,7 @@ import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore, type ThreadStrengthSensitivity } from '@/stores/settingsStore';
 import { logger } from '@/utils/logger';
+import { THREAD_STRENGTH_DECAY_COPY } from '@/constants/v2/threadStrengthCopy';
 
 interface Props {
   onBack: () => void;
@@ -29,19 +30,19 @@ const OPTIONS: Array<{
   {
     id: 'lenient',
     label: 'Lenient',
-    description: 'Miss up to 2 days and your thread holds. Any thinning is gradual.',
+    description: THREAD_STRENGTH_DECAY_COPY.lenient,
     week: ['practiced', 'practiced', 'practiced', 'holds', 'holds', 'practiced', 'practiced'],
   },
   {
     id: 'balanced',
     label: 'Balanced',
-    description: 'One missed day pauses your thread. Two in a row and it starts to thin.',
+    description: THREAD_STRENGTH_DECAY_COPY.balanced,
     week: ['practiced', 'practiced', 'practiced', 'holds', 'thins', 'practiced', 'practiced'],
   },
   {
     id: 'strict',
     label: 'Strict',
-    description: 'Every missed day thins your thread.',
+    description: THREAD_STRENGTH_DECAY_COPY.strict,
     week: ['practiced', 'practiced', 'practiced', 'thins', 'thins', 'practiced', 'practiced'],
   },
 ];
@@ -90,7 +91,7 @@ export const ThreadStrengthPanel: React.FC<Props> = ({ onBack }) => {
         </View>
         <View style={styles.legendItem}>
           <Dot state="thins" size={12} />
-          <Text style={styles.legendText}>Thread thins</Text>
+          <Text style={styles.legendText}>Thread softens</Text>
         </View>
       </View>
 
