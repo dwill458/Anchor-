@@ -183,10 +183,12 @@ export interface V2ProgressModel {
   threadStrength: number | null;
   unmeasured: boolean;
   qualitativeLabel: string;
-  highestEvolutionStage: 'Unestablished' | 'Forming' | 'Building' | 'Established' | 'Integrated' | 'Reinforced';
+  highestEvolutionStage: 'Unestablished' | 'Surface' | 'Grounded' | 'Rooted' | 'Embedded' | 'Sovereign' | 'Forming' | 'Building' | 'Established' | 'Integrated' | 'Reinforced';
   practiceSummary: V2PracticeModeBreakdown;
   waypointsReachedCount: number;
   events: V2ThreadEventItem[];
+  delta7d?: number | null;
+  delta7dStatus?: 'AVAILABLE' | 'UNAVAILABLE' | 'FIRST_WEEK';
   /** The fields below are optional so older callers and fixtures keep compiling. */
   week?: V2ProgressWeek;
   streak?: V2ProgressStreak;

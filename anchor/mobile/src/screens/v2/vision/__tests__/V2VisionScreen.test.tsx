@@ -209,7 +209,9 @@ describe('V2VisionScreen', () => {
     fireEvent.press(view.getByLabelText('Edit Vision'));
     fireEvent.changeText(view.getByLabelText('Board caption'), caption);
     fireEvent.press(view.getByText('Save Vision'));
-    await waitFor(() => expect(apiClient.patch).toHaveBeenCalledWith(expect.stringContaining('/vision'), { title: caption }));
+    await waitFor(() => expect(apiClient.patch).toHaveBeenCalledWith('/api/v2/visions/vision-101', {
+      title: caption, expectedUpdatedAt: mockVisionData.updatedAt,
+    }));
     await waitFor(() => expect(view.getByTestId('vision-board-annotation').props.children).toBe(caption));
   });
 
@@ -282,41 +284,54 @@ describe('V2VisionScreen', () => {
     expect(mockNavigate).toHaveBeenCalledWith('V2Chart', { anchorId: 'anchor-1', source: 'vision' });
   });
 
-  it('moves a photo to another position through accessibility actions, offers a swap, and persists the reading order', async () => {
+  it('moves a photo through accessibility actions, confirms a swap, and atomically persists every shared slot', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
-    (apiClient.put as jest.Mock).mockResolvedValue({ data: [] });
+    (apiClient.put as jest.Mock).mockResolvedValue({ data: {
+      ...mockVisionData,
+      scenes: mockVisionData.scenes.map((scene, index) => ({ ...scene, slotIndex: index < 2 ? 1 - index : index, sortOrder: index < 2 ? 1 - index : index })),
+    } });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     const first = await view.findByLabelText('Vision image in position 1 of 8');
     await act(async () => { fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'moveTo' } }); });
     // Every other position is offered: occupied ones as swaps, empty ones as places to move to.
     expect(view.getByLabelText('Swap with the photo in position 2 of 8')).toBeTruthy();
-    expect(view.getByLabelText('Add a photo to position 4 of 8')).toBeTruthy();
+    expect(view.getByLabelText('Move photo to position 4 of 8')).toBeTruthy();
     await act(async () => { fireEvent.press(view.getByLabelText('Swap with the photo in position 2 of 8')); });
     // An occupied target is never overwritten: it asks first.
     expect(apiClient.put).not.toHaveBeenCalled();
     const buttons = alert.mock.calls[0][2] as Array<{ text: string; onPress?: () => void }>;
     await act(async () => { buttons.find(button => button.text === 'Swap')?.onPress?.(); });
-    expect(apiClient.put).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes/reorder', {
-      sceneOrders: [{ id: 'sc-2', sortOrder: 0 }, { id: 'sc-1', sortOrder: 1 }, { id: 'sc-3', sortOrder: 2 }],
+    expect(apiClient.put).toHaveBeenCalledTimes(1);
+    expect(apiClient.put).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes/slots', {
+      slots: [{ sceneId: 'sc-2', slotIndex: 0 }, { sceneId: 'sc-1', slotIndex: 1 }, { sceneId: 'sc-3', slotIndex: 2 }],
+      expectedUpdatedAt: mockVisionData.updatedAt,
     });
+    expect(apiClient.patch).not.toHaveBeenCalled();
     alert.mockRestore();
   });
 
-  it('moving a photo into an empty position leaves the others where they are and saves no needless reorder', async () => {
+  it('moving a photo into an empty position preserves the others and persists the complete shared slot map', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
-    (apiClient.put as jest.Mock).mockClear();
+    (apiClient.put as jest.Mock).mockResolvedValue({ data: {
+      ...mockVisionData,
+      scenes: mockVisionData.scenes.map((scene, index) => ({ ...scene, slotIndex: index === 2 ? 5 : index })),
+    } });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     const third = await view.findByLabelText('Vision image in position 3 of 8');
     await act(async () => { fireEvent(third, 'accessibilityAction', { nativeEvent: { actionName: 'moveTo' } }); });
-    await act(async () => { fireEvent.press(view.getByLabelText('Add a photo to position 6 of 8')); });
-    // Same reading order (1, 2, 3): the arrangement is saved on the device and the server is not asked to reorder.
-    expect(apiClient.put).not.toHaveBeenCalled();
+    await act(async () => { fireEvent.press(view.getByLabelText('Move photo to position 6 of 8')); });
+    expect(apiClient.put).toHaveBeenCalledTimes(1);
+    expect(apiClient.put).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes/slots', {
+      slots: [{ sceneId: 'sc-1', slotIndex: 0 }, { sceneId: 'sc-2', slotIndex: 1 }, { sceneId: 'sc-3', slotIndex: 5 }],
+      expectedUpdatedAt: mockVisionData.updatedAt,
+    });
+    expect(apiClient.patch).not.toHaveBeenCalled();
     expect(view.getByLabelText('Vision image in position 6 of 8')).toBeTruthy();
     expect(view.getByLabelText('Vision image in position 1 of 8')).toBeTruthy(); expect(view.getByLabelText('Vision image in position 2 of 8')).toBeTruthy();
   });
 
-  it('a sealed photo offers Regenerate and Remove; Remove confirms and archives it', async () => {
+  it('a sealed photo keeps five contextual controls and exposes confirmed removal through More', async () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
     (apiClient.delete as jest.Mock).mockResolvedValue({ data: { success: true } });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
@@ -324,14 +339,18 @@ describe('V2VisionScreen', () => {
     const second = await view.findByLabelText('Vision image in position 2 of 8');
     const focus = () => act(() => { fireEvent(second, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } }); });
     focus();
-    // Every action the position supports is offered.
-    for (const label of ['Move', 'Replace', 'Reposition', 'Caption', 'Regenerate', 'Remove']) expect(view.getByLabelText(label)).toBeTruthy();
+    for (const label of ['Move', 'Replace', 'Reposition', 'Caption', 'Regenerate', 'More']) expect(view.getByLabelText(label)).toBeTruthy();
+    expect(view.queryByLabelText('Remove')).toBeNull();
     // Back returns the camera to the whole board.
     fireEvent.press(view.getByLabelText('Back to the whole board'));
     expect(view.queryByLabelText('Reposition')).toBeNull();
     focus();
-    fireEvent.press(view.getByLabelText('Remove'));
-    const buttons = alert.mock.calls[0][2] as Array<{ text: string; onPress?: () => void }>;
+    fireEvent.press(view.getByLabelText('More'));
+    expect(alert).toHaveBeenCalledWith('Photo options', undefined, expect.any(Array));
+    const moreButtons = alert.mock.calls.at(-1)![2] as Array<{ text: string; onPress?: () => void }>;
+    act(() => { moreButtons.find(button => button.text === 'Remove')?.onPress?.(); });
+    expect(alert).toHaveBeenLastCalledWith('Remove image?', expect.any(String), expect.any(Array), expect.any(Object));
+    const buttons = alert.mock.calls.at(-1)![2] as Array<{ text: string; onPress?: () => void }>;
     await act(async () => { buttons.find(button => button.text === 'Remove')?.onPress?.(); });
     expect(apiClient.delete).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes/sc-2');
     // The photo leaves at once, and with it the focus.

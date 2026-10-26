@@ -45,7 +45,7 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
     if (startingRef.current) return false;
     startingRef.current = true; setStarting(true); setNotice(null);
     try {
-      if (references) {
+      if (references && references.length > 0) {
         if (references.length > 5) { setNotice('Choose up to five reference photos.'); return false; }
         const uploaded: VisionReferenceAttachment[] = [];
         // Serialize uploads so only one base64 image buffer is live at a time.

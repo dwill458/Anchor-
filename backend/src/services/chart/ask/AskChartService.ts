@@ -16,7 +16,13 @@ import {
   type ChartModelProvider,
   type ChartModelTurn,
 } from '../chartModelProviders';
-import { ASK_SKILLS, buildAgentSystem, loadChartAgent, type AskSkill, type ChartAgent } from './chartAgent';
+import {
+  ASK_SKILLS,
+  buildAgentSystem,
+  loadChartAgent,
+  type AskSkill,
+  type ChartAgent,
+} from './chartAgent';
 import {
   ASK_TURN_JSON_SCHEMA,
   AskTurnInvalidError,
@@ -77,7 +83,12 @@ export type AskTurnHooks = {
   onStage?: (stage: 'preparing_change') => void;
 };
 
-type RunOutcome = { turn: AskTurn; provider: ChartModelProvider; fallbackUsed: boolean; latencyMs: number };
+type RunOutcome = {
+  turn: AskTurn;
+  provider: ChartModelProvider;
+  fallbackUsed: boolean;
+  latencyMs: number;
+};
 
 function describeFailure(error: unknown): string {
   if (error instanceof ChartProviderError) return error.failure;
@@ -86,14 +97,21 @@ function describeFailure(error: unknown): string {
 }
 
 /** What the model is told when there is no user message. The agent file explains it. */
-const OPENING_MESSAGE = '(opening: the person has just opened Ask Chart and has not said anything yet)';
+const OPENING_MESSAGE =
+  '(opening: the person has just opened Ask Chart for the first time and has not said anything yet. Begin with a short greeting and introduce yourself as their Anchor, speaking as the outcome they are building toward, then say your purpose is to help them build a route they can follow, then ask one discovery question as its own final paragraph.)';
 
-const normalizeTitle = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const normalizeTitle = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 
 export class AskChartService {
   private agentCache: ChartAgent | null = null;
 
-  constructor(private readonly configFactory: () => AskChartConfig = () => resolveAskChartConfig()) {}
+  constructor(
+    private readonly configFactory: () => AskChartConfig = () => resolveAskChartConfig()
+  ) {}
 
   private get agent(): ChartAgent {
     return (this.agentCache ??= loadChartAgent());
@@ -110,7 +128,8 @@ export class AskChartService {
     onReply?: (text: string) => void
   ): Promise<RunOutcome> {
     const config = this.configFactory();
-    if (config.providers.length === 0) throw new AppError('Ask Chart is not available right now', 503, 'ASK_UNAVAILABLE');
+    if (config.providers.length === 0)
+      throw new AppError('Ask Chart is not available right now', 503, 'ASK_UNAVAILABLE');
     const deadline = Date.now() + DEADLINE_MS;
     let lastReason = 'unknown';
     for (const [index, provider] of config.providers.slice(0, 2).entries()) {
@@ -130,15 +149,16 @@ export class AskChartService {
             timeoutMs: Math.min(timeoutMs, deadline - started),
             temperature: 0.6,
           };
-          const raw = onReply && provider.streamJson
-            ? await provider.streamJson(modelRequest, accumulated => {
-                const { text } = extractStreamingReply(accumulated);
-                if (text && text !== lastSent) {
-                  lastSent = text;
-                  onReply(text);
-                }
-              })
-            : await provider.generateJson(modelRequest);
+          const raw =
+            onReply && provider.streamJson
+              ? await provider.streamJson(modelRequest, accumulated => {
+                  const { text } = extractStreamingReply(accumulated);
+                  if (text && text !== lastSent) {
+                    lastSent = text;
+                    onReply(text);
+                  }
+                })
+              : await provider.generateJson(modelRequest);
           const turn = normalizeAskTurn(raw);
           const latencyMs = Date.now() - started;
           logger.info('ask_chart_attempt', {
@@ -163,13 +183,18 @@ export class AskChartService {
             latencyMs: elapsed,
           });
           const retry =
-            attempt === 0 && error instanceof ChartProviderError && error.retryable && elapsed < RETRY_WINDOW_MS;
+            attempt === 0 &&
+            error instanceof ChartProviderError &&
+            error.retryable &&
+            elapsed < RETRY_WINDOW_MS;
           if (!retry) break;
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
     }
-    throw new AppError('Ask Chart could not answer right now', 503, 'ASK_UNAVAILABLE', { reason: lastReason });
+    throw new AppError('Ask Chart could not answer right now', 503, 'ASK_UNAVAILABLE', {
+      reason: lastReason,
+    });
   }
 
   /** The caller's own photos, read once for this request. Bytes are never stored or logged. */
@@ -181,11 +206,19 @@ export class AskChartService {
         select: { storageKey: true, mimeType: true },
       });
       if (!asset) throw new AppError('Photo not found', 404, 'ASSET_NOT_FOUND');
-      if (!IMAGE_TYPES.includes(asset.mimeType)) throw new AppError('Unsupported photo type', 400, 'VALIDATION_ERROR');
+      if (!IMAGE_TYPES.includes(asset.mimeType))
+        throw new AppError('Unsupported photo type', 400, 'VALIDATION_ERROR');
       try {
-        images.push({ mimeType: asset.mimeType, base64: (await readPrivateImageAsset(asset.storageKey)).toString('base64') });
+        images.push({
+          mimeType: asset.mimeType,
+          base64: (await readPrivateImageAsset(asset.storageKey)).toString('base64'),
+        });
       } catch {
-        throw new AppError('That photo could not be read. Try attaching it again.', 422, 'ASSET_UNREADABLE');
+        throw new AppError(
+          'That photo could not be read. Try attaching it again.',
+          422,
+          'ASSET_UNREADABLE'
+        );
       }
     }
     return images;
@@ -209,7 +242,9 @@ export class AskChartService {
 
     if (proposed.type === 'ADD_MOVES') {
       const waypoint =
-        chart.waypoints.find(item => item.id === (proposed.waypointId ?? chart.currentWaypointId)) ?? null;
+        chart.waypoints.find(
+          item => item.id === (proposed.waypointId ?? chart.currentWaypointId)
+        ) ?? null;
       if (!waypoint || waypoint.state === 'REACHED') return { action: null, unavailable: true };
       const existing = new Set(waypoint.moves.map(move => normalizeTitle(move.title)));
       const fresh = proposed.moves.filter(move => {
@@ -223,7 +258,9 @@ export class AskChartService {
         action: {
           type: 'ADD_MOVES',
           status: 'PENDING',
-          summary: proposed.summary || `Add ${fresh.length === 1 ? 'a move' : `${fresh.length} moves`} to ${waypoint.title}`,
+          summary:
+            proposed.summary ||
+            `Add ${fresh.length === 1 ? 'a move' : `${fresh.length} moves`} to ${waypoint.title}`,
           waypointId: waypoint.id,
           waypointTitle: waypoint.title,
           moves: fresh,
@@ -274,13 +311,18 @@ export class AskChartService {
     }
   }
 
-  async turn(userId: string, input: AskTurnInput, hooks: AskTurnHooks = {}): Promise<AskTurnResult> {
+  async turn(
+    userId: string,
+    input: AskTurnInput,
+    hooks: AskTurnHooks = {}
+  ): Promise<AskTurnResult> {
     if (!getChartFeatureFlags().chart_ai_planner_enabled) {
       throw new AppError('Ask Chart is not available right now', 503, 'ASK_DISABLED');
     }
     const opening = Boolean(input.opening) && input.attachments.length === 0;
     const text = opening ? OPENING_MESSAGE : input.text.trim();
-    if (!text && input.attachments.length === 0) throw new AppError('Say something or attach a photo', 400, 'VALIDATION_ERROR');
+    if (!text && input.attachments.length === 0)
+      throw new AppError('Say something or attach a photo', 400, 'VALIDATION_ERROR');
 
     const context = await loadAskContext(userId, input.anchorId);
     const mode: 'CREATE' | 'ONGOING' = context.chart ? 'ONGOING' : 'CREATE';
@@ -317,7 +359,11 @@ export class AskChartService {
     }
     if (existing) {
       const reply = await prisma.chartMessage.findFirst({
-        where: { conversationId: existing.conversationId, role: 'ASSISTANT', createdAt: { gt: existing.createdAt } },
+        where: {
+          conversationId: existing.conversationId,
+          role: 'ASSISTANT',
+          createdAt: { gt: existing.createdAt },
+        },
         orderBy: { createdAt: 'asc' },
         select: { ...askChartStore.MESSAGE_SELECT, meta: true },
       });
@@ -346,7 +392,8 @@ export class AskChartService {
           orderBy: { lastMessageAt: 'desc' },
           select: { id: true },
         });
-    if (input.conversationId && !conversation) throw new AppError('Conversation not found', 404, 'CONVERSATION_NOT_FOUND');
+    if (input.conversationId && !conversation)
+      throw new AppError('Conversation not found', 404, 'CONVERSATION_NOT_FOUND');
     if (!conversation && courseId) {
       // The conversation that planned this Chart continues once the Chart exists.
       const planning = await prisma.chartConversation.findFirst({
@@ -367,7 +414,10 @@ export class AskChartService {
     }
     const conversationId = conversation.id;
 
-    if (opening && (await prisma.chartMessage.findFirst({ where: { conversationId }, select: { id: true } }))) {
+    if (
+      opening &&
+      (await prisma.chartMessage.findFirst({ where: { conversationId }, select: { id: true } }))
+    ) {
       throw new AppError('This conversation has already started', 409, 'ASK_ALREADY_OPEN');
     }
 
@@ -375,37 +425,41 @@ export class AskChartService {
 
     const userRow = opening
       ? null
-      : existing ??
-      (await prisma.chartMessage.create({
-        data: {
-          conversationId,
-          userId,
-          role: 'USER',
-          text: text.slice(0, 4000),
-          attachments: input.attachments.length
-            ? (input.attachments.map(assetId => ({ assetId })) as Prisma.InputJsonValue)
-            : Prisma.DbNull,
-          skill: skill === 'FREE' ? null : skill,
-          idempotencyKey: messageKey,
-        },
-        select: { ...askChartStore.MESSAGE_SELECT, userId: true, conversationId: true },
-      }));
+      : (existing ??
+        (await prisma.chartMessage.create({
+          data: {
+            conversationId,
+            userId,
+            role: 'USER',
+            text: text.slice(0, 4000),
+            attachments: input.attachments.length
+              ? (input.attachments.map(assetId => ({ assetId })) as Prisma.InputJsonValue)
+              : Prisma.DbNull,
+            skill: skill === 'FREE' ? null : skill,
+            idempotencyKey: messageKey,
+          },
+          select: { ...askChartStore.MESSAGE_SELECT, userId: true, conversationId: true },
+        })));
 
     const earlier = !userRow
       ? []
       : await prisma.chartMessage.findMany({
-      where: { conversationId, userId, createdAt: { lt: userRow.createdAt } },
-      orderBy: { createdAt: 'desc' },
-      take: HISTORY_TURNS,
-      select: { role: true, text: true },
-    });
+          where: { conversationId, userId, createdAt: { lt: userRow.createdAt } },
+          orderBy: { createdAt: 'desc' },
+          take: HISTORY_TURNS,
+          select: { role: true, text: true },
+        });
     const history: ChartModelTurn[] = earlier
       .reverse()
       .filter(row => row.text.trim())
-      .map(row => ({ role: row.role === 'ASSISTANT' ? 'assistant' : 'user', text: row.text.slice(0, HISTORY_CHARS) }));
+      .map(row => ({
+        role: row.role === 'ASSISTANT' ? 'assistant' : 'user',
+        text: row.text.slice(0, HISTORY_CHARS),
+      }));
 
     const focusMove =
-      input.targetMoveId && context.chart?.waypoints.some(w => w.moves.some(m => m.id === input.targetMoveId))
+      input.targetMoveId &&
+      context.chart?.waypoints.some(w => w.moves.some(m => m.id === input.targetMoveId))
         ? input.targetMoveId
         : null;
 
@@ -430,7 +484,10 @@ export class AskChartService {
 
     // Two attempts at one message (a dropped stream retried while the first was still running) must leave one answer.
     const raced = opening
-      ? await prisma.chartMessage.findUnique({ where: { idempotencyKey: messageKey }, select: { ...askChartStore.MESSAGE_SELECT, meta: true } })
+      ? await prisma.chartMessage.findUnique({
+          where: { idempotencyKey: messageKey },
+          select: { ...askChartStore.MESSAGE_SELECT, meta: true },
+        })
       : userRow
         ? await prisma.chartMessage.findFirst({
             where: { conversationId, role: 'ASSISTANT', createdAt: { gt: userRow.createdAt } },
@@ -445,13 +502,23 @@ export class AskChartService {
         userMessage: userRow ? toMessageDTO(userRow) : null,
         assistantMessage: toMessageDTO(raced),
         remembered: null,
-        generation: { source: 'ai', fallbackUsed: Boolean(((raced.meta ?? {}) as { fallbackUsed?: boolean }).fallbackUsed) },
+        generation: {
+          source: 'ai',
+          fallbackUsed: Boolean(((raced.meta ?? {}) as { fallbackUsed?: boolean }).fallbackUsed),
+        },
         replayed: true,
       };
     }
 
     const assistantId = randomUUID();
-    const resolved = await this.resolveAction(userId, input.anchorId, context, turn, assistantId, hooks);
+    const resolved = await this.resolveAction(
+      userId,
+      input.anchorId,
+      context,
+      turn,
+      assistantId,
+      hooks
+    );
 
     // Creation: hand the client exactly what POST /chart/plan needs. Where the model left it blank, fall back
     // to what the person actually wrote, never to anything invented.
@@ -462,9 +529,15 @@ export class AskChartService {
         orderBy: { createdAt: 'asc' },
         select: { text: true, attachments: true },
       });
-      const said = written.map(row => row.text.trim()).filter(Boolean).join(' ').slice(0, 500);
+      const said = written
+        .map(row => row.text.trim())
+        .filter(Boolean)
+        .join(' ')
+        .slice(0, 500);
       const photoAssetIds = written
-        .flatMap(row => (Array.isArray(row.attachments) ? (row.attachments as Array<{ assetId?: string }>) : []))
+        .flatMap(row =>
+          Array.isArray(row.attachments) ? (row.attachments as Array<{ assetId?: string }>) : []
+        )
         .map(item => item.assetId)
         .filter((id): id is string => typeof id === 'string')
         .slice(-MAX_ATTACHMENTS);
@@ -487,32 +560,35 @@ export class AskChartService {
     const replyKey = opening ? messageKey : `${messageKey}:reply`;
     const created = await prisma.chartMessage
       .create({
-      data: {
-        id: assistantId,
-        conversationId,
-        userId,
-        role: 'ASSISTANT',
-        text: turn.reply,
-        idempotencyKey: replyKey,
-        structured: structured as unknown as Prisma.InputJsonValue,
-        skill: skill === 'FREE' ? null : skill,
-        meta: {
-          source: 'ai',
-          agentVersion: this.agent.version,
-          agentHash: this.agent.hash,
-          provider: outcome.provider.name,
-          model: outcome.provider.model,
-          fallbackUsed: outcome.fallbackUsed,
-          latencyMs: outcome.latencyMs,
+        data: {
+          id: assistantId,
+          conversationId,
+          userId,
+          role: 'ASSISTANT',
+          text: turn.reply,
+          idempotencyKey: replyKey,
+          structured: structured as unknown as Prisma.InputJsonValue,
+          skill: skill === 'FREE' ? null : skill,
+          meta: {
+            source: 'ai',
+            agentVersion: this.agent.version,
+            agentHash: this.agent.hash,
+            provider: outcome.provider.name,
+            model: outcome.provider.model,
+            fallbackUsed: outcome.fallbackUsed,
+            latencyMs: outcome.latencyMs,
+          },
         },
-      },
-      select: { ...askChartStore.MESSAGE_SELECT, meta: true },
-    })
+        select: { ...askChartStore.MESSAGE_SELECT, meta: true },
+      })
       .then(
         row => ({ row, lost: false as const }),
         async (error: { code?: string }) => {
           if (error?.code !== 'P2002') throw error;
-          const winner = await prisma.chartMessage.findUnique({ where: { idempotencyKey: replyKey }, select: { ...askChartStore.MESSAGE_SELECT, meta: true } });
+          const winner = await prisma.chartMessage.findUnique({
+            where: { idempotencyKey: replyKey },
+            select: { ...askChartStore.MESSAGE_SELECT, meta: true },
+          });
           if (!winner) throw error;
           return { row: winner, lost: true as const };
         }
@@ -524,17 +600,31 @@ export class AskChartService {
         userMessage: userRow ? toMessageDTO(userRow) : null,
         assistantMessage: toMessageDTO(created.row),
         remembered: null,
-        generation: { source: 'ai', fallbackUsed: Boolean(((created.row.meta ?? {}) as { fallbackUsed?: boolean }).fallbackUsed) },
+        generation: {
+          source: 'ai',
+          fallbackUsed: Boolean(
+            ((created.row.meta ?? {}) as { fallbackUsed?: boolean }).fallbackUsed
+          ),
+        },
         replayed: true,
       };
     }
     const assistantRow = created.row;
-    await prisma.chartConversation.update({ where: { id: conversationId }, data: { lastMessageAt: new Date() } });
+    await prisma.chartConversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() },
+    });
 
     let remembered: AskTurnResult['remembered'] = null;
     if (turn.remember) {
       try {
-        remembered = await askChartStore.upsertMemory(userId, input.anchorId, turn.remember.key, turn.remember.value, 'CONVERSATION');
+        remembered = await askChartStore.upsertMemory(
+          userId,
+          input.anchorId,
+          turn.remember.key,
+          turn.remember.value,
+          'CONVERSATION'
+        );
       } catch (error) {
         logger.warn('ask_chart_memory_failed', { reason: describeFailure(error) });
       }
@@ -555,12 +645,21 @@ export class AskChartService {
    * Applies an approved ADD_MOVES proposal through the same validated, idempotent path as the Add move button.
    * Moves are created exactly as stored on the message: the client sends no content, only its approval.
    */
-  async approveMoves(userId: string, courseId: string, messageId: string): Promise<{ chart: CourseDetail; added: number }> {
-    const { id, structured, action } = await askChartStore.loadActionMessage(userId, courseId, messageId);
+  async approveMoves(
+    userId: string,
+    courseId: string,
+    messageId: string
+  ): Promise<{ chart: CourseDetail; added: number }> {
+    const { id, structured, action } = await askChartStore.loadActionMessage(
+      userId,
+      courseId,
+      messageId
+    );
     if (action.type !== 'ADD_MOVES' || !action.waypointId) {
       throw new AppError('This proposal is not a set of moves', 409, 'PROPOSAL_UNAVAILABLE');
     }
-    if (action.status === 'DISMISSED') throw new AppError('This proposal was dismissed', 409, 'PROPOSAL_UNAVAILABLE');
+    if (action.status === 'DISMISSED')
+      throw new AppError('This proposal was dismissed', 409, 'PROPOSAL_UNAVAILABLE');
     let chart: CourseDetail | null = null;
     for (const [index, move] of action.moves.entries()) {
       try {
@@ -575,7 +674,11 @@ export class AskChartService {
         });
       } catch (error) {
         if (error instanceof AppError && error.code === 'WAYPOINT_TRANSITION_INVALID') {
-          throw new AppError('That waypoint is already behind you, so these moves no longer apply', 409, 'PROPOSAL_STALE');
+          throw new AppError(
+            'That waypoint is already behind you, so these moves no longer apply',
+            409,
+            'PROPOSAL_STALE'
+          );
         }
         throw error;
       }
@@ -587,7 +690,11 @@ export class AskChartService {
   }
 
   async dismiss(userId: string, courseId: string, messageId: string): Promise<void> {
-    const { id, structured, action } = await askChartStore.loadActionMessage(userId, courseId, messageId);
+    const { id, structured, action } = await askChartStore.loadActionMessage(
+      userId,
+      courseId,
+      messageId
+    );
     if (action.status === 'APPLIED') return;
     await askChartStore.setActionStatus(id, structured, 'DISMISSED');
   }
@@ -597,7 +704,11 @@ export class AskChartService {
    * becomes APPLIED once the server has recorded that proposal as accepted; the client's word is not enough.
    */
   async confirmRouteApplied(userId: string, courseId: string, messageId: string): Promise<void> {
-    const { id, structured, action } = await askChartStore.loadActionMessage(userId, courseId, messageId);
+    const { id, structured, action } = await askChartStore.loadActionMessage(
+      userId,
+      courseId,
+      messageId
+    );
     if (action.type !== 'REVISE_ROUTE' || !action.routeProposalId) {
       throw new AppError('This proposal is not a route revision', 409, 'PROPOSAL_UNAVAILABLE');
     }
@@ -605,7 +716,8 @@ export class AskChartService {
       where: { id: action.routeProposalId, userId, courseId },
       select: { acceptedAt: true },
     });
-    if (!proposal?.acceptedAt) throw new AppError('That route change has not been applied', 409, 'PROPOSAL_NOT_APPLIED');
+    if (!proposal?.acceptedAt)
+      throw new AppError('That route change has not been applied', 409, 'PROPOSAL_NOT_APPLIED');
     await askChartStore.setActionStatus(id, structured, 'APPLIED');
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useV2SelectedAnchor } from '@/hooks/v2/home/useV2SelectedAnchor';
@@ -6,7 +6,7 @@ import { useV2Vision } from '@/hooks/v2/vision';
 import { resolveGreeting } from '@/constants/v2/home';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, type V2PracticeMode } from '@/constants/v2/practice';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
-import { hydrateV2RecommendationContext, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
+import { getV2RecommendationCacheRevision, hydrateV2RecommendationContext, peekV2RecommendationContext, subscribeV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { useSettingsStore } from '@/stores/settingsStore';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import type { Anchor } from '@/types';
@@ -201,6 +201,7 @@ function useV2HomeToday(
 
 /** Home read model over the account-scoped Anchor, Vision, Course, and practice APIs. */
 export function useV2HomeModel(): V2HomeModel {
+  const recommendationRevision = useSyncExternalStore(subscribeV2RecommendationContext, getV2RecommendationCacheRevision, getV2RecommendationCacheRevision);
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
   const lastProfiledAnchorId = useRef<string | null>(null);
   const displayName = useAuthStore((s) => s.user?.displayName ?? null);
@@ -327,8 +328,8 @@ export function useV2HomeModel(): V2HomeModel {
 
   /**
    * The carousel's own data, memoised on its own inputs. It depends on the
-   * Anchor list and the selection and on nothing else, so it must NOT be
-   * rebuilt inside the model-wide memo: doing so handed the Home hero a brand
+   * Anchor list, selection, practice presence and cached Thread readings. It
+   * must NOT be rebuilt inside the model-wide memo: doing so handed the hero a brand
    * new array every time Today's recommendation moved between loading and
    * ready, re-rendering the carousel on exactly the frames it is settling.
    */
@@ -337,11 +338,11 @@ export function useV2HomeModel(): V2HomeModel {
     () =>
       activeAnchors.map<V2HomeAnchorSummary>((anchor, index) => ({
         anchor,
-        thread: toThreadPresentation(anchor),
+        thread: toThreadPresentation(anchor, peekV2RecommendationContext(anchor.id)?.thread),
         isSelected: index === selectedIndex,
         practicedToday: hasPracticedToday(practicedKeys, anchor),
       })),
-    [activeAnchors, practicedKeys, selectedIndex],
+    [activeAnchors, practicedKeys, recommendationRevision, selectedIndex],
   );
 
   return useMemo(() => {
@@ -349,7 +350,9 @@ export function useV2HomeModel(): V2HomeModel {
      * Strength comes from the server-authoritative recommendation context or Anchor record.
      * `null` is passed straight through and is never coerced to 0.
      */
-    const effectiveStrength =
+    const cachedThread = selectedAnchor ? peekV2RecommendationContext(selectedAnchor.id)?.thread : undefined;
+    const effectiveStrength = typeof cachedThread?.strength === 'number'
+      ? cachedThread.strength :
       today.state === 'ready' && typeof today.threadStrength === 'number'
         ? today.threadStrength
         : selectedAnchor?.threadStrength;
@@ -357,9 +360,9 @@ export function useV2HomeModel(): V2HomeModel {
       ? toThreadPresentation({
           ...selectedAnchor,
           threadStrength: effectiveStrength,
-        })
+        }, cachedThread)
       : null;
-    const thread = baseThread && today.state === 'ready' && today.threadDeltaStatus === 'AVAILABLE' && today.threadDelta !== null && Number.isFinite(today.threadDelta)
+    const thread = baseThread && !cachedThread && today.state === 'ready' && today.threadDeltaStatus === 'AVAILABLE' && today.threadDelta !== null && Number.isFinite(today.threadDelta)
       ? {
           ...baseThread,
           delta: today.threadDelta,
@@ -390,5 +393,5 @@ export function useV2HomeModel(): V2HomeModel {
       refreshChart,
       refreshAnchors,
     };
-  }, [activeAnchors, anchorCourseLog.loading, anchorError, anchorList, anchorState, chart, displayName, profilePictureUrl, progress, recentActivity, refreshAnchors, refreshChart, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh]);
+  }, [activeAnchors, anchorCourseLog.loading, anchorError, anchorList, anchorState, chart, displayName, profilePictureUrl, progress, recentActivity, recommendationRevision, refreshAnchors, refreshChart, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh]);
 }

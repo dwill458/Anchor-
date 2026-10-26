@@ -34,7 +34,11 @@ export type AskMessageDTO = {
   requestPhoto: { reason: string } | null;
   readyToPlan: boolean;
   /** Present when `readyToPlan`: exactly what to send to POST /chart/plan. */
-  planInput: { actualStartingPoint: string; startingContext: string | null; photoAssetIds: string[] } | null;
+  planInput: {
+    actualStartingPoint: string;
+    startingContext: string | null;
+    photoAssetIds: string[];
+  } | null;
   action: AskActionDTO | null;
   /** The reply promised a change that could not be prepared. Shown honestly, never as success. */
   actionUnavailable: boolean;
@@ -119,14 +123,29 @@ export const askChartStore = {
    * Deletes the conversation history for this Anchor's Chart, and any photos sent in it. Memories are separate and
    * untouched.
    */
-  async clearConversation(userId: string, anchorId: string, courseId: string | null): Promise<number> {
+  async clearConversation(
+    userId: string,
+    anchorId: string,
+    courseId: string | null
+  ): Promise<number> {
     const withPhotos = await prisma.chartMessage.findMany({
-      where: { userId, attachments: { not: Prisma.DbNull }, conversation: { userId, anchorId, courseId } },
+      where: {
+        userId,
+        attachments: { not: Prisma.DbNull },
+        conversation: { userId, anchorId, courseId },
+      },
       select: { attachments: true },
     });
-    const photoIds = withPhotos.flatMap(row => (Array.isArray(row.attachments) ? (row.attachments as Array<{ assetId?: unknown }>) : [])).map(item => item.assetId).filter((id): id is string => typeof id === 'string');
+    const photoIds = withPhotos
+      .flatMap(row =>
+        Array.isArray(row.attachments) ? (row.attachments as Array<{ assetId?: unknown }>) : []
+      )
+      .map(item => item.assetId)
+      .filter((id): id is string => typeof id === 'string');
     await deleteAskPhotos(userId, photoIds).catch(() => 0);
-    const result = await prisma.chartConversation.deleteMany({ where: { userId, anchorId, courseId } });
+    const result = await prisma.chartConversation.deleteMany({
+      where: { userId, anchorId, courseId },
+    });
     return result.count;
   },
 
@@ -161,7 +180,10 @@ export const askChartStore = {
 
   /** Verifies the Anchor is the caller's before any memory is written. */
   async assertOwnsAnchor(userId: string, anchorId: string): Promise<void> {
-    const anchor = await prisma.anchor.findFirst({ where: { id: anchorId, userId }, select: { id: true } });
+    const anchor = await prisma.anchor.findFirst({
+      where: { id: anchorId, userId },
+      select: { id: true },
+    });
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
   },
 
@@ -172,7 +194,8 @@ export const askChartStore = {
     value: string,
     source: 'USER_EDITED' | 'CONVERSATION'
   ) {
-    if (!MEMORY_KEYS.includes(key)) throw new AppError('Unknown memory key', 400, 'VALIDATION_ERROR');
+    if (!MEMORY_KEYS.includes(key))
+      throw new AppError('Unknown memory key', 400, 'VALIDATION_ERROR');
     const clean = value.replace(/\s+/g, ' ').trim().slice(0, 200);
     if (!clean) throw new AppError('A memory needs a value', 400, 'VALIDATION_ERROR');
     await this.assertOwnsAnchor(userId, anchorId);
@@ -205,11 +228,20 @@ export const askChartStore = {
     return { id: row.id, structured, action: structured.action };
   },
 
-  async setActionStatus(messageId: string, structured: Structured, status: AskActionStatus): Promise<void> {
+  async setActionStatus(
+    messageId: string,
+    structured: Structured,
+    status: AskActionStatus
+  ): Promise<void> {
     if (!structured.action) return;
     await prisma.chartMessage.update({
       where: { id: messageId },
-      data: { structured: { ...structured, action: { ...structured.action, status } } as unknown as Prisma.InputJsonValue },
+      data: {
+        structured: {
+          ...structured,
+          action: { ...structured.action, status },
+        } as unknown as Prisma.InputJsonValue,
+      },
     });
   },
 };

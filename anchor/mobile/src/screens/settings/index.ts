@@ -1,8 +1,10 @@
 export { SettingsScreen } from './SettingsScreen';
 export { PracticeSubscreen } from './PracticeSubscreen';
-export { AppExperienceSubscreen } from './AppExperienceSubscreen';
-export { AccountDataSubscreen } from './AccountDataSubscreen';
-export { PrivacySupportSubscreen } from './PrivacySupportSubscreen';
+export { SoundFeelSubscreen } from './SoundFeelSubscreen';
+export { AccountSubscreen } from './AccountSubscreen';
+export { DataPrivacySubscreen } from './DataPrivacySubscreen';
+export { HelpAboutSubscreen } from './HelpAboutSubscreen';
+export { EditProfileSubscreen } from './EditProfileSubscreen';
 export { DeveloperToolsSubscreen } from './DeveloperToolsSubscreen';
 export { SessionDefaultsScreen } from './SessionDefaultsScreen';
 export { LicensesScreen } from './LicensesScreen';

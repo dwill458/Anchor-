@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Linking,
   Modal,
+  Platform,
   Pressable,
-  ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -14,31 +14,43 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { T, settingsTypography } from '@/components/settings/settingsTheme';
 import {
-  CompactConfirmSheet,
-  SectionLabel,
-  SettingsHeader,
-  SettingsRow,
-} from '@/components/settings/SettingsPrimitives';
-import { apiClient } from '@/services/ApiClient';
+  ActionButton,
+  GroupLabel,
+  GroupRow,
+  SettingsGroup,
+  SettingsScreenFrame,
+  TierPill,
+  cardTheme,
+} from '@/components/settings/SettingsCards';
+import { CompactConfirmSheet } from '@/components/settings/SettingsPrimitives';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
 import revenueCatService from '@/services/RevenueCatService';
 import { useAuthStore } from '@/stores/authStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { logger } from '@/utils/logger';
 
 interface Props {
   onBack: () => void;
   onNavigateToLogin: () => void;
-  onResetToOnboarding: () => void;
+  onOpenPaywall: () => void;
+  onSignedOut?: () => void;
 }
 
-export const AccountDataSubscreen: React.FC<Props> = ({
+const MANAGE_SUBSCRIPTION_URL =
+  Platform.OS === 'ios'
+    ? 'https://apps.apple.com/account/subscriptions'
+    : 'https://play.google.com/store/account/subscriptions';
+
+export const AccountSubscreen: React.FC<Props> = ({
   onBack,
   onNavigateToLogin,
-  onResetToOnboarding,
+  onOpenPaywall,
+  onSignedOut,
 }) => {
   const [isRestoring, setIsRestoring] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmSignOutOpen, setConfirmSignOutOpen] = useState(false);
 
   // Set password modal states
   const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
@@ -56,11 +68,41 @@ export const AccountDataSubscreen: React.FC<Props> = ({
   const profileEmail = useAuthStore((s) => s.profileData?.user?.email?.trim() ?? '');
   const signOut = useAuthStore((s) => s.signOut);
   const setHasCompletedOnboarding = useAuthStore((s) => s.setHasCompletedOnboarding);
+  const memberSince = useProfileStore((s) => s.memberSince);
+  const { isSubscribed, isTrialActive, daysRemaining } = useTrialStatus();
 
   const firebaseEmail = isAuthenticated ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? '' : '';
   const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
   const canSetPassword = isAuthenticated && !AuthService.getLinkedProviders().includes('password');
   const showSignIn = !isAuthenticated || isGuest;
+
+  const memberSinceDate = memberSince ? new Date(memberSince) : user?.createdAt ? new Date(user.createdAt) : null;
+  const memberSinceLabel =
+    memberSinceDate && !Number.isNaN(memberSinceDate.getTime())
+      ? memberSinceDate.toLocaleString('en-US', { month: 'long', year: 'numeric' })
+      : null;
+
+  const planName = isSubscribed ? 'Anchor Pro' : isTrialActive ? 'Anchor Pro trial' : 'Anchor Free';
+  const tierBadge = isSubscribed ? 'PRO' : isTrialActive ? 'TRIAL' : 'FREE';
+  const statusLine = [
+    isSubscribed
+      ? 'Active'
+      : isTrialActive
+        ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
+        : 'Not subscribed',
+    memberSinceLabel ? `Member since ${memberSinceLabel}` : null,
+  ]
+    .filter(Boolean)
+    .join(' \u00b7 ');
+
+  const handleManageSubscription = async () => {
+    try {
+      await Linking.openURL(MANAGE_SUBSCRIPTION_URL);
+    } catch (error) {
+      logger.warn('[AccountSubscreen] Could not open subscription management', error);
+      Alert.alert('Link unavailable', 'Manage your subscription from your App Store or Google Play account.');
+    }
+  };
 
   const handleRestorePurchases = async () => {
     if (isRestoring) return;
@@ -74,38 +116,11 @@ export const AccountDataSubscreen: React.FC<Props> = ({
           : 'No active subscription was found for this account. If you subscribed with a different store account, switch to it and try again.',
       );
     } catch (error) {
-      logger.warn('[AccountDataSubscreen] Restore purchases failed', error);
+      logger.warn('[AccountSubscreen] Restore purchases failed', error);
       Alert.alert('Restore failed', 'We could not restore purchases right now. Check your connection and try again.');
     } finally {
       setIsRestoring(false);
     }
-  };
-
-  const handleExportMyData = () => {
-    if (isExporting) return;
-    Alert.alert(
-      'Export My Data',
-      'Prepare a JSON export of your Anchors, sessions, settings, and account activity to share or save.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Export',
-          onPress: () => void (async () => {
-            setIsExporting(true);
-            try {
-              const response = await apiClient.get<{ success: boolean; data?: unknown }>('/auth/me/export');
-              if (!response.data?.success || !response.data.data) throw new Error('Failed to prepare export');
-              await Share.share({ title: 'Anchor Data Export', message: JSON.stringify(response.data.data, null, 2) });
-            } catch (error) {
-              logger.warn('[AccountDataSubscreen] Failed to export user data', error);
-              Alert.alert('Export Failed', 'Could not prepare your export. Please try again or contact support.');
-            } finally {
-              setIsExporting(false);
-            }
-          })(),
-        },
-      ]
-    );
   };
 
   const handleSetPassword = async () => {
@@ -122,7 +137,7 @@ export const AccountDataSubscreen: React.FC<Props> = ({
     try {
       await AuthService.linkEmailPassword(spEmail, spPassword);
       setShowSetPasswordModal(false);
-      Alert.alert('Password Set', 'You can now sign in with your email and password.');
+      Alert.alert('Password set', 'You can now sign in with your email and password.');
     } catch (error) {
       setSpError(error instanceof Error ? error.message : 'Failed to set password.');
     } finally {
@@ -130,102 +145,97 @@ export const AccountDataSubscreen: React.FC<Props> = ({
     }
   };
 
-  const confirmDeleteAccount = async () => {
-    setConfirmDelete(false);
+  const confirmSignOut = async () => {
+    setConfirmSignOutOpen(false);
     try {
-      await AuthService.deleteAccount();
+      AnalyticsService.track(AnalyticsEvents.SIGN_OUT, { source: 'settings' });
+      await AuthService.signOut();
       const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
       await writeSecureValue('anchor-sync-retry-queue', '[]');
       await signOut();
       setHasCompletedOnboarding(false);
-      onResetToOnboarding();
+      onSignedOut?.();
     } catch (error) {
-      logger.error('[AccountDataSubscreen] Failed to delete account', error);
-      Alert.alert('Deletion Failed', error instanceof Error ? error.message : 'Failed to delete account.');
+      logger.warn('[AccountSubscreen] Failed to sign out cleanly', error);
+      Alert.alert('Sign out failed', 'We could not sign you out right now.');
     }
   };
 
   return (
-    <View style={styles.container}>
-      <SafeAreaView edges={['top']} style={styles.safeArea}>
-        <SettingsHeader title="Account & data" onBack={onBack} />
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <SectionLabel first>Account</SectionLabel>
-          <SettingsRow
-            label="Email address"
-            value={accountEmail || 'Not signed in'}
-            desc={isAuthenticated ? 'Synced to this account' : 'Not signed in'}
-            chevron={false}
+    <SettingsScreenFrame title="Account & subscription" onBack={onBack} testID="account-screen">
+      <View style={styles.planCard}>
+        <View style={styles.planTitleRow}>
+          <Text style={styles.planName}>{planName}</Text>
+          <TierPill label={tierBadge} />
+        </View>
+        <Text style={styles.planStatus}>{statusLine}</Text>
+        {isSubscribed ? (
+          <ActionButton
+            label="Manage subscription"
+            onPress={() => void handleManageSubscription()}
+            testID="account-manage-subscription"
           />
-          {canSetPassword ? (
-            <SettingsRow
-              label="Set Password"
-              desc="Add email sign-in to your account."
-              onPress={() => {
-                setSpEmail(accountEmail || firebaseEmail);
-                setSpPassword('');
-                setSpConfirm('');
-                setSpError('');
-                setShowSetPasswordModal(true);
-              }}
-            />
-          ) : null}
-          {showSignIn ? (
-            <SettingsRow
-              label="Sign In"
-              desc="Create or reconnect your account"
-              onPress={onNavigateToLogin}
-              testID="settings-row-Sign In"
-            />
-          ) : null}
+        ) : (
+          <ActionButton label="See Anchor Pro" onPress={onOpenPaywall} testID="account-open-paywall" />
+        )}
+      </View>
 
-          <SectionLabel>Purchases</SectionLabel>
-          <SettingsRow
-            label="Restore purchases"
-            desc="Check store for existing Pro subscription"
-            value={isRestoring ? 'Restoring…' : undefined}
-            onPress={() => void handleRestorePurchases()}
-            disabled={isRestoring}
-            testID="settings-row-Restore Purchases"
+      <GroupLabel>Account</GroupLabel>
+      <SettingsGroup>
+        <View style={styles.emailRow} testID="settings-row-Email">
+          <Text style={styles.emailLabel}>Email</Text>
+          <Text style={styles.emailValue} selectable>
+            {accountEmail || 'Not signed in'}
+          </Text>
+          <Text style={styles.emailLabel}>
+            {isAuthenticated ? 'Linked to your account' : 'Sign in to link your account'}
+          </Text>
+        </View>
+        {canSetPassword ? (
+          <GroupRow
+            title="Set password"
+            subtitle="Add email sign-in to your account"
+            onPress={() => {
+              setSpEmail(accountEmail || firebaseEmail);
+              setSpPassword('');
+              setSpConfirm('');
+              setSpError('');
+              setShowSetPasswordModal(true);
+            }}
+            testID="settings-row-Set password"
           />
-
-          <SectionLabel>Data</SectionLabel>
-          <SettingsRow
-            label="Export my data"
-            desc="Create an export of your Anchor data."
-            value={isExporting ? 'Preparing…' : undefined}
-            onPress={handleExportMyData}
-            disabled={isExporting}
+        ) : null}
+        <GroupRow
+          title="Restore purchases"
+          subtitle={isRestoring ? 'Restoring\u2026' : 'Already subscribed? Check the store for your Pro plan.'}
+          disabled={isRestoring}
+          onPress={() => void handleRestorePurchases()}
+          testID="settings-row-Restore Purchases"
+        />
+        {showSignIn ? (
+          <GroupRow
+            title="Sign in"
+            subtitle="Create or reconnect your account"
+            onPress={onNavigateToLogin}
+            testID="settings-row-Sign In"
           />
+        ) : (
+          <GroupRow
+            title="Sign out"
+            chevron="none"
+            onPress={() => setConfirmSignOutOpen(true)}
+            testID="settings-row-Sign Out"
+          />
+        )}
+      </SettingsGroup>
 
-          {isAuthenticated ? (
-            <View style={styles.dangerSection}>
-              <SectionLabel>Danger Zone</SectionLabel>
-              <SettingsRow
-                label="Delete account"
-                desc="Permanently remove your account and all data."
-                titleColor={T.danger}
-                onPress={() => setConfirmDelete(true)}
-                showDivider={false}
-              />
-            </View>
-          ) : null}
-        </ScrollView>
-      </SafeAreaView>
-
-      {/* Delete Account Confirmation */}
       <CompactConfirmSheet
-        open={confirmDelete}
-        title="Delete account?"
-        desc="This action is permanent and cannot be undone. All your Anchors and data will be deleted from our servers. Deleting your account will not cancel active subscriptions; cancel them through your App Store or Google Play account to prevent future billing."
-        confirmLabel="Delete"
-        destructive
-        onConfirm={() => void confirmDeleteAccount()}
-        onClose={() => setConfirmDelete(false)}
+        open={confirmSignOutOpen}
+        title="Sign out of Anchor?"
+        desc="You can sign back in at any time to continue your practice."
+        confirmLabel="Sign out"
+        onConfirm={() => void confirmSignOut()}
+        onClose={() => setConfirmSignOutOpen(false)}
       />
 
       {/* Set Password Modal */}
@@ -300,28 +310,27 @@ export const AccountDataSubscreen: React.FC<Props> = ({
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
+    </SettingsScreenFrame>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: T.bg,
+  planCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    gap: 14,
+    backgroundColor: cardTheme.card,
+    borderWidth: 1,
+    borderColor: cardTheme.cardBorder,
+    borderRadius: 18,
   },
-  safeArea: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 22,
-    paddingBottom: 40,
-  },
-  dangerSection: {
-    marginTop: 8,
-  },
+  planTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  planName: { fontFamily: settingsTypography.bodyBold, fontSize: 20, color: cardTheme.ink },
+  planStatus: { fontFamily: settingsTypography.body, fontSize: 14, color: cardTheme.muted },
+  emailRow: { paddingVertical: 12, paddingHorizontal: 16, gap: 2 },
+  emailLabel: { fontFamily: settingsTypography.body, fontSize: 14, color: cardTheme.muted },
+  emailValue: { fontFamily: settingsTypography.bodySemiBold, fontSize: 16, color: cardTheme.ink },
   sheetOverlay: {
     flex: 1,
     backgroundColor: 'rgba(23, 23, 20, 0.4)',

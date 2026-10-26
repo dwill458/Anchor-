@@ -50,9 +50,9 @@ describeWithAi('AI Planner Vision-Aware & Text Generation (Live Provider)', () =
 
     if (validated.needsMoreContext) return;
 
-    // Must have 3 to 5 realistic milestones
+    // Absolute supported range, not a complexity quota.
     expect(validated.waypoints.length).toBeGreaterThanOrEqual(2);
-    expect(validated.waypoints.length).toBeLessThanOrEqual(6);
+    expect(validated.waypoints.length).toBeLessThanOrEqual(8);
 
     // Milestones must not be generic fallback strings
     for (const waypoint of validated.waypoints) {

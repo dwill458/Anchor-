@@ -1,8 +1,10 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { V2ProgressHero, heroArtworkSize, heroStats } from '../V2ProgressHero';
 import { toV2ProgressModel } from '@/adapters/v2/progress/progressAdapter';
 import type { Anchor } from '@/types';
+import { ThreadStrengthSheet } from '@/components/ThreadStrengthSheet';
+jest.mock('@/components/ThreadStrengthSheet', () => ({ ThreadStrengthSheet: jest.fn(() => null) }));
 
 const anchor = {
   id: 'anchor-1',
@@ -55,7 +57,7 @@ describe('V2ProgressHero Header Redesign', () => {
     expect(getByText('I love my wife')).toBeTruthy();
   });
 
-  it('renders the real Anchor artwork large, with no extra strength ring or stage pips', () => {
+  it('retains real Anchor artwork and aura without a decorative ring', () => {
     const model = toV2ProgressModel(styledAnchor, [], [], { now })!;
     const { getByTestId, queryByTestId, queryByText } = render(<V2ProgressHero model={model} anchor={styledAnchor} now={now} />);
     expect(getByTestId('v2-progress-hero-artwork')).toBeTruthy();
@@ -64,11 +66,11 @@ describe('V2ProgressHero Header Redesign', () => {
     expect(queryByText('THREAD STAGE')).toBeNull();
   });
 
-  it('sizes the artwork 230-260dp on a typical phone and eases down on short screens', () => {
-    expect(heroArtworkSize(390, 844)).toBe(250);
-    expect(heroArtworkSize(430, 932)).toBe(256);
-    expect(heroArtworkSize(360, 640)).toBe(192);
-    expect(heroArtworkSize(320, 480)).toBe(190);
+  it('sizes the artwork 100-120dp on a typical phone and eases down on short screens', () => {
+    expect(heroArtworkSize(390, 844)).toBe(109);
+    expect(heroArtworkSize(430, 932)).toBe(120);
+    expect(heroArtworkSize(360, 640)).toBe(101);
+    expect(heroArtworkSize(320, 480)).toBe(100);
   });
 
   it('renders base SVG artwork when enhanced image is absent', () => {
@@ -82,12 +84,12 @@ describe('V2ProgressHero Header Redesign', () => {
     expect(getByTestId('v2-progress-hero-artwork')).toBeTruthy();
   });
 
-  it('renders Thread Strength number, label and level beneath the Anchor', () => {
+  it('renders Thread Strength with the canonical level beside the artwork', () => {
     const model = toV2ProgressModel(styledAnchor, [], [], { now })!;
     const { getByText } = render(<V2ProgressHero model={model} anchor={styledAnchor} now={now} />);
     expect(getByText('25')).toBeTruthy();
     expect(getByText('THREAD STRENGTH')).toBeTruthy();
-    expect(getByText('BUILDING')).toBeTruthy();
+    expect(getByText('GROUNDED')).toBeTruthy();
   });
 
   it('with no practices uses the existing contextual message', () => {
@@ -144,5 +146,45 @@ describe('heroStats', () => {
     const model = toV2ProgressModel(anchor, [], sessions, { now })!;
     const { getByTestId } = render(<V2ProgressHero model={model} now={now} />);
     expect(getByTestId('v2-progress-hero-message').props.children).toBe("You've returned to this intention 3 times.");
+  });
+});
+
+describe('compact hero data and access', () => {
+  it.each([[0, 'SURFACE'], [18, 'SURFACE'], [20, 'GROUNDED'], [27, 'GROUNDED'], [40, 'ROOTED'], [45, 'ROOTED'], [60, 'EMBEDDED'], [65, 'EMBEDDED'], [80, 'SOVEREIGN'], [100, 'SOVEREIGN']])('shows persisted strength %i and level %s', (value, level) => {
+    const model = toV2ProgressModel({ ...anchor, threadStrength: value } as Anchor, [], [], { now })!;
+    const { getByTestId, getByText } = render(<V2ProgressHero model={model} now={now} />);
+    expect(getByTestId('v2-progress-hero-strength').props.children).toBe(value);
+    expect(getByText(level)).toBeTruthy();
+    expect(getByText('7-day change unavailable')).toBeTruthy();
+  });
+
+  it('displays Building your first week if the Anchor is less than 7 days old or delta7dStatus is FIRST_WEEK', () => {
+    const youngAnchor = { ...anchor, createdAt: new Date('2026-08-18T10:00:00.000Z') } as unknown as Anchor;
+    const model = toV2ProgressModel(youngAnchor, [], [], { now })!;
+    const { getByText } = render(<V2ProgressHero model={model} anchor={youngAnchor} now={now} />);
+    expect(getByText('Building your first week')).toBeTruthy();
+  });
+
+  it('displays signed delta when 7-day change is available', () => {
+    const modelWithGain = { ...toV2ProgressModel(anchor, [], [], { now })!, delta7d: 4, delta7dStatus: 'AVAILABLE' as const };
+    const { getByText: getGain } = render(<V2ProgressHero model={modelWithGain} now={now} />);
+    expect(getGain('+4 this week')).toBeTruthy();
+
+    const modelWithLoss = { ...toV2ProgressModel(anchor, [], [], { now })!, delta7d: -2, delta7dStatus: 'AVAILABLE' as const };
+    const { getByText: getLoss } = render(<V2ProgressHero model={modelWithLoss} now={now} />);
+    expect(getLoss('-2 this week')).toBeTruthy();
+
+    const modelZero = { ...toV2ProgressModel(anchor, [], [], { now })!, delta7d: 0, delta7dStatus: 'AVAILABLE' as const };
+    const { getByText: getZero } = render(<V2ProgressHero model={modelZero} now={now} />);
+    expect(getZero('0 this week')).toBeTruthy();
+  });
+
+  it('keeps a long intention readable and opens the existing sheet for the selected Anchor', () => {
+    const model = toV2ProgressModel(anchor, [], [], { now })!;
+    model.intention = 'Build a thoughtful and sustainable creative practice with my family and community';
+    const { getByText, getByLabelText } = render(<V2ProgressHero model={model} now={now} />);
+    expect(getByText(model.intention).props.numberOfLines).toBeUndefined();
+    fireEvent.press(getByLabelText('Explain Thread Strength'));
+    expect(jest.mocked(ThreadStrengthSheet).mock.calls.at(-1)?.[0]).toMatchObject({ visible: true, anchorId: anchor.id });
   });
 });

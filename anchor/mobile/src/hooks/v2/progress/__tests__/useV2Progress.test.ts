@@ -27,10 +27,10 @@ beforeEach(() => {
 });
 
 describe('useV2Progress', () => {
-  it('defaults the rhythm range to Month and changes it', () => {
+  it('defaults the rhythm range to Week and changes it', () => {
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })], currentAnchorId: 'a' });
     const { result } = renderHook(() => useV2Progress());
-    expect(result.current.range).toBe('Month');
+    expect(result.current.range).toBe('Week');
     act(() => result.current.setRange('Year'));
     expect(result.current.range).toBe('Year');
   });

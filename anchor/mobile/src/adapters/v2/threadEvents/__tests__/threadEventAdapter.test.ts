@@ -15,7 +15,7 @@ describe('Thread Event ledger intake', () => {
     expect(intakeV2ThreadEvents({ events: [waypoint] })).toEqual([waypoint]);
   });
 
-  it.each([[10, 'Grounded'], [25, 'Rooted'], [50, 'Embedded'], [100, 'Sovereign']])('maps the server-persisted %i evolution threshold to %s', (thresholdValue, stageName) => {
+  it.each([[20, 'Grounded'], [40, 'Rooted'], [60, 'Embedded'], [80, 'Sovereign']])('maps the server-persisted %i evolution threshold to %s', (thresholdValue, stageName) => {
     const result = classifyV2ThreadEvent(event({ metadata: { thresholdValue, stageName } }));
     expect(result.isEvolution).toBe(true);
     expect(result.persistedStage).toBe(stageName);
@@ -28,7 +28,7 @@ describe('Thread Event ledger intake', () => {
   it('selects one primary event and keeps only two supporting facts', () => {
     const bundles = bundleV2ThreadEvents([
       event({ eventId: 'strength', eventType: 'THREAD_STRENGTHENED', significance: 'LOW', correlationSequence: 1 }),
-      event({ eventId: 'rooted', ledgerSequence: '2', correlationSequence: 2, metadata: { thresholdValue: 25, stageName: 'Rooted' } }),
+      event({ eventId: 'rooted', ledgerSequence: '2', correlationSequence: 2, metadata: { thresholdValue: 40, stageName: 'Rooted' } }),
       event({ eventId: 'practice-25', ledgerSequence: '3', eventType: 'PRACTICE_MILESTONE_REACHED', correlationSequence: 3, metadata: { practiceCount: 25 } }),
       event({ eventId: 'extra', ledgerSequence: '4', eventType: 'THREAD_STABILIZED', significance: 'MEDIUM', correlationSequence: 4 }),
     ]);

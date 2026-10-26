@@ -8,6 +8,7 @@ const mockTx = {
   threadV2State: { upsert: jest.fn(), update: jest.fn() },
   threadEventLedger: { upsert: jest.fn() },
   practiceSession: { findMany: jest.fn() },
+  userSettings: { findUnique: jest.fn(), upsert: jest.fn() },
 };
 const mockPrisma = {
   $transaction: jest.fn(),
@@ -15,26 +16,31 @@ const mockPrisma = {
   anchor: { findFirst: jest.fn() },
   threadV2Movement: { findMany: jest.fn() },
   threadV2State: { upsert: jest.fn() },
+  userSettings: { findUnique: jest.fn() },
 };
 
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
 
 import {
   ThreadStrengthService,
-  calculateEffectivePracticeGain,
-  getSameDayPracticeMultiplier,
+  calculateSessionEarning,
   calculateThreadDecay,
   applyDecay,
+  applyMultiDayDecay,
+  getThreadStrengthLevel,
   countDecayEligibleDaysBetweenDateKeys,
   calendarDaysBetweenDateKeys,
   resolveLocalDateKeyFromDate,
-  INITIAL_ESTABLISHED_BASE,
-  DORMANT_FLOOR,
-  GRACE_DAYS,
+  resolveSensitivityForDateKey,
+  DAILY_RETURN_BONUS,
+  POINTS_PER_MINUTE,
+  DAILY_DURATION_CAP_SECONDS,
   DAILY_DECAY,
+  MIN_STRENGTH,
+  MAX_STRENGTH,
 } from '../ThreadStrengthService';
 
-describe('ThreadStrengthService', () => {
+describe('ThreadStrengthService - Thread Strength 2.0', () => {
   const service = new ThreadStrengthService();
   const completedAt = new Date('2026-09-07T12:00:00.000Z');
 
@@ -49,328 +55,419 @@ describe('ThreadStrengthService', () => {
     mockTx.threadV2State.update.mockResolvedValue({});
     mockTx.threadEventLedger.upsert.mockResolvedValue({});
     mockTx.practiceSession.findMany.mockResolvedValue([]);
+    mockTx.userSettings.findUnique.mockResolvedValue({
+      threadStrengthSensitivity: 'balanced',
+      decayPreferencesHistory: null,
+      restDays: [],
+    });
+    mockPrisma.userSettings.findUnique.mockResolvedValue({
+      threadStrengthSensitivity: 'balanced',
+      decayPreferencesHistory: null,
+      restDays: [],
+    });
   });
 
-  describe('Core Multipliers and Diminishing Returns', () => {
-    it('applies the approved diminishing-returns multiplier schedule', () => {
-      expect(getSameDayPracticeMultiplier(1)).toBe(1.0);
-      expect(getSameDayPracticeMultiplier(2)).toBe(0.6);
-      expect(getSameDayPracticeMultiplier(3)).toBe(0.35);
-      expect(getSameDayPracticeMultiplier(4)).toBe(0.2);
-      expect(getSameDayPracticeMultiplier(5)).toBe(0.1);
-      expect(getSameDayPracticeMultiplier(6)).toBe(0.1);
-      expect(getSameDayPracticeMultiplier(10)).toBe(0.1);
+  describe('1. Earning Formula Tests', () => {
+    it('10-second practice earns 1.5833 points (1.5 bonus + 10s duration)', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'focus',
+        durationSeconds: 10,
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.dailyBonus).toBe(1.5);
+      expect(earning.durationPoints).toBeCloseTo(10 / 120, 6);
+      expect(earning.delta).toBeCloseTo(1.583333, 4);
     });
 
-    it('does not force a minimum +1 strength increase per session', () => {
-      // At strength 50, Focus session 5 has base 7 * 0.1 * (1 - 50/120) = 0.408
-      const gain = calculateEffectivePracticeGain(50, 'focus', 5);
-      expect(gain.delta).toBeLessThan(1.0);
-      expect(gain.delta).toBeGreaterThan(0);
-      expect(gain.delta).toBe(0.41);
+    it('30-second practice earns 1.75 points (1.5 bonus + 30s duration)', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'focus',
+        durationSeconds: 30,
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.dailyBonus).toBe(1.5);
+      expect(earning.durationPoints).toBe(0.25);
+      expect(earning.delta).toBe(1.75);
     });
 
-    it('preserves fractional strength gains across sessions 1 to 10', () => {
-      let currentStrength = 50.0;
-      const deltas: number[] = [];
+    it('1-minute practice earns 2.0 points (1.5 bonus + 60s duration)', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'focus',
+        durationSeconds: 60,
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.dailyBonus).toBe(1.5);
+      expect(earning.durationPoints).toBe(0.5);
+      expect(earning.delta).toBe(2.0);
+    });
 
-      for (let session = 1; session <= 10; session++) {
-        const result = calculateEffectivePracticeGain(currentStrength, 'focus', session);
-        expect(result.delta).toBeGreaterThan(0);
-        deltas.push(result.delta);
-        currentStrength = result.afterStrength;
+    it('3-minute practice earns 3.0 points (1.5 bonus + 180s duration)', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'focus',
+        durationSeconds: 180,
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.dailyBonus).toBe(1.5);
+      expect(earning.durationPoints).toBe(1.5);
+      expect(earning.delta).toBe(3.0);
+    });
+
+    it('5-minute practice earns 4.0 points (1.5 bonus + 300s duration)', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'focus',
+        durationSeconds: 300,
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.dailyBonus).toBe(1.5);
+      expect(earning.durationPoints).toBe(2.5);
+      expect(earning.delta).toBe(4.0);
+    });
+
+    it('10-minute practice earns 6.5 points (1.5 bonus + 600s duration)', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'focus',
+        durationSeconds: 600,
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.dailyBonus).toBe(1.5);
+      expect(earning.durationPoints).toBe(5.0);
+      expect(earning.delta).toBe(6.5);
+    });
+
+    it('session duration beyond 10 minutes is capped at 10 minutes (6.5 points max)', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'focus',
+        durationSeconds: 1200, // 20 minutes
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.dailyBonus).toBe(1.5);
+      expect(earning.durationPoints).toBe(5.0); // only first 600s
+      expect(earning.delta).toBe(6.5);
+      expect(earning.newEligibleSecondsToday).toBe(600);
+    });
+
+    it('five completed 10-second sessions on the same day earn 1.916667 total', () => {
+      let prior = 0;
+      let totalDelta = 0;
+
+      for (let i = 1; i <= 5; i++) {
+        const earning = calculateSessionEarning({
+          practiceType: 'focus',
+          durationSeconds: 10,
+          isFirstSessionToday: i === 1,
+          priorEligibleSecondsToday: prior,
+        });
+        totalDelta += earning.delta;
+        prior = earning.newEligibleSecondsToday;
       }
 
-      // Every single session 1 through 10 receives a non-zero reward
-      expect(deltas.length).toBe(10);
-      expect(deltas[0]).toBe(4.08); // Session 1: 1.00 multiplier
-      expect(deltas[1]).toBe(2.31); // Session 2: 0.60 multiplier
-      expect(deltas[2]).toBe(1.3); // Session 3: 0.35 multiplier (NOT 0!)
-      expect(deltas[3]).toBe(0.73); // Session 4: 0.20 multiplier (NOT 0!)
-      expect(deltas[4]).toBe(0.36); // Session 5: 0.10 multiplier (NOT 0!)
-      expect(deltas[9]).toBe(0.35); // Session 10: 0.10 multiplier (NOT 0!)
-
-      // Total strength accumulated gracefully without arbitrary cutoff or runaway farming
-      expect(currentStrength).toBeCloseTo(60.54, 1);
+      expect(prior).toBe(50);
+      expect(totalDelta).toBeCloseTo(1.916667, 5);
     });
 
-    it('accumulates fractional gains into whole integer increments', () => {
-      let strength = 50.0;
-      // Start at 50, doing small sessions (delta ~0.36)
-      for (let i = 0; i < 3; i++) {
-        const { afterStrength } = calculateEffectivePracticeGain(strength, 'focus', 5);
-        strength = afterStrength;
+    it('all eligible practice modes follow the exact same scoring formula', () => {
+      const modes = ['focus', 'deep_prime', 'visualize'] as const;
+      for (const mode of modes) {
+        const earning = calculateSessionEarning({
+          practiceType: mode,
+          durationSeconds: 300,
+          isFirstSessionToday: true,
+          priorEligibleSecondsToday: 0,
+        });
+        expect(earning.delta).toBe(4.0); // 1.5 + 2.5 = 4.0 for all modes
       }
-      // 50 + 0.41 + 0.41 + 0.40 = 51.22
-      expect(strength).toBeGreaterThan(51.0);
     });
 
-    it('clamps accurately at 100 when approaching ceiling', () => {
-      const nearMax = calculateEffectivePracticeGain(99.5, 'focus', 1);
-      expect(nearMax.afterStrength).toBe(100);
-      expect(nearMax.delta).toBe(0.5);
-
-      const atMax = calculateEffectivePracticeGain(100, 'focus', 1);
-      expect(atMax.afterStrength).toBe(100);
-      expect(atMax.delta).toBe(0);
+    it('release mode earns 0 points', () => {
+      const earning = calculateSessionEarning({
+        practiceType: 'release',
+        durationSeconds: 300,
+        isFirstSessionToday: true,
+        priorEligibleSecondsToday: 0,
+      });
+      expect(earning.delta).toBe(0);
+      expect(earning.dailyBonus).toBe(0);
+      expect(earning.durationPoints).toBe(0);
     });
 
-    it('handles release mode with zero gain', () => {
-      const result = calculateEffectivePracticeGain(50, 'release', 1);
-      expect(result.delta).toBe(0);
-      expect(result.afterStrength).toBe(50);
-    });
-  });
+    it('preserves idempotency on duplicate completion request', async () => {
+      mockTx.threadV2Movement.findUnique.mockResolvedValueOnce({
+        id: 'existing-m1',
+        userId: 'user-1',
+        anchorId: 'anchor-1',
+        sessionId: 'session-dup',
+        beforeStrength: 10,
+        afterStrength: 14,
+        delta: 4,
+      });
 
-  describe('Practice Mode Sequences', () => {
-    it('processes Focus followed by Deep Prime correctly', () => {
-      const focus1 = calculateEffectivePracticeGain(null, 'focus', 1);
-      expect(focus1.beforeStrength).toBe(0);
-      expect(focus1.afterStrength).toBe(21.13); // 15 + 6.13
+      const movement = await service.calculatePracticeCompletion({
+        userId: 'user-1',
+        anchorId: 'anchor-1',
+        practiceType: 'focus',
+        durationSeconds: 300,
+        completedAt,
+        sessionId: 'session-dup',
+        mode: 'authoritative',
+      });
 
-      const deep2 = calculateEffectivePracticeGain(focus1.afterStrength, 'deep_prime', 2);
-      expect(deep2.beforeStrength).toBe(21.13);
-      // Deep Prime base 11 * 0.60 * (1 - 21.13/120) = 6.6 * 0.8239 = 5.44
-      expect(deep2.delta).toBe(5.44);
-      expect(deep2.afterStrength).toBe(26.57);
-    });
-
-    it('processes Visualize followed by Focus correctly', () => {
-      const vis1 = calculateEffectivePracticeGain(30, 'visualize', 1);
-      // Visualize base 9 * 1.0 * (1 - 30/120) = 9 * 0.75 = 6.75
-      expect(vis1.delta).toBe(6.75);
-      expect(vis1.afterStrength).toBe(36.75);
-
-      const focus2 = calculateEffectivePracticeGain(vis1.afterStrength, 'focus', 2);
-      // Focus base 7 * 0.6 * (1 - 36.75/120) = 4.2 * 0.69375 = 2.91
-      expect(focus2.delta).toBe(2.91);
-      expect(focus2.afterStrength).toBe(39.66);
+      expect(movement.idempotent).toBe(true);
+      expect(movement.delta).toBe(4);
+      expect(mockTx.threadV2Movement.create).not.toHaveBeenCalled();
     });
   });
 
-  describe('Timezone & Calendar Date Boundary Handling', () => {
+  describe('2. Progression Target Tests (Starting at zero, no missed days)', () => {
+    it('1 minute/day reaches 100 on day 50', () => {
+      let strength = 0;
+      let day = 0;
+      while (strength < 100) {
+        day += 1;
+        const earning = calculateSessionEarning({
+          practiceType: 'focus',
+          durationSeconds: 60,
+          isFirstSessionToday: true,
+          priorEligibleSecondsToday: 0,
+        });
+        strength = Math.min(100, strength + earning.delta);
+        if (day === 49) {
+          expect(strength).toBe(98);
+        }
+      }
+      expect(day).toBe(50);
+      expect(strength).toBe(100);
+    });
+
+    it('5 minutes/day reaches 100 on day 25 (Core Progression Target)', () => {
+      let strength = 0;
+      let day = 0;
+      while (strength < 100) {
+        day += 1;
+        const earning = calculateSessionEarning({
+          practiceType: 'focus',
+          durationSeconds: 300,
+          isFirstSessionToday: true,
+          priorEligibleSecondsToday: 0,
+        });
+        strength = Math.min(100, strength + earning.delta);
+        if (day === 24) {
+          expect(strength).toBe(96);
+        }
+      }
+      expect(day).toBe(25);
+      expect(strength).toBe(100);
+    });
+
+    it('10 minutes/day reaches 100 on day 16', () => {
+      let strength = 0;
+      let day = 0;
+      while (strength < 100) {
+        day += 1;
+        const earning = calculateSessionEarning({
+          practiceType: 'focus',
+          durationSeconds: 600,
+          isFirstSessionToday: true,
+          priorEligibleSecondsToday: 0,
+        });
+        strength = Math.min(100, strength + earning.delta);
+        if (day === 15) {
+          expect(strength).toBeCloseTo(97.5, 4);
+        }
+      }
+      expect(day).toBe(16);
+      expect(strength).toBe(100);
+    });
+
+    it('30 seconds/day reaches 100 on day 58', () => {
+      let strength = 0;
+      let day = 0;
+      while (strength < 100) {
+        day += 1;
+        const earning = calculateSessionEarning({
+          practiceType: 'focus',
+          durationSeconds: 30,
+          isFirstSessionToday: true,
+          priorEligibleSecondsToday: 0,
+        });
+        strength = Math.min(100, strength + earning.delta);
+        if (day === 57) {
+          expect(strength).toBeCloseTo(99.75, 2);
+        }
+      }
+      expect(day).toBe(58);
+      expect(strength).toBe(100);
+    });
+
+    it('10 seconds/day reaches 100 on day 64', () => {
+      let strength = 0;
+      let day = 0;
+      while (strength < 100) {
+        day += 1;
+        const earning = calculateSessionEarning({
+          practiceType: 'focus',
+          durationSeconds: 10,
+          isFirstSessionToday: true,
+          priorEligibleSecondsToday: 0,
+        });
+        strength = Math.min(100, strength + earning.delta);
+        if (day === 63) {
+          expect(strength).toBeCloseTo(99.75, 1);
+        }
+      }
+      expect(day).toBe(64);
+      expect(strength).toBe(100);
+    });
+  });
+
+  describe('3. Level Threshold Tests (Exact Boundaries)', () => {
+    it.each([
+      [0, 'Surface'],
+      [2, 'Surface'],
+      [18, 'Surface'],
+      [19, 'Surface'],
+      [20, 'Grounded'],
+      [27, 'Grounded'],
+      [39, 'Grounded'],
+      [40, 'Rooted'],
+      [45, 'Rooted'],
+      [59, 'Rooted'],
+      [60, 'Embedded'],
+      [65, 'Embedded'],
+      [79, 'Embedded'],
+      [80, 'Sovereign'],
+      [100, 'Sovereign'],
+    ])('maps strength %i to level %s', (strength, expectedLevel) => {
+      expect(getThreadStrengthLevel(strength)).toBe(expectedLevel);
+    });
+
+    it('correctly maps Anchor B (strength 27) to Grounded, NOT Rooted', () => {
+      expect(getThreadStrengthLevel(27)).toBe('Grounded');
+    });
+
+    it('correctly maps Anchor A (strength 18) to Surface', () => {
+      expect(getThreadStrengthLevel(18)).toBe('Surface');
+    });
+  });
+
+  describe('4. Decay Tests (All Three Preferences)', () => {
+    it('Lenient: grace period of 2 missed days, decay starts on day 3 at 3 pts/day', () => {
+      expect(calculateThreadDecay(0, 'lenient')).toBe(0);
+      expect(calculateThreadDecay(1, 'lenient')).toBe(0);
+      expect(calculateThreadDecay(2, 'lenient')).toBe(0);
+      expect(calculateThreadDecay(3, 'lenient')).toBe(3);
+      expect(calculateThreadDecay(4, 'lenient')).toBe(6);
+      expect(calculateThreadDecay(5, 'lenient')).toBe(9);
+    });
+
+    it('Balanced: grace period of 1 missed day, decay starts on day 2 at 3 pts/day', () => {
+      expect(calculateThreadDecay(0, 'balanced')).toBe(0);
+      expect(calculateThreadDecay(1, 'balanced')).toBe(0);
+      expect(calculateThreadDecay(2, 'balanced')).toBe(3);
+      expect(calculateThreadDecay(3, 'balanced')).toBe(6);
+      expect(calculateThreadDecay(4, 'balanced')).toBe(9);
+      expect(calculateThreadDecay(5, 'balanced')).toBe(12);
+    });
+
+    it('Strict: immediate decay from day 1 at 3 pts/day', () => {
+      expect(calculateThreadDecay(0, 'strict')).toBe(0);
+      expect(calculateThreadDecay(1, 'strict')).toBe(3);
+      expect(calculateThreadDecay(2, 'strict')).toBe(6);
+      expect(calculateThreadDecay(3, 'strict')).toBe(9);
+      expect(calculateThreadDecay(4, 'strict')).toBe(12);
+      expect(calculateThreadDecay(5, 'strict')).toBe(15);
+    });
+
+    it('verifies five-day decay example from starting strength 60', () => {
+      // Lenient: 60 - 9 = 51
+      expect(applyDecay(60, 5, 'lenient')).toBe(51);
+      // Balanced: 60 - 12 = 48
+      expect(applyDecay(60, 5, 'balanced')).toBe(48);
+      // Strict: 60 - 15 = 45
+      expect(applyDecay(60, 5, 'strict')).toBe(45);
+    });
+
+    it('strength never drops below zero', () => {
+      expect(applyDecay(5, 5, 'strict')).toBe(0); // 5 - 15 = -10 -> clamped to 0
+      expect(applyDecay(0, 10, 'balanced')).toBe(0);
+    });
+
+    it('strength at 100 remains subject to decay', () => {
+      expect(applyDecay(100, 5, 'balanced')).toBe(88);
+      expect(applyDecay(100, 10, 'balanced')).toBe(73);
+    });
+
+    it('exempts designated rest days from consecutive missed days', () => {
+      // Oct 1 (Thu) to Oct 5 (Mon): days in between are Oct 2 (Fri), Oct 3 (Sat), Oct 4 (Sun).
+      // If Sunday (0) is a rest day: only 2 missed days (Fri, Sat).
+      const res = applyMultiDayDecay(60, '2026-10-01', '2026-10-05', [0], 'strict');
+      // 2 missed days under strict = 2 * 3 = 6 decay -> 60 - 6 = 54
+      expect(res.strength).toBe(54);
+      expect(res.consecutiveMissedDays).toBe(2);
+    });
+
+    it('changing preference from Strict to Lenient does not restore previously lost strength', () => {
+      // Days 1 & 2 missed under Strict: lost 6 points (60 -> 54).
+      // Preference changed on Day 2 (effective Day 3) to Lenient.
+      // Day 3 missed under Lenient: since consecutiveMissedDays is now 3, and Lenient grace is 2:
+      // Day 3 decays 3 points (54 -> 51). Previously lost 6 points are NOT restored.
+      const history = [
+        { sensitivity: 'strict' as const, effectiveFromLocalDateKey: '2026-10-01', createdAt: '2026-10-01T00:00:00Z' },
+        { sensitivity: 'lenient' as const, effectiveFromLocalDateKey: '2026-10-04', createdAt: '2026-10-03T00:00:00Z' },
+      ];
+      const res = applyMultiDayDecay(60, '2026-10-01', '2026-10-05', [], 'lenient', history);
+      // Days in between: 10-02 (strict, day 1, decays 3 -> 57), 10-03 (strict, day 2, decays 3 -> 54), 10-04 (lenient, day 3, decays 3 -> 51).
+      expect(res.strength).toBe(51);
+    });
+
+    it('changing preference from Lenient to Strict does not retroactively penalize protected days', () => {
+      // Days 1 & 2 missed under Lenient (protected, 0 decay).
+      // Preference changed to Strict on Day 2 (effective Day 3).
+      // Days 1 & 2 remain with 0 decay. Day 3 under Strict decays 3 points.
+      const history = [
+        { sensitivity: 'lenient' as const, effectiveFromLocalDateKey: '2026-10-01', createdAt: '2026-10-01T00:00:00Z' },
+        { sensitivity: 'strict' as const, effectiveFromLocalDateKey: '2026-10-04', createdAt: '2026-10-03T00:00:00Z' },
+      ];
+      const res = applyMultiDayDecay(60, '2026-10-01', '2026-10-05', [], 'strict', history);
+      // Days in between: 10-02 (lenient, day 1: 0 decay), 10-03 (lenient, day 2: 0 decay), 10-04 (strict, day 3: 3 decay -> 57).
+      expect(res.strength).toBe(57);
+    });
+
+    it('repeatedly switching preferences cannot create free points or duplicate decay', () => {
+      const history = [
+        { sensitivity: 'strict' as const, effectiveFromLocalDateKey: '2026-10-01', createdAt: '2026-10-01T00:00:00Z' },
+        { sensitivity: 'lenient' as const, effectiveFromLocalDateKey: '2026-10-03', createdAt: '2026-10-02T00:00:00Z' },
+        { sensitivity: 'balanced' as const, effectiveFromLocalDateKey: '2026-10-04', createdAt: '2026-10-03T00:00:00Z' },
+      ];
+      const res1 = applyMultiDayDecay(60, '2026-10-01', '2026-10-05', [], 'balanced', history);
+      const res2 = applyMultiDayDecay(60, '2026-10-01', '2026-10-05', [], 'balanced', history);
+      expect(res1.strength).toBe(res2.strength);
+    });
+  });
+
+  describe('5. Calendar & Timezone Handling', () => {
     it('resolves local calendar date from timezone correctly across UTC midnight', () => {
-      // 8:00 PM in New York (EDT, UTC-4) on Oct 20 is 00:00 UTC on Oct 21
-      const eveningUtc = new Date('2026-10-21T00:30:00.000Z');
-      const nyDateKey = resolveLocalDateKeyFromDate(eveningUtc, 'America/New_York');
-      expect(nyDateKey).toBe('2026-10-20');
-
-      const utcDateKey = resolveLocalDateKeyFromDate(eveningUtc, 'UTC');
-      expect(utcDateKey).toBe('2026-10-21');
+      // 03:00 UTC on 2026-09-08 is 20:00 on 2026-09-07 in America/Los_Angeles (UTC-7)
+      const instant = new Date('2026-09-08T03:00:00.000Z');
+      expect(resolveLocalDateKeyFromDate(instant, 'America/Los_Angeles')).toBe('2026-09-07');
+      expect(resolveLocalDateKeyFromDate(instant, 'UTC')).toBe('2026-09-08');
     });
 
     it('calculates days between calendar date keys correctly regardless of DST', () => {
-      expect(calendarDaysBetweenDateKeys('2026-10-20', '2026-10-20')).toBe(0);
-      expect(calendarDaysBetweenDateKeys('2026-10-20', '2026-10-21')).toBe(1);
-      expect(calendarDaysBetweenDateKeys('2026-10-20', '2026-10-24')).toBe(4);
+      expect(calendarDaysBetweenDateKeys('2026-03-07', '2026-03-09')).toBe(2);
+      expect(calendarDaysBetweenDateKeys('2026-11-01', '2026-11-02')).toBe(1);
     });
 
     it('counts decay eligible days between date keys excluding boundary days', () => {
-      // Consecutive days: 0 missed days
       expect(countDecayEligibleDaysBetweenDateKeys('2026-10-20', '2026-10-21')).toBe(0);
-      // 1 day in between (Oct 21): 1 missed day
       expect(countDecayEligibleDaysBetweenDateKeys('2026-10-20', '2026-10-22')).toBe(1);
-      // 3 days in between (Oct 21, 22, 23): 3 missed days
       expect(countDecayEligibleDaysBetweenDateKeys('2026-10-20', '2026-10-24')).toBe(3);
-    });
-
-    it('resets same-day session count across local midnight', async () => {
-      // Session 1 on 2026-10-20
-      mockTx.threadV2Movement.findMany.mockResolvedValue([
-        {
-          id: 'm1',
-          sessionId: 's1',
-          practiceType: 'focus',
-          completedAt: new Date('2026-10-20T20:00:00.000Z'),
-          beforeStrength: 0,
-          afterStrength: 21.13,
-          delta: 21.13,
-        },
-      ]);
-      mockTx.practiceSession.findMany.mockResolvedValue([
-        { id: 's1', localDateKey: '2026-10-20', timeZone: 'America/New_York' },
-      ]);
-
-      // Session 2 on 2026-10-21 (next day local time)
-      const movement = await service.calculatePracticeCompletion({
-        userId: 'u1',
-        anchorId: 'a1',
-        practiceType: 'focus',
-        completedAt: new Date('2026-10-21T14:00:00.000Z'),
-        sessionId: 's2',
-        localDateKey: '2026-10-21',
-        timeZone: 'America/New_York',
-        mode: 'authoritative',
-      });
-
-      // Session 2 is the FIRST session on 2026-10-21, so it receives multiplier 1.00
-      // 21.13 + 7 * 1.0 * (1 - 21.13/120) = 21.13 + 5.77 = 26.90
-      expect(movement.delta).toBe(5.77);
-      expect(movement.afterStrength).toBe(26.9);
-    });
-  });
-
-  describe('Decay and Grace Period Handling', () => {
-    it('applies no decay within grace period (<= 2 missed days)', () => {
-      expect(calculateThreadDecay(0)).toBe(0);
-      expect(calculateThreadDecay(1)).toBe(0);
-      expect(calculateThreadDecay(2)).toBe(0);
-    });
-
-    it('decays by 3 points per day after grace period', () => {
-      expect(calculateThreadDecay(3)).toBe(3);
-      expect(calculateThreadDecay(4)).toBe(6);
-      expect(calculateThreadDecay(5)).toBe(9);
-    });
-
-    it('respects dormant floor of 10 points', () => {
-      expect(applyDecay(15, 5)).toBe(DORMANT_FLOOR); // 15 - 9 = 6 -> floor 10
-      expect(applyDecay(50, 4)).toBe(44); // 50 - 6 = 44
-    });
-  });
-
-  describe('Service In-Transaction Execution & Idempotency', () => {
-    it('derives movement from server-recognized completion facts with fractional precision', async () => {
-      const movement = await service.calculatePracticeCompletion({
-        userId: 'user-1',
-        anchorId: 'anchor-1',
-        practiceType: 'focus',
-        completedAt,
-        sessionId: 'session-1',
-        mode: 'shadow',
-      });
-      expect(movement).toMatchObject({
-        beforeStrength: 0,
-        afterStrength: 21.13,
-        delta: 21.13,
-        reason: 'practice_completed',
-        idempotent: false,
-      });
-      expect(mockTx.threadV2Movement.create).toHaveBeenCalled();
-      expect(mockTx.threadV2State.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ strength: 21.13 }) })
-      );
-    });
-
-    it('does not award a duplicate session twice (preserves idempotency)', async () => {
-      mockTx.threadV2Movement.findUnique.mockResolvedValue({
-        userId: 'user-1',
-        anchorId: 'anchor-1',
-        beforeStrength: 0,
-        afterStrength: 21.13,
-        delta: 21.13,
-      });
-      const movement = await service.calculatePracticeCompletion({
-        userId: 'user-1',
-        anchorId: 'anchor-1',
-        practiceType: 'focus',
-        completedAt,
-        sessionId: 'session-1',
-        mode: 'authoritative',
-      });
-      expect(movement.idempotent).toBe(true);
-      expect(movement.afterStrength).toBe(21.13);
-      expect(mockTx.threadV2Movement.create).not.toHaveBeenCalled();
-    });
-
-    it('preserves existing historical movements without rewriting them', async () => {
-      const pastDate = new Date('2026-09-01T12:00:00.000Z');
-      const histMovement = {
-        id: 'hist-1',
-        userId: 'user-1',
-        anchorId: 'anchor-1',
-        sessionId: 'session-hist',
-        practiceType: 'focus',
-        completedAt: pastDate,
-        beforeStrength: 0,
-        afterStrength: 21.13,
-        delta: 21.13,
-      };
-
-      mockTx.threadV2Movement.findMany.mockResolvedValue([histMovement]);
-      mockTx.practiceSession.findMany.mockResolvedValue([
-        { id: 'session-hist', localDateKey: '2026-09-01', timeZone: 'UTC', completedAt: pastDate },
-      ]);
-
-      await service.calculatePracticeCompletion({
-        userId: 'user-1',
-        anchorId: 'anchor-1',
-        practiceType: 'focus',
-        completedAt: new Date('2026-09-01T15:00:00.000Z'),
-        sessionId: 'session-today',
-        localDateKey: '2026-09-01',
-        timeZone: 'UTC',
-        mode: 'authoritative',
-      });
-
-      // Historical movement hist-1 should not be updated with altered data
-      const updateCalls = mockTx.threadV2Movement.update.mock.calls;
-      const histUpdates = updateCalls.filter(call => call[0]?.where?.id === 'hist-1');
-      expect(histUpdates.length).toBe(0);
-    });
-
-    it('handles out-of-order session inserts by replaying subsequent movements', async () => {
-      const date1 = new Date('2026-09-01T10:00:00.000Z');
-      const date3 = new Date('2026-09-01T16:00:00.000Z');
-
-      // Existing movement 1 and movement 3
-      const m1 = {
-        id: 'm1',
-        sessionId: 's1',
-        practiceType: 'focus',
-        completedAt: date1,
-        beforeStrength: 0,
-        afterStrength: 21.13,
-        delta: 21.13,
-      };
-      const m3 = {
-        id: 'm3',
-        sessionId: 's3',
-        practiceType: 'focus',
-        completedAt: date3,
-        beforeStrength: 21.13,
-        afterStrength: 24.59,
-        delta: 3.46,
-      };
-
-      mockTx.threadV2Movement.findMany.mockResolvedValue([m1, m3]);
-      mockTx.practiceSession.findMany.mockResolvedValue([
-        { id: 's1', localDateKey: '2026-09-01', timeZone: 'UTC', completedAt: date1 },
-        { id: 's3', localDateKey: '2026-09-01', timeZone: 'UTC', completedAt: date3 },
-      ]);
-
-      // Insert delayed session 2 between date1 and date3
-      const date2 = new Date('2026-09-01T12:00:00.000Z');
-      const movement = await service.calculatePracticeCompletion({
-        userId: 'u1',
-        anchorId: 'a1',
-        practiceType: 'focus',
-        completedAt: date2,
-        sessionId: 's2',
-        localDateKey: '2026-09-01',
-        timeZone: 'UTC',
-        mode: 'authoritative',
-      });
-
-      expect(movement.afterStrength).toBeGreaterThan(21.13);
-      // Subsequent movement m3 should have been recomputed since an earlier session was inserted
-      const updateCalls = mockTx.threadV2Movement.update.mock.calls;
-      const m3Updates = updateCalls.filter(call => call[0]?.where?.id === 'm3');
-      expect(m3Updates.length).toBe(1);
-    });
-  });
-
-  describe('Type Normalization', () => {
-    it('normalizes legacy and V2 practice types correctly', () => {
-      const { normalizeThreadPracticeType } = require('../ThreadStrengthService');
-      expect(normalizeThreadPracticeType('focus')).toBe('focus');
-      expect(normalizeThreadPracticeType('deep_prime')).toBe('deep_prime');
-      expect(normalizeThreadPracticeType('prime')).toBe('deep_prime');
-      expect(normalizeThreadPracticeType('deep')).toBe('deep_prime');
-      expect(normalizeThreadPracticeType('visualize')).toBe('visualize');
-      expect(normalizeThreadPracticeType('visual')).toBe('visualize');
-      expect(normalizeThreadPracticeType('release')).toBe('release');
-      expect(normalizeThreadPracticeType('unknown')).toBeNull();
     });
   });
 });

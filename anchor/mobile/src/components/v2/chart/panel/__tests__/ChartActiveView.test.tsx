@@ -37,7 +37,7 @@ jest.mock('../../sheet/ChartOneMoveTeaching', () => {
       React.useEffect(() => { setBeat(0); }, [replayVersion]);
       React.useEffect(() => { if (visible) onReady(); }, [onReady, visible]);
       if (!visible) return null;
-      const titles = ['This is your one move.', 'The circle is for done.', 'The words open the whole move.'];
+      const titles = ['This is your next move.', 'The circle is for done.', 'The words open the whole move.'];
       return React.createElement(View, { testID: 'chart-one-move-teaching' },
         React.createElement(Text, null, titles[beat]),
         React.createElement(Pressable, { onPress: () => beat === 2 ? onDismiss() : setBeat(beat + 1) }, React.createElement(Text, null, beat === 2 ? 'Got it' : 'Next')));
@@ -194,9 +194,9 @@ describe('ChartActiveView — treasure map composition', () => {
     expect(first.queryByTestId('chart-one-move-teaching-measure')).toBeNull();
     await settle(1400);
     await waitFor(() => expect(first.queryByTestId('chart-one-move-teaching-measure') ?? first.queryByTestId('chart-one-move-teaching')).toBeTruthy(), { timeout: 2500 });
-    await waitFor(() => expect(first.getByText('This is your one move.')).toBeTruthy(), { timeout: 2500 });
+    await waitFor(() => expect(first.getByText('This is your next move.')).toBeTruthy(), { timeout: 2500 });
     fireEvent.press(first.getByLabelText('Replay move teaching'));
-    await waitFor(() => expect(first.getByText('This is your one move.')).toBeTruthy());
+    await waitFor(() => expect(first.getByText('This is your next move.')).toBeTruthy());
     fireEvent.press(first.getByText('Next'));
     expect(first.getByText('The circle is for done.')).toBeTruthy();
     fireEvent.press(first.getByText('Next'));
@@ -451,7 +451,7 @@ describe('ChartActiveView — reach ceremony', () => {
   it('a failed reach plays no ceremony, shows no commit card, and keeps the error on screen', async () => {
     const onWaypointReached = jest.fn();
     const onMilestoneBoundary = jest.fn();
-    const { getByTestId, queryByTestId, getByText } = render(
+    const { getByTestId, queryByTestId, getByText, getAllByText } = render(
       <Harness next={null} onWaypointReached={onWaypointReached} onMilestoneBoundary={onMilestoneBoundary} actionError="That didn’t go through. Try again." />
     );
     await settle(300);
@@ -467,7 +467,8 @@ describe('ChartActiveView — reach ceremony', () => {
     expect(getByText('That didn’t go through. Try again.')).toBeTruthy();
     await settle(200);
     expect(getByText(/Waypoint [23] of 3 · Current/)).toBeTruthy();
-    expect(getByText('Reach 1,000 active users')).toBeTruthy();
+    // The title is the header's; a move without its own reason falls back to it on the One Move card.
+    expect(getAllByText('Reach 1,000 active users').length).toBeGreaterThanOrEqual(1);
   });
 
   it('reaching the last waypoint plays the summit and ends on the arrival panel with View Vision and Release', async () => {

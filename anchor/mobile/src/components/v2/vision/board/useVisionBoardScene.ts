@@ -7,6 +7,7 @@ import {
 } from './visionBoardLayouts';
 import { nextBoardRoster, type BoardRosterEntry } from './visionBoardReorder';
 import { orderFromMap } from './visionBoardSlots';
+import type { VisionBoardComposition } from './visionBoardComposition';
 
 /** A slot resolved for the UI thread: scene px plus its frame kind as an index into BOARD_FRAME_KINDS. */
 export type BoardSlotRect = SceneRect & { frame: number };
@@ -22,6 +23,7 @@ export type VisionBoardShared = {
   dragging: SharedValue<string>;
   /** Current camera scale, so drags can convert finger movement into scene px. */
   cameraScale: SharedValue<number>;
+  recomposeMs?: SharedValue<number>;
 };
 
 export function resolveBoardSlots(layout: BoardLayout, scene: Size): BoardSlotRect[] {
@@ -40,7 +42,7 @@ export function resolveBoardSlots(layout: BoardLayout, scene: Size): BoardSlotRe
  * slot it was given, so `order` has eight entries (`''` for an empty slot) and nothing is ever re-flowed.
  */
 export function useVisionBoardScene(tiles: readonly V2VisionTile[], scene: Size, initialCameraScale = 1, detail = false,
-  slotBoard?: { map: readonly (string | null)[]; heightRatio: number }) {
+  slotBoard?: { map: readonly (string | null)[]; heightRatio: number }, composition?: VisionBoardComposition) {
   const [finishedExits, setFinishedExits] = useState<ReadonlySet<string>>(() => new Set());
   const rosterRef = useRef<BoardRosterEntry<V2VisionTile>[]>([]);
   const roster = useMemo(() => {
@@ -65,25 +67,27 @@ export function useVisionBoardScene(tiles: readonly V2VisionTile[], scene: Size,
   }, [tiles]);
 
   const slotMap = slotBoard?.map, slotHeightRatio = slotBoard?.heightRatio;
-  const layout = useMemo(() => slotHeightRatio !== undefined ? selectSlotBoardLayout(slotHeightRatio)
-    : detail ? selectDetailBoardLayout(tiles.length) : selectBoardLayout(tiles.length), [tiles.length, detail, slotHeightRatio]);
+  const layout = useMemo(() => composition?.layout ?? (slotHeightRatio !== undefined ? selectSlotBoardLayout(slotHeightRatio)
+    : detail ? selectDetailBoardLayout(tiles.length) : selectBoardLayout(tiles.length)), [composition?.layout, tiles.length, detail, slotHeightRatio]);
   const slotRects = useMemo(() => resolveBoardSlots(layout, scene), [layout, scene]);
-  const order = useMemo(() => slotMap ? orderFromMap(slotMap) : tiles.slice(0, layout.photos.length).map(tile => tile.sceneId), [layout.photos.length, tiles, slotMap]);
+  const order = useMemo(() => composition?.order ?? (slotMap ? orderFromMap(slotMap) : tiles.slice(0, layout.photos.length).map(tile => tile.sceneId)), [composition?.order, layout.photos.length, tiles, slotMap]);
 
   const slots = useSharedValue<BoardSlotRect[]>(slotRects);
   const orderValue = useSharedValue<string[]>(order);
   const layoutVersion = useSharedValue(0);
   const dragging = useSharedValue('');
   const cameraScale = useSharedValue(initialCameraScale);
+  const recomposeMs = useSharedValue(1000);
   // One stable object: the scene is memoised and must not re-render with its host.
   const shared: VisionBoardShared = useMemo(
-    () => ({ slots, order: orderValue, layoutVersion, dragging, cameraScale }),
-    [cameraScale, dragging, layoutVersion, orderValue, slots],
+    () => ({ slots, order: orderValue, layoutVersion, dragging, cameraScale, recomposeMs }),
+    [cameraScale, dragging, layoutVersion, orderValue, slots, recomposeMs],
   );
 
-  const lastLayoutKey = useRef(`${layout.count}:${scene.width}x${scene.height}`);
+  const layoutKey = JSON.stringify(slotRects);
+  const lastLayoutKey = useRef(layoutKey);
   useEffect(() => {
-    const key = `${layout.count}:${scene.width}x${scene.height}`;
+    const key = layoutKey;
     shared.slots.value = slotRects;
     shared.order.value = order;
     if (key !== lastLayoutKey.current) {

@@ -261,8 +261,7 @@ function applyThreadDecayForMissedDays(
     const nextPenalty = calculateThreadDecay(missedDay, sensitivity);
     const penaltyDelta = nextPenalty - previousPenalty;
     if (penaltyDelta <= 0) continue;
-    const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
-    nextStrength = Math.max(minimumStrengthFloor, nextStrength - penaltyDelta);
+    nextStrength = Math.max(0, nextStrength - penaltyDelta);
   }
   return nextStrength;
 }
@@ -277,7 +276,7 @@ function recomputeThreadStrength(
       new Date(left.completedAt).getTime() -
       new Date(right.completedAt).getTime(),
   );
-  let strength = 50;
+  let strength = 0;
   let lastPracticeDate: string | null = null;
 
   for (const entry of chronological) {
@@ -463,9 +462,8 @@ export function projectThreadDecay(state: ReturnType<typeof createInitialSession
       continue;
     }
 
-    const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
     newStrength = Math.max(
-      minimumStrengthFloor,
+      0,
       newStrength - penaltyDelta,
     );
   }

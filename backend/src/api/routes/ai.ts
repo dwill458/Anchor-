@@ -61,7 +61,13 @@ const EnhanceSchema = z.object({
   devImageModel: z.enum(DEV_IMAGE_MODEL_IDS).optional(),
   sigilSvg: z.string().min(1),
   styleChoice: z.preprocess(
-    (val) => (val === 'mineral_wash_v2' || val === 'mineral-wash-v2' || val === 'mineral-wash' || val === 'mineral_wash' ? 'clay_v2' : val),
+    val =>
+      val === 'mineral_wash_v2' ||
+      val === 'mineral-wash-v2' ||
+      val === 'mineral-wash' ||
+      val === 'mineral_wash'
+        ? 'clay_v2'
+        : val,
     z.enum([...VALID_AI_STYLES, ...ANCHOR2_STYLE_IDS])
   ),
   anchorId: z.string().min(1),
@@ -400,7 +406,9 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
             },
           });
 
-          const reservedById = new Map(reservedPoolRows.map(variation => [variation.id, variation]));
+          const reservedById = new Map(
+            reservedPoolRows.map(variation => [variation.id, variation])
+          );
           reservedPoolVariations = candidateIds
             .map(id => reservedById.get(id))
             .filter((variation): variation is NonNullable<typeof variation> => Boolean(variation))
@@ -717,29 +725,30 @@ router.post(
   globalAiCeilingLimiter,
   aiPlanningLimiter,
   async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const parsed = validateOrRespond(MantraSchema, req.body, res);
-    if (!parsed) return;
-    const { distilledLetters } = parsed;
+    try {
+      const parsed = validateOrRespond(MantraSchema, req.body, res);
+      if (!parsed) return;
+      const { distilledLetters } = parsed;
 
-    logger.info('[AI] Generating mantra', { letters: distilledLetters });
+      logger.info('[AI] Generating mantra', { letters: distilledLetters });
 
-    const mantra = generateMantra(distilledLetters);
-    const recommended = getRecommendedMantraStyle(distilledLetters.length);
+      const mantra = generateMantra(distilledLetters);
+      const recommended = getRecommendedMantraStyle(distilledLetters.length);
 
-    res.json({
-      success: true,
-      mantra,
-      recommended,
-    });
-  } catch (error) {
-    logger.error('[AI] Mantra generation error', error);
-    res.status(500).json({
-      error: 'Failed to generate mantra',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+      res.json({
+        success: true,
+        mantra,
+        recommended,
+      });
+    } catch (error) {
+      logger.error('[AI] Mantra generation error', error);
+      res.status(500).json({
+        error: 'Failed to generate mantra',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 /**
  * POST /api/ai/mantra/audio

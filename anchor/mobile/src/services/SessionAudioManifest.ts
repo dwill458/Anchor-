@@ -182,12 +182,12 @@ export const SESSION_VOICE_CUE_SHEETS: readonly SessionCueSheet[] = [
   cueSheet('focus', 10, [{ phaseId: 'start', triggerAtRemainingMs: 10_000 }], ['warm', 'soothing']),
   cueSheet('focus', 30, [
     { phaseId: 'start', triggerAtRemainingMs: 30_000 },
-    { phaseId: 'end', triggerAtRemainingMs: 5_000 },
+    { phaseId: 'end', triggerAtRemainingMs: 7_000 },
   ], ['warm', 'soothing']),
   cueSheet('focus', 60, [
     { phaseId: 'start', triggerAtRemainingMs: 60_000 },
     { phaseId: 'middle', triggerAtRemainingMs: 30_000 },
-    { phaseId: 'end', triggerAtRemainingMs: 5_000 },
+    { phaseId: 'end', triggerAtRemainingMs: 7_000 },
   ], ['warm', 'soothing']),
   cueSheet('deep_prime', 120, [
     { phaseId: 'opening', triggerAtRemainingMs: 120_000 },

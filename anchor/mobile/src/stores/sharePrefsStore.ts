@@ -8,6 +8,8 @@ import {
 
 interface SharePrefsState {
   visionBackgroundId: VisionShareBackgroundId;
+  visionBackgroundSource: 'suggested' | 'manual';
+  useSuggestedVisionBackground: () => void;
   setVisionBackgroundId: (id: VisionShareBackgroundId) => void;
 }
 
@@ -17,12 +19,20 @@ export const useSharePrefsStore = create<SharePrefsState>()(
   persist(
     (set) => ({
       visionBackgroundId: DEFAULT_VISION_SHARE_BACKGROUND_ID,
-      setVisionBackgroundId: (id) => set({ visionBackgroundId: id }),
+      visionBackgroundSource: 'suggested',
+      useSuggestedVisionBackground: () => set({ visionBackgroundSource: 'suggested' }),
+      setVisionBackgroundId: (id) => set({ visionBackgroundId: id, visionBackgroundSource: 'manual' }),
     }),
     {
       name: SHARE_PREFS_STORAGE_KEY,
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ visionBackgroundId: state.visionBackgroundId }),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<SharePrefsState> | undefined;
+        return { ...current, ...saved,
+          // Before source was recorded, a persisted selection was always an explicit choice.
+          visionBackgroundSource: saved?.visionBackgroundSource ?? (saved?.visionBackgroundId ? 'manual' : 'suggested') };
+      },
+      partialize: (state) => ({ visionBackgroundId: state.visionBackgroundId, visionBackgroundSource: state.visionBackgroundSource }),
     }
   )
 );

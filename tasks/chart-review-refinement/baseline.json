@@ -1,0 +1,744 @@
+{
+  "label": "baseline",
+  "generatedAt": "2026-10-23T21:54:15.733Z",
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
+  "promptHash": "6c6984e406130cad84d09b4ea80681265e9e91483b436129d1feb8ef477012a3",
+  "note": "Illustrative stated starting points; live provider calls, no user Chart writes.",
+  "results": [
+    {
+      "scenario": "simple",
+      "context": {
+        "intention": "I maintain a consistent workout routine.",
+        "category": "health",
+        "actualStartingPoint": "I exercise sporadically. I can use three 30-minute slots each week for bodyweight exercise at home.",
+        "startingContext": null,
+        "destinationDescription": "I maintain a consistent workout routine.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "raw": {
+        "needsMoreContext": false,
+        "followUpQuestion": null,
+        "destination": "Maintain a consistent workout routine with three 30-minute sessions weekly",
+        "complexity": "SIMPLE",
+        "waypoints": [
+          {
+            "title": "Establish a habit of exercising three times per week",
+            "rationale": "Regular exercise sessions form the foundation of a consistent routine.",
+            "type": "MILESTONE",
+            "metricType": "numeric",
+            "targetMetric": "sessions per week",
+            "targetValue": 3,
+            "baselineValue": 0,
+            "completionCriteria": "Complete at least three 30-minute bodyweight exercise sessions each week for two consecutive weeks.",
+            "requirements": [],
+            "moves": [
+              {
+                "title": "Schedule three 30-minute workout slots in your weekly calendar",
+                "rationale": "Setting specific times increases the likelihood of following through."
+              },
+              {
+                "title": "Prepare workout space and necessary materials at home",
+                "rationale": "Having a ready environment reduces barriers to starting."
+              },
+              {
+                "title": "Start the first 30-minute bodyweight workout session this week",
+                "rationale": "Beginning the routine initiates the habit formation."
+              },
+              {
+                "title": "Track each workout session completion in a simple log",
+                "rationale": "Monitoring progress supports consistency."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Schedule three 30-minute workout slots in your weekly calendar",
+          "rationale": "Scheduling is the first step to committing to a consistent routine."
+        },
+        "personalizedGuidance": "Start by setting fixed times for your workouts this week to build consistency gradually.",
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Currently exercises sporadically, with availability for three 30-minute sessions weekly at home.",
+          "assumptions": [
+            "User can allocate three 30-minute slots weekly for exercise.",
+            "User has basic knowledge of bodyweight exercises or can perform simple routines at home."
+          ],
+          "firstMilestoneEvidence": "Completion of three 30-minute bodyweight exercise sessions per week for two consecutive weeks.",
+          "difficultyReduction": "Focus on scheduling and small, manageable sessions to reduce overwhelm and build habit.",
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            }
+          ]
+        }
+      },
+      "error": "chart_plan_invalid:too_few"
+    },
+    {
+      "scenario": "moderate",
+      "context": {
+        "intention": "I successfully complete my first half marathon.",
+        "category": "health",
+        "actualStartingPoint": "I run 5 km comfortably twice a week. I can train three days each week. I have never completed a half marathon.",
+        "startingContext": null,
+        "destinationDescription": "I successfully complete my first half marathon.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "raw": {
+        "needsMoreContext": false,
+        "followUpQuestion": null,
+        "destination": "Complete your first half marathon successfully",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Increase weekly running distance to 15 km",
+            "rationale": "Building endurance by increasing total weekly running distance is essential for half marathon readiness.",
+            "type": "METRIC",
+            "metricType": "numeric",
+            "targetMetric": "km",
+            "targetValue": 15,
+            "baselineValue": 10,
+            "completionCriteria": "Run a total of 15 km in a week spread over training days.",
+            "requirements": [],
+            "moves": [
+              {
+                "title": "Add a 3 km run to your weekly schedule",
+                "rationale": "Adding a small run increases weekly mileage gradually."
+              },
+              {
+                "title": "Increase one existing run from 5 km to 6 km",
+                "rationale": "Gradually lengthening runs improves endurance safely."
+              },
+              {
+                "title": "Plan running days to spread out the 15 km evenly",
+                "rationale": "Balanced distribution helps recovery and consistency."
+              }
+            ]
+          },
+          {
+            "title": "Run at least one 10 km run comfortably",
+            "rationale": "Being comfortable running 10 km shows readiness to handle longer distances.",
+            "type": "CAPABILITY",
+            "metricType": "completion",
+            "targetMetric": null,
+            "targetValue": null,
+            "baselineValue": null,
+            "completionCriteria": "Complete a 10 km run without excessive fatigue or injury.",
+            "requirements": [
+              "0"
+            ],
+            "moves": [
+              {
+                "title": "Schedule a 10 km run on a weekend day",
+                "rationale": "Setting a specific day helps commit to the longer run."
+              },
+              {
+                "title": "Use pacing strategies to maintain a steady speed",
+                "rationale": "Consistent pacing prevents early exhaustion."
+              },
+              {
+                "title": "Hydrate well before and after the run",
+                "rationale": "Proper hydration supports endurance and recovery."
+              }
+            ]
+          },
+          {
+            "title": "Complete a 15 km run as longest training run",
+            "rationale": "Completing a 15 km run builds confidence and physical preparation for the half marathon.",
+            "type": "CAPABILITY",
+            "metricType": "completion",
+            "targetMetric": null,
+            "targetValue": null,
+            "baselineValue": null,
+            "completionCriteria": "Successfully complete a 15 km run during training without injury.",
+            "requirements": [
+              "1"
+            ],
+            "moves": [
+              {
+                "title": "Plan a 15 km run route in a safe environment",
+                "rationale": "Knowing the route reduces stress and logistical issues."
+              },
+              {
+                "title": "Run the 15 km at a comfortable pace",
+                "rationale": "Avoiding overexertion helps complete the distance safely."
+              },
+              {
+                "title": "Rest the day before and after the long run",
+                "rationale": "Recovery is crucial to prevent injury and fatigue."
+              }
+            ]
+          },
+          {
+            "title": "Maintain consistent training of three runs per week for 8 weeks",
+            "rationale": "Consistency over time builds endurance and running habit.",
+            "type": "METRIC",
+            "metricType": "numeric",
+            "targetMetric": "weeks",
+            "targetValue": 8,
+            "baselineValue": 0,
+            "completionCriteria": "Complete three runs per week for eight consecutive weeks.",
+            "requirements": [
+              "0"
+            ],
+            "moves": [
+              {
+                "title": "Set a weekly running schedule with fixed days",
+                "rationale": "Routine supports habit formation and consistency."
+              },
+              {
+                "title": "Track each run completed in a training log",
+                "rationale": "Monitoring progress encourages accountability."
+              },
+              {
+                "title": "Adjust runs as needed to avoid injury",
+                "rationale": "Listening to your body helps sustain training."
+              }
+            ]
+          },
+          {
+            "title": "Complete the half marathon race successfully",
+            "rationale": "Finishing the race marks achievement of the goal.",
+            "type": "CAPABILITY",
+            "metricType": "completion",
+            "targetMetric": null,
+            "targetValue": null,
+            "baselineValue": null,
+            "completionCriteria": "Cross the finish line of the half marathon without dropping out.",
+            "requirements": [
+              "2",
+              "3"
+            ],
+            "moves": [
+              {
+                "title": "Register for a half marathon race",
+                "rationale": "Official registration commits you to the goal."
+              },
+              {
+                "title": "Taper training in the week before the race",
+                "rationale": "Reducing training load aids recovery and performance."
+              },
+              {
+                "title": "Plan race day logistics including nutrition and pacing",
+                "rationale": "Preparation helps manage stress and energy during the race."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Add a 3 km run to your weekly schedule",
+          "rationale": "Starting with a small increase in weekly distance is manageable and builds endurance."
+        },
+        "personalizedGuidance": "Gradually increase your running distance and build endurance with consistent training three days a week to prepare for your half marathon.",
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Currently runs 5 km comfortably twice a week, training three days weekly is possible, no half marathon completed yet.",
+          "assumptions": [
+            "The user can increase running distance safely without injury.",
+            "The user can commit to training three times per week consistently.",
+            "The user has access to safe running routes for longer distances."
+          ],
+          "firstMilestoneEvidence": "User runs 10 km comfortably, indicating increased endurance.",
+          "difficultyReduction": "Breaking the goal into incremental distance increases and consistency milestones makes the plan manageable.",
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                1
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 4,
+              "requires": [
+                2,
+                3
+              ]
+            }
+          ]
+        }
+      },
+      "error": "chart_plan_invalid:unsupported_baseline"
+    },
+    {
+      "scenario": "complex",
+      "context": {
+        "intention": "Anchor has 10,000 paying users.",
+        "category": "career",
+        "actualStartingPoint": "Anchor is launched with 20 paying users. I am the solo developer, with 10 hours a week for growth and no paid advertising budget. I can contact current users and have subscription analytics.",
+        "startingContext": null,
+        "destinationDescription": "Anchor has 10,000 paying users.",
+        "vision": {
+          "title": "A sustainable Anchor business",
+          "description": "10,000 paying users who continue using Anchor",
+          "notes": [
+            "Prioritize retention and repeatable acquisition"
+          ]
+        },
+        "followUp": null,
+        "adjustment": null
+      },
+      "raw": {
+        "needsMoreContext": false,
+        "followUpQuestion": null,
+        "destination": "Anchor has 10,000 paying users.",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Reach 200 paying users",
+            "rationale": "Growing paying users steadily shows early traction and validates acquisition strategies.",
+            "type": "METRIC",
+            "metricType": "numeric",
+            "targetMetric": "paying users",
+            "targetValue": 200,
+            "baselineValue": 20,
+            "completionCriteria": "Subscription analytics show at least 200 active paying users.",
+            "requirements": [],
+            "moves": [
+              {
+                "title": "Analyze subscription analytics to identify user segments with highest retention",
+                "rationale": "Understanding who stays helps focus growth efforts."
+              },
+              {
+                "title": "Contact current paying users for feedback on product value and improvement areas",
+                "rationale": "User insights inform retention and acquisition tactics."
+              },
+              {
+                "title": "Implement small product improvements based on user feedback",
+                "rationale": "Enhancements can increase user satisfaction and retention."
+              },
+              {
+                "title": "Engage current users with regular updates and community outreach",
+                "rationale": "Active engagement supports retention and word-of-mouth growth."
+              }
+            ]
+          },
+          {
+            "title": "Establish a repeatable user acquisition process",
+            "rationale": "A reliable acquisition method is essential for scalable growth to thousands of users.",
+            "type": "CAPABILITY",
+            "metricType": "moves",
+            "targetMetric": null,
+            "targetValue": null,
+            "baselineValue": null,
+            "completionCriteria": "Documented and tested user acquisition process that consistently brings new paying users without paid ads.",
+            "requirements": [
+              "0"
+            ],
+            "moves": [
+              {
+                "title": "Research and select low-cost or free marketing channels suitable for Anchor",
+                "rationale": "Channels must fit budget constraints."
+              },
+              {
+                "title": "Develop content or referral incentives to attract new users",
+                "rationale": "Attractive offers encourage sign-ups."
+              },
+              {
+                "title": "Test acquisition tactics on a small scale and measure conversion rates",
+                "rationale": "Testing reveals effective strategies."
+              },
+              {
+                "title": "Refine and document the acquisition process based on test results",
+                "rationale": "Documentation enables repeatability and scaling."
+              }
+            ]
+          },
+          {
+            "title": "Improve user retention to reduce churn",
+            "rationale": "Retaining users sustains growth and increases lifetime value.",
+            "type": "CAPABILITY",
+            "metricType": "moves",
+            "targetMetric": null,
+            "targetValue": null,
+            "baselineValue": null,
+            "completionCriteria": "Implemented retention strategies that demonstrably reduce churn rate.",
+            "requirements": [
+              "0"
+            ],
+            "moves": [
+              {
+                "title": "Analyze churn data to identify common drop-off points",
+                "rationale": "Knowing when and why users leave guides retention efforts."
+              },
+              {
+                "title": "Develop and implement retention features or communication strategies",
+                "rationale": "Targeted actions can keep users engaged."
+              },
+              {
+                "title": "Monitor retention metrics after changes to assess impact",
+                "rationale": "Measurement confirms effectiveness."
+              },
+              {
+                "title": "Iterate on retention tactics based on user feedback and data",
+                "rationale": "Continuous improvement sustains retention gains."
+              }
+            ]
+          },
+          {
+            "title": "Reach 1,000 paying users",
+            "rationale": "Scaling to 1,000 users confirms growth and retention strategies are working.",
+            "type": "METRIC",
+            "metricType": "numeric",
+            "targetMetric": "paying users",
+            "targetValue": 1000,
+            "baselineValue": 200,
+            "completionCriteria": "Subscription analytics show at least 1,000 active paying users.",
+            "requirements": [
+              "1",
+              "2"
+            ],
+            "moves": [
+              {
+                "title": "Scale up successful acquisition tactics to reach more users",
+                "rationale": "Expanding proven methods grows user base."
+              },
+              {
+                "title": "Enhance onboarding experience to convert more sign-ups to paying users",
+                "rationale": "Better onboarding increases conversion rates."
+              },
+              {
+                "title": "Maintain engagement and retention efforts at larger scale",
+                "rationale": "Sustained retention supports growth."
+              },
+              {
+                "title": "Leverage user testimonials and referrals to attract new users",
+                "rationale": "Social proof aids acquisition."
+              }
+            ]
+          },
+          {
+            "title": "Reach 10,000 paying users",
+            "rationale": "Achieving 10,000 paying users fulfills the vision of a sustainable Anchor business.",
+            "type": "METRIC",
+            "metricType": "numeric",
+            "targetMetric": "paying users",
+            "targetValue": 10000,
+            "baselineValue": 1000,
+            "completionCriteria": "Subscription analytics show at least 10,000 active paying users.",
+            "requirements": [
+              "3"
+            ],
+            "moves": [
+              {
+                "title": "Optimize and automate acquisition and retention processes",
+                "rationale": "Automation supports efficient scaling."
+              },
+              {
+                "title": "Expand outreach through partnerships or organic growth channels",
+                "rationale": "Broader reach attracts more users."
+              },
+              {
+                "title": "Continuously monitor analytics to maintain growth and retention",
+                "rationale": "Data-driven adjustments sustain success."
+              },
+              {
+                "title": "Plan for product and support scaling to handle larger user base",
+                "rationale": "Infrastructure readiness ensures user satisfaction."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Analyze subscription analytics to identify user segments with highest retention",
+          "rationale": "Understanding who stays helps focus growth efforts."
+        },
+        "personalizedGuidance": "Focus first on understanding your current users and retention to build a foundation for sustainable growth.",
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Anchor is launched with 20 paying users; solo developer with 10 hours/week and no paid ads; has subscription analytics and user contact access.",
+          "assumptions": [
+            "User feedback and analytics are reliable for guiding improvements.",
+            "Low-cost or free marketing channels can be identified and leveraged.",
+            "Retention improvements will positively impact churn rates."
+          ],
+          "firstMilestoneEvidence": "Current paying users count 20; subscription analytics available to track growth to 200 users.",
+          "difficultyReduction": "Breaking growth into milestones of 200, 1,000, and 10,000 paying users reduces complexity and sets achievable targets.",
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                1,
+                2
+              ]
+            },
+            {
+              "waypointIndex": 4,
+              "requires": [
+                3
+              ]
+            }
+          ]
+        }
+      },
+      "rawCount": 5,
+      "normalizedCount": 5,
+      "validatedCount": 5,
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Anchor is launched with 20 paying users; solo developer with 10 hours/week and no paid ads; has subscription analytics and user contact access.",
+          "assumptions": [
+            "User feedback and analytics are reliable for guiding improvements.",
+            "Low-cost or free marketing channels can be identified and leveraged.",
+            "Retention improvements will positively impact churn rates."
+          ],
+          "firstMilestoneEvidence": "Current paying users count 20; subscription analytics available to track growth to 200 users.",
+          "difficultyReduction": "Breaking growth into milestones of 200, 1,000, and 10,000 paying users reduces complexity and sets achievable targets.",
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                1,
+                2
+              ]
+            },
+            {
+              "waypointIndex": 4,
+              "requires": [
+                3
+              ]
+            }
+          ]
+        },
+        "destination": "Anchor has 10,000 paying users",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Reach 200 paying users",
+            "completionCriteria": "Subscription analytics show at least 200 active paying users.",
+            "requirements": [],
+            "rationale": "Growing paying users steadily shows early traction and validates acquisition strategies.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 200,
+            "metricBaseline": 20,
+            "moves": [
+              {
+                "title": "Analyze subscription analytics to identify user segments with highest retention",
+                "rationale": "Understanding who stays helps focus growth efforts."
+              },
+              {
+                "title": "Contact current paying users for feedback on product value and improvement areas",
+                "rationale": "User insights inform retention and acquisition tactics."
+              },
+              {
+                "title": "Implement small product improvements based on user feedback",
+                "rationale": "Enhancements can increase user satisfaction and retention."
+              },
+              {
+                "title": "Engage current users with regular updates and community outreach",
+                "rationale": "Active engagement supports retention and word-of-mouth growth."
+              }
+            ]
+          },
+          {
+            "title": "Establish a repeatable user acquisition process",
+            "completionCriteria": "Documented and tested user acquisition process that consistently brings new paying users without paid ads.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "0",
+                "completed": false
+              }
+            ],
+            "rationale": "A reliable acquisition method is essential for scalable growth to thousands of users.",
+            "kind": "CAPABILITY",
+            "progressMode": "moves",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Research and select low-cost or free marketing channels suitable for Anchor",
+                "rationale": "Channels must fit budget constraints."
+              },
+              {
+                "title": "Develop content or referral incentives to attract new users",
+                "rationale": "Attractive offers encourage sign-ups."
+              },
+              {
+                "title": "Test acquisition tactics on a small scale and measure conversion rates",
+                "rationale": "Testing reveals effective strategies."
+              },
+              {
+                "title": "Refine and document the acquisition process based on test results",
+                "rationale": "Documentation enables repeatability and scaling."
+              }
+            ]
+          },
+          {
+            "title": "Improve user retention to reduce churn",
+            "completionCriteria": "Implemented retention strategies that demonstrably reduce churn rate.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "0",
+                "completed": false
+              }
+            ],
+            "rationale": "Retaining users sustains growth and increases lifetime value.",
+            "kind": "CAPABILITY",
+            "progressMode": "moves",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Analyze churn data to identify common drop-off points",
+                "rationale": "Knowing when and why users leave guides retention efforts."
+              },
+              {
+                "title": "Develop and implement retention features or communication strategies",
+                "rationale": "Targeted actions can keep users engaged."
+              },
+              {
+                "title": "Monitor retention metrics after changes to assess impact",
+                "rationale": "Measurement confirms effectiveness."
+              },
+              {
+                "title": "Iterate on retention tactics based on user feedback and data",
+                "rationale": "Continuous improvement sustains retention gains."
+              }
+            ]
+          },
+          {
+            "title": "Reach 1,000 paying users",
+            "completionCriteria": "Subscription analytics show at least 1,000 active paying users.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "1",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "2",
+                "completed": false
+              }
+            ],
+            "rationale": "Scaling to 1,000 users confirms growth and retention strategies are working.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 1000,
+            "metricBaseline": 200,
+            "moves": [
+              {
+                "title": "Scale up successful acquisition tactics to reach more users",
+                "rationale": "Expanding proven methods grows user base."
+              },
+              {
+                "title": "Enhance onboarding experience to convert more sign-ups to paying users",
+                "rationale": "Better onboarding increases conversion rates."
+              },
+              {
+                "title": "Maintain engagement and retention efforts at larger scale",
+                "rationale": "Sustained retention supports growth."
+              },
+              {
+                "title": "Leverage user testimonials and referrals to attract new users",
+                "rationale": "Social proof aids acquisition."
+              }
+            ]
+          },
+          {
+            "title": "Reach 10,000 paying users",
+            "completionCriteria": "Subscription analytics show at least 10,000 active paying users.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "3",
+                "completed": false
+              }
+            ],
+            "rationale": "Achieving 10,000 paying users fulfills the vision of a sustainable Anchor business.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 10000,
+            "metricBaseline": 1000,
+            "moves": [
+              {
+                "title": "Optimize and automate acquisition and retention processes",
+                "rationale": "Automation supports efficient scaling."
+              },
+              {
+                "title": "Expand outreach through partnerships or organic growth channels",
+                "rationale": "Broader reach attracts more users."
+              },
+              {
+                "title": "Continuously monitor analytics to maintain growth and retention",
+                "rationale": "Data-driven adjustments sustain success."
+              },
+              {
+                "title": "Plan for product and support scaling to handle larger user base",
+                "rationale": "Infrastructure readiness ensures user satisfaction."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Analyze subscription analytics to identify user segments with highest retention",
+          "rationale": "Understanding who stays helps focus growth efforts."
+        },
+        "personalizedGuidance": "Focus first on understanding your current users and retention to build a foundation for sustainable growth."
+      }
+    }
+  ]
+}

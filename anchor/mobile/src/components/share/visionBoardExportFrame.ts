@@ -1,6 +1,6 @@
 import type { VisionNote } from '@/adapters/v2/vision';
 import type { V2VisionTile } from '@/adapters/v2/vision';
-import { toSceneRect, VISION_BOARD_PAPER_MARK_SCALE, type BoardLayout, type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
+import { boardCaptionRect, boardPrintRect, toSceneRect, VISION_BOARD_PAPER_MARK_SCALE, type BoardLayout, type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
 
 export type VisionBoardExportFrame = { scale: number; left: number; top: number; bounds: { left: number; top: number; right: number; bottom: number } };
 
@@ -25,11 +25,12 @@ export function visionBoardExportFrame(
   margin = viewport.width * 0.055,
   tiles: readonly V2VisionTile[] = [],
   overlays: readonly Pick<SceneRect, 'x' | 'y' | 'width' | 'height' | 'rotation'>[] = [],
+  order?: readonly string[],
 ): VisionBoardExportFrame {
   const bounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
-  for (const slot of layout.photos) includeRect(bounds, toSceneRect(slot, scene));
+  layout.photos.forEach((slot,index)=>{if(!order||order[index]){includeRect(bounds,boardPrintRect(slot,scene));const caption=boardCaptionRect(slot,scene);if(caption)includeRect(bounds,caption);}});
   layout.photos.forEach((slot, index) => {
-    if (!tiles[index]?.caption?.trim()) return;
+    if (order || !tiles[index]?.caption?.trim()) return;
     const photo = toSceneRect(slot, scene);
     includeRect(bounds, { ...photo, y: photo.y + photo.height + 5, height: 14 });
   });

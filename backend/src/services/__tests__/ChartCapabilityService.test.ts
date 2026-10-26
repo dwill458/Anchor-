@@ -13,6 +13,12 @@ const mockPrisma = {
 };
 jest.mock('../../lib/prisma', () => ({ prisma: mockPrisma }));
 
+// These cases exercise persisted entitlements with RevenueCat unavailable.
+// Never let a developer's configured key turn them into live billing lookups.
+jest.mock('../RevenueCatEntitlementService', () => ({
+  getRevenueCatAccess: jest.fn().mockResolvedValue(null),
+}));
+
 // Provider configuration is read through these resolvers. Driving them directly
 // keeps "the planner is unconfigured" independent of how the key reaches env.
 const plannerConfig: { apiKey: string | undefined } = { apiKey: 'test-planner-key' };

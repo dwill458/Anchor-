@@ -15,6 +15,7 @@ export type BeatPhrase = {
   endMs: number;
   silenceAfterMs: number;
   chapter: string;
+  captionSpans?: { text: string; startMs: number; endMs: number }[];
 };
 export type BeatMap = { track: GuidedTrackId; guide: GuideId; durationMs: number; phrases: BeatPhrase[] };
 
@@ -27,8 +28,9 @@ export function classifySilence(ms: number): Exclude<SilenceClass, 'none'> {
   return ms >= SILENCE_LONG_MS ? 'long' : ms >= SILENCE_MEANINGFUL_MS ? 'meaningful' : 'short';
 }
 
-type RawPhrase = { id: number; text: string; start: number; end: number; silence_after: number; chapter: string };
-type RawMap = { track: string; audio_duration: number; voices: Record<string, { phrases: RawPhrase[] }> };
+type RawPhrase = { id: number; text: string; start: number; end: number; silence_after: number; chapter: string;
+  caption_spans?: { text: string; start: number; end: number }[] };
+type RawMap = { track: string; audio_duration: number; voices: Record<string, { phrases: RawPhrase[]; audio_duration?: number }> };
 const RAW: Record<GuidedTrackId, RawMap> = { glimpse: glimpseMap, immerse: immerseMap, embody: embodyMap } as Record<GuidedTrackId, RawMap>;
 const ms = (seconds: number) => Math.round(seconds * 1000);
 
@@ -41,10 +43,11 @@ export function loadBeatMap(track: GuidedTrackId, guide: GuideId): BeatMap {
   const voice = raw.voices[guide];
   if (!voice) throw new RangeError(`No ${guide} beat map for ${track}`);
   const map: BeatMap = {
-    track, guide, durationMs: ms(raw.audio_duration),
+    track, guide, durationMs: ms(voice.audio_duration ?? raw.audio_duration),
     phrases: voice.phrases.map(phrase => ({
       id: phrase.id, text: phrase.text, startMs: ms(phrase.start), endMs: ms(phrase.end),
       silenceAfterMs: ms(phrase.silence_after), chapter: phrase.chapter,
+      ...(phrase.caption_spans ? { captionSpans: phrase.caption_spans.map(span => ({ text: span.text, startMs: ms(span.start), endMs: ms(span.end) })) } : {}),
     })),
   };
   cache.set(key, map);
@@ -53,6 +56,16 @@ export function loadBeatMap(track: GuidedTrackId, guide: GuideId): BeatMap {
 
 export function trackForDuration(durationSeconds: GuidedDurationSeconds): GuidedTrackId {
   return durationSeconds === 60 ? 'glimpse' : durationSeconds === 180 ? 'immerse' : 'embody';
+}
+
+/** Display the runtime from the same source that controls playback and completion. */
+export function v2VisualizeDurationLabel(seconds: GuidedDurationSeconds, accessible = false): string {
+  const runtimeSeconds = Math.round(loadBeatMap(trackForDuration(seconds), 'dominic').durationMs / 1000);
+  const minutes = Math.floor(runtimeSeconds / 60);
+  const remainder = runtimeSeconds % 60;
+  return accessible
+    ? `${minutes} minute${minutes === 1 ? '' : 's'} ${remainder} second${remainder === 1 ? '' : 's'}`
+    : `${minutes}:${String(remainder).padStart(2, '0')}`;
 }
 
 /** Dominic is the male guide and Lina the female guide. A silenced session still follows a beat map. */

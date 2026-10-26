@@ -21,6 +21,8 @@ export interface EnvConfig {
   ENABLE_VISUALIZE: boolean;
   ENABLE_CHART: boolean;
   ENABLE_CHART_WRITE: boolean;
+  /** Weekly Insight 2.0 (server-authoritative global recap). Default off; the legacy screen stays live until verified. */
+  ENABLE_WEEKLY_RECAP_V2: boolean;
   ENABLE_CHART_AI_PLANNER: boolean;
   ENABLE_CHART_REFLECTIONS: boolean;
   ENABLE_CHART_NOTIFICATIONS: boolean;
@@ -45,6 +47,7 @@ export interface EnvConfig {
   ANCHOR_FALLBACK_PROVIDER?: 'openai' | 'gemini';
   ANCHOR2_PRIMARY_PROVIDER?: 'openai' | 'gemini';
   ANCHOR2_FALLBACK_PROVIDER?: 'gemini' | 'openai';
+  ANCHOR2_GEMINI_MODEL?: string;
   OPENAI_VISION_MODEL?: string;
   OPENAI_ANCHOR_MODEL?: string;
   OPENAI_FALLBACK_MODEL?: string;
@@ -247,13 +250,17 @@ export function validateEnv(): EnvConfig {
         'ANCHOR2_PRIMARY_PROVIDER',
         process.env.ANCHOR2_PRIMARY_PROVIDER,
         ['openai', 'gemini'],
-        'openai'
+        'gemini'
       ),
       ANCHOR2_FALLBACK_PROVIDER: validateEnum<'gemini' | 'openai'>(
         'ANCHOR2_FALLBACK_PROVIDER',
         process.env.ANCHOR2_FALLBACK_PROVIDER,
         ['gemini', 'openai'],
-        'gemini'
+        'openai'
+      ),
+      ANCHOR2_GEMINI_MODEL: validateString(
+        'ANCHOR2_GEMINI_MODEL',
+        process.env.ANCHOR2_GEMINI_MODEL
       ),
       OPENAI_VISION_MODEL: validateString('OPENAI_VISION_MODEL', process.env.OPENAI_VISION_MODEL),
       OPENAI_ANCHOR_MODEL: validateString('OPENAI_ANCHOR_MODEL', process.env.OPENAI_ANCHOR_MODEL),
@@ -364,6 +371,11 @@ export function validateEnv(): EnvConfig {
       ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),
       // Chart is deliberately default-off until Workstream G enables it.
       ENABLE_CHART: validateBoolean('ENABLE_CHART', process.env.ENABLE_CHART, false),
+      ENABLE_WEEKLY_RECAP_V2: validateBoolean(
+        'ENABLE_WEEKLY_RECAP_V2',
+        process.env.ENABLE_WEEKLY_RECAP_V2,
+        false
+      ),
       ENABLE_CHART_WRITE: validateBoolean(
         'ENABLE_CHART_WRITE',
         process.env.ENABLE_CHART_WRITE,

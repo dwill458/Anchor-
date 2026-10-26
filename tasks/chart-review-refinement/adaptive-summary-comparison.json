@@ -1,0 +1,1106 @@
+{
+  "label": "adaptive-summary-comparison",
+  "generatedAt": "2026-10-23T22:02:54.566Z",
+  "providers": [
+    {
+      "name": "openai",
+      "model": "gpt-5.4-mini"
+    },
+    {
+      "name": "gemini",
+      "model": "gemini-3.5-flash-lite"
+    }
+  ],
+  "promptHash": "bc4af3d80103066db4a207e4d1d3df1784307cfb014afc383a731746e63058f5",
+  "note": "Illustrative stated starting points; live provider calls, no user Chart writes.",
+  "results": [
+    {
+      "scenario": "simple",
+      "context": {
+        "intention": "I maintain a consistent workout routine.",
+        "category": "health",
+        "actualStartingPoint": "I exercise sporadically. I can use three 30-minute slots each week for bodyweight exercise at home.",
+        "startingContext": null,
+        "destinationDescription": "I maintain a consistent workout routine.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "openai",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-5.4-mini",
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "The person currently exercises sporadically and has three 30-minute home bodyweight slots available each week.",
+              "assumptions": [
+                "Consistency means the routine is repeated from week to week, not a one-off burst.",
+                "Bodyweight exercise at home is the main available modality.",
+                "No extra equipment, coaching, or additional time is assumed."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 3,
+                "complexityReason": "This is a habit-building health goal with a clear starting point and limited constraints. The route needs to show distinct state changes: first workable week, repeatability across an off-week, then a self-directed routine that holds without relying on momentum.",
+                "countReason": "Three waypoints are enough to capture the meaningful changes from sporadic exercise to a consistent routine without adding filler: establish one repeatable week, prove it survives disruption, and then show the routine is being sustained independently."
+              },
+              "firstMilestoneEvidence": "The first real change is a full week completed within the available three 30-minute home slots, showing the routine is no longer sporadic.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    1
+                  ]
+                }
+              ]
+            },
+            "destination": "I maintain a consistent workout routine",
+            "complexity": "SIMPLE",
+            "waypoints": [
+              {
+                "title": "Complete one planned workout week",
+                "rationale": "This shows the routine can happen inside the time and setting already available.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "A full week is completed with three planned 30-minute bodyweight workouts at home.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Choose three workout days this week",
+                    "rationale": "This turns the available slots into a specific weekly plan."
+                  },
+                  {
+                    "title": "Write a 30-minute bodyweight session outline",
+                    "rationale": "This removes decision-making when it is time to start."
+                  },
+                  {
+                    "title": "Complete all three sessions in the chosen week",
+                    "rationale": "This is the first visible proof that the routine fits real life."
+                  }
+                ]
+              },
+              {
+                "title": "Repeat the routine through a disrupted week",
+                "rationale": "Consistency becomes meaningful when it holds even if the week is not smooth.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "In a later week with a normal disruption, the person still completes the same three planned workouts.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Keep the same three weekly workout slots",
+                    "rationale": "Repeating the structure makes the routine easier to return to."
+                  },
+                  {
+                    "title": "Use a shortened version if one session is pressured for time",
+                    "rationale": "This protects the habit from breaking when the week gets messy."
+                  },
+                  {
+                    "title": "Finish the week with all three sessions done",
+                    "rationale": "This shows the routine survives disruption rather than depending on a perfect week."
+                  }
+                ]
+              },
+              {
+                "title": "Hold a self-directed weekly rhythm",
+                "rationale": "This is the point where the routine is being maintained rather than rebuilt each week.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "The person can set up and complete three home workouts in a typical week without needing to restart the routine each time.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Start each week by placing the three workouts on the calendar",
+                    "rationale": "This keeps the routine anchored before the week fills up."
+                  },
+                  {
+                    "title": "Adjust one session without losing the others when plans change",
+                    "rationale": "This makes the routine flexible enough to keep going."
+                  },
+                  {
+                    "title": "Keep completing the three-session pattern for several weeks",
+                    "rationale": "This shows the routine is now self-directed and stable."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Choose three workout days this week",
+              "rationale": "It is the smallest concrete start toward the first completed workout week."
+            },
+            "personalizedGuidance": "Use your three 30-minute home slots to make the routine visible in the week, then prove it still holds when the week is imperfect.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 3,
+          "normalizedCount": 3,
+          "validatedCount": 3
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "The person currently exercises sporadically and has three 30-minute home bodyweight slots available each week.",
+          "assumptions": [
+            "Consistency means the routine is repeated from week to week, not a one-off burst.",
+            "Bodyweight exercise at home is the main available modality.",
+            "No extra equipment, coaching, or additional time is assumed."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 3,
+            "complexityReason": "This is a habit-building health goal with a clear starting point and limited constraints. The route needs to show distinct state changes: first workable week, repeatability across an off-week, then a self-directed routine that holds without relying on momentum.",
+            "countReason": "Three waypoints are enough to capture the meaningful changes from sporadic exercise to a consistent routine without adding filler: establish one repeatable week, prove it survives disruption, and then show the routine is being sustained independently."
+          },
+          "firstMilestoneEvidence": "The first real change is a full week completed within the available three 30-minute home slots, showing the routine is no longer sporadic.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                1
+              ]
+            }
+          ]
+        },
+        "destination": "I maintain a consistent workout routine",
+        "complexity": "SIMPLE",
+        "waypoints": [
+          {
+            "title": "Complete one planned workout week",
+            "completionCriteria": "A full week is completed with three planned 30-minute bodyweight workouts at home.",
+            "requirements": [],
+            "rationale": "This shows the routine can happen inside the time and setting already available.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Choose three workout days this week",
+                "rationale": "This turns the available slots into a specific weekly plan."
+              },
+              {
+                "title": "Write a 30-minute bodyweight session outline",
+                "rationale": "This removes decision-making when it is time to start."
+              },
+              {
+                "title": "Complete all three sessions in the chosen week",
+                "rationale": "This is the first visible proof that the routine fits real life."
+              }
+            ]
+          },
+          {
+            "title": "Repeat the routine through a disrupted week",
+            "completionCriteria": "In a later week with a normal disruption, the person still completes the same three planned workouts.",
+            "requirements": [],
+            "rationale": "Consistency becomes meaningful when it holds even if the week is not smooth.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Keep the same three weekly workout slots",
+                "rationale": "Repeating the structure makes the routine easier to return to."
+              },
+              {
+                "title": "Use a shortened version if one session is pressured for time",
+                "rationale": "This protects the habit from breaking when the week gets messy."
+              },
+              {
+                "title": "Finish the week with all three sessions done",
+                "rationale": "This shows the routine survives disruption rather than depending on a perfect week."
+              }
+            ]
+          },
+          {
+            "title": "Hold a self-directed weekly rhythm",
+            "completionCriteria": "The person can set up and complete three home workouts in a typical week without needing to restart the routine each time.",
+            "requirements": [],
+            "rationale": "This is the point where the routine is being maintained rather than rebuilt each week.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Start each week by placing the three workouts on the calendar",
+                "rationale": "This keeps the routine anchored before the week fills up."
+              },
+              {
+                "title": "Adjust one session without losing the others when plans change",
+                "rationale": "This makes the routine flexible enough to keep going."
+              },
+              {
+                "title": "Keep completing the three-session pattern for several weeks",
+                "rationale": "This shows the routine is now self-directed and stable."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Choose three workout days this week",
+          "rationale": "It is the smallest concrete start toward the first completed workout week."
+        },
+        "personalizedGuidance": "Use your three 30-minute home slots to make the routine visible in the week, then prove it still holds when the week is imperfect."
+      }
+    },
+    {
+      "scenario": "moderate",
+      "context": {
+        "intention": "I successfully complete my first half marathon.",
+        "category": "health",
+        "actualStartingPoint": "I run 5 km comfortably twice a week. I can train three days each week. I have never completed a half marathon.",
+        "startingContext": null,
+        "destinationDescription": "I successfully complete my first half marathon.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "openai",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-5.4-mini",
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "The person already runs 5 km comfortably twice a week and can train three days per week, but has never completed a half marathon.",
+              "assumptions": [
+                "The destination is the first half marathon finish, not a specific finish time.",
+                "Training is limited to three days per week as stated.",
+                "No extra coaching, equipment, or injury history is assumed."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 4,
+                "complexityReason": "This is a first-endurance-event goal with clear dependencies: build a reliable training base, extend long-run durability, make the body ready for race distance, then complete the event.",
+                "countReason": "Four waypoints cover the distinct achievements without turning the route into a distance ladder: establish a workable longer-week rhythm, extend the long run meaningfully, show readiness to sustain half-marathon effort, and finish the race."
+              },
+              "firstMilestoneEvidence": "A first workable change would be a week where the person completes three runs with one longer run beyond their current 5 km comfort zone and recovers normally.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "waypointIndex": 3,
+                  "requires": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            "destination": "Successfully complete a first half marathon",
+            "complexity": "MODERATE",
+            "waypoints": [
+              {
+                "title": "Hold a first three-run training week",
+                "rationale": "This shows the routine can support half-marathon training beyond the current twice-weekly pattern.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Complete one week with three runs, including one run longer than the current comfortable 5 km run, without needing to skip the week.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Add a third run on a separate day",
+                    "rationale": "Create the first full training week shape within the time available."
+                  },
+                  {
+                    "title": "Make one run slightly longer than 5 km",
+                    "rationale": "Start extending endurance without changing the whole routine at once."
+                  },
+                  {
+                    "title": "Keep the other two runs easy",
+                    "rationale": "Protect recovery so the added run is sustainable."
+                  }
+                ]
+              },
+              {
+                "title": "Extend the long run beyond easy comfort",
+                "rationale": "A longer weekly run is the main physical bridge from 5 km comfort to half-marathon readiness.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "km",
+                "targetValue": 10,
+                "baselineValue": 5,
+                "completionCriteria": "Reach a longest run of 10 km in training and finish it without stopping.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Increase the long run by a small step",
+                    "rationale": "Lengthen the weekend run gradually from the current 5 km base."
+                  },
+                  {
+                    "title": "Keep weekly running to three days",
+                    "rationale": "Use the existing schedule rather than adding unsupported volume."
+                  },
+                  {
+                    "title": "Practice an easy pace for the longer run",
+                    "rationale": "Build distance first so the body adapts before speed matters."
+                  }
+                ]
+              },
+              {
+                "title": "Handle half-marathon distance in training",
+                "rationale": "This confirms the body can manage the event distance before race day.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Complete a training long run at or near half-marathon distance and recover normally within the following days.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Lengthen the long run again in controlled steps",
+                    "rationale": "Move from 10 km toward race distance without jumping too far."
+                  },
+                  {
+                    "title": "Keep the rest of the week easy",
+                    "rationale": "Preserve recovery as the distance load rises."
+                  },
+                  {
+                    "title": "Use one full dress rehearsal week",
+                    "rationale": "Test the routine, fueling, and recovery pattern around the longer run."
+                  }
+                ]
+              },
+              {
+                "title": "Finish the half marathon",
+                "rationale": "The goal is reached only when the race itself is completed.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Cross the finish line of a half marathon.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Choose a realistic race day effort plan",
+                    "rationale": "Settle on an easy, finish-focused approach for the event."
+                  },
+                  {
+                    "title": "Taper before race day",
+                    "rationale": "Reduce training load so the body is ready to run the event."
+                  },
+                  {
+                    "title": "Run the race and keep moving to the finish",
+                    "rationale": "Complete the full distance on the day."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Add a third run on a separate day",
+              "rationale": "It is the smallest concrete step toward a workable half-marathon training week."
+            },
+            "personalizedGuidance": "Keep the focus on endurance and recoverability, not speed; the first signs of progress should be in how far you can run and how well you bounce back.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 4,
+          "normalizedCount": 4,
+          "validatedCount": 4
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "The person already runs 5 km comfortably twice a week and can train three days per week, but has never completed a half marathon.",
+          "assumptions": [
+            "The destination is the first half marathon finish, not a specific finish time.",
+            "Training is limited to three days per week as stated.",
+            "No extra coaching, equipment, or injury history is assumed."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 4,
+            "complexityReason": "This is a first-endurance-event goal with clear dependencies: build a reliable training base, extend long-run durability, make the body ready for race distance, then complete the event.",
+            "countReason": "Four waypoints cover the distinct achievements without turning the route into a distance ladder: establish a workable longer-week rhythm, extend the long run meaningfully, show readiness to sustain half-marathon effort, and finish the race."
+          },
+          "firstMilestoneEvidence": "A first workable change would be a week where the person completes three runs with one longer run beyond their current 5 km comfort zone and recovers normally.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0,
+                1
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        "destination": "Successfully complete a first half marathon",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Hold a first three-run training week",
+            "completionCriteria": "Complete one week with three runs, including one run longer than the current comfortable 5 km run, without needing to skip the week.",
+            "requirements": [],
+            "rationale": "This shows the routine can support half-marathon training beyond the current twice-weekly pattern.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Add a third run on a separate day",
+                "rationale": "Create the first full training week shape within the time available."
+              },
+              {
+                "title": "Make one run slightly longer than 5 km",
+                "rationale": "Start extending endurance without changing the whole routine at once."
+              },
+              {
+                "title": "Keep the other two runs easy",
+                "rationale": "Protect recovery so the added run is sustainable."
+              }
+            ]
+          },
+          {
+            "title": "Extend the long run beyond easy comfort",
+            "completionCriteria": "Reach a longest run of 10 km in training and finish it without stopping.",
+            "requirements": [],
+            "rationale": "A longer weekly run is the main physical bridge from 5 km comfort to half-marathon readiness.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "km",
+            "metricTarget": 10,
+            "metricBaseline": 5,
+            "moves": [
+              {
+                "title": "Increase the long run by a small step",
+                "rationale": "Lengthen the weekend run gradually from the current 5 km base."
+              },
+              {
+                "title": "Keep weekly running to three days",
+                "rationale": "Use the existing schedule rather than adding unsupported volume."
+              },
+              {
+                "title": "Practice an easy pace for the longer run",
+                "rationale": "Build distance first so the body adapts before speed matters."
+              }
+            ]
+          },
+          {
+            "title": "Handle half-marathon distance in training",
+            "completionCriteria": "Complete a training long run at or near half-marathon distance and recover normally within the following days.",
+            "requirements": [],
+            "rationale": "This confirms the body can manage the event distance before race day.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Lengthen the long run again in controlled steps",
+                "rationale": "Move from 10 km toward race distance without jumping too far."
+              },
+              {
+                "title": "Keep the rest of the week easy",
+                "rationale": "Preserve recovery as the distance load rises."
+              },
+              {
+                "title": "Use one full dress rehearsal week",
+                "rationale": "Test the routine, fueling, and recovery pattern around the longer run."
+              }
+            ]
+          },
+          {
+            "title": "Finish the half marathon",
+            "completionCriteria": "Cross the finish line of a half marathon.",
+            "requirements": [],
+            "rationale": "The goal is reached only when the race itself is completed.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Choose a realistic race day effort plan",
+                "rationale": "Settle on an easy, finish-focused approach for the event."
+              },
+              {
+                "title": "Taper before race day",
+                "rationale": "Reduce training load so the body is ready to run the event."
+              },
+              {
+                "title": "Run the race and keep moving to the finish",
+                "rationale": "Complete the full distance on the day."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Add a third run on a separate day",
+          "rationale": "It is the smallest concrete step toward a workable half-marathon training week."
+        },
+        "personalizedGuidance": "Keep the focus on endurance and recoverability, not speed; the first signs of progress should be in how far you can run and how well you bounce back."
+      }
+    },
+    {
+      "scenario": "complex",
+      "context": {
+        "intention": "Anchor has 10,000 paying users.",
+        "category": "career",
+        "actualStartingPoint": "Anchor is launched with 20 paying users. I am the solo developer, with 10 hours a week for growth and no paid advertising budget. I can contact current users and have subscription analytics.",
+        "startingContext": null,
+        "destinationDescription": "Anchor has 10,000 paying users.",
+        "vision": {
+          "title": "A sustainable Anchor business",
+          "description": "10,000 paying users who continue using Anchor",
+          "notes": [
+            "Prioritize retention and repeatable acquisition"
+          ]
+        },
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "openai",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-5.4-mini",
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Anchor is already launched with 20 paying users. The founder is solo, has 10 hours a week for growth, no paid ad budget, and can contact current users and review subscription analytics.",
+              "assumptions": [
+                "Paying users can be contacted for feedback and usage signals.",
+                "Subscription analytics can show cohort, churn, and conversion patterns.",
+                "Growth must rely on product, retention, and repeatable low-cost acquisition rather than paid advertising."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 5,
+                "complexityReason": "This is a multi-stage business growth goal with dependent outcomes: first a stable retention signal, then a repeatable acquisition source, then paid conversion improvements, then operational capacity to support scale, before the final user base target.",
+                "countReason": "Five waypoints cover the distinct achievements needed from the current base of 20 users to a sustainable 10,000-user business without adding filler: retention proof, first repeatable acquisition channel, improved conversion, scalable operating rhythm, and the final scale milestone."
+              },
+              "firstMilestoneEvidence": "The first meaningful change is evidence that the current 20 paying users are staying active long enough to validate the product and reveal retention patterns, not just initial signups.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    1
+                  ]
+                },
+                {
+                  "waypointIndex": 3,
+                  "requires": [
+                    2
+                  ]
+                },
+                {
+                  "waypointIndex": 4,
+                  "requires": [
+                    3
+                  ]
+                }
+              ]
+            },
+            "destination": "10,000 paying users who continue using Anchor",
+            "complexity": "COMPLEX",
+            "waypoints": [
+              {
+                "title": "Show early retention in the current user base",
+                "rationale": "Before scaling, Anchor needs proof that existing paying users continue using it.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users retained at 30 days",
+                "targetValue": 12,
+                "baselineValue": 20,
+                "completionCriteria": "At least 12 of the current 20 paying users remain active and paying after 30 days.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Review current subscriber activity and churn",
+                    "rationale": "Find who is still using Anchor and where drop-off starts."
+                  },
+                  {
+                    "title": "Contact active and inactive users for short feedback",
+                    "rationale": "Learn what keeps people paying and what causes them to leave."
+                  },
+                  {
+                    "title": "Make one product change that addresses the most common retention issue",
+                    "rationale": "Improve the reason people keep using Anchor."
+                  },
+                  {
+                    "title": "Check the next cohort of users for the same retention pattern",
+                    "rationale": "Confirm the change is affecting repeat use, not just one group."
+                  }
+                ]
+              },
+              {
+                "title": "Find one repeatable low-cost acquisition source",
+                "rationale": "Growth needs a channel that can produce new users without paid ads.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Anchor has one acquisition source that can repeatedly bring in new paying users at low cost.",
+                "requirements": [
+                  "One clear source identified",
+                  "One offer or message that fits that source",
+                  "At least two repeatable acquisition attempts",
+                  "New paying users attributed to the source"
+                ],
+                "moves": [
+                  {
+                    "title": "List the places where current users can realistically come from",
+                    "rationale": "Focus on channels that fit a solo founder and no ad budget."
+                  },
+                  {
+                    "title": "Test one outreach or content message in the best-fit channel",
+                    "rationale": "See whether the message draws interest from likely users."
+                  },
+                  {
+                    "title": "Track which messages lead to signups and payments",
+                    "rationale": "Separate promising distribution from noise."
+                  },
+                  {
+                    "title": "Repeat the best-performing approach twice more",
+                    "rationale": "Confirm the channel can be used again, not just once."
+                  }
+                ]
+              },
+              {
+                "title": "Improve trial to paid conversion",
+                "rationale": "A repeatable source only matters if more of those users become paying users.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "new paying users per month",
+                "targetValue": 50,
+                "baselineValue": 20,
+                "completionCriteria": "Anchor consistently adds 50 new paying users in a month from organic or low-cost acquisition.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Tighten the signup and paywall path",
+                    "rationale": "Reduce friction between interest and payment."
+                  },
+                  {
+                    "title": "Use user feedback to sharpen the value message",
+                    "rationale": "Make the paid offer easier to understand."
+                  },
+                  {
+                    "title": "Run one conversion-focused product or copy change at a time",
+                    "rationale": "Learn what improves payment decisions."
+                  },
+                  {
+                    "title": "Measure which change increases paid conversions",
+                    "rationale": "Keep only the changes that move users to payment."
+                  }
+                ]
+              },
+              {
+                "title": "Operate growth with a repeatable weekly rhythm",
+                "rationale": "Scaling needs a sustainable process the solo founder can maintain.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "A weekly growth routine is in place that consistently covers retention, acquisition, and conversion work within 10 hours.",
+                "requirements": [
+                  "Weekly review happens every week",
+                  "One acquisition action shipped every week",
+                  "One product or retention improvement shipped every week",
+                  "Analytics reviewed for decisions"
+                ],
+                "moves": [
+                  {
+                    "title": "Set a fixed weekly review using the analytics you already have",
+                    "rationale": "Use one regular pass to decide what to do next."
+                  },
+                  {
+                    "title": "Reserve one block for user contact each week",
+                    "rationale": "Keep direct feedback flowing from real paying users."
+                  },
+                  {
+                    "title": "Reserve one block for acquisition experiments each week",
+                    "rationale": "Keep new-user input coming through the chosen channel."
+                  },
+                  {
+                    "title": "Reserve one block for product changes each week",
+                    "rationale": "Turn what you learn into shipped improvements."
+                  }
+                ]
+              },
+              {
+                "title": "Reach 10,000 paying users",
+                "rationale": "This is the final observable scale outcome of retention and repeatable growth.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users",
+                "targetValue": 10000,
+                "baselineValue": 20,
+                "completionCriteria": "Anchor reaches 10,000 paying users and the base continues using the product.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Keep the best acquisition channel active month after month",
+                    "rationale": "Sustained inflow is needed to reach the target."
+                  },
+                  {
+                    "title": "Keep improving retention from customer feedback and analytics",
+                    "rationale": "Growth only holds if users continue paying."
+                  },
+                  {
+                    "title": "Remove bottlenecks that slow onboarding or payment",
+                    "rationale": "Protect conversion as volume increases."
+                  },
+                  {
+                    "title": "Monitor the user base for churn and channel performance",
+                    "rationale": "Keep the system stable while it scales."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Review current subscriber activity and churn",
+              "rationale": "This is the smallest useful step toward proving retention in the current 20-user base."
+            },
+            "personalizedGuidance": "Start with retention in the current user base, then use what you learn to build a repeatable low-cost acquisition path.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 5,
+          "normalizedCount": 5,
+          "validatedCount": 5
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Anchor is already launched with 20 paying users. The founder is solo, has 10 hours a week for growth, no paid ad budget, and can contact current users and review subscription analytics.",
+          "assumptions": [
+            "Paying users can be contacted for feedback and usage signals.",
+            "Subscription analytics can show cohort, churn, and conversion patterns.",
+            "Growth must rely on product, retention, and repeatable low-cost acquisition rather than paid advertising."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 5,
+            "complexityReason": "This is a multi-stage business growth goal with dependent outcomes: first a stable retention signal, then a repeatable acquisition source, then paid conversion improvements, then operational capacity to support scale, before the final user base target.",
+            "countReason": "Five waypoints cover the distinct achievements needed from the current base of 20 users to a sustainable 10,000-user business without adding filler: retention proof, first repeatable acquisition channel, improved conversion, scalable operating rhythm, and the final scale milestone."
+          },
+          "firstMilestoneEvidence": "The first meaningful change is evidence that the current 20 paying users are staying active long enough to validate the product and reveal retention patterns, not just initial signups.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                1
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                2
+              ]
+            },
+            {
+              "waypointIndex": 4,
+              "requires": [
+                3
+              ]
+            }
+          ]
+        },
+        "destination": "10,000 paying users who continue using Anchor",
+        "complexity": "COMPLEX",
+        "waypoints": [
+          {
+            "title": "Show early retention in the current user base",
+            "completionCriteria": "At least 12 of the current 20 paying users remain active and paying after 30 days.",
+            "requirements": [],
+            "rationale": "Before scaling, Anchor needs proof that existing paying users continue using it.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users retained at 30 days",
+            "metricTarget": 12,
+            "metricBaseline": 20,
+            "moves": [
+              {
+                "title": "Review current subscriber activity and churn",
+                "rationale": "Find who is still using Anchor and where drop-off starts."
+              },
+              {
+                "title": "Contact active and inactive users for short feedback",
+                "rationale": "Learn what keeps people paying and what causes them to leave."
+              },
+              {
+                "title": "Make one product change that addresses the most common retention issue",
+                "rationale": "Improve the reason people keep using Anchor."
+              },
+              {
+                "title": "Check the next cohort of users for the same retention pattern",
+                "rationale": "Confirm the change is affecting repeat use, not just one group."
+              }
+            ]
+          },
+          {
+            "title": "Find one repeatable low-cost acquisition source",
+            "completionCriteria": "Anchor has one acquisition source that can repeatedly bring in new paying users at low cost.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "One clear source identified",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "One offer or message that fits that source",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "At least two repeatable acquisition attempts",
+                "completed": false
+              },
+              {
+                "id": "requirement-4",
+                "title": "New paying users attributed to the source",
+                "completed": false
+              }
+            ],
+            "rationale": "Growth needs a channel that can produce new users without paid ads.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "List the places where current users can realistically come from",
+                "rationale": "Focus on channels that fit a solo founder and no ad budget."
+              },
+              {
+                "title": "Test one outreach or content message in the best-fit channel",
+                "rationale": "See whether the message draws interest from likely users."
+              },
+              {
+                "title": "Track which messages lead to signups and payments",
+                "rationale": "Separate promising distribution from noise."
+              },
+              {
+                "title": "Repeat the best-performing approach twice more",
+                "rationale": "Confirm the channel can be used again, not just once."
+              }
+            ]
+          },
+          {
+            "title": "Improve trial to paid conversion",
+            "completionCriteria": "Anchor consistently adds 50 new paying users in a month from organic or low-cost acquisition.",
+            "requirements": [],
+            "rationale": "A repeatable source only matters if more of those users become paying users.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "new paying users per month",
+            "metricTarget": 50,
+            "metricBaseline": 20,
+            "moves": [
+              {
+                "title": "Tighten the signup and paywall path",
+                "rationale": "Reduce friction between interest and payment."
+              },
+              {
+                "title": "Use user feedback to sharpen the value message",
+                "rationale": "Make the paid offer easier to understand."
+              },
+              {
+                "title": "Run one conversion-focused product or copy change at a time",
+                "rationale": "Learn what improves payment decisions."
+              },
+              {
+                "title": "Measure which change increases paid conversions",
+                "rationale": "Keep only the changes that move users to payment."
+              }
+            ]
+          },
+          {
+            "title": "Operate growth with a repeatable weekly rhythm",
+            "completionCriteria": "A weekly growth routine is in place that consistently covers retention, acquisition, and conversion work within 10 hours.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Weekly review happens every week",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "One acquisition action shipped every week",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "One product or retention improvement shipped every week",
+                "completed": false
+              },
+              {
+                "id": "requirement-4",
+                "title": "Analytics reviewed for decisions",
+                "completed": false
+              }
+            ],
+            "rationale": "Scaling needs a sustainable process the solo founder can maintain.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Set a fixed weekly review using the analytics you already have",
+                "rationale": "Use one regular pass to decide what to do next."
+              },
+              {
+                "title": "Reserve one block for user contact each week",
+                "rationale": "Keep direct feedback flowing from real paying users."
+              },
+              {
+                "title": "Reserve one block for acquisition experiments each week",
+                "rationale": "Keep new-user input coming through the chosen channel."
+              },
+              {
+                "title": "Reserve one block for product changes each week",
+                "rationale": "Turn what you learn into shipped improvements."
+              }
+            ]
+          },
+          {
+            "title": "Reach 10,000 paying users",
+            "completionCriteria": "Anchor reaches 10,000 paying users and the base continues using the product.",
+            "requirements": [],
+            "rationale": "This is the final observable scale outcome of retention and repeatable growth.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 10000,
+            "metricBaseline": 20,
+            "moves": [
+              {
+                "title": "Keep the best acquisition channel active month after month",
+                "rationale": "Sustained inflow is needed to reach the target."
+              },
+              {
+                "title": "Keep improving retention from customer feedback and analytics",
+                "rationale": "Growth only holds if users continue paying."
+              },
+              {
+                "title": "Remove bottlenecks that slow onboarding or payment",
+                "rationale": "Protect conversion as volume increases."
+              },
+              {
+                "title": "Monitor the user base for churn and channel performance",
+                "rationale": "Keep the system stable while it scales."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Review current subscriber activity and churn",
+          "rationale": "This is the smallest useful step toward proving retention in the current 20-user base."
+        },
+        "personalizedGuidance": "Start with retention in the current user base, then use what you learn to build a repeatable low-cost acquisition path."
+      }
+    }
+  ]
+}

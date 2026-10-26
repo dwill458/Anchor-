@@ -1,8 +1,10 @@
 
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { V2VisualizePrepareScreen } from '../V2VisualizePrepareScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
+import { composeVisionBoard } from '@/components/v2/vision/board/visionBoardComposition';
+import type { V2VisionTile, VisionNote } from '@/adapters/v2/vision';
 
 let mockPreparation: any;
 let mockBoardSceneProps: any;
@@ -20,7 +22,10 @@ jest.mock('@/components/v2/practice/V2PracticeSetupLayout', () => {
 });
 jest.mock('@/hooks/v2', () => ({ ...jest.requireActual('@/hooks/v2'), useV2ReduceMotion: () => mockReduceMotion }));
 jest.mock('@/components/v2/vision/board/VisionBoardScene', () => ({ VisionBoardScene: (props: any) => { mockBoardSceneProps = props; return null; } }));
-jest.mock('@/components/v2/vision/board/useVisionBoardScene', () => ({ useVisionBoardScene: (...args: any[]) => { mockUseBoardScene(...args); return {}; } }));
+jest.mock('@/components/v2/vision/board/useVisionBoardScene', () => ({ useVisionBoardScene: (...args: any[]) => {
+  mockUseBoardScene(...args);
+  return { layout: args[5]?.layout };
+} }));
 let mockAudioReadiness: 'ready' | 'downloading' | 'failed' = 'ready';
 const mockAudioRetry = jest.fn();
 jest.mock('@/hooks/useRemoteAudioReady', () => ({
@@ -47,12 +52,36 @@ async function flushPhotoWarm() {
 describe('Visualize prepares behind its real setup board', () => {
   beforeEach(() => { mockBoardSceneProps = undefined; mockUseBoardScene.mockClear(); mockReduceMotion = false; });
 
+  it.each(['CLASSIC', 'EDITORIAL', 'SCRAPBOOK'] as const)('prepares the saved %s geometry, projected notes and focal points at the source composition width', boardLayout => {
+    const photographs: V2VisionTile[] = [0, 3, 7].map((slot, i) => ({
+      id: `saved-${i}`, sceneId: `saved-${i}`, imageUrl: `https://cdn.test/persisted-${i}.jpg`, prompt: null,
+      caption: `My saved photograph ${i}`, slotIndex: slot, sortOrder: i, isHero: i === 0, focal: { x: .2 + i * .1, y: .7 },
+    }));
+    const note: VisionNote = { id: 'persisted-note', visionId: 'v1', content: { text: 'A future worth seeing' },
+      presentation: { styleId: 'paper_ivory_torn', fontId: 'classic', x: .5, y: .8, width: .2, height: .12, scale: 1, rotation: 0, layerOrder: 2 },
+      layoutPositions: { EDITORIAL: { x: .4, y: 4.6 }, SCRAPBOOK: { x: .7, y: 4.8 } }, createdAt: '', updatedAt: '' };
+    const before = JSON.stringify({ photographs, note });
+    const entry = { anchorId: anchor.id, visionId: 'v1', tiles: photographs, notes: [note], boardLayout, layoutWidth: 366 };
+    render(<V2VisualizePrepareScreen anchor={anchor} statement="My saved Vision" visionId="v1" tiles={photographs}
+      notes={[note]} entry={entry} onBack={jest.fn()} onBegin={jest.fn()} />);
+    const composition = mockUseBoardScene.mock.calls.at(-1)![5];
+    const expected = composeVisionBoard({ tiles: photographs, notes: [note], width: 366, boardLayout, fontScale: Dimensions.get('window').fontScale });
+    expect(composition).toMatchObject(expected);
+    expect(mockBoardSceneProps.layout).toEqual(expected.layout);
+    expect(mockBoardSceneProps.notes).toEqual(expected.notes);
+    expect(mockBoardSceneProps.slotOrder).toEqual(expected.order);
+    expect(mockBoardSceneProps.focals).toEqual(Object.fromEntries(photographs.map(photo => [photo.sceneId, photo.focal])));
+    expect(mockPreparation).toMatchObject({ boardLayout, layoutWidth: 366, tiles: photographs, notes: [note], prepareOnly: true });
+    expect(JSON.stringify({ photographs, note })).toBe(before);
+  });
+
   it('shows saved notes and the real Anchor on the same shared photo composition', () => {
-    const note = { id: 'note-1', content: { text: 'A saved intention' }, presentation: { styleId: 'paper' } };
+    const note = { id: 'note-1', visionId:'v1',content: { text: 'A saved intention' }, presentation: { styleId: 'paper_ivory_torn',x:.5,y:.75,width:.2,height:.12,scale:1,rotation:0,layerOrder:0 },createdAt:'',updatedAt:'' };
     setup([note]);
 
-    expect(mockUseBoardScene).toHaveBeenCalledWith(tiles, expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }), 1, true);
-    expect(mockBoardSceneProps.notes).toEqual([note]);
+    expect(mockUseBoardScene).toHaveBeenCalledWith(tiles, expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }), 1, true,undefined,expect.objectContaining({boardLayout:'CLASSIC',slotMap:['p1',null,null,null,null,null,null,null]}));
+    expect(mockBoardSceneProps.notes).toEqual(mockUseBoardScene.mock.calls.at(-1)?.[5].notes);
+    expect(mockBoardSceneProps.notes[0]).toMatchObject({id:note.id,content:note.content});
     expect(mockBoardSceneProps.showAnchorMark).toBe(true);
     expect(mockBoardSceneProps.showIntentionCard).toBe(true);
     expect(mockBoardSceneProps.materialMode).toBe('photographic');
@@ -60,18 +89,19 @@ describe('Visualize prepares behind its real setup board', () => {
     expect(mockBoardSceneProps.art.threadStrength).toBe(anchor.threadStrength ?? null);
   });
 
-  it('reuses the source scene dimensions to keep cold-entry photo viewports stable', () => {
+  it('keeps the measured source width and the saved shared composition during cold entry', () => {
     const entry = { anchorId: anchor.id, visionId: 'v1', tiles, notes: [],
       sourceFrame: { x: 12, y: 80, width: 360, height: 954, sceneWidth: 612, sceneHeight: 1621.8 } };
     setup([], entry);
 
-    expect(mockUseBoardScene).toHaveBeenLastCalledWith(tiles, { width: 612, height: 1621.8 }, 1, true);
+    const composition=mockUseBoardScene.mock.calls.at(-1)?.[5];
+    expect(mockUseBoardScene).toHaveBeenLastCalledWith(tiles, { width: 612, height: 612*composition.ratio }, 1, true,undefined,composition);
   });
 
   it('starts the source handoff when measured while keeping Begin gated on session preparation', async () => {
     jest.useFakeTimers();
     try {
-    const note = { id: 'note-1', content: { text: 'A saved intention' }, presentation: { styleId: 'paper' } };
+    const note = { id: 'note-1', visionId:'v1',content: { text: 'A saved intention' }, presentation: { styleId: 'paper_ivory_torn',x:.5,y:.75,width:.2,height:.12,scale:1,rotation:0,layerOrder:0 },createdAt:'',updatedAt:'' };
     const entry = { anchorId: anchor.id, visionId: 'v1', tiles, notes: [note], sourceFrame: { x: 12, y: 80, width: 320, height: 500 } };
     const measurements: Array<(x: number, y: number, width: number, height: number) => void> = [];
     jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => {
@@ -82,8 +112,9 @@ describe('Visualize prepares behind its real setup board', () => {
 
     expect(view.getByTestId('v2-visualize-entry-overlay')).toBeTruthy();
     expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
-    expect(mockBoardSceneProps.notes).toEqual([note]);
-    expect(mockUseBoardScene).toHaveBeenLastCalledWith(tiles, expect.anything(), 1, true);
+    expect(mockBoardSceneProps.notes).toEqual(mockUseBoardScene.mock.calls.at(-1)?.[5].notes);
+    expect(mockBoardSceneProps.notes[0]).toMatchObject({id:note.id,content:note.content});
+    expect(mockUseBoardScene).toHaveBeenLastCalledWith(tiles, expect.anything(), 1, true,undefined,expect.objectContaining({boardLayout:'CLASSIC'}));
 
     act(() => measurements.shift()?.(0, 0, 393, 852));
     act(() => measurements.shift()?.(20, 160, 320, 520));
@@ -93,10 +124,11 @@ describe('Visualize prepares behind its real setup board', () => {
 
     act(() => mockPreparation.onPrepared(prepared));
     expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
-    expect(mockBoardSceneProps.notes).toEqual([note]);
+    expect(mockBoardSceneProps.notes).toEqual(mockUseBoardScene.mock.calls.at(-1)?.[5].notes);
+    expect(mockBoardSceneProps.notes[0]).toMatchObject({id:note.id,content:note.content});
     expect(mockBoardSceneProps.showIntentionCard).toBe(true);
     expect(mockBoardSceneProps.showAnchorMark).toBe(true);
-    expect(mockUseBoardScene).toHaveBeenLastCalledWith(tiles, expect.anything(), 1, true);
+    expect(mockUseBoardScene).toHaveBeenLastCalledWith(tiles, expect.anything(), 1, true,undefined,expect.objectContaining({boardLayout:'CLASSIC'}));
     } finally {
       jest.useRealTimers();
       jest.restoreAllMocks();
@@ -178,7 +210,7 @@ describe('Visualize prepares behind its real setup board', () => {
       expect(mockPreparation.prepareOnly).toBe(true);
       act(() => mockPreparation.onPrepared(prepared));
       expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
-      fireEvent.press(view.getByLabelText('1 min'));
+      fireEvent.press(view.getByLabelText('1 minute 5 seconds'));
       fireEvent.press(view.getByLabelText('Begin Visualize'));
       fireEvent.press(view.getByLabelText('Begin Visualize'));
       act(() => { jest.advanceTimersByTime(1500); });
@@ -190,14 +222,14 @@ describe('Visualize prepares behind its real setup board', () => {
     }
   });
 
-  it('offers 1, 3 and 10 minutes every time, defaulting to 3, and carries the choice into the session', () => {
+  it('offers 1, 3 and 10 minutes 15 secondsutes every time, defaulting to 3, and carries the choice into the session', () => {
     jest.useFakeTimers();
     try {
-      for (const [label, seconds] of [['1 min', 60], ['3 min', 180], ['10 min', 600]] as const) {
+      for (const [label, seconds] of [['1 minute 5 seconds', 60], ['3 minutes 20 seconds', 180], ['10 minutes 15 seconds', 600]] as const) {
         const view = setup();
-        expect(view.getByLabelText('3 min, selected')).toBeTruthy();
+        expect(view.getByLabelText('3 minutes 20 seconds, selected')).toBeTruthy();
         act(() => mockPreparation.onPrepared(prepared));
-        fireEvent.press(view.getByLabelText(label.startsWith('3') ? '3 min, selected' : label));
+        fireEvent.press(view.getByLabelText(label.startsWith('3') ? '3 minutes 20 seconds, selected' : label));
         fireEvent.press(view.getByLabelText('Begin Visualize'));
         act(() => { jest.advanceTimersByTime(1500); });
         expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: seconds }));
@@ -235,7 +267,7 @@ describe('Visualize prepares behind its real setup board', () => {
       act(() => mockPreparation.onPrepared(prepared));
       fireEvent.press(view.getByLabelText('Begin Visualize'));
       expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
-      fireEvent.press(view.getByLabelText('10 min'));
+      fireEvent.press(view.getByLabelText('10 minutes 15 seconds'));
       act(() => { jest.advanceTimersByTime(1500); });
       expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 180 }));
     } finally {

@@ -9,6 +9,18 @@ import {
 } from '../SessionAudioManifest';
 
 describe('SessionAudioManifest', () => {
+  it.each([
+    { durationSeconds: 30, voice: 'warm' as const, clipDurationMs: 6295.5 },
+    { durationSeconds: 30, voice: 'soothing' as const, clipDurationMs: 5694.688 },
+    { durationSeconds: 60, voice: 'warm' as const, clipDurationMs: 5982.041 },
+    { durationSeconds: 60, voice: 'soothing' as const, clipDurationMs: 5694.694 },
+  ])('leaves the complete $voice $durationSeconds second closing recording and loading headroom before completion', ({ durationSeconds, voice, clipDurationMs }) => {
+    // Durations measured from the bundled MP3s by scripts/audit-session-audio.cjs.
+    const plan = resolveSessionAudioPlan({ sessionType: 'focus', durationSeconds,
+      configuration: { guidanceVoice: voice, backgroundAudio: 'ambient', source: 'default' } });
+    const closing = plan.voiceCues.find(cue => cue.phaseId === 'end')!;
+    expect(closing.triggerAtRemainingMs).toBeGreaterThanOrEqual(clipDurationMs + 500);
+  });
   it('has complete female coverage for every supported cue sheet', () => {
     for (const sheet of SESSION_VOICE_CUE_SHEETS) {
       if (sheet.voices && !sheet.voices.includes('female')) continue;

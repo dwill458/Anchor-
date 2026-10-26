@@ -3,6 +3,11 @@ import { DEV_IMAGE_MODEL_IDS } from '../../services/image/devImageModels';
 
 export const VISION_STATUSES = ['ACTIVE', 'ARCHIVED'] as const;
 export type VisionStatus = (typeof VISION_STATUSES)[number];
+export const VISION_BOARD_LAYOUTS = ['CLASSIC', 'EDITORIAL', 'SCRAPBOOK'] as const;
+export type VisionBoardLayout = (typeof VISION_BOARD_LAYOUTS)[number];
+export type VisionNoteLayoutPositions = Partial<
+  Record<'EDITORIAL' | 'SCRAPBOOK', { x: number; y: number } | null>
+>;
 
 export const VISION_SCENE_SOURCES = ['USER_UPLOAD', 'AI_GENERATED', 'USER_CAMERA'] as const;
 export type VisionSceneSource = (typeof VISION_SCENE_SOURCES)[number];
@@ -29,6 +34,7 @@ export interface VisionReadModel {
   title: string | null;
   description: string | null;
   status: VisionStatus;
+  boardLayout?: VisionBoardLayout;
   scenes: VisionSceneReadModel[];
   /** Notes are optional for compatibility with previously cached Vision reads. */
   notes?: VisionNoteReadModel[];
@@ -92,6 +98,7 @@ export interface VisionNoteReadModel {
   visionId: string;
   content: { text: string };
   presentation: VisionNotePresentation;
+  layoutPositions?: VisionNoteLayoutPositions | null;
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
@@ -167,25 +174,86 @@ export const CreateVisionNoteSchema = z
   })
   .strict();
 
+const NoteLayoutPositionSchema = z
+  .object({ x: z.number().finite().min(0).max(1), y: z.number().finite().min(0).max(6) })
+  .strict()
+  .nullable();
+export const VisionNoteLayoutPositionsSchema = z
+  .object({
+    EDITORIAL: NoteLayoutPositionSchema.optional(),
+    SCRAPBOOK: NoteLayoutPositionSchema.optional(),
+  })
+  .strict();
+
 export const UpdateVisionNoteSchema = z
   .object({
+    expectedUpdatedAt: z.string().datetime().optional(),
     content: z.object({ text: VisionNoteTextSchema }).strict().optional(),
     presentation: VisionNotePresentationSchema.optional(),
+    layoutPositions: VisionNoteLayoutPositionsSchema.optional(),
   })
   .strict()
   .refine(
-    input => input.content !== undefined || input.presentation !== undefined,
+    input =>
+      input.content !== undefined ||
+      input.presentation !== undefined ||
+      input.layoutPositions !== undefined,
     'At least one note field is required'
   );
 
+const VisionSceneAssetInputSchema = z
+  .object({
+    sourceType: z.enum(VISION_SCENE_SOURCES),
+    assetId: z.string().min(1).max(200),
+    prompt: z.string().max(2000).optional().nullable(),
+    caption: z.string().trim().max(80).optional().nullable(),
+  })
+  .strict();
+
 export const UpdateVisionSceneCaptionSchema = z
   .object({
+    expectedUpdatedAt: z.string().datetime().optional(),
+    replacement: VisionSceneAssetInputSchema.optional(),
     caption: z.string().trim().max(80).nullable().optional(),
     slotIndex: z.number().int().min(0).max(7).nullable().optional(),
-    focal: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict().nullable().optional(),
+    focal: z
+      .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+      .strict()
+      .nullable()
+      .optional(),
   })
   .strict()
-  .refine(input => input.caption !== undefined || input.slotIndex !== undefined || input.focal !== undefined, 'At least one field is required');
+  .refine(
+    input =>
+      input.caption !== undefined ||
+      input.slotIndex !== undefined ||
+      input.focal !== undefined ||
+      input.replacement !== undefined,
+    'At least one field is required'
+  );
+
+export const UpdateVisionSceneSlotsSchema = z
+  .object({
+    expectedUpdatedAt: z.string().datetime().optional(),
+    slots: z
+      .array(
+        z
+          .object({
+            sceneId: z.string().min(1).max(200),
+            slotIndex: z.number().int().min(0).max(7),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(8)
+      .refine(
+        slots =>
+          new Set(slots.map(s => s.sceneId)).size === slots.length &&
+          new Set(slots.map(s => s.slotIndex)).size === slots.length,
+        'Each photo and slot must be unique'
+      ),
+  })
+  .strict();
 
 export interface AssetReadModel {
   id: string;
@@ -226,17 +294,9 @@ export const TimeZoneSchema = z
 /** A Vision is a board of at most this many photographs (the app composes 0-8). */
 export const VISION_MAX_IMAGES = 8;
 
-export const CreateVisionSceneSchema = z
-  .object({
-    sourceType: z.enum(VISION_SCENE_SOURCES),
-    // Vision scenes always point at an owned Asset. This keeps private image
-    // storage keys server-owned and avoids persisting client-controlled URLs.
-    assetId: z.string().min(1).max(200),
-    prompt: z.string().max(2000).optional().nullable(),
-    caption: z.string().trim().max(80).optional().nullable(),
-    sortOrder: z.number().int().min(0).max(1000).optional(),
-  })
-  .strict();
+export const CreateVisionSceneSchema = VisionSceneAssetInputSchema.extend({
+  sortOrder: z.number().int().min(0).max(1000).optional(),
+}).strict();
 
 export const CreateVisionSchema = z.object({
   title: z.string().trim().max(140).optional().nullable(),
@@ -261,7 +321,13 @@ export const StartVisionGenerationSchema = z
  * limit matches it.
  */
 export const VISION_SCENE_DESCRIPTION_MAX = 2000;
-export const VISION_REFERENCE_ROLES = ['identity', 'place', 'object', 'inspiration'] as const;
+export const VISION_REFERENCE_ROLES = [
+  'identity',
+  'place',
+  'object',
+  'inspiration',
+  'world',
+] as const;
 export const VISION_OPERATIONS = ['CREATE', 'EDIT', 'COMPOSE', 'VARIATE'] as const;
 export const VisionReferenceSchema = z
   .object({
@@ -356,6 +422,8 @@ export const CreateVisionAppearanceReferenceSchema = z
   .strict();
 
 export const UpdateVisionSchema = z.object({
+  boardLayout: z.enum(VISION_BOARD_LAYOUTS).optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
   title: z.string().trim().max(140).optional().nullable(),
   description: z.string().trim().min(12).max(2000).optional().nullable(),
   status: z.enum(VISION_STATUSES).optional(),

@@ -289,7 +289,10 @@ export function assertCourseActive(row: CourseRow): void {
   }
 }
 
-export function assertWaypointBelongs(row: CourseRow, waypointId: string): CourseRow['waypoints'][number] {
+export function assertWaypointBelongs(
+  row: CourseRow,
+  waypointId: string
+): CourseRow['waypoints'][number] {
   const waypoint = row.waypoints.find(item => item.id === waypointId);
   if (!waypoint) throw new AppError('Waypoint not found', 404, 'WAYPOINT_NOT_FOUND');
   return waypoint;
@@ -356,7 +359,7 @@ export function waypointMetricCreateData(input: WaypointMetricInput): {
   return {
     requirements: input.requirements ?? [],
     completionCriteria: input.completionCriteria ?? null,
-    progressMode: hasMetric ? 'numeric' : input.progressMode ?? 'moves',
+    progressMode: hasMetric ? 'numeric' : (input.progressMode ?? 'moves'),
     kind: input.kind ?? (hasMetric ? 'METRIC' : 'MILESTONE'),
     metricLabel: hasMetric ? input.metricLabel?.trim() || null : null,
     metricBaseline: hasMetric ? (input.metricBaseline ?? null) : null,
@@ -912,12 +915,45 @@ export class CourseService {
       const waypoint = assertWaypointBelongs(row, waypointId);
       if (isTerminal(waypoint))
         throw new AppError('Terminal waypoints are immutable', 409, 'WAYPOINT_TRANSITION_INVALID');
-      if (waypoint.metricCurrent !== null && ((input.metricTarget !== undefined && input.metricTarget !== waypoint.metricTarget) || (input.metricBaseline !== undefined && input.metricBaseline !== waypoint.metricBaseline) || (input.metricLabel !== undefined && input.metricLabel !== waypoint.metricLabel) || (input.progressMode !== undefined && input.progressMode !== waypoint.progressMode))) {
-        throw new AppError('Keep recorded progress attached to its original measure; replace the waypoint to preserve it in history.', 409, 'ROUTE_PROGRESS_CONFLICT');
+      if (
+        waypoint.metricCurrent !== null &&
+        ((input.metricTarget !== undefined && input.metricTarget !== waypoint.metricTarget) ||
+          (input.metricBaseline !== undefined &&
+            input.metricBaseline !== waypoint.metricBaseline) ||
+          (input.metricLabel !== undefined && input.metricLabel !== waypoint.metricLabel) ||
+          (input.progressMode !== undefined && input.progressMode !== waypoint.progressMode))
+      ) {
+        throw new AppError(
+          'Keep recorded progress attached to its original measure; replace the waypoint to preserve it in history.',
+          409,
+          'ROUTE_PROGRESS_CONFLICT'
+        );
       }
-      const existingRequirements = Array.isArray(waypoint.requirements) ? waypoint.requirements as unknown as Array<{id: string; title: string; completed: boolean}> : [];
-      if (existingRequirements.some(r => r.completed) && (input.progressMode !== undefined && input.progressMode !== 'checklist' || input.requirements !== undefined && existingRequirements.filter(r => r.completed).some(r => !input.requirements!.some(n => n.id === r.id && n.title === r.title && n.completed)))) {
-        throw new AppError('Completed requirements must stay in history.', 409, 'ROUTE_PROGRESS_CONFLICT');
+      const existingRequirements = Array.isArray(waypoint.requirements)
+        ? (waypoint.requirements as unknown as Array<{
+            id: string;
+            title: string;
+            completed: boolean;
+          }>)
+        : [];
+      if (
+        existingRequirements.some(r => r.completed) &&
+        ((input.progressMode !== undefined && input.progressMode !== 'checklist') ||
+          (input.requirements !== undefined &&
+            existingRequirements
+              .filter(r => r.completed)
+              .some(
+                r =>
+                  !input.requirements!.some(
+                    n => n.id === r.id && n.title === r.title && n.completed
+                  )
+              )))
+      ) {
+        throw new AppError(
+          'Completed requirements must stay in history.',
+          409,
+          'ROUTE_PROGRESS_CONFLICT'
+        );
       }
       await tx.waypoint.update({
         where: { id: waypointId },
@@ -1085,7 +1121,9 @@ export class CourseService {
       });
       // The One Move follows the route: once a waypoint is reached, the next
       // committed Move on the new current waypoint (if any) takes its place.
-      const nextMove = courseCompleted ? null : selectNextActiveMove(row.moves || [], next?.id ?? null);
+      const nextMove = courseCompleted
+        ? null
+        : selectNextActiveMove(row.moves || [], next?.id ?? null);
       await tx.course.update({
         where: { id: courseId },
         data: {
@@ -1169,16 +1207,17 @@ export class CourseService {
           occurredAt: now,
           idempotencyKey: eventKey('course-completed', input.idempotencyKey),
         });
-        if (row.routeScope !== 'NEXT_STRETCH') await appendChartLedgerEvent(tx, {
-          userId,
-          anchorId: row.anchorId,
-          eventType: 'DESTINATION_REACHED',
-          significance: 'MAJOR',
-          courseEventId: completedEvent.id,
-          courseId,
-          occurredAt: now,
-          metadata: { courseId, destinationText: row.destinationText },
-        });
+        if (row.routeScope !== 'NEXT_STRETCH')
+          await appendChartLedgerEvent(tx, {
+            userId,
+            anchorId: row.anchorId,
+            eventType: 'DESTINATION_REACHED',
+            significance: 'MAJOR',
+            courseEventId: completedEvent.id,
+            courseId,
+            occurredAt: now,
+            metadata: { courseId, destinationText: row.destinationText },
+          });
       }
       const updated = await findCourse(tx, userId, courseId);
       const completed = assertWaypointBelongs(updated, waypointId);
@@ -1320,11 +1359,9 @@ export class CourseService {
       if (row.currentWaypointId !== waypointId)
         throw new AppError('Waypoint is not current', 409, 'WAYPOINT_NOT_CURRENT');
       const skipStateLink = stateLinkForWaypoint(row, waypointId);
-      const blockedReason = deriveBlockedReason(
-        skipStateLink,
-        anchorFromLink(skipStateLink),
-        { chartAnchored: Boolean(row.anchorId) }
-      );
+      const blockedReason = deriveBlockedReason(skipStateLink, anchorFromLink(skipStateLink), {
+        chartAnchored: Boolean(row.anchorId),
+      });
       if (blockedReason) throw new AppError('Waypoint is blocked', 409, 'WAYPOINT_BLOCKED');
       const next = selectNextWaypoint(row.waypoints, waypoint.position);
       const completed = !next;

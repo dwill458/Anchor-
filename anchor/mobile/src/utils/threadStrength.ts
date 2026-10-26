@@ -23,6 +23,6 @@ export function calculateThreadDecay(
     return 0;
   }
 
-  return 30 + Math.max(0, normalizedMissedDays - decayStartDay) * 15;
+  return (normalizedMissedDays - decayStartDay + 1) * 3;
 }
 

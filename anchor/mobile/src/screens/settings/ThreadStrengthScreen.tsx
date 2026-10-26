@@ -14,6 +14,7 @@ import {
   useSettingsStore,
   type ThreadStrengthSensitivity,
 } from '@/stores/settingsStore';
+import { apiClient } from '@/services/ApiClient';
 import { colors, typography } from '@/theme';
 
 type VisualTone = 'hit' | 'soft' | 'miss';
@@ -28,19 +29,19 @@ const VISUALS: Record<
 > = {
   lenient: {
     description:
-      "Missing up to 2 days does not break your thread. Decay is gradual - life happens.",
+      'Two missed days are protected. Decay starts on day three.',
     heights: [100, 100, 100, 95, 90, 95, 100],
     tones: ['hit', 'hit', 'hit', 'soft', 'soft', 'hit', 'hit'],
   },
   balanced: {
     description:
-      'One missed day pauses your thread. Two in a row begins decay. Keeps you accountable without punishing you.',
+      'One missed day is protected. Decay starts on day two.',
     heights: [100, 100, 100, 100, 70, 85, 100],
     tones: ['hit', 'hit', 'hit', 'soft', 'miss', 'hit', 'hit'],
   },
   strict: {
     description:
-      'Any missed day immediately begins decay. For those who want zero tolerance.',
+      'Strength decreases from the first missed day.',
     heights: [100, 100, 100, 65, 35, 70, 100],
     tones: ['hit', 'hit', 'hit', 'miss', 'miss', 'hit', 'hit'],
   },
@@ -115,6 +116,9 @@ export const ThreadStrengthScreen: React.FC = () => {
 
   const saveSelection = () => {
     setThreadStrengthSensitivity(selection);
+    void apiClient.put('/api/auth/settings', { threadStrengthSensitivity: selection }).catch(() => {
+      // Offline fallback: setting will sync on next connection
+    });
     navigation.goBack();
   };
 
@@ -138,7 +142,9 @@ export const ThreadStrengthScreen: React.FC = () => {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.hero}>
             <Text style={styles.heroTitle}>Thread Strength</Text>
-            <Text style={styles.heroSubtitle}>How the system responds when you miss a day.</Text>
+            <Text style={styles.heroSubtitle}>
+              Choose how missed days affect your strength. Every setting earns points at the same rate.
+            </Text>
           </View>
 
           {(Object.keys(VISUALS) as ThreadStrengthSensitivity[]).map((sensitivity) => (

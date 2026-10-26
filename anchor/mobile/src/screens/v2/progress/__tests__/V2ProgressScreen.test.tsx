@@ -173,7 +173,7 @@ describe('V2ProgressScreen', () => {
     expect(getByText(/thread.strength/i)).toBeTruthy();
     expect(queryByText(/consistency/i)).toBeNull();
     expect(getByTestId('v2-progress-screen-hero-level')).toBeTruthy();
-    expect(getByText('ESTABLISHED')).toBeTruthy();
+    expect(getByText('EMBEDDED')).toBeTruthy();
 
     // Mode breakdown is secondary: it sits behind the Practice insights toggle.
     expect(queryByText('Deep Prime')).toBeNull();
@@ -447,22 +447,15 @@ describe('V2ProgressScreen', () => {
       expect(queryByText('WEEKLY INSIGHT')).toBeNull();
     });
 
-    it('reads the week without a handler and is not pressable', () => {
-      mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, insight } }));
-      const { getByTestId, getByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
-      expect(getByText(insight.headline)).toBeTruthy();
-      expect(getByText(insight.support)).toBeTruthy();
-      expect(getByTestId('v2-progress-screen-weekly-insight').props.accessibilityRole).toBeUndefined();
-    });
-
-    it('navigates when the host passes a handler', () => {
+    it('omits per-Anchor insight even with data and a navigation handler', () => {
       mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, insight } }));
       const onNavigateToWeeklyInsight = jest.fn();
-      const { getByTestId } = render(
+      const { queryByTestId, queryByText } = render(
         <V2ProgressScreen anchorId="anchor-progress-1" onNavigateToWeeklyInsight={onNavigateToWeeklyInsight} />,
       );
-      fireEvent.press(getByTestId('v2-progress-screen-weekly-insight'));
-      expect(onNavigateToWeeklyInsight).toHaveBeenCalledWith('anchor-progress-1');
+      expect(queryByTestId('v2-progress-screen-weekly-insight')).toBeNull();
+      expect(queryByText(insight.headline)).toBeNull();
+      expect(onNavigateToWeeklyInsight).not.toHaveBeenCalled();
     });
   });
 
@@ -480,11 +473,11 @@ describe('V2ProgressScreen', () => {
   });
 
   describe('Milestones shelf', () => {
-    it('says so plainly when nothing is earned yet, and shows no locked milestones', () => {
+    it('shows the empty earned message alongside locked milestones', () => {
       mockUseV2Progress.mockReturnValue(hookReturn());
       const { getByTestId, queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
       expect(getByTestId('v2-progress-screen-milestones-empty')).toBeTruthy();
-      expect(queryByText('Established')).toBeNull();
+      expect(queryByText('Established')).toBeTruthy();
     });
 
     it('lists earned milestones for this Anchor, newest first', () => {
@@ -577,11 +570,12 @@ describe('V2ProgressScreen', () => {
     mockUseV2Progress.mockReturnValue(hookReturn({ model: { ...mockModel, events: many } }));
 
     const { getByText, queryByText } = render(<V2ProgressScreen anchorId="anchor-progress-1" />);
-    expect(getByText('Event 5')).toBeTruthy();
+    expect(getByText('Event 2')).toBeTruthy();
+    expect(queryByText('Event 3')).toBeNull();
     expect(queryByText('Event 6')).toBeNull();
 
-    fireEvent.press(getByText('Show earlier'));
+    fireEvent.press(getByText('View all activity'));
     expect(getByText('Event 6')).toBeTruthy();
-    expect(queryByText('Show earlier')).toBeNull();
+    expect(getByText('Show recent')).toBeTruthy();
   });
 });

@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#090c14',
   },
   deskMatEdge: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.06)',
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   printMatInset: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderWidth: 1,
     borderColor: 'rgba(11, 11, 14, 0.08)',
   },

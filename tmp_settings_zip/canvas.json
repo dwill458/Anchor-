@@ -1,0 +1,39 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-25T05:57:00Z" },
+  "title": "Anchor 2.0 Settings",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 1320, "title": "Settings hub", "is_interactive": true },
+    "Practice.dc.html": { "x": 470, "y": 0, "w": 390, "h": 820, "title": "Practice", "is_interactive": true },
+    "SessionDefaults.dc.html": { "x": 940, "y": 0, "w": 390, "h": 1000, "title": "Session defaults", "is_interactive": true },
+    "ThreadStrength.dc.html": { "x": 1410, "y": 0, "w": 390, "h": 760, "title": "Thread Strength", "is_interactive": true },
+    "Reminders.dc.html": { "x": 1880, "y": 0, "w": 390, "h": 900, "title": "Reminders", "is_interactive": true },
+    "SoundFeel.dc.html": { "x": 0, "y": 1440, "w": 390, "h": 720, "title": "Sound & feel", "is_interactive": true },
+    "DataPrivacy.dc.html": { "x": 470, "y": 1440, "w": 390, "h": 760, "title": "Data & privacy", "is_interactive": true },
+    "Backup.dc.html": { "x": 940, "y": 1440, "w": 390, "h": 960, "title": "Backup & recovery", "is_interactive": true },
+    "Account.dc.html": { "x": 1410, "y": 1440, "w": 390, "h": 700, "title": "Account & subscription", "is_interactive": true },
+    "Help.dc.html": { "x": 1880, "y": 1440, "w": 390, "h": 820, "title": "Help & about", "is_interactive": true },
+    "EditProfile.dc.html": { "x": 2350, "y": 1440, "w": 390, "h": 760, "title": "Edit profile", "is_interactive": true },
+    "CopyMap.dc.html": { "x": 0, "y": 2520, "w": 1440, "h": 1240, "title": "What moved and what changed" }
+  },
+  "order": [
+    "Main.dc.html",
+    "Practice.dc.html",
+    "SessionDefaults.dc.html",
+    "ThreadStrength.dc.html",
+    "Reminders.dc.html",
+    "SoundFeel.dc.html",
+    "DataPrivacy.dc.html",
+    "Backup.dc.html",
+    "Account.dc.html",
+    "Help.dc.html",
+    "EditProfile.dc.html",
+    "CopyMap.dc.html"
+  ],
+  "notes": {
+    "t1": { "x": 0, "y": -300, "text": "Anchor 2.0 · Settings redesign", "kind": "title1", "maxW": 2740 }
+  },
+  "designSystems": []
+}

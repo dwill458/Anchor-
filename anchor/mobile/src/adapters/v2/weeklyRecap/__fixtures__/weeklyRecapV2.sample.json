@@ -1,0 +1,176 @@
+{
+  "recapVersion": 2,
+  "templateVersion": 1,
+  "weekKey": "2026-10-12",
+  "timeZone": "America/New_York",
+  "range": {
+    "startKey": "2026-10-12",
+    "endKey": "2026-10-18",
+    "label": "Oct 12 – 18"
+  },
+  "status": "FINAL",
+  "provisional": {
+    "isProvisional": false,
+    "reason": null
+  },
+  "finalizable": true,
+  "provenance": "LIVE",
+  "opening": {
+    "headline": "A milestone worth remembering.",
+    "summary": "You reached “Finish the first draft” and finished 1 move on the way."
+  },
+  "hero": {
+    "kind": "WAYPOINT_REACHED",
+    "dedupeKey": "waypoint:w2",
+    "anchorId": "a1",
+    "courseId": "c1",
+    "title": "Finish the first draft",
+    "dateKey": "2026-10-16",
+    "labels": [
+      "First waypoint"
+    ],
+    "movesCompleted": 1
+  },
+  "stats": [
+    {
+      "id": "PRACTICE_DAYS",
+      "value": 3,
+      "of": 7
+    },
+    {
+      "id": "PRACTICES",
+      "value": 3
+    },
+    {
+      "id": "WAYPOINTS",
+      "value": 1
+    },
+    {
+      "id": "MOVES",
+      "value": 2
+    }
+  ],
+  "motion": [
+    {
+      "dateKey": "2026-10-12",
+      "weekday": 1,
+      "practices": [
+        {
+          "id": "p0",
+          "mode": "focus",
+          "anchorId": "a1"
+        }
+      ],
+      "markers": []
+    },
+    {
+      "dateKey": "2026-10-13",
+      "weekday": 2,
+      "practices": [
+        {
+          "id": "p1",
+          "mode": "visualize",
+          "anchorId": "a1"
+        }
+      ],
+      "markers": []
+    },
+    {
+      "dateKey": "2026-10-14",
+      "weekday": 3,
+      "practices": [],
+      "markers": [
+        {
+          "kind": "MOVE",
+          "dedupeKey": "move:m1"
+        }
+      ]
+    },
+    {
+      "dateKey": "2026-10-15",
+      "weekday": 4,
+      "practices": [
+        {
+          "id": "p2",
+          "mode": "focus",
+          "anchorId": "a1"
+        }
+      ],
+      "markers": [
+        {
+          "kind": "MOVE",
+          "dedupeKey": "move:m2"
+        }
+      ]
+    },
+    {
+      "dateKey": "2026-10-16",
+      "weekday": 5,
+      "practices": [],
+      "markers": [
+        {
+          "kind": "WAYPOINT",
+          "dedupeKey": "waypoint:w2"
+        }
+      ]
+    },
+    {
+      "dateKey": "2026-10-17",
+      "weekday": 6,
+      "practices": [],
+      "markers": []
+    },
+    {
+      "dateKey": "2026-10-18",
+      "weekday": 0,
+      "practices": [],
+      "markers": []
+    }
+  ],
+  "highlights": [
+    {
+      "kind": "MOVES_PROGRESS",
+      "dedupeKey": "moves:2026-10-12",
+      "anchorId": "a1",
+      "courseId": "c1",
+      "title": "Email an editor",
+      "dateKey": "2026-10-15",
+      "count": 1,
+      "labels": []
+    }
+  ],
+  "highlightsOverflow": 0,
+  "anchors": [
+    {
+      "anchorId": "a1",
+      "practiceDays": 3,
+      "practices": 3,
+      "moves": 2,
+      "waypoints": 1
+    }
+  ],
+  "anchorsOverflow": 0,
+  "reflection": {
+    "templateId": "waypoint_reached.facts.v1",
+    "text": "Also this week: 3 practices on 3 days, 2 moves finished."
+  },
+  "refs": {
+    "anchors": {
+      "a1": {
+        "intention": "Write and publish my book",
+        "categoryKey": "creativity",
+        "isReleased": false
+      }
+    },
+    "charts": {
+      "c1": {
+        "anchorId": "a1",
+        "destination": "Publish my book",
+        "waypointTotal": 4
+      }
+    }
+  },
+  "dataQuality": {
+    "missing": []
+  }
+}

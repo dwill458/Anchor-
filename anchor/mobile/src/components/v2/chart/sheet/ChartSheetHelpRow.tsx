@@ -1,50 +1,43 @@
 import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ChevronRight, MessageCircle } from 'lucide-react-native';
-import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
+import { MessageCircle } from 'lucide-react-native';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { CHART_MAP_TOKENS as T } from '../map/chartMapTokens';
 import { panelAccent } from '../panel/chartPanelColors';
-import type { ChartAnchorArt } from '../ChartLandscape';
 
 type Props = {
   category: string | null | undefined;
-  anchorArt: ChartAnchorArt | null;
-  /** Opens the existing Anchor Details screen: there is no intermediate Anchor screen. */
-  onOpenAnchor?: () => void;
   /** Opens Ask Chart. */
   onAskChart?: () => void;
 };
 
 /**
- * The person's own Anchor (tap for its details) beside "Help me move forward". Lives in the sheet's half tier, below
- * the next move; the board above is not touched.
+ * The two ways onward from the next move: ask for help, or look at the whole route. The Anchor (and its Focus action)
+ * sits directly above in `ChartSheetAnchorCard`; nothing here repeats it.
  */
-export const ChartSheetHelpRow = memo(function ChartSheetHelpRow({ category, anchorArt, onOpenAnchor, onAskChart }: Props) {
-  if (!onAskChart && !onOpenAnchor) return null;
+export const ChartSheetHelpRow = memo(function ChartSheetHelpRow({ category, onAskChart }: Props) {
+  if (!onAskChart) return null;
   const accent = panelAccent(category);
   return (
     <View style={styles.row} testID="chart-sheet-help-row">
-      {onOpenAnchor && anchorArt?.svg ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.openAnchor} onPress={onOpenAnchor} hitSlop={6} style={styles.anchor} testID="chart-open-anchor">
-          <CircularAnchorRenderer svg={anchorArt.svg} imageUrl={anchorArt.imageUrl} category={anchorArt.category ?? category} expression={anchorArt.expression ?? undefined} size={44} appearance="dark" accessibilityLabel="Your Anchor" />
+      <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.helpMeMoveForward} onPress={onAskChart} style={({ pressed }) => [styles.button, pressed && styles.pressed]} testID="chart-help-forward">
+        <MessageCircle size={18} color={accent.text} />
+        <Text style={styles.text} numberOfLines={2}>{CHART_COPY.sheet.helpMeMoveForward}</Text>
+      </Pressable>
+      {/* DEFERRED: "View your route" button, replaced by the sheet detents and the route list (see ChartRouteList).
+      {onViewRoute ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.viewRoute} onPress={onViewRoute} style={({ pressed }) => [styles.button, styles.quiet, pressed && styles.pressed]} testID="chart-view-route">
+          <RouteIcon size={18} color={T.muted} />
+          <Text style={styles.text} numberOfLines={2}>{CHART_COPY.sheet.viewRoute}</Text>
         </Pressable>
-      ) : null}
-      {onAskChart ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.sheet.helpMeMoveForward} onPress={onAskChart} style={({ pressed }) => [styles.help, { borderColor: accent.fill }, pressed && styles.pressed]} testID="chart-help-forward">
-          <MessageCircle size={18} color={accent.text} />
-          <Text style={styles.helpText}>{CHART_COPY.sheet.helpMeMoveForward}</Text>
-          <ChevronRight size={18} color={T.muted} />
-        </Pressable>
-      ) : null}
+      ) : null} */}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  anchor: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  help: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, backgroundColor: 'rgba(239,234,223,.04)' },
-  pressed: { backgroundColor: 'rgba(239,234,223,.1)' },
-  helpText: { flex: 1, fontFamily: T.sansStrong, fontSize: 15, lineHeight: 20, color: T.light },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  button: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 4, paddingVertical: 10 },
+  pressed: { opacity: 0.6 },
+  text: { flexShrink: 1, fontFamily: T.sansStrong, fontSize: 14.5, lineHeight: 19, color: T.light },
 });

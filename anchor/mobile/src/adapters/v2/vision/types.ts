@@ -1,4 +1,7 @@
 export type VisionStatus = 'ACTIVE' | 'ARCHIVED';
+export const VISION_BOARD_LAYOUTS = ['CLASSIC', 'EDITORIAL', 'SCRAPBOOK'] as const;
+export type VisionBoardLayout = typeof VISION_BOARD_LAYOUTS[number];
+export type VisionNoteLayoutPositions = Partial<Record<'EDITORIAL' | 'SCRAPBOOK', { x: number; y: number } | null>>;
 
 /** Where a board image came from: the person's library, their camera, or the image generator. */
 export type VisionSceneSource = 'USER_UPLOAD' | 'AI_GENERATED' | 'USER_CAMERA';
@@ -35,6 +38,7 @@ export interface VisionNote {
   visionId: string;
   content: { text: string };
   presentation: VisionNotePresentation;
+  layoutPositions?: VisionNoteLayoutPositions | null;
   isArchived?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -65,6 +69,7 @@ export interface VisionReadModel {
   title: string | null;
   description: string | null;
   status: VisionStatus;
+  boardLayout?: VisionBoardLayout;
   scenes: VisionSceneReadModel[];
   /** Optional for compatibility with servers and cached reads predating notes. */
   notes?: VisionNote[];
@@ -76,6 +81,8 @@ export interface VisionReadModel {
 export interface V2VisionTile {
   id: string;
   sceneId: string;
+  /** The owned private asset used when an existing board photo guides generation. */
+  assetId?: string | null;
   imageUrl: string | null;
   prompt: string | null;
   caption?: string | null;
@@ -126,5 +133,7 @@ export interface VisionVisualizeEntry {
   visionId: string;
   tiles: V2VisionTile[];
   notes: VisionNote[];
+  boardLayout?: VisionBoardLayout;
+  layoutWidth?: number;
   sourceFrame?: { x: number; y: number; width: number; height: number; sceneWidth?: number; sceneHeight?: number };
 }

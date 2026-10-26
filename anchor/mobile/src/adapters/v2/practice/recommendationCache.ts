@@ -14,6 +14,21 @@ type Entry = { value: V2RecommendationContext; fetchedAt: number; practiceMarker
 
 const entries = new Map<string, Entry>();
 const persistedReads = new Map<string, Promise<Entry | null>>();
+const listeners = new Set<() => void>();
+let revision = 0;
+
+/** Home's five mounted heroes observe cache arrivals before selection changes. */
+export function subscribeV2RecommendationContext(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+export function getV2RecommendationCacheRevision(): number { return revision; }
+
+function publish(): void {
+  revision += 1;
+  listeners.forEach(listener => listener());
+}
 
 function currentAccountId(): string | null {
   return useAuthStore.getState().user?.id ?? null;
@@ -53,11 +68,14 @@ export function rememberV2RecommendationContext(
   value: V2RecommendationContext,
   accountId = currentAccountId(),
 ): void {
+  const previous = entries.get(scopedKey(anchorId, accountId));
+  const changed = JSON.stringify(previous?.value) !== JSON.stringify(value);
   const entry = { value, fetchedAt: Date.now(), practiceMarker: currentPracticeMarker() };
   entries.set(scopedKey(anchorId, accountId), entry);
   if (value.anchorId && value.anchorId !== anchorId) {
     entries.set(scopedKey(value.anchorId, accountId), entry);
   }
+  if (changed) publish();
 
   // Recommendation data is private account data; keep the presentation copy
   // in the same encrypted store used for persisted Anchors and session state.
@@ -107,6 +125,7 @@ export async function hydrateV2RecommendationContext(
   if (newer) return newer.value;
   if (!restored) return null;
   entries.set(key, restored);
+  publish();
   return restored.value;
 }
 
@@ -127,12 +146,14 @@ export function isV2RecommendationContextFresh(anchorId: string | null | undefin
 export function invalidateV2RecommendationContext(anchorId?: string): void {
   const accountId = currentAccountId();
   if (anchorId) {
-    entries.delete(scopedKey(anchorId, accountId));
+    if (entries.delete(scopedKey(anchorId, accountId))) publish();
     if (accountId) {
       void Promise.resolve(encryptedPersistStorage.removeItem(storageKey(anchorId, accountId))).catch(() => undefined);
     }
   } else {
+    const hadEntries = entries.size > 0;
     entries.clear();
     persistedReads.clear();
+    if (hadEntries) publish();
   }
 }

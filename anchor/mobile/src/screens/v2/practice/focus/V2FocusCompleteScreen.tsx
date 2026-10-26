@@ -175,7 +175,7 @@ export function V2FocusCompleteScreen({
     ? Math.max(0, Math.min(100, propAfter!))
     : fromVal;
 
-  const delta = hasAuthoritativeMovement ? toVal - fromVal : 0;
+  const delta = hasAuthoritativeMovement ? Math.round((toVal - fromVal) * 100) / 100 : 0;
 
   // The Thread scene (first practice, repeat practice, or nothing) is decided and played by the shared hook.
   const scene = usePracticeCompletionScene({

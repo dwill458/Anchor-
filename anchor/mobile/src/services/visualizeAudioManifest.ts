@@ -40,9 +40,9 @@ export interface VisualizeCueDefinition {
   text: string;
   femaleAsset: AudioSource;
   maleAsset: AudioSource;
-  expectedClipDurationSeconds: Readonly<Record<Exclude<GuidanceVoice, 'none'>, number>>;
+  expectedClipDurationSeconds: Readonly<Record<'female' | 'male', number>>;
   duckingEnvelope: VisualizeDuckingEnvelope;
-  developmentValidation: Readonly<Record<Exclude<GuidanceVoice, 'none'>, VisualizeAssetValidationStatus>>;
+  developmentValidation: Readonly<Record<'female' | 'male', VisualizeAssetValidationStatus>>;
 }
 
 export interface VisualizeAmbientDefinition {

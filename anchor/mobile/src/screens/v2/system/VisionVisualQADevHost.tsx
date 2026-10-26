@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, DeviceEventEmitter, DevSettings, Image, Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, DeviceEventEmitter, DevSettings, Image, Linking, Modal, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { runOnJS, useFrameCallback, useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +32,7 @@ import { V2_SAMPLE_ANCHOR_SVGS } from '@/constants/v2';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { colors, typography } from '@/theme/v2';
-import type { V2VisionTile, VisionNote, VisionVisualizeEntry } from '@/adapters/v2/vision';
+import type { V2VisionTile, VisionNote, VisionVisualizeEntry, VisionBoardLayout } from '@/adapters/v2/vision';
 import type { VisionGenerationCandidate, VisionGenerationJob } from '@/hooks/v2/vision';
 import { useV2Vision } from '@/hooks/v2/vision';
 
@@ -65,13 +65,16 @@ const fixtureNote: VisionNote = { id: 'qa-note', visionId: 'qa', content: { text
 const fixtureNotes: VisionNote[] = [fixtureNote];
 
 /** Recovery matrix: production components with local-only CRUD; never writes fixture data to an account. */
-function VisionRecoveryLab({ identity, count, noteCount, onClose, onCompose }: {
-  identity: any; count: number; noteCount: number; onClose: () => void; onCompose: () => void;
+function VisionRecoveryLab({ identity, count, noteCount, onClose, onCompose, initialLayout='CLASSIC', voice='none' }: {
+  identity: any; count: number; noteCount: number; onClose: () => void; onCompose: () => void;initialLayout?:VisionBoardLayout; voice?:'none'|'male'|'female';
 }) {
+  const {width}=useWindowDimensions();
+  const [boardLayout,setBoardLayout]=useState<VisionBoardLayout>(initialLayout);
+  const [shareOpen,setShareOpen]=useState(false);
   // Exercise finished artwork and the real aura renderer on a clean, signed-out emulator.
   const art = { ...identity.anchorArt, imageUrl: identity.anchorArt.imageUrl ?? fixtureUri(require('@/assets/onboarding/screen5/anchor-verdigris-relic.png')),
     threadStrength: identity.anchorArt.threadStrength ?? 60 };
-  const [photos, setPhotos] = useState(() => sessionTiles.slice(0, count));
+  const [photos, setPhotos] = useState<V2VisionTile[]>(() => sessionTiles.slice(0, count).map((tile,i)=>({...tile,slotIndex:i,caption:'Every ordinary day I choose a life with room for what matters most to me.'})));
   const [notes, setNotes] = useState<VisionNote[]>(() => {
     const result: VisionNote[] = [];
     for (let i = 0; i < noteCount; i++) result.push({ ...fixtureNote, id: `recovery-note-${i}`,
@@ -81,15 +84,29 @@ function VisionRecoveryLab({ identity, count, noteCount, onClose, onCompose }: {
     return result;
   });
   const [entry, setEntry] = useState<VisionVisualizeEntry | null>(null);
+  const [run, setRun] = useState<V2VisualizeBeginConfig | null>(null);
+  const [finished, setFinished] = useState(false);
+  const [completionDuration, setCompletionDuration] = useState(60);
   const [addOpen, setAddOpen] = useState(false);
   const qaAnchor = { id: 'qa-recovery', localId: 'qa-recovery', intentionText: identity.anchorIntention,
     category: identity.anchorCategory, baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null,
     enhancedImageUrl: art.imageUrl, threadStrength: art.threadStrength } as any;
+  if (finished) return <V2FocusCompleteScreen anchor={qaAnchor} durationSeconds={completionDuration} practiceTitle="Visualize"
+    enterFrom="cream" sessionSaved={false} onDone={()=>{setFinished(false);setEntry(null);}} onAgain={()=>{setFinished(false);setRun(null);}} />;
+  // The production session consumes the prepared composition; fixture sessions never save to an account.
+  if (run) return <V2CinematicSessionScreen anchor={qaAnchor} accountId={null} tiles={run.prepared.assets.tiles}
+    statement={description} visionId="qa-recovery" durationSeconds={isV2VisualizeDuration(run.durationSeconds)?run.durationSeconds:60} voice={voice} ambient={false} haptics={run.haptics}
+    source="practice_hub" prepared={run.prepared} onExit={()=>setRun(null)} onContinue={()=>{setCompletionDuration(run.durationSeconds);setRun(null);setFinished(true);}} />;
   if (entry) return <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-recovery"
-    tiles={photos} notes={notes} entry={entry} initialDuration={60} onBack={() => setEntry(null)} onBegin={noop} />;
+    tiles={photos} notes={notes} boardLayout={boardLayout} entry={entry} initialDuration={60} onBack={() => setEntry(null)} onBegin={setRun} />;
   return <View style={{ flex: 1 }}><V2SavedVision {...identity} anchorArt={art} tiles={photos} notes={notes} description={description} onBack={onClose}
-    onVisualize={sourceFrame => setEntry({ anchorId: qaAnchor.id, visionId: 'qa-recovery', tiles: photos, notes, sourceFrame })}
-    onNotePresentationChange={async (id, presentation) => { setNotes(previous => previous.map(note => note.id === id ? { ...note, presentation } : note)); return true; }}
+    visionId="qa-recovery" boardLayout={boardLayout} onUpdateBoardLayout={async layout=>{setBoardLayout(layout);return true;}}
+    onSaveSlots={async slots=>{setPhotos(previous=>previous.map(tile=>({...tile,slotIndex:slots.find(slot=>slot.sceneId===tile.sceneId)?.slotIndex??tile.slotIndex})));return true;}}
+    onSyncPresentation={async(id,patch)=>{setPhotos(previous=>previous.map(tile=>tile.sceneId===id?{...tile,...patch}:tile));return true;}}
+    onUpdateSceneCaption={async(id,caption)=>{setPhotos(previous=>previous.map(tile=>tile.sceneId===id?{...tile,caption}:tile));return true;}}
+    onShare={()=>setShareOpen(true)}
+    onVisualize={sourceFrame => setEntry({ anchorId: qaAnchor.id, visionId: 'qa-recovery', tiles: photos, notes, sourceFrame,boardLayout,layoutWidth:width-24 })}
+    onNotePresentationChange={async (id, presentation,layoutPositions) => { setNotes(previous => previous.map(note => note.id === id ? { ...note, presentation,layoutPositions:{...note.layoutPositions,...layoutPositions} } : note)); return true; }}
     onNoteEdit={noop} onNoteDelete={id => Alert.alert('Delete this note?', 'Local QA fixture only.', [
       { text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => setNotes(previous => previous.filter(note => note.id !== id)) },
     ])} onUpdateDescription={saved} onChart={noop} onReorder={saved}
@@ -98,6 +115,7 @@ function VisionRecoveryLab({ identity, count, noteCount, onClose, onCompose }: {
     onRegenerate={noop} canGenerateMore onArchive={saved} />
     <VisionAddSceneSheet visible={addOpen} onClose={() => setAddOpen(false)} anchorIntention={identity.anchorIntention}
       canAddImage={photos.length < 8} onSubmit={() => setAddOpen(false)} onAddNote={onCompose} onAddOwnPhoto={noop} />
+    <AnchorShareStudio visible={shareOpen} onClose={()=>setShareOpen(false)} initialLayout="vision" data={buildShareExportData(qaAnchor,{visionTiles:photos,visionNotes:notes,visionBoardLayout:boardLayout,visionLayoutWidth:width-24})}/>
   </View>;
 }
 
@@ -302,6 +320,8 @@ export function VisionVisualQADevHost() {
     candidates: candidates.slice(0, count).map((candidate, index) => ({ ...candidate, sortOrder: index })) }) as unknown as VisionGenerationJob;
   if (surface?.startsWith('recovery-')) {
     content = <VisionRecoveryLab key={surface} identity={identity} count={Math.min(8, Number(surface.split('-')[1]) || 0)}
+      voice={qaVoice}
+      initialLayout={surface.includes('editorial')?'EDITORIAL':surface.includes('scrapbook')?'SCRAPBOOK':'CLASSIC'}
       noteCount={Math.min(3, Number(surface.split('-')[2]) || 0)} onClose={close} onCompose={() => setSurface('note-composer')} />;
   } else if (surface?.startsWith('entry-')) {
     content = <VisionEntryLab key={surface} identity={identity} count={Math.max(1, Math.min(8, Number(surface.split('-')[1]) || 6))} onClose={close} />;

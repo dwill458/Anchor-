@@ -1,0 +1,925 @@
+{
+  "label": "adaptive-gemini",
+  "generatedAt": "2026-10-23T22:04:39.410Z",
+  "providers": [
+    {
+      "name": "gemini",
+      "model": "gemini-3.5-flash-lite"
+    }
+  ],
+  "promptHash": "bc4af3d80103066db4a207e4d1d3df1784307cfb014afc383a731746e63058f5",
+  "note": "Illustrative stated starting points; live provider calls, no user Chart writes.",
+  "results": [
+    {
+      "scenario": "simple",
+      "context": {
+        "intention": "I maintain a consistent workout routine.",
+        "category": "health",
+        "actualStartingPoint": "I exercise sporadically. I can use three 30-minute slots each week for bodyweight exercise at home.",
+        "startingContext": null,
+        "destinationDescription": "I maintain a consistent workout routine.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "gemini",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 4247,
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Exercises sporadically with three available 30-minute home bodyweight slots per week.",
+              "assumptions": [
+                "The user has access to a safe space at home for bodyweight exercises.",
+                "The three weekly slots are reliably available."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 3,
+                "complexityReason": "Building a consistent habit from sporadic exercise requires establishing a reliable weekly anchor, weathering disruption, and sustaining a self-directed rhythm over time.",
+                "countReason": "Three waypoints map the natural progression from initial routine adherence to resilience and long-term sustainability."
+              },
+              "firstMilestoneEvidence": "Completing all three scheduled 30-minute home workouts in a single week.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    0,
+                    1
+                  ]
+                }
+              ]
+            },
+            "destination": "Maintain a consistent workout routine using three weekly 30-minute home sessions.",
+            "complexity": "SIMPLE",
+            "waypoints": [
+              {
+                "title": "Complete first full week of three sessions",
+                "rationale": "Establishes immediate proof of capability within the planned routine.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "All three 30-minute home bodyweight sessions completed in one calendar week.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Schedule the three 30-minute slots in the calendar",
+                    "rationale": "Secures time for the sessions before the week begins."
+                  },
+                  {
+                    "title": "Select a simple bodyweight exercise sequence",
+                    "rationale": "Reduces decision fatigue during workout time."
+                  },
+                  {
+                    "title": "Complete the first scheduled home session",
+                    "rationale": "Initiates the physical routine."
+                  },
+                  {
+                    "title": "Finish the remaining two sessions of the week",
+                    "rationale": "Secures the first full week of adherence."
+                  }
+                ]
+              },
+              {
+                "title": "Maintain routine through a disrupted week",
+                "rationale": "Tests adaptability when schedule or energy changes occur.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Three sessions completed during a week with altered routines or low energy.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Identify potential schedule conflicts for the upcoming week",
+                    "rationale": "Anticipates disruptions ahead of time."
+                  },
+                  {
+                    "title": "Reschedule any threatened session to an alternative slot",
+                    "rationale": "Preserves the weekly target despite changes."
+                  },
+                  {
+                    "title": "Execute a shortened version if full time is unavailable",
+                    "rationale": "Maintains the habit loop when capacity is low."
+                  },
+                  {
+                    "title": "Review how the disruption was handled",
+                    "rationale": "Reinforces flexibility strategies."
+                  }
+                ]
+              },
+              {
+                "title": "Sustain self-directed rhythm over a month",
+                "rationale": "Transforms the routine into a stable, autonomous habit.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Three weekly sessions maintained consistently for four consecutive weeks.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Track weekly completion without relying on external reminders",
+                    "rationale": "Shifts ownership of the habit inward."
+                  },
+                  {
+                    "title": "Vary exercise movements to sustain physical engagement",
+                    "rationale": "Prevents boredom and plateaus."
+                  },
+                  {
+                    "title": "Assess energy and body changes after four weeks",
+                    "rationale": "Connects routine adherence to tangible physical feedback."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Schedule the three 30-minute slots in the calendar",
+              "rationale": "Secures time for the sessions before the week begins."
+            },
+            "personalizedGuidance": "Focus on locking in the three weekly time blocks before worrying about exercise intensity.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 3,
+          "normalizedCount": 3,
+          "validatedCount": 3
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Exercises sporadically with three available 30-minute home bodyweight slots per week.",
+          "assumptions": [
+            "The user has access to a safe space at home for bodyweight exercises.",
+            "The three weekly slots are reliably available."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 3,
+            "complexityReason": "Building a consistent habit from sporadic exercise requires establishing a reliable weekly anchor, weathering disruption, and sustaining a self-directed rhythm over time.",
+            "countReason": "Three waypoints map the natural progression from initial routine adherence to resilience and long-term sustainability."
+          },
+          "firstMilestoneEvidence": "Completing all three scheduled 30-minute home workouts in a single week.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0,
+                1
+              ]
+            }
+          ]
+        },
+        "destination": "Maintain a consistent workout routine using three weekly 30-minute home sessions",
+        "complexity": "SIMPLE",
+        "waypoints": [
+          {
+            "title": "Complete first full week of three sessions",
+            "completionCriteria": "All three 30-minute home bodyweight sessions completed in one calendar week.",
+            "requirements": [],
+            "rationale": "Establishes immediate proof of capability within the planned routine.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Schedule the three 30-minute slots in the calendar",
+                "rationale": "Secures time for the sessions before the week begins."
+              },
+              {
+                "title": "Select a simple bodyweight exercise sequence",
+                "rationale": "Reduces decision fatigue during workout time."
+              },
+              {
+                "title": "Complete the first scheduled home session",
+                "rationale": "Initiates the physical routine."
+              },
+              {
+                "title": "Finish the remaining two sessions of the week",
+                "rationale": "Secures the first full week of adherence."
+              }
+            ]
+          },
+          {
+            "title": "Maintain routine through a disrupted week",
+            "completionCriteria": "Three sessions completed during a week with altered routines or low energy.",
+            "requirements": [],
+            "rationale": "Tests adaptability when schedule or energy changes occur.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Identify potential schedule conflicts for the upcoming week",
+                "rationale": "Anticipates disruptions ahead of time."
+              },
+              {
+                "title": "Reschedule any threatened session to an alternative slot",
+                "rationale": "Preserves the weekly target despite changes."
+              },
+              {
+                "title": "Execute a shortened version if full time is unavailable",
+                "rationale": "Maintains the habit loop when capacity is low."
+              },
+              {
+                "title": "Review how the disruption was handled",
+                "rationale": "Reinforces flexibility strategies."
+              }
+            ]
+          },
+          {
+            "title": "Sustain self-directed rhythm over a month",
+            "completionCriteria": "Three weekly sessions maintained consistently for four consecutive weeks.",
+            "requirements": [],
+            "rationale": "Transforms the routine into a stable, autonomous habit.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Track weekly completion without relying on external reminders",
+                "rationale": "Shifts ownership of the habit inward."
+              },
+              {
+                "title": "Vary exercise movements to sustain physical engagement",
+                "rationale": "Prevents boredom and plateaus."
+              },
+              {
+                "title": "Assess energy and body changes after four weeks",
+                "rationale": "Connects routine adherence to tangible physical feedback."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Schedule the three 30-minute slots in the calendar",
+          "rationale": "Secures time for the sessions before the week begins."
+        },
+        "personalizedGuidance": "Focus on locking in the three weekly time blocks before worrying about exercise intensity."
+      }
+    },
+    {
+      "scenario": "moderate",
+      "context": {
+        "intention": "I successfully complete my first half marathon.",
+        "category": "health",
+        "actualStartingPoint": "I run 5 km comfortably twice a week. I can train three days each week. I have never completed a half marathon.",
+        "startingContext": null,
+        "destinationDescription": "I successfully complete my first half marathon.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "gemini",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 4077,
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Runs 5 km comfortably twice a week, can train three days a week, no prior half marathon experience.",
+              "assumptions": [
+                "Can dedicate three days per week to running and recovery.",
+                "Has running shoes and a safe route for training."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 3,
+                "complexityReason": "A straightforward endurance progression from a 5 km base to completing a 21.1 km race.",
+                "countReason": "Three distinct phases cover building the distance base, testing peak endurance, and race completion."
+              },
+              "firstMilestoneEvidence": "Extending the long run beyond 5 km while maintaining a comfortable pace across three weekly sessions.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    0,
+                    1
+                  ]
+                }
+              ]
+            },
+            "destination": "Successfully complete a half marathon.",
+            "complexity": "MODERATE",
+            "waypoints": [
+              {
+                "title": "Establish an extended distance base",
+                "rationale": "Builds cardiovascular capacity and leg strength safely beyond the current 5 km limit.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "km",
+                "targetValue": 12,
+                "baselineValue": 5,
+                "completionCriteria": "Complete a single continuous run of 12 km during weekly training.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Add one kilometer to the weekly long run",
+                    "rationale": "Gradually increases distance without overloading joints."
+                  },
+                  {
+                    "title": "Maintain two shorter 5 km runs during the week",
+                    "rationale": "Preserves aerobic baseline while building toward the long run."
+                  },
+                  {
+                    "title": "Schedule a rest day immediately following the long run",
+                    "rationale": "Allows muscle tissue repair and energy replenishment."
+                  }
+                ]
+              },
+              {
+                "title": "Reach peak training distance",
+                "rationale": "Confirms the body can handle near-race distance before tapering.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "km",
+                "targetValue": 16,
+                "baselineValue": 12,
+                "completionCriteria": "Complete a single continuous run of 16 km within the three-day training schedule.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Incorporate a 14 km long run on the weekend",
+                    "rationale": "Steps up total distance incrementally from the previous phase."
+                  },
+                  {
+                    "title": "Test hydration and fuel strategies during the long run",
+                    "rationale": "Ensures the digestive system tolerates nutrition over longer efforts."
+                  },
+                  {
+                    "title": "Push the long run distance to 16 km",
+                    "rationale": "Provides the necessary physiological stimulus for half marathon readiness."
+                  }
+                ]
+              },
+              {
+                "title": "Complete the half marathon distance",
+                "rationale": "Executes the final goal of finishing the full 21.1 km event.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "km",
+                "targetValue": 21.1,
+                "baselineValue": 16,
+                "completionCriteria": "Cover the full 21.1 km distance in a single continuous session.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Execute a tapered training week with reduced mileage",
+                    "rationale": "Allows muscle glycogen stores to peak and legs to feel fresh."
+                  },
+                  {
+                    "title": "Run the 21.1 km distance at a sustainable pace",
+                    "rationale": "Prevents early burnout and ensures successful completion."
+                  },
+                  {
+                    "title": "Follow the event with hydration and rest",
+                    "rationale": "Supports initial physical recovery after peak exertion."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Add one kilometer to the weekly long run",
+              "rationale": "Starts the progression from your current 5 km baseline."
+            },
+            "personalizedGuidance": "Focus on gradual distance increases across your three weekly sessions to build endurance safely.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 3,
+          "normalizedCount": 3,
+          "validatedCount": 3
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Runs 5 km comfortably twice a week, can train three days a week, no prior half marathon experience.",
+          "assumptions": [
+            "Can dedicate three days per week to running and recovery.",
+            "Has running shoes and a safe route for training."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 3,
+            "complexityReason": "A straightforward endurance progression from a 5 km base to completing a 21.1 km race.",
+            "countReason": "Three distinct phases cover building the distance base, testing peak endurance, and race completion."
+          },
+          "firstMilestoneEvidence": "Extending the long run beyond 5 km while maintaining a comfortable pace across three weekly sessions.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0,
+                1
+              ]
+            }
+          ]
+        },
+        "destination": "Successfully complete a half marathon",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Establish an extended distance base",
+            "completionCriteria": "Complete a single continuous run of 12 km during weekly training.",
+            "requirements": [],
+            "rationale": "Builds cardiovascular capacity and leg strength safely beyond the current 5 km limit.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "km",
+            "metricTarget": 12,
+            "metricBaseline": 5,
+            "moves": [
+              {
+                "title": "Add one kilometer to the weekly long run",
+                "rationale": "Gradually increases distance without overloading joints."
+              },
+              {
+                "title": "Maintain two shorter 5 km runs during the week",
+                "rationale": "Preserves aerobic baseline while building toward the long run."
+              },
+              {
+                "title": "Schedule a rest day immediately following the long run",
+                "rationale": "Allows muscle tissue repair and energy replenishment."
+              }
+            ]
+          },
+          {
+            "title": "Reach peak training distance",
+            "completionCriteria": "Complete a single continuous run of 16 km within the three-day training schedule.",
+            "requirements": [],
+            "rationale": "Confirms the body can handle near-race distance before tapering.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "km",
+            "metricTarget": 16,
+            "metricBaseline": 12,
+            "moves": [
+              {
+                "title": "Incorporate a 14 km long run on the weekend",
+                "rationale": "Steps up total distance incrementally from the previous phase."
+              },
+              {
+                "title": "Test hydration and fuel strategies during the long run",
+                "rationale": "Ensures the digestive system tolerates nutrition over longer efforts."
+              },
+              {
+                "title": "Push the long run distance to 16 km",
+                "rationale": "Provides the necessary physiological stimulus for half marathon readiness."
+              }
+            ]
+          },
+          {
+            "title": "Complete the half marathon distance",
+            "completionCriteria": "Cover the full 21.1 km distance in a single continuous session.",
+            "requirements": [],
+            "rationale": "Executes the final goal of finishing the full 21.1 km event.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "km",
+            "metricTarget": 21.1,
+            "metricBaseline": 16,
+            "moves": [
+              {
+                "title": "Execute a tapered training week with reduced mileage",
+                "rationale": "Allows muscle glycogen stores to peak and legs to feel fresh."
+              },
+              {
+                "title": "Run the 21.1 km distance at a sustainable pace",
+                "rationale": "Prevents early burnout and ensures successful completion."
+              },
+              {
+                "title": "Follow the event with hydration and rest",
+                "rationale": "Supports initial physical recovery after peak exertion."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Add one kilometer to the weekly long run",
+          "rationale": "Starts the progression from your current 5 km baseline."
+        },
+        "personalizedGuidance": "Focus on gradual distance increases across your three weekly sessions to build endurance safely."
+      }
+    },
+    {
+      "scenario": "complex",
+      "context": {
+        "intention": "Anchor has 10,000 paying users.",
+        "category": "career",
+        "actualStartingPoint": "Anchor is launched with 20 paying users. I am the solo developer, with 10 hours a week for growth and no paid advertising budget. I can contact current users and have subscription analytics.",
+        "startingContext": null,
+        "destinationDescription": "Anchor has 10,000 paying users.",
+        "vision": {
+          "title": "A sustainable Anchor business",
+          "description": "10,000 paying users who continue using Anchor",
+          "notes": [
+            "Prioritize retention and repeatable acquisition"
+          ]
+        },
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "gemini",
+      "attempts": [
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 4938,
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Anchor has 20 paying users, solo developer with 10 hours a week for growth, no ad budget, access to current users and subscription analytics.",
+              "assumptions": [
+                "Current users can provide qualitative feedback on retention drivers",
+                "Growth must rely on organic or zero-cost acquisition channels given the lack of ad budget",
+                "10 hours per week limits the volume of concurrent marketing experiments"
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 4,
+                "complexityReason": "Scaling from 20 to 10,000 paying users without a budget requires distinct phases of retention optimization, organic channel validation, and operational scaling.",
+                "countReason": "Four distinct milestones cover retention stabilization, first tier of organic growth, repeatable acquisition validation, and final scale."
+              },
+              "firstMilestoneEvidence": "User interviews conducted and initial retention drop-offs identified from subscription analytics.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "waypointIndex": 3,
+                  "requires": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ]
+            },
+            "destination": "Anchor has 10,000 paying users.",
+            "complexity": "COMPLEX",
+            "waypoints": [
+              {
+                "title": "Understand current retention drivers",
+                "rationale": "Before acquiring new users, retaining the existing base ensures growth does not leak.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Completed interviews with at least five current paying users and analyzed subscription analytics to identify primary retention factors.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Email 10 current paying users to request a short feedback call",
+                    "rationale": "Direct outreach uncovers why users stay."
+                  },
+                  {
+                    "title": "Review subscription analytics for churn timing",
+                    "rationale": "Identifies exactly when users typically cancel."
+                  },
+                  {
+                    "title": "Synthesize feedback into three core retention drivers",
+                    "rationale": "Isolates what makes the product valuable."
+                  }
+                ]
+              },
+              {
+                "title": "Reach 100 paying users through direct outreach",
+                "rationale": "Proves early product-market fit beyond the initial cohort.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users",
+                "targetValue": 100,
+                "baselineValue": 20,
+                "completionCriteria": "Active subscriber count reaches 100.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "List 50 potential users matching current customer profiles",
+                    "rationale": "Builds a targeted outreach list."
+                  },
+                  {
+                    "title": "Send personalized messages offering a direct conversation or trial",
+                    "rationale": "Engages prospects directly without paid ads."
+                  },
+                  {
+                    "title": "Track conversion rate from outreach to subscription",
+                    "rationale": "Measures the effectiveness of direct messaging."
+                  }
+                ]
+              },
+              {
+                "title": "Establish a repeatable zero-cost acquisition channel",
+                "rationale": "Moving past manual outreach requires a structured channel that generates consistent signups.",
+                "type": "MILESTONE",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "A single organic acquisition channel consistently brings in new users each week without paid ads.",
+                "requirements": [
+                  "Select one organic channel suited to available skills",
+                  "Publish content or outreach consistently for four weeks",
+                  "Measure weekly acquisition numbers from the chosen channel"
+                ],
+                "moves": [
+                  {
+                    "title": "Choose one organic channel such as content, communities, or partnerships",
+                    "rationale": "Focuses limited weekly hours on a single approach."
+                  },
+                  {
+                    "title": "Create a weekly publishing or engagement schedule",
+                    "rationale": "Ensures consistent execution within the 10-hour limit."
+                  },
+                  {
+                    "title": "Review channel performance metrics after two weeks",
+                    "rationale": "Determines if the channel yields sustainable signups."
+                  }
+                ]
+              },
+              {
+                "title": "Scale to 10,000 paying users",
+                "rationale": "Reaches the ultimate destination by compounding validated acquisition and retention.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users",
+                "targetValue": 10000,
+                "baselineValue": 100,
+                "completionCriteria": "Active paid subscriber count reaches 10,000.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Optimize onboarding flows to improve conversion efficiency",
+                    "rationale": "Ensures more trial users convert to paid subscriptions."
+                  },
+                  {
+                    "title": "Automate routine customer communication workflows",
+                    "rationale": "Saves developer time as user volume increases."
+                  },
+                  {
+                    "title": "Monitor weekly churn and acquisition rates against target growth curve",
+                    "rationale": "Keeps the business on track toward the final count."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Email 10 current paying users to request a short feedback call",
+              "rationale": "Direct outreach uncovers why users stay and establishes baseline retention insights."
+            },
+            "personalizedGuidance": "Focus your limited weekly hours on understanding existing retention before scaling outreach.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 4,
+          "normalizedCount": 4,
+          "validatedCount": 4
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Anchor has 20 paying users, solo developer with 10 hours a week for growth, no ad budget, access to current users and subscription analytics.",
+          "assumptions": [
+            "Current users can provide qualitative feedback on retention drivers",
+            "Growth must rely on organic or zero-cost acquisition channels given the lack of ad budget",
+            "10 hours per week limits the volume of concurrent marketing experiments"
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 4,
+            "complexityReason": "Scaling from 20 to 10,000 paying users without a budget requires distinct phases of retention optimization, organic channel validation, and operational scaling.",
+            "countReason": "Four distinct milestones cover retention stabilization, first tier of organic growth, repeatable acquisition validation, and final scale."
+          },
+          "firstMilestoneEvidence": "User interviews conducted and initial retention drop-offs identified from subscription analytics.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0,
+                1
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        "destination": "Anchor has 10,000 paying users",
+        "complexity": "COMPLEX",
+        "waypoints": [
+          {
+            "title": "Understand current retention drivers",
+            "completionCriteria": "Completed interviews with at least five current paying users and analyzed subscription analytics to identify primary retention factors.",
+            "requirements": [],
+            "rationale": "Before acquiring new users, retaining the existing base ensures growth does not leak.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Email 10 current paying users to request a short feedback call",
+                "rationale": "Direct outreach uncovers why users stay."
+              },
+              {
+                "title": "Review subscription analytics for churn timing",
+                "rationale": "Identifies exactly when users typically cancel."
+              },
+              {
+                "title": "Synthesize feedback into three core retention drivers",
+                "rationale": "Isolates what makes the product valuable."
+              }
+            ]
+          },
+          {
+            "title": "Reach 100 paying users through direct outreach",
+            "completionCriteria": "Active subscriber count reaches 100.",
+            "requirements": [],
+            "rationale": "Proves early product-market fit beyond the initial cohort.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 100,
+            "metricBaseline": 20,
+            "moves": [
+              {
+                "title": "List 50 potential users matching current customer profiles",
+                "rationale": "Builds a targeted outreach list."
+              },
+              {
+                "title": "Send personalized messages offering a direct conversation or trial",
+                "rationale": "Engages prospects directly without paid ads."
+              },
+              {
+                "title": "Track conversion rate from outreach to subscription",
+                "rationale": "Measures the effectiveness of direct messaging."
+              }
+            ]
+          },
+          {
+            "title": "Establish a repeatable zero-cost acquisition channel",
+            "completionCriteria": "A single organic acquisition channel consistently brings in new users each week without paid ads.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Select one organic channel suited to available skills",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Publish content or outreach consistently for four weeks",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Measure weekly acquisition numbers from the chosen channel",
+                "completed": false
+              }
+            ],
+            "rationale": "Moving past manual outreach requires a structured channel that generates consistent signups.",
+            "kind": "MILESTONE",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Choose one organic channel such as content, communities, or partnerships",
+                "rationale": "Focuses limited weekly hours on a single approach."
+              },
+              {
+                "title": "Create a weekly publishing or engagement schedule",
+                "rationale": "Ensures consistent execution within the 10-hour limit."
+              },
+              {
+                "title": "Review channel performance metrics after two weeks",
+                "rationale": "Determines if the channel yields sustainable signups."
+              }
+            ]
+          },
+          {
+            "title": "Scale to 10,000 paying users",
+            "completionCriteria": "Active paid subscriber count reaches 10,000.",
+            "requirements": [],
+            "rationale": "Reaches the ultimate destination by compounding validated acquisition and retention.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 10000,
+            "metricBaseline": 100,
+            "moves": [
+              {
+                "title": "Optimize onboarding flows to improve conversion efficiency",
+                "rationale": "Ensures more trial users convert to paid subscriptions."
+              },
+              {
+                "title": "Automate routine customer communication workflows",
+                "rationale": "Saves developer time as user volume increases."
+              },
+              {
+                "title": "Monitor weekly churn and acquisition rates against target growth curve",
+                "rationale": "Keeps the business on track toward the final count."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Email 10 current paying users to request a short feedback call",
+          "rationale": "Direct outreach uncovers why users stay and establishes baseline retention insights."
+        },
+        "personalizedGuidance": "Focus your limited weekly hours on understanding existing retention before scaling outreach."
+      }
+    }
+  ]
+}

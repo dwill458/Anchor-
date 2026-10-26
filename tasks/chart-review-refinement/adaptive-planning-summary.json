@@ -1,0 +1,1140 @@
+{
+  "label": "adaptive-planning-summary",
+  "generatedAt": "2026-10-23T22:02:51.795Z",
+  "providers": [
+    {
+      "name": "openai",
+      "model": "gpt-4.1-mini"
+    },
+    {
+      "name": "gemini",
+      "model": "gemini-3.5-flash-lite"
+    }
+  ],
+  "promptHash": "bc4af3d80103066db4a207e4d1d3df1784307cfb014afc383a731746e63058f5",
+  "note": "Illustrative stated starting points; live provider calls, no user Chart writes.",
+  "results": [
+    {
+      "scenario": "simple",
+      "context": {
+        "intention": "I maintain a consistent workout routine.",
+        "category": "health",
+        "actualStartingPoint": "I exercise sporadically. I can use three 30-minute slots each week for bodyweight exercise at home.",
+        "startingContext": null,
+        "destinationDescription": "I maintain a consistent workout routine.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "openai",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-4.1-mini",
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Currently exercises sporadically, with availability of three 30-minute home bodyweight exercise slots weekly.",
+              "assumptions": [
+                "User has basic knowledge of bodyweight exercises.",
+                "User can allocate three separate 30-minute sessions weekly consistently.",
+                "No external equipment or gym access is assumed."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 3,
+                "complexityReason": "The goal is narrowly focused on establishing and sustaining a consistent workout routine with limited weekly time and no equipment constraints.",
+                "countReason": "Three waypoints capture initial habit formation, routine stabilization, and sustained consistency as distinct states."
+              },
+              "firstMilestoneEvidence": "User completes at least one 30-minute bodyweight workout in a week, showing initial routine engagement.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    1
+                  ]
+                }
+              ]
+            },
+            "destination": "Maintain a consistent workout routine with three 30-minute bodyweight sessions weekly",
+            "complexity": "SIMPLE",
+            "waypoints": [
+              {
+                "title": "Complete at least one 30-minute bodyweight workout this week",
+                "rationale": "Starting with one workout establishes initial engagement and builds momentum toward consistency.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Complete at least one 30-minute bodyweight workout session at home this week.",
+                "requirements": [
+                  "Schedule a 30-minute slot this week for exercise.",
+                  "Choose a simple bodyweight workout routine suitable for home.",
+                  "Perform the workout during the scheduled time."
+                ],
+                "moves": [
+                  {
+                    "title": "Identify and schedule a 30-minute workout slot this week",
+                    "rationale": "Scheduling ensures time is reserved and increases likelihood of follow-through."
+                  },
+                  {
+                    "title": "Select a beginner-friendly bodyweight workout routine",
+                    "rationale": "Choosing an accessible routine reduces barriers to starting."
+                  },
+                  {
+                    "title": "Perform the workout during the scheduled time",
+                    "rationale": "Executing the workout initiates the habit formation."
+                  }
+                ]
+              },
+              {
+                "title": "Establish a routine of three 30-minute workouts per week for two consecutive weeks",
+                "rationale": "Consistent repetition over two weeks builds a stable workout habit and routine.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Complete three 30-minute bodyweight workout sessions per week for two consecutive weeks.",
+                "requirements": [
+                  "Reserve three 30-minute slots weekly for workouts.",
+                  "Perform all three workouts as scheduled each week for two weeks.",
+                  "Maintain focus on bodyweight exercises at home."
+                ],
+                "moves": [
+                  {
+                    "title": "Reserve three 30-minute workout slots weekly",
+                    "rationale": "Consistent scheduling supports routine formation."
+                  },
+                  {
+                    "title": "Perform each scheduled workout session",
+                    "rationale": "Regular execution reinforces habit."
+                  },
+                  {
+                    "title": "Track completion to maintain accountability",
+                    "rationale": "Monitoring progress supports sustained effort."
+                  }
+                ]
+              },
+              {
+                "title": "Sustain a consistent workout routine with three 30-minute sessions weekly for one month",
+                "rationale": "Sustaining the routine for a month reflects a durable change in energy and daily rhythm.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Maintain three 30-minute bodyweight workout sessions per week consistently for one month.",
+                "requirements": [
+                  "Continue scheduling and performing three workouts weekly.",
+                  "Adapt workouts as needed to maintain engagement and prevent plateau.",
+                  "Integrate workouts seamlessly into weekly routine."
+                ],
+                "moves": [
+                  {
+                    "title": "Continue scheduling and completing workouts weekly",
+                    "rationale": "Ongoing practice solidifies the routine."
+                  },
+                  {
+                    "title": "Modify workout difficulty or variety if needed",
+                    "rationale": "Adjustments prevent boredom and support progress."
+                  },
+                  {
+                    "title": "Reflect weekly on workout benefits and routine fit",
+                    "rationale": "Awareness of positive changes reinforces motivation."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Identify and schedule a 30-minute workout slot this week",
+              "rationale": "Starting by reserving time for exercise makes the first step manageable and concrete."
+            },
+            "personalizedGuidance": "Begin by scheduling one 30-minute bodyweight workout this week to start building your consistent routine.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 3,
+          "normalizedCount": 3,
+          "validatedCount": 3
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Currently exercises sporadically, with availability of three 30-minute home bodyweight exercise slots weekly.",
+          "assumptions": [
+            "User has basic knowledge of bodyweight exercises.",
+            "User can allocate three separate 30-minute sessions weekly consistently.",
+            "No external equipment or gym access is assumed."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 3,
+            "complexityReason": "The goal is narrowly focused on establishing and sustaining a consistent workout routine with limited weekly time and no equipment constraints.",
+            "countReason": "Three waypoints capture initial habit formation, routine stabilization, and sustained consistency as distinct states."
+          },
+          "firstMilestoneEvidence": "User completes at least one 30-minute bodyweight workout in a week, showing initial routine engagement.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                1
+              ]
+            }
+          ]
+        },
+        "destination": "Maintain a consistent workout routine with three 30-minute bodyweight sessions weekly",
+        "complexity": "SIMPLE",
+        "waypoints": [
+          {
+            "title": "Complete at least one 30-minute bodyweight workout this week",
+            "completionCriteria": "Complete at least one 30-minute bodyweight workout session at home this week.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Schedule a 30-minute slot this week for exercise.",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Choose a simple bodyweight workout routine suitable for home.",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Perform the workout during the scheduled time.",
+                "completed": false
+              }
+            ],
+            "rationale": "Starting with one workout establishes initial engagement and builds momentum toward consistency.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Identify and schedule a 30-minute workout slot this week",
+                "rationale": "Scheduling ensures time is reserved and increases likelihood of follow-through."
+              },
+              {
+                "title": "Select a beginner-friendly bodyweight workout routine",
+                "rationale": "Choosing an accessible routine reduces barriers to starting."
+              },
+              {
+                "title": "Perform the workout during the scheduled time",
+                "rationale": "Executing the workout initiates the habit formation."
+              }
+            ]
+          },
+          {
+            "title": "Establish a routine of three 30-minute workouts per week for",
+            "completionCriteria": "Complete three 30-minute bodyweight workout sessions per week for two consecutive weeks.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Reserve three 30-minute slots weekly for workouts.",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Perform all three workouts as scheduled each week for two weeks.",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Maintain focus on bodyweight exercises at home.",
+                "completed": false
+              }
+            ],
+            "rationale": "Consistent repetition over two weeks builds a stable workout habit and routine.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Reserve three 30-minute workout slots weekly",
+                "rationale": "Consistent scheduling supports routine formation."
+              },
+              {
+                "title": "Perform each scheduled workout session",
+                "rationale": "Regular execution reinforces habit."
+              },
+              {
+                "title": "Track completion to maintain accountability",
+                "rationale": "Monitoring progress supports sustained effort."
+              }
+            ]
+          },
+          {
+            "title": "Sustain a consistent workout routine with three 30-minute se",
+            "completionCriteria": "Maintain three 30-minute bodyweight workout sessions per week consistently for one month.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Continue scheduling and performing three workouts weekly.",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Adapt workouts as needed to maintain engagement and prevent plateau.",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Integrate workouts seamlessly into weekly routine.",
+                "completed": false
+              }
+            ],
+            "rationale": "Sustaining the routine for a month reflects a durable change in energy and daily rhythm.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Continue scheduling and completing workouts weekly",
+                "rationale": "Ongoing practice solidifies the routine."
+              },
+              {
+                "title": "Modify workout difficulty or variety if needed",
+                "rationale": "Adjustments prevent boredom and support progress."
+              },
+              {
+                "title": "Reflect weekly on workout benefits and routine fit",
+                "rationale": "Awareness of positive changes reinforces motivation."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Identify and schedule a 30-minute workout slot this week",
+          "rationale": "Starting by reserving time for exercise makes the first step manageable and concrete."
+        },
+        "personalizedGuidance": "Begin by scheduling one 30-minute bodyweight workout this week to start building your consistent routine."
+      }
+    },
+    {
+      "scenario": "moderate",
+      "context": {
+        "intention": "I successfully complete my first half marathon.",
+        "category": "health",
+        "actualStartingPoint": "I run 5 km comfortably twice a week. I can train three days each week. I have never completed a half marathon.",
+        "startingContext": null,
+        "destinationDescription": "I successfully complete my first half marathon.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "openai",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-4.1-mini",
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Currently running 5 km comfortably twice a week, able to train three days per week, no half marathon completed yet.",
+              "assumptions": [
+                "The user can maintain a consistent training schedule of three days per week.",
+                "The user has basic running endurance but no half marathon experience.",
+                "The goal is to complete a half marathon, which is 21.1 km."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 4,
+                "complexityReason": "The goal requires building endurance beyond current 5 km runs, establishing a reliable training base, managing recovery, and completing the event.",
+                "countReason": "Four waypoints cover establishing a reliable training base, increasing endurance, managing recovery/readiness, and completing the half marathon."
+              },
+              "firstMilestoneEvidence": "Running consistently three times a week with increased distance beyond 5 km.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    1
+                  ]
+                },
+                {
+                  "waypointIndex": 3,
+                  "requires": [
+                    2
+                  ]
+                }
+              ]
+            },
+            "destination": "Successfully complete your first half marathon (21.1 km).",
+            "complexity": "MODERATE",
+            "waypoints": [
+              {
+                "title": "Establish a consistent three-day running routine",
+                "rationale": "Building a reliable training base is essential for endurance improvement and injury prevention.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Run at least three times per week consistently for two consecutive weeks.",
+                "requirements": [
+                  "Run three times per week for two consecutive weeks."
+                ],
+                "moves": [
+                  {
+                    "title": "Schedule three specific days for running in your calendar this week",
+                    "rationale": "Setting fixed days helps create habit consistency."
+                  },
+                  {
+                    "title": "Plan easy runs of 5 km on each scheduled day",
+                    "rationale": "Maintaining comfortable distance builds routine without overexertion."
+                  },
+                  {
+                    "title": "Track your runs to monitor consistency",
+                    "rationale": "Recording runs reinforces commitment and progress."
+                  }
+                ]
+              },
+              {
+                "title": "Increase running distance to 10-15 km per session",
+                "rationale": "Building endurance to cover longer distances is necessary to approach half marathon length.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Regularly run distances between 10 and 15 km during training sessions for at least two weeks.",
+                "requirements": [
+                  "Run 10-15 km per session consistently for two weeks."
+                ],
+                "moves": [
+                  {
+                    "title": "Add 1-2 km to one run each week until reaching 10 km",
+                    "rationale": "Gradual increase prevents injury and builds endurance."
+                  },
+                  {
+                    "title": "Include one longer run of 12-15 km once per week",
+                    "rationale": "Simulates race distance and builds stamina."
+                  },
+                  {
+                    "title": "Maintain other runs at comfortable pace and distance",
+                    "rationale": "Allows recovery and sustainable progress."
+                  }
+                ]
+              },
+              {
+                "title": "Develop recovery and readiness habits",
+                "rationale": "Effective recovery supports sustained training and reduces injury risk.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Consistently apply recovery practices after runs for at least two weeks.",
+                "requirements": [
+                  "Perform post-run stretching after every run.",
+                  "Incorporate rest or active recovery days.",
+                  "Monitor and respond to signs of fatigue or soreness."
+                ],
+                "moves": [
+                  {
+                    "title": "Learn and practice post-run stretching routines",
+                    "rationale": "Improves flexibility and reduces muscle tightness."
+                  },
+                  {
+                    "title": "Schedule rest or active recovery days between runs",
+                    "rationale": "Allows muscles to repair and adapt."
+                  },
+                  {
+                    "title": "Track energy levels and soreness to adjust training intensity",
+                    "rationale": "Prevents overtraining and injury."
+                  }
+                ]
+              },
+              {
+                "title": "Complete the half marathon race",
+                "rationale": "Achieving the goal confirms readiness and endurance.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Cross the finish line of a half marathon event.",
+                "requirements": [
+                  "Register for a half marathon race.",
+                  "Complete the race distance of 21.1 km."
+                ],
+                "moves": [
+                  {
+                    "title": "Register for a half marathon race scheduled in the coming months",
+                    "rationale": "Sets a concrete deadline and motivation."
+                  },
+                  {
+                    "title": "Taper training in the week before the race",
+                    "rationale": "Ensures optimal energy and recovery for race day."
+                  },
+                  {
+                    "title": "Follow race day nutrition and pacing plan",
+                    "rationale": "Supports performance and completion."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Schedule three specific days for running in your calendar this week",
+              "rationale": "Setting fixed days helps create habit consistency."
+            },
+            "personalizedGuidance": "Focus first on building a consistent three-day running routine to establish a solid training base before increasing distance or intensity.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 4,
+          "normalizedCount": 4,
+          "validatedCount": 4
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Currently running 5 km comfortably twice a week, able to train three days per week, no half marathon completed yet.",
+          "assumptions": [
+            "The user can maintain a consistent training schedule of three days per week.",
+            "The user has basic running endurance but no half marathon experience.",
+            "The goal is to complete a half marathon, which is 21.1 km."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 4,
+            "complexityReason": "The goal requires building endurance beyond current 5 km runs, establishing a reliable training base, managing recovery, and completing the event.",
+            "countReason": "Four waypoints cover establishing a reliable training base, increasing endurance, managing recovery/readiness, and completing the half marathon."
+          },
+          "firstMilestoneEvidence": "Running consistently three times a week with increased distance beyond 5 km.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                1
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                2
+              ]
+            }
+          ]
+        },
+        "destination": "Successfully complete your first half marathon (21.1 km)",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Establish a consistent three-day running routine",
+            "completionCriteria": "Run at least three times per week consistently for two consecutive weeks.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Run three times per week for two consecutive weeks.",
+                "completed": false
+              }
+            ],
+            "rationale": "Building a reliable training base is essential for endurance improvement and injury prevention.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Schedule three specific days for running in your calendar this week",
+                "rationale": "Setting fixed days helps create habit consistency."
+              },
+              {
+                "title": "Plan easy runs of 5 km on each scheduled day",
+                "rationale": "Maintaining comfortable distance builds routine without overexertion."
+              },
+              {
+                "title": "Track your runs to monitor consistency",
+                "rationale": "Recording runs reinforces commitment and progress."
+              }
+            ]
+          },
+          {
+            "title": "Increase running distance to 10-15 km per session",
+            "completionCriteria": "Regularly run distances between 10 and 15 km during training sessions for at least two weeks.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Run 10-15 km per session consistently for two weeks.",
+                "completed": false
+              }
+            ],
+            "rationale": "Building endurance to cover longer distances is necessary to approach half marathon length.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Add 1-2 km to one run each week until reaching 10 km",
+                "rationale": "Gradual increase prevents injury and builds endurance."
+              },
+              {
+                "title": "Include one longer run of 12-15 km once per week",
+                "rationale": "Simulates race distance and builds stamina."
+              },
+              {
+                "title": "Maintain other runs at comfortable pace and distance",
+                "rationale": "Allows recovery and sustainable progress."
+              }
+            ]
+          },
+          {
+            "title": "Develop recovery and readiness habits",
+            "completionCriteria": "Consistently apply recovery practices after runs for at least two weeks.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Perform post-run stretching after every run.",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Incorporate rest or active recovery days.",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Monitor and respond to signs of fatigue or soreness.",
+                "completed": false
+              }
+            ],
+            "rationale": "Effective recovery supports sustained training and reduces injury risk.",
+            "kind": "CAPABILITY",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Learn and practice post-run stretching routines",
+                "rationale": "Improves flexibility and reduces muscle tightness."
+              },
+              {
+                "title": "Schedule rest or active recovery days between runs",
+                "rationale": "Allows muscles to repair and adapt."
+              },
+              {
+                "title": "Track energy levels and soreness to adjust training intensity",
+                "rationale": "Prevents overtraining and injury."
+              }
+            ]
+          },
+          {
+            "title": "Complete the half marathon race",
+            "completionCriteria": "Cross the finish line of a half marathon event.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Register for a half marathon race.",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Complete the race distance of 21.1 km.",
+                "completed": false
+              }
+            ],
+            "rationale": "Achieving the goal confirms readiness and endurance.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Register for a half marathon race scheduled in the coming months",
+                "rationale": "Sets a concrete deadline and motivation."
+              },
+              {
+                "title": "Taper training in the week before the race",
+                "rationale": "Ensures optimal energy and recovery for race day."
+              },
+              {
+                "title": "Follow race day nutrition and pacing plan",
+                "rationale": "Supports performance and completion."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Schedule three specific days for running in your calendar this week",
+          "rationale": "Setting fixed days helps create habit consistency."
+        },
+        "personalizedGuidance": "Focus first on building a consistent three-day running routine to establish a solid training base before increasing distance or intensity."
+      }
+    },
+    {
+      "scenario": "complex",
+      "context": {
+        "intention": "Anchor has 10,000 paying users.",
+        "category": "career",
+        "actualStartingPoint": "Anchor is launched with 20 paying users. I am the solo developer, with 10 hours a week for growth and no paid advertising budget. I can contact current users and have subscription analytics.",
+        "startingContext": null,
+        "destinationDescription": "Anchor has 10,000 paying users.",
+        "vision": {
+          "title": "A sustainable Anchor business",
+          "description": "10,000 paying users who continue using Anchor",
+          "notes": [
+            "Prioritize retention and repeatable acquisition"
+          ]
+        },
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "openai",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-4.1-mini",
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Anchor is launched with 20 paying users, solo developer with 10 hours/week, no ad budget, can contact users and access subscription analytics.",
+              "assumptions": [
+                "The user can implement product improvements and outreach within 10 hours weekly.",
+                "Paid advertising is not an option; growth relies on organic and retention strategies.",
+                "Current analytics provide sufficient insight to identify retention and acquisition levers."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 4,
+                "complexityReason": "The goal requires distinct achievements: improving retention, establishing repeatable acquisition, scaling paying users, and sustaining growth without paid ads.",
+                "countReason": "Four meaningful waypoints reflect key stages from current 20 paying users to 10,000 paying users with focus on retention and acquisition."
+              },
+              "firstMilestoneEvidence": "Retention improvements and initial repeatable acquisition channel established, increasing paying users beyond 20.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    1
+                  ]
+                },
+                {
+                  "waypointIndex": 3,
+                  "requires": [
+                    2
+                  ]
+                }
+              ]
+            },
+            "destination": "Anchor has 10,000 paying users who continue using the app",
+            "complexity": "MODERATE",
+            "waypoints": [
+              {
+                "title": "Improve user retention to reduce churn",
+                "rationale": "Retaining existing users is essential to sustainable growth and reduces the need for costly acquisition.",
+                "type": "CAPABILITY",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": 20,
+                "completionCriteria": "- Retention rate improved as shown by subscription analytics\n- Churn rate decreased compared to baseline\n- Feedback collected from current users on retention barriers\n- Retention improvements implemented",
+                "requirements": [
+                  "Retention rate improved as shown by subscription analytics",
+                  "Churn rate decreased compared to baseline",
+                  "Feedback collected from current users on retention barriers",
+                  "Retention improvements implemented"
+                ],
+                "moves": [
+                  {
+                    "title": "Analyze current churn and retention data from subscription analytics",
+                    "rationale": "Understand baseline retention and identify key drop-off points."
+                  },
+                  {
+                    "title": "Contact current paying users to gather feedback on app experience",
+                    "rationale": "Identify retention barriers and opportunities for improvement."
+                  },
+                  {
+                    "title": "Implement at least one retention improvement based on user feedback",
+                    "rationale": "Address issues that cause churn to improve user retention."
+                  },
+                  {
+                    "title": "Monitor retention metrics weekly to assess impact of changes",
+                    "rationale": "Track progress and adjust strategies as needed."
+                  }
+                ]
+              },
+              {
+                "title": "Establish a repeatable organic acquisition channel",
+                "rationale": "Reliable user acquisition without paid ads is necessary to grow paying users sustainably.",
+                "type": "CAPABILITY",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": 20,
+                "completionCriteria": "- At least one organic acquisition channel identified and tested\n- Documented process for acquiring new users through this channel\n- Initial new paying users acquired via this channel\n- Channel performance tracked regularly",
+                "requirements": [
+                  "At least one organic acquisition channel identified and tested",
+                  "Documented process for acquiring new users through this channel",
+                  "Initial new paying users acquired via this channel",
+                  "Channel performance tracked regularly"
+                ],
+                "moves": [
+                  {
+                    "title": "Research potential organic acquisition channels suitable for Anchor",
+                    "rationale": "Identify channels aligned with the product and target audience."
+                  },
+                  {
+                    "title": "Test one promising organic acquisition channel with small campaigns or outreach",
+                    "rationale": "Evaluate channel effectiveness with minimal resource use."
+                  },
+                  {
+                    "title": "Document the acquisition process and key learnings",
+                    "rationale": "Create a repeatable method for user acquisition."
+                  },
+                  {
+                    "title": "Track new paying users acquired through the channel weekly",
+                    "rationale": "Measure channel performance and optimize accordingly."
+                  }
+                ]
+              },
+              {
+                "title": "Grow paying users to 1,000 through retention and acquisition",
+                "rationale": "Scaling to 1,000 paying users demonstrates product-market fit and growth momentum.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users",
+                "targetValue": 1000,
+                "baselineValue": 20,
+                "completionCriteria": "Paying users count reaches 1,000 as shown by subscription analytics",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Continue improving retention based on ongoing user feedback",
+                    "rationale": "Sustain and increase user retention as the user base grows."
+                  },
+                  {
+                    "title": "Scale successful organic acquisition channels to attract more users",
+                    "rationale": "Increase user inflow without paid advertising."
+                  },
+                  {
+                    "title": "Engage current users to encourage referrals",
+                    "rationale": "Leverage word-of-mouth to grow user base."
+                  },
+                  {
+                    "title": "Monitor subscription analytics weekly to track growth and retention",
+                    "rationale": "Ensure growth is on track and adjust tactics as needed."
+                  }
+                ]
+              },
+              {
+                "title": "Sustain growth to 10,000 paying users with repeatable processes",
+                "rationale": "A sustainable business requires consistent growth and user retention without reliance on paid ads.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users",
+                "targetValue": 10000,
+                "baselineValue": 1000,
+                "completionCriteria": "Paying users count reaches 10,000 with stable retention and repeatable acquisition",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Refine retention strategies to maintain low churn at scale",
+                    "rationale": "Keep users engaged and subscribed as the base grows."
+                  },
+                  {
+                    "title": "Optimize and diversify organic acquisition channels",
+                    "rationale": "Ensure steady inflow of new users through multiple sources."
+                  },
+                  {
+                    "title": "Develop scalable user engagement and referral programs",
+                    "rationale": "Encourage existing users to promote the app sustainably."
+                  },
+                  {
+                    "title": "Regularly review analytics to maintain growth and retention targets",
+                    "rationale": "Adapt strategies based on data to sustain business health."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Analyze current churn and retention data from subscription analytics",
+              "rationale": "Understanding baseline retention is the first step toward reducing churn."
+            },
+            "personalizedGuidance": "Focus first on improving retention with your current users, then build a repeatable organic acquisition channel before scaling paying users.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 4,
+          "normalizedCount": 4,
+          "validatedCount": 4
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Anchor is launched with 20 paying users, solo developer with 10 hours/week, no ad budget, can contact users and access subscription analytics.",
+          "assumptions": [
+            "The user can implement product improvements and outreach within 10 hours weekly.",
+            "Paid advertising is not an option; growth relies on organic and retention strategies.",
+            "Current analytics provide sufficient insight to identify retention and acquisition levers."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 4,
+            "complexityReason": "The goal requires distinct achievements: improving retention, establishing repeatable acquisition, scaling paying users, and sustaining growth without paid ads.",
+            "countReason": "Four meaningful waypoints reflect key stages from current 20 paying users to 10,000 paying users with focus on retention and acquisition."
+          },
+          "firstMilestoneEvidence": "Retention improvements and initial repeatable acquisition channel established, increasing paying users beyond 20.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                1
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                2
+              ]
+            }
+          ]
+        },
+        "destination": "Anchor has 10,000 paying users who continue using the app",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Improve user retention to reduce churn",
+            "completionCriteria": "- Retention rate improved as shown by subscription analytics - Churn rate decreased compared to baseline - Feedback collected from current users on retention barriers - Retention improvements implemented",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Retention rate improved as shown by subscription analytics",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Churn rate decreased compared to baseline",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Feedback collected from current users on retention barriers",
+                "completed": false
+              },
+              {
+                "id": "requirement-4",
+                "title": "Retention improvements implemented",
+                "completed": false
+              }
+            ],
+            "rationale": "Retaining existing users is essential to sustainable growth and reduces the need for costly acquisition.",
+            "kind": "CAPABILITY",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Analyze current churn and retention data from subscription analytics",
+                "rationale": "Understand baseline retention and identify key drop-off points."
+              },
+              {
+                "title": "Contact current paying users to gather feedback on app experience",
+                "rationale": "Identify retention barriers and opportunities for improvement."
+              },
+              {
+                "title": "Implement at least one retention improvement based on user feedback",
+                "rationale": "Address issues that cause churn to improve user retention."
+              },
+              {
+                "title": "Monitor retention metrics weekly to assess impact of changes",
+                "rationale": "Track progress and adjust strategies as needed."
+              }
+            ]
+          },
+          {
+            "title": "Establish a repeatable organic acquisition channel",
+            "completionCriteria": "- At least one organic acquisition channel identified and tested - Documented process for acquiring new users through this channel - Initial new paying users acquired via this channel - Channel performance tracked regularly",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "At least one organic acquisition channel identified and tested",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Documented process for acquiring new users through this channel",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Initial new paying users acquired via this channel",
+                "completed": false
+              },
+              {
+                "id": "requirement-4",
+                "title": "Channel performance tracked regularly",
+                "completed": false
+              }
+            ],
+            "rationale": "Reliable user acquisition without paid ads is necessary to grow paying users sustainably.",
+            "kind": "CAPABILITY",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Research potential organic acquisition channels suitable for Anchor",
+                "rationale": "Identify channels aligned with the product and target audience."
+              },
+              {
+                "title": "Test one promising organic acquisition channel with small campaigns or outreach",
+                "rationale": "Evaluate channel effectiveness with minimal resource use."
+              },
+              {
+                "title": "Document the acquisition process and key learnings",
+                "rationale": "Create a repeatable method for user acquisition."
+              },
+              {
+                "title": "Track new paying users acquired through the channel weekly",
+                "rationale": "Measure channel performance and optimize accordingly."
+              }
+            ]
+          },
+          {
+            "title": "Grow paying users to 1,000 through retention and acquisition",
+            "completionCriteria": "Paying users count reaches 1,000 as shown by subscription analytics",
+            "requirements": [],
+            "rationale": "Scaling to 1,000 paying users demonstrates product-market fit and growth momentum.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 1000,
+            "metricBaseline": 20,
+            "moves": [
+              {
+                "title": "Continue improving retention based on ongoing user feedback",
+                "rationale": "Sustain and increase user retention as the user base grows."
+              },
+              {
+                "title": "Scale successful organic acquisition channels to attract more users",
+                "rationale": "Increase user inflow without paid advertising."
+              },
+              {
+                "title": "Engage current users to encourage referrals",
+                "rationale": "Leverage word-of-mouth to grow user base."
+              },
+              {
+                "title": "Monitor subscription analytics weekly to track growth and retention",
+                "rationale": "Ensure growth is on track and adjust tactics as needed."
+              }
+            ]
+          },
+          {
+            "title": "Sustain growth to 10,000 paying users with repeatable proces",
+            "completionCriteria": "Paying users count reaches 10,000 with stable retention and repeatable acquisition",
+            "requirements": [],
+            "rationale": "A sustainable business requires consistent growth and user retention without reliance on paid ads.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "paying users",
+            "metricTarget": 10000,
+            "metricBaseline": 1000,
+            "moves": [
+              {
+                "title": "Refine retention strategies to maintain low churn at scale",
+                "rationale": "Keep users engaged and subscribed as the base grows."
+              },
+              {
+                "title": "Optimize and diversify organic acquisition channels",
+                "rationale": "Ensure steady inflow of new users through multiple sources."
+              },
+              {
+                "title": "Develop scalable user engagement and referral programs",
+                "rationale": "Encourage existing users to promote the app sustainably."
+              },
+              {
+                "title": "Regularly review analytics to maintain growth and retention targets",
+                "rationale": "Adapt strategies based on data to sustain business health."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Analyze current churn and retention data from subscription analytics",
+          "rationale": "Understanding baseline retention is the first step toward reducing churn."
+        },
+        "personalizedGuidance": "Focus first on improving retention with your current users, then build a repeatable organic acquisition channel before scaling paying users."
+      }
+    }
+  ]
+}

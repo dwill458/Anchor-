@@ -1,11 +1,13 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { Image } from 'react-native';
+import { Dimensions, Image } from 'react-native';
 import { getVisionShareBackground } from '../visionShareBackgrounds';
 import type { ShareExportData } from '../shareTypes';
 import { VisionExportTemplate, annotationGeometry, headingReserve, wrappedLineCount } from '../templates/VisionExportTemplate';
 import { detailBoardSizeForWidth, selectDetailBoardLayout } from '@/components/v2/vision/board/visionBoardLayouts';
 import { visionBoardExportFrame } from '../visionBoardExportFrame';
+import { composeVisionBoard } from '@/components/v2/vision/board/visionBoardComposition';
+import type { V2VisionTile, VisionNote } from '@/adapters/v2/vision';
 
 const mockSceneProps = jest.fn();
 
@@ -17,11 +19,11 @@ jest.mock('@/components/v2/vision/board/VisionBoardScene', () => ({
 }));
 
 jest.mock('@/components/v2/vision/board/useVisionBoardScene', () => ({
-  useVisionBoardScene: (tiles: Array<{ sceneId: string }>, scene: { width: number; height: number }) => {
+  useVisionBoardScene: (tiles: Array<{ sceneId: string }>, scene: { width: number; height: number },_scale:number,_detail:boolean,_slots:unknown,composition:any) => {
     const { BOARD_FRAME_KINDS, selectDetailBoardLayout, toSceneRect } = require('@/components/v2/vision/board/visionBoardLayouts');
-    const layout = selectDetailBoardLayout(tiles.length);
+    const layout = composition?.layout??selectDetailBoardLayout(tiles.length);
     const slots = layout.photos.map((slot: any) => ({ ...toSceneRect(slot, scene), frame: BOARD_FRAME_KINDS.indexOf(slot.frame) }));
-    const order = tiles.slice(0, layout.photos.length).map(tile => tile.sceneId);
+    const order = composition?.order??tiles.slice(0,layout.photos.length).map(tile=>tile.sceneId);
     return {
       roster: tiles.map(tile => ({ tile, exiting: false })),
       entering: new Set(),
@@ -62,6 +64,55 @@ const data: ShareExportData = {
 
 describe('VisionExportTemplate board composition', () => {
   beforeEach(() => mockSceneProps.mockClear());
+
+  it('waits for the actual rendered caption after font measurement and photo decode before capture', () => {
+    const raf = jest.spyOn(global, 'requestAnimationFrame').mockImplementation(callback => { callback(0); return 0; });
+    const ready = jest.fn();
+    const view = render(<VisionExportTemplate data={{ ...data, imageUrl: null, visionNotes: [], visionAnnotation: null,
+      visionTiles: [{ ...tile, caption: 'A future worth seeing' }], visionBoardLayout: 'SCRAPBOOK' }} width={360} showMark={false} onAssetsReady={ready} />);
+    expect(mockSceneProps).not.toHaveBeenCalled();
+    for (const text of view.UNSAFE_getAllByType(require('react-native').Text).filter(text => text.props.onTextLayout)) {
+      fireEvent(text, 'textLayout', { nativeEvent: { lines: [{ y: 0, height: 24 }] } });
+    }
+    fireEvent(view.getByTestId('vision-share-background'), 'load');
+    act(() => { mockSceneProps.mock.calls.at(-1)![0].onPhotoAssetReady('scene-1'); jest.runOnlyPendingTimers(); });
+    expect(ready).not.toHaveBeenCalled();
+    act(() => { mockSceneProps.mock.calls.at(-1)![0].onCaptionReady('scene-1'); });
+    act(() => { jest.runOnlyPendingTimers(); });
+    expect(ready).toHaveBeenCalledTimes(1);
+    raf.mockRestore();
+  });
+
+  it.each(['CLASSIC', 'EDITORIAL', 'SCRAPBOOK'] as const)('exports the saved %s composition at its original measurement width with intact focal points and notes', boardLayout => {
+    const photographs: V2VisionTile[] = [0, 3, 7].map((slot, i) => ({
+      id: `saved-${i}`, sceneId: `saved-${i}`, imageUrl: `https://cdn.test/persisted-${i}.jpg`, prompt: null,
+      caption: `My saved photograph ${i}`, slotIndex: slot, sortOrder: i, isHero: i === 0, focal: { x: .2 + i * .1, y: .7 },
+    }));
+    const savedNote: VisionNote = { id: 'persisted-note', visionId: 'v1', content: { text: 'A future worth seeing' },
+      presentation: { styleId: 'paper_ivory_torn', fontId: 'classic', x: .5, y: .8, width: .2, height: .12, scale: 1, rotation: 0, layerOrder: 2 },
+      layoutPositions: { EDITORIAL: { x: .4, y: 4.6 }, SCRAPBOOK: { x: .7, y: 4.8 } }, createdAt: '', updatedAt: '' };
+    const payload = { ...data, visionTiles: photographs, visionNotes: [savedNote], visionBoardLayout: boardLayout, visionLayoutWidth: 366 };
+    const before = JSON.stringify(payload);
+    const estimate = composeVisionBoard({ tiles: photographs, notes: [savedNote], boardLayout, width: 366, fontScale: Dimensions.get('window').fontScale });
+    const expected = composeVisionBoard({ tiles: photographs, notes: [savedNote], boardLayout, width: 366, fontScale: Dimensions.get('window').fontScale,
+      measured: Object.fromEntries(estimate.measurements.map(m=>[m.key,Math.max(24,m.lineHeight)])) });
+    const view = render(<VisionExportTemplate data={payload} width={1080} showMark onAssetsReady={jest.fn()} />);
+    for (const text of view.UNSAFE_getAllByType(require('react-native').Text).filter(text => text.props.onTextLayout)) {
+      fireEvent(text, 'textLayout', { nativeEvent: { lines: [{ y: 0, height: 24 }] } });
+    }
+    const scene = mockSceneProps.mock.calls.at(-1)![0] as Record<string, any>;
+    expect(scene.layout).toEqual(expected.layout);
+    expect(scene.notes).toEqual(expected.notes);
+    expect(scene.slotOrder).toEqual(expected.order);
+    expect(scene.scene.height / scene.scene.width).toBeCloseTo(expected.ratio);
+    expect(scene.displayScale * scene.scene.width).toBe(366);
+    expect(scene.focals).toEqual(Object.fromEntries(photographs.map(photo => [photo.sceneId, photo.focal])));
+    expect(scene.art.svg).toBe(data.svg);
+    expect(scene.interactive).toBeFalsy();
+    expect(view.queryByLabelText('Edit photo caption')).toBeNull();
+    expect(view.queryByLabelText('Move')).toBeNull();
+    expect(JSON.stringify(payload)).toBe(before);
+  });
 
   it('never includes the thumbnail fallback in an export', () => {
     const view = render(<VisionExportTemplate data={data} width={288} showMark onAssetsReady={jest.fn()} />);
@@ -122,9 +173,11 @@ describe('VisionExportTemplate board composition', () => {
     const view = render(<VisionExportTemplate data={data} width={360} showMark onAssetsReady={jest.fn()} />);
     const shown = mockSceneProps.mock.calls.at(-1)?.[0] as Record<string, any>;
     const photoRect = shown.initialRectFor('scene-1');
-    expect(shown.layout.count).toBe(1);
+    expect(shown.layout.count).toBe(8);
+    expect(shown.slotOrder.filter(Boolean)).toEqual([tile.sceneId]);
     expect(shown.roster[0].tile).toBe(tile);
-    expect(shown.notes).toBe(data.visionNotes);
+    expect(shown.notes[0]).toMatchObject({id:note.id,content:note.content});
+    expect(shown.notes[0].presentation.y*shown.scene.height).toBeCloseTo(note.presentation.y*1.25*shown.scene.width);
     expect(shown.detailEdges).toBe(true);
     expect(shown.art.svg).toBe(data.svg);
     expect(shown.showAnchorMark).toBe(true);
@@ -135,7 +188,7 @@ describe('VisionExportTemplate board composition', () => {
     expect(hidden.showAnchorMark).toBe(false);
     expect(hidden.art.svg).toBe(data.svg);
     expect(hidden.initialRectFor('scene-1')).toEqual(photoRect);
-    expect(hidden.notes).toBe(data.visionNotes);
+    expect(hidden.notes).toEqual(shown.notes);
     expect(view.getByText('A quiet life')).toBeTruthy();
   });
 
@@ -143,7 +196,8 @@ describe('VisionExportTemplate board composition', () => {
     const legacyData = { ...data, visionTiles: undefined, visionNotes: [], visionAnnotation: null };
     render(<VisionExportTemplate data={legacyData} width={360} showMark onAssetsReady={jest.fn()} />);
     const scene = mockSceneProps.mock.calls.at(-1)?.[0] as Record<string, any>;
-    expect(scene.layout.count).toBe(1);
+    expect(scene.layout.count).toBe(8);
+    expect(scene.slotOrder.filter(Boolean)).toHaveLength(1);
     expect(scene.roster).toHaveLength(1);
     expect(scene.roster[0].tile.imageUrl).toBe(tile.imageUrl);
   });

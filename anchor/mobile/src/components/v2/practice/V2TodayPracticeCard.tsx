@@ -9,6 +9,7 @@ import {
 } from '@/constants/v2/practice';
 import { getPracticeCardTheme, practiceDarkText, radii, spacing, typography } from '@/theme/v2';
 import { V2PracticeArtwork } from './V2PracticeArtwork';
+import { v2VisualizeDurationLabel } from '@/screens/v2/practice/visualize/guided/visualizeBeatMap';
 
 type Props = {
   mode: V2PracticeMode;
@@ -33,7 +34,7 @@ const MODE_EDITORIAL_HEADLINES: Record<V2PracticeMode, string> = {
 const MODE_DEFAULT_DURATIONS: Record<V2PracticeMode, string> = {
   focus: '30 sec',
   deep_prime: '5 min',
-  visualize: '3 min',
+  visualize: v2VisualizeDurationLabel(180),
   release: 'When ready',
 };
 

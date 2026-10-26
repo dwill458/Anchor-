@@ -292,8 +292,10 @@ describe('Summit (S1)', () => {
     const screen = await openChart({ initial: fourWaypoints(3), next: finished(), onWaypointReached });
     fireEvent.press(screen.getByTestId('chart-menu-button'));
     fireEvent.press(screen.getByTestId('chart-mark-waypoint'));
+    // peek -> half -> full, where the route list (and its reach button) is reachable
     fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
-    fireEvent.press(screen.getByTestId('chart-mark-waypoint-cta'));
+    fireEvent.press(screen.getByTestId('chart-sheet-grabber'));
+    fireEvent.press(screen.getByTestId('chart-route-reach'));
     const yes = screen.getAllByTestId('chart-reach-yes');
     expect(yes.length).toBeGreaterThanOrEqual(2);
     const summit = jest.spyOn(sequences, 'summitSequence');

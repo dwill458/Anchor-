@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CircularAnchorRenderer } from '@/components/v2/anchor';
 import { v2Haptics } from '@/hooks/v2';
 import { useCelebrationReduceMotion } from '@/hooks/useCelebrationReduceMotion';
+import { usePerformanceTier } from '@/hooks/usePerformanceTier';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { playCreationSound } from '@/services/CreationSounds';
 import { SoundPool } from '@/services/audio/SoundPool';
@@ -109,6 +110,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const { width, height } = useWindowDimensions(), insets = useSafeAreaInsets();
   // One Reduce Motion source for the celebration: the ceremony's motion and its coordinator level agree.
   const reduced = useCelebrationReduceMotion();
+  const lowPerformance=usePerformanceTier()==='low';
   const usable = height - insets.top - insets.bottom;
   const [beat, setBeat] = useState<VisionCeremonyBeat>(props.startAt ?? 'ask');
   const [description, setDescriptionState] = useState(props.initialDescription ?? '');
@@ -360,7 +362,8 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     setGenerationPending(true); setGenerationAttempt(value => value + 1);
     requestTime.current = Date.now(); setBeat('develop');
     const structured = selectedReferences ?? (conversation ? references : undefined);
-    const started = await actions.generate(text, structured ? null : referenceId, structured ? null : photo, structured, options);
+    const hasStructured = Boolean(structured && structured.length > 0);
+    const started = await actions.generate(text, hasStructured ? null : referenceId, hasStructured ? null : photo, hasStructured ? structured : undefined, options);
     generationStarting.current = false;
     if (!alive.current) return false;
     setGenerationPending(false);
@@ -450,8 +453,9 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   // Cleared only when Choose is entered again (See both again, or fresh candidates), never by the choice's own re-render.
   const choosing = useRef(false);
   useEffect(() => { if (beat === 'choose') choosing.current = false; }, [beat]);
-  const choose = (index: number, item: VisionGenerationCandidate) => {
-    if (!item.imageUrl || !item.assetId || !developed.has(item.imageUrl) || committedRef.current || choosing.current) return;
+  const choose = (index: number, item: VisionGenerationCandidate, explicitSelection = false) => {
+    if (!item.imageUrl || !item.assetId || failedImages.has(item.imageUrl) ||
+      (!explicitSelection && !developed.has(item.imageUrl)) || committedRef.current || choosing.current) return;
     choosing.current = true;
     void v2Haptics.selection(); playCreationSound('revealSettle');
     AnalyticsService.track('vision_image_selected', { anchor_id: anchorId,
@@ -519,10 +523,10 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const wordExit = useSharedValue(0);
   useEffect(() => { wordExit.value = withTiming(reading ? 0 : 1, { duration: ceremonyDuration(900, reduced) }); }, [reading, reduced]);
   useEffect(() => {
-    if (reduced || !foreground || beat !== 'develop') { cancelAnimation(breath); breath.value = 0; return; }
+    if (reduced || lowPerformance || !foreground || beat !== 'develop') { cancelAnimation(breath); breath.value = 0; return; }
     breath.value = withRepeat(withSequence(withTiming(1, { duration: 1300 }), withTiming(0, { duration: 1300 })), -1);
     return () => cancelAnimation(breath);
-  }, [reduced, foreground, beat]);
+  }, [reduced,lowPerformance,foreground,beat]);
   useEffect(() => {
     if (!committed) return;
     const timer = setTimeout(() => {
@@ -788,7 +792,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
     {beat === 'choose' && displayedRound && !refineCandidate ? <Animated.View key={`round-${displayedRound.id}`} entering={reduced ? undefined : FadeIn.duration(fade)} style={[styles.fill, { zIndex: 45 }]}>
       <VisionConversationSelection anchorArt={anchorArt} round={displayedRound} rounds={rounds.length ? rounds : [displayedRound]} selectedCandidateId={session?.selectedCandidateId ?? null}
         inspectCandidateId={inspectCandidateId} onInspectClosed={() => setInspectCandidateId(null)}
-        onSelect={(item, index) => choose(index, item)} onRefine={item => openRefine(item)} onSelectRound={showRound} onViewCandidate={viewExactCandidate}
+        onSelect={(item, index) => choose(index, item, true)} onRefine={item => openRefine(item)} onSelectRound={showRound} onViewCandidate={viewExactCandidate}
         onBack={back} onAnother={() => {
           if (displayedRound.roundNumber === 0 && rounds.length <= 1) {
             void generate(session?.description || descriptionRef.current, null, null, references, { operation: references.length > 1 ? 'COMPOSE' : 'CREATE', sessionId: displayedRound.sessionId });

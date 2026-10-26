@@ -18,9 +18,13 @@ import type { GuidanceVoice } from '@/types/sessionAudio';
 import type { PracticeSessionRecord } from '@/types/practice';
 import type { V2VisionTile, VisionNote } from '@/adapters/v2/vision';
 import { freezeVisionNotes } from '@/components/v2/vision/notes/freezeVisionNotes';
-import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
+import { anchorArtworkSvg,anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
+import { boardPhotoWindow } from '@/components/v2/vision/board/visionBoardLayouts';
+import { useVisionBoardComposition } from '@/components/v2/vision/board/useVisionBoardComposition';
+import type { VisionBoardLayout } from '@/adapters/v2/vision';
+import type { VisionBoardComposition } from '@/components/v2/vision/board/visionBoardComposition';
 import { detailBoardSizeForWidth, toSceneRect } from '@/components/v2/vision/board/visionBoardLayouts';
 import { buildVisionSceneSnapshot, type V2VisualizeDuration } from './visualizeVisionPlan';
 import { preserveVisualizeAnchorLayout } from './visualizePhotoFrame';
@@ -36,12 +40,14 @@ import { ENHANCED_ANCHOR_MASK_SHADER } from './enhancedAnchorMask';
 import { photoWindow, rotatedChild, type Rect } from './prototype/cinematicGeometry';
 
 export type PreparedCinematicSession = {
+  boardLayout?: VisionBoardLayout; layoutWidth?: number; composition?: VisionBoardComposition;
   anchor: Anchor; statement: string; visionId?: string | null; assets: CinematicAssets; notes?: readonly VisionNote[];
   markLocal: Rect; viewport: { width: number; height: number }; beginAtMs?: number; canvasFrame?: Rect;
   svgText: string; svg: SkSVG | null; enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null;
 };
 export type CinematicCompletion = { record: PracticeSessionRecord | null; saved: boolean };
 export type CinematicSessionProps = {
+  boardLayout?: VisionBoardLayout; layoutWidth?: number;
   anchor: Anchor; accountId: string | null; tiles: V2VisionTile[]; statement: string; visionId?: string | null;
   notes?: readonly VisionNote[];
   durationSeconds: V2VisualizeDuration; voice: GuidanceVoice; ambient: boolean; haptics: boolean;
@@ -67,7 +73,7 @@ export function V2CinematicSessionScreen(props: CinematicSessionProps) {
   // Preferences and content cannot be replaced by a store refresh during playback.
   const [frozen] = useState(() => ({ ...props, notes: freezeVisionNotes(props.prepared?.notes ?? props.notes), ...(props.prepared ? {
     anchor: props.prepared.anchor, statement: props.prepared.statement,
-    visionId: props.prepared.visionId, tiles: props.prepared.assets.tiles,
+    visionId: props.prepared.visionId, tiles: props.prepared.assets.tiles, boardLayout:props.prepared.boardLayout,layoutWidth:props.prepared.layoutWidth,
   } : {}) }));
   return <CinematicLoader {...frozen} onContinue={props.onContinue} onExit={props.onExit}
     onPrepared={props.onPrepared} onPreparationIssue={props.onPreparationIssue} onAvailableImages={props.onAvailableImages} />;
@@ -134,7 +140,7 @@ function LoadingRun(props: CinematicSessionProps) {
   </View>;
 }
 
-function CinematicRun({ anchor, accountId, statement, visionId, notes, durationSeconds, voice, ambient, haptics, source,
+function CinematicRun({ anchor, accountId, statement, visionId, notes, boardLayout,layoutWidth,durationSeconds, voice, ambient, haptics, source,
   onExit, onContinue, onRetry, assets, svgText, svg, enhancedMaskEffect, prepared, prepareOnly, onPrepared, onPreparationIssue }: CinematicSessionProps & {
   assets: CinematicAssets; svgText: string; svg: SkSVG | null;
   enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null; onRetry: () => void;
@@ -144,16 +150,18 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, durationS
   const viewport = useMemo(() => ({ width, height }), [width, height]);
   const insets = useSafeAreaInsets();
   const reduced = useV2ReduceMotion();
-  const scene = useMemo(() => detailBoardSizeForWidth(width * 2, assets.tiles.length), [width, assets.tiles.length]);
-  const board = useVisionBoardScene(assets.tiles, scene, 1, true);
-  const sessionLayout = preserveVisualizeAnchorLayout(board.layout, assets.tiles.length, scene);
+  const measuredComposition=useVisionBoardComposition({tiles:assets.tiles,notes,width:layoutWidth??width-24,boardLayout:boardLayout??'CLASSIC'});
+  const composition=prepared?.composition??measuredComposition;
+  const scene = useMemo(() => ({width:width*2,height:width*2*composition.ratio}), [width,composition.ratio]);
+  const board = useVisionBoardScene(assets.tiles, scene, 1, true,undefined,composition);
+  const sessionLayout = board.layout;
   const [markLocal, setMarkLocal] = useState<Rect | null>(prepared?.markLocal ?? null);
   const onMarkLayout = useCallback((rect: Rect) => setMarkLocal(previous => previous ?? rect), []);
   const card = useMemo(() => toSceneRect(sessionLayout.card, scene), [sessionLayout.card, scene]);
   const mark = useMemo(() => markLocal ? rotatedChild(card, markLocal) : null, [card, markLocal]);
-  const photo = useMemo(() => photoWindow(toSceneRect(board.layout.photos[0], scene), board.layout.photos[0].frame), [board.layout.photos, scene]);
+  const photo = useMemo(() => {const slot=composition.slotMap.indexOf(assets.tiles[0]?.sceneId);return boardPhotoWindow(board.layout.photos[Math.max(0,slot)],scene);},[board.layout.photos,scene,composition.slotMap,assets.tiles]);
   const [frameError, setFrameError] = useState(false);
-  const ready = Boolean(mark && mark.width > 0 && mark.height > 0 &&
+  const ready = Boolean((prepared?.composition || measuredComposition.ready) && mark && mark.width > 0 && mark.height > 0 &&
     (!assets.enhancedAnchor || enhancedMaskEffect));
   useEffect(() => {
     if (ready || frameError) return;
@@ -162,9 +170,9 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, durationS
   }, [frameError, ready]);
   useEffect(() => {
     if (prepareOnly && ready && markLocal) {
-      onPrepared?.({ anchor, statement, visionId, notes, assets, markLocal, viewport, svgText, svg, enhancedMaskEffect });
+      onPrepared?.({ anchor, statement, visionId, notes, assets, markLocal, viewport, svgText, svg, enhancedMaskEffect, boardLayout:composition.boardLayout,layoutWidth:composition.size.width,composition });
     }
-  }, [prepareOnly, ready, markLocal, onPrepared, anchor, statement, visionId, notes, assets, viewport, svgText, svg, enhancedMaskEffect]);
+  }, [prepareOnly, ready, markLocal, onPrepared, anchor, statement, visionId, notes, assets, viewport, svgText, svg, enhancedMaskEffect,composition]);
   useEffect(() => { if (frameError) onPreparationIssue?.('The canvas could not be prepared. Retry before beginning.'); }, [frameError, onPreparationIssue]);
   // One plan per session: the selected guide's beat map, resolved against the Vision images that exist.
   const plan = useMemo(() => buildGuidedPlan({ durationSeconds, guide: guideForVoice(voice), imageCount: assets.tiles.length }),
@@ -208,16 +216,17 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, durationS
     let outcome: 'queued' | 'failed' | 'not_recorded' = 'not_recorded';
     if (accountId) try {
       const record = await PracticeCompletionService.commitVisualizeCompletion({
-        id: sessionId.current, accountId, anchor, durationSeconds, startedAt, completedAt,
+        id: sessionId.current, accountId, anchor, durationSeconds, actualDurationSeconds: Math.round(plan.durationMs / 1000), startedAt, completedAt,
         guidanceVoice: voice, backgroundAudio, sceneSnapshot, source: 'practice_screen',
         metadata: { v2_entry_source: source, guided_visualize_version: 1, ...(visionId ? { vision_id: visionId } : {}) },
       }); completionResult.current = { record, saved: true }; outcome = 'queued';
     } catch { outcome = 'failed'; }
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_COMPLETED, {
       practice_mode: 'visualize', session_id: sessionId.current, anchor_id: anchor.id, duration_seconds: durationSeconds,
+      actual_duration_seconds: Math.round(plan.durationMs / 1000),
       guidance_voice: voice, background_audio: backgroundAudio, sync_outcome: outcome, completed_at: completedAt, v2: true,
     });
-  }, [accountId, anchor, backgroundAudio, durationSeconds, sceneSnapshot, source, visionId, voice]);
+  }, [accountId, anchor, backgroundAudio, durationSeconds, plan.durationMs, sceneSnapshot, source, visionId, voice]);
   // The guided track's playback position is the only clock. `elapsed` mirrors it for the UI thread.
   const elapsed = useSharedValue(0);
   const engine = useGuidedPlayback({ asset: guidedAsset, enabled: !prepareOnly, muted: voice === 'none', durationMs: plan.durationMs,
@@ -311,13 +320,25 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, durationS
     (segment.kind === 'return' && segmentProgress > 0.55) || segment.kind === 'arrival' || (segment.kind === 'breakout' && segmentProgress < 0.6);
   const ambientLight = engine.positionMs < 1000 || engine.positionMs > (timeline.lightReturnMs ?? plan.durationMs) + 1500;
   const onPaper = boardShowing && ambientLight && cinematicGradeAt(timeline, engine.positionMs).dim < 0.35;
-  const [displayLine, setDisplayLine] = useState<string | null>(null);
+  const [lastLine, setLastLine] = useState<string | null>(null);
+  // Show a newly spoken line in this commit; the retained line only serves its fade-out.
+  const displayLine = line ?? lastLine;
   const textOpacity = useSharedValue(0);
   useEffect(() => {
     if (engine.state === 'paused') { cancelAnimation(textOpacity); return; }
-    if (line) setDisplayLine(line);
+    if (line) setLastLine(line);
     textOpacity.value = withTiming(line ? 1 : 0, { duration: reduced ? 0 : line ? 260 : 360 });
   }, [line, engine.state, reduced, textOpacity]);
+  const reportedCaption = useRef<string | null>(null);
+  useEffect(() => {
+    const key = `${resolved.caption?.phraseId}:${line}`;
+    if (!__DEV__ || process.env.JEST_WORKER_ID || !line || displayLine !== line || key === reportedCaption.current) return;
+    reportedCaption.current = key;
+    console.info('[SESSION_AUDIO_CAPTION]', JSON.stringify({
+      positionMs: engine.positionMs, phraseId: resolved.caption?.phraseId, text: displayLine,
+      chapter: resolved.chapter, segment: segment.kind, voice, durationSeconds,
+    }));
+  }, [displayLine, line, engine.positionMs, resolved.caption?.phraseId, resolved.chapter, segment.kind, voice, durationSeconds]);
   const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value }));
 
   if (engine.state === 'failed') return <View testID="v2-visualize-session" style={styles.root}>
@@ -336,24 +357,27 @@ function CinematicRun({ anchor, accountId, statement, visionId, notes, durationS
     </View>
   </View>;
   if (prepareOnly) return <View style={styles.measureBoard} pointerEvents="none">
-      <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={sessionLayout} shared={board.shared}
+      {measuredComposition.measurementView}
+      <VisionBoardScene materialMode="photographic" sharedComposition notes={composition.notes} slotOrder={composition.order} scene={scene} roster={board.roster} entering={board.entering} layout={sessionLayout} shared={board.shared}
       initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement} category={anchor.category}
-      art={{ svg: svgText, imageUrl: anchor.enhancedImageUrl }} reduceMotion
+      art={anchorRenderProps(anchor)} reduceMotion
       cinematic={{ photoId: '', photoOpacity: elapsed, onMarkLayout }} />
   </View>;
   return <View testID="v2-visualize-session" style={styles.root}>
     <StatusBar hidden={immersive} barStyle="light-content" />
     {immersive ? <KeepAwake /> : null}
     {!prepareOnly && mark && geometry ? <CinematicSessionStage tiles={assets.tiles} images={assets.images} focalPoints={assets.focalPoints}
+      composition={composition} anchorArt={anchorRenderProps(anchor)}
       intention={anchor.intentionText || statement} category={anchor.category} svgText={svgText} enhancedImageUrl={anchor.enhancedImageUrl}
       enhancedAnchor={assets.enhancedAnchor} enhancedMaskEffect={enhancedMaskEffect} svg={svg}
       scene={scene} viewport={viewport} mark={mark} geometry={geometry} timeline={timeline} elapsed={elapsed}
       sequenceCount={plan.imageCount} activeIndex={resolved.imageIndex} watermark={watermark} backdrops={assets.backdrops}
       reduced={reduced} onMarkLayout={onMarkLayout} /> :
       <View style={styles.measureBoard} pointerEvents="none">
-          <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={sessionLayout} shared={board.shared}
+          {measuredComposition.measurementView}
+          <VisionBoardScene materialMode="photographic" sharedComposition notes={composition.notes} slotOrder={composition.order} scene={scene} roster={board.roster} entering={board.entering} layout={sessionLayout} shared={board.shared}
           initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement} category={anchor.category}
-          art={{ svg: svgText, imageUrl: anchor.enhancedImageUrl }} reduceMotion cinematic={{ photoId: '', photoOpacity: elapsed, onMarkLayout }} />
+          art={anchorRenderProps(anchor)} reduceMotion cinematic={{ photoId: '', photoOpacity: elapsed, onMarkLayout }} />
       </View>}
     <Pressable accessibilityRole="button" accessibilityLabel="Show session controls" style={StyleSheet.absoluteFill}
       onPress={() => setControlsVisible(value => !value)} />

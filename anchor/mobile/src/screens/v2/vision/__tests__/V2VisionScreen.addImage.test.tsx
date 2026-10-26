@@ -138,11 +138,24 @@ describe('V2VisionScreen ceremony additions', () => {
       throw Object.assign(new Error('Not found'), { status: 404 });
     });
     (apiClient.patch as jest.Mock).mockImplementation(async (url: string, input: any) => {
+      if(input.replacement&&url.includes('/scenes/')){
+        const sceneId=url.split('/').at(-1);
+        currentVision={...currentVision,scenes:currentVision.scenes.map(item=>item.id===sceneId?{...item,...input.replacement,resolvedImageUrl:`https://example.com/${input.replacement.assetId}.jpg`}:item)};
+        return response(currentVision);
+      }
       if (url.includes('/creation-sessions/') && currentSession) {
         currentSession = { ...currentSession, ...input };
         return response(currentSession);
       }
       return response(null);
+    });
+    (apiClient.put as jest.Mock).mockImplementation(async (url: string, input: any) => {
+      if (!url.endsWith('/scenes/slots')) throw new Error(`Unexpected slot save: ${url}`);
+      currentVision = { ...currentVision, scenes: currentVision.scenes.map(item => {
+        const assigned = input.slots.find((slot: any) => slot.sceneId === item.id);
+        return { ...item, slotIndex: assigned.slotIndex, sortOrder: input.slots.indexOf(assigned) };
+      }) };
+      return response(currentVision);
     });
     const granted = { status: 'granted', canAskAgain: true } as never;
     picker.requestCameraPermissionsAsync.mockResolvedValue(granted); picker.requestMediaLibraryPermissionsAsync.mockResolvedValue(granted);
@@ -156,6 +169,25 @@ describe('V2VisionScreen ceremony additions', () => {
     });
   });
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
+  it('persists a chosen Add position through the atomic slot endpoint and reopens the server-confirmed arrangement', async () => {
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    await view.findByTestId('vision-board');
+    fireEvent.press(view.getByLabelText('Add to Vision'));
+    fireEvent.press(view.getByLabelText('Add a photo to position 6 of 8'));
+    await advance(SHEET_HANDOFF);
+    await ownPhoto(view, 'library'); await seal(view);
+    await waitFor(() => expect(apiClient.put).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes/slots', {
+      expectedUpdatedAt: stamp,
+      slots: [{ sceneId: 'sc-1', slotIndex: 0 }, { sceneId: 'sc-2', slotIndex: 1 },
+        { sceneId: 'sc-3', slotIndex: 2 }, { sceneId: 'sc-4', slotIndex: 5 }],
+    }));
+    expect(currentVision.scenes.find(item => item.id === 'sc-4')).toMatchObject({ assetId: 'own-asset', slotIndex: 5 });
+    expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes'))).toHaveLength(1);
+    view.unmount(); resetV2VisionReadCache(); useVisionPresentationStore.setState({ byVision: {} });
+    const reopened = render(<V2VisionScreen anchorId="anchor-1" />);
+    expect(await reopened.findByLabelText('Vision image in position 6 of 8')).toBeTruthy();
+    expect(reopened.queryByLabelText('Vision image in position 4 of 8')).toBeNull();
+  });
   it('Add image opens the compact composer over the live board and launches nothing', async () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />); await openAsk(view);
     expect(view.getByText('What Else Do You See?')).toBeTruthy(); expect(view.getByTestId('vision-board')).toBeTruthy();
@@ -234,7 +266,7 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(view.getByTestId('vision-just-added')).toBeTruthy(); expect(view.getByTestId('vision-board-photo-sc-4')).toBeTruthy();
   });
   it.each(['add', 'regenerate'] as const)('drops the arrival pin on the saved scene id after %s even when the read model re-signs its URL', async kind => {
-    // Every read re-signs URLs: regenerate's archive re-read leaves the save response's URL matching no tile.
+    // Every read re-signs URLs; the arrival must follow scene identity after either mutation.
     let reads = 0;
     (apiClient.get as jest.Mock).mockImplementation(async (url: string) => {
       if (url.endsWith('/creation-sessions')) return activeSessionResponse();
@@ -265,7 +297,13 @@ describe('V2VisionScreen ceremony additions', () => {
       await advance(200);
     }
     await advance(3200); await advance(1200); await advance(200); await advance(600);
-    expect(view.getByTestId('vision-board-photo-sc-4-arrival-pin')).toBeTruthy();
+    expect(view.getByTestId(`vision-board-photo-${kind==='regenerate'?'sc-1':'sc-4'}-arrival-pin`)).toBeTruthy();
+    if(kind==='regenerate'){
+      expect(currentVision.scenes).toHaveLength(3);
+      expect(currentVision.scenes[0]).toMatchObject({id:'sc-1',assetId:'generated-0'});
+      expect(apiClient.delete).not.toHaveBeenCalled();
+      expect((apiClient.post as jest.Mock).mock.calls.filter(([url])=>url.endsWith('/scenes'))).toHaveLength(0);
+    }
     expect(view.queryByTestId('vision-board-photo-sc-2-arrival-pin')).toBeNull();
   });
   it('Back from a generating request returns to the board with the sheet refilled, never the entrance', async () => {
@@ -289,9 +327,13 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(generationCall).toBeDefined();
     expect(generationCall?.[1]).toMatchObject({
       sceneDescription: 'The backyard at night with a fire pit',
-      operation: 'CREATE',
+      // The board's photos are used as references by default, so this is a composition.
+      operation: 'COMPOSE',
       sessionId: currentSession.id,
-      references: [],
+      references: [
+        { assetId: 'ast-1', role: 'world' },
+        { assetId: 'ast-2', role: 'world' },
+      ],
     });
     expect(generationCall?.[1].idempotencyKey).toEqual(expect.any(String));
   });
@@ -406,21 +448,24 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(view.getByTestId(`vision-board-photo-sc-${count}`)).toBeTruthy();
     expect(view.getByTestId(`vision-board-photo-sc-${count}-arrival-pin`)).toBeTruthy();
   });
-  it.each([8, 3])('sealed regeneration on a %i-image board resumes unfinished mutations', async count => {
+  it.each([8, 1])('sealed regeneration on a %i-image board retries an atomic replacement while preserving the original photo', async count => {
     currentVision = visionWith(count);
     const generated = { id: 'generation', visionId: 'vision-101', status: 'COMPLETE', retryCount: 0,
       candidates: [0, 1].map(i => ({ id: `candidate-${i}`, assetId: `generated-${i}`, imageUrl: `file:///generated-${i}.jpg`, prompt: 'A new studio.', sortOrder: i })) };
-    let addFailed = false, deleteFailed = false;
+    const original = JSON.parse(JSON.stringify(currentVision));
+    let replacementFailed = false;
+    const existingPatch = (apiClient.patch as jest.Mock).getMockImplementation()!;
+    (apiClient.patch as jest.Mock).mockImplementation(async (url: string, input: any) => {
+      if (!url.endsWith('/scenes/sc-1')) return existingPatch(url, input);
+      if (!replacementFailed) { replacementFailed = true; throw new Error('Replacement unavailable'); }
+      currentVision = { ...currentVision, scenes: currentVision.scenes.map(item => item.id === 'sc-1'
+        ? { ...item, ...input.replacement, resolvedImageUrl: 'file:///generated-0.jpg' } : item) };
+      return response(currentVision);
+    });
     (apiClient.post as jest.Mock).mockImplementation(async (url: string, input: any) => {
       if (url.endsWith('/creation-sessions')) { currentSession = makeSession(input.id ?? 'created-session', input.description); return response(currentSession); }
       if (url.endsWith('/scene-generation')) return generationResponse(input, generated);
-      if (count === 8 && !addFailed) { addFailed = true; throw new Error('Add unavailable'); }
-      const added = scene(9, { ...input, resolvedImageUrl: 'file:///generated-0.jpg' }); currentVision = { ...currentVision, scenes: [...currentVision.scenes, added] };
-      return { data: added };
-    });
-    (apiClient.delete as jest.Mock).mockImplementation(async () => {
-      if (count === 3 && !deleteFailed) { deleteFailed = true; throw new Error('Remove unavailable'); }
-      currentVision = { ...currentVision, scenes: currentVision.scenes.filter(item => item.id !== 'sc-1') }; return { data: { success: true } };
+      throw new Error(`Unexpected replacement POST: ${url}`);
     });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     const first = await view.findByLabelText('Vision image in position 1 of 8'); fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
@@ -431,11 +476,16 @@ describe('V2VisionScreen ceremony additions', () => {
     fireEvent.press(view.getByTestId('scene-candidate-candidate-0')); fireEvent.press(view.getByTestId('vision-complete-vision'));
     await advance(200);
     expect(view.getByTestId('vision-ceremony-save-retry')).toBeTruthy();
+    expect(currentVision).toEqual(original);
+    expect(apiClient.delete).not.toHaveBeenCalled();
     await act(async () => { fireEvent.press(view.getByTestId('vision-ceremony-save-retry')); }); await advance(200);
-    expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes'))).toHaveLength(count === 8 ? 2 : 1);
-    expect(apiClient.delete).toHaveBeenCalledTimes(count === 8 ? 1 : 2);
+    expect((apiClient.post as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes'))).toHaveLength(0);
+    expect((apiClient.patch as jest.Mock).mock.calls.filter(([url]) => url.endsWith('/scenes/sc-1'))).toHaveLength(2);
+    expect(apiClient.delete).not.toHaveBeenCalled();
     expect(currentVision.scenes.filter(item => item.assetId === 'generated-0')).toHaveLength(1);
     expect(currentVision.scenes.find(item => item.assetId === 'generated-0')?.sortOrder).toBe(0);
+    expect(currentVision.scenes.find(item => item.assetId === 'generated-0')?.id).toBe('sc-1');
+    expect(currentVision.scenes).toHaveLength(count);
     await advance(3500); await advance(1200); await advance(200); expect(view.getByTestId('vision-board')).toBeTruthy();
   });
   describe('the first image remains on its completed board', () => {

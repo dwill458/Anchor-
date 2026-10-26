@@ -18,6 +18,8 @@ const MAX_VISIONS = 24;
 export type VisionPresentation = {
   slots: Record<string, number>;
   focals: Record<string, VisionFocal>;
+  /** True while this device's slot arrangement has not been confirmed by the server; the local arrangement then wins. */
+  unsynced?: boolean;
 };
 
 type State = {
@@ -32,6 +34,8 @@ type State = {
   inheritSlot: (visionId: string, fromSceneId: string, toSceneId: string) => void;
   /** Sets one photograph's position in its print; `null` returns it to the automatic position. */
   setFocal: (visionId: string, sceneId: string, focal: VisionFocal | null) => void;
+  /** Marks whether the local slot arrangement still awaits server confirmation. */
+  setUnsynced: (visionId: string, unsynced: boolean) => void;
   clear: (visionId: string) => void;
 };
 
@@ -76,7 +80,7 @@ function sanitize(value: unknown): Record<string, VisionPresentation> {
       const focal = parseVisionFocal(raw);
       if (focal) focals[sceneId] = focal;
     }
-    out[visionId] = { slots: sanitizeSlots(entry?.slots), focals };
+    out[visionId] = { slots: sanitizeSlots(entry?.slots), focals, ...(entry?.unsynced === true ? { unsynced: true } : {}) };
   }
   return out;
 }
@@ -115,7 +119,14 @@ export const useVisionPresentationStore = create<State>()(
         slots[toSceneId] = slot;
         const focals = { ...current.focals };
         delete focals[fromSceneId];
-        return { byVision: touch(state.byVision, visionId, { slots, focals }) };
+        return { byVision: touch(state.byVision, visionId, { ...current, slots, focals }) };
+      }),
+      setUnsynced: (visionId, unsynced) => set(state => {
+        const current = state.byVision[visionId] ?? empty();
+        if (Boolean(current.unsynced) === unsynced) return state;
+        const next = { ...current };
+        if (unsynced) next.unsynced = true; else delete next.unsynced;
+        return { byVision: touch(state.byVision, visionId, next) };
       }),
       setFocal: (visionId, sceneId, focal) => set(state => {
         const current = state.byVision[visionId] ?? empty();

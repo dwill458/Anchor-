@@ -131,6 +131,20 @@ describe('Vision ceremony', () => {
     expect(view.getByText(copy.second)).toBeTruthy(); expect(view.queryByTestId('scene-candidate-c0')).toBeNull();
     expect(view.onAssemble).not.toHaveBeenCalled();
   });
+  it('accepts an explicit candidate pick from inspect while that print is still settling', async () => {
+    mockJob = { ...job(), sessionId: 'conversation-session', roundNumber: 0, operation: 'CREATE' };
+    const view = setup();
+    fireEvent.press(view.getByLabelText(copy.createVision));
+    await act(async () => { fireEvent.press(view.getByTestId('vision-generate')); });
+    await develop(view, 1);
+    expect(view.getByTestId('vision-conversation-selection')).toBeTruthy();
+
+    fireEvent.press(view.getByRole('button', { name: 'Inspect Option 2' }));
+    fireEvent.press(view.getAllByRole('button', { name: 'Use This One' }).at(-1)!);
+
+    expect(view.queryByTestId('vision-conversation-selection')).toBeNull();
+    expect(view.getByTestId('vision-ceremony-print-1-caption')).toBeTruthy();
+  });
   it('Choose is one tap, Keep edits the caption, and Seal saves once with that caption', async () => {
     mockJob = job(); const view = setup(); await choose(view, 1);
     expect(view.getByTestId('vision-ceremony-print-1-caption').props.value).toBe(base.anchorIntention);

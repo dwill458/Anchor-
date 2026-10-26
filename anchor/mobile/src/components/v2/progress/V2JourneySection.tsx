@@ -2,7 +2,6 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight, Flag } from 'lucide-react-native';
 import { radii, typography } from '@/theme/v2';
-import { VisionEditorialPreview } from '@/components/v2/vision/VisionEditorialPreview';
 import type { VisionEditorialTile } from '@/components/v2/vision/visionEditorialLayout';
 import { formatFocusTime, type JourneyState } from '@/adapters/v2/progress/journeyAdapter';
 import { formatProgressDate } from '@/adapters/v2/progress/progressAdapter';
@@ -49,7 +48,8 @@ function visionThumbnail(vision?: JourneyVisionData | null): string | null {
   return featured?.imageUrl ?? null;
 }
 
-const VisionRow: React.FC<{ vision?: JourneyVisionData | null; onPress?: () => void; testID: string }> = ({
+const VisionRow: React.FC<{ vision?: JourneyVisionData | null; onPress?: () => void; thumbnailOnly?: boolean; testID: string }> = ({
+  thumbnailOnly = false,
   vision,
   onPress,
   testID,
@@ -63,7 +63,7 @@ const VisionRow: React.FC<{ vision?: JourneyVisionData | null; onPress?: () => v
       disabled={!onPress}
       accessibilityRole="button"
       accessibilityLabel="Open Vision"
-      style={styles.row}
+      style={thumbnailOnly ? styles.visionPreview : styles.row}
       testID={testID}
     >
       <View style={styles.thumb} testID={`${testID}-thumb`}>
@@ -71,13 +71,13 @@ const VisionRow: React.FC<{ vision?: JourneyVisionData | null; onPress?: () => v
           <Image source={{ uri: uri! }} style={styles.thumbImage} resizeMode="cover" onError={() => setFailed(uri)} />
         ) : null}
       </View>
-      <View style={styles.rowCopy}>
+      {!thumbnailOnly ? <View style={styles.rowCopy}>
         <Text style={styles.rowTitle}>Your Vision</Text>
         <Text style={styles.rowSub} numberOfLines={2}>
           {vision?.statement?.trim() || 'The life you’re building.'}
         </Text>
-      </View>
-      {onPress ? <ChevronRight size={18} color={progressTokens.muted} /> : null}
+      </View> : <Text style={styles.rowSub}>Your Vision</Text>}
+      {!thumbnailOnly && onPress ? <ChevronRight size={18} color={progressTokens.muted} /> : null}
     </Pressable>
   );
 };
@@ -88,7 +88,7 @@ const NextMove: React.FC<{ title: string; onPress?: () => void; testID: string }
     disabled={!onPress}
     accessibilityRole="button"
     accessibilityLabel={`Next move: ${title}`}
-    style={styles.row}
+    style={styles.nextMove}
     testID={testID}
   >
     <View style={styles.moveIcon}>
@@ -141,7 +141,6 @@ export const V2JourneySection: React.FC<V2JourneySectionProps> = ({
     return <View style={[styles.card, styles.skeleton]} testID={`${testID}-loading`} accessibilityLabel="Loading your journey" />;
   }
 
-  const hasImages = imageTiles(vision).length > 0;
   const showRoute = (state === 'chartVision' || state === 'chartOnly') && route;
 
   return (
@@ -151,34 +150,20 @@ export const V2JourneySection: React.FC<V2JourneySectionProps> = ({
         <Text style={styles.subtitle}>{SUBTITLE[state]}</Text>
       </View>
 
-      {state === 'chartVision' ? <VisionRow vision={vision} onPress={onOpenVision} testID={`${testID}-vision`} /> : null}
-
       {showRoute ? (
-        <View style={styles.block}>
-          <V2ProgressRoute route={route} hideHeader category={category} onOpenChart={onOpenChart} testID={`${testID}-route`} />
+        <View style={styles.journeyRow}>
+          {state === 'chartVision' ? <VisionRow thumbnailOnly vision={vision} onPress={onOpenVision} testID={`${testID}-vision`} /> : null}
+          <View style={styles.rowCopy}>
+            <V2ProgressRoute route={route} hideHeader compact hidePreview={state === 'chartVision'} category={category} onOpenChart={onOpenChart} testID={`${testID}-route`} />
+            {route.oneMoveTitle ? <NextMove title={route.oneMoveTitle} onPress={onOpenChart} testID={`${testID}-next-move`} /> : null}
+          </View>
         </View>
-      ) : null}
-
-      {showRoute && route.oneMoveTitle ? (
-        <NextMove title={route.oneMoveTitle} onPress={onOpenChart} testID={`${testID}-next-move`} />
       ) : null}
 
       {state === 'visionOnly' ? (
         <>
           <View style={styles.block} testID={`${testID}-vision`}>
-            {hasImages ? (
-              <VisionEditorialPreview
-                tiles={vision!.tiles}
-                featuredTileId={vision!.featuredTileId}
-                statement={vision!.statement}
-                variant="home"
-                onPress={onOpenVision}
-                accessibilityLabel="Open Vision"
-                testID={`${testID}-vision-board`}
-              />
-            ) : (
-              <VisionRow vision={vision} onPress={onOpenVision} testID={`${testID}-vision-row`} />
-            )}
+            <VisionRow vision={vision} onPress={onOpenVision} testID={`${testID}-vision-row`} />
           </View>
           <Reflection reflection={recentReflection} testID={`${testID}-reflection`} />
         </>
@@ -239,28 +224,31 @@ const styles = StyleSheet.create({
     borderColor: progressTokens.cardBorder,
     borderRadius: radii.xl,
     padding: 16,
-    gap: 12,
+    gap: 8,
   },
-  skeleton: { minHeight: 220 },
+  skeleton: { minHeight: 120 },
   header: { gap: 2 },
   heading: { ...typography.labelSM, fontSize: 11, letterSpacing: 1.6, color: progressTokens.text },
   subtitle: { ...typography.bodySM, color: progressTokens.muted },
   block: { gap: 6 },
+  journeyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  visionPreview: { width: 96, alignItems: 'center', gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowCopy: { flex: 1, minWidth: 0 },
   rowTitle: { ...typography.labelMD, color: progressTokens.text },
   rowSub: { ...typography.bodySM, color: progressTokens.muted, lineHeight: 18 },
   thumb: {
-    width: 64,
-    height: 48,
+    width: 96,
+    height: 64,
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: progressTokens.chip,
   },
   thumbImage: { width: '100%', height: '100%' },
+  nextMove: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingTop: 6 },
   moveIcon: {
-    width: 40,
-    height: 40,
+    width: 24,
+    height: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -271,6 +259,8 @@ const styles = StyleSheet.create({
   invite: { gap: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: progressTokens.hairline },
   inviteRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: radii.pill,

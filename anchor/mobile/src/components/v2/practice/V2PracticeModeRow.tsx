@@ -5,8 +5,9 @@ import { V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/prac
 import { colors, radii, spacing, typography } from '@/theme/v2';
 
 type Props = { mode: V2PracticeMode; entitled: boolean; onPress: () => void; testID?: string };
-const ModeIcon = ({ mode, color }: { mode: V2PracticeMode; color: string }) => {
-  const common = { color, size: 19, strokeWidth: 1.8 };
+/** The one glyph per practice mode; the Course log reuses it. */
+export const ModeIcon = ({ mode, color, size = 19 }: { mode: V2PracticeMode; color: string; size?: number }) => {
+  const common = { color, size, strokeWidth: 1.8 };
   if (mode === 'deep_prime') return <Sparkles {...common} />;
   if (mode === 'visualize') return <Eye {...common} />;
   if (mode === 'release') return <Flame {...common} />;

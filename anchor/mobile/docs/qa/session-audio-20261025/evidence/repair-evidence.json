@@ -1,0 +1,94 @@
+[
+  {
+    "id": "audio-visualize-600-male-ambient",
+    "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_10min15_V4.mp3",
+    "candidate": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\repaired-candidates\\Embody_Final_10min15_V4.mp3",
+    "musicGain": 0.7770448923110962,
+    "musicCorrelation": 0.9999896883964539,
+    "headroomGain": 0.9772351215824749,
+    "edits": [
+      {
+        "phraseId": 47,
+        "text": "Keep only the feeling",
+        "oldStart": 509.968,
+        "newStart": 512.4722199546485,
+        "newEnd": 514.0332199546485,
+        "voiceCorrelation": 0.9987669241049949,
+        "voiceGain": 1.6284733667084925,
+        "sourceOffset": 329.19921995464847,
+        "replacedWindow": [
+          509.7680045351474,
+          514.4109977324263
+        ],
+        "rawWindow": [
+          183.19299999999998,
+          184.984
+        ]
+      },
+      {
+        "phraseId": 51,
+        "text": "Just look",
+        "oldStart": 545.202,
+        "newStart": 547.7266507936507,
+        "newEnd": 548.4276507936507,
+        "voiceCorrelation": 0.9995344652062924,
+        "voiceGain": 1.6220225995286561,
+        "sourceOffset": 352.86765079365074,
+        "replacedWindow": [
+          545.0019954648526,
+          548.802993197279
+        ],
+        "rawWindow": [
+          194.779,
+          195.71
+        ]
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-600-female-ambient",
+    "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_Lina_10min15_V4.mp3",
+    "candidate": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\repaired-candidates\\Embody_Final_Lina_10min15_V4.mp3",
+    "musicGain": 0.7747594714164734,
+    "musicCorrelation": 0.9999896883964539,
+    "headroomGain": 0.9764638086791139,
+    "edits": [
+      {
+        "phraseId": 31,
+        "text": "The feeling of knowing who you are and moving accordingly",
+        "oldStart": 377.633,
+        "newStart": 386.0850476190476,
+        "newEnd": 389.4270476190476,
+        "voiceCorrelation": 0.9916881192672455,
+        "voiceGain": 2.477751584378169,
+        "sourceOffset": 267.1420476190476,
+        "replacedWindow": [
+          377.4329931972789,
+          389.7970068027211
+        ],
+        "rawWindow": [
+          118.863,
+          122.435
+        ]
+      },
+      {
+        "phraseId": 47,
+        "text": "Keep only the feeling",
+        "oldStart": 509.769,
+        "newStart": 512.4178231292516,
+        "newEnd": 513.9788231292516,
+        "voiceCorrelation": 0.9989018666568747,
+        "voiceGain": 2.4875311829691285,
+        "sourceOffset": 344.6698231292516,
+        "replacedWindow": [
+          509.5690022675737,
+          514.3509977324263
+        ],
+        "rawWindow": [
+          167.66799999999998,
+          169.459
+        ]
+      }
+    ]
+  }
+]

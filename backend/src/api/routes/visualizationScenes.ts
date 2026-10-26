@@ -3,17 +3,13 @@ import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
-import { redisClient } from '../../lib/redis';
 import { requireVisualizeAccess } from '../../services/PracticeAccessService';
 import {
   generateVisualizationSceneSuggestions,
   validateVisualizationScene,
   VISUALIZATION_SCENE_MAX_LENGTH,
 } from '../../services/VisualizationSceneService';
-import {
-  globalAiCeilingLimiter,
-  aiPlanningLimiter,
-} from '../middleware/aiRateLimit';
+import { globalAiCeilingLimiter, aiPlanningLimiter } from '../middleware/aiRateLimit';
 
 const router = Router();
 

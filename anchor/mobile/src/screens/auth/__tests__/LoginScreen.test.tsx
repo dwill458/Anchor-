@@ -1,6 +1,6 @@
 import React from 'react';
-import { Alert } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Alert, Keyboard } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { AuthService } from '@/services/AuthService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
@@ -154,5 +154,38 @@ describe('LoginScreen', () => {
       AnalyticsEvents.TRIAL_STARTED,
       expect.anything()
     );
+  });
+
+  it('collapses decorative hero when keyboard shows to keep inputs visible, and restores when hidden', () => {
+    const listeners = new Map<string, (...args: never[]) => void>();
+    jest.spyOn(Keyboard, 'addListener').mockImplementation((event, listener) => {
+      listeners.set(event, listener as (...args: never[]) => void);
+      return { remove: jest.fn() } as any;
+    });
+
+    const screen = render(
+      <LoginScreen
+        navigation={mockNavigation as never}
+        route={{ params: { initialTab: 'signin' } }}
+      />
+    );
+
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Email')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Password')).toBeTruthy();
+
+    act(() => {
+      listeners.get('keyboardDidShow')?.();
+    });
+
+    expect(screen.queryByText('Return to what matters.')).toBeNull();
+    expect(screen.getByPlaceholderText('Email')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Password')).toBeTruthy();
+
+    act(() => {
+      listeners.get('keyboardDidHide')?.();
+    });
+
+    expect(screen.getByText('Return to what matters.')).toBeTruthy();
   });
 });

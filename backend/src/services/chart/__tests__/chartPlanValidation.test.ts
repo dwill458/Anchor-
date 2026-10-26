@@ -147,4 +147,13 @@ describe('Representative planning domains with structured validation evidence', 
   it('rejects production output without planning evidence', () => {
     expect(() => validatePlanSemantics(plan([completion('A script is ready'), completion('A scene is filmed')]), constrained, { requireAnalysis: true })).toThrow(/missing_analysis/);
   });
+
+  it('checks the chosen waypoint count without imposing a complexity quota', () => {
+    const generated = evidencedPlan('A complex destination', 'Known starting point', ['First distinct state', 'Second distinct state', 'Third distinct state'], 'Contact one current user this week');
+    generated.analysis!.routeDesign = { selectedWaypointCount: 3, complexityReason: 'A distant destination with significant dependencies.', countReason: 'Only this short next stretch is currently grounded.' };
+    generated.complexity = 'COMPLEX';
+    expect(validatePlanSemantics(generated, { ...constrained, actualStartingPoint: 'Known starting point' }, { requireAnalysis: true, requireRouteDesign: true })).toMatchObject({ complexity: 'COMPLEX' });
+    generated.analysis!.routeDesign.selectedWaypointCount = 5;
+    expect(() => validatePlanSemantics(generated, constrained, { requireAnalysis: true, requireRouteDesign: true })).toThrow(/route_design/);
+  });
 });

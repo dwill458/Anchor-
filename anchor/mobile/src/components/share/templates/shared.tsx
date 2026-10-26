@@ -95,7 +95,7 @@ export function ShareAnchorDisc({
 }
 
 /** Small glyph + ANCHOR, near the bottom edge. Never a sentence, never large. */
-export function ShareBrandMark({ width, ground = 'dark', logoTone, glow }: { width: number; ground?: 'dark' | 'light'; logoTone?: 'light' | 'dark'; glow?: string }) {
+export function ShareBrandMark({ width, ground = 'dark', logoTone, glow, opacity = 0.85 }: { width: number; ground?: 'dark' | 'light'; logoTone?: 'light' | 'dark'; glow?: string; opacity?: number }) {
   const s = width / 1080;
   const glyphHeight = 50 * s;
   const useDarkLogo = logoTone ? logoTone === 'dark' : ground === 'light';
@@ -107,7 +107,7 @@ export function ShareBrandMark({ width, ground = 'dark', logoTone, glow }: { wid
     >
       <Image
         source={useDarkLogo ? require('@/assets/home/anchor-brand-mark.png') : require('@/assets/home/anchor-brand-mark-light.png')}
-        style={{ width: glyphHeight * (134 / 174), height: glyphHeight, opacity: 0.85 }}
+        style={{ width: glyphHeight * (134 / 174), height: glyphHeight, opacity }}
         resizeMode="contain"
       />
       <Text
@@ -117,7 +117,7 @@ export function ShareBrandMark({ width, ground = 'dark', logoTone, glow }: { wid
           fontSize: 22 * s,
           letterSpacing: 9 * s,
           color: ink,
-          opacity: 0.85,
+          opacity,
           paddingLeft: 9 * s,
           ...(glow ? { textShadowColor: glow, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 * s } : null),
         }}

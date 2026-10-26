@@ -31,13 +31,14 @@ function mountPhoto() {
   const rect = { x: 0, y: 0, width: 100, height: 100, rotation: 0, zIndex: 1, frame: 0 };
   const onPress = jest.fn();
   const onOrderCommit = jest.fn();
+  const onDragActive = jest.fn();
   const shared: any = { order: { value: ['p1', 'p2'] }, slots: { value: [rect, { ...rect, x: 120 }] },
     dragging: { value: '' }, cameraScale: { value: 1 }, layoutVersion: { value: 0 } };
   const onCaptionEdit = jest.fn();
   const view = render(<VisionBoardPhoto sceneId="p1" imageUrl={null} accessibilityLabel="Photo" initialRect={rect}
     entering={false} exiting={false} shared={shared} reduceMotion interactive dragEnabled
-    onPress={onPress} onCaptionEdit={onCaptionEdit} onOrderCommit={onOrderCommit} />);
-  return { onPress, onCaptionEdit, onOrderCommit, shared, view };
+    onPress={onPress} onCaptionEdit={onCaptionEdit} onOrderCommit={onOrderCommit} onDragActive={onDragActive} />);
+  return { onPress, onCaptionEdit, onOrderCommit, onDragActive, shared, view };
 }
 
 it('keeps a held photo draggable and commits its new slot without opening actions', () => {
@@ -56,6 +57,51 @@ it('keeps a held photo draggable and commits its new slot without opening action
   expect(shared.order.value).toEqual(['p2', 'p1']);
   expect(onOrderCommit).toHaveBeenCalledWith(['p2', 'p1']);
   expect(onPress).not.toHaveBeenCalled();
+});
+
+it('restores the original slot order when native dragging is cancelled and never commits it', () => {
+  const { onPress, onOrderCommit, onDragActive, shared } = mountPhoto();
+  expect(mockGestures.pan.callbacks.activateAfterLongPress).toBe(320);
+  act(() => {
+    mockGestures.hold.callbacks.onBegin?.();
+    mockGestures.pan.callbacks.onStart();
+    mockGestures.pan.callbacks.onUpdate({ translationX: 120, translationY: 0 });
+  });
+  expect(shared.order.value).toEqual(['p2', 'p1']);
+  expect(shared.dragging.value).toBe('p1');
+  expect(onDragActive).toHaveBeenLastCalledWith(true);
+  act(() => {
+    mockGestures.pan.callbacks.onFinalize({}, false);
+    mockGestures.hold.callbacks.onEnd?.({}, false);
+  });
+  expect(shared.order.value).toEqual(['p1', 'p2']);
+  expect(shared.dragging.value).toBe('');
+  expect(onDragActive).toHaveBeenLastCalledWith(false);
+  expect(onOrderCommit).not.toHaveBeenCalled();
+  expect(onPress).not.toHaveBeenCalled();
+});
+
+it.each([true, false])('does not commit stale drag order or undo a newer layout when an interrupted gesture finishes with success=%s', success => {
+  const { onOrderCommit, onDragActive, shared } = mountPhoto();
+  act(() => {
+    mockGestures.pan.callbacks.onStart();
+    mockGestures.pan.callbacks.onUpdate({ translationX: 120, translationY: 0 });
+  });
+  expect(shared.order.value).toEqual(['p2', 'p1']);
+  // The new layout owns its canonical geometry and order while the old finger
+  // gesture is still finishing. Neither release nor cancellation may replace it.
+  const newOrder = ['p2', 'p1'];
+  act(() => {
+    shared.layoutVersion.value += 1;
+    shared.order.value = [...newOrder];
+    shared.slots.value = shared.slots.value.map((slot: Record<string, number>) => ({ ...slot, y: 200 }));
+    mockGestures.pan.callbacks.onUpdate({ translationX: 0, translationY: 200 });
+    mockGestures.pan.callbacks.onFinalize({}, success);
+  });
+  expect(shared.order.value).toEqual(newOrder);
+  expect(shared.dragging.value).toBe('');
+  expect(onDragActive).toHaveBeenLastCalledWith(false);
+  expect(onOrderCommit).not.toHaveBeenCalled();
 });
 
 it('opens actions only when a stationary hold is released successfully', () => {

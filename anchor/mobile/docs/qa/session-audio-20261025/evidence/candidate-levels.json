@@ -1,0 +1,32 @@
+[
+  {
+    "file": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\repaired-candidates\\Embody_Final_10min15_V4.mp3",
+    "sha256": "86c4c59f6a107e354dceaef3b4cbb6ee7dc5d5c28aadf0de1fe0ecf29f52b540",
+    "duration": 615,
+    "input_i": "-16.48",
+    "input_tp": "-1.15",
+    "input_lra": "4.00",
+    "input_thresh": "-26.59",
+    "output_i": "-15.49",
+    "output_tp": "-1.50",
+    "output_lra": "3.90",
+    "output_thresh": "-25.59",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.51"
+  },
+  {
+    "file": "C:\\Users\\dwill\\AppData\\Local\\Temp\\anchor-session-audio-qa-20261025\\repaired-candidates\\Embody_Final_Lina_10min15_V4.mp3",
+    "sha256": "6ae2574b29431b83e9cf883c57491b00b2a9ce2a2688cbcb05dcaa2777b12d3d",
+    "duration": 615,
+    "input_i": "-16.74",
+    "input_tp": "-1.15",
+    "input_lra": "5.00",
+    "input_thresh": "-26.86",
+    "output_i": "-15.33",
+    "output_tp": "-1.50",
+    "output_lra": "3.90",
+    "output_thresh": "-25.43",
+    "normalization_type": "dynamic",
+    "target_offset": "-0.67"
+  }
+]

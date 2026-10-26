@@ -27,7 +27,7 @@ import { useAnchorExportActions, useV2AnchorDetail } from '@/hooks/v2/anchors';
 import { useV2Vision } from '@/hooks/v2/vision';
 import { resolveAnchorChartState, type HomeChartState } from '@/adapters/v2/home/chartAdapter';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
-import { resolveEvolutionStage } from '@/adapters/v2/progress/progressAdapter';
+import { getThreadStrengthLevel } from '@/constants/v2/threadEvents';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
 import { isV2RecommendationContextFresh, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/practice';
@@ -269,7 +269,7 @@ function ThreadRow({
   const accent = getCategoryColor(category);
   const isEstablished = value !== null && typeof value === 'number' && Number.isFinite(value);
   const numeric = isEstablished ? Math.min(100, Math.max(0, Math.round(value))) : 0;
-  const level = isEstablished ? resolveEvolutionStage(numeric).toUpperCase() : 'NOT ESTABLISHED';
+  const level = isEstablished ? getThreadStrengthLevel(numeric).toUpperCase() : 'NOT ESTABLISHED';
   const deltaPhrase = typeof delta === 'number' && delta !== 0 ? `, ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)} percent this week` : '';
   const label = `Thread Strength ${!isEstablished ? 'not established' : `${numeric} percent, ${level.toLowerCase()}`}${deltaPhrase}. Open progress.`;
 

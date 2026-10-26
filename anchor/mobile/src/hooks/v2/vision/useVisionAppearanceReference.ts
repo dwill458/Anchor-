@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAuthStore } from '@/stores/authStore';
+import type { UserSettings } from '@/types';
 import { visionApiData } from './visionApi';
 
 export type VisionAppearanceReference = {
@@ -48,7 +49,9 @@ let lastFetchTime = 0;
 
 /** Explicit, private appearance-reference state for the Vision creation flow. */
 export function useVisionAppearanceReference() {
-  const profilePhoto = useProfileStore(state => state.photo);
+  const storePhoto = useProfileStore(state => state.photo);
+  const authPhoto = useAuthStore(state => state.user?.profilePictureUrl ?? state.profileData?.user.profilePictureUrl ?? null);
+  const profilePhoto = storePhoto || authPhoto;
   const storedPreference = useAuthStore(state => Boolean(state.profileData?.user.settings?.useProfilePhotoForVision));
   const [reference, setReference] = useState<VisionAppearanceReference | null>(cachedReference);
   const [loading, setLoading] = useState(cachedReference === null);
@@ -81,12 +84,21 @@ export function useVisionAppearanceReference() {
   const upload = useCallback(async (uri: string, source: 'PROFILE' | 'CUSTOM', pickedMimeType?: string | null, onError?: (message: string) => void): Promise<VisionAppearanceReference | null> => {
     setSaving(true);
     setLastError(null);
+    let localUri = uri;
+    let tempDownloadUri: string | null = null;
     try {
-      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const mimeType = referenceMimeType(uri, pickedMimeType);
-      traceReference('selected', { source, approxKb: Math.round(base64.length * 0.75 / 1024), mimeType });
+      if (uri.startsWith('http://') || uri.startsWith('https://')) {
+        const tempPath = `${FileSystem.cacheDirectory ?? ''}profile-ref-${Date.now()}.jpg`;
+        const downloadRes = await FileSystem.downloadAsync(uri, tempPath);
+        localUri = downloadRes.uri;
+        tempDownloadUri = downloadRes.uri;
+      }
+      const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+      const cleanBase64 = base64.replace(/\s+/g, '');
+      const mimeType = referenceMimeType(localUri, pickedMimeType);
+      traceReference('selected', { source, approxKb: Math.round(cleanBase64.length * 0.75 / 1024), mimeType });
       const response = await apiClient.post<VisionAppearanceReference>('/api/v2/vision/appearance-reference', {
-        base64Image: `data:${mimeType};base64,${base64}`, mimeType, source,
+        base64Image: `data:${mimeType};base64,${cleanBase64}`, mimeType, source,
         ...(source === 'PROFILE' ? { profileFingerprint: fingerprint(uri) } : {}),
       });
       const next = visionApiData<VisionAppearanceReference>(response);
@@ -101,7 +113,12 @@ export function useVisionAppearanceReference() {
       setLastError(message);
       onError?.(message);
       return null;
-    } finally { setSaving(false); }
+    } finally {
+      if (tempDownloadUri) {
+        await FileSystem.deleteAsync(tempDownloadUri, { idempotent: true }).catch(() => {});
+      }
+      setSaving(false);
+    }
   }, []);
 
   const remove = useCallback(async () => {
@@ -114,21 +131,62 @@ export function useVisionAppearanceReference() {
     } catch { return false; }
   }, [reference]);
 
-  const setProfilePreference = useCallback(async (value: boolean) => {
-    if (!profilePhoto && value) return false;
+  const setProfilePreference = useCallback(async (value: boolean, customPhotoUri?: string | null, onError?: (message: string) => void) => {
+    const targetPhoto = customPhotoUri ?? profilePhoto;
+    if (!targetPhoto && value) {
+      const message = 'Add a profile photo first to turn this on.';
+      setLastError(message);
+      onError?.(message);
+      return false;
+    }
     try {
       await apiClient.put('/api/auth/settings', { useProfilePhotoForVision: value });
+      const auth = useAuthStore.getState();
+      if (auth.profileData?.user) {
+        useAuthStore.setState({
+          profileData: {
+            ...auth.profileData,
+            user: {
+              ...auth.profileData.user,
+              settings: {
+                ...auth.profileData.user.settings,
+                useProfilePhotoForVision: value,
+              } as UserSettings,
+            },
+          },
+        });
+      }
+      if (auth.user) {
+        useAuthStore.setState({
+          user: {
+            ...auth.user,
+            settings: {
+              ...auth.user.settings,
+              useProfilePhotoForVision: value,
+            } as UserSettings,
+          },
+        });
+      }
       // Every opt-in sends the current profile file through the private
       // reference path. This makes a profile-photo change require renewed
       // consent instead of silently retaining a likeness from an old photo.
-      if (value && profilePhoto) {
-        const saved = Boolean(await upload(profilePhoto, 'PROFILE'));
+      if (value && targetPhoto) {
+        let uploadError: string | null = null;
+        const saved = Boolean(await upload(targetPhoto, 'PROFILE', null, msg => { uploadError = msg; }));
         setEnabledByPreference(saved);
+        if (!saved && uploadError) {
+          onError?.(uploadError);
+        }
         return saved;
       }
       setEnabledByPreference(value);
       return true;
-    } catch { return false; }
+    } catch (cause) {
+      const message = referenceFailureMessage(cause);
+      setLastError(message);
+      onError?.(message);
+      return false;
+    }
   }, [profilePhoto, upload]);
 
   return useMemo(() => ({ profilePhoto, enabledByPreference, reference, loading, saving, lastError, upload, remove, setProfilePreference }),

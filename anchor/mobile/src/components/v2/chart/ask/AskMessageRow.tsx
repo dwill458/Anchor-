@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback, useRef } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
@@ -6,8 +6,10 @@ import { colors, radii, spacing } from '@/theme/v2';
 import { chartTypography as typography } from '../chartTypography';
 import type { ChartAnchorArt } from '../ChartLandscape';
 import type { AskUiMessage } from '@/hooks/v2/chart/askChartState';
-import { AskAnchorAvatar, AskThinkingAvatar } from './AskAnchorAvatar';
-import type { AskAccent } from './askChartTheme';
+import { AskAnchorAvatar, AskSpeakingAvatar } from './AskAnchorAvatar';
+import { ASK_TOKENS, type AskAccent } from './askChartTheme';
+import { askReveal, useRevealing } from './askReveal';
+import { AskRevealText } from './AskRevealText';
 
 const COPY = CHART_COPY.ask;
 const AVATAR = 34;
@@ -47,17 +49,13 @@ export const AskMessageRow = memo(function AskMessageRow({ item, accent, art, ca
     return (
       <View style={styles.assistantRow} testID="ask-draft">
         <View style={styles.avatarSlot}>
-          {item.thinking ? (
-            <AskThinkingAvatar art={art} category={category} accent={accent} size={AVATAR} reducedMotion={reducedMotion} testID="ask-thinking" />
-          ) : (
-            <AskAnchorAvatar art={art} category={category} accent={accent} size={AVATAR} />
-          )}
+          <AskSpeakingAvatar art={art} category={category} accent={accent} size={AVATAR} reducedMotion={reducedMotion} active testID="ask-thinking" />
         </View>
         {item.thinking ? (
           <View style={styles.flexShrink} />
         ) : (
           <View style={[styles.assistantBubble, styles.flexShrink]}>
-            <Text style={styles.assistantText}>{item.text}</Text>
+            <AskRevealText revealKey={item.key} text={item.text} style={styles.assistantText} animate={!reducedMotion} final={false} />
           </View>
         )}
       </View>
@@ -69,7 +67,7 @@ export const AskMessageRow = memo(function AskMessageRow({ item, accent, art, ca
     const failed = message.status === 'failed';
     return (
       <Animated.View entering={entering} style={styles.userRow} testID={`ask-user-${message.key}`}>
-        <View style={[styles.userBubble, { backgroundColor: accent.wash }, message.status === 'queued' && styles.queued]}>
+        <View style={[styles.userBubble, message.status === 'queued' && styles.queued]}>
           {message.previewUris?.length ? (
             <View style={styles.photos}>
               {message.previewUris.map(uri => <Image key={uri} source={{ uri }} style={styles.photo} accessibilityLabel="Photo you sent" accessibilityIgnoresInvertColors />)}
@@ -91,15 +89,33 @@ export const AskMessageRow = memo(function AskMessageRow({ item, accent, art, ca
     );
   }
 
+  return <AssistantRow message={message} entering={entering} accent={accent} art={art} category={category} reducedMotion={reducedMotion} renderExtra={renderExtra} />;
+});
+
+type AssistantProps = Pick<Props, 'accent' | 'art' | 'category' | 'reducedMotion' | 'renderExtra'> & {
+  message: AskUiMessage;
+  entering: ReturnType<typeof enteringFor>;
+};
+
+/** The Anchor's message: its glow lasts exactly as long as its words are still arriving. */
+const AssistantRow = memo(function AssistantRow({ message, entering, accent, art, category, reducedMotion, renderExtra }: AssistantProps) {
+  const revealing = useRevealing(message.key);
+  const animate = message.animate && !reducedMotion;
+  const speaking = revealing || (animate && !askReveal.isDone(message.key));
+  const skipRef = useRef<(() => void) | null>(null);
+  const registerSkip = useCallback((skip: (() => void) | null) => {
+    skipRef.current = skip;
+  }, []);
+  const skipReveal = useCallback(() => skipRef.current?.(), []);
   return (
     <Animated.View entering={entering} style={styles.assistantRow} testID={`ask-assistant-${message.key}`}>
       <View style={styles.avatarSlot}>
-        <AskAnchorAvatar art={art} category={category} accent={accent} size={AVATAR} />
+        <AskSpeakingAvatar art={art} category={category} accent={accent} size={AVATAR} reducedMotion={reducedMotion} active={speaking} />
       </View>
       <View style={styles.flexShrink}>
-        <View style={styles.assistantBubble}>
-          <Text style={styles.assistantText} selectable>{message.text}</Text>
-        </View>
+        <Pressable onPress={skipReveal} disabled={!speaking} accessible={false} style={[styles.assistantBubble, { borderColor: accent.border }]} testID={`ask-bubble-${message.key}`}>
+          <AskRevealText revealKey={message.key} text={message.text} style={styles.assistantText} animate={animate} final registerSkip={registerSkip} />
+        </Pressable>
         {renderExtra?.(message)}
       </View>
     </Animated.View>
@@ -113,21 +129,22 @@ const styles = StyleSheet.create({
   assistantBubble: {
     alignSelf: 'flex-start',
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    borderRadius: radii.lg,
-    borderTopLeftRadius: 6,
-    backgroundColor: colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.subtle,
+    paddingTop: 14,
+    paddingBottom: 15,
+    borderRadius: 26,
+    borderTopLeftRadius: 8,
+    backgroundColor: ASK_TOKENS.ivory,
+    borderWidth: 1,
+    ...ASK_TOKENS.shadow,
   },
-  assistantText: { ...typography.bodyLG, color: colors.text.primary },
+  assistantText: { ...typography.bodyLG, fontSize: 16, lineHeight: 24, color: ASK_TOKENS.ink },
   userRow: { alignItems: 'flex-end', paddingLeft: spacing[8] },
-  userBubble: { paddingHorizontal: spacing[4], paddingVertical: spacing[3], borderRadius: radii.lg, borderBottomRightRadius: 6, gap: 4 },
+  userBubble: { paddingHorizontal: spacing[4], paddingVertical: 12, borderRadius: 26, borderBottomRightRadius: 8, gap: 4, backgroundColor: ASK_TOKENS.navy, ...ASK_TOKENS.shadow },
   queued: { opacity: 0.72 },
-  userText: { ...typography.bodyLG, color: colors.text.primary },
+  userText: { ...typography.bodyLG, fontSize: 16, lineHeight: 23, color: ASK_TOKENS.onNavy },
   photos: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], justifyContent: 'flex-end' },
   photo: { width: 112, height: 112, borderRadius: radii.md },
-  attachmentNote: { ...typography.labelSM, color: colors.text.secondary },
+  attachmentNote: { ...typography.labelSM, color: ASK_TOKENS.onNavy },
   failedRow: { flexDirection: 'row', gap: spacing[2], paddingTop: spacing[1], minHeight: 32, alignItems: 'center' },
   failedText: { ...typography.bodySM, color: colors.semantic.error },
   retryText: { ...typography.labelMD, textDecorationLine: 'underline' },

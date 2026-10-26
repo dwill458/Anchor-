@@ -43,7 +43,10 @@ function ScopedEntry({ anchorId, onResume, ...props }: Props) {
     onDraftChange={saveDraft} onSubmit={request => {
       saveDraft(request);
       const next = returningToDraft.current && conversation.session ? { ...request, sessionId: conversation.session.id } : request;
-      // Persist the request before the ceremony's separate hook hydrates it.
-      void conversation.flushDraft().catch(() => undefined).then(() => props.onSubmit(next));
+      // Enter generation in the same interaction as dismissing the sheet. The
+      // new ceremony receives the full request directly; local/server draft
+      // persistence can finish without exposing the board between screens.
+      props.onSubmit(next);
+      void conversation.flushDraft().catch(() => undefined);
     }} />;
 }

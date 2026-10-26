@@ -61,9 +61,14 @@ jest.mock('@/stores/settingsStore', () => {
   return { useSettingsStore };
 });
 
-jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: { getState: () => ({ addAnchor: jest.fn(), getAnchorById: jest.fn() }) },
-}));
+jest.mock('@/stores/anchorStore', () => {
+  const state = { anchors: [], addAnchor: jest.fn(), getAnchorById: jest.fn() };
+  const useAnchorStore = Object.assign(
+    (selector: (value: typeof state) => unknown) => selector(state),
+    { getState: () => state },
+  );
+  return { useAnchorStore };
+});
 
 jest.mock('@/screens/v2/home', () => {
   const { Text: RNText } = require('react-native');

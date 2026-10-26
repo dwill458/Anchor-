@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View, type ScrollViewInstance } from 'react-native';
 import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
@@ -17,6 +17,9 @@ import { createSingleFlight } from './visionSingleFlight';
 
 export const ADD_SCENE_MIN_CHARS = 6;
 export const ADD_SCENE_MAX_CHARS = 2000;
+const MAX_BOARD_REFERENCE_PHOTOS = 2;
+/** Stable identity: an inline `= []` default is a new array each render and re-fires every effect that depends on it. */
+const NO_BOARD_PHOTOS: VisionReferenceAttachment[] = [];
 
 export type AddSceneRequest = { description: string; photo: VisionStartPhoto | null; references?: VisionReferenceAttachment[]; sessionId?: string };
 
@@ -38,6 +41,8 @@ type Props = {
   onDraftChange?: (request: AddSceneRequest) => void;
   /** False at the board's image limit: the composer is replaced by a short explanation. */
   canAddImage?: boolean;
+  /** Existing private board photos that can guide the next generated scene. */
+  boardReferencePhotos?: VisionReferenceAttachment[];
   testID?: string;
 };
 
@@ -47,7 +52,7 @@ type Props = {
  * board underneath is never remounted; submitting hands a prepared request to the existing generation
  * experience. A draft survives closing the sheet and clears once a request is sent.
  */
-export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, restoreDraft = null, onDraftRestored, onDraftChange, canAddImage = true, testID = 'vision-add-scene-sheet' }: Props) {
+export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, restoreDraft = null, onDraftRestored, onDraftChange, canAddImage = true, boardReferencePhotos = NO_BOARD_PHOTOS, testID = 'vision-add-scene-sheet' }: Props) {
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
@@ -55,7 +60,10 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
   const latestText = useRef(text);
   latestText.current = text;
   const [photo, setPhoto] = useState<VisionStartPhoto | null>(null);
-  const [references, setReferences] = useState<VisionReferenceAttachment[]>([]);
+  const boardReferenceIds = useMemo(() => new Set(boardReferencePhotos.map(reference => reference.assetId).filter(Boolean)), [boardReferencePhotos]);
+  const initialBoardReferences = useMemo(() => boardReferencePhotos.filter(reference => reference.assetId).slice(0, MAX_BOARD_REFERENCE_PHOTOS), [boardReferencePhotos]);
+  const [references, setReferences] = useState<VisionReferenceAttachment[]>(initialBoardReferences);
+  const [useBoardPhotos, setUseBoardPhotos] = useState(initialBoardReferences.length > 0);
   const [notice, setNotice] = useState<string | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -90,6 +98,7 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
         ? [{ id: `legacy-reference-${Date.now()}`, ...restoreDraft.photo, role: 'inspiration' as const }]
         : [];
     setReferences(restoredReferences);
+    setUseBoardPhotos(restoredReferences.some(reference => reference.assetId && boardReferenceIds.has(reference.assetId)));
     setPhoto(restoredReferences.length ? null : restoreDraft.photo);
     onDraftChange?.({
       description: restoreDraft.description,
@@ -97,7 +106,7 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
       ...(restoredReferences.length ? { references: restoredReferences } : {}),
     });
     onDraftRestored?.();
-  }, [restoreDraft, onDraftRestored, onDraftChange]);
+  }, [restoreDraft, onDraftRestored, onDraftChange, boardReferenceIds]);
 
   const trimmed = text.trim();
   const hasReference = photo !== null || references.length > 0;
@@ -112,10 +121,23 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
 
   const updateReferences = useCallback((nextReferences: VisionReferenceAttachment[]) => {
     setReferences(nextReferences);
+    setUseBoardPhotos(nextReferences.some(reference => reference.assetId && boardReferenceIds.has(reference.assetId)));
     setPhoto(null);
     setNotice(null);
     onDraftChange?.({ description: latestText.current, photo: null, ...(nextReferences.length ? { references: nextReferences } : {}) });
-  }, [onDraftChange]);
+  }, [boardReferenceIds, onDraftChange]);
+
+  const toggleBoardPhotos = (enabled: boolean) => {
+    setUseBoardPhotos(enabled);
+    const boardRefs = boardReferencePhotos.filter(reference => reference.assetId).slice(0, MAX_BOARD_REFERENCE_PHOTOS);
+    const manualRefs = references.filter(reference => !reference.assetId || !boardReferenceIds.has(reference.assetId));
+    const nextReferences = enabled
+      ? [...boardRefs, ...manualRefs].slice(0, 5)
+      : manualRefs;
+    setReferences(nextReferences);
+    setPhoto(null);
+    onDraftChange?.({ description: latestText.current, photo: null, ...(nextReferences.length ? { references: nextReferences } : {}) });
+  };
 
   // The keyboard's height rides on the UI thread, so the sheet lifts with it frame by frame on iOS and Android.
   // flexShrink lets the sheet yield to the modal's height cap, so its scrolling body gives way instead of the fixed actions row running off-screen.
@@ -130,7 +152,7 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
       fieldRef.current?.stopDictation();
       Keyboard.dismiss();
       const request = draftRequest(trimmed);
-      setText(''); setPhoto(null); setReferences([]); setNotice(null); setShowSuggestions(false);
+      setText(''); setPhoto(null); setReferences(initialBoardReferences); setUseBoardPhotos(initialBoardReferences.length > 0); setNotice(null); setShowSuggestions(false);
       onClose();
       onSubmit(request);
     });
@@ -169,6 +191,17 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
           <VisionReferenceStrip references={references} onChange={updateReferences} onNotice={setNotice}
             collapsed={keyboardOpen} compact={keyboardOpen} testID="vision-add-scene-reference" />
+          {boardReferencePhotos.length > 0 ? (
+            <View style={styles.boardReferenceToggle}>
+              <View style={styles.boardReferenceCopy}>
+                <Text style={styles.boardReferenceTitle}>Use up to two photos from this board</Text>
+                <Text style={styles.boardReferenceHint}>Guide the new images with your existing vision</Text>
+              </View>
+              <Switch testID="vision-add-scene-board-reference-toggle" value={useBoardPhotos} onValueChange={toggleBoardPhotos}
+                accessibilityLabel="Use photos from this Vision board as references"
+                trackColor={{ false: colors.border.default, true: colors.paywall.gold }} thumbColor={colors.canvas} />
+            </View>
+          ) : null}
           <View onLayout={event => { fieldY.current = event.nativeEvent.layout.y; }}>
           <VisionSceneField
             handleRef={fieldRef}
@@ -235,6 +268,10 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 99, backgroundColor: colors.border.default, marginBottom: 14 },
   title: { fontFamily: VISION_SERIF, fontSize: 26, lineHeight: 31, color: colors.text.primary, textAlign: 'center' },
   body: { gap: spacing[3], paddingBottom: spacing[3] },
+  boardReferenceToggle: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[3], paddingHorizontal: spacing[3], borderRadius: radii.md, backgroundColor: colors.grouped },
+  boardReferenceCopy: { flex: 1, gap: 2 },
+  boardReferenceTitle: { ...typography.bodySM, color: colors.text.primary },
+  boardReferenceHint: { ...typography.caption, color: colors.text.secondary },
   suggestions: { gap: spacing[1] },
   suggestionToggle: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   suggestionToggleText: { ...typography.bodySM, color: colors.text.secondary, textDecorationLine: 'underline' },

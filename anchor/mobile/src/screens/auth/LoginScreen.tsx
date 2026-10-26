@@ -6,11 +6,12 @@
  * two-world layout as V2AuthScreen, so every sign-in entry point reads as one product.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,6 +19,8 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type ScrollViewInstance,
+  type TextInputInstance,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -93,9 +96,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const reduceMotion = useReduceMotionEnabled();
+
+  const emailInputRef = useRef<TextInputInstance>(null);
+  const passwordInputRef = useRef<TextInputInstance>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const willShowSub = Platform.OS === 'ios'
+      ? Keyboard.addListener('keyboardWillShow', () => setIsKeyboardVisible(true))
+      : null;
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    const willHideSub = Platform.OS === 'ios'
+      ? Keyboard.addListener('keyboardWillHide', () => setIsKeyboardVisible(false))
+      : null;
+
+    return () => {
+      showSub.remove();
+      willShowSub?.remove();
+      hideSub.remove();
+      willHideSub?.remove();
+    };
+  }, []);
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
@@ -485,6 +511,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       showToggle?: boolean;
       shown?: boolean;
       onToggle?: () => void;
+      inputRef?: React.Ref<TextInputInstance>;
+      returnKeyType?: 'next' | 'done' | 'go';
+      onSubmitEditing?: () => void;
+      blurOnSubmit?: boolean;
+      textContentType?: any;
     }
   ) => {
     const isFocused = focusedField === key;
@@ -493,6 +524,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       <View style={[styles.field, isFocused ? styles.fieldFocused : null]}>
         <View style={styles.fieldIcon}>{icon}</View>
         <TextInput
+          ref={options?.inputRef}
           style={styles.fieldInput}
           value={value}
           onChangeText={(nextValue) => {
@@ -505,8 +537,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
           autoCapitalize={options?.autoCapitalize ?? 'none'}
           keyboardType={options?.keyboardType ?? 'default'}
           autoComplete={options?.autoComplete}
+          textContentType={options?.textContentType}
           secureTextEntry={options?.secureTextEntry ? !options?.shown : false}
-          onFocus={() => setFocusedField(key)}
+          returnKeyType={options?.returnKeyType}
+          onSubmitEditing={options?.onSubmitEditing}
+          blurOnSubmit={options?.blurOnSubmit}
+          onFocus={() => {
+            setFocusedField(key);
+            if (key === 'password') {
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 120);
+            }
+          }}
           onBlur={() => setFocusedField(null)}
         />
         {options?.showToggle ? (
@@ -534,18 +577,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     <View style={styles.root}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoid}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          ref={scrollViewRef}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isKeyboardVisible && styles.scrollContentKeyboard,
+          ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
           {/* UPPER WORLD: cream paper, the sigil, and the valley the ink panel rises out of. */}
-          <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
+          <View style={[styles.hero, { paddingTop: insets.top + 8 }, isKeyboardVisible && styles.heroKeyboard]}>
             <View style={styles.topRow}>
               <Pressable
                 onPress={() => switchTab(isSignIn ? 'signup' : 'signin')}
@@ -559,50 +606,60 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
               </Pressable>
             </View>
 
-            <Animated.View
-              entering={reduceMotion ? undefined : FadeInDown.duration(520)}
-              style={[styles.brandBlock, isCompact && styles.brandBlockCompact]}
-            >
-              <View style={styles.markFrame}>
-                <Animated.View style={[styles.markGlow, glowStyle]} pointerEvents="none">
-                  <Svg width={GLOW_SIZE} height={GLOW_SIZE}>
-                    <Defs>
-                      {/* rx/ry are explicit: Android ignores `r` alone on a radial gradient. */}
-                      <RadialGradient id="loginStarGlow" cx="50%" cy="50%" rx="50%" ry="50%" r="50%">
-                        <Stop offset="0" stopColor="#E2BC6B" stopOpacity={0.6} />
-                        <Stop offset="0.45" stopColor="#E2BC6B" stopOpacity={0.18} />
-                        <Stop offset="1" stopColor="#E2BC6B" stopOpacity={0} />
-                      </RadialGradient>
-                    </Defs>
-                    <Rect width={GLOW_SIZE} height={GLOW_SIZE} fill="url(#loginStarGlow)" />
-                  </Svg>
+            {!isKeyboardVisible ? (
+              <>
+                <Animated.View
+                  entering={reduceMotion ? undefined : FadeInDown.duration(520)}
+                  style={[styles.brandBlock, isCompact && styles.brandBlockCompact]}
+                >
+                  <View style={styles.markFrame}>
+                    <Animated.View style={[styles.markGlow, glowStyle]} pointerEvents="none">
+                      <Svg width={GLOW_SIZE} height={GLOW_SIZE}>
+                        <Defs>
+                          {/* rx/ry are explicit: Android ignores `r` alone on a radial gradient. */}
+                          <RadialGradient id="loginStarGlow" cx="50%" cy="50%" rx="50%" ry="50%" r="50%">
+                            <Stop offset="0" stopColor="#E2BC6B" stopOpacity={0.6} />
+                            <Stop offset="0.45" stopColor="#E2BC6B" stopOpacity={0.18} />
+                            <Stop offset="1" stopColor="#E2BC6B" stopOpacity={0} />
+                          </RadialGradient>
+                        </Defs>
+                        <Rect width={GLOW_SIZE} height={GLOW_SIZE} fill="url(#loginStarGlow)" />
+                      </Svg>
+                    </Animated.View>
+                    <Image
+                      source={BRAND_MARK}
+                      style={styles.mark}
+                      resizeMode="contain"
+                      accessible
+                      accessibilityLabel="Anchor"
+                    />
+                  </View>
+                  <Text style={styles.wordmark}>ANCHOR</Text>
+                  <Text style={styles.descriptor}>VISUAL GOAL SETTING</Text>
+                  <View style={styles.editorialDivider} />
+                  <Text style={styles.editorialCopy}>
+                    {isSignIn ? 'Return to what matters.' : 'A stronger tomorrow\nstarts with what you create today.'}
+                  </Text>
                 </Animated.View>
-                <Image
-                  source={BRAND_MARK}
-                  style={styles.mark}
-                  resizeMode="contain"
-                  accessible
-                  accessibilityLabel="Anchor"
-                />
-              </View>
-              <Text style={styles.wordmark}>ANCHOR</Text>
-              <Text style={styles.descriptor}>VISUAL GOAL SETTING</Text>
-              <View style={styles.editorialDivider} />
-              <Text style={styles.editorialCopy}>
-                {isSignIn ? 'Return to what matters.' : 'A stronger tomorrow\nstarts with what you create today.'}
-              </Text>
-            </Animated.View>
 
-            <Image
-              source={LANDSCAPE}
-              resizeMode="cover"
-              style={[styles.landscape, isCompact && styles.landscapeCompact]}
-              accessibilityIgnoresInvertColors
-            />
+                <Image
+                  source={LANDSCAPE}
+                  resizeMode="cover"
+                  style={[styles.landscape, isCompact && styles.landscapeCompact]}
+                  accessibilityIgnoresInvertColors
+                />
+              </>
+            ) : null}
           </View>
 
           {/* LOWER WORLD: the ink panel holds the whole form. */}
-          <View style={[styles.inkPanel, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}>
+          <View
+            style={[
+              styles.inkPanel,
+              isKeyboardVisible && styles.inkPanelKeyboard,
+              { paddingBottom: Math.max(insets.bottom + 12, 24) },
+            ]}
+          >
             <View style={styles.segmented} accessibilityRole="tablist" accessibilityLabel="Authentication mode">
               {(['signin', 'signup'] as const).map((value) => {
                 const selected = tab === value;
@@ -631,7 +688,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                   <UserRound size={18} color={fieldIconColor} strokeWidth={1.75} />,
                   name,
                   setName,
-                  { autoCapitalize: 'words', autoComplete: 'name' }
+                  {
+                    autoCapitalize: 'words',
+                    autoComplete: 'name',
+                    returnKeyType: 'next',
+                    blurOnSubmit: false,
+                    onSubmitEditing: () => emailInputRef.current?.focus(),
+                  }
                 )
                 : null}
 
@@ -641,7 +704,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 <Mail size={18} color={fieldIconColor} strokeWidth={1.75} />,
                 email,
                 setEmail,
-                { keyboardType: 'email-address', autoComplete: 'email' }
+                {
+                  inputRef: emailInputRef,
+                  keyboardType: 'email-address',
+                  autoComplete: 'email',
+                  textContentType: 'emailAddress',
+                  returnKeyType: 'next',
+                  blurOnSubmit: false,
+                  onSubmitEditing: () => passwordInputRef.current?.focus(),
+                }
               )}
 
               {renderField(
@@ -651,11 +722,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 password,
                 setPassword,
                 {
+                  inputRef: passwordInputRef,
                   autoComplete: isSignIn ? 'current-password' : 'new-password',
+                  textContentType: isSignIn ? 'password' : 'newPassword',
                   secureTextEntry: true,
                   showToggle: true,
                   shown: showPassword,
                   onToggle: () => setShowPassword((current) => !current),
+                  returnKeyType: 'go',
+                  onSubmitEditing: handleSubmit,
                 }
               )}
             </View>
@@ -853,6 +928,15 @@ const styles = StyleSheet.create({
   },
   landscapeCompact: {
     height: 112,
+  },
+  heroKeyboard: {
+    paddingBottom: 6,
+  },
+  inkPanelKeyboard: {
+    marginTop: 0,
+  },
+  scrollContentKeyboard: {
+    paddingBottom: 32,
   },
 
   /* INK PANEL */

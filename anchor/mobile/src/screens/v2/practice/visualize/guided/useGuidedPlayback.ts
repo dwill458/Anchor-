@@ -94,6 +94,9 @@ export function useGuidedPlayback(params: {
   const beginCompletionRef = useRef(beginCompletion); beginCompletionRef.current = beginCompletion;
 
   const handleStatus = useCallback((status: AudioStatus) => {
+    // The managed player's failure callback owns source errors. A failed stream
+    // must not first become a resumable interruption of a player being removed.
+    if (status.error) return;
     if (status.playing) sawPlayingRef.current = true;
     // A status queued before a start or resume describes the old state; it must not read as an interruption.
     if (readWallClock() < ignoreStatusUntilRef.current) return;
@@ -118,7 +121,7 @@ export function useGuidedPlayback(params: {
       volume: mutedRef.current ? 0 : 1,
       onStatus: status => handleStatusRef.current(status),
       onFinish: () => { if (stateRef.current === 'running') beginCompletionRef.current(); },
-      onFailure: () => { if (stateRef.current === 'preparing' || stateRef.current === 'running') setState('failed'); },
+      onFailure: () => { if (stateRef.current === 'preparing' || stateRef.current === 'running' || stateRef.current === 'paused') setState('failed'); },
     });
     playerRef.current = player;
     if (!player) setState('failed');

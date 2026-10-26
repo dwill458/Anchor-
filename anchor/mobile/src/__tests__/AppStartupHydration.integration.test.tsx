@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useFirstRunStore } from '../stores/v2/firstRunStore';
 import { reloadCurrentApp } from '../services/reloadCurrentApp';
 import App from '../../App';
+import { REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS } from '../hooks/useRequiredLocalHydrationGuard';
 
 const mockAuthCallbacks: Array<(user: unknown) => Promise<void>> = [];
 
@@ -107,14 +108,14 @@ describe('App startup hydration recovery', () => {
     jest.useRealTimers();
   });
 
-  it('keeps the recovery surface hidden at nine seconds, then shows retry after ten while preserving local data', async () => {
+  it('shows retry at the configured hydration deadline while preserving local data', async () => {
     render(<App />);
 
     await act(async () => {
       await mockAuthCallbacks[0](null);
     });
 
-    act(() => jest.advanceTimersByTime(9000));
+    act(() => jest.advanceTimersByTime(REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS - 1000));
     expect(screen.queryByText('Unable to restore saved data')).toBeNull();
 
     act(() => jest.advanceTimersByTime(1001));
@@ -163,7 +164,7 @@ describe('App startup hydration recovery', () => {
   it('dismisses the recovery surface when a slow restore succeeds after the deadline', async () => {
     render(<App />);
     await act(async () => { await mockAuthCallbacks[0](null); });
-    act(() => jest.advanceTimersByTime(10001));
+    act(() => jest.advanceTimersByTime(REQUIRED_LOCAL_HYDRATION_TIMEOUT_MS + 1));
     expect(screen.getByText('Unable to restore saved data')).toBeTruthy();
     act(() => {
       useAnchorStore.persist.hasHydrated = () => true;

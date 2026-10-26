@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { V2ChartJourneyScreen } from '../V2ChartJourneyScreen';
 import { apiClient } from '@/services/ApiClient';
 import { chartApiClient } from '@/services/ChartApiClient';
@@ -263,29 +263,104 @@ describe('V2ChartJourneyScreen — Course log redesign', () => {
 
     const screen = render(<V2ChartJourneyScreen />);
 
-    // Check practice session appears
-    await waitFor(() => expect(screen.getByText('Focus · 5 min')).toBeTruthy());
-    expect(screen.getByText('Practice completed.')).toBeTruthy();
+    // The session shows its mode name and duration separately; there is no "Practice completed." filler.
+    await waitFor(() => expect(screen.getByText(/^Focus/)).toBeTruthy());
+    expect(screen.getByText('5 min')).toBeTruthy();
+    expect(screen.queryByText('Practice completed.')).toBeNull();
 
-    // Check move completed appears with move text
+    // Moves and waypoints stay on the thread as plain event rows, outside the session counts.
     await waitFor(() => expect(screen.getByText('Completed')).toBeTruthy());
     expect(screen.getByText('Buy new running shoes')).toBeTruthy();
-
-    // Check waypoint reached appears
     expect(screen.getByText('Reached')).toBeTruthy();
-    expect(screen.getByText('Complete 10k run')).toBeTruthy();
+    expect(screen.getAllByText('Complete 10k run').length).toBeGreaterThanOrEqual(1);
 
-    // Check course created appears with 5 waypoints copy
-    expect(screen.getByText('Course created')).toBeTruthy();
-    expect(screen.queryByText('Five waypoints plotted toward your destination.')).toBeNull();
+    // Course created is the closing "Course started" row, not a timeline item.
+    expect(screen.getByText(/^Course started /)).toBeTruthy();
+    expect(screen.queryByText('Course created')).toBeNull();
   });
 
-  it('shows synthesized Course created item in empty state', async () => {
+  it('shows the Course started row in the empty state', async () => {
     (chartApiClient.getCourseLog as jest.Mock).mockResolvedValue({ data: [] });
     useSessionStore.setState({ practiceHistory: [] });
 
     const screen = render(<V2ChartJourneyScreen />);
-    await waitFor(() => expect(screen.getByText('Course created')).toBeTruthy());
-    expect(screen.queryByText('Five waypoints plotted toward your destination.')).toBeNull();
+    await waitFor(() => expect(screen.getByText(/^Course started /)).toBeTruthy());
+    expect(screen.queryByTestId('course-log-banner')).toBeNull();
+  });
+
+  const session = (id: string, mode: string, seconds: number, completedAt: string) => ({
+    id, accountId: 'acc-1', anchorId: 'anchor-1', anchorLocalId: null, anchorServerId: null, practiceMode: mode,
+    plannedDurationSeconds: seconds, completedDurationSeconds: seconds, completionStatus: 'completed', startedAt: completedAt, completedAt,
+    localDateKey: '2026-03-03', timeZone: 'UTC', utcOffsetMinutesAtCompletion: 0, completionSource: 'practice_screen', schemaVersion: 1,
+    legacyType: null, guidanceVoice: 'female', backgroundAudio: 'silent', sceneSnapshot: null, nextAction: null, clientVersion: '1.0.0', syncState: 'synced',
+  }) as never;
+
+  it('gives each session its own mode icon tile and sums a day and the list with one duration helper', async () => {
+    (chartApiClient.getCourseLog as jest.Mock).mockResolvedValue({ data: [] });
+    useSessionStore.setState({ practiceHistory: [
+      session('s1', 'focus', 60, '2026-03-03T09:00:00.000Z'),
+      session('s2', 'visualize', 180, '2026-03-03T10:00:00.000Z'),
+      session('s3', 'focus', 30, '2026-03-04T09:00:00.000Z'),
+      session('s4', 'visualize', 180, '2026-03-04T10:00:00.000Z'),
+    ] });
+    const screen = render(<V2ChartJourneyScreen />);
+    await waitFor(() => expect(screen.getAllByTestId('course-log-row')).toHaveLength(4));
+    expect(screen.getAllByTestId('course-log-tile-focus')).toHaveLength(2);
+    expect(screen.getAllByTestId('course-log-tile-visualize')).toHaveLength(2);
+    const { getPracticeColor } = require('@/theme/v2');
+    const tile = screen.getAllByTestId('course-log-tile-visualize')[0];
+    expect(JSON.stringify(tile.props.style)).toContain(getPracticeColor('visualize'));
+    // 60s + 180s = "4 min"; 30s + 180s = "3.5 min"; list total 450s = "7.5 min".
+    expect(screen.getByText(/2 sessions · 4 min$/)).toBeTruthy();
+    expect(screen.getByText(/2 sessions · 3\.5 min$/)).toBeTruthy();
+    expect(screen.getByTestId('course-log-total').props.children).toBe('4 sessions · 7.5 min');
+    expect(screen.getByText('Sessions')).toBeTruthy();
+  });
+
+  it('keeps a failed load out of the page: a banner with Retry sits above the saved sessions, and a good retry says Up to date and goes away', async () => {
+    jest.useFakeTimers();
+    try {
+      const getLog = chartApiClient.getCourseLog as jest.Mock;
+      getLog.mockRejectedValueOnce(new Error('network'));
+      useSessionStore.setState({ practiceHistory: [session('s1', 'focus', 60, '2026-03-03T09:00:00.000Z')] });
+      const screen = render(<V2ChartJourneyScreen />);
+      await waitFor(() => expect(screen.getByTestId('course-log-banner')).toBeTruthy());
+      expect(screen.getByText("Couldn\u2019t refresh. Showing saved sessions.")).toBeTruthy();
+      expect(screen.queryByText('Check your connection and try again.')).toBeNull();
+      expect(screen.getAllByTestId('course-log-row')).toHaveLength(1);
+
+      getLog.mockResolvedValueOnce({ data: [] });
+      await act(async () => { fireEvent.press(screen.getByTestId('course-log-retry')); });
+      expect(getLog).toHaveBeenCalledTimes(2);
+      await waitFor(() => expect(screen.getByText('Up to date.')).toBeTruthy());
+      act(() => { jest.advanceTimersByTime(900); });
+      expect(screen.queryByTestId('course-log-banner')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('with no data at all the banner is the empty state and Retry is the way forward', async () => {
+    (chartApiClient.getCourseLog as jest.Mock).mockRejectedValue(new Error('network'));
+    useSessionStore.setState({ practiceHistory: [] });
+    const screen = render(<V2ChartJourneyScreen />);
+    await waitFor(() => expect(screen.getByTestId('course-log-retry')).toBeTruthy());
+    expect(screen.queryAllByTestId('course-log-row')).toHaveLength(0);
+    expect(screen.queryByText('Sessions')).toBeNull();
+  });
+
+  it('shows a reflection under its session when the record carries one, and omits the total while the list is paged', async () => {
+    (chartApiClient.getCourseLog as jest.Mock).mockResolvedValue({
+      data: [{
+        id: 'p1', eventType: 'PRACTICE_COMPLETED', message: '', waypointId: null, recordedAt: '2026-03-03T09:00:00.000Z', occurredAt: '2026-03-03T09:00:00.000Z',
+        snapshot: null, anchorLink: null, practiceSession: { id: 'ps1', practiceMode: 'visualize', completedDurationSeconds: 180 },
+        reflection: { id: 'r1', promptType: 'PRACTICE', body: 'Saw the finished paint under the garage lights.', structuredContent: null, moodAfter: null },
+      }],
+      pagination: { nextCursor: 'c2', hasMore: true },
+    });
+    const screen = render(<V2ChartJourneyScreen />);
+    await waitFor(() => expect(screen.getByTestId('course-log-note')).toBeTruthy());
+    expect(screen.getByText('Saw the finished paint under the garage lights.')).toBeTruthy();
+    expect(screen.getByTestId('course-log-total').props.children).toBe('1 session');
   });
 });

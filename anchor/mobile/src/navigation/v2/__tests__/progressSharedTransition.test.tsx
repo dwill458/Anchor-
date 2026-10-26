@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { deferAnimationCallbacks } from '@/__tests__/mocks/timedAnimationCallbacks';
 import {
   ANCHOR_TRANSITION_TIMING,
   AnchorTransitionScene,
@@ -97,6 +98,7 @@ const stateOf = (testID: string) => screen.getByTestId(`${testID}-state`, { incl
 beforeEach(() => {
   mockReduceMotion = false;
   jest.useFakeTimers();
+  deferAnimationCallbacks();
 });
 
 afterEach(() => {

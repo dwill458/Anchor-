@@ -276,10 +276,20 @@ model WeeklyInsightSnapshot {
   weekEnd     DateTime @map("week_end")
   snapshot    Json
   feedback    String?
+  // Weekly Insight 2.0. schemaVersion 1 = legacy client-authored row; 2 = server recap (see WeeklyRecapService).
+  // GLOBAL is a real scope key, because a NULL anchorId can never collide in a unique index.
+  scopeKey      String    @default("GLOBAL") @map("scope_key")
+  weekKey       String?   @map("week_key")
+  timeZone      String?   @map("time_zone")
+  schemaVersion Int       @default(1) @map("schema_version")
+  status        String    @default("FINAL")
+  finalizedAt   DateTime? @map("finalized_at")
+  provenance    String    @default("LIVE")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@unique([userId, anchorId, weekStart])
+  @@unique([userId, scopeKey, weekKey])
   @@index([userId, weekStart])
   @@map("weekly_insight_snapshots")
 }
@@ -338,7 +348,7 @@ model ThreadV2State {
   anchor          Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
   strength        Float    @default(50)
   lastCompletedAt DateTime? @map("last_completed_at")
-  ruleVersion     String   @default("legacy-v1-defaults") @map("rule_version")
+  ruleVersion     String   @default("v2.0-authoritative") @map("rule_version")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -964,6 +974,11 @@ model UserSettings {
   // unless this preference is true and the current generation opts in.
   useProfilePhotoForVision Boolean @default(false) @map("use_profile_photo_for_vision")
 
+  // Thread Strength 2.0
+  threadStrengthSensitivity String   @default("balanced") @map("thread_strength_sensitivity")
+  decayPreferencesHistory   Json?    @map("decay_preferences_history")
+  restDays                  Int[]    @default([]) @map("rest_days")
+
   updatedAt DateTime @updatedAt
 
   @@map("user_settings")
@@ -1021,6 +1036,12 @@ enum VisionSceneSource {
   USER_CAMERA
 }
 
+enum VisionBoardLayout {
+  CLASSIC
+  EDITORIAL
+  SCRAPBOOK
+}
+
 model Vision {
   id          String       @id @default(uuid())
   userId      String       @map("user_id")
@@ -1033,6 +1054,7 @@ model Vision {
   status      VisionStatus @default(ACTIVE)
   firstCommittedAt DateTime? @map("first_committed_at")
   boardCompletedAt DateTime? @map("board_completed_at")
+  boardLayout VisionBoardLayout @default(CLASSIC) @map("board_layout")
 
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
@@ -1084,6 +1106,7 @@ model VisionNote {
   userId          String   @map("user_id")
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   clientRequestId String   @map("client_request_id") @db.Uuid
+  layoutPositions Json? @map("layout_positions")
   text            String   @db.VarChar(200)
   styleId         String   @map("style_id") @db.VarChar(64)
   fontId          String?  @map("font_id") @db.VarChar(24)

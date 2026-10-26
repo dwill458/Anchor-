@@ -1,0 +1,958 @@
+{
+  "label": "adaptive-quality",
+  "generatedAt": "2026-10-23T22:05:19.901Z",
+  "providers": [
+    {
+      "name": "openai",
+      "model": "gpt-5.5"
+    },
+    {
+      "name": "gemini",
+      "model": "gemini-3.5-flash-lite"
+    }
+  ],
+  "promptHash": "bc4af3d80103066db4a207e4d1d3df1784307cfb014afc383a731746e63058f5",
+  "note": "Illustrative stated starting points; live provider calls, no user Chart writes.",
+  "results": [
+    {
+      "scenario": "simple",
+      "context": {
+        "intention": "I maintain a consistent workout routine.",
+        "category": "health",
+        "actualStartingPoint": "I exercise sporadically. I can use three 30-minute slots each week for bodyweight exercise at home.",
+        "startingContext": null,
+        "destinationDescription": "I maintain a consistent workout routine.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "openai",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-5.5",
+          "latencyMs": 30064,
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "They currently exercise sporadically and have three 30-minute slots each week available for bodyweight exercise at home.",
+              "assumptions": [
+                "The intended routine is three home bodyweight workouts per week using the stated 30-minute slots.",
+                "No equipment, gym access, coaching or extra time is assumed.",
+                "The route focuses on observable routine, energy and body-readiness changes rather than medical outcomes."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 4,
+                "complexityReason": "This is a habit-building destination with a clear weekly time resource but inconsistent current follow-through.",
+                "countReason": "The distinct achievements are a first workable week, a repeatable pattern, resilience when a week is imperfect, and a sustained self-directed rhythm."
+              },
+              "firstMilestoneEvidence": "A first full week is feasible because the person already has three 30-minute home slots available.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    1
+                  ]
+                },
+                {
+                  "waypointIndex": 3,
+                  "requires": [
+                    2
+                  ]
+                }
+              ]
+            },
+            "destination": "Maintain a consistent three-times-a-week home workout routine",
+            "complexity": "SIMPLE",
+            "waypoints": [
+              {
+                "title": "Complete one workable workout week",
+                "rationale": "This proves the routine can fit into the time and setting they already have.",
+                "type": "MILESTONE",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "One week is complete with all three available 30-minute home workout slots used.",
+                "requirements": [
+                  "Three home bodyweight sessions completed in one week",
+                  "Each session fits inside a 30-minute slot",
+                  "At least one simple full-body movement pattern is used in each session"
+                ],
+                "moves": [
+                  {
+                    "title": "Choose the three 30-minute slots for this week",
+                    "rationale": "Using the time already available turns the intention into a visible place in the week."
+                  },
+                  {
+                    "title": "Pick five bodyweight moves for the first session",
+                    "rationale": "A short list removes decision-making when the slot starts."
+                  },
+                  {
+                    "title": "Do the first 30-minute home session in the next chosen slot",
+                    "rationale": "The routine begins when one real session happens, not when the whole plan is perfect."
+                  },
+                  {
+                    "title": "Repeat the same simple session in the other two slots",
+                    "rationale": "Repetition helps the week feel manageable before adding variety."
+                  }
+                ]
+              },
+              {
+                "title": "Make the week pattern repeatable",
+                "rationale": "Consistency becomes easier when the routine feels familiar instead of improvised each time.",
+                "type": "CAPABILITY",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Two consecutive weeks show the same workout pattern can be repeated without restarting from scratch.",
+                "requirements": [
+                  "Three home sessions completed in each of two consecutive weeks",
+                  "The same weekly slots are used when possible",
+                  "A familiar session structure is used without rebuilding the workout each time",
+                  "The person can name how their body or energy feels after sessions"
+                ],
+                "moves": [
+                  {
+                    "title": "Reuse the same three slots for the second week",
+                    "rationale": "Keeping the timing stable makes the routine easier to recognize."
+                  },
+                  {
+                    "title": "Keep the same workout structure and adjust only one movement if needed",
+                    "rationale": "Small adjustment protects repeatability while avoiding boredom or strain."
+                  },
+                  {
+                    "title": "After each session, note one word about energy or body feel",
+                    "rationale": "Noticing the effect helps connect the routine to lived experience."
+                  },
+                  {
+                    "title": "At week’s end, keep what worked and remove one friction point",
+                    "rationale": "A repeatable routine improves by reducing obstacles, not by adding complexity."
+                  }
+                ]
+              },
+              {
+                "title": "Recover the routine during an imperfect week",
+                "rationale": "A consistent routine needs a way to continue when a slot is missed, delayed or low-energy.",
+                "type": "CAPABILITY",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "One imperfect week is handled without abandoning the workout routine.",
+                "requirements": [
+                  "A missed, delayed or low-energy slot is met with a specific adjustment",
+                  "The next workout happens instead of waiting for a fresh start",
+                  "At least one session uses a reduced version when needed",
+                  "The week still contains visible movement rather than becoming a skipped week"
+                ],
+                "moves": [
+                  {
+                    "title": "Decide the smallest acceptable version of a 30-minute session",
+                    "rationale": "A reduced version gives the routine a way to survive low-energy days."
+                  },
+                  {
+                    "title": "If a planned slot is missed, choose the next available home slot that week",
+                    "rationale": "Rescheduling quickly prevents one miss from becoming a full stop."
+                  },
+                  {
+                    "title": "Use the reduced version once instead of skipping when energy is low",
+                    "rationale": "Maintaining the thread matters more than making every session ideal."
+                  },
+                  {
+                    "title": "Return to the normal 30-minute session at the next planned slot",
+                    "rationale": "The routine becomes resilient when it can bend and then resume."
+                  }
+                ]
+              },
+              {
+                "title": "Sustain the routine without restarting",
+                "rationale": "The destination is reached when workouts are part of normal life rather than a short push.",
+                "type": "CAPABILITY",
+                "metricType": "checklist",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "The home workout routine holds for a month with self-directed planning and recovery from small interruptions.",
+                "requirements": [
+                  "Four consecutive weeks include regular home bodyweight workouts",
+                  "The person chooses each week’s three workout slots without rebuilding the habit",
+                  "Missed or difficult sessions are adjusted without stopping the routine",
+                  "The routine feels recognizable in the body, energy and weekly rhythm"
+                ],
+                "moves": [
+                  {
+                    "title": "At the start of each week, place the three workout slots",
+                    "rationale": "A short weekly decision keeps the routine active without overplanning."
+                  },
+                  {
+                    "title": "Use one familiar workout structure for most sessions",
+                    "rationale": "Familiarity lowers the effort needed to begin."
+                  },
+                  {
+                    "title": "Keep one reduced session option available every week",
+                    "rationale": "A built-in fallback protects consistency during tired or crowded days."
+                  },
+                  {
+                    "title": "After four weeks, identify the timing and session style that worked best",
+                    "rationale": "Naming the working pattern helps the routine continue on its own."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Choose the three 30-minute slots for this week",
+              "rationale": "Using the time already available turns the intention into a visible place in the week."
+            },
+            "personalizedGuidance": "Use the three home slots as the anchor; the early aim is not intensity, but making the routine recognizable in your week.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 4,
+          "normalizedCount": 4,
+          "validatedCount": 4
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "They currently exercise sporadically and have three 30-minute slots each week available for bodyweight exercise at home.",
+          "assumptions": [
+            "The intended routine is three home bodyweight workouts per week using the stated 30-minute slots.",
+            "No equipment, gym access, coaching or extra time is assumed.",
+            "The route focuses on observable routine, energy and body-readiness changes rather than medical outcomes."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 4,
+            "complexityReason": "This is a habit-building destination with a clear weekly time resource but inconsistent current follow-through.",
+            "countReason": "The distinct achievements are a first workable week, a repeatable pattern, resilience when a week is imperfect, and a sustained self-directed rhythm."
+          },
+          "firstMilestoneEvidence": "A first full week is feasible because the person already has three 30-minute home slots available.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                1
+              ]
+            },
+            {
+              "waypointIndex": 3,
+              "requires": [
+                2
+              ]
+            }
+          ]
+        },
+        "destination": "Maintain a consistent three-times-a-week home workout routine",
+        "complexity": "SIMPLE",
+        "waypoints": [
+          {
+            "title": "Complete one workable workout week",
+            "completionCriteria": "One week is complete with all three available 30-minute home workout slots used.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Three home bodyweight sessions completed in one week",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "Each session fits inside a 30-minute slot",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "At least one simple full-body movement pattern is used in each session",
+                "completed": false
+              }
+            ],
+            "rationale": "This proves the routine can fit into the time and setting they already have.",
+            "kind": "MILESTONE",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Choose the three 30-minute slots for this week",
+                "rationale": "Using the time already available turns the intention into a visible place in the week."
+              },
+              {
+                "title": "Pick five bodyweight moves for the first session",
+                "rationale": "A short list removes decision-making when the slot starts."
+              },
+              {
+                "title": "Do the first 30-minute home session in the next chosen slot",
+                "rationale": "The routine begins when one real session happens, not when the whole plan is perfect."
+              },
+              {
+                "title": "Repeat the same simple session in the other two slots",
+                "rationale": "Repetition helps the week feel manageable before adding variety."
+              }
+            ]
+          },
+          {
+            "title": "Make the week pattern repeatable",
+            "completionCriteria": "Two consecutive weeks show the same workout pattern can be repeated without restarting from scratch.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Three home sessions completed in each of two consecutive weeks",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "The same weekly slots are used when possible",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "A familiar session structure is used without rebuilding the workout each time",
+                "completed": false
+              },
+              {
+                "id": "requirement-4",
+                "title": "The person can name how their body or energy feels after sessions",
+                "completed": false
+              }
+            ],
+            "rationale": "Consistency becomes easier when the routine feels familiar instead of improvised each time.",
+            "kind": "CAPABILITY",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Reuse the same three slots for the second week",
+                "rationale": "Keeping the timing stable makes the routine easier to recognize."
+              },
+              {
+                "title": "Keep the same workout structure and adjust only one movement if needed",
+                "rationale": "Small adjustment protects repeatability while avoiding boredom or strain."
+              },
+              {
+                "title": "After each session, note one word about energy or body feel",
+                "rationale": "Noticing the effect helps connect the routine to lived experience."
+              },
+              {
+                "title": "At week’s end, keep what worked and remove one friction point",
+                "rationale": "A repeatable routine improves by reducing obstacles, not by adding complexity."
+              }
+            ]
+          },
+          {
+            "title": "Recover the routine during an imperfect week",
+            "completionCriteria": "One imperfect week is handled without abandoning the workout routine.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "A missed, delayed or low-energy slot is met with a specific adjustment",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "The next workout happens instead of waiting for a fresh start",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "At least one session uses a reduced version when needed",
+                "completed": false
+              },
+              {
+                "id": "requirement-4",
+                "title": "The week still contains visible movement rather than becoming a skipped week",
+                "completed": false
+              }
+            ],
+            "rationale": "A consistent routine needs a way to continue when a slot is missed, delayed or low-energy.",
+            "kind": "CAPABILITY",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Decide the smallest acceptable version of a 30-minute session",
+                "rationale": "A reduced version gives the routine a way to survive low-energy days."
+              },
+              {
+                "title": "If a planned slot is missed, choose the next available home slot that week",
+                "rationale": "Rescheduling quickly prevents one miss from becoming a full stop."
+              },
+              {
+                "title": "Use the reduced version once instead of skipping when energy is low",
+                "rationale": "Maintaining the thread matters more than making every session ideal."
+              },
+              {
+                "title": "Return to the normal 30-minute session at the next planned slot",
+                "rationale": "The routine becomes resilient when it can bend and then resume."
+              }
+            ]
+          },
+          {
+            "title": "Sustain the routine without restarting",
+            "completionCriteria": "The home workout routine holds for a month with self-directed planning and recovery from small interruptions.",
+            "requirements": [
+              {
+                "id": "requirement-1",
+                "title": "Four consecutive weeks include regular home bodyweight workouts",
+                "completed": false
+              },
+              {
+                "id": "requirement-2",
+                "title": "The person chooses each week’s three workout slots without rebuilding the habit",
+                "completed": false
+              },
+              {
+                "id": "requirement-3",
+                "title": "Missed or difficult sessions are adjusted without stopping the routine",
+                "completed": false
+              },
+              {
+                "id": "requirement-4",
+                "title": "The routine feels recognizable in the body, energy and weekly rhythm",
+                "completed": false
+              }
+            ],
+            "rationale": "The destination is reached when workouts are part of normal life rather than a short push.",
+            "kind": "CAPABILITY",
+            "progressMode": "checklist",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "At the start of each week, place the three workout slots",
+                "rationale": "A short weekly decision keeps the routine active without overplanning."
+              },
+              {
+                "title": "Use one familiar workout structure for most sessions",
+                "rationale": "Familiarity lowers the effort needed to begin."
+              },
+              {
+                "title": "Keep one reduced session option available every week",
+                "rationale": "A built-in fallback protects consistency during tired or crowded days."
+              },
+              {
+                "title": "After four weeks, identify the timing and session style that worked best",
+                "rationale": "Naming the working pattern helps the routine continue on its own."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Choose the three 30-minute slots for this week",
+          "rationale": "Using the time already available turns the intention into a visible place in the week."
+        },
+        "personalizedGuidance": "Use the three home slots as the anchor; the early aim is not intensity, but making the routine recognizable in your week."
+      }
+    },
+    {
+      "scenario": "moderate",
+      "context": {
+        "intention": "I successfully complete my first half marathon.",
+        "category": "health",
+        "actualStartingPoint": "I run 5 km comfortably twice a week. I can train three days each week. I have never completed a half marathon.",
+        "startingContext": null,
+        "destinationDescription": "I successfully complete my first half marathon.",
+        "vision": null,
+        "followUp": null,
+        "adjustment": null
+      },
+      "provider": "gemini",
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-5.5",
+          "latencyMs": 40011,
+          "rawCount": null,
+          "normalizedCount": null,
+          "error": "chart_provider_timeout"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 4195,
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Runs 5 km comfortably twice a week, can train three days each week, no prior half marathon completion.",
+              "assumptions": [
+                "Current 5 km comfortable pace provides a solid base to build weekly distance safely.",
+                "Three available training days per week are sufficient for gradual distance accumulation."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 3,
+                "complexityReason": "Progressing from a 5 km base to a 21.1 km half marathon requires building endurance capacity, adapting to longer weekly long runs, and managing recovery.",
+                "countReason": "Three distinct physical adaptations needed: extending weekly distance beyond 10 km, building sustained endurance for distance progression, and completing the full 21.1 km event."
+              },
+              "firstMilestoneEvidence": "Completing a continuous run distance exceeding the current 5 km baseline.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    0,
+                    1
+                  ]
+                }
+              ]
+            },
+            "destination": "I successfully complete my first half marathon.",
+            "complexity": "MODERATE",
+            "waypoints": [
+              {
+                "title": "Establish a reliable 10 km distance capability",
+                "rationale": "Doubling the current comfortable distance proves aerobic capacity can support longer efforts.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "km",
+                "targetValue": 10,
+                "baselineValue": 5,
+                "completionCriteria": "Complete a continuous 10 km run during weekly training.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Add one kilometre to the weekly long run",
+                    "rationale": "Gradually stretches endurance without overloading joints."
+                  },
+                  {
+                    "title": "Maintain the two regular 5 km runs as maintenance efforts",
+                    "rationale": "Preserves aerobic base while the long run increases."
+                  },
+                  {
+                    "title": "Run a continuous 8 km test effort",
+                    "rationale": "Validates the halfway transition toward the 10 km milestone."
+                  },
+                  {
+                    "title": "Complete a continuous 10 km run",
+                    "rationale": "Reaches the baseline threshold for distance progression."
+                  }
+                ]
+              },
+              {
+                "title": "Build a consistent 15 km long run base",
+                "rationale": "Reaching 15 km prepares the body and routine for race-distance fatigue.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "km",
+                "targetValue": 15,
+                "baselineValue": 10,
+                "completionCriteria": "Complete a continuous 15 km training run with stable recovery.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Extend the weekly long run to 12 km",
+                    "rationale": "Builds upon the 10 km milestone safely."
+                  },
+                  {
+                    "title": "Incorporate a recovery walk or rest day after the long run",
+                    "rationale": "Ensures energy levels remain stable across the three training days."
+                  },
+                  {
+                    "title": "Run a continuous 14 km effort",
+                    "rationale": "Tests physical readiness just beneath the 15 km target."
+                  },
+                  {
+                    "title": "Complete a continuous 15 km run",
+                    "rationale": "Establishes the endurance threshold needed for the final training block."
+                  }
+                ]
+              },
+              {
+                "title": "Complete the 21.1 km half marathon distance",
+                "rationale": "Fulfills the final event completion through race-day execution.",
+                "type": "MILESTONE",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "Successfully complete a 21.1 km half marathon distance.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Plan the final tapering schedule across the three training days",
+                    "rationale": "Reduces accumulated fatigue prior to the event."
+                  },
+                  {
+                    "title": "Review hydration and nutrition routines during a 16 km run",
+                    "rationale": "Identifies fueling requirements for longer exertion."
+                  },
+                  {
+                    "title": "Complete the 21.1 km half marathon",
+                    "rationale": "Achieves the intended destination."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Add one kilometre to the weekly long run",
+              "rationale": "Starts the gradual distance expansion from your current 5 km baseline."
+            },
+            "personalizedGuidance": null,
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 3,
+          "normalizedCount": 3,
+          "validatedCount": 3
+        }
+      ],
+      "validated": {
+        "needsMoreContext": false,
+        "routeScope": "DESTINATION",
+        "analysis": {
+          "startingPointSummary": "Runs 5 km comfortably twice a week, can train three days each week, no prior half marathon completion.",
+          "assumptions": [
+            "Current 5 km comfortable pace provides a solid base to build weekly distance safely.",
+            "Three available training days per week are sufficient for gradual distance accumulation."
+          ],
+          "routeDesign": {
+            "selectedWaypointCount": 3,
+            "complexityReason": "Progressing from a 5 km base to a 21.1 km half marathon requires building endurance capacity, adapting to longer weekly long runs, and managing recovery.",
+            "countReason": "Three distinct physical adaptations needed: extending weekly distance beyond 10 km, building sustained endurance for distance progression, and completing the full 21.1 km event."
+          },
+          "firstMilestoneEvidence": "Completing a continuous run distance exceeding the current 5 km baseline.",
+          "difficultyReduction": null,
+          "prerequisites": [
+            {
+              "waypointIndex": 0,
+              "requires": []
+            },
+            {
+              "waypointIndex": 1,
+              "requires": [
+                0
+              ]
+            },
+            {
+              "waypointIndex": 2,
+              "requires": [
+                0,
+                1
+              ]
+            }
+          ]
+        },
+        "destination": "I successfully complete my first half marathon",
+        "complexity": "MODERATE",
+        "waypoints": [
+          {
+            "title": "Establish a reliable 10 km distance capability",
+            "completionCriteria": "Complete a continuous 10 km run during weekly training.",
+            "requirements": [],
+            "rationale": "Doubling the current comfortable distance proves aerobic capacity can support longer efforts.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "km",
+            "metricTarget": 10,
+            "metricBaseline": 5,
+            "moves": [
+              {
+                "title": "Add one kilometre to the weekly long run",
+                "rationale": "Gradually stretches endurance without overloading joints."
+              },
+              {
+                "title": "Maintain the two regular 5 km runs as maintenance efforts",
+                "rationale": "Preserves aerobic base while the long run increases."
+              },
+              {
+                "title": "Run a continuous 8 km test effort",
+                "rationale": "Validates the halfway transition toward the 10 km milestone."
+              },
+              {
+                "title": "Complete a continuous 10 km run",
+                "rationale": "Reaches the baseline threshold for distance progression."
+              }
+            ]
+          },
+          {
+            "title": "Build a consistent 15 km long run base",
+            "completionCriteria": "Complete a continuous 15 km training run with stable recovery.",
+            "requirements": [],
+            "rationale": "Reaching 15 km prepares the body and routine for race-distance fatigue.",
+            "kind": "METRIC",
+            "progressMode": "numeric",
+            "metricLabel": "km",
+            "metricTarget": 15,
+            "metricBaseline": 10,
+            "moves": [
+              {
+                "title": "Extend the weekly long run to 12 km",
+                "rationale": "Builds upon the 10 km milestone safely."
+              },
+              {
+                "title": "Incorporate a recovery walk or rest day after the long run",
+                "rationale": "Ensures energy levels remain stable across the three training days."
+              },
+              {
+                "title": "Run a continuous 14 km effort",
+                "rationale": "Tests physical readiness just beneath the 15 km target."
+              },
+              {
+                "title": "Complete a continuous 15 km run",
+                "rationale": "Establishes the endurance threshold needed for the final training block."
+              }
+            ]
+          },
+          {
+            "title": "Complete the 21.1 km half marathon distance",
+            "completionCriteria": "Successfully complete a 21.1 km half marathon distance.",
+            "requirements": [],
+            "rationale": "Fulfills the final event completion through race-day execution.",
+            "kind": "MILESTONE",
+            "progressMode": "completion",
+            "metricLabel": null,
+            "metricTarget": null,
+            "metricBaseline": null,
+            "moves": [
+              {
+                "title": "Plan the final tapering schedule across the three training days",
+                "rationale": "Reduces accumulated fatigue prior to the event."
+              },
+              {
+                "title": "Review hydration and nutrition routines during a 16 km run",
+                "rationale": "Identifies fueling requirements for longer exertion."
+              },
+              {
+                "title": "Complete the 21.1 km half marathon",
+                "rationale": "Achieves the intended destination."
+              }
+            ]
+          }
+        ],
+        "suggestedOneMove": {
+          "title": "Add one kilometre to the weekly long run",
+          "rationale": "Starts the gradual distance expansion from your current 5 km baseline."
+        },
+        "personalizedGuidance": null
+      }
+    },
+    {
+      "scenario": "complex",
+      "context": {
+        "intention": "Anchor has 10,000 paying users.",
+        "category": "career",
+        "actualStartingPoint": "Anchor is launched with 20 paying users. I am the solo developer, with 10 hours a week for growth and no paid advertising budget. I can contact current users and have subscription analytics.",
+        "startingContext": null,
+        "destinationDescription": "Anchor has 10,000 paying users.",
+        "vision": {
+          "title": "A sustainable Anchor business",
+          "description": "10,000 paying users who continue using Anchor",
+          "notes": [
+            "Prioritize retention and repeatable acquisition"
+          ]
+        },
+        "followUp": null,
+        "adjustment": null
+      },
+      "attempts": [
+        {
+          "provider": "openai",
+          "model": "gpt-5.5",
+          "latencyMs": 40015,
+          "rawCount": null,
+          "normalizedCount": null,
+          "error": "chart_provider_timeout"
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3.5-flash-lite",
+          "latencyMs": 5412,
+          "raw": {
+            "needsMoreContext": false,
+            "followUpQuestion": null,
+            "analysis": {
+              "startingPointSummary": "Anchor is launched with 20 paying users, operated by a solo developer with 10 hours a week, no paid ad budget, and access to current users and subscription analytics.",
+              "assumptions": [
+                "Growth relies entirely on organic acquisition channels and retention of existing users.",
+                "The 10-hour weekly time limit remains constant throughout the route."
+              ],
+              "routeDesign": {
+                "selectedWaypointCount": 4,
+                "complexityReason": "Scaling from 20 to 10,000 paying users without a budget requires sequential achievement of retention, a repeatable organic channel, and operational capacity.",
+                "countReason": "Four distinct operational states separate the starting point from 10,000 paying users."
+              },
+              "firstMilestoneEvidence": "Current user feedback and retention data analyzed to identify core value drivers.",
+              "difficultyReduction": null,
+              "prerequisites": [
+                {
+                  "waypointIndex": 0,
+                  "requires": []
+                },
+                {
+                  "waypointIndex": 1,
+                  "requires": [
+                    0
+                  ]
+                },
+                {
+                  "waypointIndex": 2,
+                  "requires": [
+                    1
+                  ]
+                },
+                {
+                  "waypointIndex": 3,
+                  "requires": [
+                    2
+                  ]
+                }
+              ]
+            },
+            "destination": "Anchor has 10,000 paying users.",
+            "complexity": "COMPLEX",
+            "waypoints": [
+              {
+                "title": "Analyze and stabilize user retention",
+                "rationale": "Understanding why current users stay ensures the product retains value before expanding acquisition.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "percent",
+                "targetValue": 80,
+                "baselineValue": 50,
+                "completionCriteria": "Cohort retention stabilizes at or above 80% over a 30-day period.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Review subscription analytics for the 20 current users",
+                    "rationale": "Identify usage patterns among active subscribers."
+                  },
+                  {
+                    "title": "Email 5 current users to ask why they use Anchor",
+                    "rationale": "Gather direct qualitative feedback on product value."
+                  },
+                  {
+                    "title": "Identify the primary feature used by retained customers",
+                    "rationale": "Pinpoint the core value driver to protect during growth."
+                  }
+                ]
+              },
+              {
+                "title": "Establish one repeatable organic acquisition channel",
+                "rationale": "A solo developer without an ad budget needs a reliable, non-paid method to bring in prospective users.",
+                "type": "CAPABILITY",
+                "metricType": "completion",
+                "targetMetric": null,
+                "targetValue": null,
+                "baselineValue": null,
+                "completionCriteria": "One functional organic acquisition channel consistently brings in new signups each week.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Select one organic channel matching available skills",
+                    "rationale": "Choose between content, community outreach, or direct networking."
+                  },
+                  {
+                    "title": "Draft three informational posts or direct outreach messages",
+                    "rationale": "Prepare initial material to test the chosen channel."
+                  },
+                  {
+                    "title": "Publish or send the first batch of outreach",
+                    "rationale": "Initiate contact with potential users through the chosen method."
+                  }
+                ]
+              },
+              {
+                "title": "Reach 500 paying users",
+                "rationale": "Reaching 500 paying users proves the acquisition channel and retention mechanics work at a larger scale.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users",
+                "targetValue": 500,
+                "baselineValue": 20,
+                "completionCriteria": "Active subscription count reaches 500.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Allocate weekly hours specifically to organic outreach",
+                    "rationale": "Maintain a consistent posting or contact schedule."
+                  },
+                  {
+                    "title": "Track conversion rates from the acquisition channel",
+                    "rationale": "Monitor how many prospects convert to paying users."
+                  },
+                  {
+                    "title": "Refine onboarding messaging based on new user questions",
+                    "rationale": "Remove friction points for incoming signups."
+                  }
+                ]
+              },
+              {
+                "title": "Reach 10,000 paying users",
+                "rationale": "Scaling the proven organic and retention engine to the final destination.",
+                "type": "METRIC",
+                "metricType": "numeric",
+                "targetMetric": "paying users",
+                "targetValue": 10000,
+                "baselineValue": 500,
+                "completionCriteria": "Active subscription count reaches 10,000.",
+                "requirements": [],
+                "moves": [
+                  {
+                    "title": "Automate onboarding email sequences for new signups",
+                    "rationale": "Save time while maintaining user engagement."
+                  },
+                  {
+                    "title": "Scale weekly content or outreach output within the 10-hour limit",
+                    "rationale": "Increase efficiency of the acquisition channel."
+                  },
+                  {
+                    "title": "Monitor churn metrics as volume increases",
+                    "rationale": "Ensure retention holds steady at scale."
+                  }
+                ]
+              }
+            ],
+            "suggestedOneMove": {
+              "title": "Review subscription analytics for the 20 current users",
+              "rationale": "Start by examining existing usage data to understand current retention."
+            },
+            "personalizedGuidance": "Focus on stabilizing retention and finding one repeatable organic channel within your 10-hour weekly limit.",
+            "routeScope": "DESTINATION"
+          },
+          "rawCount": 4,
+          "normalizedCount": 4,
+          "error": "chart_plan_invalid:unsupported_baseline"
+        }
+      ],
+      "error": "All providers failed validation or generation"
+    }
+  ]
+}

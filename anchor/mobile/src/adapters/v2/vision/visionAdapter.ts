@@ -16,7 +16,7 @@ export function toV2VisionPresentationState(
   anchorId: string,
   options?: { isOffline?: boolean; error?: string },
 ): V2VisionPresentationState {
-  if (options?.error) {
+  if (options?.error && !raw) {
     return {
       state: 'error',
       anchorId,
@@ -49,7 +49,7 @@ export function toV2VisionPresentationState(
     tiles,
     featuredTileId: tiles[0]?.id ?? '',
     seenToday: Boolean(raw.seenToday),
-    raw,
+    raw: { ...raw, boardLayout: raw.boardLayout ?? 'CLASSIC' },
   };
 }
 

@@ -21,10 +21,13 @@ describe('threadAdapter', () => {
     expect(result).toMatchObject({ value: null, unmeasured: true });
   });
 
-  it('labels strength qualitatively without inventing movement', () => {
-    expect(threadQualitativeLabel(50, false)).toBe('Established');
+  it('labels strength qualitatively using standardized Thread Strength 2.0 levels', () => {
+    expect(threadQualitativeLabel(50, false)).toBe('Rooted');
     expect(threadQualitativeLabel(null, true)).toBe('Not established yet');
-    expect(threadQualitativeLabel(95, false)).toBe('Reinforced');
+    expect(threadQualitativeLabel(95, false)).toBe('Sovereign');
+    expect(threadQualitativeLabel(27, false)).toBe('Grounded');
+    expect(threadQualitativeLabel(2, false)).toBe('Surface');
+    expect(threadQualitativeLabel(65, false)).toBe('Embedded');
   });
 });
 

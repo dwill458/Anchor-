@@ -1,706 +1,840 @@
 {
  "track": "immerse",
- "audio_duration": 195.0,
+ "audio_duration": 200,
  "voices": {
   "dominic": {
    "gap_scale": 0.415,
-   "last_phrase_end": 190.3,
+   "last_phrase_end": 190.359,
    "phrases": [
     {
      "id": 0,
      "text": "Settle into a comfortable position",
-     "start": 1.5,
-     "end": 3.8,
-     "silence_after": 0.6,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 1.521,
+     "end": 3.542,
+     "silence_after": 1.12
     },
     {
      "id": 1,
      "text": "Take a slow breath in and let it go",
-     "start": 4.4,
-     "end": 8.8,
-     "silence_after": 1.5,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 4.662,
+     "end": 8.424,
+     "caption_spans": [
+      {
+       "text": "Take a slow breath in...",
+       "start": 4.662,
+       "end": 6.303
+      },
+      {
+       "text": "and let it go",
+       "start": 7.584,
+       "end": 8.424
+      }
+     ],
+     "silence_after": 2.462
     },
     {
      "id": 2,
      "text": "Let your shoulders drop",
-     "start": 10.3,
-     "end": 12.2,
-     "silence_after": 0.6,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 10.886,
+     "end": 12.366,
+     "silence_after": 1.421
     },
     {
      "id": 3,
      "text": "Relax your jaw",
-     "start": 12.8,
-     "end": 14.1,
-     "silence_after": 0.6,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 13.787,
+     "end": 14.868,
+     "silence_after": 1.28
     },
     {
      "id": 4,
      "text": "And allow everything outside this moment to become a little quieter",
-     "start": 14.8,
-     "end": 19.8,
-     "silence_after": 1.9,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 16.148,
+     "end": 20.831,
+     "silence_after": 2.721
     },
     {
      "id": 5,
      "text": "Now bring your vision to mind",
-     "start": 21.7,
-     "end": 24.6,
-     "silence_after": 2.1,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 23.552,
+     "end": 26.113,
+     "silence_after": 2.662
     },
     {
      "id": 6,
      "text": "Dont look at it like a picture step into it",
-     "start": 26.7,
-     "end": 30.6,
-     "silence_after": 2.3,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 28.775,
+     "end": 32.137,
+     "silence_after": 2.621
     },
     {
      "id": 7,
      "text": "Look through your own eyes youre here",
-     "start": 32.9,
-     "end": 36.3,
-     "silence_after": 2.1,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 34.758,
+     "end": 37.759,
+     "silence_after": 2.582
     },
     {
      "id": 8,
      "text": "Take a look around",
-     "start": 38.3,
-     "end": 39.9,
-     "silence_after": 1.7,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 40.341,
+     "end": 41.381,
+     "silence_after": 2.121
     },
     {
      "id": 9,
      "text": "Where are you",
-     "start": 41.6,
-     "end": 42.7,
-     "silence_after": 2.9,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 43.502,
+     "end": 44.263,
+     "silence_after": 3.201
     },
     {
      "id": 10,
      "text": "Notice the light the space around you the details",
-     "start": 45.6,
-     "end": 50.0,
-     "silence_after": 1.7,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 47.464,
+     "end": 51.706,
+     "silence_after": 2.161
     },
     {
      "id": 11,
      "text": "What can you hear",
-     "start": 51.7,
-     "end": 53.2,
-     "silence_after": 2.9,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 53.867,
+     "end": 54.848,
+     "silence_after": 3.361
     },
     {
      "id": 12,
      "text": "Notice the temperature against your skin the feeling of the space around you",
-     "start": 56.1,
-     "end": 61.3,
-     "silence_after": 1.7,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 58.209,
+     "end": 62.932,
+     "silence_after": 2.281
     },
     {
      "id": 13,
      "text": "Now notice what youre doing",
-     "start": 63.0,
-     "end": 65.6,
-     "silence_after": 1.5,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 65.213,
+     "end": 66.754,
+     "silence_after": 1.861
     },
     {
      "id": 14,
      "text": "How are you moving",
-     "start": 67.0,
-     "end": 68.2,
-     "silence_after": 1.5,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 68.615,
+     "end": 69.675,
+     "silence_after": 1.781
     },
     {
      "id": 15,
      "text": "How are you carrying yourself",
-     "start": 69.6,
-     "end": 71.2,
-     "silence_after": 1.5,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 71.456,
+     "end": 72.937,
+     "silence_after": 1.961
     },
     {
      "id": 16,
      "text": "Notice the people around you or the quiet if youre alone",
-     "start": 72.6,
-     "end": 76.8,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 74.898,
+     "end": 78.98,
+     "silence_after": 2.044
     },
     {
      "id": 17,
      "text": "Let this moment become real",
-     "start": 78.4,
-     "end": 80.5,
-     "silence_after": 1.5,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 81.024,
+     "end": 83.013,
+     "silence_after": 1.79
     },
     {
      "id": 18,
      "text": "Not something youre hoping for something youre experiencing",
-     "start": 81.9,
-     "end": 86.0,
-     "silence_after": 1.5,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 84.803,
+     "end": 88.624,
+     "silence_after": 1.781
     },
     {
      "id": 19,
      "text": "And notice how natural it feels",
-     "start": 87.5,
-     "end": 90.1,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 90.405,
+     "end": 92.426,
+     "silence_after": 1.92
     },
     {
      "id": 20,
      "text": "This isnt extraordinary anymore",
-     "start": 91.7,
-     "end": 94.9,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 94.346,
+     "end": 96.247,
+     "silence_after": 1.881
     },
     {
      "id": 21,
      "text": "Its familiar",
-     "start": 96.6,
-     "end": 97.5,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 98.128,
+     "end": 98.988,
+     "silence_after": 1.941
     },
     {
      "id": 22,
      "text": "This is simply your life",
-     "start": 99.2,
-     "end": 101.7,
-     "silence_after": 2.5,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 100.929,
+     "end": 103.01,
+     "silence_after": 3.021
     },
     {
      "id": 23,
      "text": "Now notice who you are in this life",
-     "start": 104.2,
-     "end": 106.9,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 106.031,
+     "end": 108.252,
+     "silence_after": 0.46
     },
     {
      "id": 24,
      "text": "The way you think the way you move the choices you make",
-     "start": 108.5,
-     "end": 113.0,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 108.712,
+     "end": 114.074,
+     "caption_spans": [
+      {
+       "text": "The way you...",
+       "start": 108.712,
+       "end": 109.292
+      },
+      {
+       "text": "think the way you move the choices you make",
+       "start": 110.653,
+       "end": 114.074
+      }
+     ],
+     "silence_after": 2.081
     },
     {
      "id": 25,
      "text": "Notice what feels different about you",
-     "start": 114.7,
-     "end": 116.8,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 116.155,
+     "end": 118.115,
+     "silence_after": 1.946
     },
     {
      "id": 26,
      "text": "Not excitement something quieter",
-     "start": 118.5,
-     "end": 121.1,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 120.061,
+     "end": 122.562,
+     "silence_after": 1.941
     },
     {
      "id": 27,
      "text": "Certainty",
-     "start": 122.7,
-     "end": 123.7,
-     "silence_after": 2.9,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 124.503,
+     "end": 125.243,
+     "silence_after": 3.142
     },
     {
      "id": 28,
      "text": "Let yourself feel that now",
-     "start": 126.6,
-     "end": 130.0,
-     "silence_after": 3.5,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 128.385,
+     "end": 130.266,
+     "silence_after": 3.822
     },
     {
      "id": 29,
      "text": "Choose one detail from this vision something small something real",
-     "start": 133.5,
-     "end": 139.1,
-     "silence_after": 2.5,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 134.088,
+     "end": 139.05,
+     "silence_after": 2.622
     },
     {
      "id": 30,
      "text": "Hold it clearly",
-     "start": 141.6,
-     "end": 142.8,
-     "silence_after": 2.1,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 141.672,
+     "end": 142.872,
+     "silence_after": 2.442
     },
     {
      "id": 31,
      "text": "Now let the details begin to fall away",
-     "start": 144.8,
-     "end": 147.5,
-     "silence_after": 1.0,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 145.314,
+     "end": 147.795,
+     "silence_after": 1.341
     },
     {
      "id": 32,
      "text": "The place",
-     "start": 148.5,
-     "end": 149.2,
-     "silence_after": 1.0,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 149.136,
+     "end": 149.856,
+     "silence_after": 1.281
     },
     {
      "id": 33,
      "text": "The sounds",
-     "start": 150.3,
-     "end": 151.2,
-     "silence_after": 1.0,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 151.137,
+     "end": 152.117,
+     "silence_after": 1.141
     },
     {
      "id": 34,
      "text": "The images",
-     "start": 152.3,
-     "end": 153.1,
-     "silence_after": 1.0,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 153.258,
+     "end": 154.098,
+     "silence_after": 0.42
     },
     {
      "id": 35,
      "text": "Keep only the feeling",
-     "start": 154.1,
-     "end": 156.0,
-     "silence_after": 2.5,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 154.518,
+     "end": 157.2,
+     "caption_spans": [
+      {
+       "text": "Keep...",
+       "start": 154.518,
+       "end": 154.958
+      },
+      {
+       "text": "only the feeling",
+       "start": 155.999,
+       "end": 157.2
+      }
+     ],
+     "silence_after": 2.601
     },
     {
      "id": 36,
      "text": "And as everything else becomes quiet let your anchor come into focus",
-     "start": 158.5,
-     "end": 163.5,
-     "silence_after": 3.5,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 159.801,
+     "end": 164.383,
+     "silence_after": 3.603
     },
     {
      "id": 37,
      "text": "Dont analyze it just look",
-     "start": 167.0,
-     "end": 170.6,
-     "silence_after": 2.9,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 167.986,
+     "end": 170.107,
+     "silence_after": 3.062
     },
     {
      "id": 38,
      "text": "Let this image carry what you just experienced",
-     "start": 173.5,
-     "end": 176.6,
-     "silence_after": 2.1,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 173.169,
+     "end": 176.191,
+     "silence_after": 2.301
     },
     {
      "id": 39,
      "text": "Take one slow breath in and let it go",
-     "start": 178.7,
-     "end": 183.5,
-     "silence_after": 1.2,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 178.492,
+     "end": 182.535,
+     "caption_spans": [
+      {
+       "text": "Take one slow breath in...",
+       "start": 178.492,
+       "end": 180.573
+      },
+      {
+       "text": "and let it go",
+       "start": 181.694,
+       "end": 182.535
+      }
+     ],
+     "silence_after": 1.901
     },
     {
      "id": 40,
      "text": "Carry the direction",
-     "start": 184.7,
-     "end": 186.0,
-     "silence_after": 1.0,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 184.436,
+     "end": 185.637,
+     "silence_after": 1.381
     },
     {
      "id": 41,
      "text": "Release the picture",
-     "start": 187.1,
-     "end": 188.2,
-     "silence_after": 1.0,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 187.018,
+     "end": 188.178,
+     "silence_after": 1.421
     },
     {
      "id": 42,
      "text": "And move",
-     "start": 189.3,
-     "end": 190.3,
-     "silence_after": 1.7,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 189.599,
+     "end": 190.359,
+     "silence_after": 9.641
     }
-   ]
+   ],
+   "audio_duration": 200
   },
   "lina": {
    "gap_scale": 0.492,
-   "last_phrase_end": 190.0,
+   "last_phrase_end": 190.279,
    "phrases": [
     {
      "id": 0,
      "text": "Settle into a comfortable position",
-     "start": 1.5,
-     "end": 3.6,
-     "silence_after": 0.7,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 1.521,
+     "end": 3.462,
+     "silence_after": 1.02
     },
     {
      "id": 1,
      "text": "Take a slow breath in and let it go",
-     "start": 4.4,
-     "end": 8.1,
-     "silence_after": 1.7,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 4.482,
+     "end": 8.024,
+     "caption_spans": [
+      {
+       "text": "Take a slow breath in...",
+       "start": 4.482,
+       "end": 6.083
+      },
+      {
+       "text": "and let it go",
+       "start": 7.123,
+       "end": 8.024
+      }
+     ],
+     "silence_after": 2.501
     },
     {
      "id": 2,
      "text": "Let your shoulders drop",
-     "start": 9.8,
-     "end": 11.5,
-     "silence_after": 0.7,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 10.525,
+     "end": 11.946,
+     "silence_after": 1.3
     },
     {
      "id": 3,
      "text": "Relax your jaw",
-     "start": 12.3,
-     "end": 13.9,
-     "silence_after": 0.7,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 13.246,
+     "end": 14.387,
+     "silence_after": 1.281
     },
     {
      "id": 4,
      "text": "And allow everything outside this moment to become a little quieter",
-     "start": 14.7,
-     "end": 19.0,
-     "silence_after": 2.2,
-     "chapter": "SETTLE"
+     "chapter": "SETTLE",
+     "start": 15.668,
+     "end": 19.85,
+     "silence_after": 2.641
     },
     {
      "id": 5,
      "text": "Now bring your vision to mind",
-     "start": 21.2,
-     "end": 23.9,
-     "silence_after": 2.5,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 22.491,
+     "end": 25.012,
+     "silence_after": 2.802
     },
     {
      "id": 6,
      "text": "Dont look at it like a picture step into it",
-     "start": 26.4,
-     "end": 29.9,
-     "silence_after": 2.7,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 27.814,
+     "end": 31.135,
+     "silence_after": 0.78
     },
     {
      "id": 7,
      "text": "Look through your own eyes youre here",
-     "start": 32.7,
-     "end": 35.5,
-     "silence_after": 2.5,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 31.915,
+     "end": 36.698,
+     "caption_spans": [
+      {
+       "text": "Look...",
+       "start": 31.915,
+       "end": 32.316
+      },
+      {
+       "text": "through your own eyes youre here",
+       "start": 34.297,
+       "end": 36.698
+      }
+     ],
+     "silence_after": 2.781
     },
     {
      "id": 8,
      "text": "Take a look around",
-     "start": 38.0,
-     "end": 39.3,
-     "silence_after": 2.0,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 39.479,
+     "end": 40.54,
+     "silence_after": 1.981
     },
     {
      "id": 9,
      "text": "Where are you",
-     "start": 41.3,
-     "end": 42.3,
-     "silence_after": 3.4,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 42.521,
+     "end": 43.281,
+     "silence_after": 3.622
     },
     {
      "id": 10,
      "text": "Notice the light the space around you the details",
-     "start": 45.7,
-     "end": 49.5,
-     "silence_after": 2.0,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 46.903,
+     "end": 50.765,
+     "silence_after": 2.361
     },
     {
      "id": 11,
      "text": "What can you hear",
-     "start": 51.4,
-     "end": 52.6,
-     "silence_after": 3.4,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 53.126,
+     "end": 54.067,
+     "silence_after": 3.662
     },
     {
      "id": 12,
      "text": "Notice the temperature against your skin the feeling of the space around you",
-     "start": 56.1,
-     "end": 60.7,
-     "silence_after": 2.0,
-     "chapter": "ENTER"
+     "chapter": "ENTER",
+     "start": 57.729,
+     "end": 62.171,
+     "silence_after": 2.381
     },
     {
      "id": 13,
      "text": "Now notice what youre doing",
-     "start": 62.6,
-     "end": 64.3,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 64.552,
+     "end": 66.133,
+     "silence_after": 1.861
     },
     {
      "id": 14,
      "text": "How are you moving",
-     "start": 66.0,
-     "end": 67.0,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 67.994,
+     "end": 69.015,
+     "silence_after": 1.621
     },
     {
      "id": 15,
      "text": "How are you carrying yourself",
-     "start": 68.7,
-     "end": 70.2,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 70.636,
+     "end": 72.116,
+     "silence_after": 0.821
     },
     {
      "id": 16,
      "text": "Notice the people around you or the quiet if youre alone",
-     "start": 71.9,
-     "end": 75.6,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 72.937,
+     "end": 77.959,
+     "caption_spans": [
+      {
+       "text": "Notice the...",
+       "start": 72.937,
+       "end": 73.577
+      },
+      {
+       "text": "people around you or the quiet if youre alone",
+       "start": 74.798,
+       "end": 77.959
+      }
+     ],
+     "silence_after": 2.322
     },
     {
      "id": 17,
      "text": "Let this moment become real",
-     "start": 77.6,
-     "end": 79.8,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 80.281,
+     "end": 82.161,
+     "silence_after": 1.701
     },
     {
      "id": 18,
      "text": "Not something youre hoping for something youre experiencing",
-     "start": 81.5,
-     "end": 85.3,
-     "silence_after": 1.7,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 83.862,
+     "end": 87.424,
+     "silence_after": 1.921
     },
     {
      "id": 19,
      "text": "And notice how natural it feels",
-     "start": 87.0,
-     "end": 89.4,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 89.345,
+     "end": 91.466,
+     "silence_after": 2.161
     },
     {
      "id": 20,
      "text": "This isnt extraordinary anymore",
-     "start": 91.4,
-     "end": 93.4,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 93.627,
+     "end": 95.508,
+     "silence_after": 1.801
     },
     {
      "id": 21,
      "text": "Its familiar",
-     "start": 95.4,
-     "end": 96.2,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 97.309,
+     "end": 98.169,
+     "silence_after": 2.102
     },
     {
      "id": 22,
      "text": "This is simply your life",
-     "start": 98.2,
-     "end": 100.5,
-     "silence_after": 3.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 100.271,
+     "end": 102.291,
+     "silence_after": 3.282
     },
     {
      "id": 23,
      "text": "Now notice who you are in this life",
-     "start": 103.4,
-     "end": 106.2,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 105.573,
+     "end": 107.934,
+     "silence_after": 0.461
     },
     {
      "id": 24,
      "text": "The way you think the way you move the choices you make",
-     "start": 108.2,
-     "end": 112.0,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 108.395,
+     "end": 113.537,
+     "caption_spans": [
+      {
+       "text": "The way you...",
+       "start": 108.395,
+       "end": 108.955
+      },
+      {
+       "text": "think the way you move the choices you make",
+       "start": 110.416,
+       "end": 113.537
+      }
+     ],
+     "silence_after": 2.181
     },
     {
      "id": 25,
      "text": "Notice what feels different about you",
-     "start": 114.0,
-     "end": 116.1,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 115.718,
+     "end": 117.699,
+     "silence_after": 1.98
     },
     {
      "id": 26,
      "text": "Not excitement something quieter",
-     "start": 118.1,
-     "end": 120.4,
-     "silence_after": 2.0,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 119.679,
+     "end": 122.1,
+     "silence_after": 1.881
     },
     {
      "id": 27,
      "text": "Certainty",
-     "start": 122.3,
-     "end": 123.2,
-     "silence_after": 3.4,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 123.981,
+     "end": 124.761,
+     "silence_after": 0.721
     },
     {
      "id": 28,
      "text": "Let yourself feel that now",
-     "start": 126.7,
-     "end": 128.6,
-     "silence_after": 4.2,
-     "chapter": "EXPERIENCE + BECOME"
+     "chapter": "EXPERIENCE + BECOME",
+     "start": 125.482,
+     "end": 129.924,
+     "caption_spans": [
+      {
+       "text": "Let yourself...",
+       "start": 125.482,
+       "end": 126.262
+      },
+      {
+       "text": "feel that now",
+       "start": 128.924,
+       "end": 129.924
+      }
+     ],
+     "silence_after": 4.143
     },
     {
      "id": 29,
      "text": "Choose one detail from this vision something small something real",
-     "start": 132.7,
-     "end": 137.3,
-     "silence_after": 3.0,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 134.067,
+     "end": 138.569,
+     "silence_after": 0.52
     },
     {
      "id": 30,
      "text": "Hold it clearly",
-     "start": 140.2,
-     "end": 141.6,
-     "silence_after": 2.5,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 139.089,
+     "end": 142.691,
+     "caption_spans": [
+      {
+       "text": "Hold it...",
+       "start": 139.089,
+       "end": 139.71
+      },
+      {
+       "text": "clearly",
+       "start": 141.971,
+       "end": 142.691
+      }
+     ],
+     "silence_after": 2.762
     },
     {
      "id": 31,
      "text": "Now let the details begin to fall away",
-     "start": 144.0,
-     "end": 146.8,
-     "silence_after": 1.2,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 145.453,
+     "end": 147.974,
+     "silence_after": 1.361
     },
     {
      "id": 32,
      "text": "The place",
-     "start": 148.1,
-     "end": 148.8,
-     "silence_after": 1.2,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 149.335,
+     "end": 150.075,
+     "silence_after": 1.201
     },
     {
      "id": 33,
      "text": "The sounds",
-     "start": 150.0,
-     "end": 150.9,
-     "silence_after": 1.2,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 151.276,
+     "end": 152.197,
+     "silence_after": 1.12
     },
     {
      "id": 34,
      "text": "The images",
-     "start": 152.1,
-     "end": 152.9,
-     "silence_after": 1.2,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 153.317,
+     "end": 154.158,
+     "silence_after": 0.42
     },
     {
      "id": 35,
      "text": "Keep only the feeling",
-     "start": 154.2,
-     "end": 156.1,
-     "silence_after": 3.0,
-     "chapter": "HOLD + RELEASE"
+     "chapter": "HOLD + RELEASE",
+     "start": 154.578,
+     "end": 157.239,
+     "caption_spans": [
+      {
+       "text": "Keep...",
+       "start": 154.578,
+       "end": 155.018
+      },
+      {
+       "text": "only the feeling",
+       "start": 156.079,
+       "end": 157.239
+      }
+     ],
+     "silence_after": 2.862
     },
     {
      "id": 36,
      "text": "And as everything else becomes quiet let your anchor come into focus",
-     "start": 159.0,
-     "end": 163.6,
-     "silence_after": 4.2,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 160.101,
+     "end": 164.523,
+     "silence_after": 3.783
     },
     {
      "id": 37,
      "text": "Dont analyze it just look",
-     "start": 167.7,
-     "end": 169.8,
-     "silence_after": 3.4,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 168.306,
+     "end": 170.247,
+     "silence_after": 3.362
     },
     {
      "id": 38,
      "text": "Let this image carry what you just experienced",
-     "start": 173.2,
-     "end": 176.1,
-     "silence_after": 2.5,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 173.609,
+     "end": 176.611,
+     "silence_after": 2.402
     },
     {
      "id": 39,
      "text": "Take one slow breath in and let it go",
-     "start": 178.5,
-     "end": 182.5,
-     "silence_after": 1.5,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 179.013,
+     "end": 182.695,
+     "silence_after": 1.881
     },
     {
      "id": 40,
      "text": "Carry the direction",
-     "start": 184.0,
-     "end": 185.5,
-     "silence_after": 1.2,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 184.576,
+     "end": 185.837,
+     "silence_after": 1.261
     },
     {
      "id": 41,
      "text": "Release the picture",
-     "start": 186.7,
-     "end": 187.8,
-     "silence_after": 1.2,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 187.098,
+     "end": 188.258,
+     "silence_after": 1.301
     },
     {
      "id": 42,
      "text": "And move",
-     "start": 189.1,
-     "end": 190.0,
-     "silence_after": 2.0,
-     "chapter": "ANCHOR"
+     "chapter": "ANCHOR",
+     "start": 189.559,
+     "end": 190.279,
+     "silence_after": 9.721
     }
-   ]
+   ],
+   "audio_duration": 200
   }
  }
 }

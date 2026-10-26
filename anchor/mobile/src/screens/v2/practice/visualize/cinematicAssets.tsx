@@ -137,7 +137,7 @@ export function useCinematicAssets(tiles: V2VisionTile[], enhancedImageUrl?: str
     .filter(source => dimensionsReady.has(source.id)).map(source => <ImageResource key={source.id} {...source}
       onReady={(id, image) => onReady(attempt, id, image)} onFailure={(id, error) => onFailure(attempt, id, 'skia-decode-failed', error)} />)}</React.Fragment>;
   const select = (selection: V2VisionTile[]): CinematicAssets => ({ tiles: selection,
-    images: selection.map(tile => textures[tile.sceneId]), focalPoints: selection.map(tile => preparePhotoFocus(textures[tile.sceneId])),
+    images: selection.map(tile => textures[tile.sceneId]), focalPoints: selection.map(tile => tile.focal ? {...tile.focal} : preparePhotoFocus(textures[tile.sceneId])),
     backdrops: selection.map(tile => preparePhotoBackdrop(textures[tile.sceneId])),
     enhancedAnchor: enhancedImageUrl ? textures[ENHANCED_ANCHOR_ID] ?? null : null });
   return { resources, ready, partial, unavailable, available, select, retry, timedOut,

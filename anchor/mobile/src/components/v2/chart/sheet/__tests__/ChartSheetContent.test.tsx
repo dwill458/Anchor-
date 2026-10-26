@@ -38,16 +38,17 @@ it('prioritises commit over day closed over One Move and keeps the header intrin
   expect(current.getAllByTestId('chart-one-move-row')).toHaveLength(1);
 });
 
-it('replays teaching from the eyebrow and keeps the row count as short text', () => {
+it('replays teaching from the eyebrow and shows no invented per-move count', () => {
   const replay = jest.fn();
   const screen = setup({ onReplayTeaching: replay });
   fireEvent.press(screen.getByLabelText('Replay move teaching'));
   expect(replay).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('0 of 1 done')).toBeTruthy();
+  expect(screen.queryByText('0 of 1 done')).toBeNull();
 });
 it('keeps the expanded One Move instance and its detail mounted while the sheet changes detent', () => {
   let sheetRef: React.RefObject<ChartSheetHandle | null> | null = null;
-  const screen = setup({ onExpandSheet: () => sheetRef?.current?.snapTo('full') });
+  const raw = course(); raw.waypoints[1].completionCriteria = 'Growth is visible to everyone.';
+  const screen = setup({ view: viewOf(raw), onExpandSheet: () => sheetRef?.current?.snapTo('full') });
   sheetRef = screen.ref;
 
   fireEvent.press(screen.getByTestId('chart-one-move-body'));
@@ -64,7 +65,7 @@ it('keeps half mounted and inaccessible at peek, then makes the existing control
   expect(screen.getByTestId('chart-sheet-half', { includeHiddenElements: true })).toBeTruthy();
   expect(screen.queryByTestId('chart-practice-row')).toBeNull();
   act(() => screen.ref.current!.snapTo('half'));
-  for (const id of ['chart-practice-row', 'chart-waypoint-bar', 'chart-waypoint-progress', 'chart-update-progress-button', 'chart-mark-waypoint-cta', 'chart-edit-waypoint-button']) expect(screen.getByTestId(id)).toBeTruthy();
+  for (const id of ['chart-practice-row', 'chart-waypoint-bar', 'chart-waypoint-progress', 'chart-update-progress-button', 'chart-edit-waypoint-button']) expect(screen.getByTestId(id)).toBeTruthy();
   fireEvent.press(screen.getByTestId('chart-update-progress-button'));
   for (const id of ['chart-progress-sheet', 'chart-progress-input', 'chart-save-progress']) expect(screen.getByTestId(id)).toBeTruthy();
 });

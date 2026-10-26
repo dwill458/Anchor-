@@ -1,0 +1,47 @@
+[
+  {
+    "voice": "female",
+    "window": [
+      374,
+      380
+    ],
+    "expected": "Certainty",
+    "actual": " Certainty"
+  },
+  {
+    "voice": "female",
+    "window": [
+      385.6,
+      390
+    ],
+    "expected": "The feeling of knowing who you are and moving accordingly",
+    "actual": " The feeling of knowing who you are and moving accordingly."
+  },
+  {
+    "voice": "female",
+    "window": [
+      512.1,
+      514.4
+    ],
+    "expected": "Keep only the feeling",
+    "actual": " Keep only the feeling"
+  },
+  {
+    "voice": "male",
+    "window": [
+      512.1,
+      514.4
+    ],
+    "expected": "Keep only the feeling",
+    "actual": " Keep only the feeling"
+  },
+  {
+    "voice": "male",
+    "window": [
+      547.4,
+      548.8
+    ],
+    "expected": "Just look",
+    "actual": " Just look"
+  }
+]

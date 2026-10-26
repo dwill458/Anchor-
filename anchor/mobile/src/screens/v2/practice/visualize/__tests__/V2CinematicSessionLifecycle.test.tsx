@@ -1,10 +1,12 @@
 import React from 'react';
-import { AppState } from 'react-native';
+import { AppState, Dimensions } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { COMPLETION_SETTLE_MAX_MS, V2CinematicSessionScreen } from '../V2CinematicSessionScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { buildGuidedPlan } from '../guided/visualizeGuidedPlan';
 import { v2Haptics } from '@/hooks/v2';
+import { composeVisionBoard } from '@/components/v2/vision/board/visionBoardComposition';
+import type { V2VisionTile, VisionNote } from '@/adapters/v2/vision';
 
 const mockEngine: any = {};
 const mockEngineHook = jest.fn();
@@ -45,6 +47,7 @@ jest.mock('@shopify/react-native-skia', () => ({
   useImage: () => ({}),
 }));
 jest.mock('@/components/v2/anchors/anchorPresentation', () => ({
+  ...jest.requireActual('@/components/v2/anchors/anchorPresentation'),
   anchorArtworkSvg: () => '<svg viewBox="0 0 100 100"><path d="M0 0"/></svg>',
 }));
 jest.mock('@/components/v2/vision/board/useVisionBoardScene', () => ({
@@ -59,8 +62,8 @@ jest.mock('@/components/v2/vision/board/VisionBoardScene', () => ({
   },
 }));
 jest.mock('@/components/v2/vision/board/visionBoardLayouts', () => ({
+  ...jest.requireActual('@/components/v2/vision/board/visionBoardLayouts'),
   boardAttachmentFor: () => 'pin', boardSizeForWidth: (width: number) => ({ width, height: width / 1.56 }),
-  detailBoardSizeForWidth: () => ({ width: 100, height: 100 }),
   selectBoardLayout: () => ({ card: { x: 0.5, y: 0.47, width: 0.24, aspectRatio: 1, rotation: 0, zIndex: 40 } }),
   toSceneRect: () => ({ x: 0, y: 0, width: 100, height: 100, rotation: 0 }),
 }));
@@ -252,7 +255,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockConfirm).not.toHaveBeenCalled();
   });
 
-  it('renders the caption for the phrase the audio position is in, and none through the Anchor chapter', () => {
+  it('renders the caption for the current spoken phrase, including the Anchor chapter', () => {
     const plan = buildGuidedPlan({ durationSeconds: 60, guide: 'lina', imageCount: 1 });
     const view = renderReadySession();
     measureMark();
@@ -261,7 +264,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(view.getByTestId('v2-visualize-caption').props.children).toBe('Don’t just see the picture. Step into it.');
     const anchorPhrase = plan.beatMap.phrases.find(item => item.chapter === 'ANCHOR')!;
     mockEngine.positionMs = anchorPhrase.startMs + 300; rerenderSession(view);
-    expect(plan.captions.some(item => item.startMs <= mockEngine.positionMs && mockEngine.positionMs < item.endMs)).toBe(false);
+    expect(view.getByTestId('v2-visualize-caption').props.children).toBe(plan.captions.find(item => item.phraseId === anchorPhrase.id)?.text);
   });
 
   it('drives the stage from the audio clock it hands the playback hook, not from a timer of its own', () => {
@@ -269,7 +272,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     measureMark();
     const params = mockEngineHook.mock.calls[0][0];
     expect(params.positionSV).toBeDefined();
-    expect(params.durationMs).toBe(64_800);
+    expect(params.durationMs).toBe(65_120);
     expect(params.muted).toBe(true);
   });
 
@@ -294,7 +297,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockCompletion).toHaveBeenCalledTimes(1);
     mockEngine.state = 'completing';
     mockEngine.remainingSeconds = 0;
-    mockEngine.positionMs = 64_800;
+    mockEngine.positionMs = 65_120;
     view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
       statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
       source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
@@ -324,7 +327,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
       statement="Changed later" durationSeconds={600} voice="male" ambient haptics
       source="recommended_today" onExit={view.onExit} onContinue={view.onContinue} />);
     const last = mockEngineHook.mock.calls[mockEngineHook.mock.calls.length - 1][0];
-    expect(last.durationMs).toBe(64_800);
+    expect(last.durationMs).toBe(65_120);
     expect(last.muted).toBe(true);
     await act(async () => { await last.onComplete({ startedAt: '2026-09-30T10:00:00.000Z', completedAt: '2026-09-30T10:01:00.000Z' }); });
     expect(mockCompletion).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'user-1', anchor, durationSeconds: 60, guidanceVoice: 'none', backgroundAudio: 'off' }));
@@ -401,19 +404,57 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockEngine.start).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the full existing multi-photo composition while keeping note content out of Visualize', () => {
+  it.each(['CLASSIC', 'EDITORIAL', 'SCRAPBOOK'] as const)('preserves the exact prepared %s composition, notes and focal points when a session begins', boardLayout => {
+    const photographs: V2VisionTile[] = [0, 3, 7].map((slot, i) => ({
+      id: `saved-${i}`, sceneId: `saved-${i}`, imageUrl: `https://cdn.test/persisted-${i}.jpg`, prompt: null,
+      caption: `My saved photograph ${i}`, slotIndex: slot, sortOrder: i, isHero: i === 0, focal: { x: .2 + i * .1, y: .7 },
+    }));
+    const note: VisionNote = { id: 'persisted-note', visionId: 'v1', content: { text: 'A future worth seeing' },
+      presentation: { styleId: 'paper_ivory_torn', fontId: 'classic', x: .5, y: .8, width: .2, height: .12, scale: 1, rotation: 0, layerOrder: 2 },
+      layoutPositions: { EDITORIAL: { x: .4, y: 4.6 }, SCRAPBOOK: { x: .7, y: 4.8 } }, createdAt: '', updatedAt: '' };
+    const composition = { ...composeVisionBoard({ tiles: photographs, notes: [note], width: 366, boardLayout, fontScale: Dimensions.get('window').fontScale }),
+      ready: true, measurementView: null };
+    const assets = { tiles: photographs, images: [{}, {}, {}], focalPoints: photographs.map(photo => photo.focal!) };
+    const preparedSession: any = { anchor, statement: 'Saved Vision', visionId: 'v1', assets, notes: [note], composition,
+      boardLayout, layoutWidth: 366, viewport: { width: 393, height: 852 },
+      markLocal: { x: 10, y: 10, width: 40, height: 60 }, svgText: '<svg viewBox="0 0 100 100"><path d="M0 0 L100 100"/></svg>',
+      svg: {}, enhancedMaskEffect: null };
+    const before = JSON.stringify({ photographs, note });
+    const onExit = jest.fn(), onContinue = jest.fn();
+    const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={photographs} notes={[note]}
+      boardLayout={boardLayout} layoutWidth={366} prepared={preparedSession} statement="Saved Vision" durationSeconds={60}
+      voice="none" ambient={false} haptics={false} source="practice_hub" onExit={onExit} onContinue={onContinue} />);
+    expect(mockCinematicStageProps.composition).toBe(composition);
+    expect(mockCinematicStageProps.composition.notes).toEqual(composition.notes);
+    expect(mockCinematicStageProps.focalPoints).toEqual(assets.focalPoints);
+    expect(mockCinematicStageProps.tiles).toEqual(photographs);
+    expect(mockCinematicStageProps.scene.height / mockCinematicStageProps.scene.width).toBeCloseTo(composition.ratio);
+    expect(mockUseCinematicAssets).not.toHaveBeenCalled();
+    expect(mockEngine.start).toHaveBeenCalledTimes(1);
+    view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={[]} notes={[]}
+      boardLayout={boardLayout === 'CLASSIC' ? 'EDITORIAL' : 'CLASSIC'} statement="Changed later" durationSeconds={600}
+      voice="male" ambient haptics source="practice_hub" onExit={onExit} onContinue={onContinue} />);
+    expect(mockCinematicStageProps.composition).toBe(composition);
+    expect(mockCinematicStageProps.focalPoints).toEqual(assets.focalPoints);
+    expect(mockEngineHook.mock.calls.at(-1)![0]).toMatchObject({ durationMs: 65_120, muted: true });
+    expect(JSON.stringify({ photographs, note })).toBe(before);
+  });
+
+  it('uses the full existing multi-photo composition and carries notes inside the shared composition', () => {
     mockUseBoardScene.mockClear();
     mockUseCinematicAssets.mockReturnValue({ resources: null, ready: true, partial: false, unavailable: false,
       available: tiles, select: () => ({ tiles, images: [{}] }), retry: jest.fn(), timedOut: false, failedCount: 0 });
-    const note = { id: 'note-1', content: { text: 'A saved note' }, presentation: { styleId: 'paper' } } as any;
+    const note: VisionNote = { id: 'note-1', visionId: 'v1', content: { text: 'A saved note' },
+      presentation: { styleId: 'paper_ivory_torn', x: .5, y: .8, width: .2, height: .12, rotation: 0, scale: 1, layerOrder: 0 }, createdAt: '', updatedAt: '' };
     const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles} notes={[note]}
       statement="Saved Vision" durationSeconds={60} voice="none" ambient={false} haptics={false}
       source="practice_hub" onExit={jest.fn()} onContinue={jest.fn()} />);
     measureMark();
 
-    expect(mockUseBoardScene).toHaveBeenCalledWith(tiles, expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }), 1, true);
+    expect(mockUseBoardScene).toHaveBeenCalledWith(tiles, expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }), 1, true, undefined, expect.objectContaining({boardLayout:'CLASSIC',order:expect.arrayContaining([tiles[0].sceneId])}));
     expect(view.getByTestId('cinematic-stage')).toBeTruthy();
     expect(mockCinematicStageProps).not.toHaveProperty('notes');
+    expect(mockCinematicStageProps.composition.notes[0]).toMatchObject({ id: note.id, content: note.content });
     view.unmount();
   });
 

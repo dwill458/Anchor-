@@ -28,7 +28,7 @@ export const VISION_PORTRAIT_COMPOSITION = [
   'Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 65% of the height, so a wide centre crop still contains it. Place faces and the key focal object between 45% and 55% of the height for compact Home and Details previews.',
   'Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment.',
   'Include enough surrounding space that the scene reads at small sizes.',
-  'Presentation: the editorial Vision hero is a 1.12:1 centre crop of this 9:16 original; supporting apertures are 0.70:1 to 1.04:1. Keep ALL essential faces, hands and objects between 30% and 65% of the image height. Keep the lower corners free of essential subjects for a subtle paper edge and the user\'s Anchor at the image transition. The full original remains available in Visualize.',
+  "Presentation: the editorial Vision hero is a 1.12:1 centre crop of this 9:16 original; supporting apertures are 0.70:1 to 1.04:1. Keep ALL essential faces, hands and objects between 30% and 65% of the image height. Keep the lower corners free of essential subjects for a subtle paper edge and the user's Anchor at the image transition. The full original remains available in Visualize.",
 ].join(' ');
 
 /**
@@ -73,7 +73,9 @@ const MAX_FIELD = 160;
 
 function clipList(value: unknown, maxItems = 8): string[] | undefined {
   if (!Array.isArray(value)) return undefined;
-  const values = value.map(item => clip(item, MAX_FIELD)).filter((item): item is string => Boolean(item));
+  const values = value
+    .map(item => clip(item, MAX_FIELD))
+    .filter((item): item is string => Boolean(item));
   return values.length ? [...new Set(values)].slice(0, maxItems) : undefined;
 }
 
@@ -90,7 +92,12 @@ export function buildVisionScenePlannerPrompt(input: {
   /** Scenes from earlier sets of the same Vision, to be deliberately avoided. */
   avoidScenes?: string[];
   hasAppearanceReference?: boolean;
-  onboarding?: { motivation?: string; customAnswer?: string; desiredChange: string; lifeChanges: string[] } | null;
+  onboarding?: {
+    motivation?: string;
+    customAnswer?: string;
+    desiredChange: string;
+    lifeChanges: string[];
+  } | null;
 }): string {
   const avoid = (input.avoidScenes ?? []).filter(Boolean).slice(0, 24);
   return [
@@ -98,20 +105,22 @@ export function buildVisionScenePlannerPrompt(input: {
     '',
     `These photographs are the individual pictures on one Vision board: together they tell the story of this future, each one a separate, standalone photograph of one moment. Never plan a collage, a board, or several moments inside one frame.`,
     '',
-    'Read the description for what it implies, not only what it literally says. Every photograph must be recognisably part of THIS Vision: someone who reads the description should see at once why each frame belongs. Generic lifestyle moments that could illustrate anyone\'s life (making tea, cooking, a walk in a park) are not allowed unless the description implies them.',
+    "Read the description for what it implies, not only what it literally says. Every photograph must be recognisably part of THIS Vision: someone who reads the description should see at once why each frame belongs. Generic lifestyle moments that could illustrate anyone's life (making tea, cooking, a walk in a park) are not allowed unless the description implies them.",
     '',
     'Semantic coverage and diversity contract (CRITICAL - takes priority over all other direction):',
     '- First, identify every meaningful, visually depictable concept explicitly present in the description. Preserve concrete names, quantities, products, milestones, relationships, places, and activities. Return this complete manifest as "identifiedConcepts" on every scene object.',
     '- Represent every identified concept in at least one scene when visually possible. Compound inputs often contain multiple dimensions (e.g. product/business success, external recognition/awards, lifestyle freedom/remote work, and family/life outcome). You MUST distribute the scenes across all of these distinct dimensions. Never collapse the set into several cosmetic variations of the same setting or activity.',
     '- Each scene must have a distinct semantic purpose ("purpose") and name the concept(s) it covers ("covers").',
     '- Later scenes must know what earlier scenes represent: avoid duplicate compositions, environments, activities, and narrative beats.',
-    '- Don\'t generate several cosmetic variations of the same idea. Camera-angle changes alone do not make a new semantic scene.',
+    "- Don't generate several cosmetic variations of the same idea. Camera-angle changes alone do not make a new semantic scene.",
     '- Do not invent unrelated aspirations just to create variety. If there are fewer distinct concepts than scenes, use grounded, meaningfully different moments of those concepts rather than unrelated lifestyle imagery.',
     '- Preserve concrete details supplied by the user (e.g. specific user counts, dashboard metrics, editorial features, specific places).',
     ...(input.hasAppearanceReference
-      ? ['- An approved user appearance reference is supplied. A visible person may appear in natural moments, but do not make the set repeated portraiture.']
+      ? [
+          '- An approved user appearance reference is supplied. A visible person may appear in natural moments, but do not make the set repeated portraiture.',
+        ]
       : [
-          '- NEVER invent the user\'s physical appearance without a supplied reference image.',
+          "- NEVER invent the user's physical appearance without a supplied reference image.",
           '- When identity is not known, favor POV (first-person viewpoint), hands, over-the-shoulder, silhouette, environmental scenes, screens/objects, or compositions where identity is not important.',
         ]),
     '',
@@ -131,11 +140,13 @@ export function buildVisionScenePlannerPrompt(input: {
     '- For Career intentions: depict the outcome as ALREADY REAL in an authentic professional workplace (corporate office floor, established company workstation, meeting room, industry workspace, leadership setting or workplace arrival). Avoid defaulting to generic WFH laptops, home desks, coffee cups, or empty desk still lifes.',
     '- No readable text, numbers, logos, interface elements or signage in any photograph.',
     "- An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.",
-    ...(avoid.length ? [
-      '',
-      'This person has already seen the scenes below for this Vision. Plan NEW moments: different settings, different framings, different consequences. Do not rephrase these:',
-      ...avoid.map(scene => `- ${scene}`),
-    ] : []),
+    ...(avoid.length
+      ? [
+          '',
+          'This person has already seen the scenes below for this Vision. Plan NEW moments: different settings, different framings, different consequences. Do not rephrase these:',
+          ...avoid.map(scene => `- ${scene}`),
+        ]
+      : []),
     '',
     `Return only a JSON array of ${VISION_SCENE_COUNT} objects with these string keys:`,
     '"role" (2-5 words naming the moment), "purpose" (distinct semantic purpose, 2-8 words), "identifiedConcepts" (same complete array on every object), "covers" (array of labels from that manifest represented in this scene), "moment", "setting", "framing" (one of wide, medium, close, detail), "composition", "light", "feeling",',
@@ -145,13 +156,21 @@ export function buildVisionScenePlannerPrompt(input: {
     `Anchor intention (data): ${JSON.stringify(input.intention)}`,
     `Category (data): ${JSON.stringify(input.category)}`,
     `Vision description (data): ${JSON.stringify(input.description)}`,
-    ...(input.onboarding ? [
-      'Earlier onboarding answers are supporting context only. The person\'s explicit Vision description and Anchor intention take priority. Do not invent scenes from onboarding answers that the description does not imply.',
-      ...(input.onboarding.motivation ? [`Reason for change (data): ${JSON.stringify(input.onboarding.motivation)}`] : []),
-      ...(input.onboarding.customAnswer ? [`Their own words (data): ${JSON.stringify(input.onboarding.customAnswer)}`] : []),
-      `Desired outcome (data): ${JSON.stringify(input.onboarding.desiredChange)}`,
-      ...(input.onboarding.lifeChanges.length ? [`Life changes (data): ${JSON.stringify(input.onboarding.lifeChanges)}`] : []),
-    ] : []),
+    ...(input.onboarding
+      ? [
+          "Earlier onboarding answers are supporting context only. The person's explicit Vision description and Anchor intention take priority. Do not invent scenes from onboarding answers that the description does not imply.",
+          ...(input.onboarding.motivation
+            ? [`Reason for change (data): ${JSON.stringify(input.onboarding.motivation)}`]
+            : []),
+          ...(input.onboarding.customAnswer
+            ? [`Their own words (data): ${JSON.stringify(input.onboarding.customAnswer)}`]
+            : []),
+          `Desired outcome (data): ${JSON.stringify(input.onboarding.desiredChange)}`,
+          ...(input.onboarding.lifeChanges.length
+            ? [`Life changes (data): ${JSON.stringify(input.onboarding.lifeChanges)}`]
+            : []),
+        ]
+      : []),
   ].join('\n');
 }
 
@@ -159,14 +178,20 @@ export function buildVisionScenePlannerPrompt(input: {
  * Validates planner output. Returns null when it is not a usable plan so the
  * caller can raise a retryable error rather than render a broken set.
  */
-export function parseVisionScenePlan(text: string | undefined | null): VisionScenePlanItem[] | null {
+export function parseVisionScenePlan(
+  text: string | undefined | null
+): VisionScenePlanItem[] | null {
   let parsed: unknown;
   const rawCleaned = (text ?? '')
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/i, '')
     .trim();
-  try { parsed = JSON.parse(rawCleaned); } catch { return null; }
+  try {
+    parsed = JSON.parse(rawCleaned);
+  } catch {
+    return null;
+  }
   if (!Array.isArray(parsed) || parsed.length !== VISION_SCENE_COUNT) return null;
   const plan: VisionScenePlanItem[] = [];
   for (const raw of parsed) {
@@ -184,7 +209,8 @@ export function parseVisionScenePlan(text: string | undefined | null): VisionSce
       covers: clipList(item.covers),
       moment: clip(item.moment, MAX_FIELD),
       setting: clip(item.setting, MAX_FIELD),
-      framing: framing && (VISION_FRAMINGS as readonly string[]).includes(framing) ? framing : undefined,
+      framing:
+        framing && (VISION_FRAMINGS as readonly string[]).includes(framing) ? framing : undefined,
       composition: clip(item.composition, MAX_FIELD),
       light: clip(item.light, MAX_FIELD),
       feeling: clip(item.feeling, MAX_FIELD),
@@ -192,28 +218,46 @@ export function parseVisionScenePlan(text: string | undefined | null): VisionSce
   }
   // Byte-identical scenes are a planner failure, not variety.
   if (new Set(plan.map(item => item.scene.toLowerCase())).size !== plan.length) return null;
-  if (plan.some(item => !item.purpose || !item.identifiedConcepts?.length || !item.covers?.length)) return null;
+  if (plan.some(item => !item.purpose || !item.identifiedConcepts?.length || !item.covers?.length))
+    return null;
   const purposes = plan.map(item => item.purpose!.toLowerCase());
   if (new Set(purposes).size !== purposes.length) return null;
   const manifest = plan[0].identifiedConcepts!;
   const normalizedManifest = new Set(manifest.map(concept => concept.toLowerCase()));
   // Ensure all scene objects share the same set of identified concepts (order-independent)
-  if (plan.some(item => {
-    const itemConcepts = item.identifiedConcepts?.map(v => v.toLowerCase()) ?? [];
-    return itemConcepts.length !== normalizedManifest.size || itemConcepts.some(c => !normalizedManifest.has(c));
-  })) {
+  if (
+    plan.some(item => {
+      const itemConcepts = item.identifiedConcepts?.map(v => v.toLowerCase()) ?? [];
+      return (
+        itemConcepts.length !== normalizedManifest.size ||
+        itemConcepts.some(c => !normalizedManifest.has(c))
+      );
+    })
+  ) {
     return null;
   }
   const covered = new Set(plan.flatMap(item => item.covers!.map(concept => concept.toLowerCase())));
-  if (manifest.some(concept => !covered.has(concept.toLowerCase())) || plan.some(item => item.covers!.some(concept => !normalizedManifest.has(concept.toLowerCase())))) return null;
+  if (
+    manifest.some(concept => !covered.has(concept.toLowerCase())) ||
+    plan.some(item => item.covers!.some(concept => !normalizedManifest.has(concept.toLowerCase())))
+  )
+    return null;
   return plan;
 }
 
 /** True for a plan persisted on a job, in either the old or the new shape. */
 export function isStoredVisionScenePlan(value: unknown): value is VisionScenePlanItem[] {
-  return Array.isArray(value) && value.length >= 1 && value.length <= VISION_SCENE_COUNT && value.every(
-    item => item && typeof item === 'object' && typeof (item as { role?: unknown }).role === 'string' &&
-      typeof (item as { scene?: unknown }).scene === 'string',
+  return (
+    Array.isArray(value) &&
+    value.length >= 1 &&
+    value.length <= VISION_SCENE_COUNT &&
+    value.every(
+      item =>
+        item &&
+        typeof item === 'object' &&
+        typeof (item as { role?: unknown }).role === 'string' &&
+        typeof (item as { scene?: unknown }).scene === 'string'
+    )
   );
 }
 
@@ -244,24 +288,36 @@ export function buildVisionImagePrompt(input: {
 }): string {
   const { scene } = input;
   return [
-    'Create one photograph for a personal Vision - a believable glimpse of this person\'s real future.',
+    "Create one photograph for a personal Vision - a believable glimpse of this person's real future.",
     `Scene to photograph (highest priority): ${JSON.stringify(scene.scene)}`,
     ...(scene.purpose ? [`Distinct semantic purpose: ${JSON.stringify(scene.purpose)}`] : []),
-    ...(scene.covers?.length ? [`Concept represented in this frame: ${JSON.stringify(scene.covers)}`] : []),
+    ...(scene.covers?.length
+      ? [`Concept represented in this frame: ${JSON.stringify(scene.covers)}`]
+      : []),
     ...(scene.moment ? [`Moment: ${JSON.stringify(scene.moment)}`] : []),
     ...(scene.setting ? [`Setting: ${JSON.stringify(scene.setting)}`] : []),
     ...(scene.composition ? [`Composition: ${JSON.stringify(scene.composition)}`] : []),
     ...(scene.light ? [`Light: ${JSON.stringify(scene.light)}`] : []),
     ...(scene.feeling ? [`Emotional texture: ${JSON.stringify(scene.feeling)}`] : []),
-    ...(input.isAddedScene ? [
-      'This photograph is one separate moment. The scene above alone defines its location, environment, action, composition, light and camera. Do not borrow rooms, places, props, light or compositions from any other moment in this Vision. Time of day, weather, season and light come from the scene alone: if the scene says night, dawn or rain, show exactly that; ignore any time of day or lighting in the Vision-level background.',
-      ...(input.description.trim() ? [`Vision-level background (lowest priority; broad mood and subject only, it never overrides the scene's own location or environment) (data): ${JSON.stringify(input.description.trim().slice(0, 600))}`] : []),
-    ] : []),
+    ...(input.isAddedScene
+      ? [
+          'This photograph is one separate moment. The scene above alone defines its location, environment, action, composition, light and camera. Do not borrow rooms, places, props, light or compositions from any other moment in this Vision. Time of day, weather, season and light come from the scene alone: if the scene says night, dawn or rain, show exactly that; ignore any time of day or lighting in the Vision-level background.',
+          ...(input.description.trim()
+            ? [
+                `Vision-level background (lowest priority; broad mood and subject only, it never overrides the scene's own location or environment) (data): ${JSON.stringify(input.description.trim().slice(0, 600))}`,
+              ]
+            : []),
+        ]
+      : []),
     ...(input.worldReferenceCount
-      ? ["The photograph(s) attached as the person's own references fix how specific subjects they mention look (a car, a home, a pet). They do not set the location of this scene: the scene description does."]
+      ? [
+          "The photograph(s) attached as the person's own references fix how specific subjects they mention look (a car, a home, a pet). They do not set the location of this scene: the scene description does.",
+        ]
       : []),
     ...(input.startPhotoAttached
-      ? ['The photograph attached as the start photo is the real place of this person today. Show this same place transformed as the scene describes: keep its recognisable structure and viewpoint, change only what the person asked to change.']
+      ? [
+          'The photograph attached as the start photo is the real place of this person today. Show this same place transformed as the scene describes: keep its recognisable structure and viewpoint, change only what the person asked to change.',
+        ]
       : []),
     LENS_BY_FRAMING[scene.framing ?? ''] ?? 'Natural candid framing.',
     VISION_PORTRAIT_COMPOSITION,
@@ -270,22 +326,45 @@ export function buildVisionImagePrompt(input: {
     `Anchor intention (high-level background context): ${JSON.stringify(input.intention)}.`,
     `Category context: ${JSON.stringify(input.category)}. Never replace a concrete described environment with a generic category setting.`,
     ...(input.hasAppearanceReference
-      ? ['A user-approved appearance reference is supplied separately. It may inform the person when they naturally appear, but do not force their face into every frame.']
-      : ['No appearance reference exists. Never invent a visible protagonist. Strictly prefer first-person POV, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.']),
-    ...(input.category === 'career' ? ['Career Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.'] : []),
+      ? [
+          'A user-approved appearance reference is supplied separately. It may inform the person when they naturally appear, but do not force their face into every frame.',
+        ]
+      : [
+          'No appearance reference exists. Never invent a visible protagonist. Strictly prefer first-person POV, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.',
+        ]),
+    ...(input.category === 'career'
+      ? [
+          'Career Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.',
+        ]
+      : []),
     'Style: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.',
     'Anatomy and objects: physically plausible proportions, coherent hands and fingers, natural joints and grips, and the correct objects explicitly requested in the scene. Keep identity consistent with the supplied appearance reference when present.',
     'When the person explicitly requests a screen or interface, preserve that object and its role in the moment: believable device geometry, reflections and a coherent screen layout. Never replace the requested screen with an unrelated generic object.',
     "An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.",
-    'Do not invent a brand, achievement, metric, relationship or setting unsupported by the scene. First-person or over-the-shoulder framing should feel like an ordinary memory from the person\'s future.',
+    "Do not invent a brand, achievement, metric, relationship or setting unsupported by the scene. First-person or over-the-shoulder framing should feel like an ordinary memory from the person's future.",
     'Screens, when not requested, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
     'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people, collage, vision-board or scrapbook styling, picture frames, borders, captions.',
   ].join('\n');
 }
 
-const VARIANT_DIRECTION: Array<Pick<VisionScenePlanItem, 'role' | 'framing' | 'composition' | 'light'>> = [
-  { role: 'The moment itself', framing: 'medium', composition: 'The described moment as it happens, seen from a natural first-person or over-the-shoulder viewpoint', light: 'Natural available light suited to the setting' },
-  { role: 'The place around it', framing: 'wide', composition: 'The same moment from farther away, so the surrounding place and atmosphere read clearly', light: "Light that fits the scene's own time of day and setting, exactly as the described moment implies" },
+const VARIANT_DIRECTION: Array<
+  Pick<VisionScenePlanItem, 'role' | 'framing' | 'composition' | 'light'>
+> = [
+  {
+    role: 'The moment itself',
+    framing: 'medium',
+    composition:
+      'The described moment as it happens, seen from a natural first-person or over-the-shoulder viewpoint',
+    light: 'Natural available light suited to the setting',
+  },
+  {
+    role: 'The place around it',
+    framing: 'wide',
+    composition:
+      'The same moment from farther away, so the surrounding place and atmosphere read clearly',
+    light:
+      "Light that fits the scene's own time of day and setting, exactly as the described moment implies",
+  },
 ];
 
 /**

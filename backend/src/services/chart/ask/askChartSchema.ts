@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 /** Preferences Ask Chart may retain, per Anchor. Anything else the model proposes is dropped. */
-export const MEMORY_KEYS = ['availability', 'hoursPerWeek', 'constraints', 'approach', 'resources'] as const;
+export const MEMORY_KEYS = [
+  'availability',
+  'hoursPerWeek',
+  'constraints',
+  'approach',
+  'resources',
+] as const;
 export type MemoryKey = (typeof MEMORY_KEYS)[number];
 
 export const REVISE_REASONS = [
@@ -23,7 +29,16 @@ export type ReviseReason = (typeof REVISE_REASONS)[number];
 export const ASK_TURN_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['reply', 'suggestions', 'requestPhoto', 'readyToPlan', 'startingPoint', 'context', 'action', 'remember'],
+  required: [
+    'reply',
+    'suggestions',
+    'requestPhoto',
+    'readyToPlan',
+    'startingPoint',
+    'context',
+    'action',
+    'remember',
+  ],
   properties: {
     reply: { type: 'string' },
     suggestions: { type: 'array', items: { type: 'string' } },
@@ -66,7 +81,8 @@ export const ASK_TURN_JSON_SCHEMA = {
   },
 } as const;
 
-const text = (max: number) => z.string().transform(value => value.replace(/\s+/g, ' ').trim().slice(0, max));
+const text = (max: number) =>
+  z.string().transform(value => value.replace(/\s+/g, ' ').trim().slice(0, max));
 
 const RawTurn = z.object({
   reply: z.string().transform(value => value.trim()),
@@ -115,6 +131,9 @@ export class AskTurnInvalidError extends Error {
   }
 }
 
+const NOT_SURE = /(not sure|unsure|don'?t know|no idea)/i;
+const NOT_SURE_REPLY = 'Not sure yet';
+
 /** Validates and cleans a model response. Anything that cannot be made safe is rejected, never patched up. */
 export function normalizeAskTurn(raw: unknown): AskTurn {
   const parsed = RawTurn.safeParse(raw);
@@ -130,6 +149,11 @@ export function normalizeAskTurn(raw: unknown): AskTurn {
     seen.add(key);
     suggestions.push(value);
     if (suggestions.length === 4) break;
+  }
+  // Every set of quick replies leaves room for "I'm not sure": the person is never forced to pick something untrue.
+  if (suggestions.length > 0 && !suggestions.some(value => NOT_SURE.test(value))) {
+    if (suggestions.length === 4) suggestions.pop();
+    suggestions.push(NOT_SURE_REPLY);
   }
   const action = turn.action
     ? {
@@ -182,7 +206,16 @@ export function extractStreamingReply(accumulated: string): { text: string; comp
       i += 6;
       continue;
     }
-    const simple: Record<string, string> = { n: '\n', t: '\t', r: '\r', b: '\b', f: '\f', '"': '"', '\\': '\\', '/': '/' };
+    const simple: Record<string, string> = {
+      n: '\n',
+      t: '\t',
+      r: '\r',
+      b: '\b',
+      f: '\f',
+      '"': '"',
+      '\\': '\\',
+      '/': '/',
+    };
     out += simple[next] ?? next;
     i += 2;
   }

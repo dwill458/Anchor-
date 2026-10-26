@@ -13,6 +13,39 @@ describe('Deep Focus active-time lifecycle', () => {
   afterEach(() => { jest.useRealTimers(); });
   const advance = (ms: number) => act(() => jest.advanceTimersByTime(ms));
 
+  it('waits for the full recording rather than completing while its player buffers', () => {
+    let playbackSeconds = 0;
+    const onComplete = jest.fn();
+    const { result, unmount } = renderHook(() => useDeepFocusSession({ duration: 120, showTime: false,
+      readPlaybackElapsed: () => playbackSeconds, onSample: jest.fn(), onComplete }));
+    advance(22_000);
+    expect(result.current.readElapsed()).toBe(0);
+    playbackSeconds = 98;
+    advance(120_000);
+    expect(result.current.readElapsed()).toBe(98);
+    expect(onComplete).not.toHaveBeenCalled();
+    playbackSeconds = 120;
+    advance(250);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('holds the sampled playback position while paused and resumes on the recording clock', () => {
+    let playbackSeconds = 20;
+    const { result, unmount } = renderHook(() => useDeepFocusSession({ duration: 120, showTime: false,
+      readPlaybackElapsed: () => playbackSeconds, onSample: jest.fn(), onComplete: jest.fn() }));
+    act(() => result.current.pause());
+    playbackSeconds = 30;
+    advance(10_000);
+    expect(result.current.readElapsed()).toBe(20);
+    playbackSeconds = 20;
+    act(() => result.current.resume());
+    playbackSeconds = 21;
+    advance(250);
+    expect(result.current.readElapsed()).toBe(21);
+    unmount();
+  });
+
   it.each([120, 300, 600] as const)('completes %is once with no ending hold', duration => {
     const onComplete = jest.fn();
     const { result, unmount } = renderHook(() => useDeepFocusSession({ duration, showTime: false, onSample: jest.fn(), onComplete }));

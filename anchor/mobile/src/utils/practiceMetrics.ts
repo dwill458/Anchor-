@@ -124,7 +124,7 @@ function applyDecay(
     const delta =
       calculateThreadDecay(day, sensitivity) -
       calculateThreadDecay(day - 1, sensitivity);
-    if (delta > 0) next = Math.max(5, next - delta);
+    if (delta > 0) next = Math.max(0, next - delta);
   }
   return next;
 }
@@ -287,30 +287,43 @@ export function calculateThreadStrengthScore(
   sensitivity: ThreadStrengthSensitivity,
   restDays: readonly number[],
 ): number {
-  let score = 50;
-  let lastDate: string | null = null;
+  const byDate = new Map<string, { totalSeconds: number; count: number }>();
   for (const event of events) {
-    if (lastDate && event.localDateKey > lastDate) {
-      score = applyDecay(
-        score,
-        countDecayEligibleDays(lastDate, event.localDateKey, restDays),
-        sensitivity,
-      );
+    if (event.completionStatus !== 'completed') continue;
+    const duration =
+      typeof event.completedDurationSeconds === 'number'
+        ? event.completedDurationSeconds
+        : typeof event.plannedDurationSeconds === 'number'
+          ? event.plannedDurationSeconds
+          : 60;
+    const current = byDate.get(event.localDateKey) ?? { totalSeconds: 0, count: 0 };
+    current.totalSeconds += duration;
+    current.count += 1;
+    byDate.set(event.localDateKey, current);
+  }
+
+  const sortedDates = Array.from(byDate.keys()).sort();
+  let score = 0;
+  let lastDate: string | null = null;
+
+  for (const date of sortedDates) {
+    if (lastDate && date > lastDate) {
+      const missedDays = countDecayEligibleDays(lastDate, date, restDays);
+      score = applyDecay(score, missedDays, sensitivity);
     }
-    score = Math.min(
-      100,
-      score + PRACTICE_THREAD_STRENGTH_GAINS[event.practiceMode],
-    );
-    lastDate = event.localDateKey;
+    const dayData = byDate.get(date)!;
+    const durationPoints = 0.5 * (Math.min(dayData.totalSeconds, 600) / 60);
+    const dailyEarned = 1.5 + durationPoints;
+    score = Math.min(100, Math.max(0, score + dailyEarned));
+    lastDate = date;
   }
+
   if (lastDate && today > lastDate) {
-    score = applyDecay(
-      score,
-      countDecayEligibleDays(lastDate, today, restDays),
-      sensitivity,
-    );
+    const missedDays = countDecayEligibleDays(lastDate, today, restDays);
+    score = applyDecay(score, missedDays, sensitivity);
   }
-  return Math.max(0, Math.min(100, Math.round(score)));
+
+  return Math.max(0, Math.min(100, Math.round(score * 100) / 100));
 }
 
 export function buildThreadStrengthSnapshot(params: {

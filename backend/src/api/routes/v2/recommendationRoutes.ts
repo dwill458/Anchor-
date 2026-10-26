@@ -23,7 +23,7 @@ router.get(
         anchorId,
         clientTimeZone,
         null,
-        (stage, durationMs) => timings.push(`${stage};dur=${durationMs.toFixed(1)}`),
+        (stage, durationMs) => timings.push(`${stage};dur=${durationMs.toFixed(1)}`)
       );
       timings.push(`recommendation-context;dur=${(performance.now() - startedAt).toFixed(1)}`);
       res.setHeader('Server-Timing', timings.join(', '));
@@ -45,17 +45,20 @@ router.get(
     try {
       const userId = await getAuthenticatedUserId(req);
       const rawIds = (req.query.anchorIds as string) || '';
-      const anchorIds = rawIds.split(',').map((id) => id.trim()).filter(Boolean);
+      const anchorIds = rawIds
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean);
       const clientTimeZone =
         (req.query.timeZone as string) || (req.headers['x-timezone'] as string) || 'UTC';
 
       const results = await Promise.allSettled(
-        anchorIds.map((anchorId) =>
+        anchorIds.map(anchorId =>
           recommendationService.getRecommendationContext(userId, anchorId, clientTimeZone)
         )
       );
 
-      const items = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+      const items = results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : []));
       res.json({
         success: true,
         data: items,

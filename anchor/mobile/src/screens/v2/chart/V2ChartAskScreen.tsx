@@ -5,6 +5,8 @@ import { AskChartView } from '@/components/v2/chart/ask/AskChartView';
 import { AskActionUnavailable, AskProposalCard } from '@/components/v2/chart/ask/AskProposalCard';
 import { askAccent } from '@/components/v2/chart/ask/askChartTheme';
 import { useAskMedia } from '@/components/v2/chart/ask/useAskMedia';
+import type { AskStarter } from '@/components/v2/chart/ask/AskStarters';
+import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { AskUiMessage } from '@/hooks/v2/chart/askChartState';
 import { trackChart, useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { useAskChart } from '@/hooks/v2/chart/useAskChart';
@@ -76,6 +78,21 @@ export function V2ChartAskScreen() {
       navigation.navigate('V2ChartAdjust', { anchorId, proposalId: message.action.routeProposalId, askMessageId: message.id }),
   });
 
+  // Where the person is on the Chart: the move they are on, and the waypoint it belongs to.
+  const course = chart.data?.chart ?? null;
+  const currentMove = course?.moves?.find(move => move.id === course.currentMoveId && move.status === 'ACTIVE') ?? null;
+  const currentWaypoint = course?.waypoints?.find(waypoint => waypoint.id === (currentMove?.waypointId ?? course.currentWaypointId)) ?? null;
+  const contextLine = currentWaypoint ? CHART_COPY.ask.contextLine(currentWaypoint.title, currentMove?.title ?? null) : null;
+  const starterCopy = CHART_COPY.ask.starters;
+  const starters = React.useMemo<AskStarter[]>(() => {
+    if (!course) return [];
+    const list: AskStarter[] = [];
+    if (currentMove) list.push({ key: 'break', label: starterCopy.breakDown, onPress: () => ask.send(starterCopy.breakDown, { skill: 'BREAK_DOWN', targetMoveId: currentMove.id }) });
+    list.push({ key: 'week', label: starterCopy.planWeek, onPress: () => ask.send(starterCopy.planWeek, { skill: 'PLAN_WEEK' }) });
+    if (currentMove) list.push({ key: 'another', label: starterCopy.anotherWay, onPress: () => ask.send(starterCopy.anotherWay, { skill: 'ANOTHER_APPROACH', targetMoveId: currentMove.id }) });
+    return list;
+  }, [ask, course, currentMove, starterCopy]);
+
   const mediaExtra = media.renderExtra;
   const renderExtra = useCallback(
     (message: AskUiMessage) => (
@@ -111,6 +128,8 @@ export function V2ChartAskScreen() {
         onBack={goBack}
         {...media}
         renderExtra={renderExtra}
+        contextLine={contextLine}
+        starters={prompt ? undefined : starters}
         testID="v2-chart-ask"
       />
     </>

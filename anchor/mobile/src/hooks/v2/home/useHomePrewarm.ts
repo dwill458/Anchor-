@@ -1,91 +1,58 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Image } from 'react-native';
 import { prefetchV2RecommendationContext } from '@/adapters/v2/practice/recommendationClient';
+import { hydrateV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { prefetchV2Vision } from '@/hooks/v2/vision';
 import { loadAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
+import { useAuthStore } from '@/stores/authStore';
+import type { PerformanceTier } from '@/hooks/useAppPerformanceTier';
 import type { Anchor } from '@/types';
 
-/**
- * Sliding window pre-warming for Home Anchors.
- *
- * Switching between Anchors must be instantaneous and local-first. This hook
- * ensures that for the active Anchor index `i`, lightweight state and critical
- * artwork for [i - 1, i, i + 1] are fetched into memory *before* the user
- * swipes. After settling for 400ms, it warms i + 2.
- *
- * Memory safe: strictly bounded to 3-4 items, never warming an entire vault.
- */
+/** Warm the carousel's actual mounted window: five on medium/high, three on low. */
 export function useHomePrewarm(
   anchors: Array<Anchor | { anchor: Anchor }>,
-  selectedIndex: number,
+  centerIndex: number,
+  tier: PerformanceTier = 'high',
 ): void {
-  useEffect(() => {
-    if (!anchors || anchors.length === 0 || selectedIndex < 0 || selectedIndex >= anchors.length) {
-      return undefined;
+  const accountId = useAuthStore(state => state.user?.id ?? null);
+  const offsets = tier === 'low' ? [0, 1, -1] : [0, 1, -1, 2, -2];
+  const window: Anchor[] = [];
+  const seen = new Set<string>();
+  if (centerIndex >= 0 && centerIndex < anchors.length) {
+    for (const offset of offsets) {
+      const item = anchors[(centerIndex + offset + anchors.length) % anchors.length];
+      const anchor = 'anchor' in item ? item.anchor : item;
+      if (!seen.has(anchor.id)) {
+        seen.add(anchor.id);
+        window.push(anchor);
+      }
     }
+  }
+  // Cache publications replace summary objects. Only a changed account, ID or
+  // artwork URL should restart warming, not each completed recommendation read.
+  const windowKey = JSON.stringify([accountId, window.map(anchor => [anchor.id, anchor.enhancedImageUrl])]);
+  const latestWindow = useRef(window);
+  latestWindow.current = window;
 
+  useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
-
-    const total = anchors.length;
-    const getAnchor = (idx: number): Anchor | null => {
-      const item = anchors[idx];
-      if (!item) return null;
-      return 'anchor' in item ? item.anchor : item;
-    };
-
-    // Calculate immediate window: current, previous, next
-    const current = getAnchor(selectedIndex);
-    const prev = total > 1 ? getAnchor((selectedIndex - 1 + total) % total) : null;
-    const next = total > 1 ? getAnchor((selectedIndex + 1) % total) : null;
-
-    const warmAnchor = (anchor: Anchor | null) => {
-      if (!anchor || signal.aborted) return;
+    for (const anchor of latestWindow.current) {
       const id = anchor.id;
-
-      // 1. Artwork bitmap prefetch
-      if (anchor.enhancedImageUrl) {
-        void Image.prefetch(anchor.enhancedImageUrl).catch(() => undefined);
-      }
-
-      // 2. Server recommendation context
-      void prefetchV2RecommendationContext(id, signal).catch(() => undefined);
-
-      // 3. Vision read model & cover photograph
-      void prefetchV2Vision(id, signal).then((vision) => {
+      if (anchor.enhancedImageUrl) void Image.prefetch(anchor.enhancedImageUrl).catch(() => undefined);
+      void hydrateV2RecommendationContext(id, accountId).catch(() => null);
+      // Home joins this account-scoped request after selection commits. Moving
+      // the mounted window must not cancel that shared read.
+      void prefetchV2RecommendationContext(id).catch(() => undefined);
+      void prefetchV2Vision(id, signal).then(vision => {
         if (signal.aborted || !vision) return;
         const heroScene = [...vision.scenes]
           .sort((left, right) => left.sortOrder - right.sortOrder)
-          .find((scene) => scene.resolvedImageUrl);
-        if (heroScene?.resolvedImageUrl) {
-          void Image.prefetch(heroScene.resolvedImageUrl).catch(() => undefined);
-        }
+          .find(scene => scene.resolvedImageUrl);
+        if (heroScene?.resolvedImageUrl) void Image.prefetch(heroScene.resolvedImageUrl).catch(() => undefined);
       }).catch(() => undefined);
-
-      // 4. Chart route data
       void loadAnchorChart(id).catch(() => undefined);
-    };
-
-    // Warm immediate window (current first, then adjacent neighbours)
-    warmAnchor(current);
-    if (next && next.id !== current?.id) warmAnchor(next);
-    if (prev && prev.id !== current?.id && prev.id !== next?.id) warmAnchor(prev);
-
-    // Warm i + 2 after the user settles on this Anchor
-    let settleTimer: ReturnType<typeof setTimeout> | null = null;
-    if (total > 3) {
-      settleTimer = setTimeout(() => {
-        if (signal.aborted) return;
-        const nextPlus2 = getAnchor((selectedIndex + 2) % total);
-        if (nextPlus2 && nextPlus2.id !== current?.id && nextPlus2.id !== next?.id && nextPlus2.id !== prev?.id) {
-          warmAnchor(nextPlus2);
-        }
-      }, 400);
     }
-
-    return () => {
-      if (settleTimer) clearTimeout(settleTimer);
-      controller.abort();
-    };
-  }, [anchors, selectedIndex]);
+    return () => controller.abort();
+  }, [accountId, windowKey]);
 }

@@ -9,15 +9,20 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 const mockPlay = jest.fn();
 const mockPause = jest.fn();
 const mockStop = jest.fn();
-const mockCreateSessionAudioPlayer = jest.fn(() => ({
-  play: mockPlay,
-  pause: mockPause,
-  stop: mockStop,
+const mockSetVolume = jest.fn();
+let mockPlaybackOverride: number | null = null;
+const mockCreateSessionAudioPlayer = jest.fn((_asset: unknown, _options: { onFinish?: () => void; onFailure?: () => void }) => {
+  let playingSince: number | null = null;
+  let position = 0;
+  return {
+  play: () => { mockPlay(); if (playingSince == null) playingSince = performance.now(); },
+  pause: () => { mockPause(); if (playingSince != null) position += (performance.now() - playingSince) / 1000; playingSince = null; },
+  stop: () => { mockStop(); playingSince = null; },
   seekTo: jest.fn().mockResolvedValue(undefined),
-  setVolume: jest.fn(),
+  setVolume: mockSetVolume,
   isLoaded: jest.fn().mockReturnValue(true),
-  getCurrentTime: jest.fn().mockReturnValue(0),
-}));
+  getCurrentTime: () => mockPlaybackOverride ?? position + (playingSince == null ? 0 : (performance.now() - playingSince) / 1000),
+}; });
 
 jest.mock('@/hooks/useSessionAudio', () => ({
   useSessionAudio: () => ({
@@ -62,10 +67,51 @@ describe('V2FocusActiveScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockPlaybackOverride = null;
   });
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('does not consume a short Focus session while the mix buffers and keeps its intended silent tail', () => {
+    mockPlaybackOverride = 0;
+    const onComplete = jest.fn();
+    render(<V2FocusActiveScreen anchor={mockAnchor} durationSeconds={10} voice="female" ambient initialStage="focus"
+      onExit={jest.fn()} onComplete={onComplete} />);
+    act(() => jest.advanceTimersByTime(22_000));
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(screen.queryByText('Well done.')).toBeNull();
+    mockPlaybackOverride = 9.5;
+    act(() => jest.advanceTimersByTime(250));
+    const finished = mockCreateSessionAudioPlayer.mock.calls[0][1].onFinish;
+    if (!finished) throw new Error('Focus full mix did not register completion');
+    act(() => finished());
+    act(() => jest.advanceTimersByTime(499));
+    expect(onComplete).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(2_601));
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ actualDurationSeconds: 10 }));
+  });
+
+  it('holds a failed guidance stream until retry succeeds', () => {
+    mockPlaybackOverride = 0;
+    const onComplete = jest.fn();
+    render(<V2FocusActiveScreen anchor={mockAnchor} durationSeconds={10} voice="female" ambient
+      initialStage="focus" onExit={jest.fn()} onComplete={onComplete} />);
+    act(() => jest.advanceTimersByTime(250));
+    const failure = mockCreateSessionAudioPlayer.mock.calls[0][1].onFailure;
+    if (!failure) throw new Error('Missing guidance failure handler');
+    act(() => failure());
+    act(() => jest.advanceTimersByTime(30_000));
+    expect(onComplete).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText('Retry guidance'), { stopPropagation: jest.fn() });
+    act(() => jest.advanceTimersByTime(250));
+    expect(mockCreateSessionAudioPlayer).toHaveBeenCalledTimes(2);
+    expect(screen.queryByLabelText('Retry guidance')).toBeNull();
+    mockPlaybackOverride = 10;
+    act(() => jest.advanceTimersByTime(2_750));
+    expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
   it('renders the Focus orientation, intention text, and BEGIN button', () => {
@@ -187,12 +233,28 @@ describe('V2FocusActiveScreen', () => {
     fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
     fireEvent.press(screen.getByTestId('focus-sound-active-toggle'));
     expect(screen.getByTestId('focus-sound-active-toggle').props.accessibilityState.checked).toBe(false);
-    expect(mockPause).toHaveBeenCalled();
+    expect(mockPause).not.toHaveBeenCalled();
+    expect(mockSetVolume).toHaveBeenCalledWith(0);
 
     act(() => {
       jest.advanceTimersByTime(3700);
     });
     expect(screen.queryByTestId('focus-pause-button')).toBeNull();
+  });
+
+  it('advances modular voice cues while muted and unmutes the current closing cue', () => {
+    render(<V2FocusActiveScreen anchor={mockAnchor} durationSeconds={30} voice="soothing" ambient
+      initialStage="focus" onExit={jest.fn()} onComplete={jest.fn()} />);
+    act(() => jest.advanceTimersByTime(1_000));
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+    fireEvent.press(screen.getByTestId('focus-sound-active-toggle'));
+    act(() => jest.advanceTimersByTime(22_250));
+    const cueCount = mockCreateSessionAudioPlayer.mock.calls.length;
+    expect(mockCreateSessionAudioPlayer.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({ volume: 0 }));
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+    fireEvent.press(screen.getByTestId('focus-sound-active-toggle'));
+    expect(mockCreateSessionAudioPlayer).toHaveBeenCalledTimes(cueCount);
+    expect(mockSetVolume).toHaveBeenLastCalledWith(0.305);
   });
 
   it('resumes from pause when Resume button is pressed', () => {
@@ -292,7 +354,8 @@ describe('V2FocusActiveScreen', () => {
         />
       );
 
-      // Advance simulated monotonic time by 30 seconds
+      // Completion follows the native mix position, even if wall time differs.
+      mockPlaybackOverride = durationSeconds;
       mockTime += durationSeconds * 1000 + 500;
 
       act(() => {

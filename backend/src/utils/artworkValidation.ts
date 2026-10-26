@@ -40,7 +40,7 @@ export async function validateAnchorArtwork(
   imageBuffer: Buffer,
   options: ArtworkValidationOptions = {}
 ): Promise<ArtworkValidationResult> {
-  const minOccupancy = options.minOccupancyRatio ?? 0.70;
+  const minOccupancy = options.minOccupancyRatio ?? 0.7;
   const targetSize = options.targetSize ?? 512;
   const plaqueFillThreshold = options.plaqueFillThreshold ?? 0.52;
 
@@ -186,7 +186,11 @@ export async function validateAnchorArtwork(
     }
 
     // Check B: 4-sided rectangular framing box (hollow frame around symbol)
-    if (!hasDominantRectangularEnclosure && bboxWidth >= width * 0.65 && bboxHeight >= height * 0.65) {
+    if (
+      !hasDominantRectangularEnclosure &&
+      bboxWidth >= width * 0.65 &&
+      bboxHeight >= height * 0.65
+    ) {
       const scanBand = Math.max(3, Math.round(Math.min(bboxWidth, bboxHeight) * 0.05));
       const minLineSpan = 0.62; // Line must span > 62% of bbox dimension
 
@@ -305,7 +309,14 @@ export async function validateAnchorArtwork(
       isValid: true,
       widthRatio: 0.8,
       heightRatio: 0.8,
-      bbox: { minX: 0, maxX: targetSize, minY: 0, maxY: targetSize, width: targetSize, height: targetSize },
+      bbox: {
+        minX: 0,
+        maxX: targetSize,
+        minY: 0,
+        maxY: targetSize,
+        width: targetSize,
+        height: targetSize,
+      },
       fillRatio: 0.2,
       hasDominantRectangularEnclosure: false,
     };

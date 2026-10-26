@@ -3,6 +3,7 @@ import { createAudioPlayer, type AudioPlayer, type AudioStatus } from 'expo-audi
 import type { AudioAssetReference } from '@/services/SessionAudioManifest';
 import { setAudioSessionMode } from '@/services/audio/AudioSession';
 import { hydrateRemoteAudioCache, resolvePlayableAudioSource } from '@/services/audio/remoteAudio';
+import { reportSessionAudio } from '@/services/audio/sessionAudioDiagnostics';
 
 export type ManagedSessionAudioPlayer = {
   getCurrentTime: () => number;
@@ -81,6 +82,7 @@ export function useSessionAudio() {
           keepAudioSessionActive: true,
         });
         activePlayersRef.current.add(player);
+        reportSessionAudio({ event: 'created', playerId: String(player.id), asset });
         player.loop = loop;
         player.volume = Math.max(0, Math.min(1, volume));
 
@@ -98,7 +100,13 @@ export function useSessionAudio() {
           cleanupPlayer(player, subscription);
         };
         const subscription = player.addListener('playbackStatusUpdate', (status) => {
+          reportSessionAudio({ event: 'status', playerId: String(player.id), status });
           onStatus?.(status);
+          if (status.error) {
+            reportFailure();
+            cleanup();
+            return;
+          }
           if (status.didJustFinish && !loop) {
             onFinish?.();
             cleanup();

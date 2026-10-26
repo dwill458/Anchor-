@@ -265,7 +265,11 @@ function assertValidCompletedSession(input: NormalizedPracticeSessionInput): voi
     throw new AppError('Invalid practice timestamps', 400, 'VALIDATION_ERROR');
   }
   if (input.completedDurationSeconds < input.plannedDurationSeconds) {
-    throw new AppError('Session ended early and cannot be marked as completed', 400, 'VALIDATION_ERROR');
+    throw new AppError(
+      'Session ended early and cannot be marked as completed',
+      400,
+      'VALIDATION_ERROR'
+    );
   }
   if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
     throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
@@ -362,7 +366,10 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
           // ignore
         }
         // A replay may be the retry of a request that failed after saving: reconcile quietly.
-        void milestoneService.evaluateQuietly(user.id, existing.anchorId, { kind: 'practice', sourceEntityId: existing.id });
+        void milestoneService.evaluateQuietly(user.id, existing.anchorId, {
+          kind: 'practice',
+          sourceEntityId: existing.id,
+        });
       }
       res.json({
         success: true,
@@ -513,7 +520,10 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
 
     // Evaluation is recoverable and must not delay the confirmed normal completion.
     const newMilestones: never[] = []; // Legacy response shape; presentation uses a separate reservation.
-    void milestoneService.evaluateQuietly(user.id, created.anchorId, { kind: 'practice', sourceEntityId: created.id });
+    void milestoneService.evaluateQuietly(user.id, created.anchorId, {
+      kind: 'practice',
+      sourceEntityId: created.id,
+    });
 
     if (created.anchorId && created.practiceMode === 'visualize') {
       try {

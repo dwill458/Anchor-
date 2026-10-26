@@ -57,10 +57,14 @@ export async function persistProfilePhoto(params: {
     }
 
     const nextUri = `${PROFILE_MEDIA_DIR}${userId}-${Date.now()}${getExtension(photoUri)}`;
-    await FileSystem.copyAsync({
-      from: photoUri,
-      to: nextUri,
-    });
+    if (photoUri.startsWith('http://') || photoUri.startsWith('https://')) {
+      await FileSystem.downloadAsync(photoUri, nextUri);
+    } else {
+      await FileSystem.copyAsync({
+        from: photoUri,
+        to: nextUri,
+      });
+    }
 
     return nextUri;
   } catch (error) {

@@ -20,6 +20,7 @@ import { V2DeepFocusActiveScreen } from './deepFocus/V2DeepFocusActiveScreen';
 import { isDeepFocusDuration } from './deepFocus/deepFocusTimeline';
 import { V2CinematicSessionScreen, type PreparedCinematicSession, type CinematicCompletion } from './visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
+import { guideForVoice, loadBeatMap, trackForDuration } from './visualize/guided/visualizeBeatMap';
 import type { V2PracticeCompletionResult } from './practiceRoutes';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
 
@@ -96,12 +97,16 @@ export function V2PracticeSessionScreen({
     void recordVisionView();
   }, [mode, recordVisionView, visionIdForView]);
   const [visualizeCompletion, setVisualizeCompletion] = useState<CinematicCompletion | null>(null);
+  const visualizePlaybackSeconds = mode === 'visualize' && isV2VisualizeDuration(durationSeconds)
+    ? Math.round(loadBeatMap(trackForDuration(durationSeconds), guideForVoice(voice ?? defaultVisualizeSettings?.guidanceVoice ?? 'female')).durationMs / 1000)
+    : durationSeconds;
+  const completedVisualizeSeconds = visualizeCompletion?.record?.completedDurationSeconds ?? visualizePlaybackSeconds;
   const visualizeReturned = useRef(false);
   const finishVisualize = useCallback(() => {
     if (!visualizeCompletion || visualizeReturned.current) return;
     visualizeReturned.current = true;
-    onCompleted({ mode: 'visualize', durationSeconds, saved: visualizeCompletion.saved });
-  }, [durationSeconds, onCompleted, visualizeCompletion]);
+    onCompleted({ mode: 'visualize', durationSeconds: completedVisualizeSeconds, saved: visualizeCompletion.saved });
+  }, [completedVisualizeSeconds, onCompleted, visualizeCompletion]);
   const visualizeRecord = useSessionStore(state => visualizeCompletion?.record?.id
     ? state.practiceHistory.find(record => record.id === visualizeCompletion.record!.id) : undefined);
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null);
@@ -357,7 +362,7 @@ export function V2PracticeSessionScreen({
   // when the full duration has run, through the Visualize completion contract.
   if (mode === 'visualize') {
     if (visualizeCompletion) return <V2FocusCompleteScreen
-      anchor={preparedVisualize?.anchor ?? anchor} practiceTitle="Visualize" enterFrom="cream" durationSeconds={durationSeconds}
+      anchor={preparedVisualize?.anchor ?? anchor} practiceTitle="Visualize" enterFrom="cream" durationSeconds={completedVisualizeSeconds}
       beforeStrength={visualizeRecord?.threadStrengthBefore ?? visualizeCompletion.record?.threadStrengthBefore}
       afterStrength={visualizeRecord?.threadStrengthAfter ?? visualizeCompletion.record?.threadStrengthAfter}
       sessionSaved={visualizeCompletion.saved}

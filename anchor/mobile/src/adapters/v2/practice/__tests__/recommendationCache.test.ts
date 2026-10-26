@@ -15,6 +15,8 @@ import {
   isV2RecommendationContextFresh,
   peekV2RecommendationContext,
   rememberV2RecommendationContext,
+  subscribeV2RecommendationContext,
+  getV2RecommendationCacheRevision,
 } from '../recommendationCache';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -42,6 +44,32 @@ describe('recommendationCache', () => {
   it('returns nothing for an Anchor it has not seen', () => {
     expect(peekV2RecommendationContext('a')).toBeNull();
     expect(isV2RecommendationContextFresh('a')).toBe(false);
+  });
+
+  it('notifies mounted heroes when readings change, without republishing identical revalidations', () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeV2RecommendationContext(listener);
+    const revision = getV2RecommendationCacheRevision();
+    rememberV2RecommendationContext('a', context('a'));
+    rememberV2RecommendationContext('a', context('a'));
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(getV2RecommendationCacheRevision()).toBe(revision + 1);
+    rememberV2RecommendationContext('a', { ...context('a'), thread: { ...context('a').thread, strength: 68 } });
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+    invalidateV2RecommendationContext('a');
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('never replaces a fresh network reading with a slower encrypted snapshot', async () => {
+    let finishDisk!: (value: string) => void;
+    jest.mocked(encryptedPersistStorage.getItem).mockReturnValueOnce(new Promise(resolve => { finishDisk = resolve; }));
+    const restoring = hydrateV2RecommendationContext('a');
+    const fresh = { ...context('a'), thread: { ...context('a').thread, strength: 68 } };
+    rememberV2RecommendationContext('a', fresh);
+    finishDisk(JSON.stringify({ value: context('a'), fetchedAt: Date.now() - 1000, practiceMarker: '' }));
+    await expect(restoring).resolves.toEqual(fresh);
+    expect(peekV2RecommendationContext('a')).toEqual(fresh);
   });
 
   it('serves the last context and treats it as fresh within the window', () => {

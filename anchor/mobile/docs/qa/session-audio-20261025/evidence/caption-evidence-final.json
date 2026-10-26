@@ -1,0 +1,1921 @@
+[
+  {
+    "id": "audio-visualize-60-male-ambient-confirmed-captions-v5",
+    "expectedCaptions": 21,
+    "observedCaptions": 21,
+    "matchedCaptions": 21,
+    "expectedPhrases": 21,
+    "observedPhrases": 21,
+    "maximumPublishDelayMs": 246,
+    "missing": [],
+    "timingIssues": [],
+    "captions": [
+      {
+        "phraseId": 0,
+        "text": "Look at your vision.",
+        "expectedStartMs": 1006,
+        "renderedAtMs": 1252,
+        "delayMs": 246
+      },
+      {
+        "phraseId": 1,
+        "text": "Don\u2019t just see the picture. Step into it.",
+        "expectedStartMs": 3967,
+        "renderedAtMs": 4027,
+        "delayMs": 60
+      },
+      {
+        "phraseId": 2,
+        "text": "Look through your own eyes. You\u2019re here.",
+        "expectedStartMs": 8509,
+        "renderedAtMs": 8579,
+        "delayMs": 70
+      },
+      {
+        "phraseId": 3,
+        "text": "Notice where you are.",
+        "expectedStartMs": 12870,
+        "renderedAtMs": 12910,
+        "delayMs": 40
+      },
+      {
+        "phraseId": 4,
+        "text": "What\u2019s happening around you?",
+        "expectedStartMs": 15171,
+        "renderedAtMs": 15180,
+        "delayMs": 9
+      },
+      {
+        "phraseId": 5,
+        "text": "Notice what you\u2019re doing.",
+        "expectedStartMs": 17672,
+        "renderedAtMs": 17689,
+        "delayMs": 17
+      },
+      {
+        "phraseId": 6,
+        "text": "The way you\u2019re moving.",
+        "expectedStartMs": 19793,
+        "renderedAtMs": 19903,
+        "delayMs": 110
+      },
+      {
+        "phraseId": 7,
+        "text": "The way you\u2019re carrying yourself.",
+        "expectedStartMs": 21693,
+        "renderedAtMs": 21787,
+        "delayMs": 94
+      },
+      {
+        "phraseId": 8,
+        "text": "For a moment, let this feel normal.",
+        "expectedStartMs": 24434,
+        "renderedAtMs": 24553,
+        "delayMs": 119
+      },
+      {
+        "phraseId": 9,
+        "text": "Not something you\u2019re waiting for.",
+        "expectedStartMs": 28696,
+        "renderedAtMs": 28826,
+        "delayMs": 130
+      },
+      {
+        "phraseId": 10,
+        "text": "Not something you\u2019re chasing.",
+        "expectedStartMs": 31237,
+        "renderedAtMs": 31358,
+        "delayMs": 121
+      },
+      {
+        "phraseId": 11,
+        "text": "This is simply your life.",
+        "expectedStartMs": 33657,
+        "renderedAtMs": 33699,
+        "delayMs": 42
+      },
+      {
+        "phraseId": 12,
+        "text": "Notice the feeling that comes with that.",
+        "expectedStartMs": 36658,
+        "renderedAtMs": 36716,
+        "delayMs": 58
+      },
+      {
+        "phraseId": 13,
+        "text": "Hold it.",
+        "expectedStartMs": 40921,
+        "renderedAtMs": 40964,
+        "delayMs": 43
+      },
+      {
+        "phraseId": 14,
+        "text": "Now let the details fall away.",
+        "expectedStartMs": 43663,
+        "renderedAtMs": 43736,
+        "delayMs": 73
+      },
+      {
+        "phraseId": 15,
+        "text": "Keep only the feeling.",
+        "expectedStartMs": 46946,
+        "renderedAtMs": 47016,
+        "delayMs": 70
+      },
+      {
+        "phraseId": 16,
+        "text": "And let your Anchor come into focus.",
+        "expectedStartMs": 49989,
+        "renderedAtMs": 50070,
+        "delayMs": 81
+      },
+      {
+        "phraseId": 17,
+        "text": "Don\u2019t analyze it. Just look.",
+        "expectedStartMs": 53532,
+        "renderedAtMs": 53609,
+        "delayMs": 77
+      },
+      {
+        "phraseId": 18,
+        "text": "Carry the direction.",
+        "expectedStartMs": 57135,
+        "renderedAtMs": 57244,
+        "delayMs": 109
+      },
+      {
+        "phraseId": 19,
+        "text": "Release the picture.",
+        "expectedStartMs": 59257,
+        "renderedAtMs": 59264,
+        "delayMs": 7
+      },
+      {
+        "phraseId": 20,
+        "text": "And move.",
+        "expectedStartMs": 61339,
+        "renderedAtMs": 61368,
+        "delayMs": 29
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-60-female-ambient-confirmed-captions-v5",
+    "expectedCaptions": 21,
+    "observedCaptions": 21,
+    "matchedCaptions": 21,
+    "expectedPhrases": 21,
+    "observedPhrases": 21,
+    "maximumPublishDelayMs": 116,
+    "missing": [],
+    "timingIssues": [],
+    "captions": [
+      {
+        "phraseId": 0,
+        "text": "Look at your vision.",
+        "expectedStartMs": 1006,
+        "renderedAtMs": 1067,
+        "delayMs": 61
+      },
+      {
+        "phraseId": 1,
+        "text": "Don\u2019t just see the picture. Step into it.",
+        "expectedStartMs": 3627,
+        "renderedAtMs": 3634,
+        "delayMs": 7
+      },
+      {
+        "phraseId": 2,
+        "text": "Look through your own eyes. You\u2019re here.",
+        "expectedStartMs": 8009,
+        "renderedAtMs": 8114.000000000001,
+        "delayMs": 105.00000000000091
+      },
+      {
+        "phraseId": 3,
+        "text": "Notice where you are.",
+        "expectedStartMs": 12130,
+        "renderedAtMs": 12174,
+        "delayMs": 44
+      },
+      {
+        "phraseId": 4,
+        "text": "What\u2019s happening around you?",
+        "expectedStartMs": 14411,
+        "renderedAtMs": 14451,
+        "delayMs": 40
+      },
+      {
+        "phraseId": 5,
+        "text": "Notice what you\u2019re doing.",
+        "expectedStartMs": 17052,
+        "renderedAtMs": 17085,
+        "delayMs": 33
+      },
+      {
+        "phraseId": 6,
+        "text": "The way you\u2019re moving.",
+        "expectedStartMs": 19073,
+        "renderedAtMs": 19100,
+        "delayMs": 27
+      },
+      {
+        "phraseId": 7,
+        "text": "The way you\u2019re carrying yourself.",
+        "expectedStartMs": 20453,
+        "renderedAtMs": 20495,
+        "delayMs": 42
+      },
+      {
+        "phraseId": 8,
+        "text": "For a moment, let this feel normal.",
+        "expectedStartMs": 23834,
+        "renderedAtMs": 23908,
+        "delayMs": 74
+      },
+      {
+        "phraseId": 9,
+        "text": "Not something you\u2019re waiting for.",
+        "expectedStartMs": 28176,
+        "renderedAtMs": 28186,
+        "delayMs": 10
+      },
+      {
+        "phraseId": 10,
+        "text": "Not something you\u2019re chasing.",
+        "expectedStartMs": 30737,
+        "renderedAtMs": 30804,
+        "delayMs": 67
+      },
+      {
+        "phraseId": 11,
+        "text": "This is simply your life.",
+        "expectedStartMs": 33297,
+        "renderedAtMs": 33348,
+        "delayMs": 51
+      },
+      {
+        "phraseId": 12,
+        "text": "Notice the feeling that comes with that.",
+        "expectedStartMs": 37379,
+        "renderedAtMs": 37435,
+        "delayMs": 56
+      },
+      {
+        "phraseId": 13,
+        "text": "Hold it.",
+        "expectedStartMs": 40601,
+        "renderedAtMs": 40717,
+        "delayMs": 116
+      },
+      {
+        "phraseId": 14,
+        "text": "Now let the details fall away.",
+        "expectedStartMs": 43483,
+        "renderedAtMs": 43537,
+        "delayMs": 54
+      },
+      {
+        "phraseId": 15,
+        "text": "Keep only the feeling.",
+        "expectedStartMs": 46766,
+        "renderedAtMs": 46815,
+        "delayMs": 49
+      },
+      {
+        "phraseId": 16,
+        "text": "And let your Anchor come into focus.",
+        "expectedStartMs": 49709,
+        "renderedAtMs": 49796,
+        "delayMs": 87
+      },
+      {
+        "phraseId": 17,
+        "text": "Don\u2019t analyze it. Just look.",
+        "expectedStartMs": 53252,
+        "renderedAtMs": 53256,
+        "delayMs": 4
+      },
+      {
+        "phraseId": 18,
+        "text": "Carry the direction.",
+        "expectedStartMs": 56975,
+        "renderedAtMs": 57004,
+        "delayMs": 29
+      },
+      {
+        "phraseId": 19,
+        "text": "Release the picture.",
+        "expectedStartMs": 59097,
+        "renderedAtMs": 59158,
+        "delayMs": 61
+      },
+      {
+        "phraseId": 20,
+        "text": "And move.",
+        "expectedStartMs": 61199,
+        "renderedAtMs": 61283,
+        "delayMs": 84
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-180-male-ambient-confirmed-captions-v5",
+    "expectedCaptions": 47,
+    "observedCaptions": 47,
+    "matchedCaptions": 47,
+    "expectedPhrases": 43,
+    "observedPhrases": 43,
+    "maximumPublishDelayMs": 158,
+    "missing": [],
+    "timingIssues": [],
+    "captions": [
+      {
+        "phraseId": 0,
+        "text": "Settle into a comfortable position.",
+        "expectedStartMs": 1521,
+        "renderedAtMs": 1625,
+        "delayMs": 104
+      },
+      {
+        "phraseId": 1,
+        "text": "Take a slow breath in...",
+        "expectedStartMs": 4662,
+        "renderedAtMs": 4729,
+        "delayMs": 67
+      },
+      {
+        "phraseId": 1,
+        "text": "And let it go.",
+        "expectedStartMs": 7584,
+        "renderedAtMs": 7725,
+        "delayMs": 141
+      },
+      {
+        "phraseId": 2,
+        "text": "Let your shoulders drop.",
+        "expectedStartMs": 10886,
+        "renderedAtMs": 10931,
+        "delayMs": 45
+      },
+      {
+        "phraseId": 3,
+        "text": "Relax your jaw.",
+        "expectedStartMs": 13787,
+        "renderedAtMs": 13817,
+        "delayMs": 30
+      },
+      {
+        "phraseId": 4,
+        "text": "And allow everything outside this moment to become a little quieter.",
+        "expectedStartMs": 16148,
+        "renderedAtMs": 16250,
+        "delayMs": 102
+      },
+      {
+        "phraseId": 5,
+        "text": "Now bring your Vision to mind.",
+        "expectedStartMs": 23552,
+        "renderedAtMs": 23646,
+        "delayMs": 94
+      },
+      {
+        "phraseId": 6,
+        "text": "Don\u2019t look at it like a picture. Step into it.",
+        "expectedStartMs": 28775,
+        "renderedAtMs": 28933,
+        "delayMs": 158
+      },
+      {
+        "phraseId": 7,
+        "text": "Look through your own eyes. You\u2019re here.",
+        "expectedStartMs": 34758,
+        "renderedAtMs": 34807,
+        "delayMs": 49
+      },
+      {
+        "phraseId": 8,
+        "text": "Take a look around.",
+        "expectedStartMs": 40341,
+        "renderedAtMs": 40366,
+        "delayMs": 25
+      },
+      {
+        "phraseId": 9,
+        "text": "Where are you?",
+        "expectedStartMs": 43502,
+        "renderedAtMs": 43513,
+        "delayMs": 11
+      },
+      {
+        "phraseId": 10,
+        "text": "Notice the light, the space around you, the details.",
+        "expectedStartMs": 47464,
+        "renderedAtMs": 47588,
+        "delayMs": 124
+      },
+      {
+        "phraseId": 11,
+        "text": "What can you hear?",
+        "expectedStartMs": 53867,
+        "renderedAtMs": 53937,
+        "delayMs": 70
+      },
+      {
+        "phraseId": 12,
+        "text": "Notice the temperature against your skin, the feeling of the space around you.",
+        "expectedStartMs": 58209,
+        "renderedAtMs": 58299,
+        "delayMs": 90
+      },
+      {
+        "phraseId": 13,
+        "text": "Now notice what you\u2019re doing.",
+        "expectedStartMs": 65213,
+        "renderedAtMs": 65339,
+        "delayMs": 126
+      },
+      {
+        "phraseId": 14,
+        "text": "How are you moving?",
+        "expectedStartMs": 68615,
+        "renderedAtMs": 68633,
+        "delayMs": 18
+      },
+      {
+        "phraseId": 15,
+        "text": "How are you carrying yourself?",
+        "expectedStartMs": 71456,
+        "renderedAtMs": 71560,
+        "delayMs": 104
+      },
+      {
+        "phraseId": 16,
+        "text": "Notice the people around you, or the quiet if you\u2019re alone.",
+        "expectedStartMs": 74898,
+        "renderedAtMs": 74955,
+        "delayMs": 57
+      },
+      {
+        "phraseId": 17,
+        "text": "Let this moment become real.",
+        "expectedStartMs": 81024,
+        "renderedAtMs": 81062,
+        "delayMs": 38
+      },
+      {
+        "phraseId": 18,
+        "text": "Not something you\u2019re hoping for. Something you\u2019re experiencing.",
+        "expectedStartMs": 84803,
+        "renderedAtMs": 84856,
+        "delayMs": 53
+      },
+      {
+        "phraseId": 19,
+        "text": "And notice how natural it feels.",
+        "expectedStartMs": 90405,
+        "renderedAtMs": 90468,
+        "delayMs": 63
+      },
+      {
+        "phraseId": 20,
+        "text": "This isn\u2019t extraordinary anymore.",
+        "expectedStartMs": 94346,
+        "renderedAtMs": 94463,
+        "delayMs": 117
+      },
+      {
+        "phraseId": 21,
+        "text": "It\u2019s familiar.",
+        "expectedStartMs": 98128,
+        "renderedAtMs": 98204,
+        "delayMs": 76
+      },
+      {
+        "phraseId": 22,
+        "text": "This is simply your life.",
+        "expectedStartMs": 100929,
+        "renderedAtMs": 100983,
+        "delayMs": 54
+      },
+      {
+        "phraseId": 23,
+        "text": "Now notice who you are in this life.",
+        "expectedStartMs": 106031,
+        "renderedAtMs": 106146,
+        "delayMs": 115
+      },
+      {
+        "phraseId": 24,
+        "text": "The way you...",
+        "expectedStartMs": 108712,
+        "renderedAtMs": 108796,
+        "delayMs": 84
+      },
+      {
+        "phraseId": 24,
+        "text": "Think the way you move the choices you make.",
+        "expectedStartMs": 110653,
+        "renderedAtMs": 110675,
+        "delayMs": 22
+      },
+      {
+        "phraseId": 25,
+        "text": "Notice what feels different about you.",
+        "expectedStartMs": 116155,
+        "renderedAtMs": 116174,
+        "delayMs": 19
+      },
+      {
+        "phraseId": 26,
+        "text": "Not excitement. Something quieter.",
+        "expectedStartMs": 120061,
+        "renderedAtMs": 120190,
+        "delayMs": 129
+      },
+      {
+        "phraseId": 27,
+        "text": "Certainty.",
+        "expectedStartMs": 124503,
+        "renderedAtMs": 124571,
+        "delayMs": 68
+      },
+      {
+        "phraseId": 28,
+        "text": "Let yourself feel that now.",
+        "expectedStartMs": 128385,
+        "renderedAtMs": 128502.00000000001,
+        "delayMs": 117.00000000001455
+      },
+      {
+        "phraseId": 29,
+        "text": "Choose one detail from this Vision. Something small, something real.",
+        "expectedStartMs": 134088,
+        "renderedAtMs": 134189,
+        "delayMs": 101
+      },
+      {
+        "phraseId": 30,
+        "text": "Hold it clearly.",
+        "expectedStartMs": 141672,
+        "renderedAtMs": 141710,
+        "delayMs": 38
+      },
+      {
+        "phraseId": 31,
+        "text": "Now let the details begin to fall away.",
+        "expectedStartMs": 145314,
+        "renderedAtMs": 145419,
+        "delayMs": 105
+      },
+      {
+        "phraseId": 32,
+        "text": "The place.",
+        "expectedStartMs": 149136,
+        "renderedAtMs": 149211,
+        "delayMs": 75
+      },
+      {
+        "phraseId": 33,
+        "text": "The sounds.",
+        "expectedStartMs": 151137,
+        "renderedAtMs": 151256,
+        "delayMs": 119
+      },
+      {
+        "phraseId": 34,
+        "text": "The images.",
+        "expectedStartMs": 153258,
+        "renderedAtMs": 153297,
+        "delayMs": 39
+      },
+      {
+        "phraseId": 35,
+        "text": "Keep...",
+        "expectedStartMs": 154518,
+        "renderedAtMs": 154562,
+        "delayMs": 44
+      },
+      {
+        "phraseId": 35,
+        "text": "Only the feeling.",
+        "expectedStartMs": 155999,
+        "renderedAtMs": 156082,
+        "delayMs": 83
+      },
+      {
+        "phraseId": 36,
+        "text": "And as everything else becomes quiet, let your Anchor come into focus.",
+        "expectedStartMs": 159801,
+        "renderedAtMs": 159909,
+        "delayMs": 108
+      },
+      {
+        "phraseId": 37,
+        "text": "Don\u2019t analyze it. Just look.",
+        "expectedStartMs": 167986,
+        "renderedAtMs": 168095,
+        "delayMs": 109
+      },
+      {
+        "phraseId": 38,
+        "text": "Let this image carry what you just experienced.",
+        "expectedStartMs": 173169,
+        "renderedAtMs": 173258,
+        "delayMs": 89
+      },
+      {
+        "phraseId": 39,
+        "text": "Take one slow breath in...",
+        "expectedStartMs": 178492,
+        "renderedAtMs": 178643,
+        "delayMs": 151
+      },
+      {
+        "phraseId": 39,
+        "text": "And let it go.",
+        "expectedStartMs": 181694,
+        "renderedAtMs": 181753,
+        "delayMs": 59
+      },
+      {
+        "phraseId": 40,
+        "text": "Carry the direction.",
+        "expectedStartMs": 184436,
+        "renderedAtMs": 184459,
+        "delayMs": 23
+      },
+      {
+        "phraseId": 41,
+        "text": "Release the picture.",
+        "expectedStartMs": 187018,
+        "renderedAtMs": 187092,
+        "delayMs": 74
+      },
+      {
+        "phraseId": 42,
+        "text": "And move.",
+        "expectedStartMs": 189599,
+        "renderedAtMs": 189694,
+        "delayMs": 95
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-180-female-ambient-confirmed-captions-v5",
+    "expectedCaptions": 50,
+    "observedCaptions": 50,
+    "matchedCaptions": 50,
+    "expectedPhrases": 43,
+    "observedPhrases": 43,
+    "maximumPublishDelayMs": 179,
+    "missing": [],
+    "timingIssues": [],
+    "captions": [
+      {
+        "phraseId": 0,
+        "text": "Settle into a comfortable position.",
+        "expectedStartMs": 1521,
+        "renderedAtMs": 1566,
+        "delayMs": 45
+      },
+      {
+        "phraseId": 1,
+        "text": "Take a slow breath in...",
+        "expectedStartMs": 4482,
+        "renderedAtMs": 4485,
+        "delayMs": 3
+      },
+      {
+        "phraseId": 1,
+        "text": "And let it go.",
+        "expectedStartMs": 7123,
+        "renderedAtMs": 7220,
+        "delayMs": 97
+      },
+      {
+        "phraseId": 2,
+        "text": "Let your shoulders drop.",
+        "expectedStartMs": 10525,
+        "renderedAtMs": 10617,
+        "delayMs": 92
+      },
+      {
+        "phraseId": 3,
+        "text": "Relax your jaw.",
+        "expectedStartMs": 13246,
+        "renderedAtMs": 13328,
+        "delayMs": 82
+      },
+      {
+        "phraseId": 4,
+        "text": "And allow everything outside this moment to become a little quieter.",
+        "expectedStartMs": 15668,
+        "renderedAtMs": 15847,
+        "delayMs": 179
+      },
+      {
+        "phraseId": 5,
+        "text": "Now bring your Vision to mind.",
+        "expectedStartMs": 22491,
+        "renderedAtMs": 22529,
+        "delayMs": 38
+      },
+      {
+        "phraseId": 6,
+        "text": "Don\u2019t look at it like a picture. Step into it.",
+        "expectedStartMs": 27814,
+        "renderedAtMs": 27876,
+        "delayMs": 62
+      },
+      {
+        "phraseId": 7,
+        "text": "Look...",
+        "expectedStartMs": 31915,
+        "renderedAtMs": 31957,
+        "delayMs": 42
+      },
+      {
+        "phraseId": 7,
+        "text": "Through your own eyes you\u2019re here.",
+        "expectedStartMs": 34297,
+        "renderedAtMs": 34351,
+        "delayMs": 54
+      },
+      {
+        "phraseId": 8,
+        "text": "Take a look around.",
+        "expectedStartMs": 39479,
+        "renderedAtMs": 39544,
+        "delayMs": 65
+      },
+      {
+        "phraseId": 9,
+        "text": "Where are you?",
+        "expectedStartMs": 42521,
+        "renderedAtMs": 42567,
+        "delayMs": 46
+      },
+      {
+        "phraseId": 10,
+        "text": "Notice the light, the space around you, the details.",
+        "expectedStartMs": 46903,
+        "renderedAtMs": 46984,
+        "delayMs": 81
+      },
+      {
+        "phraseId": 11,
+        "text": "What can you hear?",
+        "expectedStartMs": 53126,
+        "renderedAtMs": 53233,
+        "delayMs": 107
+      },
+      {
+        "phraseId": 12,
+        "text": "Notice the temperature against your skin, the feeling of the space around you.",
+        "expectedStartMs": 57729,
+        "renderedAtMs": 57809,
+        "delayMs": 80
+      },
+      {
+        "phraseId": 13,
+        "text": "Now notice what you\u2019re doing.",
+        "expectedStartMs": 64552,
+        "renderedAtMs": 64554,
+        "delayMs": 2
+      },
+      {
+        "phraseId": 14,
+        "text": "How are you moving?",
+        "expectedStartMs": 67994,
+        "renderedAtMs": 68018,
+        "delayMs": 24
+      },
+      {
+        "phraseId": 15,
+        "text": "How are you carrying yourself?",
+        "expectedStartMs": 70636,
+        "renderedAtMs": 70665,
+        "delayMs": 29
+      },
+      {
+        "phraseId": 16,
+        "text": "Notice the...",
+        "expectedStartMs": 72937,
+        "renderedAtMs": 73040,
+        "delayMs": 103
+      },
+      {
+        "phraseId": 16,
+        "text": "People around you or the quiet if you\u2019re alone.",
+        "expectedStartMs": 74798,
+        "renderedAtMs": 74814,
+        "delayMs": 16
+      },
+      {
+        "phraseId": 17,
+        "text": "Let this moment become real.",
+        "expectedStartMs": 80281,
+        "renderedAtMs": 80342,
+        "delayMs": 61
+      },
+      {
+        "phraseId": 18,
+        "text": "Not something you\u2019re hoping for. Something you\u2019re experiencing.",
+        "expectedStartMs": 83862,
+        "renderedAtMs": 83934,
+        "delayMs": 72
+      },
+      {
+        "phraseId": 19,
+        "text": "And notice how natural it feels.",
+        "expectedStartMs": 89345,
+        "renderedAtMs": 89372,
+        "delayMs": 27
+      },
+      {
+        "phraseId": 20,
+        "text": "This isn\u2019t extraordinary anymore.",
+        "expectedStartMs": 93627,
+        "renderedAtMs": 93693,
+        "delayMs": 66
+      },
+      {
+        "phraseId": 21,
+        "text": "It\u2019s familiar.",
+        "expectedStartMs": 97309,
+        "renderedAtMs": 97352,
+        "delayMs": 43
+      },
+      {
+        "phraseId": 22,
+        "text": "This is simply your life.",
+        "expectedStartMs": 100271,
+        "renderedAtMs": 100289,
+        "delayMs": 18
+      },
+      {
+        "phraseId": 23,
+        "text": "Now notice who you are in this life.",
+        "expectedStartMs": 105573,
+        "renderedAtMs": 105589,
+        "delayMs": 16
+      },
+      {
+        "phraseId": 24,
+        "text": "The way you...",
+        "expectedStartMs": 108395,
+        "renderedAtMs": 108433,
+        "delayMs": 38
+      },
+      {
+        "phraseId": 24,
+        "text": "Think the way you move the choices you make.",
+        "expectedStartMs": 110416,
+        "renderedAtMs": 110417,
+        "delayMs": 1
+      },
+      {
+        "phraseId": 25,
+        "text": "Notice what feels different about you.",
+        "expectedStartMs": 115718,
+        "renderedAtMs": 115802,
+        "delayMs": 84
+      },
+      {
+        "phraseId": 26,
+        "text": "Not excitement. Something quieter.",
+        "expectedStartMs": 119679,
+        "renderedAtMs": 119786,
+        "delayMs": 107
+      },
+      {
+        "phraseId": 27,
+        "text": "Certainty.",
+        "expectedStartMs": 123981,
+        "renderedAtMs": 123996,
+        "delayMs": 15
+      },
+      {
+        "phraseId": 28,
+        "text": "Let yourself...",
+        "expectedStartMs": 125482,
+        "renderedAtMs": 125590,
+        "delayMs": 108
+      },
+      {
+        "phraseId": 28,
+        "text": "Feel that now.",
+        "expectedStartMs": 128924,
+        "renderedAtMs": 129030,
+        "delayMs": 106
+      },
+      {
+        "phraseId": 29,
+        "text": "Choose one detail from this Vision. Something small, something real.",
+        "expectedStartMs": 134067,
+        "renderedAtMs": 134084,
+        "delayMs": 17
+      },
+      {
+        "phraseId": 30,
+        "text": "Hold it...",
+        "expectedStartMs": 139089,
+        "renderedAtMs": 139100,
+        "delayMs": 11
+      },
+      {
+        "phraseId": 30,
+        "text": "Clearly.",
+        "expectedStartMs": 141971,
+        "renderedAtMs": 142029,
+        "delayMs": 58
+      },
+      {
+        "phraseId": 31,
+        "text": "Now let the details begin to fall away.",
+        "expectedStartMs": 145453,
+        "renderedAtMs": 145482,
+        "delayMs": 29
+      },
+      {
+        "phraseId": 32,
+        "text": "The place.",
+        "expectedStartMs": 149335,
+        "renderedAtMs": 149347,
+        "delayMs": 12
+      },
+      {
+        "phraseId": 33,
+        "text": "The sounds.",
+        "expectedStartMs": 151276,
+        "renderedAtMs": 151353,
+        "delayMs": 77
+      },
+      {
+        "phraseId": 34,
+        "text": "The images.",
+        "expectedStartMs": 153317,
+        "renderedAtMs": 153324,
+        "delayMs": 7
+      },
+      {
+        "phraseId": 35,
+        "text": "Keep...",
+        "expectedStartMs": 154578,
+        "renderedAtMs": 154595,
+        "delayMs": 17
+      },
+      {
+        "phraseId": 35,
+        "text": "Only the feeling.",
+        "expectedStartMs": 156079,
+        "renderedAtMs": 156112,
+        "delayMs": 33
+      },
+      {
+        "phraseId": 36,
+        "text": "And as everything else becomes quiet, let your Anchor come into focus.",
+        "expectedStartMs": 160101,
+        "renderedAtMs": 160174,
+        "delayMs": 73
+      },
+      {
+        "phraseId": 37,
+        "text": "Don\u2019t analyze it. Just look.",
+        "expectedStartMs": 168306,
+        "renderedAtMs": 168419,
+        "delayMs": 113
+      },
+      {
+        "phraseId": 38,
+        "text": "Let this image carry what you just experienced.",
+        "expectedStartMs": 173609,
+        "renderedAtMs": 173725,
+        "delayMs": 116
+      },
+      {
+        "phraseId": 39,
+        "text": "Take one slow breath in, and let it go.",
+        "expectedStartMs": 179013,
+        "renderedAtMs": 179032,
+        "delayMs": 19
+      },
+      {
+        "phraseId": 40,
+        "text": "Carry the direction.",
+        "expectedStartMs": 184576,
+        "renderedAtMs": 184655,
+        "delayMs": 79
+      },
+      {
+        "phraseId": 41,
+        "text": "Release the picture.",
+        "expectedStartMs": 187098,
+        "renderedAtMs": 187220,
+        "delayMs": 122
+      },
+      {
+        "phraseId": 42,
+        "text": "And move.",
+        "expectedStartMs": 189559,
+        "renderedAtMs": 189676,
+        "delayMs": 117
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-600-male-ambient-confirmed-captions-v5",
+    "expectedCaptions": 63,
+    "observedCaptions": 63,
+    "matchedCaptions": 63,
+    "expectedPhrases": 60,
+    "observedPhrases": 60,
+    "maximumPublishDelayMs": 217,
+    "missing": [],
+    "timingIssues": [],
+    "captions": [
+      {
+        "phraseId": 0,
+        "text": "Settle into a position that feels comfortable.",
+        "expectedStartMs": 2001,
+        "renderedAtMs": 2003,
+        "delayMs": 2
+      },
+      {
+        "phraseId": 1,
+        "text": "For the next few minutes, there is nowhere else you need to be.",
+        "expectedStartMs": 8704,
+        "renderedAtMs": 8801,
+        "delayMs": 97
+      },
+      {
+        "phraseId": 2,
+        "text": "Nothing you need to solve. Nothing you need to figure out.",
+        "expectedStartMs": 15447,
+        "renderedAtMs": 15664,
+        "delayMs": 217
+      },
+      {
+        "phraseId": 3,
+        "text": "Take a slow breath in...",
+        "expectedStartMs": 23611,
+        "renderedAtMs": 23670,
+        "delayMs": 59
+      },
+      {
+        "phraseId": 3,
+        "text": "And let it go.",
+        "expectedStartMs": 26152,
+        "renderedAtMs": 26263,
+        "delayMs": 111
+      },
+      {
+        "phraseId": 4,
+        "text": "Again, slowly breathe in. And as you breathe out, let your shoulders drop.",
+        "expectedStartMs": 34816,
+        "renderedAtMs": 34888,
+        "delayMs": 72
+      },
+      {
+        "phraseId": 5,
+        "text": "Unclench your jaw. Relax the muscles around your eyes. Let your hands rest.",
+        "expectedStartMs": 46022,
+        "renderedAtMs": 46111,
+        "delayMs": 89
+      },
+      {
+        "phraseId": 6,
+        "text": "You don\u2019t need to force yourself to relax. Just allow yourself to become still.",
+        "expectedStartMs": 57167,
+        "renderedAtMs": 57286,
+        "delayMs": 119
+      },
+      {
+        "phraseId": 7,
+        "text": "Notice your breathing becoming slower.",
+        "expectedStartMs": 72034,
+        "renderedAtMs": 72080,
+        "delayMs": 46
+      },
+      {
+        "phraseId": 8,
+        "text": "And for now, just be here.",
+        "expectedStartMs": 77977,
+        "renderedAtMs": 78067,
+        "delayMs": 90
+      },
+      {
+        "phraseId": 9,
+        "text": "Take a look around.",
+        "expectedStartMs": 94122,
+        "renderedAtMs": 94249,
+        "delayMs": 127
+      },
+      {
+        "phraseId": 10,
+        "text": "Where are you?",
+        "expectedStartMs": 98764,
+        "renderedAtMs": 98886,
+        "delayMs": 122
+      },
+      {
+        "phraseId": 11,
+        "text": "Notice the space around you, the light, the colors, the details you normally wouldn\u2019t think about.",
+        "expectedStartMs": 114711,
+        "renderedAtMs": 114729,
+        "delayMs": 18
+      },
+      {
+        "phraseId": 12,
+        "text": "What\u2019s happening around you?",
+        "expectedStartMs": 130378,
+        "renderedAtMs": 130473.99999999999,
+        "delayMs": 95.99999999998545
+      },
+      {
+        "phraseId": 13,
+        "text": "Now listen. What can you hear?",
+        "expectedStartMs": 146882,
+        "renderedAtMs": 146886,
+        "delayMs": 4
+      },
+      {
+        "phraseId": 14,
+        "text": "Maybe voices, movement, nature, a room around you. Or maybe it\u2019s completely quiet.",
+        "expectedStartMs": 164190,
+        "renderedAtMs": 164353,
+        "delayMs": 163
+      },
+      {
+        "phraseId": 15,
+        "text": "Notice the temperature against your skin.",
+        "expectedStartMs": 181098,
+        "renderedAtMs": 181195,
+        "delayMs": 97
+      },
+      {
+        "phraseId": 16,
+        "text": "Notice what you\u2019re wearing.",
+        "expectedStartMs": 196010,
+        "renderedAtMs": 196030,
+        "delayMs": 20
+      },
+      {
+        "phraseId": 17,
+        "text": "Don\u2019t describe the scene. Experience it.",
+        "expectedStartMs": 210234,
+        "renderedAtMs": 210239,
+        "delayMs": 5
+      },
+      {
+        "phraseId": 18,
+        "text": "The way you move, the way you speak, the decisions you make without overthinking them.",
+        "expectedStartMs": 228338,
+        "renderedAtMs": 228368,
+        "delayMs": 30
+      },
+      {
+        "phraseId": 19,
+        "text": "Notice the people around you.",
+        "expectedStartMs": 243702,
+        "renderedAtMs": 243804,
+        "delayMs": 102
+      },
+      {
+        "phraseId": 20,
+        "text": "How do they respond to you?",
+        "expectedStartMs": 254808,
+        "renderedAtMs": 254821,
+        "delayMs": 13
+      },
+      {
+        "phraseId": 21,
+        "text": "How do you respond to them?",
+        "expectedStartMs": 269738,
+        "renderedAtMs": 269783,
+        "delayMs": 45
+      },
+      {
+        "phraseId": 22,
+        "text": "And notice something important. This doesn\u2019t feel extraordinary anymore. It feels familiar.",
+        "expectedStartMs": 285343,
+        "renderedAtMs": 285344,
+        "delayMs": 1
+      },
+      {
+        "phraseId": 23,
+        "text": "This is simply your life.",
+        "expectedStartMs": 304012,
+        "renderedAtMs": 304012,
+        "delayMs": 0
+      },
+      {
+        "phraseId": 24,
+        "text": "Now stop looking at what you have, and notice who you are.",
+        "expectedStartMs": 320241,
+        "renderedAtMs": 320268,
+        "delayMs": 27
+      },
+      {
+        "phraseId": 25,
+        "text": "Who did you have to become to arrive here?",
+        "expectedStartMs": 327845,
+        "renderedAtMs": 327868,
+        "delayMs": 23
+      },
+      {
+        "phraseId": 26,
+        "text": "What no longer gets to decide your direction?",
+        "expectedStartMs": 341071,
+        "renderedAtMs": 341101,
+        "delayMs": 30
+      },
+      {
+        "phraseId": 27,
+        "text": "What do you do consistently now that once required effort?",
+        "expectedStartMs": 350776,
+        "renderedAtMs": 350837,
+        "delayMs": 61
+      },
+      {
+        "phraseId": 28,
+        "text": "Feel the difference in the way you carry yourself.",
+        "expectedStartMs": 361561,
+        "renderedAtMs": 361687,
+        "delayMs": 126
+      },
+      {
+        "phraseId": 29,
+        "text": "Not excitement. Something quieter.",
+        "expectedStartMs": 368965,
+        "renderedAtMs": 369063,
+        "delayMs": 98
+      },
+      {
+        "phraseId": 30,
+        "text": "Certainty.",
+        "expectedStartMs": 376488,
+        "renderedAtMs": 376522,
+        "delayMs": 34
+      },
+      {
+        "phraseId": 31,
+        "text": "The feeling of knowing who you are, and moving accordingly.",
+        "expectedStartMs": 386133,
+        "renderedAtMs": 386151,
+        "delayMs": 18
+      },
+      {
+        "phraseId": 32,
+        "text": "Let yourself feel that now.",
+        "expectedStartMs": 394777,
+        "renderedAtMs": 394899,
+        "delayMs": 122
+      },
+      {
+        "phraseId": 33,
+        "text": "Look around one more time.",
+        "expectedStartMs": 411782,
+        "renderedAtMs": 411847,
+        "delayMs": 65
+      },
+      {
+        "phraseId": 34,
+        "text": "Choose one detail from this life. Something small, something real. Hold it clearly.",
+        "expectedStartMs": 417284,
+        "renderedAtMs": 417301,
+        "delayMs": 17
+      },
+      {
+        "phraseId": 35,
+        "text": "Now notice the feeling underneath it.",
+        "expectedStartMs": 428790,
+        "renderedAtMs": 428856,
+        "delayMs": 66
+      },
+      {
+        "phraseId": 36,
+        "text": "Not the object, not the achievement, not the image. The feeling.",
+        "expectedStartMs": 434633,
+        "renderedAtMs": 434644,
+        "delayMs": 11
+      },
+      {
+        "phraseId": 37,
+        "text": "Where do you...",
+        "expectedStartMs": 440456,
+        "renderedAtMs": 440499,
+        "delayMs": 43
+      },
+      {
+        "phraseId": 37,
+        "text": "Feel it in your body.",
+        "expectedStartMs": 444978,
+        "renderedAtMs": 445119,
+        "delayMs": 141
+      },
+      {
+        "phraseId": 38,
+        "text": "Let it become stronger.",
+        "expectedStartMs": 457122,
+        "renderedAtMs": 457208,
+        "delayMs": 86
+      },
+      {
+        "phraseId": 39,
+        "text": "You don\u2019t need to chase this moment. You need to recognize it.",
+        "expectedStartMs": 467586,
+        "renderedAtMs": 467605,
+        "delayMs": 19
+      },
+      {
+        "phraseId": 40,
+        "text": "Remember what it feels like to move as this version of yourself.",
+        "expectedStartMs": 475570,
+        "renderedAtMs": 475584,
+        "delayMs": 14
+      },
+      {
+        "phraseId": 41,
+        "text": "Now let the details begin to fall away.",
+        "expectedStartMs": 484634,
+        "renderedAtMs": 484697,
+        "delayMs": 63
+      },
+      {
+        "phraseId": 42,
+        "text": "The place.",
+        "expectedStartMs": 492898,
+        "renderedAtMs": 492982,
+        "delayMs": 84
+      },
+      {
+        "phraseId": 43,
+        "text": "The sounds.",
+        "expectedStartMs": 496382,
+        "renderedAtMs": 496459,
+        "delayMs": 77
+      },
+      {
+        "phraseId": 44,
+        "text": "The people.",
+        "expectedStartMs": 499823,
+        "renderedAtMs": 499862,
+        "delayMs": 39
+      },
+      {
+        "phraseId": 45,
+        "text": "The images.",
+        "expectedStartMs": 503085,
+        "renderedAtMs": 503119,
+        "delayMs": 34
+      },
+      {
+        "phraseId": 46,
+        "text": "You don\u2019t need to hold on to them.",
+        "expectedStartMs": 507647,
+        "renderedAtMs": 507676,
+        "delayMs": 29
+      },
+      {
+        "phraseId": 47,
+        "text": "Keep only the feeling.",
+        "expectedStartMs": 512350,
+        "renderedAtMs": 512426.00000000006,
+        "delayMs": 76.00000000005821
+      },
+      {
+        "phraseId": 48,
+        "text": "And as everything else becomes quiet, let your Anchor come into focus.",
+        "expectedStartMs": 524276,
+        "renderedAtMs": 524359,
+        "delayMs": 83
+      },
+      {
+        "phraseId": 49,
+        "text": "Don\u2019t analyze it.",
+        "expectedStartMs": 539020,
+        "renderedAtMs": 539102,
+        "delayMs": 82
+      },
+      {
+        "phraseId": 50,
+        "text": "Don\u2019t try to explain it.",
+        "expectedStartMs": 543162,
+        "renderedAtMs": 543270,
+        "delayMs": 108
+      },
+      {
+        "phraseId": 51,
+        "text": "Just look.",
+        "expectedStartMs": 547603,
+        "renderedAtMs": 547727,
+        "delayMs": 124
+      },
+      {
+        "phraseId": 52,
+        "text": "Let this image carry what you just experienced.",
+        "expectedStartMs": 560307,
+        "renderedAtMs": 560402,
+        "delayMs": 95
+      },
+      {
+        "phraseId": 53,
+        "text": "You don\u2019t need to hold on to the Vision. You\u2019ve already experienced it.",
+        "expectedStartMs": 568849,
+        "renderedAtMs": 568974,
+        "delayMs": 125
+      },
+      {
+        "phraseId": 54,
+        "text": "Take one slow breath in...",
+        "expectedStartMs": 576590,
+        "renderedAtMs": 576750,
+        "delayMs": 160
+      },
+      {
+        "phraseId": 54,
+        "text": "And let it go.",
+        "expectedStartMs": 579671,
+        "renderedAtMs": 579735,
+        "delayMs": 64
+      },
+      {
+        "phraseId": 55,
+        "text": "Notice your body again. The surface beneath you, the space around you.",
+        "expectedStartMs": 584373,
+        "renderedAtMs": 584481,
+        "delayMs": 108
+      },
+      {
+        "phraseId": 56,
+        "text": "When you\u2019re ready, open your eyes.",
+        "expectedStartMs": 591875,
+        "renderedAtMs": 591917,
+        "delayMs": 42
+      },
+      {
+        "phraseId": 57,
+        "text": "Carry the direction.",
+        "expectedStartMs": 596737,
+        "renderedAtMs": 596817,
+        "delayMs": 80
+      },
+      {
+        "phraseId": 58,
+        "text": "Release the picture.",
+        "expectedStartMs": 600418,
+        "renderedAtMs": 600523,
+        "delayMs": 105
+      },
+      {
+        "phraseId": 59,
+        "text": "And move.",
+        "expectedStartMs": 604019,
+        "renderedAtMs": 604105,
+        "delayMs": 86
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-600-female-ambient-confirmed-captions-v5",
+    "expectedCaptions": 61,
+    "observedCaptions": 61,
+    "matchedCaptions": 61,
+    "expectedPhrases": 60,
+    "observedPhrases": 60,
+    "maximumPublishDelayMs": 132,
+    "missing": [],
+    "timingIssues": [],
+    "captions": [
+      {
+        "phraseId": 0,
+        "text": "Settle into a position that feels comfortable.",
+        "expectedStartMs": 2022,
+        "renderedAtMs": 2078,
+        "delayMs": 56
+      },
+      {
+        "phraseId": 1,
+        "text": "For the next few minutes, there is nowhere else you need to be.",
+        "expectedStartMs": 7904,
+        "renderedAtMs": 7994,
+        "delayMs": 90
+      },
+      {
+        "phraseId": 2,
+        "text": "Nothing you need to solve. Nothing you need to figure out.",
+        "expectedStartMs": 14307,
+        "renderedAtMs": 14386,
+        "delayMs": 79
+      },
+      {
+        "phraseId": 3,
+        "text": "Take a slow breath in, and let it go.",
+        "expectedStartMs": 21631,
+        "renderedAtMs": 21727,
+        "delayMs": 96
+      },
+      {
+        "phraseId": 4,
+        "text": "Again, slowly breathe in. And as you breathe out, let your shoulders drop.",
+        "expectedStartMs": 32196,
+        "renderedAtMs": 32290,
+        "delayMs": 94
+      },
+      {
+        "phraseId": 5,
+        "text": "Unclench your jaw. Relax the muscles around your eyes. Let your hands rest.",
+        "expectedStartMs": 42702,
+        "renderedAtMs": 42767,
+        "delayMs": 65
+      },
+      {
+        "phraseId": 6,
+        "text": "You don\u2019t need to force yourself to relax. Just allow yourself to become still.",
+        "expectedStartMs": 53007,
+        "renderedAtMs": 53017,
+        "delayMs": 10
+      },
+      {
+        "phraseId": 7,
+        "text": "Notice your breathing becoming slower.",
+        "expectedStartMs": 67354,
+        "renderedAtMs": 67397,
+        "delayMs": 43
+      },
+      {
+        "phraseId": 8,
+        "text": "And for now, just be here.",
+        "expectedStartMs": 73197,
+        "renderedAtMs": 73257,
+        "delayMs": 60
+      },
+      {
+        "phraseId": 9,
+        "text": "Take a look around.",
+        "expectedStartMs": 89482,
+        "renderedAtMs": 89554,
+        "delayMs": 72
+      },
+      {
+        "phraseId": 10,
+        "text": "Where are you?",
+        "expectedStartMs": 94104,
+        "renderedAtMs": 94131,
+        "delayMs": 27
+      },
+      {
+        "phraseId": 11,
+        "text": "Notice the space around you, the light, the colors, the details you normally wouldn\u2019t think about.",
+        "expectedStartMs": 110611,
+        "renderedAtMs": 110634,
+        "delayMs": 23
+      },
+      {
+        "phraseId": 12,
+        "text": "What\u2019s happening around you?",
+        "expectedStartMs": 125878,
+        "renderedAtMs": 125935,
+        "delayMs": 57
+      },
+      {
+        "phraseId": 13,
+        "text": "Now listen. What can you hear?",
+        "expectedStartMs": 142882,
+        "renderedAtMs": 142962,
+        "delayMs": 80
+      },
+      {
+        "phraseId": 14,
+        "text": "Maybe voices, movement, nature, a room around you. Or maybe it\u2019s completely quiet.",
+        "expectedStartMs": 160770,
+        "renderedAtMs": 160801,
+        "delayMs": 31
+      },
+      {
+        "phraseId": 15,
+        "text": "Notice the temperature against your skin.",
+        "expectedStartMs": 177678,
+        "renderedAtMs": 177690,
+        "delayMs": 12
+      },
+      {
+        "phraseId": 16,
+        "text": "Notice what you\u2019re wearing.",
+        "expectedStartMs": 193002,
+        "renderedAtMs": 193046,
+        "delayMs": 44
+      },
+      {
+        "phraseId": 17,
+        "text": "Don\u2019t describe the scene. Experience it.",
+        "expectedStartMs": 207648,
+        "renderedAtMs": 207768,
+        "delayMs": 120
+      },
+      {
+        "phraseId": 18,
+        "text": "The way you move, the way you speak, the decisions you make without overthinking them.",
+        "expectedStartMs": 226116,
+        "renderedAtMs": 226158,
+        "delayMs": 42
+      },
+      {
+        "phraseId": 19,
+        "text": "Notice the...",
+        "expectedStartMs": 232052,
+        "renderedAtMs": 232149,
+        "delayMs": 97
+      },
+      {
+        "phraseId": 19,
+        "text": "People around you.",
+        "expectedStartMs": 242017,
+        "renderedAtMs": 242079,
+        "delayMs": 62
+      },
+      {
+        "phraseId": 20,
+        "text": "How do they respond to you?",
+        "expectedStartMs": 252902,
+        "renderedAtMs": 252991,
+        "delayMs": 89
+      },
+      {
+        "phraseId": 21,
+        "text": "How do you respond to them?",
+        "expectedStartMs": 268350,
+        "renderedAtMs": 268479,
+        "delayMs": 129
+      },
+      {
+        "phraseId": 22,
+        "text": "And notice something important. This doesn\u2019t feel extraordinary anymore. It feels familiar.",
+        "expectedStartMs": 284450,
+        "renderedAtMs": 284465,
+        "delayMs": 15
+      },
+      {
+        "phraseId": 23,
+        "text": "This is simply your life.",
+        "expectedStartMs": 303015,
+        "renderedAtMs": 303082,
+        "delayMs": 67
+      },
+      {
+        "phraseId": 24,
+        "text": "Now stop looking at what you have, and notice who you are.",
+        "expectedStartMs": 319699,
+        "renderedAtMs": 319759,
+        "delayMs": 60
+      },
+      {
+        "phraseId": 25,
+        "text": "Who did you have to become to arrive here?",
+        "expectedStartMs": 327402,
+        "renderedAtMs": 327408,
+        "delayMs": 6
+      },
+      {
+        "phraseId": 26,
+        "text": "What no longer gets to decide your direction?",
+        "expectedStartMs": 340928,
+        "renderedAtMs": 341002,
+        "delayMs": 74
+      },
+      {
+        "phraseId": 27,
+        "text": "What do you do consistently now that once required effort?",
+        "expectedStartMs": 350612,
+        "renderedAtMs": 350612,
+        "delayMs": 0
+      },
+      {
+        "phraseId": 28,
+        "text": "Feel the difference in the way you carry yourself.",
+        "expectedStartMs": 361437,
+        "renderedAtMs": 361441,
+        "delayMs": 4
+      },
+      {
+        "phraseId": 29,
+        "text": "Not excitement. Something quieter.",
+        "expectedStartMs": 368790,
+        "renderedAtMs": 368809,
+        "delayMs": 19
+      },
+      {
+        "phraseId": 30,
+        "text": "Certainty.",
+        "expectedStartMs": 376113,
+        "renderedAtMs": 376171,
+        "delayMs": 58
+      },
+      {
+        "phraseId": 31,
+        "text": "The feeling of knowing who you are, and moving accordingly.",
+        "expectedStartMs": 385976,
+        "renderedAtMs": 386034,
+        "delayMs": 58
+      },
+      {
+        "phraseId": 32,
+        "text": "Let yourself feel that now.",
+        "expectedStartMs": 394479,
+        "renderedAtMs": 394582,
+        "delayMs": 103
+      },
+      {
+        "phraseId": 33,
+        "text": "Look around one more time.",
+        "expectedStartMs": 411962,
+        "renderedAtMs": 412045,
+        "delayMs": 83
+      },
+      {
+        "phraseId": 34,
+        "text": "Choose one detail from this life. Something small, something real. Hold it clearly.",
+        "expectedStartMs": 417244,
+        "renderedAtMs": 417355,
+        "delayMs": 111
+      },
+      {
+        "phraseId": 35,
+        "text": "Now notice the feeling underneath it.",
+        "expectedStartMs": 428630,
+        "renderedAtMs": 428705,
+        "delayMs": 75
+      },
+      {
+        "phraseId": 36,
+        "text": "Not the object, not the achievement, not the image. The feeling.",
+        "expectedStartMs": 434333,
+        "renderedAtMs": 434465,
+        "delayMs": 132
+      },
+      {
+        "phraseId": 37,
+        "text": "Where do you feel it in your body?",
+        "expectedStartMs": 443878,
+        "renderedAtMs": 443974,
+        "delayMs": 96
+      },
+      {
+        "phraseId": 38,
+        "text": "Let it become stronger.",
+        "expectedStartMs": 456802,
+        "renderedAtMs": 456882,
+        "delayMs": 80
+      },
+      {
+        "phraseId": 39,
+        "text": "You don\u2019t need to chase this moment. You need to recognize it.",
+        "expectedStartMs": 467466,
+        "renderedAtMs": 467593,
+        "delayMs": 127
+      },
+      {
+        "phraseId": 40,
+        "text": "Remember what it feels like to move as this version of yourself.",
+        "expectedStartMs": 475890,
+        "renderedAtMs": 475932,
+        "delayMs": 42
+      },
+      {
+        "phraseId": 41,
+        "text": "Now let the details begin to fall away.",
+        "expectedStartMs": 484614,
+        "renderedAtMs": 484618,
+        "delayMs": 4
+      },
+      {
+        "phraseId": 42,
+        "text": "The place.",
+        "expectedStartMs": 492758,
+        "renderedAtMs": 492886,
+        "delayMs": 128
+      },
+      {
+        "phraseId": 43,
+        "text": "The sounds.",
+        "expectedStartMs": 496202,
+        "renderedAtMs": 496278,
+        "delayMs": 76
+      },
+      {
+        "phraseId": 44,
+        "text": "The people.",
+        "expectedStartMs": 499663,
+        "renderedAtMs": 499709,
+        "delayMs": 46
+      },
+      {
+        "phraseId": 45,
+        "text": "The images.",
+        "expectedStartMs": 502965,
+        "renderedAtMs": 503036,
+        "delayMs": 71
+      },
+      {
+        "phraseId": 46,
+        "text": "You don\u2019t need to hold on to them.",
+        "expectedStartMs": 507567,
+        "renderedAtMs": 507653,
+        "delayMs": 86
+      },
+      {
+        "phraseId": 47,
+        "text": "Keep only the feeling.",
+        "expectedStartMs": 512290,
+        "renderedAtMs": 512335.00000000006,
+        "delayMs": 45.00000000005821
+      },
+      {
+        "phraseId": 48,
+        "text": "And as everything else becomes quiet, let your Anchor come into focus.",
+        "expectedStartMs": 524696,
+        "renderedAtMs": 524765,
+        "delayMs": 69
+      },
+      {
+        "phraseId": 49,
+        "text": "Don\u2019t analyze it.",
+        "expectedStartMs": 539426,
+        "renderedAtMs": 539492,
+        "delayMs": 66
+      },
+      {
+        "phraseId": 50,
+        "text": "Don\u2019t try to explain it.",
+        "expectedStartMs": 543548,
+        "renderedAtMs": 543590,
+        "delayMs": 42
+      },
+      {
+        "phraseId": 51,
+        "text": "Just look.",
+        "expectedStartMs": 547829,
+        "renderedAtMs": 547914,
+        "delayMs": 85
+      },
+      {
+        "phraseId": 52,
+        "text": "Let this image carry what you just experienced.",
+        "expectedStartMs": 560934,
+        "renderedAtMs": 560993,
+        "delayMs": 59
+      },
+      {
+        "phraseId": 53,
+        "text": "You don\u2019t need to hold on to the Vision. You\u2019ve already experienced it.",
+        "expectedStartMs": 569617,
+        "renderedAtMs": 569621,
+        "delayMs": 4
+      },
+      {
+        "phraseId": 54,
+        "text": "Take one slow breath in, and let it go.",
+        "expectedStartMs": 577182,
+        "renderedAtMs": 577262,
+        "delayMs": 80
+      },
+      {
+        "phraseId": 55,
+        "text": "Notice your body again. The surface beneath you, the space around you.",
+        "expectedStartMs": 584346,
+        "renderedAtMs": 584355,
+        "delayMs": 9
+      },
+      {
+        "phraseId": 56,
+        "text": "When you\u2019re ready, open your eyes.",
+        "expectedStartMs": 591751,
+        "renderedAtMs": 591859,
+        "delayMs": 108
+      },
+      {
+        "phraseId": 57,
+        "text": "Carry the direction.",
+        "expectedStartMs": 596414,
+        "renderedAtMs": 596439,
+        "delayMs": 25
+      },
+      {
+        "phraseId": 58,
+        "text": "Release the picture.",
+        "expectedStartMs": 600056,
+        "renderedAtMs": 600093,
+        "delayMs": 37
+      },
+      {
+        "phraseId": 59,
+        "text": "And move.",
+        "expectedStartMs": 603698,
+        "renderedAtMs": 603751,
+        "delayMs": 53
+      }
+    ]
+  }
+]

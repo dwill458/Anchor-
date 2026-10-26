@@ -182,9 +182,11 @@ describe("calculateThreadStrengthScore decay", () => {
       "strict",
       [],
     );
-    // 50 + 40 (day1) clamps at 100 by day2 with zero missed days in between —
-    // a real gap-day decay (the pre-fix bug) would have knocked 30 off here.
-    expect(score).toBe(100);
+    // Thread Strength 2.0:
+    // Day 1: 1.5 + 0.5 * 1m = 2.0
+    // Day 2: 2.0 + 2.0 = 4.0
+    // Day 3: 4.0 + 2.0 = 6.0
+    expect(score).toBe(6);
   });
 
   it("still decays for a genuinely skipped day between sessions", () => {
@@ -199,21 +201,23 @@ describe("calculateThreadStrengthScore decay", () => {
       "strict",
       [],
     );
-    // 50 + 40 = 90, then one missed day (07-02) costs 30 under strict, then +40 clamps at 100.
-    expect(score).toBe(100);
+    // Day 1: 2.0. Then 1 missed day under strict costs 3 points -> clamps to 0.
+    // Day 3: 0 + 2.0 = 2.0.
+    expect(score).toBe(2);
 
-    const partialEvents = [
-      event("d1", "focus", "2026-07-01T10:00:00.000Z"),
-      event("d2", "focus", "2026-07-03T10:00:00.000Z"),
+    const buildingEvents = [
+      event("d1", "focus", "2026-07-01T10:00:00.000Z", { completedDurationSeconds: 600 }), // 1.5 + 5.0 = 6.5
+      event("d2", "focus", "2026-07-02T10:00:00.000Z", { completedDurationSeconds: 600 }), // + 6.5 = 13.0
+      // 2026-07-03 skipped: under strict: 13.0 - 3 = 10.0
+      event("d4", "focus", "2026-07-04T10:00:00.000Z", { completedDurationSeconds: 600 }), // + 6.5 = 16.5
     ];
-    const partialScore = calculateThreadStrengthScore(
-      partialEvents,
-      "2026-07-03",
+    const buildingScore = calculateThreadStrengthScore(
+      buildingEvents,
+      "2026-07-04",
       "strict",
       [],
     );
-    // 50 + 25 = 75, minus 30 for the one skipped day, plus 25 = 70.
-    expect(partialScore).toBe(70);
+    expect(buildingScore).toBe(16.5);
   });
 
   it("does not decay the still-in-progress current day when there is no session yet today", () => {
@@ -226,6 +230,6 @@ describe("calculateThreadStrengthScore decay", () => {
     );
     // Only one calendar day has elapsed since the last practice (today is
     // still in progress), so there is no fully-missed day yet.
-    expect(score).toBe(90);
+    expect(score).toBe(2);
   });
 });

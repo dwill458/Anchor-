@@ -1,0 +1,38 @@
+[
+  {
+    "sourceWindow": [
+      368,
+      374
+    ],
+    "recordingOffset": 3.0514375,
+    "expected": "Not excitement something quieter",
+    "actual": " Not excitement, something quieter."
+  },
+  {
+    "sourceWindow": [
+      374,
+      380
+    ],
+    "recordingOffset": 3.0514375,
+    "expected": "Certainty",
+    "actual": " Certainty."
+  },
+  {
+    "sourceWindow": [
+      385.6,
+      390
+    ],
+    "recordingOffset": 3.0514375,
+    "expected": "The feeling of knowing who you are and moving accordingly",
+    "actual": " the feeling of knowing who you are and moving accordingly."
+  },
+  {
+    "sourceWindow": [
+      512.1,
+      514.4
+    ],
+    "recordingOffset": 3.0514375,
+    "expected": "Keep only the feeling",
+    "actual": " Keep only the feeling"
+  }
+]

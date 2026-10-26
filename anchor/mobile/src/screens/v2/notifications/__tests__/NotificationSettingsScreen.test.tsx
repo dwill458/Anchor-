@@ -149,23 +149,28 @@ describe('NotificationSettingsScreen', () => {
   it('renders the sections and locked copy', async () => {
     await renderScreen();
     for (const text of [
-      'YOUR DAILY MOMENT',
-      'OPTIONAL REMINDERS',
-      'Gentle encouragement based on your goals.',
-      'YOUR PROGRESS',
-      'DELIVERY',
-      'Reconnect at a time you choose.',
-      "Reconnect with the future you're building.",
-      'Stay connected to your next move.',
-      'Gentle encouragement after time away.',
-      "A look at what you've accomplished.",
+      'Reminders',
+      'Gentle nudges',
+      'Tone',
+      'Time zone',
+      'One nudge a day, at a time you choose',
+      "Reconnect with the future you're building",
+      'Stay connected to your next move',
+      'A gentle nudge after time away',
+      'A look back at your week of practice',
       'Remind me at',
-      "Every day, even if you've already practiced earlier.",
+      "Sends every day, even after you've practiced.",
+      'Applies to check-ins and your weekly recap',
+      'Sample',
+      'Set automatically',
+      'Used for your reminders and for what counts as a day.',
     ]) {
       expect(screen.getByText(text)).toBeTruthy();
     }
     expect(screen.getByText('8:30 PM')).toBeTruthy();
     expect(screen.getByText('Encouraging')).toBeTruthy();
+    expect(screen.getByTestId('notification-tone-sample')).toBeTruthy();
+    expect(screen.getByLabelText('Daily reminder')).toBeTruthy();
   });
 
   it('turning Daily ON enrolls with the current time and never calls toggleNotifications', async () => {

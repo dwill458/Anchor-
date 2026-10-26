@@ -106,6 +106,15 @@ describe('Vision note service', () => {
     expect(mockPrisma.visionNote.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { isArchived: true } }));
   });
 
+  it('advances the note conflict token even when two edits share a millisecond', async () => {
+    const clock=jest.spyOn(Date,'now').mockReturnValue(note.updatedAt.getTime());
+    mockPrisma.visionNote.findFirst.mockResolvedValue(note);
+    try {
+      await visionService.updateNote('user-1','vision-1','note-1',{content:{text:'Updated'},expectedUpdatedAt:note.updatedAt.toISOString()});
+      expect(mockPrisma.visionNote.updateMany.mock.calls[0][0].data.updatedAt.getTime()).toBeGreaterThan(note.updatedAt.getTime());
+    } finally { clock.mockRestore(); }
+  });
+
   it('restores archived notes under the active-note cap while serializing the count', async () => {
     mockPrisma.vision.findFirst.mockResolvedValueOnce({ id: 'vision-1', anchorId: 'anchor-1' }).mockResolvedValueOnce(visionModel());
     mockPrisma.visionNote.findFirst.mockResolvedValue({ ...note, isArchived: true });

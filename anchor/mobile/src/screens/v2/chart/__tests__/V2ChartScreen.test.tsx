@@ -25,6 +25,7 @@ jest.mock('@/components/v2/chart/panel/ChartStaticMap', () => {
 import React from 'react';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { V2ChartScreen } from '../V2ChartScreen';
+import { ChartSheet } from '@/components/v2/chart/sheet/ChartSheet';
 import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { resetAnchorChartCache } from '@/hooks/v2/chart/useAnchorChart';
@@ -323,9 +324,9 @@ describe('V2ChartScreen — no Chart', () => {
     const screen = await openConversation();
     expect(await screen.findByText('Where is Anchor today?')).toBeTruthy();
     expect(screen.getByText('Just launched')).toBeTruthy();
-    // No route yet, and drafting early is already possible.
+    // No route yet, and drafting early waits until the person has answered twice.
     expect(screen.queryByTestId('ask-build-route')).toBeNull();
-    expect(screen.getByTestId('ask-draft-now')).toBeTruthy();
+    expect(screen.queryByTestId('ask-draft-now')).toBeNull();
 
     fireEvent.changeText(screen.getByTestId('ask-input'), 'App is launched but only has 100 users.');
     fireEvent.press(screen.getByTestId('ask-send'));
@@ -355,13 +356,13 @@ describe('V2ChartScreen — no Chart', () => {
     fireEvent.press(await screen.findByTestId('ask-build-route'));
 
     expect(await screen.findByText('Mapping the way there.')).toBeTruthy();
-    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
-    expect(screen.getByText('We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn’t.')).toBeTruthy();
+    expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();
+    expect(screen.getByText("We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn't.")).toBeTruthy();
 
     // The route and the One Move are different things: four numbered waypoints, then a separate move for waypoint 1.
     expect(screen.getByText('YOUR ROUTE')).toBeTruthy();
     expect(screen.getByText('4 waypoints')).toBeTruthy();
-    expect(screen.getByText('ONE MOVE')).toBeTruthy();
+    expect(screen.getByText('YOUR NEXT MOVE')).toBeTruthy();
     expect(screen.getByTestId('chart-review-one-move-card')).toBeTruthy();
 
     // The existing planner receives exactly what the conversation produced.
@@ -398,15 +399,19 @@ describe('V2ChartScreen — no Chart', () => {
 
   it('“Draft my route now” plans from what the person wrote, without waiting for the assistant', async () => {
     serve({ chart: readModel(null), vision: null });
-    serveCreation({ replies: [assistantMessage('Where is Anchor today?'), assistantMessage('Tell me a bit more?')] });
+    serveCreation({ replies: [assistantMessage('Where is Anchor today?'), assistantMessage('Tell me a bit more?'), assistantMessage('And what is in the way?')] });
     const screen = await openConversation();
     await screen.findByText('Where is Anchor today?');
     fireEvent.changeText(screen.getByTestId('ask-input'), 'Launched, 100 users.');
     fireEvent.press(screen.getByTestId('ask-send'));
     await screen.findByText('Tell me a bit more?');
+    expect(screen.queryByTestId('ask-draft-now')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'Mostly evenings.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    await screen.findByText('And what is in the way?');
     fireEvent.press(screen.getByTestId('ask-draft-now'));
-    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
-    expect(planCalls()[0]).toMatchObject({ actualStartingPoint: 'Launched, 100 users.', followUp: null });
+    expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();
+    expect(planCalls()[0]).toMatchObject({ actualStartingPoint: 'Launched, 100 users. Mostly evenings.', followUp: null });
     expect(planCalls()[0].startingContext).toBeNull();
   });
 
@@ -438,15 +443,21 @@ describe('V2ChartScreen — no Chart', () => {
     expect(screen.getByText(/can’t answer right now/)).toBeTruthy();
     // The person can still get a route from the intention alone.
     fireEvent.press(screen.getByTestId('ask-draft-now'));
-    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();
     expect(planCalls()[0].actualStartingPoint).toBe('Anchor has ten thousand users');
   });
 
   it('never strands the user: when generation fails, an outline can be named and saved', async () => {
     serve({ chart: readModel(null), vision: null });
-    serveCreation({ plan: new Error('Network error. Please check your connection.') });
+    serveCreation({ plan: new Error('Network error. Please check your connection.'), replies: [assistantMessage('Where is Anchor today?'), assistantMessage('And what is in the way?'), assistantMessage('Got it.')] });
     const screen = await openConversation();
-    await screen.findByText('You’re working toward ten thousand users. Where is Anchor today?');
+    await screen.findByText('Where is Anchor today?');
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'Launched.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    await screen.findByText('And what is in the way?');
+    fireEvent.changeText(screen.getByTestId('ask-input'), 'Time.');
+    fireEvent.press(screen.getByTestId('ask-send'));
+    await screen.findByText('Got it.');
     fireEvent.press(screen.getByTestId('ask-draft-now'));
     expect(await screen.findByTestId('chart-generation-failed')).toBeTruthy();
     expect(screen.getByText('You’re offline. Chart needs a connection for this.')).toBeTruthy();
@@ -464,7 +475,7 @@ describe('V2ChartScreen — active Chart', () => {
     const screen = render(<V2ChartScreen />);
     const current = await screen.findByTestId('chart-current-waypoint');
     expect(within(current).getByText('Waypoint 2 of 3 · Current')).toBeTruthy();
-    expect(within(current).getByText('Reach 1,000 active users')).toBeTruthy();
+    expect(within(current).getAllByText('Reach 1,000 active users').length).toBeGreaterThanOrEqual(1);
     await openFullSheet(screen);
     expect(screen.getByText(/^642 \/ 1,000\s*$/)).toBeTruthy();
     expect(within(screen.getByTestId('chart-one-move-row')).getByText('Finish onboarding redesign')).toBeTruthy();
@@ -538,8 +549,12 @@ describe('V2ChartScreen — active Chart', () => {
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
     expect(await screen.findByTestId('chart-waypoint-content')).toBeTruthy();
-    // A tap while the open sequence runs only skips it; wait for it to finish.
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 1000)); });
+    // Skia is mocked, so report its drawn-frame handoff explicitly. A tap
+    // while opening only skips the sequence; wait until the panel unlocks.
+    await act(async () => { fireEvent(screen.getByTestId('chart-hero-map'), 'shown'); });
+    await waitFor(() => {
+      expect(screen.UNSAFE_getByType(ChartSheet).props.busy.value).toBe(false);
+    }, { timeout: 3000 });
     // Fog of war: the undiscovered final waypoint is not on the map at all.
     expect(screen.queryByLabelText(/^Waypoint 3/)).toBeNull();
     // Tapping a reached marker shows that waypoint in the panel, read-only, with a way back.

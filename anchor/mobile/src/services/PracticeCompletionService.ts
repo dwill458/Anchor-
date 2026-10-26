@@ -305,6 +305,7 @@ export const PracticeCompletionService = {
     accountId: string;
     anchor: Anchor;
     durationSeconds: 60 | 180 | 300 | 600;
+    actualDurationSeconds?: number;
     startedAt: string;
     completedAt?: string;
     guidanceVoice: GuidanceVoice;
@@ -324,7 +325,7 @@ export const PracticeCompletionService = {
           : null,
         mode: 'visualize',
         plannedDurationSeconds: params.durationSeconds,
-        actualDurationSeconds: params.durationSeconds,
+        actualDurationSeconds: params.actualDurationSeconds ?? params.durationSeconds,
         startedAt: params.startedAt,
         completedAt: params.completedAt,
         source: params.source ?? 'practice_screen',

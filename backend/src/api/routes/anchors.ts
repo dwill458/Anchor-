@@ -6,18 +6,17 @@
 
 import { Router, Response, NextFunction } from 'express';
 import { GoogleGenAI } from '@google/genai';
-import { RedisStore } from 'rate-limit-redis';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
-import { AuthRequest, authMiddleware, DEV_MASTER_UID } from '../middleware/auth';
+import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
-import { redisClient } from '../../lib/redis';
 import { BackendAnalyticsService } from '../../services/AnalyticsService';
 import { resolveMonetizationAccess } from '../../services/MonetizationAccessService';
 import { logger } from '../../utils/logger';
 import { resolveStoredAssetUrl } from '../../services/StorageService';
 import { courseService } from '../../services/CourseService';
+import { threadStrengthService } from '../../services/v2/ThreadStrengthService';
 import { globalAiCeilingLimiter, anchorEnhanceLimiter } from '../middleware/aiRateLimit';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
@@ -320,29 +319,65 @@ function extractVariationReservation(metadata: unknown): {
 
 async function resolveAnchorArtworkUrls<
   T extends {
+    id?: string;
+    userId?: string;
     enhancedImageUrl?: string | null;
     threadV2States?: Array<{ strength: number }>;
     threadStrength?: number | null;
+    delta7d?: number | null;
+    delta7dStatus?: string;
+    threadStatus?: string;
+  },
+>(
+  anchor: T
+): Promise<
+  T & {
+    threadStrength: number | null;
+    delta7d?: number | null;
+    delta7dStatus?: string;
+    threadStatus?: string;
   }
->(anchor: T): Promise<T & { threadStrength: number | null }> {
-  const existingStrength = anchor.threadStrength;
-  const threadStrength =
-    typeof existingStrength === 'number'
-      ? existingStrength
+> {
+  let threadStrength: number | null =
+    typeof anchor.threadStrength === 'number'
+      ? anchor.threadStrength
       : Array.isArray(anchor.threadV2States) && anchor.threadV2States.length > 0
         ? anchor.threadV2States[0].strength
         : null;
+  let delta7d: number | null = anchor.delta7d ?? null;
+  let delta7dStatus: string =
+    anchor.delta7dStatus ?? (threadStrength !== null ? 'AVAILABLE' : 'FIRST_WEEK');
+  let threadStatus: string =
+    anchor.threadStatus ?? (threadStrength !== null ? 'active' : 'unestablished');
+
+  if (anchor.id && anchor.userId) {
+    try {
+      const state = await threadStrengthService.getAnchorThreadState(anchor.userId, anchor.id);
+      threadStrength = state.strength;
+      delta7d = state.delta7d;
+      delta7dStatus = state.delta7dStatus;
+      threadStatus = state.status;
+    } catch {
+      // Revert quietly to existing/database values if thread service fails
+    }
+  }
 
   if (!anchor?.enhancedImageUrl) {
     return {
       ...anchor,
       threadStrength,
+      delta7d,
+      delta7dStatus,
+      threadStatus,
     };
   }
 
   return {
     ...anchor,
     threadStrength,
+    delta7d,
+    delta7dStatus,
+    threadStatus,
     enhancedImageUrl:
       (await resolveStoredAssetUrl(anchor.enhancedImageUrl, 7 * 24 * 60 * 60)) ?? null,
   };
@@ -1135,7 +1170,9 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
         throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
       }
       const meta =
-        current.classifierMeta && typeof current.classifierMeta === 'object' && !Array.isArray(current.classifierMeta)
+        current.classifierMeta &&
+        typeof current.classifierMeta === 'object' &&
+        !Array.isArray(current.classifierMeta)
           ? (current.classifierMeta as Prisma.JsonObject)
           : {};
       allowedUpdates.classifierMeta = { ...meta, v2Expression: expression };

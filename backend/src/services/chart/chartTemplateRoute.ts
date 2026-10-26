@@ -38,19 +38,6 @@ export function parseNumericTarget(text: string): ParsedTarget | null {
   return { value, unit, prefix };
 }
 
-/** "active users today" measures the same thing as "active users". */
-function sameUnit(left: string, right: string): boolean {
-  if (!left || !right) return left === right;
-  return left.startsWith(right) || right.startsWith(left);
-}
-
-function niceRound(value: number): number {
-  if (value < 10) return Math.max(1, Math.round(value));
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  const step = magnitude / 2;
-  return Math.max(step, Math.round(value / step) * step);
-}
-
 export function formatMetricValue(value: number, prefix = ''): string {
   const rounded = Number.isInteger(value) ? value : Math.round(value * 10) / 10;
   return `${prefix}${rounded.toLocaleString('en-US')}`;

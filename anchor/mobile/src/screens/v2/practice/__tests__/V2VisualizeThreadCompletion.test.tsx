@@ -27,7 +27,7 @@ jest.mock('../focus', () => ({
   },
 }));
 const anchor = makeAnchor({ id: 'a1', userId: 'u1', threadStrength: 20 });
-const record: any = { id: 's1', threadStrengthBefore: 20, threadStrengthAfter: 24, syncState: 'synced' };
+const record: any = { id: 's1', plannedDurationSeconds: 60, completedDurationSeconds: 65, threadStrengthBefore: 20, threadStrengthAfter: 24, syncState: 'synced' };
 
 beforeEach(() => {
   mockRecordVisionView.mockClear();
@@ -49,7 +49,7 @@ it('enters the existing Thread completion and returns saved mode/duration to Tod
   fireEvent.press(view.getByLabelText('Thread Done'));
   fireEvent.press(view.getByLabelText('Thread Done'));
   expect(onCompleted).toHaveBeenCalledTimes(1);
-  expect(onCompleted).toHaveBeenCalledWith({ mode: 'visualize', durationSeconds: 60, saved: true });
+  expect(onCompleted).toHaveBeenCalledWith({ mode: 'visualize', durationSeconds: 65, saved: true });
 });
 
 it('reports failed persistence truthfully instead of showing a saved reinforcement', () => {
@@ -59,7 +59,7 @@ it('reports failed persistence truthfully instead of showing a saved reinforceme
   act(() => mockCinematic.onContinue({ record: null, saved: false }));
   expect(mockCompletion.sessionSaved).toBe(false);
   fireEvent.press(view.getByLabelText('Thread Done'));
-  expect(onCompleted).toHaveBeenCalledWith({ mode: 'visualize', durationSeconds: 180, saved: false });
+  expect(onCompleted).toHaveBeenCalledWith({ mode: 'visualize', durationSeconds: 200, saved: false });
 });
 
 it('marks the Vision seen today when a Visualize session starts, whichever way the person arrived, and only once', () => {

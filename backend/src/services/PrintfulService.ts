@@ -79,7 +79,11 @@ interface PrintfulMockupTemplateResponse {
 }
 
 function normalizeKeyPart(value: string | undefined): string | null {
-  const normalized = value?.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const normalized = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
   return normalized && normalized.length > 0 ? normalized : null;
 }
 
@@ -136,7 +140,11 @@ function parseMockupTemplateMap(): ParsedIntegerMap {
     return parseIntegerMap(env.PRINTFUL_MOCKUP_TEMPLATE_IDS, 'PRINTFUL_MOCKUP_TEMPLATE_IDS');
   } catch (error) {
     if (error instanceof AppError) {
-      throw new AppError('Printful mockup template mapping is invalid', 500, 'PRINTFUL_TEMPLATE_INVALID');
+      throw new AppError(
+        'Printful mockup template mapping is invalid',
+        500,
+        'PRINTFUL_TEMPLATE_INVALID'
+      );
     }
     throw error;
   }
@@ -219,7 +227,9 @@ function getPrintfulRequestConfig(): PrintfulRequestConfig {
 }
 
 function extractOrderData(response: unknown): PrintfulOrderResponseData {
-  const payload = response as { data?: { data?: PrintfulOrderResponseData; result?: PrintfulOrderResponseData } };
+  const payload = response as {
+    data?: { data?: PrintfulOrderResponseData; result?: PrintfulOrderResponseData };
+  };
   return payload?.data?.data ?? payload?.data?.result ?? {};
 }
 
@@ -244,10 +254,16 @@ function extractTemplateData(response: unknown): PrintfulMockupTemplateResponse 
 }
 
 function extractMockupPreviewUrl(response: unknown): string | null {
+  type Mockup = { mockup_url?: unknown; url?: unknown };
+  type MockupResult = {
+    mockups?: Mockup[];
+    products?: { mockups?: Mockup[] }[];
+    files?: { preview_url?: unknown; url?: unknown }[];
+  };
   const payload = response as {
     data?: {
-      data?: any;
-      result?: any;
+      data?: MockupResult;
+      result?: MockupResult;
     };
   };
   const body = payload?.data?.data ?? payload?.data?.result ?? {};
@@ -261,11 +277,15 @@ function extractMockupPreviewUrl(response: unknown): string | null {
     body?.files?.[0]?.url,
   ];
 
-  return candidates.find((candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0) ?? null;
+  return (
+    candidates.find(
+      (candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0
+    ) ?? null
+  );
 }
 
 function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     setTimeout(resolve, ms);
   });
 }
@@ -291,18 +311,25 @@ async function fetchPrintfulTemplatePosition(
     );
   } catch (error) {
     logger.error('[PrintfulService] Printful template metadata request failed', error);
-    throw new AppError('Printful template metadata request failed', 502, 'PRINTFUL_TEMPLATE_FETCH_FAILED');
+    throw new AppError(
+      'Printful template metadata request failed',
+      502,
+      'PRINTFUL_TEMPLATE_FETCH_FAILED'
+    );
   }
 
   const templateData = extractTemplateData(templateResponse);
   const templateId = templateData.variant_mapping
-    ?.find((entry) => entry.variant_id === variantId)
-    ?.templates?.find((entry) => entry.placement === placement)
-    ?.template_id;
+    ?.find(entry => entry.variant_id === variantId)
+    ?.templates?.find(entry => entry.placement === placement)?.template_id;
 
-  const template = templateData.templates?.find((entry) => entry.template_id === templateId);
+  const template = templateData.templates?.find(entry => entry.template_id === templateId);
   if (!template) {
-    throw new AppError('Printful template metadata is incomplete', 502, 'PRINTFUL_TEMPLATE_BAD_RESPONSE');
+    throw new AppError(
+      'Printful template metadata is incomplete',
+      502,
+      'PRINTFUL_TEMPLATE_BAD_RESPONSE'
+    );
   }
 
   return {

@@ -1,11 +1,16 @@
 import type { ViewInstance, ScrollViewInstance } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
-import { Alert, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, Easing, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 // Gesture Handler's ScrollView takes part in gesture arbitration, so a lifted photo keeps the touch on Android.
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight, ChevronDown, Eye, MoreHorizontal } from 'lucide-react-native';
+import { VisionLayoutSheet } from './VisionLayoutSheet';
+import { useVisionBeginDock } from './useVisionBeginDock';
+import type { VisionBoardLayout, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
+import type { VisionMutationFeedback } from '@/hooks/v2/vision/visionMutationQueue';
+import type { VisionFocal } from './visionPhotoFocus';
 import { VisionChartLink } from './VisionChartLink';
 import { VisionIntentionHeading } from './VisionIntentionHeading';
 import { truncateVisionText } from './visionDetailText';
@@ -36,6 +41,12 @@ import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
 import { scrollToTarget, type TeachingRect } from '@/components/v2/teaching/scrollToTarget';
 
 type Props = {
+  boardLayout?: VisionBoardLayout;
+  onUpdateBoardLayout?: (layout: VisionBoardLayout) => Promise<boolean>;
+  onSaveSlots?: (slots: Array<{sceneId:string;slotIndex:number}>) => Promise<boolean>;
+  mutationFeedback?: VisionMutationFeedback;
+  onRetrySave?: () => void;
+
   justAdded?: 'create' | 'add';
   arrivingNoteId?: string;
   arrivingSceneId?: string | null;
@@ -44,7 +55,7 @@ type Props = {
   /** The Vision's id. With it the board keeps each image in its own position and remembers how each is framed. */
   visionId?: string | null;
   /** Pushes a position or framing change to the server. */
-  onSyncPresentation?: (sceneId: string, patch: { slotIndex?: number | null; focal?: { x: number; y: number } | null }) => void;
+  onSyncPresentation?: (sceneId: string, patch: { slotIndex?: number | null; focal?: { x: number; y: number } | null }) => Promise<boolean> | void;
   anchorIntention: string;
   anchorCategory?: string | null;
   anchorImageUrl?: string | null;
@@ -55,7 +66,7 @@ type Props = {
   onUpdateAnnotation?: (annotation: string) => Promise<boolean>;
   tiles: V2VisionTile[];
   notes?: readonly VisionNote[];
-  onNotePresentationChange?: (id: string, presentation: VisionNotePresentation) => Promise<boolean>;
+  onNotePresentationChange?: (id: string, presentation: VisionNotePresentation, layoutPositions?: VisionNoteLayoutPositions) => Promise<boolean>;
   onNoteEdit?: (id: string) => void;
   onNoteDelete?: (id: string) => void;
   onUpdateSceneCaption?: (sceneId: string, caption: string | null) => Promise<boolean>;
@@ -100,7 +111,7 @@ const BOARD_GUTTER = spacing[3];
 const ARRIVAL_RECOMPOSE_DELAY_MS = 450;
 
 export function V2SavedVision({
-  chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
+  boardLayout, onUpdateBoardLayout, onSaveSlots, mutationFeedback, onRetrySave, chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, onUpdateSceneCaption, tiles, notes = [], onNotePresentationChange, onNoteEdit, onNoteDelete, error, initialEdit = false,
   onBack, onShare, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
   onAddPhoto, onAddGenerate, onAddImage, visionId, onSyncPresentation, justAdded, arrivingSceneId, arrivingNoteId, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen', teachingEnabled = false, teachingBlocked = false, teachingSceneId = null,
@@ -114,13 +125,14 @@ export function V2SavedVision({
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduceMotion = useV2ReduceMotion();
-  const boardWidth = Math.min(width - BOARD_GUTTER * 2, 520);
+  const boardWidth = width - BOARD_GUTTER * 2;
   const [expanded, setExpanded] = useState(false);
   const preview = useMemo(() => truncateVisionText(description), [description]);
   const truncated = preview !== description;
   const [annotationDraft, setAnnotationDraft] = useState(annotation);
   const [manageImages, setManageImages] = useState(false);
   const [captionSceneId, setCaptionSceneId] = useState<string | null>(null);
+  const [captionDrafts,setCaptionDrafts]=useState<Record<string,string|null>>({});
   const [mode, setMode] = useState<'view' | 'edit'>(initialEdit ? 'edit' : 'view');
   const [draft, setDraft] = useState(description);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -129,34 +141,67 @@ export function V2SavedVision({
   const [notice, setNotice] = useState<string | null>(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [nativeAlertOpen, setNativeAlertOpen] = useState(false);
+  const [layoutSheetOpen,setLayoutSheetOpen]=useState(false);
+  const [previewLayout,setPreviewLayout]=useState<VisionBoardLayout|null>(null);
+  const [boardInteracting,setBoardInteracting]=useState(false);
+  const [focusLocked,setFocusLocked]=useState(false);
+  const [localSlots,setLocalSlots]=useState<(string|null)[]|null>(null);
+  const [localFocals,setLocalFocals]=useState<Record<string,VisionFocal|null>>({});
   const [boardIdle, setBoardIdle] = useState(false);
   const [teachingScrolling, setTeachingScrolling] = useState(false);
   const teachingFocus = useTeachingFocus();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const imageArrival = useVisionImageArrival();
+  const contextualBlocked=mode!=='view'||boardInteracting||dragging||busy||layoutSheetOpen||menuOpen||addSheetOpen||nativeAlertOpen||Boolean(captionSceneId)||manageImages||Boolean(teachingBlocked);
+  const dock=useVisionBeginDock({blocked:contextualBlocked,dockHeight:insets.bottom+12+52+8,
+    newBoard:Boolean(justAdded),landed:!imageArrival?.url&&!imageArrival?.setActive});
+  // Over the photos the floating button turns to dark glass so the board stays the hero; clear of them it is solid ink.
+  const dockGlass=useRef(new Animated.Value(0)).current;
+  useEffect(()=>{Animated.timing(dockGlass,{toValue:dock.overBoard?1:0,duration:reduceMotion?0:220,easing:Easing.out(Easing.quad),useNativeDriver:false}).start();},[dock.overBoard,dockGlass,reduceMotion]);
+  const dockBackground=dockGlass.interpolate({inputRange:[0,1],outputRange:['rgba(17,28,35,1)','rgba(17,28,35,0.46)']});
+  const dockBorder=dockGlass.interpolate({inputRange:[0,1],outputRange:['rgba(251,249,244,0)','rgba(251,249,244,0.45)']});
+  const beginVisualize=()=>{
+    const begin=(bounds=canvasBounds.current)=>{const projection=canvasCapture.current?.();onVisualize(bounds&&projection?{...projection,x:bounds.x+projection.x,y:bounds.y+projection.y}:bounds);};
+    if(canvasRef.current?.measureInWindow)canvasRef.current.measureInWindow((x,y,width,height)=>begin({x,y,width,height}));else begin();
+  };
+  const closeLayout=()=>{if(!busy){setLayoutSheetOpen(false);setPreviewLayout(null);}};
+  const applyLayout=async(layout:VisionBoardLayout)=>{
+    if(!onUpdateBoardLayout||busy)return;
+    if(layout===(boardLayout??'CLASSIC')){closeLayout();return;}
+    setBusy(true);
+    try{const saved=await onUpdateBoardLayout(layout);if(!saved)setNotice("Couldn't save that layout. Your board is back as it was.");}
+    catch{setNotice("Couldn't save that layout. Try again.");}
+    finally{setPreviewLayout(null);setLayoutSheetOpen(false);setBusy(false);}
+  };
   useMilestonePresentationHold(teachingFocus.isFocused && (mode === 'edit' || manageImages || Boolean(captionSceneId) || menuOpen || busy || dragging || addSheetOpen || nativeAlertOpen || (teachingEnabled && !boardIdle) || Boolean(imageArrival?.setActive)));
   const teachingTarget = useRef<((sceneId: string | null) => Promise<TeachingRect | null>) | null>(null);
   const teachingScrollRef = useRef<ScrollViewInstance>(null);
   const teachingScrollMetrics = useRef({ y: 0, content: 0, viewport: 0 });
-  const teachingControlledScroll = useRef(false);
-  const revealedNote = useRef<string | null>(null);
-  useEffect(() => {
-    if (!arrivingNoteId || revealedNote.current === arrivingNoteId) return;
-    const note = notes.find(item => item.id === arrivingNoteId && !item.isArchived);
-    if (!note) return;
-    const timer = setTimeout(() => {
-      canvasRef.current?.measureInWindow?.((_x, y, _width, height) => {
-        if (height <= 0) return;
-        revealedNote.current = arrivingNoteId;
-        const metrics = teachingScrollMetrics.current;
-        const noteY = note.presentation.y * detailBoardSizeForWidth(boardWidth, tiles.length).height;
-        const target = metrics.y + y + noteY - metrics.viewport * 0.45;
-        teachingScrollRef.current?.scrollTo({ y: Math.max(0, Math.min(metrics.content - metrics.viewport, target)), animated: !reduceMotion });
+  const [pinnedBelow,setPinnedBelow]=useState<string|null>(null);
+  const shownArrivals=useRef(new Set<string>());
+  useEffect(()=>{
+    const id=arrivingNoteId??arrivingSceneId;
+    if(!id||!boardIdle||boardInteracting||mode!=='view'||shownArrivals.current.has(id))return;
+    const timer=setTimeout(()=>{void teachingTarget.current?.(id).then(rect=>{
+      if(!rect)return;
+      dock.viewportRef.current?.measureInWindow?.((_x,top,_w,height)=>{
+        shownArrivals.current.add(id);
+        if(rect.y>top+height-70)setPinnedBelow(id);
       });
-    }, reduceMotion ? 0 : 320);
-    return () => clearTimeout(timer);
-  }, [arrivingNoteId, boardWidth, notes, reduceMotion, tiles.length]);
-
+    });},700);
+    return()=>clearTimeout(timer);
+  },[arrivingSceneId,arrivingNoteId,boardIdle,boardInteracting,mode,dock.viewportRef]);
+  const revealPinned=async()=>{
+    if(!pinnedBelow)return;
+    const rect=await teachingTarget.current?.(pinnedBelow);
+    if(!rect)return;
+    dock.viewportRef.current?.measureInWindow?.((_x,top)=>{
+      const metrics=teachingScrollMetrics.current;
+      teachingScrollRef.current?.scrollTo({y:Math.max(0,Math.min(metrics.content-metrics.viewport,metrics.y+rect.y-top-80)),animated:!reduceMotion});
+      setPinnedBelow(null);
+    });
+  };
+  const teachingControlledScroll = useRef(false);
   // Board edits show at once; the server catches up behind them.
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(() => new Set());
@@ -184,7 +229,7 @@ export function V2SavedVision({
   }, [arrivalSettled]);
 
   const boardTiles = useMemo(() => {
-    let list = orderTiles(tiles.filter(tile => !pendingRemovals.has(tile.sceneId)), localOrder);
+    let list = orderTiles(tiles.filter(tile => !pendingRemovals.has(tile.sceneId)).map(tile=>tile.sceneId in captionDrafts?{...tile,caption:captionDrafts[tile.sceneId]}:tile), localOrder);
     if (!arrivalSettled && arrivedFrom?.length) {
       const before = list.filter(tile => arrivedFrom.includes(tile.sceneId));
       if (before.length) list = before;
@@ -197,8 +242,8 @@ export function V2SavedVision({
       }
     }
     return list;
-  }, [arrivalSettled, arrivedFrom, localOrder, pendingRemovals, replaceTarget, tiles]);
-  const visionTeachingBlocked = !teachingEnabled || teachingBlocked || teachingFocus.transitioning ||
+  }, [arrivalSettled, arrivedFrom, localOrder, pendingRemovals, replaceTarget, tiles,captionDrafts]);
+  const visionTeachingBlocked = layoutSheetOpen || boardInteracting || !teachingEnabled || teachingBlocked || teachingFocus.transitioning ||
     !arrivalSettled || Boolean(imageArrival?.url) || !boardIdle || dragging || busy || menuOpen || addSheetOpen ||
     nativeAlertOpen || mode !== 'view' || manageImages || teachingScrolling;
   useEffect(() => {
@@ -228,16 +273,29 @@ export function V2SavedVision({
   // The saved arrangement: which of the board's eight positions each image sits in, and how each is framed.
   const presentation = useVisionPresentation(visionId, boardTiles);
   const arrangement = useMemo<VisionBoardArrangement | undefined>(() => visionId ? {
-    slotMap: presentation.slotMap,
-    focals: presentation.focals,
+    slotMap: localSlots ?? presentation.slotMap,
+    focals: Object.fromEntries(Object.entries({...presentation.focals,...localFocals}).filter((entry):entry is [string,VisionFocal]=>entry[1]!==null)),
     onArrange: map => {
-      presentation.commitSlotMap(map);
-      map.forEach((id, slot) => { if (id && presentation.slotMap[slot] !== id) onSyncPresentation?.(id, { slotIndex: slot }); });
-      // Home, Visualize and the share image read the saved order; keep it in the board's reading order.
-      reorderRef.current(map.filter((id): id is string => Boolean(id)));
+      if(onSaveSlots){
+        // Local first: the arrangement is kept on this device immediately and never rolled back by a server failure.
+        presentation.commitSlotMap(map);
+        presentation.setUnsynced(true);
+        void onSaveSlots(map.flatMap((sceneId,slotIndex)=>sceneId?[{sceneId,slotIndex}]:[])).then(success=>{
+          if(success)presentation.setUnsynced(false);else setNotice("Saved on this device. It will sync when the server is reachable.");
+        }).catch(()=>setNotice("Saved on this device. It will sync when the server is reachable."));
+      }else{
+        presentation.commitSlotMap(map);
+        map.forEach((id,slot)=>{if(id&&presentation.slotMap[slot]!==id)onSyncPresentation?.(id,{slotIndex:slot});});
+        reorderRef.current(map.filter((id):id is string=>Boolean(id)));
+      }
     },
-    onFocalChange: (sceneId, focal) => { presentation.setFocal(sceneId, focal); onSyncPresentation?.(sceneId, { focal }); },
-  } : undefined, [visionId, presentation.slotMap, presentation.focals, presentation.commitSlotMap, presentation.setFocal]);
+    onFocalChange:(sceneId,focal)=>{
+      setLocalFocals(previous=>({...previous,[sceneId]:focal}));
+      const saved=onSyncPresentation?.(sceneId,{focal});
+      void Promise.resolve(saved).then(success=>{if(success!==false)presentation.setFocal(sceneId,focal);else setNotice("Couldn't save that crop. It's back as it was.");})
+        .catch(()=>setNotice("Couldn't save that crop. It's back as it was.")).finally(()=>setLocalFocals(previous=>{const next={...previous};delete next[sceneId];return next;}));
+    },
+  } : undefined,[visionId,localSlots,localFocals,presentation.slotMap,presentation.focals,presentation.commitSlotMap,presentation.setUnsynced,presentation.setFocal,onSaveSlots,onSyncPresentation]);
   const reorderRef = useRef<(sceneIds: string[]) => void>(() => undefined);
 
   const reorder = useCallback((sceneIds: string[]) => {
@@ -325,26 +383,30 @@ export function V2SavedVision({
   // controls below it share it, so no rectangle or seam shows where the board ends.
   return (
     <VisionPaperSurface testID={testID} seed={VISION_SCREEN_PAPER_SEED} style={styles.root}>
-      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+      <View ref={dock.viewportRef} style={styles.flex} onLayout={dock.measure}><KeyboardAvoidingView style={styles.flex} behavior="padding">
         <ScrollView ref={teachingScrollRef}
           onLayout={event => { teachingScrollMetrics.current.viewport = event.nativeEvent.layout.height; }}
-          onContentSizeChange={(_width, height) => { teachingScrollMetrics.current.content = height; }}
-          onScroll={event => { teachingScrollMetrics.current.y = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
+          onContentSizeChange={(_width, height) => { teachingScrollMetrics.current.content = height; dock.measure(); }}
+          onScroll={event => { teachingScrollMetrics.current.y = event.nativeEvent.contentOffset.y; dock.onScroll(event.nativeEvent.contentOffset.y); }} scrollEventThrottle={64}
           onScrollBeginDrag={() => setTeachingScrolling(true)}
           onScrollEndDrag={() => { measureCanvas(); setTeachingScrolling(false); }}
           onMomentumScrollBegin={() => { if (!teachingControlledScroll.current) setTeachingScrolling(true); }}
-          onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: mode === 'view' ? 0 : insets.bottom + spacing[6] }}
+          onMomentumScrollEnd={() => { measureCanvas(); setTeachingScrolling(false); }} scrollEnabled={!dragging&&!focusLocked} contentContainerStyle={{ paddingBottom: mode === 'view' ? (dock.visible ? 110+insets.bottom : 0) : insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ paddingTop: insets.top }}>
             <StatusBar barStyle="dark-content" />
             <View style={styles.bandContent}>
               {header}
-              <VisionIntentionHeading intention={anchorIntention} category={anchorCategory} />
+              <VisionIntentionHeading intention={anchorIntention} category={anchorCategory} align="left" />
             </View>
             {mode === 'view' ? (
-              <View style={styles.boardWrap}>
+              <View ref={dock.boardRef} collapsable={false} onLayout={dock.measure} style={styles.boardWrap}>
                 <View ref={canvasRef} collapsable={false} onLayout={measureCanvas}><VisionBoard
                   tiles={boardTiles}
+                  boardLayout={previewLayout??boardLayout}
+                  onLayoutPress={onUpdateBoardLayout?()=>{setLayoutSheetOpen(true);setPreviewLayout(boardLayout??'CLASSIC');}:undefined}
+                  onInteractionChange={setBoardInteracting}
+                  onScrollLockChange={setFocusLocked}
                   notes={notes}
                   onNotePresentationChange={onNotePresentationChange}
                   onNoteEdit={onNoteEdit}
@@ -360,10 +422,9 @@ export function V2SavedVision({
                   reduceMotion={reduceMotion}
                   busy={busy}
                   captureFrame={canvasCapture}
-                  teachingTarget={teachingEnabled ? teachingTarget : undefined}
-                  onTeachingIdleChange={teachingEnabled ? setBoardIdle : undefined}
+                  teachingTarget={teachingTarget}
+                  onTeachingIdleChange={setBoardIdle}
                   canRegenerate={canGenerateMore}
-                  // DEFERRED: Replace locks at Seal (decision Oct 2026); remove + add remains.
                   onRegenerate={onRegenerate}
                   onRemove={remove}
                   onEditVision={() => setMode('edit')}
@@ -428,18 +489,10 @@ export function V2SavedVision({
                   <Text style={styles.heading}>{visionCeremonyCopy.sit}</Text>
                   <Text style={styles.chartPosition}>{justAdded === 'create' ? visionCeremonyCopy.sitCreate : visionCeremonyCopy.sitAdd}</Text>
                 </View> : null}
-                <V2Button size="large" accessibilityLabel="Begin Visualize" disabled={!visualizeReady} onPress={() => {
-                    const begin = (bounds = canvasBounds.current) => {
-                      const projection = canvasCapture.current?.();
-                      onVisualize(bounds && projection ? { ...projection, x: bounds.x + projection.x, y: bounds.y + projection.y } : bounds);
-                    };
-                    // Native position is sampled at activation, including taps during momentum.
-                    if (canvasRef.current?.measureInWindow) canvasRef.current.measureInWindow((x, y, width, height) => begin({ x, y, width, height }));
-                    else begin();
-                  }} style={styles.visualize}
+                <View ref={dock.buttonRef} collapsable={false} onLayout={dock.measure}><V2Button size="large" accessibilityLabel="Begin Visualize" disabled={!visualizeReady} onPress={beginVisualize} style={styles.visualize}
                   iconLeft={<Eye size={18} color={colors.paper} />} iconRight={<ChevronRight size={18} color={colors.paper} />}>
                   <Text style={{ fontFamily: 'EBGaramond-Medium', fontSize: 18, fontWeight: 'normal' }}>Begin Visualize</Text>
-                </V2Button>
+                </V2Button></View>
                 {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision…'}</Text> : null}
                 {preparationIssue && onRetryVisualize ? <Pressable accessibilityRole="button" onPress={onRetryVisualize} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Retry Vision images</Text></Pressable> : null}
                 {preparationIssue && onUseAvailableImages ? <Pressable accessibilityRole="button" onPress={onUseAvailableImages} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Continue with available images</Text></Pressable> : null}
@@ -449,12 +502,35 @@ export function V2SavedVision({
             {(notice || error) && <Text style={styles.error}>{notice || error}</Text>}
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingView></View>
+      {pinnedBelow&&!contextualBlocked?<Pressable testID="vision-pinned-below" accessibilityRole="button" accessibilityLabel="Pinned further down. Show me" onPress={()=>{void revealPinned();}}
+        style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,paddingHorizontal:20,borderRadius:30,backgroundColor:'#111C23',justifyContent:'center',zIndex:46}}>
+        <Text style={{fontFamily:'Inter-Medium',fontSize:13,color:'#FBF9F4'}}>Pinned further down · Show me</Text>
+      </Pressable>:dock.visible&&visualizeReady?<Animated.View testID="vision-begin-dock-surface" pointerEvents="box-none"
+        style={{position:'absolute',bottom:insets.bottom+12,alignSelf:'center',height:52,borderRadius:30,borderWidth:1,borderColor:dockBorder,backgroundColor:dockBackground,zIndex:45}}>
+        <Pressable testID="vision-begin-dock" accessibilityRole="button" accessibilityLabel="Begin Visualize" onPress={beginVisualize}
+          style={{height:52,paddingHorizontal:24,justifyContent:'center'}}>
+          <Text style={{fontFamily:'EBGaramond-Medium',fontSize:18,color:'#FBF9F4',textShadowColor:'rgba(0,0,0,0.55)',textShadowRadius:4,textShadowOffset:{width:0,height:1}}}>{justAdded?'Sit with it now · Begin':'Begin Visualize'}</Text>
+        </Pressable>
+      </Animated.View>:null}
+      {mutationFeedback?.message||error?<View testID="vision-mutation-feedback" accessibilityLiveRegion="polite" style={{position:'absolute',bottom:insets.bottom+(dock.visible||boardInteracting?78:14),alignSelf:'center',maxWidth:'94%',paddingLeft:16,paddingRight:6,paddingVertical:4,minHeight:44,borderRadius:26,backgroundColor:'#17232A',flexDirection:'row',alignItems:'center',gap:8,zIndex:50}}>
+        <Text style={{color:'#FBF9F4',fontFamily:'Inter-Medium',fontSize:12,flexShrink:1}}>{mutationFeedback?.pending?'Saving…':error??mutationFeedback?.message}</Text>
+        {error&&onRetrySave&&!mutationFeedback?.pending?<Pressable accessibilityRole="button" accessibilityLabel="Retry saving Vision" onPress={onRetrySave} style={{minWidth:54,minHeight:38,alignItems:'center',justifyContent:'center'}}><Text style={{color:'#FFF'}}>Retry</Text></Pressable>:null}
+        {mutationFeedback?.undo?<Pressable accessibilityRole="button" onPress={()=>{void mutationFeedback.undo?.();}} style={{minWidth:54,minHeight:38,alignItems:'center',justifyContent:'center',borderRadius:22,backgroundColor:'#3D484E'}}><Text style={{color:'#FFF'}}>Undo</Text></Pressable>:null}
+      </View>:null}
+      {onUpdateBoardLayout?<VisionLayoutSheet visible={layoutSheetOpen} current={boardLayout??'CLASSIC'} onPreview={setPreviewLayout} onClose={closeLayout} onApply={layout=>{void applyLayout(layout);}} busy={busy}
+        tiles={boardTiles} notes={notes} intention={anchorIntention} category={anchorCategory} art={anchorArt} width={boardWidth}/>:null}
       <VisionStatusBarScrim tone="dark" />
       {onUpdateSceneCaption ? <VisionPhotoCaptionEditor
         visible={captionSceneId !== null}
         caption={tiles.find(tile => tile.sceneId === captionSceneId)?.caption}
-        onSave={async caption => captionSceneId ? onUpdateSceneCaption(captionSceneId, caption) : false}
+        onSave={async caption => {
+          if(!captionSceneId)return false;
+          const id=captionSceneId;
+          setCaptionDrafts(previous=>({...previous,[id]:caption}));
+          try{return await onUpdateSceneCaption(id,caption);}
+          finally{setCaptionDrafts(previous=>{const next={...previous};delete next[id];return next;});}
+        }}
         onClose={() => setCaptionSceneId(null)}
       /> : null}
       <ScreenTeaching screen="vision" queue={teachingQueue} reducedMotion={reduceMotion} targets={{ 'vision.second': { getRect: getTeachingPhotoRect } }} />

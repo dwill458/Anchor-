@@ -8,6 +8,7 @@ import type { V2HomeAnchorSummary } from '@/adapters/v2/home';
 import { v2Haptics } from '@/hooks/v2';
 import { AnchorMotion } from '@/theme/v2';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { useHomePrewarm } from '@/hooks/v2/home/useHomePrewarm';
 import { VisualProfiler } from '@/utils/visualProfiler';
 
 export const HERO_ANCHOR_SIZE = 154;
@@ -200,7 +201,8 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   // the slot centres (trackWidth / 2) stop matching the viewport centre and the
   // device edge stops being the crop. The window width is only the first-frame guess.
   const { width: windowWidth } = useWindowDimensions();
-  const trackPositions = useAppPerformanceTier() === 'low' ? LOW_TIER_TRACK_POSITIONS : TRACK_POSITIONS;
+  const performanceTier = useAppPerformanceTier();
+  const trackPositions = performanceTier === 'low' ? LOW_TIER_TRACK_POSITIONS : TRACK_POSITIONS;
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
   const width = measuredWidth ?? windowWidth;
   const handleTrackLayout = useCallback((event: LayoutChangeEvent) => {
@@ -223,6 +225,8 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   const relocating = useSharedValue(false);
   const frozenValue = useSharedValue(frozen);
   const [center, setCenter] = useState(initialIndex);
+  // Follow the visual detent, before the deferred shared-selection commit.
+  useHomePrewarm(anchors, total > 0 ? dataIndex(center, total) : -1, performanceTier);
 
   const selectedId = anchors[selectedIndex]?.anchor.id;
   // Read by the deferred commit, which must see the props of the moment it fires.

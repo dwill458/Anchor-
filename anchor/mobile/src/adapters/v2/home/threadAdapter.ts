@@ -1,10 +1,11 @@
 import type { Anchor } from '@/types';
+import type { V2RecommendationContext } from '@/adapters/v2/practice/recommendationClient';
 
 /**
  * Presentation shape consumed by `V2ThreadStrength`. This adapter performs NO
  * progression, gain, decay, or delta math. It surfaces the value the domain
- * already stored on the Anchor and leaves movement fields undefined until a
- * server-authoritative Thread movement contract (THREAD_V2) is available.
+ * already stored on the Anchor, preferring the cached V2 server reading and
+ * its movement fields when that context has arrived.
  */
 export type V2ThreadPresentation = {
   value: number | null;
@@ -25,32 +26,33 @@ const clamp = (value: number): number =>
 export function toThreadPresentation(
   anchor: Pick<Anchor, 'category' | 'threadStrength'> & {
     threadStatus?: 'unestablished' | 'active' | 'grace' | 'decaying' | 'dormant';
-  }
+  },
+  serverThread?: V2RecommendationContext['thread'],
 ): V2ThreadPresentation {
-  const stored = anchor.threadStrength;
+  const stored = typeof serverThread?.strength === 'number' && Number.isFinite(serverThread.strength)
+    ? serverThread.strength : anchor.threadStrength;
   const hasStored = typeof stored === 'number' && Number.isFinite(stored);
+  const delta = hasStored && serverThread?.delta7dStatus === 'AVAILABLE' && typeof serverThread.delta7d === 'number' && Number.isFinite(serverThread.delta7d)
+    ? serverThread.delta7d : undefined;
   return {
     value: hasStored ? clamp(stored as number) : null,
     status: anchor.threadStatus ?? (hasStored ? 'active' : 'unestablished'),
     category: anchor.category,
     unmeasured: !hasStored,
+    ...(delta === undefined ? {} : { delta, trend: delta > 0 ? 'up' as const : delta < 0 ? 'down' as const : 'flat' as const }),
   };
 }
 
+import { getThreadStrengthLevel } from '@/constants/v2/threadEvents';
+
 /**
  * Qualitative label for a strength value, shown beside it as Consistency
- * ("26% - Building"). Labels only; the bands never feed any calculation.
+ * ("27% - Grounded"). Uses the central Thread Strength 2.0 level resolver so
+ * one value never carries different names across screens.
  */
 export function threadQualitativeLabel(value: number | null, unmeasured: boolean): string {
   if (unmeasured || value === null) return 'Not established yet';
-  // Same bands as Anchor Details (`resolveEvolutionStage`) so one value never
-  // carries two names. There is no separate "Dormant" band: a low but active
-  // Consistency is still forming.
-  if (value < 25) return 'Forming';
-  if (value < 50) return 'Building';
-  if (value < 75) return 'Established';
-  if (value < 90) return 'Integrated';
-  return 'Reinforced';
+  return getThreadStrengthLevel(value);
 }
 
 export function threadStatusSublabel(value: number | null, status?: string): string {

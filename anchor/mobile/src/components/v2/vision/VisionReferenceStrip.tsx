@@ -11,7 +11,7 @@ import { VISION_GOLD, VISION_SERIF } from './VisionPaperChrome';
 
 const MAX_REFERENCES = 5;
 const ROLE_NAMES: Record<VisionReferenceAttachment['role'], string> = {
-  identity: 'Person', place: 'Place', object: 'Object', inspiration: 'Inspiration',
+  identity: 'Person', place: 'Place', object: 'Object', inspiration: 'Inspiration', world: 'Vision board',
 };
 const SOURCE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
   { key: 'library', label: 'Choose from library', detail: 'Use a photo you already have', Icon: Images },
@@ -31,6 +31,7 @@ const ROLE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
   { key: 'place', label: 'Place', Icon: MapPin },
   { key: 'object', label: 'Object', Icon: Package },
   { key: 'inspiration', label: 'Inspiration', Icon: Sparkles },
+  { key: 'world', label: 'Vision board', Icon: Images },
 ];
 
 export interface VisionReferenceStripProps {
