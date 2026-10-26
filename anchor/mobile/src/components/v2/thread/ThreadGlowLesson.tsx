@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGuidanceHost } from '@/hooks/v2/guidance/useGuidanceHost';
 import type { PracticeSceneKind, PracticeScenePhase } from '@/hooks/v2/practice/usePracticeCompletionScene';
@@ -15,18 +15,22 @@ export function threadGlowVariant(result: Result): 'A' | 'B' | null {
   return result.kind === 'first' ? 'A' : result.kind === 'repeat' ? 'B' : null;
 }
 
-export function ThreadGlowLesson({ account, anchorId, sessionId, variant, strength, active }: {
-  account: string; anchorId: string; sessionId: string; variant: 'A' | 'B'; strength: number; active: boolean;
+export function ThreadGlowLesson({ account, anchorId, sessionId, variant, strength, active, viewport }: {
+  account: string; anchorId: string; sessionId: string; variant: 'A' | 'B'; strength: number; active: boolean; viewport: { height: number; offset: number; resultY: number };
 }) {
   const [explainer, setExplainer] = useState(false);
   const host = useGuidanceHost({ screenId: 'practice-completion', accountId: account, variant,
     contextKey: `${anchorId}:${sessionId}`, eligible: ['thread.glow'], isFocused: active, blocked: !active || explainer });
-  const shown = useRef<string | undefined>(undefined);
-  const token = host.presentation?.token;
+  const [layout, setLayout] = useState<{ y: number; height: number } | null>(null);
+  const insideViewport = layout !== null && viewport.height > 0
+    && layout.y + viewport.resultY >= viewport.offset
+    && layout.y + viewport.resultY + layout.height <= viewport.offset + viewport.height;
+  useEffect(() => {
+    if (insideViewport) host.markShown();
+    else host.markHidden();
+  }, [insideViewport, host.markShown, host.markHidden]);
   return <>
-    {host.presentation ? <View testID="thread-glow-lesson" style={styles.lesson} onLayout={() => {
-      if (token && shown.current !== token) { shown.current = token; host.markShown(); }
-    }}>
+    {host.presentation ? <View testID="thread-glow-lesson" style={styles.lesson} onLayout={event => setLayout(event.nativeEvent.layout)}>
       <Text style={styles.copy} accessibilityLiveRegion="polite">{variant === 'A'
         ? "As your Thread Strength grows, so does your Anchor's glow."
         : "Your Thread Strength grew — and your Anchor's glow with it."}</Text>

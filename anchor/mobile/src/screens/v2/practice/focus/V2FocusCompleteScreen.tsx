@@ -149,6 +149,7 @@ export function V2FocusCompleteScreen({
   useEffect(() => { if (sessionSaved && sessionId) discoverGuidance(guidanceAccount, 'today.recommended'); }, [guidanceAccount, sessionId, sessionSaved]);
   const completionAccount = useRef(guidanceAccount);
   const [completionExited, setCompletionExited] = useState(false);
+  const [lessonViewport, setLessonViewport] = useState({ height: 0, offset: 0, resultY: 0 });
   const milestoneFocus = useTeachingFocus();
   useEffect(() => {
     if (!milestoneFocus.isFocused) setCompletionExited(true);
@@ -327,8 +328,11 @@ export function V2FocusCompleteScreen({
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
       <StatusBar barStyle="dark-content" animated />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Animated.View style={[styles.resultContent, contentStyle]}>
+      <ScrollView testID="focus-complete-scroll" style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}
+        onLayout={event => { const height = event.nativeEvent.layout.height; setLessonViewport(previous => ({ ...previous, height })); }}
+        onScroll={event => { const offset = event.nativeEvent.contentOffset.y; setLessonViewport(previous => ({ ...previous, offset })); }} scrollEventThrottle={16}>
+      <Animated.View testID="focus-complete-result" style={[styles.resultContent, contentStyle]}
+        onLayout={event => { const resultY = event.nativeEvent.layout.y; setLessonViewport(previous => ({ ...previous, resultY })); }}>
         <Animated.View
           ref={artworkRef}
           onLayout={recordMilestoneOrigin}
@@ -500,7 +504,7 @@ export function V2FocusCompleteScreen({
           </Animated.Text>
         ) : null}
         {glowVariant && sessionId ? <ThreadGlowLesson account={guidanceAccount} anchorId={anchor.id} sessionId={sessionId}
-          variant={glowVariant} strength={toVal} active={!completionExited && !leaving && milestoneFocus.isFocused && !milestoneFocus.transitioning && completionAccount.current === guidanceAccount} /> : null}
+          variant={glowVariant} strength={toVal} viewport={lessonViewport} active={!completionExited && !leaving && milestoneFocus.isFocused && !milestoneFocus.transitioning && completionAccount.current === guidanceAccount} /> : null}
         </> : (
           <View style={styles.unmeasuredContainer}>
             <Text style={styles.unmeasuredHint}>

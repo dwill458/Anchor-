@@ -14,6 +14,8 @@ import { NavigationContext } from '@react-navigation/native';
 import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import { withTiming } from 'react-native-reanimated';
 
+jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: (callback: () => void) => { callback(); return { cancel: jest.fn() }; } }));
+jest.mock('@/stores/encryptedPersistStorage', () => ({ readSecureValue: jest.fn(async () => null), writeSecureValue: jest.fn(async () => undefined), encryptedPersistStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined), removeItem: jest.fn(async () => undefined) } }));
 const mockMilestoneAction = jest.fn();
 jest.mock('@/milestones/queueMilestoneAction', () => ({ queueMilestoneAction: (...args: unknown[]) => mockMilestoneAction(...args) }));
 
@@ -728,4 +730,68 @@ describe('V2FocusCompleteScreen stage and Full Strength scenes (celebration Step
     expect(safeHaptics.impact).toHaveBeenCalledWith('medium');
     expect(screen.getByText('Your Anchor is now Established.')).toBeTruthy();
   });
+});
+
+describe('Phase 3 completion ownership', () => {
+ let sequence = 0;
+ beforeEach(async () => {
+  jest.useFakeTimers(); sequence++;
+  const { useAuthStore } = require('@/stores/authStore');
+  const { useSettingsStore } = require('@/stores/settingsStore');
+  const { bindGuidanceAccount, guidanceCoordinator } = require('@/hooks/v2/guidance/guidanceRuntime');
+  const account = `phase3-completion-${sequence}`;
+  useAuthStore.setState({ user: { id: account } });
+  useSettingsStore.setState({ showTips: true });
+  useCelebrationStore.getState().reset();
+  useMilestoneCelebrationStore.setState({ queue: [], holds: [] });
+  setTeachingFlag(true); setPracticeHistory(3);
+  (useCelebrationReduceMotion as jest.Mock).mockReturnValue(false);
+  guidanceCoordinator.dispose();
+  await bindGuidanceAccount(account);
+  guidanceCoordinator.bind(account, { records: {}, discovery: {} });
+ });
+ afterEach(() => jest.useRealTimers());
+ const props = () => ({ anchor: makeAnchor({ id: 'a1', threadStrength: 35 }), durationSeconds: 60, sessionId: `phase3-session-${sequence}`, beforeStrength: 30, afterStrength: 35, onDone: jest.fn(), onAgain: jest.fn() });
+ const finish = async () => { advance(2600); await act(async () => { await Promise.resolve(); }); advance(0); };
+ it('waits for the real scene end and never teaches from an unverified snapshot', async () => {
+  const p = props(); const view = render(<V2FocusCompleteScreen {...p} />);
+  await finish();
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+  view.rerender(<V2FocusCompleteScreen {...p} strengthResultVerified />);
+  await act(async () => { await Promise.resolve(); }); advance(0);
+  expect(view.getByText("Your Thread Strength grew \u2014 and your Anchor's glow with it.")).toBeTruthy();
+  fireEvent(view.getByTestId('focus-complete-scroll'), 'layout', { nativeEvent: { layout: { height: 600 } } });
+  fireEvent(view.getByTestId('thread-glow-lesson'), 'layout', { nativeEvent: { layout: { y: 300, height: 80 } } });
+  advance(1000);
+  const { guidanceCoordinator } = require('@/hooks/v2/guidance/guidanceRuntime');
+  expect(guidanceCoordinator.data().records['thread.glow']).toMatchObject({ displayCount: 1, variant: 'B' });
+  fireEvent.press(view.getByTestId('focus-complete-done-button'));
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+ });
+ it('cancels pending education when Continue leaves before the scene ends', async () => {
+  const view = render(<V2FocusCompleteScreen {...props()} strengthResultVerified />);
+  advance(1600);
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+  fireEvent.press(view.getByTestId('focus-complete-done-button'));
+  await finish();
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+ });
+ it.each([false, true])('shows first-use copy after the natural transition (reduced motion: %s)', async reduced => {
+  setTeachingFlag(false); setPracticeHistory(0);
+  (useCelebrationReduceMotion as jest.Mock).mockReturnValue(reduced);
+  const view = render(<V2FocusCompleteScreen {...props()} strengthResultVerified />);
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+  advance(reduced ? 500 : 4000);
+  await act(async () => { await Promise.resolve(); }); advance(0);
+  expect(view.getByText("As your Thread Strength grows, so does your Anchor's glow.")).toBeTruthy();
+ });
+ it('invalidates the result scene when the account changes', async () => {
+  const view = render(<V2FocusCompleteScreen {...props()} strengthResultVerified />);
+  await finish();
+  expect(view.getByTestId('thread-glow-lesson')).toBeTruthy();
+  const { useAuthStore } = require('@/stores/authStore');
+  act(() => useAuthStore.setState({ user: { id: 'different-phase3-account' } }));
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+ });
+
 });

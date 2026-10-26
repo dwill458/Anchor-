@@ -2,9 +2,10 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { ThreadGlowLesson, threadGlowVariant } from '../ThreadGlowLesson';
 const mockShown = jest.fn();
+const mockHidden = jest.fn();
 const mockDismiss = jest.fn();
 const mockHost = jest.fn();
-jest.mock('@/hooks/v2/guidance/useGuidanceHost', () => ({ useGuidanceHost: (options: unknown) => { mockHost(options); return { presentation: { token: '1' }, markShown: mockShown, dismiss: mockDismiss }; } }));
+jest.mock('@/hooks/v2/guidance/useGuidanceHost', () => ({ useGuidanceHost: (options: unknown) => { mockHost(options); return { presentation: { token: '1' }, markShown: mockShown, markHidden: mockHidden, dismiss: mockDismiss }; } }));
 jest.mock('../ThreadStrengthExplainerSheet', () => { const { Text } = require('react-native'); return { ThreadStrengthExplainerSheet: ({ visible }: { visible: boolean }) => visible ? <Text>explainer opened</Text> : null }; });
 const base = { sessionId: 'saved', saved: true, before: 12, after: 15, kind: 'repeat' as const, phase: 'settled' as const };
 it.each([
@@ -19,19 +20,29 @@ it.each([
 });
 it('renders quiet copy, reports visibility once and opens only on explicit request', () => {
   mockShown.mockClear();
-  const props = { account: 'a', anchorId: 'anchor', sessionId: 'saved', variant: 'B' as const, strength: 15, active: true };
+  const props = { account: 'a', anchorId: 'anchor', sessionId: 'saved', variant: 'B' as const, strength: 15, active: true, viewport: { height: 600, offset: 0, resultY: 0 } };
   const view = render(<ThreadGlowLesson {...props} />);
   expect(view.getByText("Your Thread Strength grew — and your Anchor's glow with it.")).toBeTruthy();
   expect(view.queryByText('explainer opened')).toBeNull();
-  fireEvent(view.getByTestId('thread-glow-lesson'), 'layout');
+  fireEvent(view.getByTestId('thread-glow-lesson'), 'layout', { nativeEvent: { layout: { y: 10, height: 80 } } });
   view.rerender(<ThreadGlowLesson {...props} />);
   expect(mockShown).toHaveBeenCalledTimes(1);
   fireEvent.press(view.getByText("What's Thread Strength?"));
   expect(view.getByText('explainer opened')).toBeTruthy();
 });
 it('ties readiness to the active completion and offers dismissal', () => {
-  const view = render(<ThreadGlowLesson account="a" anchorId="anchor" sessionId="saved" variant="A" strength={15} active={false} />);
+  const view = render(<ThreadGlowLesson account="a" anchorId="anchor" sessionId="saved" variant="A" strength={15} active={false} viewport={{ height: 600, offset: 0, resultY: 0 }} />);
   expect(mockHost).toHaveBeenLastCalledWith(expect.objectContaining({ blocked: true, isFocused: false, contextKey: 'anchor:saved', variant: 'A' }));
   fireEvent.press(view.getByLabelText('Dismiss Thread Strength tip'));
   expect(mockDismiss).toHaveBeenCalled();
+});
+
+it('does not report visibility outside the scroll viewport', () => {
+ mockShown.mockClear();
+ const props = { account: 'a', anchorId: 'anchor', sessionId: 'saved', variant: 'A' as const, strength: 15, active: true };
+ const view = render(<ThreadGlowLesson {...props} viewport={{ height: 300, offset: 0, resultY: 0 }} />);
+ fireEvent(view.getByTestId('thread-glow-lesson'), 'layout', { nativeEvent: { layout: { y: 350, height: 80 } } });
+ expect(mockShown).not.toHaveBeenCalled();
+ view.rerender(<ThreadGlowLesson {...props} viewport={{ height: 300, offset: 200, resultY: 0 }} />);
+ expect(mockShown).toHaveBeenCalledTimes(1);
 });
