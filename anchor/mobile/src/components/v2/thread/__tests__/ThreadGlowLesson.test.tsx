@@ -5,7 +5,9 @@ const mockShown = jest.fn();
 const mockHidden = jest.fn();
 const mockDismiss = jest.fn();
 const mockHost = jest.fn();
-jest.mock('@/hooks/v2/guidance/useGuidanceHost', () => ({ useGuidanceHost: (options: unknown) => { mockHost(options); return { presentation: { token: '1' }, markShown: mockShown, markHidden: mockHidden, dismiss: mockDismiss }; } }));
+let mockPresentation: { token: string } | null;
+beforeEach(() => { mockPresentation = { token: '1' }; });
+jest.mock('@/hooks/v2/guidance/useGuidanceHost', () => ({ useGuidanceHost: (options: unknown) => { mockHost(options); return { presentation: mockPresentation, markShown: mockShown, markHidden: mockHidden, dismiss: mockDismiss }; } }));
 jest.mock('../ThreadStrengthExplainerSheet', () => { const { Text } = require('react-native'); return { ThreadStrengthExplainerSheet: ({ visible }: { visible: boolean }) => visible ? <Text>explainer opened</Text> : null }; });
 const base = { sessionId: 'saved', saved: true, before: 12, after: 15, kind: 'repeat' as const, phase: 'settled' as const };
 it.each([
@@ -45,4 +47,14 @@ it('does not report visibility outside the scroll viewport', () => {
  expect(mockShown).not.toHaveBeenCalled();
  view.rerender(<ThreadGlowLesson {...props} viewport={{ height: 300, offset: 200, resultY: 0 }} />);
  expect(mockShown).toHaveBeenCalledTimes(1);
+});
+
+it('preserves measured space when the line hides so departure artwork does not recenter', () => {
+ const props = { account: 'a', anchorId: 'anchor', sessionId: 'saved', variant: 'A' as const, strength: 15, active: true, viewport: { height: 600, offset: 0, resultY: 0 } };
+ const view = render(<ThreadGlowLesson {...props} />);
+ fireEvent(view.getByTestId('thread-glow-lesson'), 'layout', { nativeEvent: { layout: { y: 350, height: 80 } } });
+ mockPresentation = null;
+ view.rerender(<ThreadGlowLesson {...props} active={false} />);
+ expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+ expect(view.getByTestId('thread-glow-placeholder', { includeHiddenElements: true }).props.style.height).toBe(80);
 });

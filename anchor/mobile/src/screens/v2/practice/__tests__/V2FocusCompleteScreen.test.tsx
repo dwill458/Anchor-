@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { AppState, StyleSheet, type AppStateStatus } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { V2FocusCompleteScreen } from '../focus/V2FocusCompleteScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
@@ -791,6 +791,37 @@ describe('Phase 3 completion ownership', () => {
   expect(view.getByTestId('thread-glow-lesson')).toBeTruthy();
   const { useAuthStore } = require('@/stores/authStore');
   act(() => useAuthStore.setState({ user: { id: 'different-phase3-account' } }));
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+ });
+
+ it('cancels pending education on background instead of delivering it on foreground', async () => {
+  const listeners: Array<(state: AppStateStatus) => void> = [];
+  const originalSubscription = AppState.addEventListener;
+  AppState.addEventListener = jest.fn((event: string, callback: (state: AppStateStatus) => void) => {
+    if (event === 'change') listeners.push(callback as (state: AppStateStatus) => void);
+    return { remove: jest.fn() };
+  }) as typeof AppState.addEventListener;
+  try {
+    const view = render(<V2FocusCompleteScreen {...props()} strengthResultVerified />);
+    advance(500);
+    expect(listeners.length).toBeGreaterThan(0);
+    act(() => listeners.forEach(listener => listener('background')));
+    await finish();
+    act(() => listeners.forEach(listener => listener('active')));
+    advance(0);
+    expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+  } finally { AppState.addEventListener = originalSubscription; }
+ });
+ it('yields a visible line to a starting milestone without acquiring another hold', async () => {
+  const view = render(<V2FocusCompleteScreen {...props()} strengthResultVerified />);
+  await finish();
+  expect(view.getByTestId('thread-glow-lesson')).toBeTruthy();
+  const holds = useMilestoneCelebrationStore.getState().holds;
+  act(() => useMilestoneCelebrationStore.setState({ queue: [{ key: 'new-milestone' } as never] }));
+  expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
+  expect(useMilestoneCelebrationStore.getState().holds).toEqual(holds);
+  act(() => useMilestoneCelebrationStore.setState({ queue: [] }));
+  advance(0);
   expect(view.queryByTestId('thread-glow-lesson')).toBeNull();
  });
 

@@ -42,7 +42,8 @@ export function ThreadGlowLesson({ account, anchorId, sessionId, variant, streng
           <Text style={styles.link}>Dismiss</Text>
         </Pressable>
       </View>
-    </View> : null}
+    </View> : layout ? <View testID="thread-glow-placeholder" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+      style={{ height: layout.height, marginTop: spacing[2] }} /> : null}
     <ThreadStrengthExplainerSheet visible={explainer && active} onClose={() => setExplainer(false)} strength={strength} />
   </>;
 }
