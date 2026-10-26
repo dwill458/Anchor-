@@ -15,13 +15,13 @@ export const THREAD_STRENGTH_EXPLAINER_COPY = {
   title: 'Your Thread Strength',
   summary: [
     "Thread Strength reflects the time and consistency you've invested in your Anchor.",
-    'Each completed practice strengthens your thread. Returning regularly helps it grow, while extended time away may cause it to soften.',
+    'Meaningful practice can strengthen your thread. Returning regularly helps it grow, while extended time away may cause it to soften.',
     "As your Thread Strength increases, your Anchor's glow becomes more vibrant.",
   ],
   growth: [
-    'Your first practice gives your Anchor a starting boost.',
+    'The first eligible practice on a new Anchor gives it a one-time starting boost.',
     'Each day you return, you earn Strength for showing up and for the time you practice.',
-    'Practicing longer can strengthen your thread faster, up to the daily earning limit.',
+    'Practice time earns Strength up to the daily time limit. Additional sessions may add no Strength, and Strength never exceeds 100.',
   ],
   disclaimer:
     'Thread Strength reflects your engagement with this intention through practice. It is not a prediction of how things will turn out.',

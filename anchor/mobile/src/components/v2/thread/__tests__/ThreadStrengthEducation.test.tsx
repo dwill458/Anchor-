@@ -6,6 +6,11 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { getLevelProgress, THREAD_STRENGTH_DECAY_COPY } from '@/constants/v2/threadStrengthCopy';
 
+const mockDiscover = jest.fn();
+const mockConfirm = jest.fn();
+jest.mock('@/hooks/v2/guidance/guidanceRuntime', () => ({ discoverGuidance: (...args: unknown[]) => mockDiscover(...args) }));
+jest.mock('@/hooks/v2/guidance/guidanceActions', () => ({ beginGuidanceAction: () => mockConfirm }));
+
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/hooks/v2', () => ({ useV2ReduceMotion: () => true }));
 jest.mock('@/components/v2/primitives/V2SheetModal', () => {
@@ -100,4 +105,17 @@ describe('first-practice education', () => {
     fireEvent.press(getByTestId('thread-strength-education-dismiss'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
+});
+
+it('records voluntary explainer discovery once per opening for only the two Thread lessons', () => {
+ mockDiscover.mockClear(); mockConfirm.mockClear();
+ const close = jest.fn();
+ const view = render(<ThreadStrengthExplainerSheet visible={false} onClose={close} strength={0} />);
+ expect(mockDiscover).not.toHaveBeenCalled();
+ view.rerender(<ThreadStrengthExplainerSheet visible onClose={close} strength={0} />);
+ expect(mockDiscover.mock.calls.map(call => call[1])).toEqual(['thread.glow', 'progress.levels']);
+ view.rerender(<ThreadStrengthExplainerSheet visible onClose={close} strength={10} />);
+ expect(mockDiscover).toHaveBeenCalledTimes(2);
+ fireEvent.press(view.getByLabelText('Close Thread Strength explanation'));
+ expect(close).toHaveBeenCalledTimes(1);
 });

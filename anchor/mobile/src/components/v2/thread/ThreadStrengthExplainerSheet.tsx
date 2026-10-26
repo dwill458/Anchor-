@@ -47,11 +47,14 @@ export function ThreadStrengthExplainerSheet({
   const [rulesOpen, setRulesOpen] = useState(false);
   const account = useAuthStore(state => state.user?.id ?? 'guest');
   const confirmGuidance = React.useMemo(() => beginGuidanceAction(account, 'progress.levels', 'link:explainer'), [account, visible]);
+  const confirmGlow = React.useMemo(() => beginGuidanceAction(account, 'thread.glow', 'link:explainer'), [account, visible]);
   React.useEffect(() => {
     if (!visible) return;
     confirmGuidance(true);
+    confirmGlow(true);
+    discoverGuidance(account, 'thread.glow');
     discoverGuidance(account, 'progress.levels');
-  }, [account, visible, confirmGuidance]);
+  }, [account, visible, confirmGuidance, confirmGlow]);
 
   const established = typeof strength === 'number' && Number.isFinite(strength);
   const value = established ? Math.min(100, Math.max(0, Math.round(strength as number))) : null;
@@ -127,6 +130,9 @@ export function ThreadStrengthExplainerSheet({
           <Text style={styles.caption}>Your rest days never count as time away. Returning to practice picks your thread back up.</Text>
 
           <Text style={[styles.caption, styles.disclaimer]}>{THREAD_STRENGTH_EXPLAINER_COPY.disclaimer}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close Thread Strength explanation" onPress={onClose} style={styles.toggle}>
+            <Text style={styles.toggleText}>Close</Text>
+          </Pressable>
         </ScrollView>
       </View>
     </V2SheetModal>
