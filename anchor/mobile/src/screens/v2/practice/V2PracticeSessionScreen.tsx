@@ -124,6 +124,15 @@ export function V2PracticeSessionScreen({
   const [focusPhase, setFocusPhase] = useState<'active' | 'complete'>('active');
   useMilestonePresentationHold(mode === 'visualize' ? !visualizeCompletion : focusPhase !== 'complete');
   const [focusSaveState, setFocusSaveState] = useState<'saving' | FocusSaveWaitResult>('saving');
+
+  // Auto-reconciliation: if the session completes while the UI is showing the delayed/unknown state,
+  // reconcile immediately to 'saved' so the user doesn't stay stranded on the timeout message.
+  useEffect(() => {
+    if (focusSaveState !== 'unknown' || !focusSessionId) return;
+    if (focusSessionRecord) {
+      setFocusSaveState('saved');
+    }
+  }, [focusSaveState, focusSessionId, focusSessionRecord]);
   const focusCompletionStartedRef = useRef(false);
   const focusSessionRequestRef = useRef<{ sessionId: string; sessionData: FocusSessionData } | null>(null);
   const [strengthSnapshot, setStrengthSnapshot] = useState<{
@@ -285,7 +294,7 @@ export function V2PracticeSessionScreen({
       const result = persistence
         ? await traceStabilizationStage('focus.receipt', () => waitForFocusSave(persistence, FOCUS_SAVE_UI_WAIT_MS))
         : 'failed';
-      setFocusSaveState(result);
+      setFocusSaveState((current) => (current === 'saved' ? 'saved' : result));
       markStabilizationStage('focus.complete-state');
       setFocusPhase('complete');
     },
@@ -295,6 +304,15 @@ export function V2PracticeSessionScreen({
   const retryFocusPersistence = useCallback(async () => {
     const request = focusSessionRequestRef.current;
     if (!request || focusSaveState === 'saved' || focusSaveState === 'saving') return;
+    const resolvedAccountId = accountId ?? anchor?.userId ?? 'local-user';
+    const sessionSavedLocally = focusSessionId
+      ? useSessionStore.getState().practiceHistory.some((p) => p.id === focusSessionId)
+      : false;
+    if (sessionSavedLocally) {
+      void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
+      setFocusSaveState('saved');
+      return;
+    }
     let receipt = focusEndingPromiseRef.current;
     if (focusSaveState === 'failed') {
       // The canonical service is idempotent by account + this stable session ID.
@@ -302,8 +320,8 @@ export function V2PracticeSessionScreen({
     }
     if (!receipt) return;
     const result = await waitForFocusSave(receipt, FOCUS_SAVE_UI_WAIT_MS);
-    setFocusSaveState(result);
-  }, [focusSaveState, startFocusPersistence]);
+    setFocusSaveState((current) => (current === 'saved' ? 'saved' : result));
+  }, [accountId, anchor?.userId, focusSaveState, focusSessionId, startFocusPersistence]);
 
   const handleDone = useCallback(() => {
     // Continue has a semantic destination: the Practice hub. The parent clears

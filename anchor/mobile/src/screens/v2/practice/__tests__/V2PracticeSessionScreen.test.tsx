@@ -340,6 +340,48 @@ function emitAppState(nextState: 'active' | 'background') {
     expect(screen.queryByTestId('focus-complete-retry-save')).toBeNull();
   });
 
+  it('immediately reconciles when session record is already in store during unknown state', async () => {
+    const { useSessionStore } = require('@/stores/sessionStore');
+    (PracticeCompletionService.completePracticeSession as jest.Mock).mockImplementationOnce(
+      () => new Promise(() => {})
+    );
+    render(
+      <V2PracticeSessionScreen
+        anchorId="a1" mode="focus" durationSeconds={10} source="practice_hub"
+        onBack={jest.fn()} onCompleted={jest.fn()} onFocusAgain={jest.fn()}
+      />
+    );
+    emitAppState('active');
+    await act(async () => { jest.advanceTimersByTime(800); });
+    await act(async () => { jest.advanceTimersByTime(10_000); });
+    await act(async () => { jest.advanceTimersByTime(2_300); });
+    await act(async () => { jest.advanceTimersByTime(5_000); });
+    expect(screen.getByText(/outcome is still being confirmed/i)).toBeTruthy();
+
+    const sessionId = (PracticeCompletionService.completePracticeSession as jest.Mock).mock.calls[0][0].sessionId;
+    await act(async () => {
+      useSessionStore.getState().appendCanonicalPracticeSession({
+        id: sessionId,
+        accountId: 'acc-1',
+        anchorId: 'a1',
+        practiceMode: 'focus',
+        plannedDurationSeconds: 10,
+        completedDurationSeconds: 10,
+        completionStatus: 'completed',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        completionSource: 'practice_screen',
+        schemaVersion: 1,
+        syncState: 'synced',
+        threadStrengthBefore: 20,
+        threadStrengthAfter: 25,
+      });
+    });
+
+    expect(screen.queryByText(/outcome is still being confirmed/i)).toBeNull();
+    expect(screen.queryByTestId('focus-complete-retry-save')).toBeNull();
+  });
+
   it('retries a confirmed failure with the original completion ID', async () => {
     const onCompleted = jest.fn();
     (PracticeCompletionService.completePracticeSession as jest.Mock)
