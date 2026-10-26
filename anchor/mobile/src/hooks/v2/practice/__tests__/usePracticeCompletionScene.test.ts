@@ -185,9 +185,13 @@ describe('usePracticeCompletionScene', () => {
     );
     expect(result.current.kind).toBe('repeat');
     expect(result.current.canSkip).toBe(false);
+    expect(result.current.educationReady).toBe(false);
     expect(useCelebrationStore.getState().current).toMatchObject({ level: 2, durationMs: 2500 });
     advance(1500);
     expect(threadCueCalls()).toBe(1);
+    expect(result.current.educationReady).toBe(false);
+    advance(1000);
+    expect(result.current.educationReady).toBe(true);
     expect(playCreationSound).toHaveBeenCalledWith('threadSettle');
     expect(safeHaptics.impact).toHaveBeenCalledWith('light');
   });
@@ -204,6 +208,7 @@ describe('usePracticeCompletionScene', () => {
     expect(result.current.valueOpacity.value).toBe(1);
     expect(result.current.noteOpacity.value).toBe(1);
     expect(result.current.phase).toBe('settled');
+    expect(result.current.educationReady).toBe(false);
     expect(useCelebrationStore.getState().active).toBeNull();
     expect(threadCueCalls()).toBe(1);
     expect(safeHaptics.impact).toHaveBeenCalledTimes(1);
@@ -222,6 +227,7 @@ describe('usePracticeCompletionScene', () => {
       useCelebrationStore.getState().request(4, 'major-other', { durationMs: 6000 });
     });
     expect(useCelebrationStore.getState().active?.id).toBe('major-other');
+    expect(result.current.educationReady).toBe(false);
     expect(result.current.barProgress.value).toBeCloseTo(0.35);
     expect(result.current.noteOpacity.value).toBe(1);
     expect(threadCueCalls()).toBe(0);

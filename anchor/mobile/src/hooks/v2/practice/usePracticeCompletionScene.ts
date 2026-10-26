@@ -456,6 +456,8 @@ export interface PracticeCompletionScene {
   /** The scene that is playing or has played. 'none' when nothing animates; 'pending' while records are read. */
   kind: PracticeSceneKind;
   phase: PracticeScenePhase;
+  /** Natural completion of this mount's transition, with the same result still on screen. */
+  educationReady: boolean;
   /** 0 to 1 bar fill. */
   barProgress: SharedValue<number>;
   /** Opacity of the artwork atmosphere, the glow behind the Anchor. */
@@ -491,6 +493,7 @@ export function usePracticeCompletionScene({
   eligible,
   reduceMotion,
 }: PracticeCompletionSceneArgs): PracticeCompletionScene {
+  const [educationResult, setEducationResult] = useState<{ from: number; to: number } | null>(null);
   const from = clampStrength(fromValue);
   const to = clampStrength(toValue);
   const [mountKey] = useState(() => {
@@ -619,6 +622,7 @@ export function usePracticeCompletionScene({
         playSettle(sessionId, timing, kind, to, reduceMotion);
       };
       const finishScene = () => {
+        setEducationResult({ from, to });
         clearTimers();
         useCelebrationStore.getState().finish(sceneKey);
       };
@@ -797,6 +801,7 @@ export function usePracticeCompletionScene({
   return {
     kind: scene.kind,
     phase: scene.phase,
+    educationReady: educationResult?.from === from && educationResult?.to === to,
     barProgress,
     glowOpacity,
     glowScale,

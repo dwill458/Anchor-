@@ -7,17 +7,17 @@ export type GuidanceOutcome = 'dismissed' | 'acknowledged' | 'action_performed' 
 export type GuidanceRecord = {
   version: number; displayCount: number; presentAttempts: number; interruptCount: number;
   firstDisplayedAt?: string; lastDisplayedAt?: string; outcome?: GuidanceOutcome;
-  outcomeAt?: string; outcomeDetail?: string;
+  outcomeAt?: string; outcomeDetail?: string; variant?: string;
 };
 export type GuidanceData = { records: Record<string, GuidanceRecord>; discovery: Record<string, string>; replayedIds?: GuidanceId[] };
 export type GuidancePresentation = { token: string; id: GuidanceId; hostKey: string; account: string };
 export type GuidanceHost = {
-  key: string; visitKey?: string; targetRevision?: number | string; account: string; ready: boolean; candidates: readonly string[];
+  key: string; variant?: string; visitKey?: string; targetRevision?: number | string; account: string; ready: boolean; candidates: readonly string[];
   present: (presentation: GuidancePresentation) => void; hide: (token: string) => void;
 };
 export const emptyGuidanceRecord = (): GuidanceRecord => ({ version: 1, displayCount: 0, presentAttempts: 0, interruptCount: 0 });
 export function settled(record: GuidanceRecord | undefined, def: GuidanceDefinition): boolean {
-  return Boolean(record && (record.outcome || (def.surface === 'whisper' && record.displayCount > 0) || record.presentAttempts >= def.maxAttempts || (def.maxDisplays && record.displayCount >= def.maxDisplays)));
+  return Boolean(record && (record.outcome || ((def.surface === 'whisper' || def.surface === 'scene_line') && record.displayCount > 0) || record.presentAttempts >= def.maxAttempts || (def.maxDisplays && record.displayCount >= def.maxDisplays)));
 }
 
 /** No backlog: every arbitration reads the currently registered, ready contexts. */
@@ -93,9 +93,10 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         persist();
       }
     });
-    const candidates = [...hosts.values()].filter(host => host.account === account && host.ready && !visits.has(visitKey(host)) && !quiet.has(visitKey(host)))
+    const candidates = [...hosts.values()].filter(host => host.account === account && host.ready && !visits.has(visitKey(host)))
       .flatMap(host => registry.filter(def => host.candidates.includes(def.id) && !settled(data.records[def.id], def)
-        && (def.surface === 'whisper' || (def.priority === 0 ? !chartAllowance : bubbles < 1))).map(def => ({ host, def })))
+        && (def.surface === 'scene_line' || !quiet.has(visitKey(host)))
+        && (def.surface === 'scene_line' || def.surface === 'whisper' || (def.priority === 0 ? !chartAllowance : bubbles < 1))).map(def => ({ host, def })))
       .sort((a, b) => a.def.priority - b.def.priority || registry.indexOf(a.def) - registry.indexOf(b.def) || a.host.key.localeCompare(b.host.key));
     const next = candidates[0];
     if (!next) return;
@@ -146,6 +147,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
       if (!started) {
         started = true;
         rec(presentation.id).presentAttempts++;
+        if (host?.variant) rec(presentation.id).variant = host.variant;
         if (def.surface === 'bubble') {
           if (def.priority === 0) chartAllowance = true;
           else bubbles++;

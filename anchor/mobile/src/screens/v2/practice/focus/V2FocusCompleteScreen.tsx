@@ -1,6 +1,6 @@
 import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type TextInstance } from 'react-native';
+import { AppState, ScrollView, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type TextInstance } from 'react-native';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -32,6 +32,8 @@ import { queueMilestoneAction } from '@/milestones/queueMilestoneAction';
 import { discoverGuidance } from '@/hooks/v2/guidance/guidanceRuntime';
 import { useAuthStore } from '@/stores/authStore';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
+
+import { ThreadGlowLesson, threadGlowVariant } from '@/components/v2/thread/ThreadGlowLesson';
 
 // COPY: from the celebration brief
 const COPY = {
@@ -109,6 +111,8 @@ export interface V2FocusCompleteScreenProps {
   beforeStrength?: number | null;
   afterStrength?: number | null;
   sessionSaved?: boolean;
+  /** True only for a canonical session movement; Anchor snapshots are insufficient for teaching. */
+  strengthResultVerified?: boolean;
   sessionSaveState?: 'saving' | FocusSaveWaitResult;
   onRetrySave?: () => void;
   /** Stable id of the completed session. Keys the completion scene and the Thread settle cue to one play per session. */
@@ -129,6 +133,7 @@ export function V2FocusCompleteScreen({
   beforeStrength: propBefore,
   afterStrength: propAfter,
   sessionSaved = true,
+  strengthResultVerified = false,
   sessionSaveState = sessionSaved ? 'saved' : 'failed',
   onRetrySave,
   sessionId = null,
@@ -142,7 +147,18 @@ export function V2FocusCompleteScreen({
   const [milestoneReady, setMilestoneReady] = useState(false);
   const guidanceAccount = useAuthStore(state => state.user?.id ?? 'guest');
   useEffect(() => { if (sessionSaved && sessionId) discoverGuidance(guidanceAccount, 'today.recommended'); }, [guidanceAccount, sessionId, sessionSaved]);
+  const completionAccount = useRef(guidanceAccount);
+  const [completionExited, setCompletionExited] = useState(false);
   const milestoneFocus = useTeachingFocus();
+  useEffect(() => {
+    if (!milestoneFocus.isFocused) setCompletionExited(true);
+  }, [milestoneFocus.isFocused]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state !== 'active') setCompletionExited(true);
+    });
+    return () => subscription.remove();
+  }, []);
   const milestoneFocused = useRef(milestoneFocus.isFocused);
   const milestoneReturn = useRef<() => void>(() => undefined);
   milestoneFocused.current = milestoneFocus.isFocused;
@@ -164,7 +180,7 @@ export function V2FocusCompleteScreen({
 
   // Authoritative thread strength resolution:
   const hasAuthoritativeMovement =
-    typeof propBefore === 'number' && typeof propAfter === 'number';
+    typeof propBefore === 'number' && Number.isFinite(propBefore) && typeof propAfter === 'number' && Number.isFinite(propAfter);
   const baselineStored = typeof anchor.threadStrength === 'number';
 
   const isUnmeasured = !hasAuthoritativeMovement && !baselineStored;
@@ -190,6 +206,7 @@ export function V2FocusCompleteScreen({
     eligible: sessionSaved && hasAuthoritativeMovement,
     reduceMotion,
   });
+  const glowVariant = threadGlowVariant({ sessionId, saved: sessionSaved && strengthResultVerified && scene.educationReady, before: propBefore, after: propAfter, kind: scene.kind, phase: scene.phase });
   const fromStruck = scene.kind === 'repeat' && scene.phase !== 'idle';
   const noteText = sceneNoteText(scene.kind, toVal);
 
@@ -277,6 +294,7 @@ export function V2FocusCompleteScreen({
   }, [anchor.enhancedImageUrl, categoryPalette.soft, fromVal, scene.glowOpacity, scene.kind, showsNewValue, toVal]);
 
   const handleContinue = useCallback(() => {
+    setCompletionExited(true);
     if (sessionSaved) {
       if (!reduceMotion) {
         // The app decides Reduce Motion; the OS animator scale must not collapse the fade into a jump.
@@ -309,7 +327,8 @@ export function V2FocusCompleteScreen({
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
       <StatusBar barStyle="dark-content" animated />
-      <Animated.View style={[styles.content, contentStyle]}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <Animated.View style={[styles.resultContent, contentStyle]}>
         <Animated.View
           ref={artworkRef}
           onLayout={recordMilestoneOrigin}
@@ -480,6 +499,8 @@ export function V2FocusCompleteScreen({
             {COPY.fullStrengthSubline}
           </Animated.Text>
         ) : null}
+        {glowVariant && sessionId ? <ThreadGlowLesson account={guidanceAccount} anchorId={anchor.id} sessionId={sessionId}
+          variant={glowVariant} strength={toVal} active={!completionExited && !leaving && milestoneFocus.isFocused && !milestoneFocus.transitioning && completionAccount.current === guidanceAccount} /> : null}
         </> : (
           <View style={styles.unmeasuredContainer}>
             <Text style={styles.unmeasuredHint}>
@@ -507,6 +528,7 @@ export function V2FocusCompleteScreen({
           </View>
         )}
       </Animated.View>
+      </ScrollView>
       {/* Only while the Thread scene is the active skippable one. Sits under the footer, so Continue and the link stay usable. */}
       {scene.canSkip ? (
         <Pressable
@@ -540,7 +562,7 @@ export function V2FocusCompleteScreen({
           accessibilityRole="button"
           accessibilityLabel={`${practiceTitle ?? 'Focus'} again`}
           testID="focus-complete-again-button"
-          onPress={onAgain}
+          onPress={() => { setCompletionExited(true); onAgain(); }}
           style={styles.againLink}
         >
           <Text style={styles.againText}>{practiceTitle ?? 'Focus'} again</Text>
@@ -560,8 +582,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: '#0B0F18',
   },
+  scroll: { flex: 1 },
+  resultContent: { alignSelf: 'stretch', alignItems: 'center' },
   content: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing[6],

@@ -42,3 +42,15 @@ it('persists replay intent so retained legacy per-course flags cannot undo a rep
  repo.save('a', { records: {}, discovery: {}, replayedIds: ['chart.next_move'] }); await repo.flush();
  expect((await createGuidanceRecords(s).load('a')).replayedIds).toContain('chart.next_move');
 });
+
+it('persists glow display and variant through restart and promotes guest discovery only once', async () => {
+ const s = storage(); const repo = createGuidanceRecords(s); await repo.load('guest');
+ repo.save('guest', { records: { 'thread.glow': { ...emptyGuidanceRecord(), variant: 'A', displayCount: 1, presentAttempts: 1 } }, discovery: { 'thread.glow': '2026-10-26' } });
+ await repo.flush();
+ const restarted = createGuidanceRecords(s);
+ const a = await restarted.load('account-a');
+ expect(a.records['thread.glow']).toMatchObject({ variant: 'A', displayCount: 1 });
+ expect(a.discovery['thread.glow']).toBe('2026-10-26');
+ expect((await restarted.load('account-b')).records['thread.glow']).toBeUndefined();
+ expect((await createGuidanceRecords(s).load('account-a')).records['thread.glow'].displayCount).toBe(1);
+});

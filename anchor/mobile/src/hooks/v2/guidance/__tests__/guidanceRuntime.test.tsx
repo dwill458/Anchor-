@@ -57,3 +57,37 @@ it('does not import a legacy per-course mark again after an explicit Chart repla
  expect(storage).not.toHaveBeenCalledWith(`anchor:v2:chart2:taught:${account}:old-course`);
  expect(guidanceCoordinator.data().records['chart.next_move']).toBeUndefined();
 });
+
+
+// Real coordinator/runtime/host integration for the completion-only scene line.
+it('allows the completion host after celebration, persists one variant and rejects duplicates', async () => {
+ const { useGuidanceHost } = require('../useGuidanceHost');
+ const account = useAuthStore.getState().user!.id;
+ useMilestoneCelebrationStore.setState({ queue: [{ key: 'queued' } as never] });
+ const h = renderHook(() => useGuidanceHost({ screenId: 'practice-completion', accountId: account, contextKey: 'saved-session', variant: 'B', eligible: ['thread.glow'], isFocused: true, blocked: false }));
+ await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+ expect(h.result.current.presentation).toBeNull();
+ act(() => useMilestoneCelebrationStore.setState({ queue: [] }));
+ await waitFor(() => expect(h.result.current.presentation?.id).toBe('thread.glow'));
+ act(() => { h.result.current.markShown(); h.result.current.markShown(); });
+ await waitFor(() => expect(guidanceCoordinator.data().records['thread.glow']?.displayCount).toBe(1), { timeout: 2000 });
+ expect(guidanceCoordinator.data().records['thread.glow']).toMatchObject({ variant: 'B', presentAttempts: 1 });
+ h.rerender({});
+ expect(guidanceCoordinator.data().records['thread.glow'].presentAttempts).toBe(1);
+ act(() => h.result.current.dismiss('close'));
+ expect(guidanceCoordinator.data().records['thread.glow'].outcome).toBe('dismissed');
+});
+it('tips disabled and leaving a blocked completion never defer a lesson to Home', async () => {
+ const { useGuidanceHost } = require('../useGuidanceHost');
+ useSettingsStore.setState({ showTips: false });
+ const account = useAuthStore.getState().user!.id;
+ const h = renderHook(({ focused }) => useGuidanceHost({ screenId: 'practice-completion', accountId: account, contextKey: 'saved-session', eligible: ['thread.glow'], isFocused: focused, blocked: false }), { initialProps: { focused: true } });
+ await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+ expect(h.result.current.presentation).toBeNull();
+ h.rerender({ focused: false });
+ act(() => useSettingsStore.setState({ showTips: true }));
+ await act(async () => { await new Promise(resolve => setTimeout(resolve, 30)); });
+ expect(h.result.current.presentation).toBeNull();
+ h.unmount();
+ expect(guidanceCoordinator.snapshot()).toBeNull();
+});

@@ -119,3 +119,25 @@ it('keeps visit budgets and celebration quietness across target/context replacem
  coordinator.replay(); coordinator.lock('celebration',true,true); coordinator.lock('celebration',false,true);
  coordinator.register({ ...host('context-c', ['chart.next_move']), visitKey: 'same-route' }); tick(); expect(coordinator.snapshot()).toBeNull();
 });
+
+it('presents a completion scene line after celebration without spending the Chart allowance', () => {
+  coordinator.lock('celebration', true, true);
+  coordinator.register(host('completion', ['thread.glow'])); tick();
+  expect(coordinator.snapshot()).toBeNull();
+  coordinator.lock('celebration', false); tick();
+  expect(coordinator.snapshot()?.id).toBe('thread.glow');
+  const token = coordinator.snapshot()!.token;
+  coordinator.visible(token); jest.advanceTimersByTime(DISPLAY_DWELL_MS);
+  expect(coordinator.data().records['thread.glow'].displayCount).toBe(1);
+  coordinator.interrupt(token);
+  coordinator.register(host('other-completion', ['thread.glow'])); tick();
+  expect(coordinator.snapshot()).toBeNull();
+  coordinator.register(host('chart', ['chart.next_move'])); tick();
+  expect(coordinator.snapshot()?.id).toBe('chart.next_move');
+});
+it('does not leave a completion lesson pending after navigation during celebration', () => {
+  coordinator.lock('celebration', true, true);
+  const remove = coordinator.register(host('completion', ['thread.glow'])); remove();
+  coordinator.lock('celebration', false); coordinator.register(host('home', [])); tick();
+  expect(coordinator.snapshot()).toBeNull();
+});

@@ -365,6 +365,9 @@ export function V2PracticeSessionScreen({
       anchor={preparedVisualize?.anchor ?? anchor} practiceTitle="Visualize" enterFrom="cream" durationSeconds={completedVisualizeSeconds}
       beforeStrength={visualizeRecord?.threadStrengthBefore ?? visualizeCompletion.record?.threadStrengthBefore}
       afterStrength={visualizeRecord?.threadStrengthAfter ?? visualizeCompletion.record?.threadStrengthAfter}
+      strengthResultVerified={Boolean((visualizeRecord ?? visualizeCompletion.record)?.syncState === 'synced'
+        && Number.isFinite((visualizeRecord ?? visualizeCompletion.record)?.threadStrengthBefore)
+        && Number.isFinite((visualizeRecord ?? visualizeCompletion.record)?.threadStrengthAfter))}
       sessionSaved={visualizeCompletion.saved}
       sessionId={visualizeCompletion.record?.id ?? null}
       onDone={finishVisualize}
@@ -437,6 +440,7 @@ export function V2PracticeSessionScreen({
         durationSeconds={durationSeconds}
         beforeStrength={currentBeforeStrength}
         afterStrength={currentAfterStrength}
+        strengthResultVerified={Boolean(focusSessionRecord?.syncState === 'synced' && Number.isFinite(focusSessionRecord.threadStrengthBefore) && Number.isFinite(focusSessionRecord.threadStrengthAfter))}
         sessionSaved={focusSaveState === 'saved'}
         sessionSaveState={focusSaveState}
         onRetrySave={() => void retryFocusPersistence()}
