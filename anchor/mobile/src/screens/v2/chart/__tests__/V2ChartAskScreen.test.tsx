@@ -29,6 +29,7 @@ jest.mock('@/hooks/v2/chart/useAnchorChart', () => ({
 jest.mock('../chartScreenSupport', () => ({
   useChartContext: () => ({ identity: { intention: 'Restore my Buick Regal', category: 'career', art: null }, anchorArt: null, vision: null }),
 }));
+const mockRefetch = jest.fn();
 const mockApi = { approve: jest.fn(), dismiss: jest.fn(), turn: jest.fn(), getConversation: jest.fn(), uploadPhoto: jest.fn(), getProfile: jest.fn(async () => ({ style: 'DRIVEN', memories: [] })) };
 jest.mock('@/services/v2/askChartApi', () => ({ askChartApi: new Proxy({}, { get: (_t, name: string) => (mockApi as Record<string, unknown>)[name] }) }));
 jest.mock('@/services/ApiClient', () => ({ apiClient: { defaults: {}, get: jest.fn(), post: jest.fn() }, ApiClientError: class extends Error {} }));
@@ -70,7 +71,7 @@ beforeEach(() => {
   mockParams = { anchorId: 'anchor-1' };
   mockFocusCallbacks = [];
   mockAsk.state = { ...mockAsk.state, status: 'ready', messages: [] };
-  mockApi.approve.mockResolvedValue({ chart: { id: 'course-1', version: 4 }, added: 2 });
+  mockApi.approve.mockImplementation(async () => { await mockRefetch('course-1'); return { chart: { id: 'course-1', version: 4 }, added: 2 }; });
   mockApi.dismiss.mockResolvedValue({ dismissed: true });
 });
 
@@ -167,13 +168,15 @@ describe('V2ChartAskScreen — proposals', () => {
     expect(mockCommitChart).not.toHaveBeenCalled();
   });
 
-  it('approving saves on the server, publishes the saved Chart, marks it applied, and only then opens Route Updated', async () => {
+  it('approving saves, refreshes the Chart, marks it applied, and only then opens Route Updated', async () => {
     withMessages(assistant('msg-1', moves()));
     const screen = render(<V2ChartAskScreen />);
     fireEvent.press(screen.getByTestId('ask-proposal-approve'));
     await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
     expect(mockApi.approve).toHaveBeenCalledWith('course-1', 'msg-1');
-    expect(mockCommitChart).toHaveBeenCalledWith({ id: 'course-1', version: 4 });
+    expect(mockRefetch).toHaveBeenCalledWith('course-1');
+    expect(mockCommitChart).not.toHaveBeenCalled();
+    expect(mockRefetch.mock.invocationCallOrder[0]).toBeLessThan(mockNavigate.mock.invocationCallOrder[0]);
     expect(mockAsk.markAction).toHaveBeenCalledWith('msg-1', 'APPLIED');
     expect(mockNavigate).toHaveBeenCalledWith('V2ChartRouteUpdated', { anchorId: 'anchor-1', change: { kind: 'MOVES_ADDED', count: 2, waypointTitle: 'Prepare the exterior' }, source: 'ask' });
     // Saved first, confirmed second.

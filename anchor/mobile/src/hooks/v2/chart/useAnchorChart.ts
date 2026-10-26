@@ -87,6 +87,17 @@ async function readPersisted(anchorId: string, accountId: string | null): Promis
   return request;
 }
 
+/** Wait out any older read, then fetch the server's current Chart after a proposal mutation. */
+export async function refreshChartAfterProposal(courseId: string, anchorId?: string | null): Promise<void> {
+  const accountId = currentAccountId();
+  const entry = [...memory.entries()].find(([key, value]) => key.startsWith(`${accountId ?? 'anonymous'}:`) && value.chart?.id === courseId);
+  const id = entry?.[1].anchor.id ?? anchorId;
+  if (!id) throw new Error('Cannot refresh Chart without its Anchor');
+  const pending = inflight.get(cacheKey(id, accountId));
+  if (pending) await pending.catch(() => undefined);
+  await loadAnchorChart(id, accountId);
+}
+
 /** Fetch (deduplicated) and publish. Throws a classified ChartRequestError. */
 export function loadAnchorChart(anchorId: string, accountId = currentAccountId()): Promise<ChartForAnchor> {
   const key = cacheKey(anchorId, accountId);

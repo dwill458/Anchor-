@@ -14,7 +14,7 @@ export type AskActionDTO = {
   summary: string;
   waypointId: string | null;
   waypointTitle: string | null;
-  moves: Array<{ title: string; rationale: string | null }>;
+  moves: Array<{ title: string; rationale: string | null; detail?: string | null }>;
   reason: ReviseReason | null;
   detail: string | null;
   /** REVISE_ROUTE only: the AIPlanProposal the person reviews and applies through the existing route flow. */

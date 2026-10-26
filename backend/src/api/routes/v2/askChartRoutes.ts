@@ -323,6 +323,14 @@ router.post(
 );
 
 router.post(
+  '/charts/:courseId/ask/:batchId/undo',
+  handle(async (req, res) => {
+    const userId = await writeUser(req);
+    res.json({ success: true, data: await askChartService.undoProposal(userId, req.params.courseId, req.params.batchId) });
+  })
+);
+
+router.post(
   '/charts/:courseId/ask/:messageId/dismiss',
   handle(async (req, res) => {
     const userId = await writeUser(req);

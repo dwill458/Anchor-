@@ -471,6 +471,56 @@ export class ChartService {
     });
   }
 
+  /** Atomically apply the server-stored proposal. The message id is its durable batch identity. */
+  async applyAskProposal(userId: string, courseId: string, messageId: string): Promise<{ chart: CourseDetail; added: number; batchId: string }> {
+    return runSerializable(async tx => {
+      const message = await tx.chartMessage.findFirst({
+        where: { id: messageId, userId, role: 'ASSISTANT', conversation: { userId, courseId } },
+        select: { id: true, structured: true },
+      });
+      const structured = message?.structured as { action?: { type: string; status: string; waypointId: string | null; moves: Array<{ title: string; rationale?: string | null; detail?: string | null }> } } | null;
+      const action = structured?.action;
+      if (!message || !action) throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
+      if (action.type !== 'ADD_MOVES' || !action.waypointId || action.status === 'DISMISSED') throw new AppError('Proposal unavailable', 409, 'PROPOSAL_UNAVAILABLE');
+      const row = await findCourse(tx, userId, courseId);
+      if (action.status === 'APPLIED') return { chart: projection(row), added: action.moves.length, batchId: message.id };
+      assertCourseActive(row);
+      const waypoint = assertWaypointBelongs(row, action.waypointId);
+      if (isTerminal(waypoint) || waypoint.id !== row.currentWaypointId) throw new AppError('That waypoint is already behind you', 409, 'PROPOSAL_STALE');
+      if (!Array.isArray(action.moves) || action.moves.length < 1 || action.moves.length > 5 || action.moves.some(move => !cleanTitle(move.title, 120))) throw new AppError('Nothing to apply', 409, 'PROPOSAL_UNAVAILABLE');
+      const existing = row.moves.filter(move => move.waypointId === waypoint.id && move.status === 'ACTIVE');
+      // Older single-move proposals retain their original append and current-move behavior.
+      const legacySingle = action.moves.length === 1 && action.moves[0].detail === undefined;
+      const start = legacySingle ? await nextMovePosition(tx, waypoint.id) : Math.min(0, ...existing.map(move => move.position)) - action.moves.length * 100;
+      const ids = action.moves.map(() => randomUUID());
+      for (const [index, move] of action.moves.entries()) {
+        await tx.move.create({ data: { id: ids[index], userId, courseId, waypointId: waypoint.id, title: cleanTitle(move.title, 120), rationale: cleanOptional(move.detail ?? move.rationale, 280), source: 'AI', status: 'ACTIVE', position: start + index * 100, batchId: message.id, idempotencyKey: `ask-move:${message.id}:${index}` } });
+      }
+      await tx.course.update({ where: { id: courseId }, data: { ...(!legacySingle || !row.currentMoveId ? { currentMoveId: ids[0] } : {}), version: { increment: 1 } } });
+      await tx.chartMessage.update({ where: { id: message.id }, data: { structured: { ...structured, action: { ...action, status: 'APPLIED' } } as unknown as Prisma.InputJsonValue } });
+      return { chart: projection(await findCourse(tx, userId, courseId)), added: ids.length, batchId: message.id };
+    });
+  }
+
+  /** Remove only incomplete moves from an owned proposal batch. */
+  async undoAskProposal(userId: string, courseId: string, batchId: string): Promise<CourseDetail> {
+    return runSerializable(async tx => {
+      const message = await tx.chartMessage.findFirst({ where: { id: batchId, userId, role: 'ASSISTANT', conversation: { userId, courseId } }, select: { structured: true } });
+      const action = (message?.structured as { action?: { type: string; status: string } } | null)?.action;
+      if (!message || action?.type !== 'ADD_MOVES' || action.status !== 'APPLIED') throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
+      const row = await findCourse(tx, userId, courseId);
+      assertCourseActive(row);
+      const removed = row.moves.filter(move => move.batchId === batchId && move.status !== 'COMPLETED');
+      if (!removed.length) return projection(row);
+      const removedIds = new Set(removed.map(move => move.id));
+      const next = removedIds.has(row.currentMoveId ?? '') ? selectNextActiveMove(row.moves.filter(move => !removedIds.has(move.id)), row.currentWaypointId) : undefined;
+      if (next !== undefined) await tx.course.update({ where: { id: courseId }, data: { currentMoveId: next?.id ?? null, version: { increment: 1 } } });
+      else await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
+      await tx.move.deleteMany({ where: { userId, courseId, batchId, status: { not: 'COMPLETED' } } });
+      return projection(await findCourse(tx, userId, courseId));
+    });
+  }
+
   /** Persists AI suggestions for a waypoint, replacing earlier unaccepted ones. */
   async replaceSuggestedMoves(
     userId: string,

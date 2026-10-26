@@ -7,6 +7,7 @@ import { logger } from '../../../utils/logger';
 import { readPrivateImageAsset } from '../../StorageService';
 import type { CourseDetail } from '../../../types/chart';
 import { chartService } from '../ChartService';
+import { runSerializable } from '../../CourseService';
 import { chartPlannerService } from '../ChartPlannerService';
 import {
   ChartProviderError,
@@ -649,54 +650,26 @@ export class AskChartService {
     userId: string,
     courseId: string,
     messageId: string
-  ): Promise<{ chart: CourseDetail; added: number }> {
-    const { id, structured, action } = await askChartStore.loadActionMessage(
-      userId,
-      courseId,
-      messageId
-    );
-    if (action.type !== 'ADD_MOVES' || !action.waypointId) {
-      throw new AppError('This proposal is not a set of moves', 409, 'PROPOSAL_UNAVAILABLE');
-    }
-    if (action.status === 'DISMISSED')
-      throw new AppError('This proposal was dismissed', 409, 'PROPOSAL_UNAVAILABLE');
-    let chart: CourseDetail | null = null;
-    for (const [index, move] of action.moves.entries()) {
-      try {
-        chart = await chartService.addMove(userId, courseId, {
-          waypointId: action.waypointId,
-          title: move.title,
-          rationale: move.rationale,
-          source: 'AI',
-          status: 'ACTIVE',
-          makeCurrent: false,
-          idempotencyKey: `ask-move:${id}:${index}`,
-        });
-      } catch (error) {
-        if (error instanceof AppError && error.code === 'WAYPOINT_TRANSITION_INVALID') {
-          throw new AppError(
-            'That waypoint is already behind you, so these moves no longer apply',
-            409,
-            'PROPOSAL_STALE'
-          );
-        }
-        throw error;
-      }
-    }
-    if (!chart) throw new AppError('Nothing to apply', 409, 'PROPOSAL_UNAVAILABLE');
-    // Only now, after every move is saved, does the proposal count as applied.
-    await askChartStore.setActionStatus(id, structured, 'APPLIED');
-    return { chart, added: action.moves.length };
+  ): Promise<{ chart: CourseDetail; added: number; batchId: string }> {
+    return chartService.applyAskProposal(userId, courseId, messageId);
+  }
+
+  async undoProposal(userId: string, courseId: string, batchId: string): Promise<{ chart: CourseDetail }> {
+    return { chart: await chartService.undoAskProposal(userId, courseId, batchId) };
   }
 
   async dismiss(userId: string, courseId: string, messageId: string): Promise<void> {
-    const { id, structured, action } = await askChartStore.loadActionMessage(
-      userId,
-      courseId,
-      messageId
-    );
-    if (action.status === 'APPLIED') return;
-    await askChartStore.setActionStatus(id, structured, 'DISMISSED');
+    await runSerializable(async tx => {
+      const row = await tx.chartMessage.findFirst({
+        where: { id: messageId, userId, role: 'ASSISTANT', conversation: { userId, courseId } },
+        select: { id: true, structured: true },
+      });
+      const structured = row?.structured as { action?: { status: string } } | null;
+      if (!row || !structured?.action) throw new AppError('Proposal not found', 404, 'PROPOSAL_NOT_FOUND');
+      if (structured.action.status === 'APPLIED') throw new AppError('Proposal was already applied', 409, 'PROPOSAL_UNAVAILABLE');
+      if (structured.action.status === 'DISMISSED') return;
+      await tx.chartMessage.update({ where: { id: row.id }, data: { structured: { ...structured, action: { ...structured.action, status: 'DISMISSED' } } as Prisma.InputJsonValue } });
+    });
   }
 
   /**

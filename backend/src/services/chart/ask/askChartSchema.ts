@@ -63,8 +63,8 @@ export const ASK_TURN_JSON_SCHEMA = {
           items: {
             type: 'object',
             additionalProperties: false,
-            required: ['title', 'rationale'],
-            properties: { title: { type: 'string' }, rationale: { type: ['string', 'null'] } },
+            required: ['title', 'detail'],
+            properties: { title: { type: 'string' }, detail: { type: ['string', 'null'] } },
           },
         },
         reason: { type: ['string', 'null'], enum: [...REVISE_REASONS, null] },
@@ -95,7 +95,7 @@ const RawTurn = z.object({
     .object({
       type: z.enum(['ADD_MOVES', 'REVISE_ROUTE']),
       waypointId: z.string().nullish(),
-      moves: z.array(z.object({ title: text(120), rationale: text(280).nullish() })).default([]),
+      moves: z.array(z.object({ title: text(120), detail: text(280).nullish(), rationale: text(280).nullish() })).max(5).default([]),
       reason: z.enum(REVISE_REASONS).nullish(),
       detail: text(500).nullish(),
       summary: text(200),
@@ -107,7 +107,7 @@ const RawTurn = z.object({
 export type AskTurnAction = {
   type: 'ADD_MOVES' | 'REVISE_ROUTE';
   waypointId: string | null;
-  moves: Array<{ title: string; rationale: string | null }>;
+  moves: Array<{ title: string; rationale: string | null; detail?: string | null }>;
   reason: ReviseReason | null;
   detail: string | null;
   summary: string;
@@ -161,8 +161,7 @@ export function normalizeAskTurn(raw: unknown): AskTurn {
         waypointId: turn.action.waypointId?.trim() || null,
         moves: turn.action.moves
           .filter(move => move.title)
-          .slice(0, 3)
-          .map(move => ({ title: move.title, rationale: move.rationale || null })),
+          .map(move => ({ title: move.title, rationale: move.detail ?? move.rationale ?? null, ...(move.detail !== undefined ? { detail: move.detail ?? null } : {}) })),
         reason: turn.action.reason ?? null,
         detail: turn.action.detail || null,
         summary: turn.action.summary,

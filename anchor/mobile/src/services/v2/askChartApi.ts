@@ -1,3 +1,4 @@
+import { refreshChartAfterProposal } from '@/hooks/v2/chart/useAnchorChart';
 import { fetch as streamingFetch } from 'expo/fetch';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
@@ -30,7 +31,7 @@ export type AskAction = {
   summary: string;
   waypointId: string | null;
   waypointTitle: string | null;
-  moves: Array<{ title: string; rationale: string | null }>;
+  moves: Array<{ title: string; rationale: string | null; detail?: string | null }>;
   reason: string | null;
   detail: string | null;
   routeProposalId: string | null;
@@ -272,8 +273,16 @@ export const askChartApi = {
     return call(() => apiClient.delete(`/api/v2/anchors/${enc(anchorId)}/chart/ask/memory`));
   },
 
-  approve(courseId: string, messageId: string): Promise<{ chart: CourseDetail; added: number }> {
-    return call(() => apiClient.post(`/api/v2/charts/${enc(courseId)}/ask/${enc(messageId)}/approve`));
+  async approve(courseId: string, messageId: string): Promise<{ chart: CourseDetail; added: number; batchId?: string }> {
+    const result = await call<{ chart: CourseDetail; added: number; batchId?: string }>(() => apiClient.post(`/api/v2/charts/${enc(courseId)}/ask/${enc(messageId)}/approve`));
+    await refreshChartAfterProposal(courseId, result.chart.anchorId);
+    return result;
+  },
+
+  async undoProposal(courseId: string, batchId: string): Promise<{ chart: CourseDetail }> {
+    const result = await call<{ chart: CourseDetail }>(() => apiClient.post(`/api/v2/charts/${enc(courseId)}/ask/${enc(batchId)}/undo`));
+    await refreshChartAfterProposal(courseId, result.chart.anchorId);
+    return result;
   },
 
   dismiss(courseId: string, messageId: string): Promise<{ dismissed: boolean }> {

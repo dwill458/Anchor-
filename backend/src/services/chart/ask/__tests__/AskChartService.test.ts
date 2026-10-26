@@ -4,7 +4,7 @@ import type { AskContext } from '../askChartContext';
 
 // ── in-memory stand-in for the four Ask Chart tables ────────────────────────────────────────────
 type Row = Record<string, any>;
-const db = { conversations: [] as Row[], messages: [] as Row[], memories: [] as Row[], assets: [] as Row[], proposals: [] as Row[], anchors: [] as Row[] };
+const db = { conversations: [] as Row[], messages: [] as Row[], memories: [] as Row[], assets: [] as Row[], proposals: [] as Row[], anchors: [] as Row[], moves: [] as Row[] };
 let clock = 0;
 let idCounter = 0;
 const now = () => new Date(Date.UTC(2026, 9, 21, 12, 0, 0) + ++clock * 1000);
@@ -48,7 +48,10 @@ const table = (rows: () => Row[], defaults: () => Row = () => ({})) => ({
 });
 
 const mockPrisma: any = {
+  $transaction: jest.fn(async (fn: any) => fn(mockPrisma)),
   chartConversation: table(() => db.conversations),
+  move: table(() => db.moves),
+  course: { update: jest.fn(async () => ({})) },
   chartMessage: table(() => db.messages),
   asset: { findFirst: jest.fn(async ({ where }: any) => db.assets.find(a => a.id === where.id && a.userId === where.userId) ?? null) },
   aIPlanProposal: { findFirst: jest.fn(async ({ where }: any) => db.proposals.find(p => p.id === where.id && p.userId === where.userId && p.courseId === where.courseId) ?? null) },
@@ -71,7 +74,18 @@ const mockContext: { value: AskContext } = { value: null as unknown as AskContex
 jest.mock('../askChartContext', () => ({ loadAskContext: jest.fn(async () => mockContext.value) }));
 
 const mockAddMove = jest.fn();
-jest.mock('../../ChartService', () => ({ chartService: { addMove: (...args: unknown[]) => mockAddMove(...args) } }));
+const mockCourse: Row = { id: 'course-1', status: 'ACTIVE', currentWaypointId: 'wp-1', currentMoveId: null, waypoints: [{ id: 'wp-1', reachedAt: null, skippedAt: null, cancelledAt: null, archivedAt: null }], moves: db.moves };
+jest.mock('../../../CourseService', () => {
+  const actual = jest.requireActual('../../../CourseService');
+  return { ...actual, findCourse: async (_tx: unknown, userId: string, courseId: string) => {
+    if (userId !== 'user-1' || courseId !== 'course-1') throw new AppError('not found', 404, 'COURSE_NOT_FOUND');
+    return mockCourse;
+  }, projection: (row: Row) => ({ id: row.id, moves: [...db.moves] }) };
+});
+jest.mock('../../ChartService', () => {
+  const actual = jest.requireActual('../../ChartService');
+  return { chartService: { addMove: (...args: unknown[]) => mockAddMove(...args), applyAskProposal: (...args: unknown[]) => actual.chartService.applyAskProposal(...args) } };
+});
 const mockAdjust = jest.fn();
 jest.mock('../../ChartPlannerService', () => ({ chartPlannerService: { adjust: (...args: unknown[]) => mockAdjust(...args) } }));
 
@@ -140,6 +154,8 @@ beforeEach(() => {
   Object.values(db).forEach(rows => (rows.length = 0));
   db.anchors.push({ id: 'anchor-1', userId: 'user-1' });
   mockContext.value = baseContext();
+  mockCourse.waypoints[0].reachedAt = null;
+  mockCourse.currentMoveId = null;
   mockAddMove.mockReset().mockImplementation(async () => ({ id: 'course-1', moved: true }));
   mockAdjust.mockReset();
   jest.clearAllMocks();
@@ -351,6 +367,8 @@ describe('AskChartService.turn', () => {
       const ask = service(fakeProvider('openai', () => answer()));
       await ask.turn('user-1', input({ text: 'planning chat' }));
       mockContext.value = baseContext();
+  mockCourse.waypoints[0].reachedAt = null;
+  mockCourse.currentMoveId = null;
       const provider = fakeProvider('openai', () => answer());
       await service(provider).turn('user-1', input({ text: 'now with a chart' }));
       expect(provider.calls[0].history?.map(turn => turn.text)).toEqual(['planning chat', 'Start with the rust.']);
@@ -422,11 +440,11 @@ describe('approvals', () => {
   };
   const addMoves = { type: 'ADD_MOVES', status: 'PENDING', summary: 's', waypointId: 'wp-1', waypointTitle: 'W', moves: [{ title: 'One', rationale: null }, { title: 'Two', rationale: 'because' }], reason: null, detail: null, routeProposalId: null, routeTitles: null, baseCourseVersion: 4 };
 
-  it('applies the stored moves through addMove with stable keys, then marks the proposal applied', async () => {
+  it('applies the stored moves transactionally with stable keys, then marks the proposal applied', async () => {
     seed(addMoves);
     const result = await new AskChartService().approveMoves('user-1', 'course-1', 'msg-1');
     expect(result.added).toBe(2);
-    expect(mockAddMove.mock.calls.map(call => call[2])).toEqual([
+    expect(db.moves).toEqual([
       expect.objectContaining({ waypointId: 'wp-1', title: 'One', source: 'AI', status: 'ACTIVE', idempotencyKey: 'ask-move:msg-1:0' }),
       expect.objectContaining({ title: 'Two', rationale: 'because', idempotencyKey: 'ask-move:msg-1:1' }),
     ]);
@@ -435,28 +453,29 @@ describe('approvals', () => {
 
   it('does not mark anything applied when a save fails', async () => {
     seed(addMoves);
-    mockAddMove.mockRejectedValueOnce(new AppError('boom', 500, 'X'));
+    mockPrisma.move.create.mockRejectedValueOnce(new AppError('boom', 500, 'X'));
     await expect(new AskChartService().approveMoves('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'X' });
     expect(db.messages[0].structured.action.status).toBe('PENDING');
+    expect(db.moves).toHaveLength(0);
   });
 
   it('reports a stale proposal when the waypoint has since been reached', async () => {
     seed(addMoves);
-    mockAddMove.mockRejectedValueOnce(new AppError('behind you', 409, 'WAYPOINT_TRANSITION_INVALID'));
+    mockCourse.waypoints[0].reachedAt = new Date();
     await expect(new AskChartService().approveMoves('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'PROPOSAL_STALE' });
   });
 
   it('refuses a dismissed proposal', async () => {
     seed({ ...addMoves, status: 'DISMISSED' });
     await expect(new AskChartService().approveMoves('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'PROPOSAL_UNAVAILABLE' });
-    expect(mockAddMove).not.toHaveBeenCalled();
+    expect(db.moves).toHaveLength(0);
   });
 
   it('cannot reach another person’s or another Chart’s proposal', async () => {
     seed(addMoves);
     await expect(new AskChartService().approveMoves('user-2', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'PROPOSAL_NOT_FOUND' });
     await expect(new AskChartService().approveMoves('user-1', 'course-2', 'msg-1')).rejects.toMatchObject({ code: 'PROPOSAL_NOT_FOUND' });
-    expect(mockAddMove).not.toHaveBeenCalled();
+    expect(db.moves).toHaveLength(0);
   });
 
   it('dismisses, but never un-applies', async () => {
@@ -464,7 +483,7 @@ describe('approvals', () => {
     await new AskChartService().dismiss('user-1', 'course-1', 'msg-1');
     expect(db.messages[0].structured.action.status).toBe('DISMISSED');
     db.messages[0].structured.action.status = 'APPLIED';
-    await new AskChartService().dismiss('user-1', 'course-1', 'msg-1');
+    await expect(new AskChartService().dismiss('user-1', 'course-1', 'msg-1')).rejects.toMatchObject({ code: 'PROPOSAL_UNAVAILABLE' });
     expect(db.messages[0].structured.action.status).toBe('APPLIED');
   });
 

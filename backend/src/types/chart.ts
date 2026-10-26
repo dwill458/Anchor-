@@ -113,6 +113,7 @@ export type CourseObservation = {
 export type MoveStatus = 'SUGGESTED' | 'ACTIVE' | 'COMPLETED' | 'DISMISSED';
 
 export type MoveSummary = {
+  batchId?: string | null;
   id: string;
   courseId: string;
   waypointId: string;

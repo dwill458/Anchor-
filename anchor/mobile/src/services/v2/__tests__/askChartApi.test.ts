@@ -1,3 +1,5 @@
+const mockRefreshChart = jest.fn();
+jest.mock('@/hooks/v2/chart/useAnchorChart', () => ({ refreshChartAfterProposal: (...args: unknown[]) => mockRefreshChart(...args) }));
 const mockFetch = jest.fn();
 jest.mock('expo/fetch', () => ({ fetch: (...args: unknown[]) => mockFetch(...args) }));
 jest.mock('@/services/AuthService', () => ({ AuthService: { getIdToken: jest.fn(async () => 'token-1') } }));
@@ -124,5 +126,17 @@ describe('askChartApi proposals', () => {
     post.mockResolvedValue({ data: { success: true, data: { chart: {}, added: 2 } } });
     await askChartApi.approve('course 1', 'msg-1');
     expect(post).toHaveBeenCalledWith('/api/v2/charts/course%201/ask/msg-1/approve');
+  });
+});
+
+
+describe('proposal mutations', () => {
+  it.each(['approve', 'undoProposal'] as const)('%s refreshes the authoritative Chart before resolving', async method => {
+    mockRefreshChart.mockReset();
+    const result = { chart: { id: 'course-1', anchorId: 'anchor-1' }, added: 2, batchId: 'batch-1' };
+    post.mockResolvedValue({ data: { success: true, data: result } });
+    await expect(askChartApi[method]('course-1', 'batch-1')).resolves.toEqual(result);
+    expect(mockRefreshChart).toHaveBeenCalledWith('course-1', 'anchor-1');
+    expect(post.mock.invocationCallOrder[0]).toBeLessThan(mockRefreshChart.mock.invocationCallOrder[0]);
   });
 });

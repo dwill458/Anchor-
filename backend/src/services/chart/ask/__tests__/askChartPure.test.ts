@@ -81,7 +81,7 @@ describe('normalizeAskTurn', () => {
     expect(() => normalizeAskTurn({ ...validTurn, remember: { key: 'passwords', value: 'x' } })).toThrow(AskTurnInvalidError);
   });
 
-  it('cleans an action: at most three moves, no blank titles, bounded lengths', () => {
+  it('cleans an action: at most five moves, no blank titles, bounded lengths', () => {
     const turn = normalizeAskTurn({
       ...validTurn,
       action: {
@@ -100,8 +100,14 @@ describe('normalizeAskTurn', () => {
       },
     });
     expect(turn.action?.waypointId).toBe('wp-1');
-    expect(turn.action?.moves.map(move => move.title)).toEqual(['Strip the paint', 'Treat rust', 'Sand']);
+    expect(turn.action?.moves.map(move => move.title)).toEqual(['Strip the paint', 'Treat rust', 'Sand', 'Prime']);
     expect(turn.action?.moves[1].rationale).toHaveLength(280);
+  });
+
+  it('accepts five proposed moves and rejects six', () => {
+    const action = { type: 'ADD_MOVES', waypointId: 'wp-1', reason: null, detail: null, summary: 'Plan', moves: Array.from({ length: 5 }, (_, i) => ({ title: `Move ${i}`, detail: null })) };
+    expect(normalizeAskTurn({ ...validTurn, action }).action?.moves).toHaveLength(5);
+    expect(() => normalizeAskTurn({ ...validTurn, action: { ...action, moves: [...action.moves, { title: 'Six', detail: null }] } })).toThrow(AskTurnInvalidError);
   });
 
   it('only keeps whitelisted memories', () => {

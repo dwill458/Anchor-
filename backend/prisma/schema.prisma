@@ -677,11 +677,13 @@ model Move {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
   idempotencyKey String?   @unique @map("idempotency_key")
+  batchId        String?   @map("batch_id")
 
   currentForCourse Course? @relation("CourseCurrentMove")
 
   @@index([courseId, status])
   @@index([waypointId, status])
+  @@index([batchId])
   @@index([userId, completedAt])
   @@map("moves")
 }

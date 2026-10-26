@@ -40,7 +40,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import type { ChartForAnchor } from '@/services/v2/chartV2Api';
-import { peekAnchorChart, primeAnchorChart, resetAnchorChartCache, useAnchorChart } from '../useAnchorChart';
+import { peekAnchorChart, primeAnchorChart, refreshChartAfterProposal, resetAnchorChartCache, useAnchorChart } from '../useAnchorChart';
 import { course } from '@/components/v2/chart/panel/__tests__/chartPanelFixtures';
 
 const chartSnapshot = (intentionText: string): ChartForAnchor => ({
@@ -99,6 +99,17 @@ describe('useAnchorChart Home cache-first hydration', () => {
     });
     await waitFor(() => expect(result.current.data).toEqual(fresh));
     expect(result.current.stale).toBe(false);
+  });
+
+  it('refetches and replaces stale encrypted Chart data after a proposal mutation', async () => {
+    const stale = { ...chartSnapshot('Goal'), chart: course({ version: 5 }) };
+    const fresh = { ...chartSnapshot('Goal'), chart: course({ version: 6 }) };
+    primeAnchorChart('anchor-home-cache', stale);
+    mockGetForAnchor.mockResolvedValueOnce(fresh);
+    await refreshChartAfterProposal('course-1');
+    expect(mockGetForAnchor).toHaveBeenCalledWith('anchor-home-cache');
+    expect(peekAnchorChart('anchor-home-cache')).toEqual(fresh);
+    expect(encryptedPersistStorage.setItem).toHaveBeenLastCalledWith('anchor:v2:chart2:chart-cache-user:anchor-home-cache', JSON.stringify(fresh));
   });
 
   it('keeps in-memory Chart presentation caches isolated by account', () => {

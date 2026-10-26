@@ -48,7 +48,6 @@ export function useAskProposals({ courseId, commitChart, markAction, onMovesAppl
       setOne<ProposalFailure>(setFailures, message.id, null);
       try {
         const result = await api.approve(courseId, message.id);
-        commitChart(result.chart);
         markAction(message.id, 'APPLIED');
         trackChart('ask_chart_proposal_applied', { type: action.type, moves: result.added });
         onMovesApplied({ added: result.added, waypointTitle: action.waypointTitle, titles: action.moves.map(move => move.title) });

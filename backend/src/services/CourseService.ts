@@ -204,6 +204,7 @@ export function toMoveSummary(
     id: move.id,
     courseId: move.courseId,
     waypointId: move.waypointId,
+    batchId: move.batchId,
     title: move.title,
     rationale: move.rationale,
     source: move.source === 'AI' ? 'AI' : 'USER',
@@ -441,14 +442,11 @@ export async function runSerializable<T>(work: (tx: TxClient) => Promise<T>): Pr
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2034' &&
-        attempt < 2
-      ) {
-        continue;
-      }
-      throw error;
+      const candidate = error as { code?: unknown; meta?: { code?: unknown }; cause?: { code?: unknown } } | null;
+      const conflict = candidate?.code === 'P2034' || candidate?.code === '40001' || candidate?.meta?.code === '40001' || candidate?.cause?.code === '40001';
+      if (!conflict) throw error;
+      if (attempt === 2) throw new AppError('Chart transaction could not be serialized', 409, 'SYNC_CONFLICT');
+      await new Promise(resolve => setTimeout(resolve, 20 * (attempt + 1)));
     }
   }
   throw new AppError('Chart transaction could not be serialized', 409, 'SYNC_CONFLICT');

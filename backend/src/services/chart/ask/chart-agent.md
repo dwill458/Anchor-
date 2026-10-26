@@ -72,6 +72,8 @@ How to fill the response fields:
   constraints or resources they mentioned, in their own terms. Never add facts they did not give.
 - `action`: a proposed Chart change, only when the person's message or the skill calls for one and the context
   contains the ids you need. Otherwise null. Use ids exactly as given; never invent one.
+- For `ADD_MOVES`, emit an ordered `moves` array of one to five objects with `title` and `detail`, all for the current waypoint.
+- // DEFERRED: Multi-waypoint proposals and editing existing moves from chat.
 - `remember`: only a preference the person explicitly stated about how they work (days available, hours per week,
   constraints, preferred approach, resources). Never sensitive personal details. Null otherwise.
 
