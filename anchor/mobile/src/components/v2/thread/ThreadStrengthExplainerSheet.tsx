@@ -115,7 +115,7 @@ export function ThreadStrengthExplainerSheet({
           </Pressable>
           {rulesOpen ? (
             <View style={styles.rules} testID={`${testID}-rules`}>
-              <Text style={styles.rule}>First completed practice on an Anchor: +{RULES.activationBonus} bonus, once only.</Text>
+              <Text style={styles.rule}>First eligible practice on a new Anchor: +{RULES.activationBonus} bonus, once only.</Text>
               <Text style={styles.rule}>First completed practice each day: +{RULES.dailyReturnBonus}.</Text>
               <Text style={styles.rule}>Each eligible minute: +{RULES.pointsPerMinute}.</Text>
               <Text style={styles.rule}>Daily credited time: up to {RULES.dailyDurationCapMinutes} minutes.</Text>
