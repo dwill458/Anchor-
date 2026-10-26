@@ -58,7 +58,7 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
   const measure = useCallback(() => {
     if (!visible || readyRef.current || visibilityRequested.current) return;
     const root = rootRef.current;
-    const target = [targets.rowRef.current, targets.circleRef.current, targets.bodyRef.current][beat];
+    const target = targets.rowRef.current;
     if (!root || !target) return;
     const measureNode = measureInWindow ?? ((node: MeasurableNode, callback: (x: number, y: number, width: number, height: number) => void) => node.measureInWindow(callback));
     measureNode(root, (rootX, rootY, rootWidth, rootHeight) => {
@@ -96,8 +96,8 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
         if (!shownBeatsRef.current.has(beat)) {
           shownBeatsRef.current.add(beat);
           trackTeaching('teaching_beat_shown', { screen: 'chart', beat: `chart.oneMove.${beat + 1}`, step: beat + 1, total: beats.length, reason: 'ready' });
+          onReady();
         }
-        onReady();
       };
       if (viewportRef.current) {
         measureNode(viewportRef.current, (viewportX, viewportY, viewportWidth, viewportHeight) => {
@@ -165,8 +165,8 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
 
   useEffect(() => {
     if (!visible || !current) return;
-    AccessibilityInfo.announceForAccessibility(`${current.title} ${current.body} ${CHART_COPY.teaching.oneMove.steps.replace('{n}', String(beat + 1))}`);
-  }, [beat, current, visible]);
+    AccessibilityInfo.announceForAccessibility(`${current.title} ${current.body} ${beats.length > 1 ? CHART_COPY.teaching.oneMove.steps.replace('{n}', String(beat + 1)) : ''}`);
+  }, [beat, beats.length, current, visible]);
 
   const handleScrimDismiss = () => {
     trackTeaching('teaching_beat_dismissed', { screen: 'chart', beat: beatKey, step: beat + 1, total: beats.length, reason: 'scrim' });
@@ -208,14 +208,14 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
     <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={handleScrimDismiss} style={[styles.scrim, { backgroundColor: scrim }, bottomScrimStyle]} />
     <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={handleScrimDismiss} style={[styles.scrim, { backgroundColor: scrim }, leftScrimStyle]} />
     <AnimatedPressable accessibilityRole="button" accessibilityLabel={CHART_COPY.teaching.oneMove.dismiss} onPress={handleScrimDismiss} style={[styles.scrim, { backgroundColor: scrim }, rightScrimStyle]} />
-    <Animated.View pointerEvents="none" style={[styles.spotlight, spotlight, spotlightStyle]} />
+    <Animated.View testID="chart-teaching-target-hole" pointerEvents="none" style={[styles.spotlight, spotlight, spotlightStyle]} />
     <View pointerEvents="none" style={[styles.arrow, placeBelow ? styles.arrowUp : styles.arrowDown, { left: arrowX, top: placeBelow ? tipTop - 10 : tipTop + tipHeight }]} />
     <View onLayout={event => setTipHeight(event.nativeEvent.layout.height)} accessibilityRole="summary" accessibilityLiveRegion="polite" accessible={false} style={[styles.tip, { left: tipX, top: tipTop, width: tipWidth, maxHeight: tipMaxHeight }]}>
       <ScrollView bounces={false} contentContainerStyle={styles.tipContent}>
         <Text style={styles.title}>{current.title}</Text>
         <Text style={styles.body}>{current.body}</Text>
         <View style={styles.footer}>
-          <Text style={styles.steps}>{CHART_COPY.teaching.oneMove.steps.replace('{n}', String(beat + 1))}</Text>
+          {beats.length > 1 ? <Text style={styles.steps}>{CHART_COPY.teaching.oneMove.steps.replace('{n}', String(beat + 1))}</Text> : <View />}
           <Pressable accessibilityRole="button" onPress={advance} style={styles.button}>
             <Text style={styles.buttonText}>{beat === beats.length - 1 ? CHART_COPY.teaching.oneMove.gotIt : CHART_COPY.teaching.oneMove.next}</Text>
           </Pressable>

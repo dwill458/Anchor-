@@ -1,3 +1,4 @@
+import { useCelebrationActive } from '@/hooks/v2/teaching/useCelebrationActive';
 import type { ViewInstance, ScrollViewInstance } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMilestonePresentationHold } from '@/hooks/v2/milestones/useMilestonePresentationHold';
@@ -150,6 +151,7 @@ export function V2SavedVision({
   const [boardIdle, setBoardIdle] = useState(false);
   const [teachingScrolling, setTeachingScrolling] = useState(false);
   const teachingFocus = useTeachingFocus();
+  const celebrationActive = useCelebrationActive();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const imageArrival = useVisionImageArrival();
   const contextualBlocked=mode!=='view'||boardInteracting||dragging||busy||layoutSheetOpen||menuOpen||addSheetOpen||nativeAlertOpen||Boolean(captionSceneId)||manageImages||Boolean(teachingBlocked);
@@ -243,7 +245,7 @@ export function V2SavedVision({
     }
     return list;
   }, [arrivalSettled, arrivedFrom, localOrder, pendingRemovals, replaceTarget, tiles,captionDrafts]);
-  const visionTeachingBlocked = layoutSheetOpen || boardInteracting || !teachingEnabled || teachingBlocked || teachingFocus.transitioning ||
+  const visionTeachingBlocked = celebrationActive || layoutSheetOpen || boardInteracting || !teachingEnabled || teachingBlocked || teachingFocus.transitioning ||
     !arrivalSettled || Boolean(imageArrival?.url) || !boardIdle || dragging || busy || menuOpen || addSheetOpen ||
     nativeAlertOpen || mode !== 'view' || manageImages || teachingScrolling;
   useEffect(() => {

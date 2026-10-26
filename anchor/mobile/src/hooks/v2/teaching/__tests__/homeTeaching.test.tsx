@@ -1,29 +1,25 @@
-import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { homeTeachingBeats } from '../homeTeaching';
-import { useTeachingQueue } from '../useTeachingQueue';
-import { resetTeachingSeenCache } from '../teachingSeen';
-jest.mock('@/stores/encryptedPersistStorage', () => ({ encryptedPersistStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(), removeItem: jest.fn() } }));
-jest.mock('@/utils/scheduleAfterInteractions', () => ({ scheduleAfterInteractions: (action: () => void) => { action(); return { cancel: jest.fn() }; } }));
-beforeEach(resetTeachingSeenCache);
-async function visit(hasVision: boolean, hasChart: boolean, expected: string[]) {
-  const hook = renderHook(() => useTeachingQueue({ screenId: 'home', accountId: null, eligible: homeTeachingBeats({ hasAnchor: true, hasVision, hasChart }), cap: 2, blocked: false, isFocused: true }));
-  await waitFor(() => expect(hook.result.current.ready).toBe(true));
-  expect(hook.result.current.steps).toEqual(expected);
-  act(() => hook.result.current.dismiss());
-  hook.unmount();
-}
-it('anchor-only teaches Today and Progress, then adding Vision and Chart teaches only their new features', async () => {
-  await visit(false, false, ['home.today', 'home.progress']);
-  await visit(false, false, []);
-  await visit(true, false, ['home.vision', 'home.thread']);
-  await visit(true, true, ['home.chart']);
+const ready = { hasAnchor: true, todayReady: true, doneToday: false, mode: 'focus' as const, hasCompletedPractice: false };
+it('offers only Today before the first completed practice', () => {
+  expect(homeTeachingBeats(ready)).toEqual(['home.today']);
 });
-it('everything-at-once teaches Today and Vision, then Chart and Thread', async () => {
-  await visit(true, true, ['home.today', 'home.vision']);
-  await visit(true, true, ['home.chart', 'home.thread']);
+it.each([
+  { hasAnchor: false }, { todayReady: false }, { doneToday: true },
+  { mode: 'release' as const }, { hasCompletedPractice: true },
+])('withholds Today for %o', change => {
+  expect(homeTeachingBeats({ ...ready, ...change })).toEqual([]);
 });
-it('never teaches Thread without Vision, or together with Progress', () => {
-  expect(homeTeachingBeats({ hasAnchor: true, hasVision: false, hasChart: true })).not.toContain('home.thread');
-  expect(homeTeachingBeats({ hasAnchor: true, hasVision: true, hasChart: true })).not.toContain('home.progress');
-  expect(homeTeachingBeats({ hasAnchor: false, hasVision: false, hasChart: false })).toEqual([]);
+
+it.each([
+  ['focus', 30, 'Focus, 30 sec', 'Focus, 30 seconds'],
+  ['deep_prime', 300, 'Deep Focus, 5 min', 'Deep Focus, 5 minutes'],
+  ['visualize', 180, 'Visualize, 3 min', 'Visualize, 3 minutes'],
+  ['focus', undefined, 'Focus', 'Focus'],
+] as const)('uses real card mode and duration: %s %s', (mode, seconds, visual, spoken) => {
+  const { homeTodayTeachingCopy } = require('../homeTeaching');
+  expect(homeTodayTeachingCopy(mode, seconds)).toEqual({
+    title: 'Start here each day.',
+    body: `Each day Anchor suggests one practice. Today: ${visual}.`,
+    accessibilityLabel: `Start here each day. Each day Anchor suggests one practice. Today: ${spoken}.`,
+  });
 });

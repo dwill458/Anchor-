@@ -29,16 +29,19 @@ function renderTeaching({ y = 300, targetHeight = 60, detent = 'half', onRequest
   return { ...screen, onRequestVisible };
 }
 
-it('mounts a measurement root before the target can be measured, then announces the first beat and advances', async () => {
+it('mounts a measurement root, then presents one accurate lesson with Got it', async () => {
   const screen = renderTeaching();
   const measureRoot = screen.getByTestId('chart-one-move-teaching-measure');
   // The measurement host must exist before any target measurement can be requested.
   expect(measureRoot).toBeTruthy();
   fireEvent(measureRoot, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
   await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy());
-  expect(screen.getByText('This is your next move.')).toBeTruthy();
-  fireEvent.press(screen.getByText('Next'));
-  await waitFor(() => expect(screen.getByText('The circle is for done.')).toBeTruthy());
+  expect(screen.getByText('One small step for today.')).toBeTruthy();
+  expect(screen.queryByText('1 of 3')).toBeNull();
+  expect(screen.queryByText('Next')).toBeNull();
+  expect(screen.getByTestId('chart-teaching-target-hole').props.pointerEvents).toBe('none');
+  expect(screen.getByTestId('chart-one-move-teaching').props.pointerEvents).toBe('box-none');
+  fireEvent.press(screen.getByText('Got it'));
 });
 
 it('asks the sheet to rise when the peek scroll viewport clips a target still inside the window', async () => {
@@ -105,4 +108,18 @@ it('bounds sheet-visibility requests and spotlights the visible intersection for
   await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy());
   expect(onRequestVisible).toHaveBeenCalledTimes(2);
   expect(onReady).toHaveBeenCalled();
+});
+
+it('records the lesson once even when the sheet measures again', async () => {
+  const onReady = jest.fn();
+  const targets = { rowRef: target(300, 60), circleRef: target(300, 44), bodyRef: target(300, 50) };
+  const viewportRef = target(0, 844);
+  const measureInWindow = (_node: unknown, callback: (x: number, y: number, width: number, height: number) => void) => callback(0, 0, 390, 844);
+  const props = { visible: true, replayVersion: 0, reducedMotion: true, detent: 'half' as const, targets, viewportRef, measureInWindow, onReady, onRequestVisible: jest.fn(), onDismiss: jest.fn() };
+  const tree = render(<ChartOneMoveTeaching {...props} viewportLayoutRevision={0} />);
+  fireEvent(tree.getByTestId('chart-one-move-teaching-measure'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
+  await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+  tree.rerender(<ChartOneMoveTeaching {...props} viewportLayoutRevision={1} />);
+  await waitFor(() => expect(tree.getByTestId('chart-one-move-teaching')).toBeTruthy());
+  expect(onReady).toHaveBeenCalledTimes(1);
 });

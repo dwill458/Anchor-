@@ -76,8 +76,8 @@ export function useTeachingQueue({ screenId, accountId, eligible, cap, blocked, 
   }, [session, batch, screenId]);
   const dismiss = useCallback((beatsToCommit?: BeatId[]) => {
     if (owner.current !== session || live.current.session !== session || !live.current.isFocused || live.current.blocked) return;
-    // Presented beats are already marked by markShown; this commits the unpresented remainder.
-    const committed = Array.isArray(beatsToCommit) ? beatsToCommit : batchRef.current;
+    // Presented beats are already recorded by markShown. Never settle an unshown remainder.
+    const committed = beatsToCommit ?? [];
     committed.forEach(beat => setTeachingSeen(live.current.accountId, beat));
     batchRef.current = [];
     setBatch([]);

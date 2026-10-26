@@ -17,7 +17,7 @@ it('announces, advances, cuts instantly with reduced motion, and leaves no touch
   const tree = render(<SpotlightCoach {...props} />);
   await waitFor(() => expect(ready).toHaveBeenCalledWith('home.today'));
   expect(announce).toHaveBeenCalledWith(expect.stringContaining(steps[0].body));
-  expect(tree.getAllByLabelText('Dismiss tip')).toHaveLength(5);
+  expect(tree.getAllByLabelText('Dismiss tip')).toHaveLength(4);
   expect(tree.getByText('1 of 2')).toBeTruthy();
   fireEvent.press(tree.getByText('Next'));
   await waitFor(() => expect(ready).toHaveBeenCalledWith('home.progress'));
@@ -49,4 +49,13 @@ it('skips an unavailable target silently and adjusts the remaining step count', 
   expect(skip).toHaveBeenCalledWith('home.today');
   expect(tree.queryByText('2 of 2')).toBeNull();
   expect(measureTeachingTarget).toHaveBeenCalled();
+});
+
+it('leaves the highlighted target touch-transparent and announces spoken units', async () => {
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+  const tree = render(<SpotlightCoach visible steps={[{ ...steps[0], accessibilityLabel: 'Focus, 30 seconds.' }]} reducedMotion onReady={jest.fn()} onAdvance={jest.fn()} onDismiss={jest.fn()} />);
+  await waitFor(() => expect(tree.getByTestId('spotlight-target-hole')).toBeTruthy());
+  expect(tree.getByTestId('spotlight-target-hole').props.pointerEvents).toBe('none');
+  expect(tree.getByTestId('spotlight-coach').props.pointerEvents).toBe('box-none');
+  expect(announce).toHaveBeenCalledWith('Focus, 30 seconds.');
 });

@@ -3,7 +3,7 @@ export const TEACHING_COPY = {
   replay: { title: 'Replay app tips', helper: 'Show the quick tips again on every screen.', confirmation: 'App tips reset.' },
   dev: { replay: 'Replay teaching', reset: 'Reset teaching' },
   beats: {
-    'home.today': { title: 'A little focus goes a long way.', body: 'Each day Anchor picks a short practice to bring you back to your goal. Begin it here.' },
+    'home.today': { title: 'Start here each day.', body: 'Each day Anchor suggests one practice. Today: {mode}, {duration}.', bodyWithoutDuration: 'Each day Anchor suggests one practice. Today: {mode}.' },
     'home.progress': { title: 'Your progress starts here.', body: 'Every practice builds your Thread Strength, and it fades slowly if you stop. Tap to see your full progress.' },
     'home.vision': { title: 'Keep your future in sight.', body: "Your Vision gives the future you're working toward a picture. Return to it whenever you need to remember where you're headed." },
     'home.chart': { title: 'Turn your vision into movement.', body: "Your Chart breaks a big goal into smaller milestones. See where you are, what's next, and how far you've come." },
@@ -23,3 +23,9 @@ export const TEACHING_COPY = {
 
 export type BeatId = keyof typeof TEACHING_COPY.beats;
 export const TEACHING_BEAT_IDS = Object.keys(TEACHING_COPY.beats) as BeatId[];
+
+/** Retained for Replay and the future guidance migration; never offered by eligibility. */
+export const RETIRED_TEACHING_BEAT_IDS: readonly BeatId[] = [
+  'home.progress', 'home.vision', 'home.chart', 'home.thread', 'details.vision', 'details.chart',
+  'practice.today', 'progress.week', 'progress.rhythm', 'progress.route',
+];

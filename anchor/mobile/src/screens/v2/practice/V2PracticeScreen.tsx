@@ -1,3 +1,4 @@
+import { useCelebrationActive } from '@/hooks/v2/teaching/useCelebrationActive';
 import type { ViewInstance } from 'react-native';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -132,6 +133,7 @@ export function V2PracticeScreen({
   onSessionCompleted,
 }: Props) {
   const teachingFocus = useTeachingFocus();
+  const celebrationActive = useCelebrationActive();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const todayTeachingRef = useRef<ViewInstance>(null);
   const switchTeachingRef = useRef<ViewInstance>(null);
@@ -177,7 +179,7 @@ export function V2PracticeScreen({
   const [justCompletedDurationSeconds, setJustCompletedDurationSeconds] = useState<number | null>(null);
   const teachingQueue = useTeachingQueue({ screenId: 'practice', accountId: teachingAccountId,
     eligible: practiceTeachingBeats(activeAnchors.length, Boolean(fixedAnchor)), cap: 2, isFocused: teachingFocus.isFocused,
-    blocked: teachingFocus.transitioning || anchorInFlight || isSwitcherOpen || Boolean(prepareMode || activeSession || initialMode || resumeMode) || !fixedAnchor || model.loadingRecommendation });
+    blocked: celebrationActive || teachingFocus.transitioning || anchorInFlight || isSwitcherOpen || Boolean(prepareMode || activeSession || initialMode || resumeMode) || !fixedAnchor || model.loadingRecommendation });
 
   const effectiveCapabilities = capabilities ?? model.capability;
 

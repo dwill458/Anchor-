@@ -44,16 +44,8 @@ export const CHART_COPY = {
     oneMove: {
       beats: [
         {
-          title: 'This is your next move.',
-          body: 'Each waypoint has a next move: one small, real step you can take now. Finish it at your own pace, and the next one is ready.',
-        },
-        {
-          title: 'The circle is for done.',
-          body: 'Tap it when you have actually done the move. Your route only moves when you do.',
-        },
-        {
-          title: 'The words are for detail.',
-          body: 'Tap the text to read the full move, why it matters, and when the waypoint counts as reached.',
+          title: 'One small step for today.',
+          body: "Tap the circle once you've done it. Tap the words to see the details.",
         },
       ],
       next: 'Next',

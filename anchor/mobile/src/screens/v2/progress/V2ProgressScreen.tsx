@@ -1,3 +1,4 @@
+import { useCelebrationActive } from '@/hooks/v2/teaching/useCelebrationActive';
 import type { ViewInstance, ScrollViewInstance } from 'react-native';
 
 import React from 'react';
@@ -100,6 +101,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   const [refreshing, setRefreshing] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   const teachingFocus = useTeachingFocus();
+  const celebrationActive = useCelebrationActive();
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const reducedMotion = useV2ReduceMotion();
   const scrollRef = React.useRef<ScrollViewInstance>(null);
@@ -114,7 +116,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
   const teachingQueue = useTeachingQueue({ screenId: 'progress', accountId: teachingAccountId,
     eligible: model ? progressTeachingBeats({ unmeasured: model.unmeasured, hasWeek: Boolean(model.week), hasRhythm: model.unmeasured || Boolean(model.rhythm && model.heatmap), hasRoute: Boolean(model.route) }) : [],
     cap: 2, isFocused: teachingFocus.isFocused,
-    blocked: teachingFocus.transitioning || !model || loading || refreshing || switcherOpen || Boolean(selectedEvent) || rangeMoving || scrolling });
+    blocked: celebrationActive || teachingFocus.transitioning || !model || loading || refreshing || switcherOpen || Boolean(selectedEvent) || rangeMoving || scrolling });
   const getTeachingRect = React.useCallback(async (target: React.RefObject<ViewInstance | null>) => {
     controlledScroll.current = true;
     try {

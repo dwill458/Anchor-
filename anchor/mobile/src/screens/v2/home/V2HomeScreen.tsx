@@ -1,3 +1,4 @@
+import { useCelebrationActive } from '@/hooks/v2/teaching/useCelebrationActive';
 import type { ViewInstance } from 'react-native';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,7 +40,7 @@ import { playCreationSound } from '@/services/CreationSounds';
 import { useAuthStore } from '@/stores/authStore';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
-import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
+import { homeTeachingBeats, homeTodayTeachingCopy } from '@/hooks/v2/teaching/homeTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
 import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 import { VisionHomeReturnSkip, useVisionHomeReturn } from './visionHomeReturn';
@@ -120,6 +121,8 @@ export function V2HomeScreen() {
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const teachingAccountId = useAuthStore(state => state.user?.id ?? null);
   const teachingFocus = useTeachingFocus();
+  const celebrationActive = useCelebrationActive();
+  const hasCompletedPractice = useSessionStore(state => state.sessionLog.length > 0);
   const todayTeachingRef = useRef<ViewInstance>(null);
   const progressTeachingRef = useRef<ViewInstance>(null);
   const visionTeachingRef = useRef<ViewInstance>(null);
@@ -485,12 +488,14 @@ export function V2HomeScreen() {
     (visible, previous) => { if (visible !== previous) runOnJS(setHeroOnscreen)(visible); },
   );
   // Canonical Home idle gate: the teaching queue also waits for an idle slot after this clears.
-  const homeIsIdle = teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival && !visionReturn.active &&
+  const homeIsIdle = !celebrationActive && teachingFocus.isFocused && !teachingFocus.transitioning && !arrival.context.active && !arrival.arrival && !visionReturn.active &&
     !veilSwapPending.current && !carouselMoving && !homeMotionActive && !focusTransition.active && !threadEvents.active &&
     model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
     model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
   const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId,
-    eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), hasVision, hasChart }), cap: 2, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
+    eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), todayReady: todayForDisplay.state === 'ready',
+      doneToday: todayForDisplay.state === 'ready' && Boolean(todayForDisplay.doneToday),
+      mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice }), cap: 1, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
   const getTeachingRect = useCallback(async (target: React.RefObject<ViewInstance | null>) => {
     teachingScrollActive.value = true;
     try {
@@ -772,7 +777,8 @@ export function V2HomeScreen() {
       </GestureDetector>
 
       <ScreenTeaching screen="home" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
-        'home.today': { getRect: () => getTeachingRect(todayTeachingRef) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
+        'home.today': { getRect: () => getTeachingRect(todayTeachingRef),
+          ...(todayForDisplay.state === 'ready' ? homeTodayTeachingCopy(todayForDisplay.mode, todayForDisplay.durationSeconds) : {}) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
         'home.vision': { getRect: () => getTeachingRect(visionTeachingRef) }, 'home.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
         'home.thread': { getRect: () => getTeachingRect(threadTeachingRef) },
       }} />

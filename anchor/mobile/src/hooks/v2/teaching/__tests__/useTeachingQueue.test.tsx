@@ -20,17 +20,18 @@ beforeEach(() => {
   resetTeachingSession();
 });
 
-it('takes first N unseen, freezes streaming eligibility, and saves the entire dismissed batch', async () => {
+it('takes first N unseen, freezes eligibility, and dismisses only presented beats', async () => {
   const { result, rerender, unmount } = renderHook(props => useTeachingQueue(props), { initialProps: initial });
   await waitFor(() => expect(result.current.steps).toEqual(['home.today', 'home.progress']));
   rerender({ ...initial, eligible: ['home.vision'] });
   expect(result.current.steps).toEqual(['home.today', 'home.progress']);
+  act(() => result.current.markShown('home.today'));
   act(() => result.current.dismiss());
-  expect(await getTeachingSeen(null, 'home.progress')).toBe(true);
+  expect(await getTeachingSeen(null, 'home.progress')).toBe(false);
   unmount();
   const second = renderHook(() => useTeachingQueue({ ...initial, eligible: ['home.today', 'home.progress'] }));
   await waitFor(() => expect(second.result.current.ready).toBe(true));
-  expect(second.result.current.steps).toEqual([]);
+  expect(second.result.current.steps).toEqual(['home.progress']);
 });
 
 it('waits while blocked and interrupts without marking or restarting this visit', async () => {

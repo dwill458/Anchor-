@@ -12,6 +12,7 @@ export type TeachingStep = {
   getRect?: () => TeachingRect | null | Promise<TeachingRect | null>;
   title: string;
   body: string;
+  accessibilityLabel?: string;
   whisper?: boolean;
 };
 type Props = {
@@ -68,7 +69,7 @@ export function SpotlightCoach(props: Props) {
         spot.value = reducedMotion || !hasSpot.current ? next : withTiming(next, { duration: 260, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.Never });
         hasSpot.current = true;
         setGeometry({ root: bounds, target: next });
-        AccessibilityInfo.announceForAccessibility(`${current.title} ${current.body}`);
+        AccessibilityInfo.announceForAccessibility(current.accessibilityLabel ?? `${current.title} ${current.body}`);
         latest.current.onReady(current.id);
       })().catch(() => {
         if (cancelled) return;
@@ -113,8 +114,7 @@ export function SpotlightCoach(props: Props) {
   };
   return <View accessibilityViewIsModal ref={root} collapsable={false} pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.root]} testID="spotlight-coach">
     {[topStyle, bottomStyle, leftStyle, rightStyle].map((style, i) => <AnimatedPressable key={i} accessibilityRole="button" accessibilityLabel={TEACHING_COPY.common.dismiss} onPress={() => latest.current.onDismiss('scrim')} style={[styles.scrim, style]} />)}
-    {/* The hole stays visually clear, but taps there dismiss rather than launch a practice beneath a tip. */}
-    <AnimatedPressable accessibilityRole="button" accessibilityLabel={TEACHING_COPY.common.dismiss} onPress={() => latest.current.onDismiss('scrim')} style={[styles.spot, spotStyle]} />
+    <Animated.View testID="spotlight-target-hole" pointerEvents="none" style={[styles.spot, spotStyle]} />
     <View pointerEvents="none" style={[styles.arrow, placeBelow ? styles.arrowUp : styles.arrowDown, { left: arrowX, top: placeBelow ? tipTop - 10 : tipTop + tipHeight }]} />
     <View onLayout={event => setTipHeight(event.nativeEvent.layout.height)} style={[styles.tip, { left: tipLeft, top: tipTop, width: tipWidth, maxHeight: tipMaxHeight }]}>
       <ScrollView bounces={false} contentContainerStyle={styles.tipContent}>

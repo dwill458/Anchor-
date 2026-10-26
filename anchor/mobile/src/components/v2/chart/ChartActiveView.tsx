@@ -1,3 +1,4 @@
+import { useCelebrationActive } from '@/hooks/v2/teaching/useCelebrationActive';
 import type { ViewInstance } from 'react-native';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, DeviceEventEmitter, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -329,6 +330,7 @@ export function ChartActiveView({
   );
   const [sheetDetent, setSheetDetent] = useState<ChartSheetDetent>('hidden');
   const [taughtState, setTaughtState] = useState<{ key: string; loaded: boolean; taught: boolean }>({ key: '', loaded: false, taught: false });
+  const celebrationActive = useCelebrationActive();
   const [teachingVisible, setTeachingVisible] = useState(false);
   const [teachingReplayVersion, setTeachingReplayVersion] = useState(0);
   const [teachingViewportRevision, setTeachingViewportRevision] = useState(0);
@@ -610,28 +612,28 @@ export function ChartActiveView({
 
   useEffect(() => {
     const hasMove = view.waypoints.some(waypoint => waypoint.moves.length > 0);
-    if (!hasMove || !openingFinished || !openedRef.current || runner.isBusy() || reachingRef.current || ceremony || reachEvent || confirmOpen || menuOpen) return;
+    if (celebrationActive || !hasMove || !openingFinished || !openedRef.current || runner.isBusy() || reachingRef.current || ceremony || reachEvent || confirmOpen || menuOpen) return;
     if (sheetDetent !== 'peek' && sheetDetent !== 'half') return;
     if (!taughtState.loaded || taughtState.key !== teachingKey || taughtState.taught || teachingShownKey.current === teachingKey) return;
     if (!oneMoveRowRef.current || !oneMoveCircleRef.current || !oneMoveBodyRef.current) return;
     teachingSessionKey.current = teachingKey;
     teachingShownKey.current = teachingKey;
     setTeachingVisible(true);
-  }, [accountId, ceremony, confirmOpen, dayHold, menuOpen, openingFinished, reachEvent, runner, sheetDetent, swapRevision, taughtState, teachingKey, view.courseId, view.waypoints]);
+  }, [celebrationActive, accountId, ceremony, confirmOpen, dayHold, menuOpen, openingFinished, reachEvent, runner, sheetDetent, swapRevision, taughtState, teachingKey, view.courseId, view.waypoints]);
 
   useEffect(() => {
-    if (!teachingRequested || sheetDetent === 'hidden') return;
+    if (celebrationActive || !teachingRequested || sheetDetent === 'hidden') return;
     if (!openingFinished || runner.isBusy() || reachingRef.current || ceremony || reachEvent || confirmOpen || menuOpen) return;
     teachingSessionKey.current = teachingKey;
     setTeachingVisible(true);
     setTeachingRequested(false);
-  }, [ceremony, confirmOpen, menuOpen, openingFinished, reachEvent, runner, sheetDetent, teachingKey, teachingRequested]);
+  }, [celebrationActive, ceremony, confirmOpen, menuOpen, openingFinished, reachEvent, runner, sheetDetent, teachingKey, teachingRequested]);
 
   useEffect(() => {
-    if (teachingVisible && (runner.isBusy() || reachingRef.current || ceremony || reachEvent || confirmOpen || menuOpen || sheetDetent === 'hidden')) {
+    if (teachingVisible && (celebrationActive || runner.isBusy() || reachingRef.current || ceremony || reachEvent || confirmOpen || menuOpen || sheetDetent === 'hidden')) {
       setTeachingVisible(false);
     }
-  }, [accountId, ceremony, confirmOpen, menuOpen, reachEvent, runner, sheetDetent, swapRevision, teachingKey, teachingVisible, view.courseId]);
+  }, [celebrationActive, accountId, ceremony, confirmOpen, menuOpen, reachEvent, runner, sheetDetent, swapRevision, teachingKey, teachingVisible, view.courseId]);
 
   /* ---- route follows server data ---------------------------------- */
   useEffect(() => {
@@ -1346,7 +1348,7 @@ export function ChartActiveView({
       <ChartMapHeader categoryLabel={categoryLabel} category={identity.category} accent={accent} visionImageUrl={vision?.imageUrl ?? null} hasVision={Boolean(vision)} onBack={offCurrent ? backToCurrent : onBack} onMenu={() => setMenuOpen(true)} onOpenVision={onOpenVision} />
       <ChartMap testID="chart-hero-map" width={width} height={height} frame={frame} table={table} placement={placement} anim={anim} markers={markersShown} categoryColor={categoryColor} category={identity.category ?? undefined} reducedMotion={reducedMotion} arrived={arrived} clouds weather="living" continuous={entrance === 'reveal'} onShown={onMapShown} revision={revision} summitArt={summitArt} plantedFlag={flagPlanted} onMarkerPress={handleMarkerPress} onMapPress={handleMapPress} />
       {ceremony && !ceremony.isLast && view.waypoints[ceremony.index] ? <ChartReachBeat visible={ceremony.filled && !ceremony.advanced} number={view.waypoints[ceremony.index].number} title={view.waypoints[ceremony.index].title} category={identity.category} reducedMotion={reducedMotion} bottom={height - sheetPositions.peek + 12} /> : null}
-      <ChartSheet ref={sheetRef} reducedMotion={reducedMotion} busy={sequenceBusy} onDetentChange={onDetentChange} overlay={<ChartOneMoveTeaching visible={teachingVisible} replayVersion={teachingReplayVersion} reducedMotion={reducedMotion} detent={sheetDetent} targets={teachingTargets} viewportRef={oneMoveViewportRef} viewportLayoutRevision={teachingViewportRevision} onRequestVisible={requestTeachingVisibility} onReady={markTeachingShown} onDismiss={dismissTeaching} />}>
+      <ChartSheet ref={sheetRef} reducedMotion={reducedMotion} busy={sequenceBusy} onDetentChange={onDetentChange} overlay={<ChartOneMoveTeaching visible={teachingVisible && !celebrationActive} replayVersion={teachingReplayVersion} reducedMotion={reducedMotion} detent={sheetDetent} targets={teachingTargets} viewportRef={oneMoveViewportRef} viewportLayoutRevision={teachingViewportRevision} onRequestVisible={requestTeachingVisibility} onReady={markTeachingShown} onDismiss={dismissTeaching} />}>
         <ChartSheetContent view={view} waypointId={panelWaypointId} chart={panelActions} category={identity.category} reducedMotion={reducedMotion} actionError={actionError} bottomInset={insets.bottom} onBack={backToCurrent} onReached={handleReached} inputs={inputs} hw={effectiveHw} vision={vision} onOpenVision={onOpenVision} onOpenLog={onOpenLog} onRelease={onRelease ?? onAdjust} onOpenPractice={onOpenPractice} anchorArt={anchorArt} onOpenAnchor={onOpenAnchor} onAskChart={onAskChart} threadStrength={threadStrength} onCompleteMove={handleCompleteMove} oneMoveRowRef={oneMoveRowRef} oneMoveCircleRef={oneMoveCircleRef} oneMoveBodyRef={oneMoveBodyRef} scrollViewportRef={oneMoveViewportRef} onScrollViewportLayout={onTeachingViewportLayout} onReplayTeaching={replayTeaching} commit={commit} onCommitDismiss={dismissCommit} onContentApplied={onChartContentApplied} dayClosedHold={dayHold} arrived={arrived} entrance={entrance} stale={stale} viewWaypoint={focusRouteWaypoint} onExpandSheet={() => { if (!runner.isBusy()) sheetRef.current?.snapTo('full'); }} swapRevision={swapRevision} isContentLocked={isContentLocked} stillRight={showStillRight ? <ChartInkCard testID="chart-still-right" style={styles.stillRight}><Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text><View style={styles.row}><ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} /><ChartInkButton label={CHART_COPY.review.adjust} onPress={() => { setShowStillRight(false); onAdjust(); }} style={styles.flex} /></View></ChartInkCard> : null} />
       </ChartSheet>
 

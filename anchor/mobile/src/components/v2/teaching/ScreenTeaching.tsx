@@ -4,7 +4,7 @@ import { trackTeaching } from '@/utils/v2/teachingAnalytics';
 import { SpotlightCoach, type TeachingStep } from './SpotlightCoach';
 import { TeachingWhisper } from './TeachingWhisper';
 
-export type TeachingTarget = Pick<TeachingStep, 'targetRef' | 'getRect'>;
+export type TeachingTarget = Pick<TeachingStep, 'targetRef' | 'getRect'> & { title?: string; body?: string; accessibilityLabel?: string };
 export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
   screen: string;
   queue: { steps: BeatId[]; ready: boolean; markShown: (beat?: BeatId) => void; dismiss: (beatsToCommit?: BeatId[]) => void };
@@ -45,7 +45,7 @@ export function ScreenTeaching({ screen, queue, targets, reducedMotion }: {
     }
     const beat = active.current ?? queue.steps[0];
     if (beat) trackTeaching('teaching_beat_dismissed', { screen, beat, step: queue.steps.indexOf(beat) + 1, total: queue.steps.length, reason });
-    queue.dismiss(queue.steps.filter(b => !skipped.current.has(b)));
+    queue.dismiss(Array.from(shown.current));
   }, [queue.dismiss, queue.steps, screen]);
   React.useEffect(() => {
     if (queue.steps.length) return;

@@ -59,3 +59,12 @@ it('reset clears account and guest storage and ignores reads started before rese
   expect(storage.removeItem.mock.calls.some(([key]) => key.endsWith(':a'))).toBe(true);
   expect(storage.removeItem.mock.calls.some(([key]) => key.startsWith('guest:teach:'))).toBe(true);
 });
+
+it('resets every retired beat for both guest and account', async () => {
+  const { RETIRED_TEACHING_BEAT_IDS } = require('@/constants/v2/teachingCopy');
+  await resetAllTeachingSeen('account');
+  for (const beat of RETIRED_TEACHING_BEAT_IDS) {
+    expect(storage.removeItem).toHaveBeenCalledWith(`anchor:v2:teach:${beat}:account`);
+    expect(storage.removeItem).toHaveBeenCalledWith(`guest:teach:${beat}`);
+  }
+});

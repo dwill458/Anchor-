@@ -63,3 +63,10 @@ export function v2PracticeDurationLabel(seconds: number): string {
   if (seconds < 60) return `${seconds} sec`;
   return `${seconds / 60} min`;
 }
+
+/** Spoken units for teaching announcements. */
+export function v2PracticeDurationAccessibilityLabel(seconds: number): string {
+  const count = seconds < 60 ? seconds : seconds / 60;
+  const unit = seconds < 60 ? 'second' : 'minute';
+  return `${count} ${unit}${count === 1 ? '' : 's'}`;
+}
