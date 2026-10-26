@@ -327,9 +327,13 @@ describe('V2VisionScreen ceremony additions', () => {
     expect(generationCall).toBeDefined();
     expect(generationCall?.[1]).toMatchObject({
       sceneDescription: 'The backyard at night with a fire pit',
-      operation: 'CREATE',
+      // The board's photos are used as references by default, so this is a composition.
+      operation: 'COMPOSE',
       sessionId: currentSession.id,
-      references: [],
+      references: [
+        { assetId: 'ast-1', role: 'world' },
+        { assetId: 'ast-2', role: 'world' },
+      ],
     });
     expect(generationCall?.[1].idempotencyKey).toEqual(expect.any(String));
   });

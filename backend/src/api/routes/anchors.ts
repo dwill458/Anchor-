@@ -328,7 +328,16 @@ async function resolveAnchorArtworkUrls<
     delta7dStatus?: string;
     threadStatus?: string;
   },
->(anchor: T): Promise<T & { threadStrength: number | null; delta7d?: number | null; delta7dStatus?: string; threadStatus?: string }> {
+>(
+  anchor: T
+): Promise<
+  T & {
+    threadStrength: number | null;
+    delta7d?: number | null;
+    delta7dStatus?: string;
+    threadStatus?: string;
+  }
+> {
   let threadStrength: number | null =
     typeof anchor.threadStrength === 'number'
       ? anchor.threadStrength
@@ -336,8 +345,10 @@ async function resolveAnchorArtworkUrls<
         ? anchor.threadV2States[0].strength
         : null;
   let delta7d: number | null = anchor.delta7d ?? null;
-  let delta7dStatus: string = anchor.delta7dStatus ?? (threadStrength !== null ? 'AVAILABLE' : 'FIRST_WEEK');
-  let threadStatus: string = anchor.threadStatus ?? (threadStrength !== null ? 'active' : 'unestablished');
+  let delta7dStatus: string =
+    anchor.delta7dStatus ?? (threadStrength !== null ? 'AVAILABLE' : 'FIRST_WEEK');
+  let threadStatus: string =
+    anchor.threadStatus ?? (threadStrength !== null ? 'active' : 'unestablished');
 
   if (anchor.id && anchor.userId) {
     try {

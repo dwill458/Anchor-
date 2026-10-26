@@ -18,6 +18,8 @@ import { createSingleFlight } from './visionSingleFlight';
 export const ADD_SCENE_MIN_CHARS = 6;
 export const ADD_SCENE_MAX_CHARS = 2000;
 const MAX_BOARD_REFERENCE_PHOTOS = 2;
+/** Stable identity: an inline `= []` default is a new array each render and re-fires every effect that depends on it. */
+const NO_BOARD_PHOTOS: VisionReferenceAttachment[] = [];
 
 export type AddSceneRequest = { description: string; photo: VisionStartPhoto | null; references?: VisionReferenceAttachment[]; sessionId?: string };
 
@@ -50,7 +52,7 @@ type Props = {
  * board underneath is never remounted; submitting hands a prepared request to the existing generation
  * experience. A draft survives closing the sheet and clears once a request is sent.
  */
-export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, restoreDraft = null, onDraftRestored, onDraftChange, canAddImage = true, boardReferencePhotos = [], testID = 'vision-add-scene-sheet' }: Props) {
+export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmit, onAddOwnPhoto, onAddNote, restoreDraft = null, onDraftRestored, onDraftChange, canAddImage = true, boardReferencePhotos = NO_BOARD_PHOTOS, testID = 'vision-add-scene-sheet' }: Props) {
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();

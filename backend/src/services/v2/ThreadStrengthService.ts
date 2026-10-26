@@ -59,9 +59,7 @@ export const THREAD_STRENGTH_LEVELS: ReadonlyArray<{
   { level: 'Sovereign', minStrength: 80, maxStrength: 100 },
 ];
 
-export function getThreadStrengthLevel(
-  strength: number | null | undefined
-): ThreadStrengthLevel {
+export function getThreadStrengthLevel(strength: number | null | undefined): ThreadStrengthLevel {
   if (strength === null || strength === undefined) return 'Surface';
   const clamped = Math.min(MAX_STRENGTH, Math.max(MIN_STRENGTH, Math.round(strength)));
   if (clamped >= 80) return 'Sovereign';
@@ -145,7 +143,10 @@ export function calculateSessionEarning(input: {
 
   const dailyBonus = input.isFirstSessionToday ? DAILY_RETURN_BONUS : 0;
   const safeDuration = Math.max(0, input.durationSeconds);
-  const clampedPrior = Math.max(0, Math.min(DAILY_DURATION_CAP_SECONDS, input.priorEligibleSecondsToday));
+  const clampedPrior = Math.max(
+    0,
+    Math.min(DAILY_DURATION_CAP_SECONDS, input.priorEligibleSecondsToday)
+  );
   const newEligible = Math.min(DAILY_DURATION_CAP_SECONDS, clampedPrior + safeDuration);
   const deltaSeconds = Math.max(0, newEligible - clampedPrior);
   const durationPoints = (deltaSeconds / 60) * POINTS_PER_MINUTE;
@@ -380,7 +381,12 @@ export class ThreadStrengthService {
 
     await tx.threadV2State.upsert({
       where: { userId_anchorId: { userId: input.userId, anchorId: input.anchorId } },
-      create: { userId: input.userId, anchorId: input.anchorId, strength: 0, ruleVersion: 'v2.0-authoritative' },
+      create: {
+        userId: input.userId,
+        anchorId: input.anchorId,
+        strength: 0,
+        ruleVersion: 'v2.0-authoritative',
+      },
       update: {},
     });
 
@@ -388,8 +394,10 @@ export class ThreadStrengthService {
       where: { userId: input.userId },
       select: { threadStrengthSensitivity: true, decayPreferencesHistory: true, restDays: true },
     });
-    const sensitivity = (userSettings?.threadStrengthSensitivity as ThreadStrengthSensitivity) || 'balanced';
-    const preferenceHistory = (userSettings?.decayPreferencesHistory as DecayPreferenceHistoryEntry[] | null) || null;
+    const sensitivity =
+      (userSettings?.threadStrengthSensitivity as ThreadStrengthSensitivity) || 'balanced';
+    const preferenceHistory =
+      (userSettings?.decayPreferencesHistory as DecayPreferenceHistoryEntry[] | null) || null;
     const restDays = userSettings?.restDays || [];
 
     const priorMovements = await tx.threadV2Movement.findMany({
@@ -630,9 +638,11 @@ export class ThreadStrengthService {
       where: { userId },
       select: { threadStrengthSensitivity: true, decayPreferencesHistory: true, restDays: true },
     });
-    const sensitivity = (userSettings?.threadStrengthSensitivity as ThreadStrengthSensitivity) || 'balanced';
-    const preferenceHistory = (userSettings?.decayPreferencesHistory as DecayPreferenceHistoryEntry[] | null) || null;
-    const restDays = restDaysOverride.length > 0 ? restDaysOverride : (userSettings?.restDays || []);
+    const sensitivity =
+      (userSettings?.threadStrengthSensitivity as ThreadStrengthSensitivity) || 'balanced';
+    const preferenceHistory =
+      (userSettings?.decayPreferencesHistory as DecayPreferenceHistoryEntry[] | null) || null;
+    const restDays = restDaysOverride.length > 0 ? restDaysOverride : userSettings?.restDays || [];
 
     await this.syncMissingMovementsForAnchor(userId, anchorId);
 
@@ -844,7 +854,9 @@ export class ThreadStrengthService {
       }
     }
 
-    return strength !== null ? roundToPrecision(Math.max(MIN_STRENGTH, Math.min(MAX_STRENGTH, strength)), 2) : null;
+    return strength !== null
+      ? roundToPrecision(Math.max(MIN_STRENGTH, Math.min(MAX_STRENGTH, strength)), 2)
+      : null;
   }
 }
 

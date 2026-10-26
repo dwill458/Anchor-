@@ -1110,7 +1110,9 @@ router.put(
             select: { threadStrengthSensitivity: true, decayPreferencesHistory: true },
           });
 
-          const currentHistory: DecayPreferenceHistoryEntry[] = Array.isArray(existing?.decayPreferencesHistory)
+          const currentHistory: DecayPreferenceHistoryEntry[] = Array.isArray(
+            existing?.decayPreferencesHistory
+          )
             ? (existing?.decayPreferencesHistory as DecayPreferenceHistoryEntry[])
             : [];
 
@@ -1120,7 +1122,8 @@ router.put(
 
           // If no history exists, seed initial baseline with current/default policy
           if (currentHistory.length === 0) {
-            const initialSensitivity = (existing?.threadStrengthSensitivity as ThreadStrengthSensitivity) || 'balanced';
+            const initialSensitivity =
+              (existing?.threadStrengthSensitivity as ThreadStrengthSensitivity) || 'balanced';
             currentHistory.push({
               sensitivity: initialSensitivity,
               effectiveFromLocalDateKey: '1970-01-01',
@@ -1129,7 +1132,9 @@ router.put(
           }
 
           // A newly selected preference takes effect on the next calendar day
-          const existingEntryIndex = currentHistory.findIndex(h => h.effectiveFromLocalDateKey === tomorrowKey);
+          const existingEntryIndex = currentHistory.findIndex(
+            h => h.effectiveFromLocalDateKey === tomorrowKey
+          );
           if (existingEntryIndex >= 0) {
             currentHistory[existingEntryIndex] = {
               sensitivity: threadStrengthSensitivity,

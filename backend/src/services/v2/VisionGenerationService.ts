@@ -512,24 +512,26 @@ export class VisionGenerationService {
         ...(ref.label ? { label: ref.label } : {}),
       }))
     );
-    return Promise.all(inputs.map(async input => {
-      const asset = await prisma.asset.findFirst({
-        where: { id: input.assetId, userId: job.userId },
-        select: { storageKey: true },
-      });
-      if (!asset)
-        throw new AppError(
-          'Reference photo is unavailable. Choose it again.',
-          400,
-          'INVALID_VISION_REFERENCE'
-        );
-      const buffer = await sharp(await readPrivateImageAsset(asset.storageKey))
-        .rotate()
-        .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 88 })
-        .toBuffer();
-      return { buffer, mimeType: 'image/jpeg', role: input.role, label: input.label };
-    }));
+    return Promise.all(
+      inputs.map(async input => {
+        const asset = await prisma.asset.findFirst({
+          where: { id: input.assetId, userId: job.userId },
+          select: { storageKey: true },
+        });
+        if (!asset)
+          throw new AppError(
+            'Reference photo is unavailable. Choose it again.',
+            400,
+            'INVALID_VISION_REFERENCE'
+          );
+        const buffer = await sharp(await readPrivateImageAsset(asset.storageKey))
+          .rotate()
+          .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 88 })
+          .toBuffer();
+        return { buffer, mimeType: 'image/jpeg', role: input.role, label: input.label };
+      })
+    );
   }
 
   /** The person's own photo of their real world today, read for the image model. Best effort: a missing photo never blocks the scene. */

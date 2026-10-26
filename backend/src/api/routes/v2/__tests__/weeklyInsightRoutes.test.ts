@@ -11,7 +11,7 @@ const mockSnapshot = { findMany: jest.fn(), findFirst: jest.fn(), create: jest.f
 jest.mock('../../../../lib/prisma', () => ({ prisma: { weeklyInsightSnapshot: mockSnapshot } }));
 
 const mockRows = new Map<string, any>();
-const mockReader = {
+const mockReader: Record<string, jest.Mock<Promise<any>, any[]>> = {
   hasAnyHistory: jest.fn(async () => true), practices: jest.fn(async () => []), priorPracticeAt: jest.fn(async () => null),
   chart: jest.fn(async () => ({ waypoints: [], courses: [] })), moves: jest.fn(async () => []), completions: jest.fn(async () => []),
   releases: jest.fn(async () => []), milestones: jest.fn(async () => []), visions: jest.fn(async () => []), anchors: jest.fn(async () => []),

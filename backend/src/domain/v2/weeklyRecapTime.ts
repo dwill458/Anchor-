@@ -75,7 +75,8 @@ function localParts(instant: number, timeZone: string): LocalParts {
     hour: '2-digit',
     minute: '2-digit',
   }).formatToParts(new Date(instant));
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? '00';
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find(p => p.type === type)?.value ?? '00';
   return {
     key: `${get('year')}-${get('month')}-${get('day')}`,
     hour: Number(get('hour')) % 24,
@@ -103,7 +104,10 @@ export function localToUtc(key: string, hour: number, minute: number, timeZone: 
   const { y, m, d } = parseKey(key);
   const guess = Date.UTC(y, m - 1, d, hour, minute);
   const offsets = Array.from(
-    new Set([offsetMinutes(guess - 12 * 3_600_000, timeZone), offsetMinutes(guess + 12 * 3_600_000, timeZone)])
+    new Set([
+      offsetMinutes(guess - 12 * 3_600_000, timeZone),
+      offsetMinutes(guess + 12 * 3_600_000, timeZone),
+    ])
   );
   const valid = offsets
     .map(o => guess - o * 60_000)
@@ -145,7 +149,10 @@ export function phaseOfWeek(weekKey: string, now: Date, timeZone: string): Recap
 }
 
 /** Which week "latest" means right now: this week during Sunday-evening preview, otherwise the week that just ended. */
-export function latestRecapWeek(now: Date, timeZone: string): { weekKey: string; phase: RecapPhase } {
+export function latestRecapWeek(
+  now: Date,
+  timeZone: string
+): { weekKey: string; phase: RecapPhase } {
   const current = mondayOfKey(localDateKeyOf(now, timeZone));
   const currentPhase = phaseOfWeek(current, now, timeZone);
   if (currentPhase === 'PREVIEW') return { weekKey: current, phase: currentPhase };
@@ -157,7 +164,20 @@ export function weekRangeLabel(weekKey: string): string {
   const end = addDaysToKey(weekKey, 6);
   const a = parseKey(weekKey);
   const b = parseKey(end);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
   const start = `${months[a.m - 1]} ${a.d}`;
   return a.m === b.m ? `${start} – ${b.d}` : `${start} – ${months[b.m - 1]} ${b.d}`;
 }
