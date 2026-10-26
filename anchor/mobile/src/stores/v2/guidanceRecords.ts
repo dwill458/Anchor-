@@ -15,7 +15,7 @@ export function mergeGuidanceRecords(account: GuidanceData, guest: GuidanceData)
     const dates = [current.firstDisplayedAt, incoming.firstDisplayedAt].filter((date): date is string => Boolean(date)).sort();
     records[id] = { ...winner, firstDisplayedAt: dates[0], displayCount: Math.max(current.displayCount, incoming.displayCount), presentAttempts: Math.max(current.presentAttempts, incoming.presentAttempts) };
   });
-  return { records, discovery: { ...guest.discovery, ...account.discovery } };
+  return { records, discovery: { ...guest.discovery, ...account.discovery }, replayedIds: [...new Set([...(guest.replayedIds ?? []), ...(account.replayedIds ?? [])])] };
 }
 
 /** One account blob extends the existing encrypted teaching persistence, with old
@@ -86,7 +86,7 @@ export function createGuidanceRecords(storage: Storage) {
     save: (account: string, data: GuidanceData) => {
       const previous = cache.get(account);
       if (!previous) return;
-      const blob: Blob = { ...previous, records: { ...data.records }, discovery: { ...data.discovery } };
+      const blob: Blob = { ...previous, records: { ...data.records }, discovery: { ...data.discovery }, replayedIds: data.replayedIds };
       cache.set(account, blob);
       const payload = JSON.stringify(blob);
       void queue(account, () => storage.setItem(guidanceStorageKey(account), payload)).catch(() => undefined);

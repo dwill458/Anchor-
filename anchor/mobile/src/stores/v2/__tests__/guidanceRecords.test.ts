@@ -37,3 +37,8 @@ it('serializes snapshots so replay cannot be overwritten by older writes', async
  repo.save('guest', { records: {}, discovery: {} }); await repo.flush();
  expect(JSON.parse(s.values.get(guidanceStorageKey('guest'))!).records).toEqual({});
 });
+it('persists replay intent so retained legacy per-course flags cannot undo a replay', async () => {
+ const s = storage(); const repo = createGuidanceRecords(s); await repo.load('a');
+ repo.save('a', { records: {}, discovery: {}, replayedIds: ['chart.next_move'] }); await repo.flush();
+ expect((await createGuidanceRecords(s).load('a')).replayedIds).toContain('chart.next_move');
+});

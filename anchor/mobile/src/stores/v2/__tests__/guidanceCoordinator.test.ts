@@ -106,3 +106,16 @@ it('expires the Today re-show window instead of presenting a late reminder', () 
 it('replay during celebration preserves quiet visits', () => {
  coordinator.register(host('a')); tick(); coordinator.lock('celebration', true, true); coordinator.replay(); coordinator.lock('celebration', false, true); tick(); expect(coordinator.snapshot()).toBeNull();
 });
+it('replays one feature without resetting another teaching or its session budget', () => {
+ const remove = coordinator.register(host('a')); tick(); const a = coordinator.snapshot()!; coordinator.visible(a.token); coordinator.finish(a.token, 'acknowledged'); remove();
+ coordinator.replay('chart.next_move'); expect(coordinator.data().records[a.id].outcome).toBe('acknowledged');
+ coordinator.register(host('vision', ['vision.lead_image'])); tick(); expect(coordinator.snapshot()).toBeNull();
+ coordinator.discover('chart.next_move'); coordinator.replay('chart.next_move'); expect(coordinator.data().records['chart.next_move'].outcome).toBe('obsolete');
+});
+it('keeps visit budgets and celebration quietness across target/context replacement', () => {
+ const a = { ...host('context-a', ['chart.next_move']), visitKey: 'same-route' }; const remove = coordinator.register(a); tick(); const p = coordinator.snapshot()!; coordinator.visible(p.token); coordinator.interrupt(p.token); remove();
+ coordinator.foreground(false); jest.advanceTimersByTime(SESSION_BACKGROUND_MS); coordinator.foreground(true);
+ coordinator.register({ ...host('context-b', ['chart.next_move']), visitKey: 'same-route' }); tick(); expect(coordinator.snapshot()).toBeNull();
+ coordinator.replay(); coordinator.lock('celebration',true,true); coordinator.lock('celebration',false,true);
+ coordinator.register({ ...host('context-c', ['chart.next_move']), visitKey: 'same-route' }); tick(); expect(coordinator.snapshot()).toBeNull();
+});

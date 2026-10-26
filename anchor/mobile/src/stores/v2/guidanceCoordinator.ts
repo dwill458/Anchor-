@@ -9,10 +9,10 @@ export type GuidanceRecord = {
   firstDisplayedAt?: string; lastDisplayedAt?: string; outcome?: GuidanceOutcome;
   outcomeAt?: string; outcomeDetail?: string;
 };
-export type GuidanceData = { records: Record<string, GuidanceRecord>; discovery: Record<string, string> };
+export type GuidanceData = { records: Record<string, GuidanceRecord>; discovery: Record<string, string>; replayedIds?: GuidanceId[] };
 export type GuidancePresentation = { token: string; id: GuidanceId; hostKey: string; account: string };
 export type GuidanceHost = {
-  key: string; account: string; ready: boolean; candidates: readonly string[];
+  key: string; visitKey?: string; account: string; ready: boolean; candidates: readonly string[];
   present: (presentation: GuidancePresentation) => void; hide: (token: string) => void;
 };
 export const emptyGuidanceRecord = (): GuidanceRecord => ({ version: 1, displayCount: 0, presentAttempts: 0, interruptCount: 0 });
@@ -45,6 +45,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
   const emit = () => listeners.forEach(listener => listener());
   const persist = () => save(account, data);
   const rec = (id: string) => data.records[id] ?? (data.records[id] = emptyGuidanceRecord());
+  const visitKey = (host: GuidanceHost) => host.visitKey ?? host.key;
   const clearTimers = () => { clearTimeout(dwell); clearTimeout(window); dwell = undefined; window = undefined; };
   const hide = (interrupted: boolean) => {
     if (!active) return;
@@ -66,7 +67,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
         persist();
       }
     });
-    const candidates = [...hosts.values()].filter(host => host.account === account && host.ready && !visits.has(host.key) && !quiet.has(host.key))
+    const candidates = [...hosts.values()].filter(host => host.account === account && host.ready && !visits.has(visitKey(host)) && !quiet.has(visitKey(host)))
       .flatMap(host => registry.filter(def => host.candidates.includes(def.id) && !settled(data.records[def.id], def)
         && (def.surface === 'whisper' || (def.priority === 0 ? !chartAllowance : bubbles < 1))).map(def => ({ host, def })))
       .sort((a, b) => a.def.priority - b.def.priority || registry.indexOf(a.def) - registry.indexOf(b.def) || a.host.key.localeCompare(b.host.key));
@@ -75,7 +76,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     active = { token: `${++serial}`, id: next.def.id, hostKey: next.host.key, account };
     const token = active.token;
     // An unmeasurable selection spends this visit, but isn't a presentation attempt.
-    visits.add(next.host.key);
+    visits.add(visitKey(next.host));
     window = setTimeout(() => { if (active?.token === token && !visible) hide(false); }, PRESENT_WINDOW_MS);
     emit();
     next.host.present(active);
@@ -83,7 +84,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
   const schedule = () => { if (!evaluation) evaluation = setTimeout(evaluate, 0); };
   const update = (host: GuidanceHost) => {
     hosts.set(host.key, host);
-    if (locks.has('celebration')) quiet.add(host.key);
+    if (locks.has('celebration')) quiet.add(visitKey(host));
     if (active?.hostKey === host.key && (!host.ready || host.account !== account || !host.candidates.includes(active.id))) hide(true);
     schedule();
   };
@@ -157,7 +158,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     lock: (key: string, on: boolean, celebration = false) => {
       if (on) {
         locks.add(key);
-        if (celebration) hosts.forEach(host => quiet.add(host.key));
+        if (celebration) hosts.forEach(host => quiet.add(visitKey(host)));
         hide(true);
       } else { locks.delete(key); schedule(); }
     },
@@ -178,10 +179,20 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
       if (active?.id === id) hide(false);
       persist(); schedule();
     },
-    replay: () => {
-      hide(true); data.records = {}; visits.clear(); quiet.clear(); bubbles = 0; chartAllowance = false;
-      if (locks.has('celebration')) hosts.forEach(host => quiet.add(host.key));
-      Object.entries(data.discovery).forEach(([id, at]) => { data.records[id] = { ...emptyGuidanceRecord(), outcome: 'obsolete', outcomeAt: at, outcomeDetail: 'learned_by_use' }; });
+    replay: (onlyId?: GuidanceId) => {
+      data.replayedIds = [...new Set([...(data.replayedIds ?? []), ...(onlyId ? [onlyId] : registry.map(def => def.id))])];
+      if (!onlyId || active?.id === onlyId) hide(true);
+      if (onlyId) {
+        delete data.records[onlyId];
+        hosts.forEach(host => { if (host.candidates.includes(onlyId)) visits.delete(visitKey(host)); });
+        if (registry.find(def => def.id === onlyId)?.priority === 0) chartAllowance = false;
+      } else {
+        data.records = {}; visits.clear(); quiet.clear(); bubbles = 0; chartAllowance = false;
+        if (locks.has('celebration')) hosts.forEach(host => quiet.add(visitKey(host)));
+      }
+      Object.entries(data.discovery).forEach(([id, at]) => {
+        if (!onlyId || id === onlyId) data.records[id] = { ...emptyGuidanceRecord(), outcome: 'obsolete', outcomeAt: at, outcomeDetail: 'learned_by_use' };
+      });
       persist(); schedule();
     },
     dispose: () => { hide(true); clearTimeout(evaluation); evaluation = undefined; hosts.clear(); listeners.clear(); },
