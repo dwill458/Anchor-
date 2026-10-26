@@ -10,6 +10,12 @@ docs/
 yu/
 supabase/
 .git
+.git-rewrite/
+node_modules/
+.tmp/
+benchmark-results/
+tmp_settings_zip/
+vision-entrance-replacements-review-20261004/
 .DS_Store
 # Root files
 /*.png
