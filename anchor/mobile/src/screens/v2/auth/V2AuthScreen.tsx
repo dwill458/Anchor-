@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type ScrollViewInstance,
   type TextInputInstance,
   TouchableOpacity,
   useWindowDimensions,
@@ -96,7 +97,7 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
   const signedInUser = useAuthStore((state) => state.user);
   const emailRef = useRef<TextInputInstance>(null);
   const passwordRef = useRef<TextInputInstance>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {

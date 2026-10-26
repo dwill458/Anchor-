@@ -19,6 +19,8 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type ScrollViewInstance,
+  type TextInputInstance,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -99,9 +101,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const { height } = useWindowDimensions();
   const reduceMotion = useReduceMotionEnabled();
 
-  const emailInputRef = useRef<TextInput>(null);
-  const passwordInputRef = useRef<TextInput>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
+  const emailInputRef = useRef<TextInputInstance>(null);
+  const passwordInputRef = useRef<TextInputInstance>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
@@ -509,7 +511,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       showToggle?: boolean;
       shown?: boolean;
       onToggle?: () => void;
-      inputRef?: React.Ref<TextInput>;
+      inputRef?: React.Ref<TextInputInstance>;
       returnKeyType?: 'next' | 'done' | 'go';
       onSubmitEditing?: () => void;
       blurOnSubmit?: boolean;

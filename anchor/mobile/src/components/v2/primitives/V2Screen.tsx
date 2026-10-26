@@ -1,9 +1,9 @@
 import React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ScrollViewInstance, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '@/theme/v2';
 
-type Props = { children: React.ReactNode; scroll?: boolean; keyboardAvoiding?: boolean; style?: StyleProp<ViewStyle>; contentContainerStyle?: ScrollViewProps['contentContainerStyle']; keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps']; keyboardDismissMode?: ScrollViewProps['keyboardDismissMode']; testID?: string; edges?: readonly ('top' | 'bottom' | 'left' | 'right')[]; scrollViewRef?: React.Ref<ScrollView> };
+type Props = { children: React.ReactNode; scroll?: boolean; keyboardAvoiding?: boolean; style?: StyleProp<ViewStyle>; contentContainerStyle?: ScrollViewProps['contentContainerStyle']; keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps']; keyboardDismissMode?: ScrollViewProps['keyboardDismissMode']; testID?: string; edges?: readonly ('top' | 'bottom' | 'left' | 'right')[]; scrollViewRef?: React.Ref<ScrollViewInstance> };
 
 export function V2Screen({ children, scroll = false, keyboardAvoiding = false, style, contentContainerStyle, keyboardShouldPersistTaps, keyboardDismissMode, testID, edges = ['top', 'bottom'], scrollViewRef }: Props) {
   const content = scroll ? <ScrollView ref={scrollViewRef} testID={testID} keyboardShouldPersistTaps={keyboardShouldPersistTaps} keyboardDismissMode={keyboardDismissMode} contentContainerStyle={[styles.scrollContent, contentContainerStyle]} showsVerticalScrollIndicator={false}>{children}</ScrollView> : <View testID={testID} style={[styles.content, style]}>{children}</View>;

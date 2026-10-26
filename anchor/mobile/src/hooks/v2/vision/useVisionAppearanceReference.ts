@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAuthStore } from '@/stores/authStore';
+import type { UserSettings } from '@/types';
 import { visionApiData } from './visionApi';
 
 export type VisionAppearanceReference = {
@@ -150,7 +151,7 @@ export function useVisionAppearanceReference() {
               settings: {
                 ...auth.profileData.user.settings,
                 useProfilePhotoForVision: value,
-              },
+              } as UserSettings,
             },
           },
         });
@@ -162,7 +163,7 @@ export function useVisionAppearanceReference() {
             settings: {
               ...auth.user.settings,
               useProfilePhotoForVision: value,
-            },
+            } as UserSettings,
           },
         });
       }
