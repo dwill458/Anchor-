@@ -1,0 +1,9 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --silent --runTestsByPath src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx
+
+
+Test Suites: 1 passed, 1 total
+Tests:       16 passed, 16 total
+Snapshots:   0 total
+Time:        18.456 s

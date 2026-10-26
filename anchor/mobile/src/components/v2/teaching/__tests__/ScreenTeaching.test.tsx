@@ -12,7 +12,10 @@ it.each(['scrim', 'back', 'complete', 'unmeasurable'])('commits only shown steps
   props.onDismiss(reason);
   expect(dismiss).toHaveBeenCalledWith(['home.today']);
 });
-it('passes resolved copy and spoken duration to the coach', () => {
-  render(<ScreenTeaching screen="home" reducedMotion queue={{ steps: ['home.today'], ready: true, markShown: jest.fn(), dismiss: jest.fn() }} targets={{ 'home.today': { body: 'Today: Focus, 30 sec.', accessibilityLabel: 'Today: Focus, 30 seconds.' } }} />);
-  expect(jest.mocked(SpotlightCoach).mock.calls.at(-1)![0].steps[0]).toMatchObject({ body: 'Today: Focus, 30 sec.', accessibilityLabel: 'Today: Focus, 30 seconds.' });
+it('passes the approved static Today copy to the coach without a mode or duration override', () => {
+  render(<ScreenTeaching screen="home" reducedMotion queue={{ steps: ['home.today'], ready: true, markShown: jest.fn(), dismiss: jest.fn() }} targets={{}} />);
+  expect(jest.mocked(SpotlightCoach).mock.calls.at(-1)![0].steps[0]).toMatchObject({
+    title: 'Start here each day.',
+    body: 'Today suggests one meaningful action to help you move forward with your Anchor.',
+  });
 });

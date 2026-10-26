@@ -1,0 +1,128 @@
+{
+  "reversibility": {
+    "1a115e218": {
+      "finalTree": {
+        "cleanReversePatch": false,
+        "details": "error: patch failed: docs/guidance/PHASE1_IMPLEMENTATION.md:1\nerror: docs/guidance/PHASE1_IMPLEMENTATION.md: patch does not apply\nerror: patch failed: anchor/mobile/src/components/v2/teaching/__tests__/SpotlightCoach.test.tsx:50\nerror: anchor/mobile/src/components/v2/teaching/__tests__/SpotlightCoach.test.tsx: patch does not apply\nerror: patch failed: anchor/mobile/src/components/v2/chart/sheet/__tests__/ChartOneMoveTeaching.test.tsx:109\nerror: anchor/mobile/src/components/v2/chart/sheet/__tests__/ChartOneMoveTeaching.test.tsx: patch does not apply"
+      },
+      "ownCommit": {
+        "cleanReversePatch": true,
+        "details": ""
+      }
+    },
+    "bbc1ac298": {
+      "finalTree": {
+        "cleanReversePatch": false,
+        "details": "error: patch failed: docs/guidance/PHASE1_IMPLEMENTATION.md:12\nerror: docs/guidance/PHASE1_IMPLEMENTATION.md: patch does not apply\nerror: patch failed: anchor/mobile/src/screens/settings/__tests__/ThreadStrengthPanel.test.tsx:1\nerror: anchor/mobile/src/screens/settings/__tests__/ThreadStrengthPanel.test.tsx: patch does not apply\nerror: patch failed: anchor/mobile/src/screens/settings/ThreadStrengthPanel.tsx:11\nerror: anchor/mobile/src/screens/settings/ThreadStrengthPanel.tsx: patch does not apply"
+      },
+      "ownCommit": {
+        "cleanReversePatch": true,
+        "details": ""
+      }
+    },
+    "99a9ab8a6": {
+      "finalTree": {
+        "cleanReversePatch": true,
+        "details": ""
+      },
+      "ownCommit": {
+        "cleanReversePatch": true,
+        "details": ""
+      }
+    }
+  },
+  "boundary": {
+    "baseFlaggedCount": 37,
+    "finalFlaggedCount": 37,
+    "addedFlaggedFiles": [],
+    "addedImportEdges": []
+  },
+  "preexistingCopyDependency": {
+    "originalPreexistedUntracked": true,
+    "onlyApprovedCopyReplacements": true,
+    "scoringAndHelpersUnchanged": true
+  },
+  "phase1Files": [
+    "ANCHOR_2_V2_ISOLATION_ARCHITECTURE.md",
+    "anchor/mobile/App.tsx",
+    "anchor/mobile/src/__tests__/vocabulary.deepFocus.test.ts",
+    "anchor/mobile/src/adapters/v2/progress/__tests__/progressCourseLog.test.ts",
+    "anchor/mobile/src/adapters/v2/progress/progressAdapter.ts",
+    "anchor/mobile/src/components/v2/chart/ChartActiveView.tsx",
+    "anchor/mobile/src/components/v2/chart/sheet/ChartOneMoveTeaching.tsx",
+    "anchor/mobile/src/components/v2/chart/sheet/__tests__/ChartOneMoveTeaching.test.tsx",
+    "anchor/mobile/src/components/v2/progress/V2ProgressWeek.tsx",
+    "anchor/mobile/src/components/v2/progress/__tests__/V2ProgressWeek.test.tsx",
+    "anchor/mobile/src/components/v2/progress/__tests__/progressVocabulary.test.ts",
+    "anchor/mobile/src/components/v2/progress/progressTokens.ts",
+    "anchor/mobile/src/components/v2/teaching/ScreenTeaching.tsx",
+    "anchor/mobile/src/components/v2/teaching/SpotlightCoach.tsx",
+    "anchor/mobile/src/components/v2/teaching/__tests__/ScreenTeaching.test.tsx",
+    "anchor/mobile/src/components/v2/teaching/__tests__/SpotlightCoach.test.tsx",
+    "anchor/mobile/src/components/v2/vision/V2SavedVision.tsx",
+    "anchor/mobile/src/components/v2/vision/__tests__/V2SavedVision.teaching.test.tsx",
+    "anchor/mobile/src/constants/v2/chartCopy.ts",
+    "anchor/mobile/src/constants/v2/practice.ts",
+    "anchor/mobile/src/constants/v2/teachingCopy.ts",
+    "anchor/mobile/src/constants/v2/threadStrengthCopy.ts",
+    "anchor/mobile/src/hooks/v2/teaching/__tests__/detailsTeaching.test.tsx",
+    "anchor/mobile/src/hooks/v2/teaching/__tests__/homeTeaching.test.tsx",
+    "anchor/mobile/src/hooks/v2/teaching/__tests__/practiceTeaching.test.ts",
+    "anchor/mobile/src/hooks/v2/teaching/__tests__/progressTeaching.test.tsx",
+    "anchor/mobile/src/hooks/v2/teaching/__tests__/teachingSeen.test.ts",
+    "anchor/mobile/src/hooks/v2/teaching/__tests__/useCelebrationActive.test.tsx",
+    "anchor/mobile/src/hooks/v2/teaching/__tests__/useTeachingQueue.test.tsx",
+    "anchor/mobile/src/hooks/v2/teaching/detailsTeaching.ts",
+    "anchor/mobile/src/hooks/v2/teaching/homeTeaching.ts",
+    "anchor/mobile/src/hooks/v2/teaching/practiceTeaching.ts",
+    "anchor/mobile/src/hooks/v2/teaching/progressTeaching.ts",
+    "anchor/mobile/src/hooks/v2/teaching/useCelebrationActive.ts",
+    "anchor/mobile/src/hooks/v2/teaching/useTeachingQueue.ts",
+    "anchor/mobile/src/navigation/v2/AnchorV2Navigator.tsx",
+    "anchor/mobile/src/navigation/v2/__tests__/AnchorV2Navigator.test.tsx",
+    "anchor/mobile/src/screens/create/IntentionInputScreen.tsx",
+    "anchor/mobile/src/screens/create/__tests__/IntentionInputScreen.test.tsx",
+    "anchor/mobile/src/screens/settings/HelpAboutSubscreen.tsx",
+    "anchor/mobile/src/screens/settings/ThreadStrengthPanel.tsx",
+    "anchor/mobile/src/screens/settings/__tests__/SettingsScreen.test.tsx",
+    "anchor/mobile/src/screens/settings/__tests__/SettingsSubscreens.test.tsx",
+    "anchor/mobile/src/screens/settings/__tests__/ThreadStrengthPanel.test.tsx",
+    "anchor/mobile/src/screens/v2/anchors/V2AnchorDetailsScreen.tsx",
+    "anchor/mobile/src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx",
+    "anchor/mobile/src/screens/v2/home/V2HomeScreen.tsx",
+    "anchor/mobile/src/screens/v2/practice/V2PracticeScreen.tsx",
+    "anchor/mobile/src/screens/v2/progress/V2ProgressScreen.tsx",
+    "anchor/mobile/src/screens/v2/progress/__tests__/V2ProgressScreen.test.tsx",
+    "anchor/mobile/src/screens/v2/system/ChartLabDevHost.tsx",
+    "anchor/mobile/src/stores/__tests__/guidanceLegacyCleanup.test.ts",
+    "anchor/mobile/src/stores/anchorStore.ts",
+    "anchor/mobile/src/stores/sessionStore.ts",
+    "anchor/mobile/src/stores/teachingStore.ts",
+    "anchor/mobile/src/widgets/android/AnchorLargeWidget.tsx",
+    "anchor/mobile/src/widgets/android/AnchorMediumWidget.tsx",
+    "docs/guidance/PHASE1_IMPLEMENTATION.md"
+  ],
+  "protectedBusinessFilesChanged": [],
+  "orderedRollback": {
+    "steps": [
+      {
+        "commit": "99a9ab8a6",
+        "exit": 0,
+        "details": ""
+      },
+      {
+        "commit": "bbc1ac298",
+        "exit": 0,
+        "details": ""
+      },
+      {
+        "commit": "1a115e218",
+        "exit": 0,
+        "details": ""
+      }
+    ],
+    "resultTree": "22949362c62dbb5c1aa02365187f7a0d263bb9ba",
+    "baseTree": "22949362c62dbb5c1aa02365187f7a0d263bb9ba",
+    "exactBaseTreeRestored": true
+  }
+}

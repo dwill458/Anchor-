@@ -1,11 +1,13 @@
 # Guidance Phase 1 implementation
 
-Scope: approved Phase 1 cleanup only, in PR-A / PR-B / PR-C order. The coordinator and new teaching surfaces remain deferred. Each changeset is independently revertible; pre-existing worktree changes are excluded.
+Final acceptance addendum (2026-10-26): [PHASE1_ACCEPTANCE.md](PHASE1_ACCEPTANCE.md) supersedes historical copy, validation and rollback claims. Native checks remain pending at the user’s request. Ordered rollback is verified; independent out-of-order rollback has overlaps.
+
+Scope: approved Phase 1 cleanup only, in PR-A / PR-B / PR-C order. The coordinator and new teaching surfaces remain deferred. See the final acceptance addendum below for rollback limits and the intentional pre-existing dependency inclusion.
 
 ## PR 1 / PR-A: teaching behavior
 
 - Retired ten outdated eligibility beats, retaining their copy and reset keys.
-- Home offers only Today before any completed practice, for a ready, unfinished, non-Release card. Copy uses the card mode and duration, with fully spoken accessibility units; cap is one.
+- Home offers only Today before any completed practice, for a ready, unfinished, non-Release card. Final copy is static: “Start here each day.” / “Today suggests one meaningful action to help you move forward with your Anchor.” / “Got it”; cap is one.
 - Dismissal saves only displayed beats. Unshown steps remain unseen.
 - Home spotlight hole passes touches through. Chart already used a transparent ring; preserved it, reduced its lesson to the approved one step and recorded readiness once per presentation.
 - All five teaching hosts yield to queued/presenting milestones.

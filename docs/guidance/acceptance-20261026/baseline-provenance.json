@@ -1,0 +1,45 @@
+{
+  "untrackedDependenciesFromCurrent": [
+    "anchor/mobile/src/components/dev/DevMenuRow.tsx",
+    "anchor/mobile/src/components/dev/DevSettingsShakeHost.tsx",
+    "anchor/mobile/src/components/dev/__tests__/DevMenuRow.test.tsx",
+    "anchor/mobile/src/components/dev/devMenuStyles.ts",
+    "anchor/mobile/src/components/v2/chart/__tests__/ChartCourseReviewScreen.motion.test.tsx",
+    "anchor/mobile/src/components/v2/chart/__tests__/ChartCreationFlow.motion.test.tsx",
+    "anchor/mobile/src/components/v2/chart/__tests__/ChartGenerationStage.motion.test.tsx",
+    "anchor/mobile/src/components/v2/chart/__tests__/ChartKeyboardFrame.test.tsx",
+    "anchor/mobile/src/components/v2/chart/__tests__/ChartRouteEditor.motion.test.tsx",
+    "anchor/mobile/src/components/v2/chart/ask/AskConversationAvatar.tsx",
+    "anchor/mobile/src/components/v2/chart/ask/ThinkingBubble.tsx",
+    "anchor/mobile/src/components/v2/chart/ask/__tests__/AskAnchorAvatar.test.tsx",
+    "anchor/mobile/src/components/v2/chart/ask/__tests__/AskMessageRow.test.tsx",
+    "anchor/mobile/src/components/v2/chart/ask/__tests__/AskRevealText.test.tsx",
+    "anchor/mobile/src/components/v2/chart/ask/__tests__/askReveal.test.ts",
+    "anchor/mobile/src/components/v2/chart/ask/useMinimumThinking.ts",
+    "anchor/mobile/src/components/v2/thread/ThreadStrengthEducationCard.tsx",
+    "anchor/mobile/src/components/v2/thread/ThreadStrengthExplainerSheet.tsx",
+    "anchor/mobile/src/components/v2/thread/__tests__/ThreadStrengthEducation.test.tsx",
+    "anchor/mobile/src/components/v2/vision/__tests__/VisionAddSceneEntry.test.tsx",
+    "anchor/mobile/src/hooks/v2/chart/__tests__/askOpeningPrefetch.test.ts",
+    "anchor/mobile/src/hooks/v2/chart/askOpeningPrefetch.ts",
+    "anchor/mobile/src/screens/v2/practice/visualize/__tests__/visualizePacing.test.ts",
+    "anchor/mobile/src/stores/__tests__/devThreadStrengthStore.test.ts",
+    "anchor/mobile/src/stores/__tests__/secureStoreConcurrency.test.ts",
+    "anchor/mobile/src/stores/devRecommendationOverrideStore.ts",
+    "anchor/mobile/src/utils/devMockIdentity.ts"
+  ],
+  "owningSources": {
+    "anchor/mobile/src/components/v2/chart/ask/AskRevealText.tsx": {
+      "reconstructed": "709ee2e458af1263f49ae3ea7e59aa29679120bc4f25c669a5711b5f4bf338f1",
+      "current": "709ee2e458af1263f49ae3ea7e59aa29679120bc4f25c669a5711b5f4bf338f1"
+    },
+    "anchor/mobile/src/components/v2/chart/ask/AskMessageRow.tsx": {
+      "reconstructed": "926da6361a7e60700f8aee29d79ca0663d66127895114154318526684f9951c8",
+      "current": "926da6361a7e60700f8aee29d79ca0663d66127895114154318526684f9951c8"
+    },
+    "anchor/mobile/src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx": {
+      "reconstructed": "f9949e6dae1fe148ee53e58bc2813ee8476d340a5a907696a535b4392d2f5c86",
+      "current": "f9949e6dae1fe148ee53e58bc2813ee8476d340a5a907696a535b4392d2f5c86"
+    }
+  }
+}

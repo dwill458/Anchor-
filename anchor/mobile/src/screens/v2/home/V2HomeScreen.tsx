@@ -40,7 +40,7 @@ import { playCreationSound } from '@/services/CreationSounds';
 import { useAuthStore } from '@/stores/authStore';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
-import { homeTeachingBeats, homeTodayTeachingCopy } from '@/hooks/v2/teaching/homeTeaching';
+import { homeTeachingBeats } from '@/hooks/v2/teaching/homeTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
 import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 import { VisionHomeReturnSkip, useVisionHomeReturn } from './visionHomeReturn';
@@ -777,8 +777,7 @@ export function V2HomeScreen() {
       </GestureDetector>
 
       <ScreenTeaching screen="home" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
-        'home.today': { getRect: () => getTeachingRect(todayTeachingRef),
-          ...(todayForDisplay.state === 'ready' ? homeTodayTeachingCopy(todayForDisplay.mode, todayForDisplay.durationSeconds) : {}) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
+        'home.today': { getRect: () => getTeachingRect(todayTeachingRef) }, 'home.progress': { getRect: () => getTeachingRect(progressTeachingRef) },
         'home.vision': { getRect: () => getTeachingRect(visionTeachingRef) }, 'home.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
         'home.thread': { getRect: () => getTeachingRect(threadTeachingRef) },
       }} />

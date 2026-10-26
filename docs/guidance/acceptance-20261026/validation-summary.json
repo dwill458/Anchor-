@@ -1,0 +1,52 @@
+{
+  "success": false,
+  "numTotalTestSuites": 675,
+  "numPassedTestSuites": 674,
+  "numFailedTestSuites": 1,
+  "numTotalTests": 7703,
+  "numPassedTests": 7701,
+  "numFailedTests": 1,
+  "numPendingTests": 1,
+  "failures": [
+    {
+      "file": "anchor\\mobile\\src\\screens\\v2\\chart\\__tests__\\V2ChartAskScreen.test.tsx",
+      "test": "V2ChartAskScreen does not seed into a conversation that already has messages",
+      "message": "TypeError: undefined is not iterable (cannot read property Symbol(Symbol.iterator))\n    at Array.from (<anonymous>)\n    at from (E:\\Projects\\Anchor\\anchor\\mobile\\src\\components\\v2\\chart\\ask\\AskRevealText.tsx:23:37)\n    at mountMemo (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:6170:23)\n    at Object.useMemo (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:17009:18)\n    at process.env.NODE_ENV.exports.useMemo (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react\\cjs\\react.development.js:1297:34)\n    at AskRevealText (E:\\Projects\\Anchor\\anchor\\mobile\\src\\components\\v2\\chart\\ask\\AskRevealText.tsx:23:24)\n    at Object.react_stack_bottom_frame (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:16690:20)\n    at renderWithHooks (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:5126:22)\n    at updateFunctionComponent (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:7302:19)\n    at updateSimpleMemoComponent (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:7095:14)\n    at updateMemoComponent (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:7028:13)\n    at beginWork (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:9034:18)\n    at runWithFiberInDEV (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:2506:13)\n    at performUnitOfWork (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:14142:22)\n    at workLoopSync (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:13986:41)\n    at renderRootSync (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:13967:11)\n    at performWorkOnRoot (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:13153:39)\n    at performWorkOnRootViaSchedulerTask (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react-test-renderer\\cjs\\react-test-renderer.development.js:3124:7)\n    at flushActQueue (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react\\cjs\\react.development.js:664:34)\n    at process.env.NODE_ENV.exports.act (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\react\\cjs\\react.development.js:960:10)\n    at actImplementation (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@testing-library\\react-native\\src\\act.ts:30:25)\n    at renderWithAct (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@testing-library\\react-native\\src\\render-act.ts:12:11)\n    at renderInternal (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@testing-library\\react-native\\src\\render.tsx:81:33)\n    at renderInternal (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\@testing-library\\react-native\\src\\render.tsx:44:10)\n    at Object.<anonymous> (E:\\Projects\\Anchor\\anchor\\mobile\\src\\screens\\v2\\chart\\__tests__\\V2ChartAskScreen.test.tsx:118:11)\n    at Promise.finally.completed (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1834:28)\n    at new Promise (<anonymous>)\n    at callAsyncCircusFn (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1774:10)\n    at _callCircusTest (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1167:40)\n    at _runTestInContext (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1103:3)\n    at runTestWithContext (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:996:5)\n    at _runTestsForDescribeBlockOnce (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1008:11)\n    at _runTestsForDescribeBlock (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:824:5)\n    at _runTestsForDescribeBlockOnce (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:1003:11)\n    at _runTestsForDescribeBlock (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:824:5)\n    at run (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:789:3)\n    at runAndTransformResultsToJestFormat (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\jestAdapterInit.js:2300:21)\n    at jestAdapter (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-circus\\build\\runner.js:111:19)\n    at runTestInternal (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-runner\\build\\testWorker.js:247:16)\n    at runTest (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-runner\\build\\testWorker.js:315:7)\n    at Object.worker (E:\\Projects\\Anchor\\anchor\\mobile\\node_modules\\jest-runner\\build\\testWorker.js:479:12)"
+    }
+  ],
+  "typescript": {
+    "command": "npx.cmd tsc --noEmit --pretty false",
+    "exitCode": 0
+  },
+  "baselineCommit": {
+    "ref": "fbc89f1a3",
+    "suitesPassed": 1,
+    "testsPassed": 16
+  },
+  "reconstructedHandoff": {
+    "suitesFailed": 1,
+    "testsPassed": 15,
+    "testsFailed": 1,
+    "limitation": "Current installed dependencies and current copies of previously untracked supporting modules; owning tracked Ask sources reconstructed from saved pre-Phase-1 patch."
+  },
+  "followup": "https://github.com/dwill458/Anchor-/issues/344",
+  "native": {
+    "userDecision": "Leave native checks pending",
+    "executedAcceptanceChecks": [],
+    "availabilityInspected": [
+      "Moto connected, keyguard locked",
+      "S24 connected, active in another app",
+      "Read-only Android emulator eventually booted; shut down after user deferred native checks"
+    ],
+    "pending": [
+      "Coordinate target and hole-edge hit testing",
+      "Home and Chart presentation",
+      "Milestone priority",
+      "Rapid navigation/dismissal",
+      "TalkBack and VoiceOver",
+      "Text scaling and placement",
+      "Narrow Details row wrapping",
+      "Launcher widget terminology"
+    ]
+  }
+}

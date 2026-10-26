@@ -10,16 +10,12 @@ it.each([
   expect(homeTeachingBeats({ ...ready, ...change })).toEqual([]);
 });
 
-it.each([
-  ['focus', 30, 'Focus, 30 sec', 'Focus, 30 seconds'],
-  ['deep_prime', 300, 'Deep Focus, 5 min', 'Deep Focus, 5 minutes'],
-  ['visualize', 180, 'Visualize, 3 min', 'Visualize, 3 minutes'],
-  ['focus', undefined, 'Focus', 'Focus'],
-] as const)('uses real card mode and duration: %s %s', (mode, seconds, visual, spoken) => {
-  const { homeTodayTeachingCopy } = require('../homeTeaching');
-  expect(homeTodayTeachingCopy(mode, seconds)).toEqual({
+it.each(['focus', 'deep_prime', 'visualize'] as const)('keeps %s eligible without changing the approved static copy', mode => {
+  const { TEACHING_COPY } = require('@/constants/v2/teachingCopy');
+  expect(homeTeachingBeats({ ...ready, mode })).toEqual(['home.today']);
+  expect(TEACHING_COPY.beats['home.today']).toEqual({
     title: 'Start here each day.',
-    body: `Each day Anchor suggests one practice. Today: ${visual}.`,
-    accessibilityLabel: `Start here each day. Each day Anchor suggests one practice. Today: ${spoken}.`,
+    body: 'Today suggests one meaningful action to help you move forward with your Anchor.',
   });
+  expect(TEACHING_COPY.common.gotIt).toBe('Got it');
 });
