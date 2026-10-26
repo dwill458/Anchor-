@@ -176,12 +176,12 @@ describe('V2ProgressScreen', () => {
     expect(getByText('EMBEDDED')).toBeTruthy();
 
     // Mode breakdown is secondary: it sits behind the Practice insights toggle.
-    expect(queryByText('Deep Prime')).toBeNull();
+    expect(queryByText('Deep Focus')).toBeNull();
     fireEvent.press(getByTestId('v2-progress-screen-commitment-insights-toggle'));
     expect(getByTestId('v2-progress-screen-commitment-insights')).toBeTruthy();
     expect(getByText('10 total')).toBeTruthy();
-    expect(getByText('Deep Prime')).toBeTruthy();
-    expect(queryByText('Deep Focus')).toBeNull();
+    expect(getByText('Deep Focus')).toBeTruthy();
+    expect(queryByText('Deep Prime')).toBeNull();
 
     // Renders thread events
     expect(getByTestId('v2-progress-screen-timeline')).toBeTruthy();

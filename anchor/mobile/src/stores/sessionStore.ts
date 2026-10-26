@@ -1,3 +1,4 @@
+import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
 import { privateJsonStorage, sqlCipherEnabled } from '@/storage/sqlcipher/persistence';
 /**
  * Session Store — tracks the user's practice sessions locally.
@@ -621,11 +622,13 @@ export const useSessionStore = create<SessionState>()(
           !teaching.userFlags.hasCompletedFirstCharge
         ) {
           teaching.setUserFlag('hasCompletedFirstCharge', true);
-          teaching.queueMilestone(
-            JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[
-              JOURNEY_MILESTONE_IDS.firstPrime
-            ],
-          );
+          if (!isAnchorV2Enabled()) {
+            teaching.queueMilestone(
+              JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[
+                JOURNEY_MILESTONE_IDS.firstPrime
+              ],
+            );
+          }
         }
         if (
           entry.type === 'stabilize' &&

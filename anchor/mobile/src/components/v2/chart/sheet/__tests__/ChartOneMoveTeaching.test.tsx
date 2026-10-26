@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ChartOneMoveTeaching } from '../ChartOneMoveTeaching';
 
@@ -122,4 +123,25 @@ it('records the lesson once even when the sheet measures again', async () => {
   tree.rerender(<ChartOneMoveTeaching {...props} viewportLayoutRevision={1} />);
   await waitFor(() => expect(tree.getByTestId('chart-one-move-teaching')).toBeTruthy());
   expect(onReady).toHaveBeenCalledTimes(1);
+});
+
+it('keeps the real move action available inside the transparent row highlight', async () => {
+  const completeMove = jest.fn();
+  const dismiss = jest.fn();
+  const tree = render(<View>
+    <Pressable accessibilityRole="button" accessibilityLabel="Mark move done" onPress={completeMove}><Text>Circle</Text></Pressable>
+    <ChartOneMoveTeaching visible replayVersion={0} reducedMotion detent="half"
+      targets={{ rowRef: target(300, 60), circleRef: target(300, 44), bodyRef: target(300, 50) }}
+      viewportRef={target(0, 844)} measureInWindow={(_node, callback) => callback(0, 0, 390, 844)}
+      onReady={jest.fn()} onRequestVisible={jest.fn()} onDismiss={dismiss} />
+  </View>);
+  fireEvent(tree.getByTestId('chart-one-move-teaching-measure'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
+  await waitFor(() => expect(tree.getByTestId('chart-teaching-target-hole')).toBeTruthy());
+  expect(tree.getByTestId('chart-teaching-target-hole').props.pointerEvents).toBe('none');
+  fireEvent.press(tree.getByLabelText('Mark move done', { includeHiddenElements: true }));
+  expect(completeMove).toHaveBeenCalledTimes(1);
+  expect(dismiss).not.toHaveBeenCalled();
+  fireEvent.press(tree.getAllByLabelText('Dismiss move teaching')[0]);
+  expect(dismiss).toHaveBeenCalledTimes(1);
+  expect(completeMove).toHaveBeenCalledTimes(1);
 });

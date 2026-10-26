@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessibilityInfo, BackHandler } from 'react-native';
+import { AccessibilityInfo, BackHandler, Pressable, Text, View } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SpotlightCoach } from '../SpotlightCoach';
@@ -58,4 +58,21 @@ it('leaves the highlighted target touch-transparent and announces spoken units',
   expect(tree.getByTestId('spotlight-target-hole').props.pointerEvents).toBe('none');
   expect(tree.getByTestId('spotlight-coach').props.pointerEvents).toBe('box-none');
   expect(announce).toHaveBeenCalledWith('Focus, 30 seconds.');
+});
+
+it('keeps Begin actionable while its spotlight is visible without dismissing as a scrim tap', async () => {
+  const begin = jest.fn();
+  const dismiss = jest.fn();
+  const tree = render(<View>
+    <Pressable accessibilityRole="button" accessibilityLabel="Begin practice" onPress={begin}><Text>Begin</Text></Pressable>
+    <SpotlightCoach visible steps={steps.slice(0, 1)} reducedMotion onReady={jest.fn()} onAdvance={jest.fn()} onDismiss={dismiss} />
+  </View>);
+  await waitFor(() => expect(tree.getByTestId('spotlight-target-hole')).toBeTruthy());
+  expect(tree.getByTestId('spotlight-target-hole').props.pointerEvents).toBe('none');
+  fireEvent.press(tree.getByLabelText('Begin practice', { includeHiddenElements: true }));
+  expect(begin).toHaveBeenCalledTimes(1);
+  expect(dismiss).not.toHaveBeenCalled();
+  fireEvent.press(tree.getAllByLabelText('Dismiss tip')[0]);
+  expect(dismiss).toHaveBeenCalledWith('scrim');
+  expect(begin).toHaveBeenCalledTimes(1);
 });

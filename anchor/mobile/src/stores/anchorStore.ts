@@ -1,3 +1,4 @@
+import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
 /**
  * Anchor App - Anchor Store
  *
@@ -326,9 +327,11 @@ export const useAnchorStore = create<AnchorState>()(
         // Set first-anchor flag once; queue M1 milestone
         if (!teaching.userFlags.hasCreatedFirstAnchor) {
           teaching.setUserFlag('hasCreatedFirstAnchor', true);
-          teaching.queueMilestone(
-            JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstAnchor]
-          );
+          if (!isAnchorV2Enabled()) {
+            teaching.queueMilestone(
+              JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstAnchor]
+            );
+          }
         }
         set((state) => ({
           anchors: [normalizedAnchor, ...state.anchors], // Add to beginning (most recent first)

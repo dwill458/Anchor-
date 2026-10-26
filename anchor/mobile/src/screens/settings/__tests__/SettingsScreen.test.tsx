@@ -10,6 +10,7 @@ const mockSetReduceMotion = jest.fn();
 const mockSetHapticIntensity = jest.fn();
 const mockSetSoundEffectsEnabled = jest.fn();
 const mockResetTeaching = jest.fn();
+const mockFullTeachingReset = jest.fn();
 const mockRestorePurchases = jest.fn();
 const mockNavigate = jest.fn();
 const mockNavigation = {
@@ -142,7 +143,7 @@ jest.mock('@/stores/authStore', () => ({
     selector ? selector(mockAuthStoreState) : mockAuthStoreState,
 }));
 jest.mock('@/stores/teachingStore', () => ({
-  useTeachingStore: { getState: () => ({ reset: mockResetTeaching }) },
+  useTeachingStore: { getState: () => ({ resetTeachingRecords: mockResetTeaching, reset: mockFullTeachingReset }) },
 }));
 jest.mock('@/services/AuthService', () => ({
   AuthService: {
@@ -278,6 +279,7 @@ describe('SettingsScreen', () => {
     fireEvent.press(screen.getByLabelText('Replay'));
 
     expect(mockResetTeaching).toHaveBeenCalled();
+    expect(mockFullTeachingReset).not.toHaveBeenCalled();
   });
 
   it('navigates to Account & subscription, restores purchases and keeps store errors user-facing', async () => {

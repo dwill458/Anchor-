@@ -35,6 +35,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { generateExpressionCandidates, persistCreatedAnchor } from '@/services/v2/creationPersistence';
 import type { V2PracticeMode } from '@/constants/v2/practice';
 import type { Anchor } from '@/types';
@@ -566,6 +567,17 @@ function V2AuthRouteScreen() {
  * Anchor 2.0 central stack navigator.
  */
 export function AnchorV2Navigator() {
+  useEffect(() => {
+    let cleared = false;
+    const clearLegacyBacklog = () => {
+      if (cleared) return;
+      cleared = true;
+      useTeachingStore.setState({ pendingMilestones: [] });
+    };
+    const unsubscribe = useTeachingStore.persist.onFinishHydration(clearLegacyBacklog);
+    if (useTeachingStore.persist.hasHydrated()) clearLegacyBacklog();
+    return unsubscribe;
+  }, []);
   const reduceMotion = useV2ReduceMotion();
   const user = useAuthStore((state) => state.user);
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);

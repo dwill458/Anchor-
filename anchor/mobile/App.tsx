@@ -98,8 +98,8 @@ import { perfLog, startJsStallDetector, startPerfRenderReporter } from './src/ut
 import { initDevOrientation } from './src/utils/devOrientation';
 
 const isWeb = Platform.OS === 'web';
-// V2 remains opt-in. Staging preview APKs can exercise the release-mode V2 app,
-// while production builds remain on the legacy navigator until rollout.
+// V2 is enabled unless EXPO_PUBLIC_ANCHOR_V2_ENABLED is exactly 'false',
+// in both development and release builds. An unset flag also selects V2.
 const anchorV2Enabled = isAnchorV2Enabled(
   process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED,
   __DEV__,

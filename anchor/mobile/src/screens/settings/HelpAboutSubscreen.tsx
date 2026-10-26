@@ -53,7 +53,7 @@ export const HelpAboutSubscreen: React.FC<Props> = ({ onBack }) => {
   };
 
   const handleReplayTips = async () => {
-    useTeachingStore.getState().reset();
+    useTeachingStore.getState().resetTeachingRecords();
     const resetSeen = resetAllTeachingSeen(teachingAccountId);
     const resetChart = resetChartTaughtState(teachingAccountId);
     const clearPractice = Promise.resolve(

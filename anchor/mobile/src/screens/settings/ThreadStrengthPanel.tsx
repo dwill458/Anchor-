@@ -11,7 +11,6 @@ import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore, type ThreadStrengthSensitivity } from '@/stores/settingsStore';
 import { logger } from '@/utils/logger';
-import { THREAD_STRENGTH_DECAY_COPY } from '@/constants/v2/threadStrengthCopy';
 
 interface Props {
   onBack: () => void;
@@ -30,19 +29,19 @@ const OPTIONS: Array<{
   {
     id: 'lenient',
     label: 'Lenient',
-    description: THREAD_STRENGTH_DECAY_COPY.lenient,
+    description: 'Strength Buffer: 2 days away. After that, your thread softens by 3 points for each additional day.',
     week: ['practiced', 'practiced', 'practiced', 'holds', 'holds', 'practiced', 'practiced'],
   },
   {
     id: 'balanced',
     label: 'Balanced',
-    description: THREAD_STRENGTH_DECAY_COPY.balanced,
+    description: 'Strength Buffer: 1 day away. After that, your thread softens by 3 points for each additional day.',
     week: ['practiced', 'practiced', 'practiced', 'holds', 'thins', 'practiced', 'practiced'],
   },
   {
     id: 'strict',
     label: 'Strict',
-    description: THREAD_STRENGTH_DECAY_COPY.strict,
+    description: 'No Strength Buffer. Your thread softens by 3 points for each day away.',
     week: ['practiced', 'practiced', 'practiced', 'thins', 'thins', 'practiced', 'practiced'],
   },
 ];

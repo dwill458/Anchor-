@@ -25,8 +25,6 @@ import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { colors } from '@/theme/colors';
 import { focusAreaById, focusAreaForCategory } from '@/constants/v2/focusAreas';
 import { ArrowLeft } from 'lucide-react-native';
-import { useTeachingGate } from '@/utils/useTeachingGate';
-import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { warmUpBackend } from '@/services/backendWarmup';
 import { playCreationSound } from '@/services/CreationSounds';
@@ -90,7 +88,6 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         : '';
     const insets = useSafeAreaInsets();
     const { width, height } = useWindowDimensions();
-    const recordShown = useTeachingStore((s) => s.recordShown);
 
     const scrollViewRef = useRef<ScrollViewInstance>(null);
     const textInputRef = useRef<TextInputInstance>(null);
@@ -104,7 +101,6 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     );
     // Constraint feedback waits for Continue: it is never shown while the words are being written.
     const [submitError, setSubmitError] = useState<string | null>(null);
-    const [isFocused, setIsFocused] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
     // Once Continue has been pressed the words belong to the flow's canvas, and the button must
     // not grey out while it fades behind them.
@@ -120,35 +116,6 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     const startingRef = useRef(false);
     // Set while a gate (paywall) is open so coming back keeps what was typed.
     const returningFromGateRef = useRef(false);
-
-    // Teaching: whisper state (Guide Mode)
-    const [undertoneText, setUndertoneText] = useState<string | null>(null);
-    const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const firstTimeShownRef = useRef(false);
-    const hesitationShownRef = useRef(false);
-
-    // Teaching gate — evaluated once per render cycle; gates enforce lifetime limits
-    const firstTimeTeaching = useTeachingGate({
-        screenId: 'intention_input',
-        candidateIds: ['intention_input_first_time_v1'],
-    });
-    const hesitationTeaching = useTeachingGate({
-        screenId: 'intention_input',
-        candidateIds: ['intention_input_hesitation_v1'],
-    });
-
-    const showUndertone = (text: string, teachingId: string) => {
-        const content = TEACHINGS[teachingId];
-        setUndertoneText(text);
-        recordShown(teachingId, 'inline_whisper', content?.maxShows ?? 1);
-        AnalyticsService.track('teaching_shown', {
-            teaching_id: teachingId,
-            pattern: 'inline_whisper',
-            screen: 'intention_input',
-            trigger: content?.trigger ?? 'first_time',
-            guide_mode: true,
-        });
-    };
 
     useEffect(() => {
         if (area) return;
@@ -171,15 +138,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
                 setSubmitError(null);
                 useFirstAnchorFlowStore.getState().clearDraft();
             }
-            setIsFocused(false);
-            setUndertoneText(null);
-
-            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-
-            return () => {
-                if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-            };
-        }, [idleTimerRef, initialIntention])
+        }, [initialIntention])
     );
 
     // Reset draft and intention when leaving this screen
@@ -196,11 +155,6 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         };
     }, [navigation]);
 
-    // Cleanup idle timer on unmount
-    useEffect(() => () => {
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    }, []);
-
     // DECISION D9: Continue (typed) needs two different consonants after distillation.
     const consonantCount = useMemo(() => distillIntention(intention).finalLetters.length, [intention]);
     const hasEnoughConsonants = consonantCount >= MIN_CONSONANTS;
@@ -208,43 +162,15 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
     const canContinue = intention.trim().length >= 1;
 
     const handleFocus = () => {
-        setIsFocused(true);
-        // First-time undertone: show after 3.5s of focus with no keystrokes
-        if (firstTimeTeaching && !firstTimeShownRef.current) {
-            idleTimerRef.current = setTimeout(() => {
-                if (firstTimeTeaching && !firstTimeShownRef.current) {
-                    firstTimeShownRef.current = true;
-                    showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
-                }
-            }, 3500);
-        }
         setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 150);
-    };
-
-    const handleBlur = () => {
-        setIsFocused(false);
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
 
     const handleIntentionChange = (text: string) => {
         if (text.length <= MAX_CHARS) {
             setIntention(text);
             setSubmitError(null);
-
-            // Reset idle timer on every keystroke
-            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-
-            // Schedule hesitation hint after 14s idle (only if user has typed something)
-            if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
-                idleTimerRef.current = setTimeout(() => {
-                    if (hesitationTeaching && !hesitationShownRef.current) {
-                        hesitationShownRef.current = true;
-                        showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
-                    }
-                }, 14000);
-            }
         }
     };
 
@@ -370,8 +296,6 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
         }
     };
 
-    const hintText = undertoneText;
-
     return (
         <View style={styles.container}>
             <StatusBar style="dark" />
@@ -422,7 +346,6 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
                                 value={intention}
                                 onChangeText={handleIntentionChange}
                                 onFocus={handleFocus}
-                                onBlur={handleBlur}
                                 placeholder={area ? area.placeholder : placeholder}
                                 placeholderTextColor={colors.creation.placeholder}
                                 multiline
@@ -443,13 +366,7 @@ export default function IntentionInputScreen({ fromOnboarding = false, chosenCat
                                 <Text style={styles.consonantHint} accessibilityLiveRegion="polite">{submitError}</Text>
                             ) : null}
 
-                            {hintText ? (
-                                <Text style={styles.guidance} accessibilityLiveRegion="polite">
-                                    {hintText}
-                                </Text>
-                            ) : (
-                                <StaticHints tip={area?.tip} />
-                            )}
+                            <StaticHints tip={area?.tip} />
                         </View>
                     </ScrollView>
 

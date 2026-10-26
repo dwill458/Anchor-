@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { PracticeSubscreen } from '../PracticeSubscreen';
 import { SoundFeelSubscreen } from '../SoundFeelSubscreen';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { HelpAboutSubscreen } from '../HelpAboutSubscreen';
 import { DataPrivacySubscreen } from '../DataPrivacySubscreen';
 
@@ -159,7 +160,7 @@ describe('PracticeSubscreen', () => {
     fireEvent.press(screen.getByText('Thread Strength'));
     expect(screen.getByText('Saved as soon as you choose.')).toBeTruthy();
     expect(screen.getByText('Missed, thread holds')).toBeTruthy();
-    expect(screen.getByText('Thread thins')).toBeTruthy();
+    expect(screen.getByText('Thread softens')).toBeTruthy();
     expect(screen.queryByText('Save')).toBeNull();
 
     fireEvent.press(screen.getByLabelText('Lenient'));
@@ -329,6 +330,8 @@ describe('HelpAboutSubscreen', () => {
   });
 
   it('replays app tips for the current account after confirming, and confirms with the existing toast', async () => {
+    useTeachingStore.getState().setUserFlag('hasSeenFirstAnchorArrival', true);
+    useTeachingStore.getState().setUserFlag('hasSeenFirstPracticeScene', true);
     render(<HelpAboutSubscreen onBack={jest.fn()} />);
 
     fireEvent.press(screen.getByTestId('settings-row-Replay app tips'));
@@ -337,6 +340,8 @@ describe('HelpAboutSubscreen', () => {
     await waitFor(() => expect(mockTeachingReset).toHaveBeenCalledWith('account-a'));
     await waitFor(() => expect(mockToastInfo).toHaveBeenCalledWith('App tips reset.'));
     expect(mockSetGuideMode).not.toHaveBeenCalled();
+    expect(useTeachingStore.getState().userFlags.hasSeenFirstAnchorArrival).toBe(true);
+    expect(useTeachingStore.getState().userFlags.hasSeenFirstPracticeScene).toBe(true);
   });
 });
 

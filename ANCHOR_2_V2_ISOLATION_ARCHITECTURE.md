@@ -1,6 +1,6 @@
 # Anchor 2.0 isolation architecture
 
-Anchor 2.0 is a parallel product layer. Anchor 1.5 remains the shipping application until a separately approved cutover.
+Anchor 2.0 is the default product layer. The legacy Anchor 1.5 navigator remains available only when `EXPO_PUBLIC_ANCHOR_V2_ENABLED` is exactly `'false'`.
 
 ## Directory and dependency boundary
 
@@ -16,9 +16,9 @@ Production code may consume existing stable shared utilities. It must not import
 
 ## Development entry
 
-`EXPO_PUBLIC_ANCHOR_V2_ENABLED=false` is the default. `App.tsx` selects `AnchorV2Navigator` only when both `__DEV__` and that flag are true. Release builds always select `RootNavigator`, even if the environment variable is accidentally true.
+`isAnchorV2Enabled()` returns true unless `EXPO_PUBLIC_ANCHOR_V2_ENABLED === 'false'`. `App.tsx` selects `AnchorV2Navigator` by default in development and release builds; `__DEV__` and app environment do not alter that selection.
 
-To enter V2 locally, set `EXPO_PUBLIC_ANCHOR_V2_ENABLED=true` in the local mobile environment and restart Expo. To return to production, set it to `false` (or remove it) and restart. The current shell is deliberately only `V2DevelopmentHome`; it is not a migrated Home screen. V2 typography uses Bricolage Grotesque and Figtree alongside legacy Cinzel/Inter.
+To select the legacy navigator, explicitly set `EXPO_PUBLIC_ANCHOR_V2_ENABLED=false` and restart Expo. Removing the variable selects V2 again. `V2DevelopmentHome` hosts the V2 daily shell. The sections below record the original isolation work; their historical rollout and scoring notes are not a description of current runtime behavior.
 
 ## Protected legacy files
 
@@ -54,7 +54,7 @@ The V2 service reproduces the current mobile default policy (balanced sensitivit
 - Production navigation, UI, legacy Thread display, Course/Waypoint, RevenueCat purchase verification, Firebase auth, audio, and creation engines remain production-authoritative.
 - V2 trial state is server-authoritative.
 - V2 Thread movement is server-authoritative only when its authority flag is explicitly enabled; otherwise it is a shadow ledger.
-- No screen, paywall, release UI, onboarding, or production navigation has been cut over.
+- Historical isolation checkpoint: no screen, paywall, release UI, onboarding, or production navigation had been cut over then. Current navigator selection is documented above.
 
 ## Migration safety
 

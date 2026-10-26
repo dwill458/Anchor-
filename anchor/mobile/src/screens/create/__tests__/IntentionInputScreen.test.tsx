@@ -2,6 +2,8 @@ import React from 'react';
 import { render, cleanup, fireEvent, screen, act } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import IntentionInputScreen from '../IntentionInputScreen';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import { TEACHINGS } from '@/constants/teaching';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
 // Mock navigation
@@ -28,10 +30,10 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 jest.mock('@/stores/teachingStore', () => ({
-    useTeachingStore: () => ({ recordShown: jest.fn() }),
+    useTeachingStore: (selector: any) => selector({ recordShown: jest.fn() }),
 }));
 jest.mock('@/utils/useTeachingGate', () => ({
-    useTeachingGate: () => null,
+    useTeachingGate: jest.fn(() => null),
 }));
 jest.mock('@/services/AnalyticsService', () => ({
     AnalyticsService: { track: jest.fn() },
@@ -279,4 +281,22 @@ describe('IntentionInputScreen', () => {
         expect(onBack).toHaveBeenCalledTimes(1);
         expect(useFirstAnchorFlowStore.getState().draft).toBeNull();
     });
+});
+
+it('shows no legacy whispers after focus or typing even when Guide mode gates would allow them', () => {
+  jest.useFakeTimers();
+  jest.mocked(useTeachingGate).mockReturnValue({ ...TEACHINGS.intention_input_first_time_v1, teachingId: 'intention_input_first_time_v1' } as never);
+  const tree = render(<IntentionInputScreen />);
+  fireEvent(tree.getByLabelText('Your intention'), 'focus');
+  act(() => jest.advanceTimersByTime(4000));
+  expect(tree.queryByText(TEACHINGS.intention_input_first_time_v1.copy)).toBeNull();
+  fireEvent.changeText(tree.getByLabelText('Your intention'), 'I focus on my work');
+  act(() => jest.advanceTimersByTime(15000));
+  expect(tree.queryByText(TEACHINGS.intention_input_first_time_v1.copy)).toBeNull();
+  fireEvent.press(tree.getByLabelText('About the three rules'));
+  expect(tree.getByText('Short. Present. Felt.')).toBeTruthy();
+  expect(tree.getByText(TEACHINGS.intention_input_first_time_v1.copy)).toBeTruthy();
+  tree.unmount();
+  jest.clearAllTimers(); jest.useRealTimers();
+  jest.mocked(useTeachingGate).mockReturnValue(null);
 });

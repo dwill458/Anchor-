@@ -1,5 +1,6 @@
+import { useTeachingStore } from '@/stores/teachingStore';
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 // This suite drives AnchorV2Navigator's route-wrapper wiring directly (which
 // route a callback navigates to, with what params) without depending on the
@@ -665,5 +666,34 @@ describe('AnchorV2Navigator invitation route options', () => {
     const options = optionsFor({ anchorId: 'a', anchorTransition: false });
     expect(options.animation).toBe('fade');
     expect(options.gestureEnabled).toBe(false);
+  });
+});
+
+describe('V2 legacy teaching backlog cleanup', () => {
+  afterEach(() => jest.restoreAllMocks());
+  it('clears hydrated backlog once on mount', () => {
+    jest.spyOn(useTeachingStore.persist, 'hasHydrated').mockReturnValue(true);
+    useTeachingStore.setState({ pendingMilestones: ['old'] });
+    const tree = render(<AnchorV2Navigator />);
+    expect(useTeachingStore.getState().pendingMilestones).toEqual([]);
+    act(() => useTeachingStore.setState({ pendingMilestones: ['later'] }));
+    tree.rerender(<AnchorV2Navigator />);
+    expect(useTeachingStore.getState().pendingMilestones).toEqual(['later']);
+  });
+  it('waits for persisted backlog hydration and unsubscribes on unmount', () => {
+    jest.spyOn(useTeachingStore.persist, 'hasHydrated').mockReturnValue(false);
+    let hydrated!: () => void;
+    const unsubscribe = jest.fn();
+    jest.spyOn(useTeachingStore.persist, 'onFinishHydration').mockImplementation(callback => {
+      hydrated = () => callback(useTeachingStore.getState());
+      return unsubscribe;
+    });
+    useTeachingStore.setState({ pendingMilestones: ['old'] });
+    const tree = render(<AnchorV2Navigator />);
+    expect(useTeachingStore.getState().pendingMilestones).toEqual(['old']);
+    act(hydrated);
+    expect(useTeachingStore.getState().pendingMilestones).toEqual([]);
+    tree.unmount();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 });

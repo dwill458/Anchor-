@@ -1,13 +1,15 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { useMilestoneCelebrationStore } from '@/stores/v2/milestoneCelebrationStore';
 import { V2SavedVision } from '../V2SavedVision';
 import { getTeachingSeen, resetTeachingSeenCache } from '@/hooks/v2/teaching/teachingSeen';
 jest.mock('@/stores/encryptedPersistStorage', () => ({ encryptedPersistStorage: { getItem: jest.fn(async () => null), setItem: jest.fn(), removeItem: jest.fn() } }));
 jest.mock('@/stores/authStore', () => ({ useAuthStore: (select: Function) => select({ user: null }) }));
 jest.mock('@/hooks/v2/teaching/useTeachingFocus', () => ({ useTeachingFocus: () => ({ isFocused: true, transitioning: false }) }));
 jest.mock('@/components/v2/teaching/ScreenTeaching', () => {
+  const React = require('react');
   const { Pressable } = require('react-native');
-  return { ScreenTeaching: ({ queue }: any) => queue.steps.map((beat: string) => <Pressable key={beat} testID={beat} onPress={queue.dismiss} />) };
+  return { ScreenTeaching: ({ queue }: any) => queue.steps.map((beat: string) => <React.Fragment key={beat}><Pressable testID={`shown-${beat}`} onPress={() => queue.markShown(beat)} /><Pressable testID={beat} onPress={() => queue.dismiss()} /></React.Fragment>) };
 });
 jest.mock('../board/VisionBoard', () => {
   const { Pressable } = require('react-native');
@@ -32,6 +34,7 @@ it('waits for board rest, whispers at one, and counts dismissal as seen', async 
   expect(view.queryByTestId('vision.first')).toBeNull();
   fireEvent.press(view.getByTestId('rest'));
   await waitFor(() => expect(view.getByTestId('vision.first')).toBeTruthy());
+  fireEvent.press(view.getByTestId('shown-vision.first'));
   fireEvent.press(view.getByTestId('vision.first'));
   expect(await getTeachingSeen(null, 'vision.first')).toBe(true);
 });
@@ -55,4 +58,18 @@ it('blocks arrival and external ceremony/picker activity', async () => {
   expect(view.queryByTestId('vision.second')).toBeNull();
   view.rerender(<V2SavedVision {...base} tiles={tiles} teachingBlocked={false} />);
   await waitFor(() => expect(view.getByTestId('vision.second')).toBeTruthy());
+});
+
+it('waits for a queued milestone and yields if one starts during teaching', async () => {
+  useMilestoneCelebrationStore.setState({ queue: [{ key: 'before' } as never] });
+  const view = render(<V2SavedVision {...base} tiles={tiles.slice(0, 1)} />);
+  fireEvent.press(view.getByTestId('rest'));
+  await act(async () => { await Promise.resolve(); });
+  expect(view.queryByTestId('vision.first')).toBeNull();
+  act(() => useMilestoneCelebrationStore.getState().shift('before'));
+  await waitFor(() => expect(view.getByTestId('vision.first')).toBeTruthy());
+  act(() => useMilestoneCelebrationStore.setState({ queue: [{ key: 'during' } as never] }));
+  expect(view.queryByTestId('vision.first')).toBeNull();
+  view.unmount();
+  useMilestoneCelebrationStore.setState({ queue: [] });
 });

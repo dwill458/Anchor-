@@ -64,6 +64,8 @@ export interface TeachingState {
   dequeueMilestone: () => string | undefined;
   clearSessionSeen: () => void;
   reset: () => void;
+  /** Replay tips without replaying story moments or forgetting user history. */
+  resetTeachingRecords: () => void;
   setUserFlag: (flag: keyof TeachingUserFlags, value: boolean) => void;
   recordTraceHintSeen: (id: string) => void;
   exhaustTraceHint: (id: string) => void;
@@ -156,6 +158,10 @@ export const useTeachingStore = create<TeachingState>()(
 
       clearSessionSeen: () => {
         set({ sessionSeenIds: [], sessionSeenPatterns: [] });
+      },
+
+      resetTeachingRecords: () => {
+        set((state) => ({ ...createInitialTeachingState(), userFlags: state.userFlags }));
       },
 
       reset: () => {

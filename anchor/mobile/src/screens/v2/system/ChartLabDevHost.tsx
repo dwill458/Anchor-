@@ -21,7 +21,7 @@ export function ChartLabDevHost() {
   const resetTeaching = async (replay: boolean) => {
     await resetAllTeachingSeen(accountId);
     await resetChartTaughtState(accountId);
-    useTeachingStore.getState().reset();
+    useTeachingStore.getState().resetTeachingRecords();
     if (replay) {
       setOpen(false);
       DeviceEventEmitter.emit('replayAppTeaching');
