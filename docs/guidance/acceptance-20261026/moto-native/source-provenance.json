@@ -1,0 +1,18 @@
+{
+  "commit": "71505dbffaf0fec7bd3cb8216b97c7bec0f6a3dc",
+  "sources": {
+    "anchor/mobile/src/components/v2/teaching/SpotlightCoach.tsx": "ee884b21bc9583fca5e516cf97d92f6af7355d36967d2c75e40a3ef224e97955",
+    "anchor/mobile/src/components/v2/teaching/ScreenTeaching.tsx": "968c844dd71290fcce178d193289adcb91b984116437058832edb43daca7c023",
+    "anchor/mobile/src/components/v2/chart/sheet/ChartOneMoveTeaching.tsx": "467c6d5796c1682ed613b4f11e306d7ae0473c5626ab387005d210a0c8f8d896",
+    "anchor/mobile/src/hooks/v2/teaching/useTeachingQueue.ts": "d29ea83664b5176b6ff9ab98098f85bf5c7824356be02d855e0d11ebfd732c55",
+    "anchor/mobile/src/hooks/v2/teaching/useCelebrationActive.ts": "8299be2469dc2cabb33810dcaee132ae1e34f40a6a17451a63aa6ce3e77c9fee",
+    "anchor/mobile/src/screens/v2/anchors/V2AnchorDetailsScreen.tsx": "8acee33edda381aecf38188a04b1b393517738bd82d084ca668374a128ca3007",
+    "anchor/mobile/src/constants/v2/teachingCopy.ts": "f8d8d3e0cb35910e6f546221d27529bc181b524acc5a07e2b051ba0472fad168"
+  },
+  "isolation": {
+    "teachingSeen": "in-memory substitute; no encrypted storage imported",
+    "analytics": "local QA event capture; no remote analytics",
+    "DetailsRow": "function and used styles extracted from current production source",
+    "milestone": "production blocking hook and in-memory stores; stand-in presentation, not real award or settlement"
+  }
+}

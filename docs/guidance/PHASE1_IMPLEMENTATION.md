@@ -1,6 +1,6 @@
 # Guidance Phase 1 implementation
 
-Final acceptance addendum (2026-10-26): [PHASE1_ACCEPTANCE.md](PHASE1_ACCEPTANCE.md) supersedes historical copy, validation and rollback claims. Native checks remain pending at the user’s request. Ordered rollback is verified; independent out-of-order rollback has overlaps.
+Final acceptance addendum (2026-10-26): [PHASE1_ACCEPTANCE.md](PHASE1_ACCEPTANCE.md) supersedes historical copy, validation and rollback claims. Native checks resumed on the Moto; component checks passed, with Back delivery, accessibility and integration gates still open. Ordered rollback is verified; independent out-of-order rollback has overlaps.
 
 Scope: approved Phase 1 cleanup only, in PR-A / PR-B / PR-C order. The coordinator and new teaching surfaces remain deferred. See the final acceptance addendum below for rollback limits and the intentional pre-existing dependency inclusion.
 

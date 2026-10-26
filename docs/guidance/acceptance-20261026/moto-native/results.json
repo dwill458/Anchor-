@@ -1,0 +1,51 @@
+{
+  "device": {
+    "model": "Moto g play 2024",
+    "android": 14,
+    "api": 34,
+    "package": "com.anchorintentions.app",
+    "version": "2.0.0",
+    "versionCode": 39,
+    "nativeReactNative": "0.88.0",
+    "screenPx": [
+      720,
+      1600
+    ],
+    "densityDpi": 280
+  },
+  "gitCommit": "71505dbff",
+  "status": "partial native acceptance; remains open",
+  "passedAtComponentScope": [
+    "Exact static Today copy, default Home and Chart presentation",
+    "Native underlying target callbacks for Home and Chart circle/body",
+    "Home hole padding vs scrim on all four sides; Chart left boundary",
+    "Home and Chart Got it; scrim dismissal",
+    "Home production teaching queue preempted by real milestone/scene blocking store signals, no same-visit restart",
+    "Six rapid focus/blur cycles before settle did not start teaching",
+    "Home tooltip above a low target",
+    "Home/Chart 320dp root with 130% system text; readable action/text",
+    "Extracted production Details row wraps at 320dp and 280dp at 130% text",
+    "Native WidgetPreview raster of current Medium and Large source contains DEEP FOCUS"
+  ],
+  "partial": [
+    "TalkBack enabled, accessibility trees captured, Home double-tap Got it activated; full traversal and spoken output not verified",
+    "Rapid focus simulated at hook boundary; no real navigation stack",
+    "Milestone presentation was a stand-in; no real award/presenter or settlement",
+    "Widgets rendered through Android native preview; launcher insertion/update not tested"
+  ],
+  "unresolved": [
+    "ADB KEYCODE_BACK exits development activity without teaching dismissal. Reproduced with no teaching mounted and independent JavaScript/native-event probes receiving no event. Build/host cause unresolved.",
+    "VoiceOver/iOS",
+    "Full Home/Chart/Details integration with production account state",
+    "Full TalkBack traversal and audible announcement/reading order",
+    "Launcher-hosted widget state and update behavior"
+  ],
+  "restored": {
+    "fontScale": 1.0,
+    "enabledAccessibilityServices": null,
+    "accessibilityEnabled": 0,
+    "touchExplorationEnabled": 0
+  },
+  "sourceHashesUnchanged": true,
+  "noProductionChanges": true
+}

@@ -38,20 +38,11 @@ The existing boundary checker still exits 1. Committed baseline versus Phase 1 i
 
 ## Native acceptance
 
-Native checks were **left pending at the user's explicit request**. Only device/runtime availability was inspected: a locked Moto, an S24 active elsewhere, and disposable read-only Android emulator attempts. One emulator eventually booted; it was closed after the deferral. No app acceptance interaction, isolated harness, accessibility session or launcher-widget check was executed. Existing Metro and account data were left in place.
+The Moto was subsequently made available and tested on 2026-10-26. The earlier native deferral is superseded by [the Moto follow-up and evidence](acceptance-20261026/moto-native/README.md).
 
-| Acceptance check | Executed | Remaining |
-| --- | --- | --- |
-| Spotlight target touches and hole-edge hit testing | No | Android and iOS native verification |
-| Home and Chart teaching presentation | No | Full screen integration on native devices |
-| Milestone celebration priority | No | Native overlap and interruption scenarios |
-| Rapid navigation and dismissal | No | Native race and persistence checks |
-| TalkBack / VoiceOver | No | Both screen readers; VoiceOver requires iOS access |
-| Text scaling and tooltip placement | No | Large text and safe-area/native font metrics |
-| Details row wrapping | No | Narrow screen, including large text |
-| Android widget terminology | Source/test vocabulary only | Installed launcher widget verification |
+Native component checks passed for Home/Chart presentation and target touches, Home hole edges, Got it/scrim dismissal, blocking signals, rapid focus changes, 320 dp / 130% text layouts, extracted Details row wrapping, and native widget-preview terminology. These used the production components in an isolated host with in-memory records; full screen/account integration and launcher-hosted widgets remain pending.
 
-Automated component assertions are regression evidence, not a substitute for these checks. Physical-device acceptance remains required, particularly touches, screen readers and launcher widgets.
+Android Back exited this installed development host without reaching JavaScript, including with no teaching mounted. Root cause and intended-build behavior remain unresolved. TalkBack checks were partial: exposed text/actions and Home double-tap activation were observed; full traversal, spoken output and focus behavior are not accepted. VoiceOver/iOS was not tested. See the follow-up for exact limits and restored device settings.
 
 ## Scope and rollback review
 
@@ -70,7 +61,7 @@ Conflict-free out-of-order rollback requires regrouping/restacking the overlappi
 
 Guidance-specific automated regression checks pass, static copy matches approval, and the scope audit found no new business-logic or boundary regression. Full Phase 1 acceptance is **not closed**:
 
-1. Native acceptance remains pending by request.
+1. Native acceptance remains partial: Back delivery, full TalkBack/VoiceOver, real host integration and launcher widget checks are still open.
 2. Conflict-free independent rollback of all three changesets is unproven and the reverse-patch checks expose overlaps.
 3. Global automated gates remain red for the pre-existing Ask Chart failure (tracked separately in #344) and existing V2 boundary debt.
 

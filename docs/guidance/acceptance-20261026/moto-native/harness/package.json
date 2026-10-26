@@ -1,0 +1,1 @@
+{"name": "anchor-guidance-native-qa", "version": "1.0.0", "main": "index.tsx", "dependencies": {"expo": "~58.0.14", "react": "19.3.0", "react-native": "0.88.0"}}

@@ -1,0 +1,1 @@
+export const seen=new Map<string,boolean>();export async function getTeachingSeen(a:any,b:string){return seen.get(b)??false;} export function setTeachingSeen(a:any,b:string){seen.set(b,true);} export function reset(){seen.clear();}

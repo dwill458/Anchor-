@@ -1,0 +1,255 @@
+{"event": "bootstrap", "fonts": true, "time": 1793008504.395598}
+{"event": "queue", "id": 1, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008504.5791273}
+{"event": "run", "id": 1, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008504.5791273}
+{"event": "rect", "id": 1, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008504.5933619}
+{"event": "rect", "id": 1, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008504.5933619}
+{"event": "queue", "id": 1, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008504.6010778}
+{"event": "queue", "id": 1, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008505.1468995}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008505.1711454}
+{"event": "hit", "id": 1, "kind": "circle", "time": 1793008541.8481276}
+{"event": "hit", "id": 1, "kind": "body", "time": 1793008542.2892554}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "blur", "time": 1793008542.8305655}
+{"event": "rect", "id": 2, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008542.8305655}
+{"event": "queue", "id": 2, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008542.8305655}
+{"event": "rect", "id": 2, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008542.8305655}
+{"event": "run", "id": 2, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008542.8305655}
+{"event": "queue", "id": 2, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008542.855878}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008543.276038}
+{"event": "queue", "id": 2, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008543.2784674}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "scrim", "time": 1793008545.0027447}
+{"event": "queue", "id": 2, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008545.030188}
+{"event": "run", "id": 3, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008545.8660014}
+{"event": "queue", "id": 3, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008545.8673103}
+{"event": "queue", "id": 3, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008545.8673103}
+{"event": "rect", "id": 3, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008545.8728526}
+{"event": "rect", "id": 3, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008545.8739283}
+{"event": "queue", "id": 3, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008546.3248389}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008546.3248389}
+{"event": "teaching_beat_advanced", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "next", "time": 1793008547.2766907}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "complete", "time": 1793008547.290375}
+{"event": "queue", "id": 3, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008547.3119948}
+{"event": "queue", "id": 4, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008548.3194916}
+{"event": "run", "id": 4, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008548.3226888}
+{"event": "queue", "id": 4, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008548.3316762}
+{"event": "rect", "id": 4, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008548.3385956}
+{"event": "rect", "id": 4, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008548.3385956}
+{"event": "queue", "id": 4, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008548.7852764}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008548.8026502}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "blur", "time": 1793008550.2485912}
+{"event": "bootstrap", "fonts": true, "time": 1793008568.7060144}
+{"event": "run", "id": 5, "mode": "chart", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008569.0218134}
+{"event": "queue", "id": 5, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008569.0243762}
+{"event": "teaching_beat_shown", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "ready", "time": 1793008569.1199923}
+{"event": "chartReady", "id": 5, "time": 1793008569.1199923}
+{"event": "queue", "id": 5, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008569.1293418}
+{"event": "rect", "id": 5, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008569.1362004}
+{"event": "rect", "id": 5, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008569.1406052}
+{"event": "queue", "id": 5, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008569.5851855}
+{"event": "hit", "id": 5, "kind": "circle", "time": 1793008591.1774194}
+{"event": "hit", "id": 5, "kind": "body", "time": 1793008591.6262672}
+{"event": "teaching_beat_dismissed", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "scrim", "time": 1793008593.0378528}
+{"event": "chartDismiss", "id": 5, "time": 1793008593.060389}
+{"event": "chartReady", "id": 6, "time": 1793008593.9198282}
+{"event": "teaching_beat_shown", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "ready", "time": 1793008593.9198282}
+{"event": "run", "id": 6, "mode": "chart", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008593.9198282}
+{"event": "queue", "id": 6, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008593.9243178}
+{"event": "queue", "id": 6, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008593.9288614}
+{"event": "rect", "id": 6, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008593.9484677}
+{"event": "rect", "id": 6, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008593.9484677}
+{"event": "teaching_beat_shown", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "ready", "time": 1793008593.955924}
+{"event": "chartReady", "id": 6, "time": 1793008593.955924}
+{"event": "queue", "id": 6, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008594.4448943}
+{"event": "teaching_beat_advanced", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "next", "time": 1793008595.3199232}
+{"event": "teaching_beat_dismissed", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "complete", "time": 1793008595.3199232}
+{"event": "chartDismiss", "id": 6, "time": 1793008595.3447855}
+{"event": "queue", "id": 7, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008596.3175492}
+{"event": "run", "id": 7, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008596.319549}
+{"event": "queue", "id": 7, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008596.327996}
+{"event": "rect", "id": 7, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008596.3333445}
+{"event": "rect", "id": 7, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008596.3360426}
+{"event": "queue", "id": 7, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008596.7831147}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008596.7936337}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "scrim", "time": 1793008598.0038528}
+{"event": "queue", "id": 7, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008598.030353}
+{"event": "run", "id": 8, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008598.4323454}
+{"event": "queue", "id": 8, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008598.4323454}
+{"event": "queue", "id": 8, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008598.4323454}
+{"event": "rect", "id": 8, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008598.4562924}
+{"event": "rect", "id": 8, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008598.4612916}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008598.8979743}
+{"event": "queue", "id": 8, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008598.9019787}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "scrim", "time": 1793008600.257862}
+{"event": "queue", "id": 8, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008600.284007}
+{"event": "queue", "id": 9, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008600.9159744}
+{"event": "run", "id": 9, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008600.9191182}
+{"event": "queue", "id": 9, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008600.9191182}
+{"event": "rect", "id": 9, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008600.9257538}
+{"event": "rect", "id": 9, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008600.9257538}
+{"event": "queue", "id": 9, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008601.386043}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008601.3992624}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "scrim", "time": 1793008602.52438}
+{"event": "queue", "id": 9, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008602.5508087}
+{"event": "run", "id": 10, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008603.0402052}
+{"event": "queue", "id": 10, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008603.0402052}
+{"event": "queue", "id": 10, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008603.0467029}
+{"event": "rect", "id": 10, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008603.0497005}
+{"event": "rect", "id": 10, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008603.0524695}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008603.4921613}
+{"event": "queue", "id": 10, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008603.4921613}
+{"event": "queue", "id": 10, "steps": [], "ready": false, "blocked": true, "focused": true, "time": 1793008604.376641}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "interrupted", "time": 1793008604.3806405}
+{"event": "queue", "id": 10, "steps": [], "ready": false, "blocked": true, "focused": true, "time": 1793008604.3875966}
+{"event": "queue", "id": 10, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008605.7901702}
+{"event": "queue", "id": 10, "steps": [], "ready": false, "blocked": true, "focused": true, "time": 1793008605.7901702}
+{"event": "queue", "id": 11, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008607.0581336}
+{"event": "run", "id": 11, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008607.0581336}
+{"event": "queue", "id": 11, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008607.0581336}
+{"event": "rect", "id": 11, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008607.0874848}
+{"event": "rect", "id": 11, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008607.0874848}
+{"event": "queue", "id": 11, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008607.5588374}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008607.5665143}
+{"event": "queue", "id": 11, "steps": [], "ready": false, "blocked": true, "focused": true, "time": 1793008608.3357322}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "interrupted", "time": 1793008608.3424878}
+{"event": "queue", "id": 11, "steps": [], "ready": false, "blocked": true, "focused": true, "time": 1793008608.3500988}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": true, "focused": false, "time": 1793008614.4846675}
+{"event": "run", "id": 12, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008614.4866548}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008614.489143}
+{"event": "rect", "id": 12, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008614.489143}
+{"event": "rect", "id": 12, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008614.4905317}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008616.0057404}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008616.016502}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008616.2742875}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008616.2872975}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008616.5811715}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008616.589728}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008616.922752}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008616.9432588}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008617.2227995}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008617.2297482}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008617.5455542}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008617.5507135}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008617.8684046}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008617.8752513}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008618.1806004}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008618.2909338}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008618.4947894}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008618.5049307}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008618.8007312}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008618.8156273}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008619.1325169}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008619.1349528}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008619.435114}
+{"event": "queue", "id": 12, "steps": [], "ready": false, "blocked": false, "focused": false, "time": 1793008619.4488406}
+{"event": "queue", "id": 13, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008620.6970925}
+{"event": "run", "id": 13, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008620.6970925}
+{"event": "queue", "id": 13, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008620.7123988}
+{"event": "rect", "id": 13, "name": "target", "x": 28, "y": 760, "width": 355.4285583496094, "height": 80, "time": 1793008620.7216594}
+{"event": "rect", "id": 13, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008620.728528}
+{"event": "queue", "id": 13, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008621.1950903}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008621.2043757}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "blur", "time": 1793008628.2878659}
+{"event": "bootstrap", "fonts": true, "time": 1793008628.2886605}
+{"event": "queue", "id": 13, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008628.4553401}
+{"event": "rect", "id": 13, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008628.4553401}
+{"event": "run", "id": 13, "mode": "home", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 0, "right": 0, "top": 45.71428680419922}, "time": 1793008628.4630287}
+{"event": "queue", "id": 13, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008628.4630287}
+{"event": "rect", "id": 13, "name": "target", "x": 28, "y": 760, "width": 355.4285583496094, "height": 80, "time": 1793008628.4666092}
+{"event": "queue", "id": 13, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008628.9284842}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008628.9284842}
+{"event": "run", "id": 14, "mode": "home", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 0, "right": 0, "top": 45.71428680419922}, "time": 1793008629.334865}
+{"event": "queue", "id": 14, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008629.3411994}
+{"event": "queue", "id": 14, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008629.342263}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "blur", "time": 1793008629.342263}
+{"event": "rect", "id": 14, "name": "target", "x": 73.71429443359375, "y": 240, "width": 264, "height": 80, "time": 1793008629.3881059}
+{"event": "rect", "id": 14, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008629.3930805}
+{"event": "queue", "id": 14, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008629.8391247}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008629.8503933}
+{"event": "teaching_beat_shown", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "ready", "time": 1793008638.106994}
+{"event": "queue", "id": 15, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008638.1252723}
+{"event": "chartReady", "id": 15, "time": 1793008638.1252723}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "blur", "time": 1793008638.1252723}
+{"event": "run", "id": 15, "mode": "chart", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008638.1252723}
+{"event": "queue", "id": 15, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008638.1508493}
+{"event": "rect", "id": 15, "name": "target", "x": 73.71429443359375, "y": 240, "width": 264, "height": 80, "time": 1793008638.1693754}
+{"event": "chartReady", "id": 15, "time": 1793008638.17396}
+{"event": "rect", "id": 15, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008638.17396}
+{"event": "teaching_beat_shown", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "ready", "time": 1793008638.1893919}
+{"event": "queue", "id": 15, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008638.6631958}
+{"event": "queue", "id": 16, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008639.8181841}
+{"event": "queue", "id": 16, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008639.820299}
+{"event": "run", "id": 16, "mode": "details", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008639.820299}
+{"event": "rect", "id": 16, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008639.8238497}
+{"event": "queue", "id": 16, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008642.0200443}
+{"event": "queue", "id": 17, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008642.8594143}
+{"event": "run", "id": 17, "mode": "details", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008642.8594143}
+{"event": "queue", "id": 17, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008642.8594143}
+{"event": "rect", "id": 17, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008642.8594143}
+{"event": "queue", "id": 17, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008643.2934878}
+{"event": "queue", "id": 18, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008646.5528288}
+{"event": "run", "id": 18, "mode": "details", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008646.5565882}
+{"event": "queue", "id": 18, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008646.5605137}
+{"event": "rect", "id": 18, "name": "viewport", "x": 65.71429443359375, "y": 0, "width": 280, "height": 914.2857055664062, "time": 1793008646.5837066}
+{"event": "queue", "id": 18, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008647.0372608}
+{"event": "run", "id": 19, "mode": "home", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008668.3461442}
+{"event": "queue", "id": 19, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008668.3461442}
+{"event": "queue", "id": 19, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008668.3461442}
+{"event": "rect", "id": 19, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008668.3461442}
+{"event": "rect", "id": 19, "name": "target", "x": 73.71429443359375, "y": 240, "width": 264, "height": 80, "time": 1793008668.3666272}
+{"event": "queue", "id": 19, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008670.6698956}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008670.6698956}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "scrim", "time": 1793008701.6451063}
+{"event": "queue", "id": 19, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008701.6848168}
+{"event": "queue", "id": 20, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008717.3271482}
+{"event": "queue", "id": 20, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008717.3411314}
+{"event": "run", "id": 20, "mode": "home", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008717.3446808}
+{"event": "rect", "id": 20, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008717.348833}
+{"event": "rect", "id": 20, "name": "target", "x": 73.71429443359375, "y": 240, "width": 264, "height": 80, "time": 1793008717.3545356}
+{"event": "queue", "id": 20, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793008717.8544817}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793008717.8544817}
+{"event": "teaching_beat_dismissed", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "complete", "time": 1793008748.52329}
+{"event": "teaching_beat_advanced", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "next", "time": 1793008748.5242896}
+{"event": "queue", "id": 20, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008748.561392}
+{"event": "queue", "id": 21, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008761.6221387}
+{"event": "run", "id": 21, "mode": "chart", "fontScale": 1.2999999523162842, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1.2999999523162842}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008761.632202}
+{"event": "chartReady", "id": 21, "time": 1793008761.6918433}
+{"event": "rect", "id": 21, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008761.6918433}
+{"event": "teaching_beat_shown", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "ready", "time": 1793008761.6938431}
+{"event": "queue", "id": 21, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008761.6938431}
+{"event": "rect", "id": 21, "name": "target", "x": 73.71429443359375, "y": 240, "width": 264, "height": 80, "time": 1793008761.698151}
+{"event": "queue", "id": 21, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008762.1731513}
+{"event": "teaching_beat_dismissed", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "scrim", "time": 1793008765.7112973}
+{"event": "chartDismiss", "id": 21, "time": 1793008765.759778}
+{"event": "bootstrap", "fonts": true, "time": 1793008777.5463526}
+{"event": "run", "id": 21, "mode": "chart", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 0, "right": 0, "top": 45.71428680419922}, "time": 1793008777.7118087}
+{"event": "queue", "id": 21, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008777.714785}
+{"event": "queue", "id": 21, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008777.755231}
+{"event": "chartReady", "id": 21, "time": 1793008777.7655425}
+{"event": "teaching_beat_shown", "screen": "chart", "beat": "chart.oneMove.1", "step": 1, "total": 1, "reason": "ready", "time": 1793008777.7694163}
+{"event": "rect", "id": 21, "name": "target", "x": 73.71429443359375, "y": 240, "width": 264, "height": 80, "time": 1793008777.880963}
+{"event": "rect", "id": 21, "name": "viewport", "x": 45.71429443359375, "y": 0, "width": 320, "height": 914.2857055664062, "time": 1793008777.8909376}
+{"event": "queue", "id": 21, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008778.3249772}
+{"event": "run", "id": 22, "mode": "widgets", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793008842.36547}
+{"event": "rect", "id": 22, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793008842.3815355}
+{"event": "rect", "id": 22, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793008842.3866384}
+{"event": "queue", "id": 22, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008842.3866384}
+{"event": "queue", "id": 22, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793008842.3866384}
+{"event": "queue", "id": 22, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793008842.8322718}
+{"event": "bootstrap", "fonts": true, "native": {"uiMode": "normal", "reactNativeVersion": {"minor": 88, "prerelease": null, "patch": 0, "major": 0}, "isTesting": false, "ServerHost": "localhost:8081", "Brand": "motorola", "Manufacturer": "motorola", "Release": "14", "Fingerprint": "motorola/fogona_g/fogona:14/U1TFS34.100-35-14-1-21/e7791-698bc2:user/release-keys", "Serial": "unknown", "Model": "moto g play - 2024", "Version": 34}, "time": 1793009000.859071}
+{"event": "run", "id": 22, "mode": "widgets", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793009001.1589012}
+{"event": "queue", "id": 22, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793009001.1589012}
+{"event": "queue", "id": 22, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793009001.190647}
+{"event": "rect", "id": 22, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793009001.190647}
+{"event": "queue", "id": 22, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793009001.60481}
+{"event": "run", "id": 23, "mode": "home", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793009015.8759186}
+{"event": "queue", "id": 23, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793009015.8790617}
+{"event": "rect", "id": 23, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793009015.8790617}
+{"event": "rect", "id": 23, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793009015.8853264}
+{"event": "queue", "id": 23, "steps": ["home.today"], "ready": true, "blocked": false, "focused": true, "time": 1793009016.416147}
+{"event": "teaching_beat_shown", "screen": "qa-home", "beat": "home.today", "step": 1, "total": 1, "reason": "ready", "time": 1793009016.4327188}
+{"event": "queue", "id": 24, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793009040.3860414}
+time": 1793009040.3860414}
+{"event": "run", "id": 24, "mode": "probe", "fontScale": 1, "dimensions": {"width": 411.42857142857144, "height": 914.2857142857143, "scale": 1.75, "fontScale": 1}, "insets": {"left": 0, "bottom": 24, "right": 0, "top": 45.71428680419922}, "time": 1793009040.3871958}
+{"event": "rect", "id": 24, "name": "viewport", "x": 0, "y": 0, "width": 411.4285583496094, "height": 914.2857055664062, "time": 1793009040.3894074}
+{"event": "rect", "id": 24, "name": "target", "x": 28, "y": 240, "width": 355.4285583496094, "height": 80, "time": 1793009040.3894074}
+{"event": "queue", "id": 24, "steps": [], "ready": false, "blocked": false, "focused": true, "time": 1793009040.4143982}
+{"event": "queue", "id": 24, "steps": [], "ready": true, "blocked": false, "focused": true, "time": 1793009040.7888744}
