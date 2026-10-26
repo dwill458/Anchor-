@@ -1,0 +1,6 @@
+
+Test Suites: 12 passed, 12 total
+Tests:       245 passed, 245 total
+Snapshots:   0 total
+Time:        37.987 s
+Test results written to: ..\..\docs\guidance\phase3-20261026\focused.json

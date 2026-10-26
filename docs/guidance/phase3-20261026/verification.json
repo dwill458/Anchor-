@@ -1,0 +1,76 @@
+{
+  "sourceHead": "583dae78ae741220d8248ee7b13348c04fcdc41b",
+  "cwd": "E:/Projects/Anchor/anchor/mobile",
+  "commands": {
+    "focused": "npx jest src/components/v2/thread/__tests__/ThreadGlowLesson.test.tsx src/components/v2/thread/__tests__/ThreadStrengthEducation.test.tsx src/stores/v2/__tests__/guidanceCoordinator.test.ts src/stores/v2/__tests__/guidanceRecords.test.ts src/stores/v2/__tests__/guidanceMeasurementRecovery.test.ts src/hooks/v2/guidance/__tests__ src/hooks/v2/practice/__tests__/usePracticeCompletionScene.test.ts src/screens/v2/practice/__tests__/V2FocusCompleteScreen.test.tsx src/screens/v2/practice/__tests__/V2FocusCompleteLeave.test.tsx src/screens/v2/practice/__tests__/V2VisualizeThreadCompletion.test.tsx src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx --runInBand --silent --json --outputFile=../../docs/guidance/phase3-20261026/focused.json",
+    "full": "npx jest --maxWorkers=2 --workerIdleMemoryLimit=512MB --silent --json --outputFile=../../docs/guidance/phase3-20261026/full-jest.json",
+    "typescript": "npx tsc --noEmit --pretty false",
+    "boundary": "npm run test:v2-boundary"
+  },
+  "focused": {
+    "numTotalTestSuites": 12,
+    "numPassedTestSuites": 12,
+    "numFailedTestSuites": 0,
+    "numTotalTests": 245,
+    "numPassedTests": 245,
+    "numFailedTests": 0,
+    "numPendingTests": 0
+  },
+  "typescriptExit": 0,
+  "boundary": {
+    "baseline": 39,
+    "final": 39,
+    "added": [],
+    "removed": [],
+    "scope": "Flagged files, not individual import edges."
+  },
+  "native": "No accepted Phase 3 native run; device inventory did not return. No history resets or native configuration changes.",
+  "intermediateRuns": [
+    "Initial broad run stopped for final source/coverage refinements.",
+    "Final-source runInBand run stopped after process memory rose to about 4 GB without a final summary; output retained. Worker-recycling run uses unchanged source and complete test selection."
+  ],
+  "full": {
+    "numTotalTestSuites": 682,
+    "numPassedTestSuites": 679,
+    "numFailedTestSuites": 3,
+    "numTotalTests": 7800,
+    "numPassedTests": 7796,
+    "numFailedTests": 3,
+    "numPendingTests": 1,
+    "snapshot": {
+      "added": 0,
+      "didUpdate": false,
+      "failure": false,
+      "filesAdded": 0,
+      "filesRemoved": 0,
+      "filesRemovedList": [],
+      "filesUnmatched": 0,
+      "filesUpdated": 0,
+      "matched": 16,
+      "total": 16,
+      "unchecked": 0,
+      "uncheckedKeysByFile": [],
+      "unmatched": 0,
+      "updated": 0
+    },
+    "failedAssertions": [
+      [
+        "V2ChartAskScreen.test.tsx",
+        "V2ChartAskScreen does not seed into a conversation that already has messages"
+      ],
+      [
+        "V2ChartFlows.test.tsx",
+        "Waypoint detail asks before completing a waypoint, uses one stable key, and reverses into the shared Chart"
+      ],
+      [
+        "V2ChartScreen.test.tsx",
+        "V2ChartScreen \u2014 no Chart shows the existing opening, then Continue goes straight into the cream Ask Chart conversation"
+      ]
+    ],
+    "matchesPhase2FailedAssertions": true,
+    "testExecutionSpanSeconds": 639.277,
+    "durationSeconds": 639.424
+  },
+  "sourceHashMismatches": [],
+  "fullExit": 1
+}
