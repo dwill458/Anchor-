@@ -19,6 +19,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useCourseStore } from '@/stores/courseStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { V2AnchorDetailsScreen } from '../V2AnchorDetailsScreen';
@@ -753,6 +754,43 @@ describe('V2AnchorDetailsScreen options menu', () => {
       notEstablished.forEach((el) => {
         expect(el.props.numberOfLines).toBeUndefined();
       });
+    });
+  });
+
+  describe('Thread Strength explanation', () => {
+    const stubThread = () => (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
+      recommendation: { action: 'Focus', reason: 'steady' },
+      thread: { status: 'AVAILABLE', strength: 14, delta7d: null, delta7dStatus: 'FIRST_WEEK' },
+    });
+
+    it('opens the shared explanation sheet from the Thread Strength label without navigating to Progress', async () => {
+      stubThread();
+      const onOpenProgress = jest.fn();
+      useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+      renderDetails({ onOpenProgress });
+      await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+      expect(screen.queryByText('Your Thread Strength')).toBeNull();
+      fireEvent.press(screen.getByTestId('v2-anchor-thread-explain'));
+      await waitFor(() => expect(screen.getByText('Your Thread Strength')).toBeTruthy());
+      expect(onOpenProgress).not.toHaveBeenCalled();
+    });
+
+    it('shows the one-time education only after the first practice flagged it, and dismissal persists', async () => {
+      stubThread();
+      useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+      useTeachingStore.getState().reset();
+      const first = renderDetails();
+      await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+      expect(screen.queryByTestId('thread-strength-education')).toBeNull();
+      first.unmount();
+
+      act(() => useTeachingStore.getState().setUserFlag('threadStrengthEducationPending', true));
+      renderDetails();
+      await waitFor(() => expect(screen.getByTestId('thread-strength-education')).toBeTruthy());
+      expect(screen.getByText('Your Anchor is taking hold.')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('thread-strength-education-dismiss'));
+      expect(screen.queryByTestId('thread-strength-education')).toBeNull();
+      expect(useTeachingStore.getState().userFlags.hasSeenThreadStrengthEducation).toBe(true);
     });
   });
 

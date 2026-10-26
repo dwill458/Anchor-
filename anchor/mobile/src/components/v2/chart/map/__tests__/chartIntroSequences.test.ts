@@ -130,7 +130,7 @@ describe('Chart intro sequence specs', () => {
     ]).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
   });
 
-  it('short spec runs about 2.5 s: pen and land sweep together, the route after 70% of the pen, then the X and the copy', () => {
+  it('returning intro shows copy immediately and enables Continue while the original map drawing finishes', () => {
     const progress = makeProgress();
     const onBeat = jest.fn();
     const onContinueVisible = jest.fn();
@@ -138,15 +138,14 @@ describe('Chart intro sequence specs', () => {
     expect(spec.name).toBe('introShort');
     expect(spec.tweenClock).toBe('ui');
     expect(sequenceDuration(spec)).toBe(T.shortDuration);
-    expect(sequenceDuration(spec)).toBeGreaterThan(2400);
-    expect(sequenceDuration(spec)).toBeLessThanOrEqual(2600);
+    expect(sequenceDuration(spec)).toBe(2350);
     const byTarget = (target: unknown) => tweens(spec.steps).find((step) => step.target === target);
     expect(byTarget(progress.contour)).toMatchObject({ at: 0, duration: 1400, from: 0, to: 1 });
     expect(byTarget(progress.landSweep)).toMatchObject({ at: 250, duration: 1400, from: 0, to: 1 });
     expect(byTarget(progress.route)).toMatchObject({ at: 1000, duration: 900, from: 0, to: 1 });
     expect(byTarget(progress.marker)).toMatchObject({ at: 1900, duration: 450, from: 0, to: 1 });
-    expect(byTarget(progress.copy)).toMatchObject({ at: 1900, duration: 400, from: 0, to: 1 });
-    expect(byTarget(progress.continue)).toMatchObject({ at: 2200, duration: 300, from: 0, to: 1 });
+    expect(byTarget(progress.copy)).toMatchObject({ at: 0, duration: 200, from: 0, to: 1 });
+    expect(byTarget(progress.continue)).toMatchObject({ at: 180, duration: 180, from: 0, to: 1 });
     expect(T.shortRouteAt).toBeGreaterThanOrEqual(0.7 * T.shortInk);
     expect(T.shortMarkerAt).toBeGreaterThanOrEqual(T.shortRouteAt + T.shortRoute);
     const continueCall = calls(spec.steps).find((step) => step.at === T.shortContinueAt);
@@ -154,6 +153,26 @@ describe('Chart intro sequence specs', () => {
     expect(continueCall?.transient).toBeUndefined();
     continueCall?.run();
     expect(onContinueVisible).toHaveBeenCalledTimes(1);
+  });
+
+  it('makes returning-account Continue actionable within 300 ms without moving the map or sound beats', () => {
+    const progress = makeProgress();
+    const onContinueVisible = jest.fn();
+    const onBeat = jest.fn();
+    const spec = introShortSequence({ progress, onContinueVisible, onBeat });
+    const visibility = calls(spec.steps).find(step => step.at === T.shortContinueAt);
+    expect(visibility?.at).toBeLessThanOrEqual(300);
+    visibility?.run();
+    expect(onContinueVisible).toHaveBeenCalledTimes(1);
+    expect(onBeat).not.toHaveBeenCalled();
+    expect(calls(spec.steps).filter(step => step.transient).map(step => step.at)).toEqual([1000]);
+    expect(tweens(spec.steps).filter(step => [progress.contour, progress.landSweep, progress.route, progress.marker].includes(step.target))).toEqual([
+      expect.objectContaining({ target: progress.contour, at: 0, duration: 1400, from: 0, to: 1, easing: 'draw' }),
+      expect.objectContaining({ target: progress.landSweep, at: 250, duration: 1400, from: 0, to: 1, easing: 'draw' }),
+      expect.objectContaining({ target: progress.route, at: 1000, duration: 900, from: 0, to: 1, easing: 'draw' }),
+      expect.objectContaining({ target: progress.marker, at: 1900, duration: 450, from: 0, to: 1, easing: 'out' }),
+    ]);
+    expect(tweens(spec.steps).some(step => step.target === progress.cameraScale)).toBe(false);
   });
 
   it('short spec plays only the ink beat, and starts with the X and the land sweep hidden', () => {

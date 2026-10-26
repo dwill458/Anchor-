@@ -3,8 +3,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { V2ProgressHero, heroArtworkSize, heroStats } from '../V2ProgressHero';
 import { toV2ProgressModel } from '@/adapters/v2/progress/progressAdapter';
 import type { Anchor } from '@/types';
-import { ThreadStrengthSheet } from '@/components/ThreadStrengthSheet';
-jest.mock('@/components/ThreadStrengthSheet', () => ({ ThreadStrengthSheet: jest.fn(() => null) }));
+import { ThreadStrengthExplainerSheet } from '@/components/v2/thread/ThreadStrengthExplainerSheet';
+jest.mock('@/components/v2/thread/ThreadStrengthExplainerSheet', () => ({ ThreadStrengthExplainerSheet: jest.fn(() => null) }));
 
 const anchor = {
   id: 'anchor-1',
@@ -185,6 +185,6 @@ describe('compact hero data and access', () => {
     const { getByText, getByLabelText } = render(<V2ProgressHero model={model} now={now} />);
     expect(getByText(model.intention).props.numberOfLines).toBeUndefined();
     fireEvent.press(getByLabelText('Explain Thread Strength'));
-    expect(jest.mocked(ThreadStrengthSheet).mock.calls.at(-1)?.[0]).toMatchObject({ visible: true, anchorId: anchor.id });
+    expect(jest.mocked(ThreadStrengthExplainerSheet).mock.calls.at(-1)?.[0]).toMatchObject({ visible: true, strength: model.threadStrength });
   });
 });

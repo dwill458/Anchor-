@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Platform } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { pickVisionPhoto, uploadVisionPhoto, useV2VisionSceneGeneration, type PickedVisionPhoto } from '@/hooks/v2/vision';
+import { toJpegIfHeic } from '@/hooks/v2/vision/visionPhotoInput';
 import type { V2VisionCreationFlowProps, VisionFlowAsset } from '../V2VisionCreationFlow';
 import type { VisionStartPhoto } from '../VisionMomentInput';
 import type { VisionTwoUpSelection } from '../VisionTwoUpStage';
@@ -94,8 +95,8 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
         const result = await pickVisionPhoto(source);
         if (result.status === 'cancelled') return null;
         if (result.status !== 'picked') {
+          // A refused format or failed camera explains itself in the notice; the holding screen is only for a picker that never opened.
           setNotice(result.message);
-          if (result.status === 'error') throw new Error(result.message);
           if (result.status === 'denied' && !result.canAskAgain) Alert.alert('Permission needed', result.message, [
             { text: 'Not now', style: 'cancel' }, { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
           ]);
@@ -103,15 +104,14 @@ export function useVisionCreationActions(props: VisionCeremonyActionsProps) {
         }
         return [{ ...result.photo, key: `${Date.now()}-0` }];
       }
-      if (Platform.OS === 'ios') {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (permission.status !== 'granted') { setNotice('Allow photo library access to add your images.'); return null; }
-      }
+      // The native image picker grants access to the selected items; a broad
+      // library permission precheck can block it before it is presented.
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true, selectionLimit: VISION_BOARD_MAX_IMAGES, quality: 0.85 });
       if (result.canceled || !result.assets?.length) return null;
-      const photos = result.assets.slice(0, VISION_BOARD_MAX_IMAGES).map((asset, i): CeremonyPhoto => ({
-        key: `${Date.now()}-${i}`, uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg', sourceType: 'USER_UPLOAD',
+      const photos: CeremonyPhoto[] = await Promise.all(result.assets.slice(0, VISION_BOARD_MAX_IMAGES).map(async (asset, i): Promise<CeremonyPhoto> => {
+        const converted = await toJpegIfHeic({ uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg' });
+        return { key: `${Date.now()}-${i}`, uri: converted.uri, mimeType: converted.mimeType, sourceType: 'USER_UPLOAD' };
       }));
       const supported = photos.filter(item => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(item.mimeType));
       if (supported.length !== photos.length) setNotice('Choose JPEG, PNG, WebP, or GIF images.');

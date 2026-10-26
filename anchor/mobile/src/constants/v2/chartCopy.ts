@@ -112,7 +112,7 @@ export const CHART_COPY = {
     longWait: ['Still finding the meaningful changes.', 'Complex destinations can take another moment.'],
   },
   ask: {
-    title: 'Ask Chart',
+    title: 'Ask Anchor',
     placeholder: 'Tell me more…',
     send: 'Send',
     sending: 'Sending',
@@ -124,6 +124,9 @@ export const CHART_COPY = {
     getAnswer: 'Get the answer',
     stop: 'Stop',
     thinking: 'Ask Chart is thinking',
+    thinkingStatus: ['Reading your answer…', 'Weighing what it changes…', 'Shaping the next question…'],
+    openingStatus: ['Reading your intention…', 'Looking at your Vision…'],
+    jumpToLatest: 'New',
     preparingChange: 'Preparing a change to your route',
     historyFailed: 'Couldn’t open this conversation.',
     historyFailedSupport: 'Check your connection and try again.',

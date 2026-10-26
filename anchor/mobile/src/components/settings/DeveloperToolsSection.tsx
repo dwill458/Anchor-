@@ -1,20 +1,24 @@
 import React, { useState, useMemo } from 'react';
 import { Alert, DeviceEventEmitter, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { NavigationContext } from '@react-navigation/native';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
 import { resetFirstRunStore } from '@/services/devOnboardingService';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
+import { useDevRecommendationOverride } from '@/stores/devRecommendationOverrideStore';
+import type { V2RecommendationAction } from '@/constants/v2/practice';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import {
   useDetectedPerformanceTier,
   usePerformanceTier,
   type PerformanceTierOverride,
 } from '@/hooks/usePerformanceTier';
-import { settingsColors as v2Colors, settingsTypography as v2Typography } from './settingsTheme';
-import { SettingsRow } from './SettingsRow';
+import { DevMenuRow as SettingsRow } from '@/components/dev/DevMenuRow';
+import { devMenuStyles } from '@/components/dev/devMenuStyles';
+import { colors, radii } from '@/theme/v2';
 import { SettingsSectionBlock } from './SettingsSectionBlock';
 import {
   type DevOrientationMode,
@@ -23,9 +27,37 @@ import {
   subscribeDevOrientation,
 } from '@/utils/devOrientation';
 
+const OUTCOME_CARDS: { action: V2RecommendationAction; title: string; detail: string }[] = [
+  {
+    action: 'Release',
+    title: '1. Release',
+    detail: 'Triggered when anchor has reached its destination or all course waypoints are completed.',
+  },
+  {
+    action: 'Visualize',
+    title: '2. Visualize',
+    detail: 'Triggered when an active Vision exists and has not been opened today.',
+  },
+  {
+    action: 'Deep Prime',
+    title: '3. Deep Prime',
+    detail: 'Triggered when thread strength is softening (7-day decay delta is negative).',
+  },
+  {
+    action: 'Focus',
+    title: '4. Focus',
+    detail: 'Standard daily reinforcement when thread is healthy and no release/visualize signals are pending.',
+  },
+];
+
 interface DeveloperToolsSectionProps {
+  embedded?: boolean;
   resetSettings?: () => Promise<void> | void;
   onResetOnboarding?: () => Promise<void> | void;
+  /** Called after the weekly summary preview is primed, so a host dialog can close first. */
+  onWeeklySummaryPrimed?: () => void;
+  /** Shows the screenshot toggles (hide dev controls, mock name and photo). Only the shake-opened sheet sets this. */
+  showScreenshotControls?: boolean;
 }
 
 const DEV_ORIENTATION_OPTIONS: ReadonlyArray<{ value: DevOrientationMode; label: string }> = [
@@ -129,14 +161,18 @@ const PerfTierPicker: React.FC = () => {
 export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   resetSettings,
   onResetOnboarding,
+  embedded = false,
+  onWeeklySummaryPrimed,
+  showScreenshotControls = false,
 }) => {
   // STRICT BUILD GATE: never render developer controls in production
   if (!__DEV__) {
     return null;
   }
 
-  const navigation = useNavigation<any>();
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Null outside a navigator (the shake-opened sheet), so the navigate action is guarded below.
+  const navigation = React.useContext(NavigationContext) as any;
+  const [isExpanded, setIsExpanded] = useState(embedded);
   const [showV2Tools, setShowV2Tools] = useState(true);
   const [showOnboardingTools, setShowOnboardingTools] = useState(false);
   const [showSubscriptionTools, setShowSubscriptionTools] = useState(false);
@@ -187,9 +223,12 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   const setDeveloperDeleteWithoutBurnEnabled = useSettingsStore((s) => s.setDeveloperDeleteWithoutBurnEnabled);
   const debugLoggingEnabled = useSettingsStore((s) => s.debugLoggingEnabled);
   const setDebugLoggingEnabled = useSettingsStore((s) => s.setDebugLoggingEnabled);
-  const triggerDeveloperWeeklySummaryPreview = useSettingsStore(
-    (state) => state.triggerDeveloperWeeklySummaryPreview
-  );
+  const devHideDevControls = useSettingsStore((s) => s.devHideDevControls);
+  const setDevHideDevControls = useSettingsStore((s) => s.setDevHideDevControls);
+  const devMockIdentity = useSettingsStore((s) => s.devMockIdentity);
+  const setDevMockIdentity = useSettingsStore((s) => s.setDevMockIdentity);
+  const devRecommendationAction = useDevRecommendationOverride((s) => s.action);
+  const setDevRecommendationAction = useDevRecommendationOverride((s) => s.setAction);
 
   const activeAnchor = useMemo(() => {
     if (currentAnchorId) {
@@ -348,6 +387,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
           style: 'destructive',
           onPress: async () => {
             subStore.resetOverrides();
+            useDevThreadStrengthStore.getState().simulate(null);
             setDeveloperModeEnabled(false);
             setDeveloperMasterAccountEnabled(false);
             setDeveloperSkipOnboardingEnabled(false);
@@ -374,6 +414,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
       accessibilityRole="button"
       accessibilityLabel={`${title} section, ${expanded ? 'expanded' : 'collapsed'}`}
       onPress={onPress}
+      accessibilityState={{ expanded }}
       style={({ pressed }) => [styles.accordionHeader, pressed && styles.accordionHeaderPressed]}
     >
       <View style={styles.accordionHeaderCopy}>
@@ -387,7 +428,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   return (
     <View style={styles.wrapper}>
       {/* Developer Tools Main Banner */}
-      <Pressable
+      {embedded ? null : <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Developer Tools, ${isExpanded ? 'collapse' : 'expand'}`}
         onPress={() => setIsExpanded((current) => !current)}
@@ -403,12 +444,42 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
           <Text style={styles.description}>Internal testing controls · Stripped in release builds</Text>
         </View>
         <Text style={[styles.devToolsChevron, isExpanded && styles.devToolsChevronExpanded]}>›</Text>
-      </Pressable>
+      </Pressable>}
 
       {!isExpanded ? null : (
         <View style={styles.contentContainer}>
+          {showScreenshotControls ? (
+          <>
+          {/* Screenshot mode: hides the floating dev pill and dev model pickers. */}
+          <SettingsSectionBlock flat style={styles.subBlock}>
+            <SettingsRow
+              title="Hide dev controls"
+              subtitle="Hides the DEV pill and dev model pickers for screenshots"
+              type="toggle"
+              toggleValue={devHideDevControls}
+              onToggle={setDevHideDevControls}
+              isDev
+              showDivider={false}
+            />
+          </SettingsSectionBlock>
+
+          <SettingsSectionBlock flat style={styles.subBlock}>
+            <SettingsRow
+              title="Mock name and photo"
+              subtitle="Shows a generic name and avatar on Home, Settings and Profile"
+              type="toggle"
+              toggleValue={devMockIdentity}
+              onToggle={setDevMockIdentity}
+              isDev
+              showDivider={false}
+            />
+          </SettingsSectionBlock>
+
+          </>
+          ) : null}
+
           {/* Section 0: Anchor 2.0 Features & QA Labs */}
-          <SettingsSectionBlock isDev>
+          {embedded ? null : <SettingsSectionBlock flat>
             {renderAccordionHeader(
               'Anchor 2.0 Work & QA Labs',
               'Creation, Vision, Chart & Demo Data',
@@ -436,7 +507,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                   title="V2 Creation Flow"
                   subtitle="Intention → Distill → Etch → Pager → Hold to Seal"
                   type="none"
-                  onPress={() => navigation.navigate('V2Creation')}
+                  onPress={() => navigation?.navigate('V2Creation')}
                   isDev
                   rightElement={
                     <View style={styles.actionBadge}>
@@ -483,10 +554,70 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                 />
               </>
             ) : null}
+          </SettingsSectionBlock>}
+
+          {embedded ? <Text style={styles.groupLabel} accessibilityRole="header">Account & access</Text> : null}
+          {/* Section B: Subscription & Paywall Testing */}
+          <SettingsSectionBlock flat style={styles.subBlock}>
+            {renderAccordionHeader(
+              'Subscription & Paywall',
+              subStore.devOverrideEnabled ? `Simulating: ${selectedTier.toUpperCase()}` : 'Real RevenueCat authority',
+              showSubscriptionTools,
+              () => setShowSubscriptionTools((c) => !c)
+            )}
+            {showSubscriptionTools ? (
+              <>
+                <SettingsRow
+                  title="Enable Dev Overrides"
+                  subtitle="Bypass RevenueCat network authority"
+                  type="toggle"
+                  toggleValue={subStore.devOverrideEnabled}
+                  onToggle={subStore.setDevOverrideEnabled}
+                  isDev
+                />
+                <View style={styles.segmentRow}>
+                  <Text style={styles.segmentTitle}>Simulated Subscription Tier</Text>
+                  <View style={styles.segmentedControl}>
+                    {TIERS.map(({ value, label }) => {
+                      const selected = selectedTier === value;
+                      return (
+                        <Pressable
+                          key={value}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select simulated tier ${label}`}
+                          onPress={() => subStore.setDevTierOverride(value)}
+                          style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
+                        >
+                          <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.segmentHint}>
+                    Overrides useTrialStatus() directly. Pro/Trial enable premium gates; Expired/Free test paywall triggers.
+                  </Text>
+                </View>
+                <SettingsRow
+                  title="Clear Subscription Overrides"
+                  subtitle="Restore live RevenueCat state"
+                  type="none"
+                  onPress={handleClearSubscriptionOverrides}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Restore</Text>
+                    </View>
+                  }
+                  showDivider={false}
+                />
+              </>
+            ) : null}
           </SettingsSectionBlock>
 
           {/* Section A: Onboarding & First-Run */}
-          <SettingsSectionBlock isDev style={styles.subBlock}>
+          <SettingsSectionBlock flat style={styles.subBlock}>
             {renderAccordionHeader(
               'Onboarding & First-Run',
               `Current: ${hasCompletedOnboarding ? 'Completed' : 'Pending'}`,
@@ -547,67 +678,9 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
             ) : null}
           </SettingsSectionBlock>
 
-          {/* Section B: Subscription & Paywall Testing */}
-          <SettingsSectionBlock isDev style={styles.subBlock}>
-            {renderAccordionHeader(
-              'Subscription & Paywall',
-              subStore.devOverrideEnabled ? `Simulating: ${selectedTier.toUpperCase()}` : 'Real RevenueCat authority',
-              showSubscriptionTools,
-              () => setShowSubscriptionTools((c) => !c)
-            )}
-            {showSubscriptionTools ? (
-              <>
-                <SettingsRow
-                  title="Enable Dev Overrides"
-                  subtitle="Bypass RevenueCat network authority"
-                  type="toggle"
-                  toggleValue={subStore.devOverrideEnabled}
-                  onToggle={subStore.setDevOverrideEnabled}
-                  isDev
-                />
-                <View style={styles.segmentRow}>
-                  <Text style={styles.segmentTitle}>Simulated Subscription Tier</Text>
-                  <View style={styles.segmentedControl}>
-                    {TIERS.map(({ value, label }) => {
-                      const selected = selectedTier === value;
-                      return (
-                        <Pressable
-                          key={value}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Select simulated tier ${label}`}
-                          onPress={() => subStore.setDevTierOverride(value)}
-                          style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
-                        >
-                          <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
-                            {label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <Text style={styles.segmentHint}>
-                    Overrides useTrialStatus() directly. Pro/Trial enable premium gates; Expired/Free test paywall triggers.
-                  </Text>
-                </View>
-                <SettingsRow
-                  title="Clear Subscription Overrides"
-                  subtitle="Restore live RevenueCat state"
-                  type="none"
-                  onPress={handleClearSubscriptionOverrides}
-                  isDev
-                  rightElement={
-                    <View style={styles.actionBadge}>
-                      <Text style={styles.actionBadgeText}>Restore</Text>
-                    </View>
-                  }
-                  showDivider={false}
-                />
-              </>
-            ) : null}
-          </SettingsSectionBlock>
-
+          {embedded ? <Text style={styles.groupLabel} accessibilityRole="header">Anchor & practice</Text> : null}
           {/* Section C: Anchor & State Testing */}
-          <SettingsSectionBlock isDev style={styles.subBlock}>
+          <SettingsSectionBlock flat style={styles.subBlock}>
             {renderAccordionHeader(
               'Anchor & Practice State',
               `Active: ${activeAnchorLabel.slice(0, 24)}${activeAnchorLabel.length > 24 ? '…' : ''}`,
@@ -648,6 +721,22 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                   )}
                 </View>
                 <SettingsRow
+                  title="Force Streak Break"
+                  subtitle="Simulate missed practice days"
+                  type="toggle"
+                  toggleValue={developerForceStreakBreakEnabled}
+                  onToggle={setDeveloperForceStreakBreakEnabled}
+                  isDev
+                />
+                <SettingsRow
+                  title="Direct Anchor Deletion"
+                  subtitle="Delete without requiring burn ritual"
+                  type="toggle"
+                  toggleValue={developerDeleteWithoutBurnEnabled}
+                  onToggle={setDeveloperDeleteWithoutBurnEnabled}
+                  isDev
+                />
+                <SettingsRow
                   title="Reset First Prime State"
                   subtitle={`Reset charged state on "${activeAnchorLabel.slice(0, 20)}…"`}
                   type="none"
@@ -665,49 +754,73 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
             ) : null}
           </SettingsSectionBlock>
 
-          {/* Section D: Recommendation Outcomes */}
-          <SettingsSectionBlock isDev style={styles.subBlock}>
+          {embedded ? <Text style={styles.groupLabel} accessibilityRole="header">Device & diagnostics</Text> : null}
+          {/* Section G: Screen Orientation (Dev Only) */}
+          <SettingsSectionBlock flat style={styles.subBlock}>
             {renderAccordionHeader(
-              'Recommendation Engine (V2)',
-              'Test triggers for all 4 daily recommendation outcomes',
-              showRecommendationTools,
-              () => setShowRecommendationTools((c) => !c)
+              'Orientation & Layout (Dev Only)',
+              `Mode: ${devOrientation === 'sensor' ? 'Auto (Sensor)' : devOrientation === 'landscape' ? 'Landscape' : 'Portrait'}`,
+              showOrientationTools,
+              () => setShowOrientationTools((c) => !c)
             )}
-            {showRecommendationTools ? (
-              <View style={styles.outcomeContainer}>
-                <Text style={styles.outcomeDescription}>
-                  Anchor 2.0 evaluates daily recommendations authoritatively. Use these conditions to exercise each outcome:
+            {showOrientationTools ? (
+              <View style={styles.segmentRow}>
+                <View style={styles.perfTierHeader}>
+                  <Text style={styles.segmentTitle}>Screen Orientation Lock</Text>
+                  <Text style={styles.perfTierDetected}>
+                    Active: {devOrientation.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.segmentedControl}>
+                  {DEV_ORIENTATION_OPTIONS.map(({ value, label }) => {
+                    const selected = devOrientation === value;
+                    return (
+                      <Pressable
+                        key={value}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set orientation to ${label}`}
+                        onPress={() => void handleOrientationChange(value)}
+                        style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
+                      >
+                        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.perfTierHint}>
+                  Auto allows device tilt rotation. Landscape forces horizontal layout for QA. Dev builds only; production stays locked to portrait.
                 </Text>
-                <View style={styles.outcomeCard}>
-                  <Text style={styles.outcomeTitle}>1. Release</Text>
-                  <Text style={styles.outcomeDetail}>
-                    Triggered when anchor has reached its destination or all course waypoints are completed.
-                  </Text>
-                </View>
-                <View style={styles.outcomeCard}>
-                  <Text style={styles.outcomeTitle}>2. Visualize</Text>
-                  <Text style={styles.outcomeDetail}>
-                    Triggered when an active Vision exists and has not been opened today.
-                  </Text>
-                </View>
-                <View style={styles.outcomeCard}>
-                  <Text style={styles.outcomeTitle}>3. Deep Prime</Text>
-                  <Text style={styles.outcomeDetail}>
-                    Triggered when thread strength is softening (7-day decay delta is negative).
-                  </Text>
-                </View>
-                <View style={styles.outcomeCard}>
-                  <Text style={styles.outcomeTitle}>4. Focus</Text>
-                  <Text style={styles.outcomeDetail}>
-                    Standard daily reinforcement when thread is healthy and no release/visualize signals are pending.
-                  </Text>
-                </View>
               </View>
             ) : null}
           </SettingsSectionBlock>
 
+          {/* Section F: Performance & Debug Logging */}
+          <SettingsSectionBlock flat style={styles.subBlock}>
+            {renderAccordionHeader(
+              'Performance & Debug Flags',
+              embedded ? 'Console logs and runtime diagnostics' : 'Visual tiers and console logs',
+              showDebugTools,
+              () => setShowDebugTools((c) => !c)
+            )}
+            {showDebugTools ? (
+              <>
+                {embedded ? null : <PerfTierPicker />}
+                <SettingsRow
+                  title="Debug Console Logging"
+                  subtitle="Verbose telemetry & network logs"
+                  type="toggle"
+                  toggleValue={debugLoggingEnabled}
+                  onToggle={setDebugLoggingEnabled}
+                  isDev
+                />
+              </>
+            ) : null}
+          </SettingsSectionBlock>
+
           {/* Section E: Notification Tester */}
-          <SettingsSectionBlock isDev style={styles.subBlock}>
+          <SettingsSectionBlock flat style={styles.subBlock}>
             {renderAccordionHeader(
               'Notification Tester',
               `Schedule test payloads with +${TEST_NOTIFICATION_DELAY_SECONDS}s delay`,
@@ -716,6 +829,23 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
             )}
             {showNotificationTools ? (
               <>
+                <SettingsRow
+                  title="Weekly Summary 2.0 Preview"
+                  subtitle="Open the 2.0 weekly recap now"
+                  type="none"
+                  disabled={!onWeeklySummaryPrimed}
+                  onPress={() => {
+                    setDevStatusMessage('Opening Weekly Summary 2.0.');
+                    onWeeklySummaryPrimed?.();
+                  }}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Prime</Text>
+                    </View>
+                  }
+                  showDivider={false}
+                />
                 {TEST_NOTIFICATION_OPTIONS.map((option) => (
                   <SettingsRow
                     key={option.type}
@@ -763,98 +893,55 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
             ) : null}
           </SettingsSectionBlock>
 
-          {/* Section F: Performance & Debug Logging */}
-          <SettingsSectionBlock isDev style={styles.subBlock}>
+          {embedded ? <Text style={styles.groupLabel} accessibilityRole="header">Reference</Text> : null}
+          {/* Section D: Recommendation Outcomes */}
+          <SettingsSectionBlock flat style={styles.subBlock}>
             {renderAccordionHeader(
-              'Performance & Debug Flags',
-              'Glow tiers, verbose logging, and streak testing',
-              showDebugTools,
-              () => setShowDebugTools((c) => !c)
+              'Recommendation Engine (V2)',
+              'Test triggers for all 4 daily recommendation outcomes',
+              showRecommendationTools,
+              () => setShowRecommendationTools((c) => !c)
             )}
-            {showDebugTools ? (
-              <>
-                <PerfTierPicker />
-                <SettingsRow
-                  title="Debug Console Logging"
-                  subtitle="Verbose telemetry & network logs"
-                  type="toggle"
-                  toggleValue={debugLoggingEnabled}
-                  onToggle={setDebugLoggingEnabled}
-                  isDev
-                />
-                <SettingsRow
-                  title="Force Streak Break"
-                  subtitle="Simulate missed practice days"
-                  type="toggle"
-                  toggleValue={developerForceStreakBreakEnabled}
-                  onToggle={setDeveloperForceStreakBreakEnabled}
-                  isDev
-                />
-                <SettingsRow
-                  title="Direct Anchor Deletion"
-                  subtitle="Delete without requiring burn ritual"
-                  type="toggle"
-                  toggleValue={developerDeleteWithoutBurnEnabled}
-                  onToggle={setDeveloperDeleteWithoutBurnEnabled}
-                  isDev
-                />
-                <SettingsRow
-                  title="Weekly Summary Preview"
-                  subtitle="Force summary sheet on next visit"
-                  type="none"
-                  onPress={() => {
-                    triggerDeveloperWeeklySummaryPreview();
-                    setDevStatusMessage('Weekly summary modal primed.');
-                  }}
-                  isDev
-                  rightElement={
-                    <View style={styles.actionBadge}>
-                      <Text style={styles.actionBadgeText}>Prime</Text>
-                    </View>
-                  }
-                  showDivider={false}
-                />
-              </>
-            ) : null}
-          </SettingsSectionBlock>
-
-          {/* Section G: Screen Orientation (Dev Only) */}
-          <SettingsSectionBlock isDev style={styles.subBlock}>
-            {renderAccordionHeader(
-              'Orientation & Layout (Dev Only)',
-              `Mode: ${devOrientation === 'sensor' ? 'Auto (Sensor)' : devOrientation === 'landscape' ? 'Landscape' : 'Portrait'}`,
-              showOrientationTools,
-              () => setShowOrientationTools((c) => !c)
-            )}
-            {showOrientationTools ? (
-              <View style={styles.segmentRow}>
-                <View style={styles.perfTierHeader}>
-                  <Text style={styles.segmentTitle}>Screen Orientation Lock</Text>
-                  <Text style={styles.perfTierDetected}>
-                    Active: {devOrientation.toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.segmentedControl}>
-                  {DEV_ORIENTATION_OPTIONS.map(({ value, label }) => {
-                    const selected = devOrientation === value;
-                    return (
+            {showRecommendationTools ? (
+              <View style={styles.outcomeContainer}>
+                <Text style={styles.outcomeDescription}>
+                  Anchor 2.0 evaluates daily recommendations authoritatively. Use these conditions to exercise each outcome:
+                </Text>
+                <Text style={styles.outcomeDescription}>
+                  {devRecommendationAction
+                    ? `Today card forced to ${devRecommendationAction} on this device. Nothing is sent to the server.`
+                    : 'Today card shows the real recommendation.'}
+                </Text>
+                {devRecommendationAction ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Use real recommendation on the Today card"
+                    onPress={() => setDevRecommendationAction(null)}
+                    style={styles.outcomeButton}
+                  >
+                    <Text style={styles.outcomeButtonText}>Use real recommendation</Text>
+                  </Pressable>
+                ) : null}
+                {OUTCOME_CARDS.map((outcome) => {
+                  const isForced = devRecommendationAction === outcome.action;
+                  return (
+                    <View key={outcome.action} style={styles.outcomeCard}>
+                      <Text style={styles.outcomeTitle}>{outcome.title}</Text>
+                      <Text style={styles.outcomeDetail}>{outcome.detail}</Text>
                       <Pressable
-                        key={value}
                         accessibilityRole="button"
-                        accessibilityLabel={`Set orientation to ${label}`}
-                        onPress={() => void handleOrientationChange(value)}
-                        style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
+                        accessibilityState={{ selected: isForced }}
+                        accessibilityLabel={`Force ${outcome.action} on the Today card`}
+                        onPress={() => setDevRecommendationAction(outcome.action)}
+                        style={[styles.outcomeButton, isForced && styles.outcomeButtonActive]}
                       >
-                        <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
-                          {label}
+                        <Text style={[styles.outcomeButtonText, isForced && styles.outcomeButtonTextActive]}>
+                          {isForced ? 'Forced on device' : 'Force on device'}
                         </Text>
                       </Pressable>
-                    );
-                  })}
-                </View>
-                <Text style={styles.perfTierHint}>
-                  Auto allows device tilt rotation. Landscape forces horizontal layout for QA. Dev builds only; production stays locked to portrait.
-                </Text>
+                    </View>
+                  );
+                })}
               </View>
             ) : null}
           </SettingsSectionBlock>
@@ -868,6 +955,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
           ) : null}
 
           {/* Master Reset Button */}
+          {embedded ? <Text style={styles.groupLabel} accessibilityRole="header">Reset</Text> : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Reset all developer overrides"
@@ -887,316 +975,63 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginVertical: 10,
-  },
-  devToolsHeader: {
-    marginHorizontal: 0,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(4, 120, 87, 0.25)',
-    backgroundColor: 'rgba(4, 120, 87, 0.05)',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  devToolsHeaderPressed: {
-    backgroundColor: 'rgba(4, 120, 87, 0.09)',
-  },
-  devToolsHeaderContent: {
-    flex: 1,
-    marginRight: 8,
-  },
-  devToolsTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  label: {
-    color: '#047857',
-    fontSize: 13,
-    fontFamily: v2Typography.bodySemiBold,
-    letterSpacing: 0.3,
-  },
-  buildBadge: {
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(4, 120, 87, 0.3)',
-    backgroundColor: 'rgba(4, 120, 87, 0.1)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  buildBadgeText: {
-    color: '#047857',
-    fontSize: 9.5,
-    fontFamily: v2Typography.bodyBold,
-    letterSpacing: 0.6,
-  },
-  description: {
-    marginTop: 4,
-    color: 'rgba(4, 120, 87, 0.75)',
-    fontSize: 12,
-    fontFamily: v2Typography.body,
-    lineHeight: 16,
-  },
-  devToolsChevron: {
-    color: '#047857',
-    fontSize: 18,
-    lineHeight: 18,
-    transform: [{ rotate: '0deg' }],
-  },
-  devToolsChevronExpanded: {
-    transform: [{ rotate: '90deg' }],
-  },
-  contentContainer: {
-    marginTop: 10,
-    gap: 8,
-  },
-  subBlock: {
-    marginTop: 2,
-  },
-  accordionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(4, 120, 87, 0.18)',
-  },
-  accordionHeaderPressed: {
-    backgroundColor: 'rgba(4, 120, 87, 0.04)',
-  },
-  accordionHeaderCopy: {
-    flex: 1,
-    marginRight: 10,
-  },
-  accordionTitle: {
-    color: '#047857',
-    fontSize: 14.5,
-    fontFamily: v2Typography.bodySemiBold,
-  },
-  accordionDescription: {
-    marginTop: 2,
-    color: 'rgba(4, 120, 87, 0.7)',
-    fontSize: 12,
-    fontFamily: v2Typography.body,
-  },
-  accordionChevron: {
-    color: '#047857',
-    fontSize: 16,
-    transform: [{ rotate: '0deg' }],
-  },
-  accordionChevronExpanded: {
-    transform: [{ rotate: '90deg' }],
-  },
-  segmentRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(4, 120, 87, 0.18)',
-  },
-  segmentTitle: {
-    marginBottom: 8,
-    color: '#047857',
-    fontSize: 13,
-    fontFamily: v2Typography.bodyMedium,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(4, 120, 87, 0.25)',
-    overflow: 'hidden',
-  },
-  segmentButton: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(4, 120, 87, 0.04)',
-    borderRightWidth: 0.5,
-    borderRightColor: 'rgba(4, 120, 87, 0.2)',
-  },
-  segmentButtonSelected: {
-    backgroundColor: 'rgba(4, 120, 87, 0.18)',
-  },
-  segmentText: {
-    color: '#047857',
-    fontSize: 12,
-    fontFamily: v2Typography.body,
-    opacity: 0.65,
-  },
-  segmentTextSelected: {
-    opacity: 1,
-    fontFamily: v2Typography.bodySemiBold,
-  },
-  segmentHint: {
-    marginTop: 6,
-    color: 'rgba(4, 120, 87, 0.6)',
-    fontSize: 11,
-    fontFamily: v2Typography.body,
-    lineHeight: 15,
-  },
-  perfTierHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-  },
-  perfTierDetected: {
-    color: 'rgba(4, 120, 87, 0.6)',
-    fontSize: 10.5,
-    fontFamily: v2Typography.body,
-    textTransform: 'uppercase',
-  },
-  perfTierHint: {
-    marginTop: 6,
-    color: 'rgba(4, 120, 87, 0.6)',
-    fontSize: 11,
-    fontFamily: v2Typography.body,
-    lineHeight: 15,
-  },
-  actionBadge: {
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(4, 120, 87, 0.3)',
-    backgroundColor: 'rgba(4, 120, 87, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  actionBadgeText: {
-    color: '#047857',
-    fontSize: 11,
-    fontFamily: v2Typography.bodySemiBold,
-  },
-  anchorSwitcher: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(4, 120, 87, 0.18)',
-  },
-  emptyText: {
-    color: 'rgba(4, 120, 87, 0.6)',
-    fontSize: 12,
-    fontFamily: v2Typography.body,
-    fontStyle: 'italic',
-  },
-  anchorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    marginBottom: 4,
-    backgroundColor: 'rgba(4, 120, 87, 0.03)',
-  },
-  anchorRowActive: {
-    backgroundColor: 'rgba(4, 120, 87, 0.12)',
-  },
-  anchorRowText: {
-    color: v2Colors.text.primary,
-    fontSize: 13,
-    fontFamily: v2Typography.body,
-    flex: 1,
-  },
-  anchorRowTextActive: {
-    color: '#047857',
-    fontFamily: v2Typography.bodySemiBold,
-  },
-  activePill: {
-    borderRadius: 4,
-    backgroundColor: '#047857',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    marginLeft: 8,
-  },
-  activePillText: {
-    color: '#FBF9F4',
-    fontSize: 9,
-    fontFamily: v2Typography.bodyBold,
-  },
-  outcomeContainer: {
-    padding: 16,
-    gap: 8,
-  },
-  outcomeDescription: {
-    color: 'rgba(4, 120, 87, 0.8)',
-    fontSize: 12,
-    fontFamily: v2Typography.body,
-    lineHeight: 16,
-    marginBottom: 4,
-  },
-  outcomeCard: {
-    borderRadius: 8,
-    backgroundColor: 'rgba(4, 120, 87, 0.05)',
-    padding: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(4, 120, 87, 0.15)',
-  },
-  outcomeTitle: {
-    color: '#047857',
-    fontSize: 12.5,
-    fontFamily: v2Typography.bodySemiBold,
-    marginBottom: 2,
-  },
-  outcomeDetail: {
-    color: v2Colors.text.secondary,
-    fontSize: 11.5,
-    fontFamily: v2Typography.body,
-    lineHeight: 15,
-  },
-  statusBox: {
-    marginHorizontal: 4,
-    borderRadius: 8,
-    backgroundColor: 'rgba(4, 120, 87, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(4, 120, 87, 0.25)',
-    padding: 12,
-  },
-  statusBoxLabel: {
-    color: '#047857',
-    fontSize: 9.5,
-    fontFamily: v2Typography.bodyBold,
-    letterSpacing: 0.6,
-  },
-  statusBoxText: {
-    marginTop: 3,
-    color: '#047857',
-    fontSize: 12,
-    fontFamily: v2Typography.body,
-  },
-  masterResetButton: {
-    marginHorizontal: 0,
-    marginTop: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(182, 59, 56, 0.3)',
-    backgroundColor: 'rgba(182, 59, 56, 0.04)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  masterResetButtonPressed: {
-    backgroundColor: 'rgba(182, 59, 56, 0.08)',
-  },
-  masterResetTitle: {
-    color: '#B63B38',
-    fontSize: 13,
-    fontFamily: v2Typography.bodySemiBold,
-  },
-  masterResetSubtext: {
-    marginTop: 2,
-    color: 'rgba(182, 59, 56, 0.7)',
-    fontSize: 11,
-    fontFamily: v2Typography.body,
-  },
-  masterResetChevron: {
-    color: '#B63B38',
-    fontSize: 16,
-  },
+  wrapper: { marginVertical: 0 },
+  groupLabel: { ...devMenuStyles.sectionLabel, marginTop: 12 },
+  contentContainer: { gap: 0 },
+  subBlock: { marginTop: 0 },
+  accordionHeader: { ...devMenuStyles.actionRow, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
+  accordionHeaderPressed: { opacity: 0.65 },
+  accordionHeaderCopy: { flex: 1, marginRight: 10 },
+  accordionTitle: devMenuStyles.actionRowText,
+  accordionDescription: devMenuStyles.hint,
+  accordionChevron: { color: colors.ink.base, fontSize: 20 },
+  accordionChevronExpanded: { transform: [{ rotate: '90deg' }] },
+  segmentRow: { paddingVertical: 8, marginBottom: 8 },
+  segmentTitle: devMenuStyles.sectionLabel,
+  segmentedControl: devMenuStyles.chipRow,
+  segmentButton: { ...devMenuStyles.chip, alignItems: 'center' },
+  segmentButtonSelected: devMenuStyles.chipActive,
+  segmentText: devMenuStyles.chipText,
+  segmentTextSelected: devMenuStyles.chipTextActive,
+  segmentHint: devMenuStyles.hint,
+  perfTierHeader: { gap: 4, marginBottom: 4 },
+  perfTierDetected: devMenuStyles.hint,
+  perfTierHint: devMenuStyles.hint,
+  actionBadge: { flexShrink: 1 },
+  actionBadgeText: { color: colors.text.secondary, fontSize: 11, fontWeight: '600' },
+  anchorSwitcher: { paddingVertical: 8 },
+  emptyText: devMenuStyles.hint,
+  anchorRow: { ...devMenuStyles.actionRow, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  anchorRowActive: devMenuStyles.chipActive,
+  anchorRowText: { ...devMenuStyles.chipText, flex: 1 },
+  anchorRowTextActive: devMenuStyles.chipTextActive,
+  activePill: { marginLeft: 4 },
+  activePillText: { color: '#FAF7F2', fontSize: 9, fontWeight: '700' },
+  outcomeContainer: { marginBottom: 8, gap: 8 },
+  outcomeDescription: devMenuStyles.hint,
+  outcomeCard: { ...devMenuStyles.actionRow, marginBottom: 0 },
+  outcomeTitle: devMenuStyles.actionRowText,
+  outcomeDetail: devMenuStyles.hint,
+  outcomeButton: { ...devMenuStyles.chip, marginTop: 8, alignSelf: 'flex-start' },
+  outcomeButtonActive: devMenuStyles.chipActive,
+  outcomeButtonText: devMenuStyles.chipText,
+  outcomeButtonTextActive: devMenuStyles.chipTextActive,
+  statusBox: { ...devMenuStyles.actionRow, borderLeftWidth: 3, borderLeftColor: colors.ink.base },
+  statusBoxLabel: devMenuStyles.sectionLabel,
+  statusBoxText: { color: colors.ink.base, fontSize: 12 },
+  masterResetButton: { ...devMenuStyles.actionRowDanger, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  masterResetButtonPressed: { opacity: 0.65 },
+  masterResetTitle: devMenuStyles.actionRowDangerText,
+  masterResetSubtext: { ...devMenuStyles.hint, color: '#A02020' },
+  masterResetChevron: { color: '#A02020', fontSize: 18 },
+  devToolsHeader: { ...devMenuStyles.actionRow, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  devToolsHeaderPressed: { opacity: 0.65 },
+  devToolsHeaderContent: { flex: 1 },
+  devToolsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  label: devMenuStyles.actionRowText,
+  buildBadge: { backgroundColor: colors.ink.base, borderRadius: radii.sm, padding: 4 },
+  buildBadgeText: { color: '#FAF7F2', fontSize: 9, fontWeight: '700' },
+  description: devMenuStyles.hint,
+  devToolsChevron: { color: colors.ink.base, fontSize: 18 },
+  devToolsChevronExpanded: { transform: [{ rotate: '90deg' }] },
 });

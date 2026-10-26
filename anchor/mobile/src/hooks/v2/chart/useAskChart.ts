@@ -4,6 +4,7 @@ import { askChartApi, type AskChartApi, type AskSkill } from '@/services/v2/askC
 import { classifyChartError, freshKey } from '@/services/v2/chartV2Api';
 import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
 import { askReducer, affordances, initialAskState, type AskUiMessage } from './askChartState';
+import { openingKeyFor, takeAskOpening } from './askOpeningPrefetch';
 
 type Options = {
   anchorId: string;
@@ -34,10 +35,15 @@ export function useAskChart({ anchorId, api = askChartApi, reducedMotion = false
   const running = useRef<AbortController | null>(null);
   // After a failure nothing further is sent until the person retries: a later message must not be answered before it.
   const paused = useRef(false);
-  const openingKey = useRef(freshKey(`ask-open:${anchorId}`));
+  // DEFERRED: a mount-local freshKey was replaced by the shared opening key (Oct 2026).
+  const openingKey = useRef(openingKeyFor(anchorId));
   const mounted = useRef(true);
   const autoRetried = useRef<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const mountedAt = useRef(Date.now());
+  const timingMark = useCallback((mark: string) => {
+    if (__DEV__) console.info('[AskChart timing]', mark, { anchorId, mountMs: Date.now() - mountedAt.current });
+  }, [anchorId]);
 
   const pump = useCallback(async () => {
     if (running.current || paused.current) return;
@@ -48,19 +54,28 @@ export function useAskChart({ anchorId, api = askChartApi, reducedMotion = false
     const draftKey = `reply-${++localCounter}`;
     dispatch({ type: 'turn_started', messageKey: next.messageKey, draftKey });
     const started = Date.now();
+    let firstDeltaMs: number | null = null;
+    timingMark('turn_started');
     try {
       const result = await api.turn(
         anchorId,
         { ...next.body, conversationId: stateRef.current.conversationId },
         {
-          onReply: text => mounted.current && dispatch({ type: 'delta', text }),
+          onReply: text => {
+            if (firstDeltaMs === null && text.length > 0) {
+              firstDeltaMs = Date.now() - started;
+              timingMark('first_delta');
+            }
+            if (mounted.current) dispatch({ type: 'delta', text });
+          },
           onStage: stage => mounted.current && dispatch({ type: 'stage', stage }),
         },
         controller.signal
       );
       if (!mounted.current) return;
       dispatch({ type: 'turn_done', messageKey: next.messageKey, draftKey, result, animate: !reducedMotion && !result.replayed });
-      trackChart('ask_chart_turn', { mode: result.mode, opening: Boolean(next.body.opening), replayed: result.replayed, fallbackUsed: result.generation.fallbackUsed, latencyMs: Date.now() - started });
+      timingMark('turn_done');
+      trackChart('ask_chart_turn', { mode: result.mode, opening: Boolean(next.body.opening), replayed: result.replayed, fallbackUsed: result.generation.fallbackUsed, latencyMs: Date.now() - started, firstDeltaMs });
     } catch (caught) {
       if (!mounted.current) return;
       const kind = controller.signal.aborted ? 'cancelled' : classifyChartError(caught).kind;
@@ -73,16 +88,34 @@ export function useAskChart({ anchorId, api = askChartApi, reducedMotion = false
       running.current = null;
     }
     void pump();
-  }, [anchorId, api, reducedMotion]);
+  }, [anchorId, api, reducedMotion, timingMark]);
 
   // Restore the conversation, then greet if it is empty.
   useEffect(() => {
     mounted.current = true;
+    mountedAt.current = Date.now();
+    timingMark('mount');
     const controller = new AbortController();
     (async () => {
       try {
+        const prefetched = greet ? takeAskOpening(anchorId, api) : null;
+        if (prefetched) {
+          const opening = await prefetched;
+          if (controller.signal.aborted || !mounted.current) return;
+          if (opening) {
+            const { conversation, result, timing } = opening;
+            dispatch({ type: 'loaded', conversationId: conversation.conversationId, mode: conversation.mode, messages: conversation.messages });
+            timingMark('prefetch_joined');
+            if (result) {
+              dispatch({ type: 'turn_done', messageKey: null, draftKey: `reply-${++localCounter}`, result, animate: !reducedMotion });
+              trackChart('ask_chart_turn', { mode: result.mode, opening: true, replayed: result.replayed, fallbackUsed: result.generation.fallbackUsed, latencyMs: timing.doneMs - timing.turnStartedMs, firstDeltaMs: timing.firstDeltaMs });
+            }
+            return;
+          }
+        }
         const conversation = await api.getConversation(anchorId, controller.signal);
-        if (!mounted.current) return;
+        timingMark('conversation_resolved');
+        if (controller.signal.aborted || !mounted.current) return;
         dispatch({ type: 'loaded', conversationId: conversation.conversationId, mode: conversation.mode, messages: conversation.messages });
         if (greet && conversation.messages.length === 0) {
           queue.current.push({ messageKey: null, body: { idempotencyKey: openingKey.current, opening: true } });
@@ -112,6 +145,8 @@ export function useAskChart({ anchorId, api = askChartApi, reducedMotion = false
 
   const send = useCallback(
     (text: string, options: { attachments?: string[]; skill?: AskSkill; targetMoveId?: string | null; previewUris?: string[] } = {}) => {
+      // A joined opening restores the conversation atomically; accepting a send before it settles would be overwritten.
+      if (stateRef.current.status === 'loading') return false;
       const clean = text.trim();
       const attachments = options.attachments ?? [];
       if (!clean && attachments.length === 0) return false;

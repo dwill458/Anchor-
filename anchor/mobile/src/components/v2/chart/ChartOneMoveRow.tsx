@@ -164,7 +164,7 @@ export function ChartOneMoveRow({
 
 const SAGE = '#6F8F74';
 const styles = StyleSheet.create({
-  wrap: { gap: 4, marginTop: 10 },
+  wrap: { gap: 4 },
   moveLabelRow: { minHeight: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 },
   moveLabel: { fontFamily: T.sansStrong, fontSize: 10, lineHeight: 14, letterSpacing: 1.1, textTransform: 'uppercase', flexShrink: 1 },
   count: { flexShrink: 0, fontFamily: T.sansStrong, fontSize: 11, lineHeight: 14, color: T.light },

@@ -21,6 +21,7 @@ type Props = {
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  numberOfLines?: number;
 };
 
 export function V2Button({
@@ -36,6 +37,7 @@ export function V2Button({
   accessibilityLabel,
   style,
   testID,
+  numberOfLines,
 }: Props) {
   const inactive = disabled || loading;
   const press = usePressScale();
@@ -73,7 +75,7 @@ export function V2Button({
     >
       <Animated.View style={[styles.content, contentStyle]}>
         <View>{iconLeft}</View>
-        <Text style={[styles.label, { color: textColor }]}>
+        <Text style={[styles.label, { color: textColor }]} numberOfLines={numberOfLines}>
           {children}
         </Text>
         <View>{iconRight}</View>

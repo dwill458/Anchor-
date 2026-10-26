@@ -1,0 +1,32 @@
+{
+  "note": "Three attempted startups; failure before authenticated Home invalidates enabled/bypass performance comparison. Native TotalTime is activity launch, not Home or interactive frame. No account content retained.",
+  "runs": [
+    {
+      "run": 1,
+      "configuration": "unchanged development client, guidance enabled",
+      "observationSeconds": 46.5,
+      "nativeTotalTimeMs": 2921,
+      "restoreFailureVisible": false,
+      "appReadyLogged": false,
+      "events": []
+    },
+    {
+      "run": 2,
+      "configuration": "unchanged development client, guidance enabled",
+      "observationSeconds": 45.6,
+      "nativeTotalTimeMs": 2627,
+      "restoreFailureVisible": false,
+      "appReadyLogged": false,
+      "events": []
+    },
+    {
+      "run": 3,
+      "configuration": "unchanged development client, guidance enabled",
+      "observationSeconds": 45.7,
+      "nativeTotalTimeMs": 2640,
+      "restoreFailureVisible": false,
+      "appReadyLogged": false,
+      "events": []
+    }
+  ]
+}

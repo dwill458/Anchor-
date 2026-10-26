@@ -20,7 +20,7 @@ import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
-import { AnchorMotion, colors, getCategoryColor, typography } from '@/theme/v2';
+import { AnchorMotion, colors, getCategoryColor } from '@/theme/v2';
 import { localDateString } from '@/utils/primingAnalytics';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
@@ -126,6 +126,8 @@ export function V2HomeScreen() {
   const celebrationActive = useCelebrationActive();
   const hasCompletedPractice = useSessionStore(state => state.sessionLog.length > 0);
   const todayTeachingRef = useRef<ViewInstance>(null);
+  const [teachingTargetRevision, setTeachingTargetRevision] = useState(0);
+  const onTeachingTargetLayout = useCallback(() => setTeachingTargetRevision(value => value + 1), []);
   const progressTeachingRef = useRef<ViewInstance>(null);
   const visionTeachingRef = useRef<ViewInstance>(null);
   const chartTeachingRef = useRef<ViewInstance>(null);
@@ -495,7 +497,7 @@ export function V2HomeScreen() {
     model.anchorState === 'ready' && Boolean(selectedId) && model.today.state !== 'loading' && !model.progressLoading &&
     model.vision.state !== 'loading' && model.chart.state !== 'loading' && model.chart.state !== 'resolving';
   useEffect(() => { if (homeIsIdle && hasCompletedPractice) discoverGuidance(teachingAccountId ?? 'guest', 'today.recommended'); }, [homeIsIdle, hasCompletedPractice, teachingAccountId]);
-  const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId, contextKey: selectedId ?? undefined,
+  const teachingQueue = useTeachingQueue({ screenId: 'home', accountId: teachingAccountId, contextKey: selectedId ?? undefined, targetRevision: teachingTargetRevision,
     eligible: homeTeachingBeats({ hasAnchor: Boolean(selectedId), todayReady: todayForDisplay.state === 'ready',
       doneToday: todayForDisplay.state === 'ready' && Boolean(todayForDisplay.doneToday),
       mode: todayForDisplay.state === 'ready' ? todayForDisplay.mode : undefined, hasCompletedPractice }), cap: 1, blocked: !homeIsIdle, isFocused: teachingFocus.isFocused });
@@ -602,17 +604,6 @@ export function V2HomeScreen() {
         onCreateAnchor={handleCreateAnchor}
         onOpenProfile={intents.onOpenProfile}
       />
-      {__DEV__ ? <View style={styles.materialLabRow}>
-        <Pressable
-          testID="v2-home-material-lab"
-          accessibilityRole="button"
-          accessibilityLabel="Open Evolving Anchors material lab"
-          onPress={intents.onOpenMaterialLab}
-          hitSlop={8}
-        >
-          <Text style={styles.materialLabLink}>Material lab  →</Text>
-        </Pressable>
-      </View> : null}
     </View>
   );
 
@@ -725,7 +716,7 @@ export function V2HomeScreen() {
           <V2HomeBrandMark testID="v2-home-brand-mark" />
 
           {/* Anchor-scoped copy is veiled while the carousel moves; Today artwork stays visible. */}
-          <View ref={todayTeachingRef} collapsable={false}>
+          <View ref={todayTeachingRef} collapsable={false} onLayout={onTeachingTargetLayout}>
             {/* Keep the artwork visible through the anchor veil; only the card copy fades. */}
             <Animated.View pointerEvents={todaySwapping ? 'none' : 'auto'} style={todaySwapping ? arrival.swapInStyle : undefined}>
               <V2HomeTodaySection
@@ -843,15 +834,6 @@ const styles = StyleSheet.create({
   },
   headerInset: {
     paddingTop: 6,
-  },
-  materialLabRow: {
-    alignItems: 'flex-end',
-    paddingBottom: 4,
-  },
-  materialLabLink: {
-    ...typography.labelSM,
-    color: colors.text.secondary,
-    letterSpacing: 0.2,
   },
   heroEnvironment: {
     position: 'relative',

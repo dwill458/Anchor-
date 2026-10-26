@@ -1,0 +1,560 @@
+[
+  {
+    "voice": "Dominic",
+    "minutes": 10,
+    "file": "DeepFocus_10min_Dominic_V5.mp3",
+    "sha256": "b7575c2be26ff8546297d0276359caf00ae4b839a02d76c4e64f03fb3878f66c",
+    "phrases": [
+      {
+        "phrase": "settle",
+        "source": [
+          7.25,
+          11.0
+        ],
+        "start": 7.25,
+        "end": 11.0,
+        "correlation": 0.9999305220549416
+      },
+      {
+        "phrase": "permission and inhale",
+        "source": [
+          113.5,
+          120.7
+        ],
+        "start": 20,
+        "end": 27.2,
+        "correlation": 0.9999536753867188
+      },
+      {
+        "phrase": "exhale",
+        "source": [
+          239.35,
+          242.35
+        ],
+        "start": 29,
+        "end": 32.0,
+        "correlation": 0.999995474931417
+      },
+      {
+        "phrase": "second breath",
+        "source": [
+          378.65,
+          384.65
+        ],
+        "start": 34,
+        "end": 40.0,
+        "correlation": 0.9999878047447323
+      },
+      {
+        "phrase": "intention",
+        "source": [
+          538.65,
+          554.4
+        ],
+        "start": 60,
+        "end": 75.75,
+        "correlation": 0.9999472936704857
+      },
+      {
+        "phrase": "nothing to solve",
+        "source": [
+          554.4,
+          559.45
+        ],
+        "start": 120,
+        "end": 125.05,
+        "correlation": 0.9999735713874768
+      },
+      {
+        "phrase": "anchor",
+        "source": [
+          559.45,
+          570.22
+        ],
+        "start": 145,
+        "end": 155.77,
+        "correlation": 0.9999850240455398
+      },
+      {
+        "phrase": "return",
+        "source": [
+          570.22,
+          576.95
+        ],
+        "start": 260,
+        "end": 266.73,
+        "correlation": 0.9999960172627386
+      },
+      {
+        "phrase": "steadiness",
+        "source": [
+          576.95,
+          583.4
+        ],
+        "start": 390,
+        "end": 396.45,
+        "correlation": 0.9999908034539782
+      },
+      {
+        "phrase": "let details fall away",
+        "source": [
+          583.4,
+          587.6
+        ],
+        "start": 510,
+        "end": 514.2,
+        "correlation": 0.9999925380499168
+      },
+      {
+        "phrase": "closing breath and carry forward",
+        "source": [
+          587.6,
+          596.05
+        ],
+        "start": 580,
+        "end": 588.45,
+        "correlation": 0.9999880872289952
+      }
+    ]
+  },
+  {
+    "voice": "Lina",
+    "minutes": 10,
+    "file": "DeepFocus_10min_Lina_V5.mp3",
+    "sha256": "845d835d024885e1791934574c5bb3ca51ad47ff241c06dde00010c55899fe65",
+    "phrases": [
+      {
+        "phrase": "settle",
+        "source": [
+          7.3,
+          10.8
+        ],
+        "start": 7.3,
+        "end": 10.8,
+        "correlation": 0.9999730589097485
+      },
+      {
+        "phrase": "permission and breaths",
+        "source": [
+          114.1,
+          126.5
+        ],
+        "start": 20,
+        "end": 32.4,
+        "correlation": 0.9999823174327714
+      },
+      {
+        "phrase": "intention",
+        "source": [
+          247.3,
+          262.4
+        ],
+        "start": 60,
+        "end": 75.1,
+        "correlation": 0.9999272653021509
+      },
+      {
+        "phrase": "nothing to solve",
+        "source": [
+          400.2,
+          405.6
+        ],
+        "start": 120,
+        "end": 125.4,
+        "correlation": 0.9999697827687494
+      },
+      {
+        "phrase": "anchor",
+        "source": [
+          405.6,
+          415.6
+        ],
+        "start": 145,
+        "end": 155.0,
+        "correlation": 0.9999848181498302
+      },
+      {
+        "phrase": "return",
+        "source": [
+          415.6,
+          422.3
+        ],
+        "start": 260,
+        "end": 266.7,
+        "correlation": 0.9999754842266659
+      },
+      {
+        "phrase": "steadiness",
+        "source": [
+          422.3,
+          426.7
+        ],
+        "start": 390,
+        "end": 394.4,
+        "correlation": 0.9999680079167748
+      },
+      {
+        "phrase": "it just needs returning",
+        "source": [
+          581.7,
+          584.2
+        ],
+        "start": 394.4,
+        "end": 396.9,
+        "correlation": 0.9999907513174779
+      },
+      {
+        "phrase": "let details fall away",
+        "source": [
+          584.2,
+          588.1
+        ],
+        "start": 510,
+        "end": 513.9,
+        "correlation": 0.9999889040518793
+      },
+      {
+        "phrase": "closing breath and carry forward",
+        "source": [
+          588.1,
+          595.95
+        ],
+        "start": 580,
+        "end": 587.85,
+        "correlation": 0.999982376892312
+      }
+    ]
+  },
+  {
+    "voice": "Dominic",
+    "minutes": 2,
+    "file": "DeepFocus_2min_Dominic_V5.mp3",
+    "sha256": "9759ded3b9b1665bb19dc78e812cfbfe82aa0c984f6606e31f2344feea4e4a78",
+    "phrases": [
+      {
+        "phrase": "settle",
+        "source": [
+          2.65,
+          5.5
+        ],
+        "start": 2.65,
+        "end": 5.5,
+        "correlation": 0.9999235062621864
+      },
+      {
+        "phrase": "intention",
+        "source": [
+          41.25,
+          45.2
+        ],
+        "start": 8,
+        "end": 11.95,
+        "correlation": 0.9999855053302794
+      },
+      {
+        "phrase": "say it quietly",
+        "source": [
+          45.2,
+          48.0
+        ],
+        "start": 25,
+        "end": 27.8,
+        "correlation": 0.9999918817974867
+      },
+      {
+        "phrase": "let everything else fall away",
+        "source": [
+          48.0,
+          50.6
+        ],
+        "start": 50,
+        "end": 52.6,
+        "correlation": 0.9999879680971512
+      },
+      {
+        "phrase": "nowhere else to be",
+        "source": [
+          105.25,
+          108.5
+        ],
+        "start": 65,
+        "end": 68.25,
+        "correlation": 0.9999897356355426
+      },
+      {
+        "phrase": "anchor and steadiness",
+        "source": [
+          108.5,
+          113.2
+        ],
+        "start": 80,
+        "end": 84.7,
+        "correlation": 0.9999830643797168
+      },
+      {
+        "phrase": "carry forward",
+        "source": [
+          113.2,
+          117.0
+        ],
+        "start": 110,
+        "end": 113.8,
+        "correlation": 0.9999952368658022
+      }
+    ]
+  },
+  {
+    "voice": "Lina",
+    "minutes": 2,
+    "file": "DeepFocus_2min_Lina_V5.mp3",
+    "sha256": "3d2fe3004de3091485781d6128657bbad9c47eb1bf19b09156ad65aa7902b48b",
+    "phrases": [
+      {
+        "phrase": "settle and intention",
+        "source": [
+          3.05,
+          7.95
+        ],
+        "start": 3.05,
+        "end": 7.95,
+        "correlation": 0.9999789195428047
+      },
+      {
+        "phrase": "say it quietly",
+        "source": [
+          44.1,
+          48.0
+        ],
+        "start": 25,
+        "end": 28.9,
+        "correlation": 0.9999864875664685
+      },
+      {
+        "phrase": "let everything else fall away",
+        "source": [
+          103.05,
+          106.2
+        ],
+        "start": 50,
+        "end": 53.15,
+        "correlation": 0.9999768323956358
+      },
+      {
+        "phrase": "nowhere else to be",
+        "source": [
+          106.2,
+          108.65
+        ],
+        "start": 65,
+        "end": 67.45,
+        "correlation": 0.9999591407242278
+      },
+      {
+        "phrase": "anchor and steadiness",
+        "source": [
+          108.65,
+          113.3
+        ],
+        "start": 80,
+        "end": 84.65,
+        "correlation": 0.9999845267302443
+      },
+      {
+        "phrase": "carry forward",
+        "source": [
+          113.3,
+          117.0
+        ],
+        "start": 110,
+        "end": 113.7,
+        "correlation": 0.9999892317212574
+      }
+    ]
+  },
+  {
+    "voice": "Dominic",
+    "minutes": 5,
+    "file": "DeepFocus_5min_Dominic_V5.mp3",
+    "sha256": "b8716b37228848a5c19362ee28aa8d4ab1584a8bb0da3f270920bc1db0d2d81d",
+    "phrases": [
+      {
+        "phrase": "settle",
+        "source": [
+          5.0,
+          8.3
+        ],
+        "start": 5,
+        "end": 8.3,
+        "correlation": 0.9999674868707936
+      },
+      {
+        "phrase": "inhale",
+        "source": [
+          73.7,
+          76.8
+        ],
+        "start": 10,
+        "end": 13.1,
+        "correlation": 0.9999520036998147
+      },
+      {
+        "phrase": "exhale",
+        "source": [
+          158.9,
+          160.85
+        ],
+        "start": 14.5,
+        "end": 16.45,
+        "correlation": 0.999991876073431
+      },
+      {
+        "phrase": "intention",
+        "source": [
+          161.05,
+          170.2
+        ],
+        "start": 30,
+        "end": 39.15,
+        "correlation": 0.9999370157837808
+      },
+      {
+        "phrase": "quiet and nothing to solve",
+        "source": [
+          170.2,
+          176.3
+        ],
+        "start": 60,
+        "end": 66.1,
+        "correlation": 0.9998659237665537
+      },
+      {
+        "phrase": "anchor",
+        "source": [
+          176.3,
+          182.8
+        ],
+        "start": 100,
+        "end": 106.5,
+        "correlation": 0.9999709248395094
+      },
+      {
+        "phrase": "stay and steady",
+        "source": [
+          182.8,
+          185.75
+        ],
+        "start": 155,
+        "end": 157.95,
+        "correlation": 0.9999721482270925
+      },
+      {
+        "phrase": "quiet underneath the effort",
+        "source": [
+          185.75,
+          189.9
+        ],
+        "start": 210,
+        "end": 214.15,
+        "correlation": 0.9999728770262095
+      },
+      {
+        "phrase": "closing",
+        "source": [
+          288.5,
+          297.0
+        ],
+        "start": 285,
+        "end": 293.5,
+        "correlation": 0.9999825002583651
+      }
+    ]
+  },
+  {
+    "voice": "Lina",
+    "minutes": 5,
+    "file": "DeepFocus_5min_Lina_V5.mp3",
+    "sha256": "1970beace6b426f4f67302fbe460167d7d58cb5599c19db146baa7b2f86ff3f2",
+    "phrases": [
+      {
+        "phrase": "settle and breath",
+        "source": [
+          5.4,
+          11.4
+        ],
+        "start": 5,
+        "end": 11.0,
+        "correlation": 0.9999641165582721
+      },
+      {
+        "phrase": "intention",
+        "source": [
+          11.4,
+          19.7
+        ],
+        "start": 30,
+        "end": 38.3,
+        "correlation": 0.9999671184778248
+      },
+      {
+        "phrase": "quiet and nothing to solve",
+        "source": [
+          19.7,
+          25.8
+        ],
+        "start": 60,
+        "end": 66.1,
+        "correlation": 0.9999604633385605
+      },
+      {
+        "phrase": "anchor",
+        "source": [
+          92.1,
+          98.4
+        ],
+        "start": 100,
+        "end": 106.3,
+        "correlation": 0.9999758385324539
+      },
+      {
+        "phrase": "stay and steady",
+        "source": [
+          98.4,
+          101.2
+        ],
+        "start": 155,
+        "end": 157.8,
+        "correlation": 0.9999177913219163
+      },
+      {
+        "phrase": "quiet underneath the effort",
+        "source": [
+          101.2,
+          103.9
+        ],
+        "start": 210,
+        "end": 212.7,
+        "correlation": 0.9999658340290428
+      },
+      {
+        "phrase": "this is yours",
+        "source": [
+          187.1,
+          189.2
+        ],
+        "start": 213,
+        "end": 215.1,
+        "correlation": 0.9999537220784647
+      },
+      {
+        "phrase": "closing",
+        "source": [
+          289.5,
+          297.0
+        ],
+        "start": 285,
+        "end": 292.5,
+        "correlation": 0.9999775925029127
+      }
+    ]
+  }
+]

@@ -1,0 +1,220 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --silent --resolver=C:/Users/dwill/AppData/Local/Temp/anchor-guidance-hardening-baseline/resolver.cjs src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx --json --outputFile=../../docs/guidance/hardening-20261026/baseline-chart-final.json
+
+FAIL src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx (24.914 s)
+  ● V2ChartScreen — no Chart › shows the existing opening, then Continue goes straight into the cream Ask Chart conversation
+
+    Unable to find an element with text: Ask Chart
+
+    <View
+      testID="v2-chart-handoff"
+    >
+      <View
+        accessibilityElementsHidden={false}
+        importantForAccessibility="auto"
+        testID="v2-chart-handoff-over"
+      >
+        <View
+          testID="v2-chart-screen-empty"
+        >
+          <View>
+            <View
+              testID="chart-ask"
+            >
+              <View>
+                <View>
+                  <View
+                    accessibilityLabel="Back"
+                    accessibilityRole="button"
+                    accessible={true}
+                    testID="ask-back"
+                  >
+                    <ArrowLeft />
+                  </View>
+                </View>
+                <View
+                  accessibilityRole="header"
+                >
+                  <Text>
+                    Ask Anchor
+                  </Text>
+                  <Text>
+                    Anchor has ten thousand users
+                  </Text>
+                </View>
+                <View>
+                  <View
+                    accessibilityLabel="Ask Chart settings"
+                    accessibilityRole="button"
+                    accessible={true}
+                    testID="ask-settings-button"
+                  >
+                    <MoreHorizontal />
+                  </View>
+                </View>
+              </View>
+              <View>
+                <RCTScrollView
+                  accessibilityLabel="Conversation"
+                  testID="ask-list"
+                >
+                  <View>
+                    <View>
+                      <View
+                        testID="ask-assistant-reply-1"
+                      >
+                        <View />
+                        <View>
+                          <View
+                            accessibilityState={
+                              {
+                                "disabled": true,
+                              }
+                            }
+                            accessible={false}
+                            testID="ask-bubble-reply-1"
+                          >
+                            <Text>
+                              You’re working toward ten thousand users. Where is Anchor today?
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                </RCTScrollView>
+                <View
+                  testID="ask-anchor"
+                >
+                  <View
+                    accessibilityLabel="Your Anchor"
+                  >
+                    <View />
+                  </View>
+                </View>
+              </View>
+              <View>
+                <View
+                  testID="ask-composer"
+                >
+                  <View
+                    accessibilityLabel="Add a photo"
+                    accessibilityRole="button"
+                    accessibilityState={
+                      {
+                        "disabled": false,
+                      }
+                    }
+                    accessible={true}
+                    testID="ask-plus"
+                  >
+                    <Plus />
+                  </View>
+                  <View>
+                    <TextInput
+                      accessibilityLabel="Tell me more…"
+                      placeholder="Tell me more…"
+                      testID="ask-input"
+                      value=""
+                    />
+                  </View>
+                  <View
+                    accessibilityLabel="Send"
+                    accessibilityRole="button"
+                    accessibilityState={
+                      {
+                        "disabled": true,
+                      }
+                    }
+                    accessible={true}
+                    testID="ask-send"
+                  >
+                    <View>
+                      <ArrowUp />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+
+      291 |     fireEvent.press(screen.getByTestId('chart-create-cta'));
+      292 |     expect(await screen.findByTestId('chart-ask')).toBeTruthy();
+    > 293 |     expect(screen.getByText('Ask Chart')).toBeTruthy();
+          |                   ^
+      294 |     // No standalone starting-photo screen, no written-question screen, no photo requirement.
+      295 |     expect(screen.queryByTestId('chart-context-step')).toBeNull();
+      296 |     expect(screen.queryByTestId('chart-starting-context')).toBeNull();
+
+      at Object.getByText (src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx:293:19)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx (8.397 s)
+  ● Waypoint detail › asks before completing a waypoint, uses one stable key, and reverses into the shared Chart
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "/api/courses/course-1/waypoints/w2/complete"
+    Received: "/api/v2/charts/course-1/waypoints/w2/complete"
+
+      218 |     await waitFor(() => expect(post).toHaveBeenCalled());
+      219 |     const [url, body] = post.mock.calls[0];
+    > 220 |     expect(url).toBe('/api/courses/course-1/waypoints/w2/complete');
+          |                 ^
+      221 |     expect(body).toEqual({ idempotencyKey: 'chart2:reach:course-1:w2:7', expectedCourseVersion: 7 });
+      222 |     expect(mockNavigate).not.toHaveBeenCalledWith('V2Chart', expect.anything());
+      223 |     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
+
+      at Object.toBe (src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx:220:17)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+FAIL src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx
+  ● V2ChartAskScreen › does not seed into a conversation that already has messages
+
+    TypeError: undefined is not iterable (cannot read property Symbol(Symbol.iterator))
+        at Array.from (<anonymous>)
+
+      21 | /** Full text reserves its native layout invisibly; visible prefixes use those exact line breaks. */
+      22 | export const AskRevealText = memo(function AskRevealText({ revealKey, text, style, animate, final, registerSkip, onLine }: Props) {
+    > 23 |   const chars = useMemo(() => Array.from(text), [text]);
+         |                                     ^
+      24 |   const instant = !animate || askReveal.isDone(revealKey);
+      25 |   const [shown, setShown] = useState(() => instant ? chars.length : Math.min(askReveal.count(revealKey), chars.length));
+      26 |   const [skipped, setSkipped] = useState(false);
+
+      at from (src/components/v2/chart/ask/AskRevealText.tsx:23:37)
+      at mountMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:6170:23)
+      at Object.useMemo (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:17009:18)
+      at process.env.NODE_ENV.exports.useMemo (node_modules/react/cjs/react.development.js:1297:34)
+      at AskRevealText (src/components/v2/chart/ask/AskRevealText.tsx:23:24)
+      at Object.react_stack_bottom_frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:16690:20)
+      at renderWithHooks (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:5126:22)
+      at updateFunctionComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7302:19)
+      at updateSimpleMemoComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7095:14)
+      at updateMemoComponent (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:7028:13)
+      at beginWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9034:18)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2506:13)
+      at performUnitOfWork (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14142:22)
+      at workLoopSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13986:41)
+      at renderRootSync (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13967:11)
+      at performWorkOnRoot (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:13153:39)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:3124:7)
+      at flushActQueue (node_modules/react/cjs/react.development.js:664:34)
+      at process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:960:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:12:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:81:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx:118:11)
+
+Test Suites: 3 failed, 3 total
+Tests:       3 failed, 53 passed, 56 total
+Snapshots:   0 total
+Time:        35.28 s, estimated 36 s
+Test results written to: ..\..\docs\guidance\hardening-20261026\baseline-chart-final.json

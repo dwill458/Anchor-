@@ -19,7 +19,7 @@ import {
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 
 type ContentProps = Partial<React.ComponentProps<typeof ChartWaypointContent>>;
-const rowScrollTiers: NonNullable<ContentProps['renderTiers']> = ({ peek, oneMove }) => <View>{peek}{oneMove}</View>;
+const rowScrollTiers: NonNullable<ContentProps['renderTiers']> = ({ peek, completionNotice, oneMove }) => <View>{peek}{completionNotice}{oneMove}</View>;
 
 function renderContent(view: ChartViewModel, props: ContentProps = {}) {
   const actions = (props.chart as ReturnType<typeof chartActions> | undefined) ?? chartActions();

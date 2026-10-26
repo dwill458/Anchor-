@@ -1,6 +1,6 @@
-import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import type { UploadAssetResult } from './useV2Vision';
 
 export type VisionPhotoSource = 'library' | 'camera';
@@ -21,6 +21,7 @@ export type VisionPhotoPick =
   | { status: 'error'; message: string };
 
 const SUPPORTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const HEIC = ['image/heic', 'image/heif'];
 
 function mimeTypeOf(asset: ImagePicker.ImagePickerAsset): string {
   if (asset.mimeType) return asset.mimeType.toLowerCase();
@@ -28,7 +29,16 @@ function mimeTypeOf(asset: ImagePicker.ImagePickerAsset): string {
   if (extension === 'png') return 'image/png';
   if (extension === 'webp') return 'image/webp';
   if (extension === 'gif') return 'image/gif';
+  if (extension === 'heic') return 'image/heic';
+  if (extension === 'heif') return 'image/heif';
   return 'image/jpeg';
+}
+
+/** Phone photos often arrive as HEIC; the Vision stores JPEG, so these are converted once on the device. */
+export async function toJpegIfHeic(photo: { uri: string; mimeType: string }): Promise<{ uri: string; mimeType: string }> {
+  if (!HEIC.includes(photo.mimeType)) return photo;
+  const converted = await ImageManipulator.manipulateAsync(photo.uri, [], { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG });
+  return { uri: converted.uri, mimeType: 'image/jpeg' };
 }
 
 /**
@@ -42,22 +52,18 @@ export async function pickVisionPhoto(source: VisionPhotoSource, quality = 0.85)
       if (permission.status !== 'granted') {
         return { status: 'denied', canAskAgain: permission.canAskAgain !== false, message: 'Allow camera access to take a photo for your Vision.' };
       }
-    } else if (Platform.OS === 'ios') {
-      // Android's system picker needs no library permission.
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permission.status !== 'granted') {
-        return { status: 'denied', canAskAgain: permission.canAskAgain !== false, message: 'Allow photo library access to add an image.' };
-      }
     }
+    // The native image picker grants access to the chosen item. Requesting broad
+    // photo-library access first can prevent the system picker from opening.
     const options: ImagePicker.ImagePickerOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images, quality, allowsEditing: false };
     const result = source === 'camera'
       ? await ImagePicker.launchCameraAsync(options)
       : await ImagePicker.launchImageLibraryAsync(options);
     const asset = result.assets?.[0];
     if (result.canceled || !asset) return { status: 'cancelled' };
-    const mimeType = mimeTypeOf(asset);
-    if (!SUPPORTED.includes(mimeType)) return { status: 'error', message: 'Choose a JPEG, PNG, WebP, or GIF image.' };
-    return { status: 'picked', photo: { uri: asset.uri, mimeType, sourceType: source === 'camera' ? 'USER_CAMERA' : 'USER_UPLOAD', fileName: asset.fileName ?? null } };
+    const photo = await toJpegIfHeic({ uri: asset.uri, mimeType: mimeTypeOf(asset) });
+    if (!SUPPORTED.includes(photo.mimeType)) return { status: 'error', message: 'Choose a JPEG, PNG, WebP, or GIF image.' };
+    return { status: 'picked', photo: { uri: photo.uri, mimeType: photo.mimeType, sourceType: source === 'camera' ? 'USER_CAMERA' : 'USER_UPLOAD', fileName: asset.fileName ?? null } };
   } catch (cause) {
     return {
       status: 'error',

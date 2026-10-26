@@ -28,6 +28,7 @@ import {
   type ChartRequestError,
 } from '@/services/v2/chartV2Api';
 import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
+import { startAskOpening } from '@/hooks/v2/chart/askOpeningPrefetch';
 import type { CourseDetail } from '@/types/chart';
 import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import { ChartAdjustPanel, type ChartAdjustRequest } from './ChartAdjustPanel';
@@ -216,6 +217,11 @@ export function ChartCreationFlow({
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [phase, setPhase] = useState<Phase>(initialPhase);
+  const introMountedAt = useRef(Date.now());
+  const markIntro = useCallback((mark: string) => {
+    if (__DEV__) console.info('[Chart entrance timing]', JSON.stringify({ mark, ms: Date.now() - introMountedAt.current }));
+  }, []);
+  useEffect(() => { markIntro('mounted'); }, [markIntro]);
   const [introSkipRequest, setIntroSkipRequest] = useState(0);
   const requestIntroSkip = useCallback(() => setIntroSkipRequest(current => current + 1), []);
   // Seeded from the window width so the prefetch and the opening start on the first frame; layout corrects it below.
@@ -225,8 +231,9 @@ export function ChartCreationFlow({
   // Set once the cold preparation cover has held for CHART_INTRO_TIMING.coverMax: the cover drops and the opening takes its reduced path.
   const [introCoverExpired, setIntroCoverExpired] = useState(false);
   const markIntroSurfaceReady = useCallback(() => {
+    markIntro('surface_ready');
     if (introViewportWidth !== null) setIntroSurfaceWidth(introViewportWidth);
-  }, [introViewportWidth]);
+  }, [introViewportWidth, markIntro]);
   useEffect(() => {
     if (phase !== 'intro' || introCoverExpired) return undefined;
     const timer = setTimeout(() => {
@@ -241,11 +248,17 @@ export function ChartCreationFlow({
   const [actualStartingPoint, setActualStartingPoint] = useState('');
   // The conversation stays mounted once opened, so going back from the review returns to the same conversation.
   const [askMounted, setAskMounted] = useState(false);
+  const [askDeparting, setAskDeparting] = useState(false);
   const lastPlan = useRef<AskPlanInput | null>(null);
   // 1 = the opening is fully shown; it fades out as the conversation fades in.
   const introOpacity = useSharedValue(1);
   const askIn = useSharedValue(0);
   const [proposal, setProposal] = useState<ChartProposal | null>(initialProposal);
+  const reviewEnteredKeys = useRef(new Set<string>());
+  const reviewEnteredProposals = useRef(new Set<string | number>());
+  const [reviewProposalKey, setReviewProposalKey] = useState(0);
+  const reviewTracked = useRef<number | null>(null);
+  const nextMoveEdited = useRef(false);
   const [draft, setDraft] = useState<DraftWaypoint[]>(() => (initialProposal ? toDraft(initialProposal) : []));
   const [oneMove, setOneMove] = useState(initialProposal?.suggestedOneMove?.title ?? '');
   const [destination, setDestination] = useState(initialProposal?.destination ?? '');
@@ -282,6 +295,10 @@ export function ChartCreationFlow({
   const inStage = STAGE_PHASES.includes(phase);
   // Intro and the mapping stage share the etched cream-paper map; context and clarity stay on ink.
   const paper = phase === 'intro' || inStage || phase === 'ask';
+  useEffect(() => {
+    // This flow is mounted only for an Anchor with no Chart. Fixture APIs never prefetch live conversations.
+    if (phase === 'intro' && api === chartV2Api) void startAskOpening(anchorId);
+  }, [anchorId, api, phase]);
 
   const onScreenLayout = useCallback((event: LayoutChangeEvent) => {
     if (phase !== 'intro') return;
@@ -313,10 +330,11 @@ export function ChartCreationFlow({
     // draws the landscape shader directly and needs no second grain texture.
     const artPromise = Promise.resolve().then(() => prepareChartMapIntroArt(table, introViewportWidth, mapHeight)).catch(() => false);
     void Promise.all([seenPromise, artPromise]).then(([seen, artDecoded]) => {
+      markIntro('resources_ready');
       if (active) setIntroPreparation({ width: introViewportWidth, seen, artDecoded });
     });
     return () => { active = false; };
-  }, [phase, introViewportWidth]);
+  }, [phase, introViewportWidth, markIntro]);
 
   useEffect(() => {
     const running = timers.current;
@@ -332,6 +350,9 @@ export function ChartCreationFlow({
 
   const acceptProposal = useCallback(
     (next: ChartProposal) => {
+      reviewEnteredKeys.current.clear();
+      setReviewProposalKey(key => key + 1);
+      nextMoveEdited.current = false;
       setProposal(next);
       setDraft(toDraft(next));
       setDestination(next.destination);
@@ -387,6 +408,8 @@ export function ChartCreationFlow({
         if (classified.kind === 'premium_required' && onPremiumRequired) {
           // Not a failure: the conversation stays, and the paywall opens over it.
           setPhase('ask');
+          setAskDeparting(false);
+          askIn.value = 1;
           onPremiumRequired();
           return;
         }
@@ -395,15 +418,20 @@ export function ChartCreationFlow({
         setPhase('failed');
       }
     },
-    [acceptProposal, anchorId, api, hasVision, onPremiumRequired]
+    [acceptProposal, anchorId, api, askIn, hasVision, onPremiumRequired]
   );
 
   const requestPlan = useCallback(
     (input: AskPlanInput, source: AskPlanSource) => {
       trackChart('chart_ask_plan_requested', { source, photos: input.photoAssetIds.length, hasVision });
+      if (!reducedMotion) {
+        setAskDeparting(true);
+        askIn.value = chartTiming(0, { duration: 450, easing: CHART_EASING.exit });
+        timers.current.push(setTimeout(() => setAskDeparting(false), 450));
+      }
       void runPlan(input);
     },
-    [hasVision, runPlan]
+    [askIn, hasVision, reducedMotion, runPlan]
   );
 
   /** Entrance → conversation: the opening fades away while the conversation settles in. */
@@ -431,6 +459,9 @@ export function ChartCreationFlow({
   }, [panelOffset, reducedMotion]);
 
   const startManual = () => {
+    reviewEnteredKeys.current.clear();
+    setReviewProposalKey(key => key + 1);
+    nextMoveEdited.current = false;
     setProposal(null);
     const outline = manualOutline(identity.intention);
     setDraft(outline);
@@ -592,6 +623,7 @@ export function ChartCreationFlow({
         return true;
       case 'failed':
         setPhase('ask');
+        askIn.value = 1;
         return true;
       case 'adjusting':
         setPhase('review');
@@ -600,6 +632,7 @@ export function ChartCreationFlow({
         setPanelMounted(false);
         panelOffset.value = 1;
         setPhase('ask');
+        askIn.value = 1;
         return true;
       case 'generating':
         return true; // Let the mapping finish; the request is already in flight.
@@ -662,12 +695,18 @@ export function ChartCreationFlow({
     transform: [{ translateY: panelOffset.value * (stageHeight + 40) }],
   }));
   const showCourseReview = phase === 'review' || (phase === 'revealed' && panelMounted);
+  useEffect(() => {
+    if (phase !== 'review' || reviewTracked.current === reviewProposalKey) return;
+    reviewTracked.current = reviewProposalKey;
+    trackChart('chart_review_entered', { waypoints: draft.length, source: proposal?.generation.source ?? 'manual' });
+  }, [phase, reviewProposalKey, draft.length, proposal]);
   const mapStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: explore.value * exploreDelta.value }],
   }));
   const chromeStyle = useAnimatedStyle(() => ({ opacity: 1 - Math.min(1, explore.value * 1.8) }));
   const introStyle = useAnimatedStyle(() => ({ opacity: introOpacity.value }));
   const askStyle = useAnimatedStyle(() => ({ opacity: askIn.value, transform: [{ translateY: (1 - askIn.value) * 10 }] }));
+  const generationArrivalStyle = useAnimatedStyle(() => ({ opacity: askDeparting ? 1 - askIn.value : 1 }));
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value * (1 - Math.min(1, explore.value * 2.2)) }));
 
   return (
@@ -715,7 +754,8 @@ export function ChartCreationFlow({
       {/* DEFERRED: the previous intro (road art + cream panel) is kept at the end of this file. */}
 
       {askMounted ? (
-        <Animated.View style={[phase === 'ask' ? styles.flex : styles.hidden, askStyle]} pointerEvents={phase === 'ask' ? 'auto' : 'none'}>
+        <Animated.View style={[phase === 'ask' ? styles.flex : askDeparting ? StyleSheet.absoluteFill : styles.hidden, askDeparting && { zIndex: 2 }, askStyle]} pointerEvents={phase === 'ask' ? 'auto' : 'none'}>
+          {/* DEFERRED: hiding Ask immediately on generation is replaced by its 450ms visual hand-off (Oct 2026). */}
           <ChartCreationAsk
             anchorId={anchorId}
             identity={identity}
@@ -723,6 +763,7 @@ export function ChartCreationFlow({
             reducedMotion={reducedMotion}
             onBack={goBack}
             onPlan={requestPlan}
+            handoffThinking={askDeparting}
           />
         </Animated.View>
       ) : null}
@@ -754,9 +795,9 @@ export function ChartCreationFlow({
       ) : null}
 
       {inStage ? (
-        <View
+        <Animated.View
           ref={stageRef}
-          style={styles.flex}
+          style={[styles.flex, generationArrivalStyle]}
           onLayout={(event) => {
             const { height: h, y } = event.nativeEvent.layout;
             setStageSize((size) => (size.height === h && size.pageY === y ? size : { height: h, pageY: y }));
@@ -806,10 +847,19 @@ export function ChartCreationFlow({
           {showCourseReview ? (
             <Animated.View style={[StyleSheet.absoluteFill, styles.reviewSurface, panelStyle]} pointerEvents={phase === 'review' ? 'auto' : 'none'}>
               <ChartCourseReviewScreen
+                key={reviewProposalKey}
+                proposalKey={`${mappingKey}:${reviewProposalKey}`}
+                enteredProposals={reviewEnteredProposals}
                 destination={destinationLabel}
                 waypoints={draft}
                 oneMove={oneMove}
-                onOneMoveChange={setOneMove}
+                onOneMoveChange={(value) => {
+                  if (value !== oneMove && !nextMoveEdited.current) {
+                    nextMoveEdited.current = true;
+                    trackChart('chart_review_next_move_edited', {});
+                  }
+                  setOneMove(value);
+                }}
                 onWaypointsChange={setDraft}
                 onEdit={(kind) => trackChart(kind === 'add' ? 'chart_waypoint_added' : 'chart_waypoint_edited', { stage: 'review', kind })}
                 guidance={proposal?.guidance && !needsNaming ? proposal.guidance : null}
@@ -820,6 +870,8 @@ export function ChartCreationFlow({
                 onAdjust={() => setPhase('adjusting')}
                 onConfirm={() => void save()}
                 topInset={insets.top}
+                reducedMotion={reducedMotion}
+                enteredWaypointKeys={reviewEnteredKeys}
               />
             </Animated.View>
           ) : null}
@@ -838,7 +890,7 @@ export function ChartCreationFlow({
           ) : null}
 
           {/* DEFERRED: the separate "Explore your Chart" screen. "Looks right" now plays the First Waypoint reveal and flows into the Chart. */}
-        </View>
+        </Animated.View>
       ) : null}
     </ChartInkScreen>
   );

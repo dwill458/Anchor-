@@ -1,0 +1,154 @@
+ M anchor/mobile/.easignore
+ M anchor/mobile/App.tsx
+ M anchor/mobile/android/app/src/main/AndroidManifest.xml
+ M anchor/mobile/android/app/src/main/res/values/strings.xml
+ M anchor/mobile/docs/qa/session-audio-20261025/README.md
+ M anchor/mobile/eas.json
+ M anchor/mobile/package.json
+ M anchor/mobile/scripts/start-expo58-qa.ps1
+ M anchor/mobile/src/adapters/v2/home/useV2HomeModel.ts
+ M anchor/mobile/src/components/dev/DevImageModelPicker.tsx
+ M anchor/mobile/src/components/settings/DeveloperToolsSection.tsx
+ M anchor/mobile/src/components/settings/__tests__/DeveloperToolsSection.orientation.test.tsx
+ D anchor/mobile/src/components/v2/anchor/EvolvingAnchor.tsx
+ M anchor/mobile/src/components/v2/chart/ChartCourseReviewScreen.tsx
+ M anchor/mobile/src/components/v2/chart/ChartCreationFlow.tsx
+ M anchor/mobile/src/components/v2/chart/ChartGenerationStage.tsx
+ M anchor/mobile/src/components/v2/chart/ChartKeyboardFrame.tsx
+ M anchor/mobile/src/components/v2/chart/ChartOneMoveRow.tsx
+ M anchor/mobile/src/components/v2/chart/ChartRouteEditor.tsx
+ M anchor/mobile/src/components/v2/chart/ChartWaypointContent.tsx
+ M anchor/mobile/src/components/v2/chart/__tests__/ChartCourseReviewScreen.test.tsx
+ M anchor/mobile/src/components/v2/chart/ask/AskAnchorAvatar.tsx
+ M anchor/mobile/src/components/v2/chart/ask/AskChartView.tsx
+ M anchor/mobile/src/components/v2/chart/ask/AskComposer.tsx
+ M anchor/mobile/src/components/v2/chart/ask/AskMessageRow.tsx
+ M anchor/mobile/src/components/v2/chart/ask/AskRevealText.tsx
+ M anchor/mobile/src/components/v2/chart/ask/ChartCreationAsk.tsx
+ M anchor/mobile/src/components/v2/chart/ask/__tests__/AskChartView.test.tsx
+ M anchor/mobile/src/components/v2/chart/ask/askReveal.ts
+ M anchor/mobile/src/components/v2/chart/chartMotion.ts
+ M anchor/mobile/src/components/v2/chart/map/__tests__/chartIntroSequences.test.ts
+ M anchor/mobile/src/components/v2/chart/panel/ChartPanelCards.tsx
+ M anchor/mobile/src/components/v2/chart/panel/__tests__/ChartWaypointContent.test.tsx
+ M anchor/mobile/src/components/v2/chart/sheet/ChartSheetContent.tsx
+ M anchor/mobile/src/components/v2/chart/sheet/__tests__/ChartSheetContent.test.tsx
+ M anchor/mobile/src/components/v2/home/V2HomeHero.tsx
+ M anchor/mobile/src/components/v2/home/__tests__/V2HomeHero.threadWindow.test.tsx
+ M anchor/mobile/src/components/v2/primitives/V2Button.tsx
+ M anchor/mobile/src/components/v2/progress/V2ProgressHero.tsx
+ M anchor/mobile/src/components/v2/progress/__tests__/V2ProgressHero.test.tsx
+ M anchor/mobile/src/components/v2/vision/VisionAddSceneEntry.tsx
+ M anchor/mobile/src/components/v2/vision/VisionAddSceneSheet.tsx
+ M anchor/mobile/src/components/v2/vision/board/VisionBoard.tsx
+ M anchor/mobile/src/components/v2/vision/ceremony/VisionCeremony.tsx
+ M anchor/mobile/src/components/v2/vision/ceremony/__tests__/VisionCeremony.conversation.test.tsx
+ M anchor/mobile/src/components/v2/vision/ceremony/useVisionCreationActions.ts
+ M anchor/mobile/src/constants/v2/chartCopy.ts
+ M anchor/mobile/src/constants/v2/weeklyInsightRoutes.ts
+ M anchor/mobile/src/hooks/useWeeklySummaryTrigger.ts
+ M anchor/mobile/src/hooks/v2/chart/__tests__/useAnchorChart.test.ts
+ M anchor/mobile/src/hooks/v2/chart/__tests__/useAskChart.test.tsx
+ M anchor/mobile/src/hooks/v2/chart/useAnchorChart.ts
+ M anchor/mobile/src/hooks/v2/chart/useAskChart.ts
+ M anchor/mobile/src/hooks/v2/practice/usePracticeCompletionScene.ts
+ M anchor/mobile/src/hooks/v2/vision/__tests__/visionPhotoFitProcessing.test.ts
+ M anchor/mobile/src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+ M anchor/mobile/src/hooks/v2/vision/visionPhotoFitProcessing.ts
+ M anchor/mobile/src/hooks/v2/vision/visionPhotoInput.ts
+ M anchor/mobile/src/navigation/v2/AnchorV2Navigator.tsx
+ M anchor/mobile/src/navigation/v2/__tests__/AnchorV2Navigator.lifecycle.test.tsx
+ M anchor/mobile/src/navigation/v2/__tests__/AnchorV2Navigator.test.tsx
+ M anchor/mobile/src/navigation/v2/routes.ts
+ M anchor/mobile/src/navigation/v2/types.ts
+ M anchor/mobile/src/screens/profile/ProfileScreen.tsx
+ M anchor/mobile/src/screens/settings/SettingsScreen.tsx
+ M anchor/mobile/src/screens/settings/__tests__/SettingsScreen.test.tsx
+ M anchor/mobile/src/screens/v2/anchors/V2AnchorDetailsScreen.tsx
+ M anchor/mobile/src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx
+ M anchor/mobile/src/screens/v2/chart/V2ChartScreen.tsx
+ M anchor/mobile/src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx
+ M anchor/mobile/src/screens/v2/home/V2DevFloatingToolbar.tsx
+ M anchor/mobile/src/screens/v2/home/V2DevelopmentHome.tsx
+ M anchor/mobile/src/screens/v2/home/V2HomeScreen.tsx
+ M anchor/mobile/src/screens/v2/home/__tests__/V2DevFloatingToolbar.chartIntro.test.tsx
+ M anchor/mobile/src/screens/v2/home/dailyShell.tsx
+ M anchor/mobile/src/screens/v2/practice/visualize/beatmaps/beatmap_embody.json
+ M anchor/mobile/src/screens/v2/practice/visualize/beatmaps/beatmap_glimpse.json
+ M anchor/mobile/src/screens/v2/practice/visualize/beatmaps/beatmap_immerse.json
+ M anchor/mobile/src/screens/v2/system/ChartLabDevHost.tsx
+ D anchor/mobile/src/screens/v2/system/V2EvolvingAnchorPrototype.tsx
+ M anchor/mobile/src/screens/v2/system/index.ts
+ M anchor/mobile/src/screens/v2/weeklyInsight/V2WeeklyInsightEntry.tsx
+ M anchor/mobile/src/services/AnchorArtworkExportService.ts
+ M anchor/mobile/src/services/SessionAudioManifest.ts
+ M anchor/mobile/src/services/__tests__/SessionAudioManifest.test.ts
+ M anchor/mobile/src/services/v2/chartV2Api.ts
+ M anchor/mobile/src/services/visualizeGuidedTracks.ts
+ M anchor/mobile/src/stores/devThreadStrengthStore.ts
+ M anchor/mobile/src/stores/encryptedPersistStorage.ts
+ M anchor/mobile/src/stores/settingsStore.ts
+ M anchor/mobile/src/stores/teachingStore.ts
+ M backend/prisma/schema.prisma
+ M backend/src/api/routes/v2/__tests__/chartRoutes.test.ts
+ M backend/src/api/routes/v2/chartRoutes.ts
+ M backend/src/index.ts
+ M backend/src/scripts/recalculateThreadStrength2.ts
+ M backend/src/services/v2/ThreadStrengthService.ts
+ M backend/src/services/v2/__tests__/ThreadStrengthService.test.ts
+?? ANCHOR_GUIDANCE_COORDINATOR_ARCHITECTURE.md
+?? ANCHOR_GUIDANCE_PHASE1_CLEANUP_PLAN.md
+?? ANCHOR_MICRO_TEACHING_AUDIT_AND_BLUEPRINT.md
+?? ANCHOR_MICRO_TEACHING_AUDIT_V1_EVIDENCE.md
+?? ASK_CHART_MOTION_CODEX_PROMPT.md
+?? anchor/mobile/docs/qa/audio-pacing-20261026/
+?? anchor/mobile/docs/qa/chart-spacing-20261026/
+?? anchor/mobile/docs/qa/deep-focus-pacing-20261026/
+?? anchor/mobile/scripts/repair-deep-focus-pacing.py
+?? anchor/mobile/scripts/repair-visualize-pacing.py
+?? anchor/mobile/src/assets/sounds/focus-mix/DeepFocus_10min_Dominic_V5.mp3
+?? anchor/mobile/src/assets/sounds/focus-mix/DeepFocus_10min_Lina_V5.mp3
+?? anchor/mobile/src/assets/sounds/focus-mix/DeepFocus_2min_Dominic_V5.mp3
+?? anchor/mobile/src/assets/sounds/focus-mix/DeepFocus_2min_Lina_V5.mp3
+?? anchor/mobile/src/assets/sounds/focus-mix/DeepFocus_5min_Dominic_V5.mp3
+?? anchor/mobile/src/assets/sounds/focus-mix/DeepFocus_5min_Lina_V5.mp3
+?? anchor/mobile/src/assets/sounds/visualize/guided/Anchor_Glimpse_Dominic_V6.mp3
+?? anchor/mobile/src/assets/sounds/visualize/guided/Anchor_Immerse_Dominic_3min_V6.mp3
+?? anchor/mobile/src/assets/sounds/visualize/guided/Anchor_Immerse_Lina_3min_V6.mp3
+?? anchor/mobile/src/assets/sounds/visualize/guided/Embody_Final_10min15_V6.mp3
+?? anchor/mobile/src/assets/sounds/visualize/guided/Embody_Final_Lina_10min15_V6.mp3
+?? anchor/mobile/src/components/dev/DevMenuRow.tsx
+?? anchor/mobile/src/components/dev/DevSettingsShakeHost.tsx
+?? anchor/mobile/src/components/dev/__tests__/DevMenuRow.test.tsx
+?? anchor/mobile/src/components/dev/devMenuStyles.ts
+?? anchor/mobile/src/components/v2/chart/ASK_CHART_MOTION_PASS2_REPORT.md
+?? anchor/mobile/src/components/v2/chart/__tests__/ChartCourseReviewScreen.motion.test.tsx
+?? anchor/mobile/src/components/v2/chart/__tests__/ChartCreationFlow.motion.test.tsx
+?? anchor/mobile/src/components/v2/chart/__tests__/ChartGenerationStage.motion.test.tsx
+?? anchor/mobile/src/components/v2/chart/__tests__/ChartKeyboardFrame.test.tsx
+?? anchor/mobile/src/components/v2/chart/__tests__/ChartRouteEditor.motion.test.tsx
+?? anchor/mobile/src/components/v2/chart/ask/AskConversationAvatar.tsx
+?? anchor/mobile/src/components/v2/chart/ask/ThinkingBubble.tsx
+?? anchor/mobile/src/components/v2/chart/ask/__tests__/AskAnchorAvatar.test.tsx
+?? anchor/mobile/src/components/v2/chart/ask/__tests__/AskMessageRow.test.tsx
+?? anchor/mobile/src/components/v2/chart/ask/__tests__/AskRevealText.test.tsx
+?? anchor/mobile/src/components/v2/chart/ask/__tests__/askReveal.test.ts
+?? anchor/mobile/src/components/v2/chart/ask/useMinimumThinking.ts
+?? anchor/mobile/src/components/v2/thread/ThreadStrengthEducationCard.tsx
+?? anchor/mobile/src/components/v2/thread/ThreadStrengthExplainerSheet.tsx
+?? anchor/mobile/src/components/v2/thread/__tests__/ThreadStrengthEducation.test.tsx
+?? anchor/mobile/src/components/v2/vision/__tests__/VisionAddSceneEntry.test.tsx
+?? anchor/mobile/src/hooks/v2/chart/__tests__/askOpeningPrefetch.test.ts
+?? anchor/mobile/src/hooks/v2/chart/askOpeningPrefetch.ts
+?? anchor/mobile/src/hooks/v2/guidance/__tests__/useGuidanceHostMeasurement.test.tsx
+?? anchor/mobile/src/screens/v2/practice/visualize/__tests__/visualizePacing.test.ts
+?? anchor/mobile/src/services/v2/__tests__/chartV2Api.test.ts
+?? anchor/mobile/src/stores/__tests__/devThreadStrengthStore.test.ts
+?? anchor/mobile/src/stores/__tests__/secureStoreConcurrency.test.ts
+?? anchor/mobile/src/stores/devRecommendationOverrideStore.ts
+?? anchor/mobile/src/stores/v2/__tests__/guidanceMeasurementRecovery.test.ts
+?? anchor/mobile/src/utils/devMockIdentity.ts
+?? backend/prisma/migrations/20261026000000_thread_strength_2_1_activation_legacy/
+?? backend/src/scripts/restoreLegacyThreadStrength.ts
+?? backend/src/services/v2/__tests__/ThreadStrength21.test.ts
+?? docs/thread-strength/

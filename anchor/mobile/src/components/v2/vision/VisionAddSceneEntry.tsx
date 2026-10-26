@@ -3,6 +3,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useVisionConversation } from '@/hooks/v2/vision/useVisionConversation';
 import { VisionAddSceneSheet, type AddSceneRequest } from './VisionAddSceneSheet';
 
+const DRAFT_LOAD_GRACE_MS = 600;
+
 type Props = ComponentProps<typeof VisionAddSceneSheet> & { anchorId: string; onResume: () => void };
 
 /** Keeps the existing board sheet while recovering owner-scoped scene drafts and history. */
@@ -19,6 +21,13 @@ function ScopedEntry({ anchorId, onResume, ...props }: Props) {
   const returningToDraft = useRef(false);
   if (!props.visible) returningToDraft.current = false;
   else if (props.restoreDraft) returningToDraft.current = true;
+  // A busy device store must not hold the sheet shut: after a short wait it opens, and a resumable session found later still hands off.
+  const [patient, setPatient] = useState(false);
+  useEffect(() => {
+    if (!props.visible) { setPatient(false); return undefined; }
+    const timer = setTimeout(() => setPatient(true), DRAFT_LOAD_GRACE_MS);
+    return () => clearTimeout(timer);
+  }, [props.visible]);
   const resumable = !returningToDraft.current && Boolean(conversation.session && (conversation.session.rounds.length || conversation.session.description.trim()));
   useEffect(() => {
     if (!conversation.loaded || hydrated.current) return;
@@ -38,7 +47,7 @@ function ScopedEntry({ anchorId, onResume, ...props }: Props) {
     }] : []) });
     props.onDraftChange?.(request);
   }, [conversation.saveDraft, props.onDraftChange]);
-  return <VisionAddSceneSheet {...props} visible={props.visible && conversation.loaded && !resumable}
+  return <VisionAddSceneSheet {...props} visible={props.visible && (conversation.loaded || patient) && !resumable}
     restoreDraft={props.restoreDraft ?? restored} onDraftRestored={() => { setRestored(null); props.onDraftRestored?.(); }}
     onDraftChange={saveDraft} onSubmit={request => {
       saveDraft(request);

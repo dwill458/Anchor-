@@ -188,7 +188,7 @@ function useHeroEntrance(
   return { entrance, onImageLoad };
 }
 
-function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, eagerThreadValues, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
+function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, heroActive, glowEnabled, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread: realThread, eagerThreadValues, reduceMotion, auraActive, onOpenActive, onOpenProgress, onOpenAllAnchors, teachingThreadRef }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
@@ -215,6 +215,9 @@ function AnchorHeroItem({ summary, index, total, slot, isSelectedCenterSlot, her
   const anchor = summary.anchor;
   // Dev-only Thread Strength simulator; inert (value null, nonce 0) outside development.
   const devStrength = useDevThreadStrengthStore();
+  const thread = __DEV__ && devStrength.value !== null && isSelectedCenterSlot
+    ? { ...realThread, value: devStrength.value, delta: undefined, unmeasured: false }
+    : realThread;
   const accent = getCategoryColor(anchor.category);
   // A just-created Anchor arriving from creation needs to know exactly where its mark will rest.
   const arrival = useHomeArrivalContext();

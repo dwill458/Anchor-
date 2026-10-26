@@ -73,3 +73,9 @@ graphify-out/
 
 # Remote session audio masters (served from R2, never bundled)
 audio-remote/
+
+# QA captures, design exports and scratch output (never bundled; keeps the archive under EAS's 2 GB cap)
+docs/
+dist-vision2/
+.visualize-*/
+.expo-thread-*/

@@ -56,7 +56,10 @@ export function SpotlightCoach(props: Props) {
       if (index < latest.current.steps.length - 1) setIndex(value => value + 1);
       else latest.current.onDismiss('unmeasurable');
     };
+    let ran = false;
     const run = () => {
+      if (ran || cancelled) return;
+      ran = true;
       void (async () => {
         const target = await (current.getRect ? current.getRect() : measureTeachingTarget(current.targetRef?.current ?? null));
         const bounds = await measureTeachingTarget(root.current);

@@ -4,10 +4,12 @@ import { useAuthStore } from '@/stores/authStore';
 import { useV2SelectedAnchor } from '@/hooks/v2/home/useV2SelectedAnchor';
 import { useV2Vision } from '@/hooks/v2/vision';
 import { resolveGreeting } from '@/constants/v2/home';
-import { V2_RECOMMENDATION_ACTION_TO_MODE, type V2PracticeMode } from '@/constants/v2/practice';
+import { V2_RECOMMENDATION_ACTION_TO_MODE, type V2PracticeMode, type V2RecommendationAction } from '@/constants/v2/practice';
+import { useDevRecommendationOverride } from '@/stores/devRecommendationOverrideStore';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
 import { getV2RecommendationCacheRevision, hydrateV2RecommendationContext, peekV2RecommendationContext, subscribeV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { DEV_MOCK_IDENTITY } from '@/utils/devMockIdentity';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import type { Anchor } from '@/types';
 import { toThreadPresentation, type V2ThreadPresentation } from './threadAdapter';
@@ -200,12 +202,36 @@ function useV2HomeToday(
 }
 
 /** Home read model over the account-scoped Anchor, Vision, Course, and practice APIs. */
+/**
+ * Dev preview only: swaps the Today card's action on this device. The server recommendation and
+ * its cache are untouched, so nothing is written upstream.
+ */
+function applyDevRecommendationAction(
+  today: V2HomeTodayState,
+  action: V2RecommendationAction | null,
+  durations: TodayDurations,
+): V2HomeTodayState {
+  if (!__DEV__ || action === null || today.state !== 'ready') return today;
+  const mode = V2_RECOMMENDATION_ACTION_TO_MODE[action];
+  return {
+    ...today,
+    mode,
+    action,
+    reason: `Dev preview: ${action}`,
+    durationSeconds: mode === 'release' ? undefined : durations[mode],
+  };
+}
+
 export function useV2HomeModel(): V2HomeModel {
   const recommendationRevision = useSyncExternalStore(subscribeV2RecommendationContext, getV2RecommendationCacheRevision, getV2RecommendationCacheRevision);
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
   const lastProfiledAnchorId = useRef<string | null>(null);
-  const displayName = useAuthStore((s) => s.user?.displayName ?? null);
-  const profilePictureUrl = useAuthStore((s) => s.user?.profilePictureUrl ?? null);
+  const signedInDisplayName = useAuthStore((s) => s.user?.displayName ?? null);
+  const signedInProfilePictureUrl = useAuthStore((s) => s.user?.profilePictureUrl ?? null);
+  const devMockIdentity = useSettingsStore((s) => s.devMockIdentity);
+  const mockIdentity = __DEV__ && devMockIdentity;
+  const displayName = mockIdentity ? DEV_MOCK_IDENTITY.displayName : signedInDisplayName;
+  const profilePictureUrl = mockIdentity ? DEV_MOCK_IDENTITY.profilePictureUrl : signedInProfilePictureUrl;
   const accountId = useAuthStore((s) => s.user?.id ?? null);
   const anchorLoading = useAnchorStore((s) => s.isLoading);
   const anchorError = useAnchorStore((s) => s.error);
@@ -224,10 +250,15 @@ export function useV2HomeModel(): V2HomeModel {
     () => ({ focus: focusDuration, deep_prime: primeDuration, visualize: visualizeDuration }),
     [focusDuration, primeDuration, visualizeDuration],
   );
-  const { today, refresh: refreshToday } = useV2HomeToday(
+  const { today: realToday, refresh: refreshToday } = useV2HomeToday(
     selectedAnchor?.id ?? null,
     todayDurations,
     accountId,
+  );
+  const devRecommendationAction = useDevRecommendationOverride((state) => state.action);
+  const today = useMemo(
+    () => applyDevRecommendationAction(realToday, devRecommendationAction, todayDurations),
+    [devRecommendationAction, realToday, todayDurations],
   );
 
   const refreshAnchors = useCallback(async () => {

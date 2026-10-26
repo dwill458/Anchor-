@@ -1,0 +1,6 @@
+{
+  "exitCode": 1,
+  "flaggedFileCount": 39,
+  "priorPhase2FlaggedFileCount": 39,
+  "note": "Current checker flags 39 files, equal to prior Phase2 count. No complete prior file list was available for a fresh set comparison. All hardening imports are inside V2; no task delta touches a non-V2 import scanned by this checker. Not clean-checkout or import-edge proof."
+}

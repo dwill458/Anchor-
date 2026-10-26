@@ -1,0 +1,10 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand guidanceMeasurementRecovery useGuidanceHostMeasurement guidanceCoordinator guidanceRecords guidanceRuntime SpotlightCoach ScreenTeaching ChartOneMoveTeaching ChartActiveView V2HomeScreen useTeachingQueue ChartSheetContent --silent --json --outputFile=../../docs/guidance/hardening-20261026/focused-final.json
+
+
+Test Suites: 13 passed, 13 total
+Tests:       192 passed, 192 total
+Snapshots:   0 total
+Time:        109.442 s, estimated 115 s
+Test results written to: ..\..\docs\guidance\hardening-20261026\focused-final.json

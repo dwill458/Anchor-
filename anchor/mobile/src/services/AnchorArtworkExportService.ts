@@ -83,6 +83,23 @@ export async function savePngToPhotoLibrary(
   return photoLibraryUri;
 }
 
+/** Downloads a remote Vision image and adds it to the device photo library. */
+export async function saveImageToPhotoLibrary(imageUrl: string): Promise<void> {
+  if (shouldRequestPhotoLibrarySavePermission() && !await requestPhotoLibrarySavePermission()) {
+    throw new ServiceError('artwork/permission-denied', 'Photo library permission is required to save this image.');
+  }
+
+  const root = EXPORT_CACHE_ROOT;
+  if (!root) throw new ServiceError('artwork/save-failed', 'Unable to prepare this image for your photo library.');
+
+  const extension = imageUrl.split(/[?#]/)[0].match(/\.(jpe?g|png|webp)$/i)?.[1]?.toLowerCase() ?? 'jpg';
+  const directory = `${root}vision-exports/`;
+  await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
+  const destination = `${directory}vision-${Date.now()}.${extension}`;
+  const download = await FileSystem.downloadAsync(imageUrl, destination);
+  await Asset.create(download.uri);
+}
+
 export async function exportAnchorArtwork({
   anchor,
   mode,

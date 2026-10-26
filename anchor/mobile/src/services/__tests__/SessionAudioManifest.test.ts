@@ -9,6 +9,15 @@ import {
 } from '../SessionAudioManifest';
 
 describe('SessionAudioManifest', () => {
+  it.each([120, 300, 600].flatMap(duration => (['male', 'female'] as const).map(voice => ({ duration, voice }))))(
+    'uses the re-paced $duration second master for $voice', ({ duration, voice }) => {
+      const plan = resolveSessionAudioPlan({ sessionType: 'deep_prime', durationSeconds: duration,
+        configuration: { guidanceVoice: voice, backgroundAudio: 'ambient', source: 'default' } });
+      expect(plan.voiceCues).toHaveLength(1);
+      expect(plan.voiceCues[0].track.version).toBe(5);
+      expect(plan.voiceCues[0].triggerAtRemainingMs).toBe(duration * 1000);
+      expect(plan.voiceCues[0].track.includesBed).toBe(true);
+    });
   it.each([
     { durationSeconds: 30, voice: 'warm' as const, clipDurationMs: 6295.5 },
     { durationSeconds: 30, voice: 'soothing' as const, clipDurationMs: 5694.688 },

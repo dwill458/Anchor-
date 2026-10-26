@@ -1,0 +1,226 @@
+[
+  {
+    "voice": "Dominic",
+    "file": "DeepFocus_10min_Dominic_V5.mp3",
+    "sha256": "b7575c2be26ff8546297d0276359caf00ae4b839a02d76c4e64f03fb3878f66c",
+    "phrases": [
+      {
+        "phrase": "settle",
+        "source": [
+          7.25,
+          11.0
+        ],
+        "start": 7.25,
+        "end": 11.0,
+        "correlation": 0.9999305220549416
+      },
+      {
+        "phrase": "permission and inhale",
+        "source": [
+          113.5,
+          120.7
+        ],
+        "start": 20,
+        "end": 27.2,
+        "correlation": 0.9999536753867188
+      },
+      {
+        "phrase": "exhale",
+        "source": [
+          239.35,
+          242.35
+        ],
+        "start": 29,
+        "end": 32.0,
+        "correlation": 0.999995474931417
+      },
+      {
+        "phrase": "second breath",
+        "source": [
+          378.65,
+          384.65
+        ],
+        "start": 34,
+        "end": 40.0,
+        "correlation": 0.9999878047447323
+      },
+      {
+        "phrase": "intention",
+        "source": [
+          538.65,
+          554.4
+        ],
+        "start": 60,
+        "end": 75.75,
+        "correlation": 0.9999472936704857
+      },
+      {
+        "phrase": "nothing to solve",
+        "source": [
+          554.4,
+          559.45
+        ],
+        "start": 120,
+        "end": 125.05,
+        "correlation": 0.9999735713874768
+      },
+      {
+        "phrase": "anchor",
+        "source": [
+          559.45,
+          570.22
+        ],
+        "start": 145,
+        "end": 155.77,
+        "correlation": 0.9999850240455398
+      },
+      {
+        "phrase": "return",
+        "source": [
+          570.22,
+          576.95
+        ],
+        "start": 260,
+        "end": 266.73,
+        "correlation": 0.9999960172627386
+      },
+      {
+        "phrase": "steadiness",
+        "source": [
+          576.95,
+          583.4
+        ],
+        "start": 390,
+        "end": 396.45,
+        "correlation": 0.9999908034539782
+      },
+      {
+        "phrase": "let details fall away",
+        "source": [
+          583.4,
+          587.6
+        ],
+        "start": 510,
+        "end": 514.2,
+        "correlation": 0.9999925380499168
+      },
+      {
+        "phrase": "closing breath and carry forward",
+        "source": [
+          587.6,
+          596.05
+        ],
+        "start": 580,
+        "end": 588.45,
+        "correlation": 0.9999880872289952
+      }
+    ]
+  },
+  {
+    "voice": "Lina",
+    "file": "DeepFocus_10min_Lina_V5.mp3",
+    "sha256": "845d835d024885e1791934574c5bb3ca51ad47ff241c06dde00010c55899fe65",
+    "phrases": [
+      {
+        "phrase": "settle",
+        "source": [
+          7.3,
+          10.8
+        ],
+        "start": 7.3,
+        "end": 10.8,
+        "correlation": 0.9999730589097485
+      },
+      {
+        "phrase": "permission and breaths",
+        "source": [
+          114.1,
+          126.5
+        ],
+        "start": 20,
+        "end": 32.4,
+        "correlation": 0.9999823174327714
+      },
+      {
+        "phrase": "intention",
+        "source": [
+          247.3,
+          262.4
+        ],
+        "start": 60,
+        "end": 75.1,
+        "correlation": 0.9999272653021509
+      },
+      {
+        "phrase": "nothing to solve",
+        "source": [
+          400.2,
+          405.6
+        ],
+        "start": 120,
+        "end": 125.4,
+        "correlation": 0.9999697827687494
+      },
+      {
+        "phrase": "anchor",
+        "source": [
+          405.6,
+          415.6
+        ],
+        "start": 145,
+        "end": 155.0,
+        "correlation": 0.9999848181498302
+      },
+      {
+        "phrase": "return",
+        "source": [
+          415.6,
+          422.3
+        ],
+        "start": 260,
+        "end": 266.7,
+        "correlation": 0.9999754842266659
+      },
+      {
+        "phrase": "steadiness",
+        "source": [
+          422.3,
+          426.7
+        ],
+        "start": 390,
+        "end": 394.4,
+        "correlation": 0.9999680079167748
+      },
+      {
+        "phrase": "it just needs returning",
+        "source": [
+          581.7,
+          584.2
+        ],
+        "start": 394.4,
+        "end": 396.9,
+        "correlation": 0.9999907513174779
+      },
+      {
+        "phrase": "let details fall away",
+        "source": [
+          584.2,
+          588.1
+        ],
+        "start": 510,
+        "end": 513.9,
+        "correlation": 0.9999889040518793
+      },
+      {
+        "phrase": "closing breath and carry forward",
+        "source": [
+          588.1,
+          595.95
+        ],
+        "start": 580,
+        "end": 587.85,
+        "correlation": 0.999982376892312
+      }
+    ]
+  }
+]

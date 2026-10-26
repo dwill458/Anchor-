@@ -1,0 +1,54 @@
+
+> anchor-v2@1.0.0 test
+> jest --runInBand --silent --resolver=C:/Users/dwill/AppData/Local/Temp/anchor-guidance-hardening-baseline/resolver.cjs src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx --json --outputFile=../../docs/guidance/hardening-20261026/baseline-chart-corrected.json
+
+FAIL src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx
+  ● Test suite failed to run
+
+    Cannot find module './mock' from 'node_modules/@react-native/jest-preset/jest/setup.js'
+
+    However, Jest was able to find:
+    	'./mock.js'
+
+    You might want to include a file extension in your import, or update your 'moduleFileExtensions', which is currently ['ts', 'tsx', 'js', 'jsx', 'json', 'node'].
+
+    See https://jestjs.io/docs/configuration#modulefileextensions-arraystring
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/index.js:1031:11)
+      at Object.<anonymous> (node_modules/@react-native/jest-preset/jest/setup.js:3:36)
+
+FAIL src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx
+  ● Test suite failed to run
+
+    Cannot find module './mock' from 'node_modules/@react-native/jest-preset/jest/setup.js'
+
+    However, Jest was able to find:
+    	'./mock.js'
+
+    You might want to include a file extension in your import, or update your 'moduleFileExtensions', which is currently ['ts', 'tsx', 'js', 'jsx', 'json', 'node'].
+
+    See https://jestjs.io/docs/configuration#modulefileextensions-arraystring
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/index.js:1031:11)
+      at Object.<anonymous> (node_modules/@react-native/jest-preset/jest/setup.js:3:36)
+
+FAIL src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx
+  ● Test suite failed to run
+
+    Cannot find module './mock' from 'node_modules/@react-native/jest-preset/jest/setup.js'
+
+    However, Jest was able to find:
+    	'./mock.js'
+
+    You might want to include a file extension in your import, or update your 'moduleFileExtensions', which is currently ['ts', 'tsx', 'js', 'jsx', 'json', 'node'].
+
+    See https://jestjs.io/docs/configuration#modulefileextensions-arraystring
+
+      at Resolver._throwModNotFoundError (node_modules/jest-resolve/build/index.js:1031:11)
+      at Object.<anonymous> (node_modules/@react-native/jest-preset/jest/setup.js:3:36)
+
+Test Suites: 3 failed, 3 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        0.622 s, estimated 24 s
+Test results written to: ..\..\docs\guidance\hardening-20261026\baseline-chart-corrected.json

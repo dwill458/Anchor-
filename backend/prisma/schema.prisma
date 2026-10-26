@@ -348,7 +348,21 @@ model ThreadV2State {
   anchor          Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
   strength        Float    @default(50)
   lastCompletedAt DateTime? @map("last_completed_at")
-  ruleVersion     String   @default("v2.0-authoritative") @map("rule_version")
+  ruleVersion     String   @default("v2.1-authoritative") @map("rule_version")
+  // Thread Strength 2.1 one-time activation bonus. null = not yet decided;
+  // 'awarded' = bonus granted on activationSessionId; 'legacy_exempt' = anchor already
+  // had practice before 2.1 so it never receives the bonus. Never reset by decay.
+  activationStatus     String?   @map("activation_status")
+  activationSessionId  String?   @map("activation_session_id")
+  activationAwardedAt  DateTime? @map("activation_awarded_at")
+  // One-time protected legacy baseline (see scripts/restoreLegacyThreadStrength.ts).
+  // Sessions completed at or before legacyBaselineAt are represented by the baseline.
+  legacyBaselineStrength   Float?    @map("legacy_baseline_strength")
+  legacyBaselineAt         DateTime? @map("legacy_baseline_at")
+  legacyBaselineDateKey    String?   @map("legacy_baseline_date_key")
+  legacyBaselineSessionId  String?   @map("legacy_baseline_session_id")
+  legacyBaselineSource     String?   @map("legacy_baseline_source")
+  legacyBaselineAppliedAt  DateTime? @map("legacy_baseline_applied_at")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -367,6 +381,7 @@ model ThreadV2Movement {
   beforeStrength Float    @map("before_strength")
   afterStrength  Float    @map("after_strength")
   delta          Float
+  activationBonus Float   @default(0) @map("activation_bonus")
   reason         String
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

@@ -1,17 +1,20 @@
 import { useSyncExternalStore } from 'react';
+import { Easing, makeMutable, ReduceMotion, withSequence, withTiming } from 'react-native-reanimated';
 
 /**
- * Word-by-word reveal bookkeeping for Ask Chart. Progress lives outside React (keyed by message key) so a reply that
+ * Character (Unicode code point) reveal bookkeeping for Ask Chart. Progress lives outside React (keyed by message key) so a reply that
  * moves from the streaming draft row to its finished message row continues where it was, a row scrolled out and back
  * never replays, and the footer can wait for the question to finish before offering replies.
  */
 
-/** Words revealed so far per message key. */
+/** Unicode code points revealed so far per message key, never UTF-16 offsets. */
 const progress = new Map<string, number>();
 /** Keys that finished, were skipped, or never needed to animate. */
 const done = new Set<string>();
 /** Keys currently being revealed (drives the speaking glow and the reply gate). */
 const active = new Set<string>();
+export const askRevealEnergy = makeMutable(0);
+export const ASK_REVEAL = { msPerChar: 24, minMsPerChar: 9, capMs: 9000 } as const;
 const listeners = new Set<() => void>();
 let snapshot = 0;
 
@@ -28,6 +31,12 @@ const subscribe = (listener: () => void) => {
 };
 
 export const askReveal = {
+  bump() {
+    askRevealEnergy.value = withSequence(
+      withTiming(1, { duration: 60, reduceMotion: ReduceMotion.Never }),
+      withTiming(0, { duration: 380, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never }),
+    );
+  },
   count: (key: string) => progress.get(key) ?? 0,
   isDone: (key: string) => done.has(key),
   setCount(key: string, count: number) {
@@ -58,6 +67,7 @@ export const askReveal = {
     progress.clear();
     done.clear();
     active.clear();
+    askRevealEnergy.value = 0;
     emit();
   },
 };
@@ -72,19 +82,24 @@ export function useRevealing(key: string): boolean {
   return useSyncExternalStore(subscribe, () => active.has(key), () => false);
 }
 
-/** Splits text into alternating whitespace / word tokens so spacing and paragraph breaks survive a partial reveal. */
-export function tokenize(text: string): string[] {
-  return (text ?? '').split(/(\s+)/).filter(token => token.length > 0);
+/** Pause after a code point; punctuation inside a word (3.5, e.g.) has no sentence pause. */
+export function charDelay(char: string, next: string | undefined): number {
+  if (char === '\n' && next === '\n') return 300;
+  if (/\s/.test(char)) return 0;
+  if (char === ',') return ASK_REVEAL.msPerChar + 85;
+  if (/[;:—–]/.test(char)) return ASK_REVEAL.msPerChar + 120;
+  if (/[.!?…]/.test(char) && (!next || /\s/.test(next))) return ASK_REVEAL.msPerChar + 230;
+  return ASK_REVEAL.msPerChar;
 }
 
-export const isWordToken = (token: string) => !/^\s+$/.test(token);
-
-/** Milliseconds to wait after showing this word: a short beat per word, longer after punctuation and paragraph breaks. */
-export function wordDelay(word: string, next: string | undefined): number {
-  const base = 34 + Math.min(word.length, 10) * 3;
-  if (next && /\n\s*\n/.test(next)) return base + 260;
-  if (/[.!?…]["”')\]]*$/.test(word)) return base + 190;
-  if (/[:;—–]$/.test(word)) return base + 120;
-  if (/,["”')\]]*$/.test(word)) return base + 80;
-  return base;
-}
+// DEFERRED: replaced by charDelay (Oct 2026). No other consumers used the word helpers.
+// export const tokenize = (text: string) => (text ?? '').split(/(\s+)/).filter(Boolean);
+// export const isWordToken = (token: string) => !/^\s+$/.test(token);
+// export function wordDelay(word: string, next: string | undefined) {
+//   const base = 34 + Math.min(word.length, 10) * 3;
+//   if (next && /\n\s*\n/.test(next)) return base + 260;
+//   if (/[.!?…]["”')\]]*$/.test(word)) return base + 190;
+//   if (/[:;—–]$/.test(word)) return base + 120;
+//   if (/,["”')\]]*$/.test(word)) return base + 80;
+//   return base;
+// }

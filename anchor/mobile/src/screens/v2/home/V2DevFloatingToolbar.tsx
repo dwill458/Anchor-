@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { devMenuStyles } from '@/components/dev/devMenuStyles';
+import Slider from '@react-native-community/slider';
+import { DeveloperToolsSection } from '@/components/settings/DeveloperToolsSection';
 import {
   DeviceEventEmitter,
   Modal,
@@ -23,13 +26,14 @@ import {
   usePerformanceTier,
   type PerformanceTierOverride,
 } from '@/hooks/usePerformanceTier';
-import { colors, radii, spacing, typography } from '@/theme/v2';
+import { colors, radii, typography } from '@/theme/v2';
 
 export function V2DevFloatingToolbar() {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'preview' | 'settings'>('preview');
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const activeAnchor = useAnchorStore((s) => s.anchors[0]);
+  const activeAnchor = useAnchorStore((s) => s.anchors.find((a) => a.id === s.currentAnchorId || a.localId === s.currentAnchorId) ?? s.anchors[0]);
   const simulatedStrength = useDevThreadStrengthStore((s) => s.value);
   const simulateStrength = useDevThreadStrengthStore((s) => s.simulate);
 
@@ -49,8 +53,13 @@ export function V2DevFloatingToolbar() {
 
   const detectedTier = useDetectedPerformanceTier();
   const effectiveTier = usePerformanceTier({ override: devPerfTierOverride });
+  const devControlsHidden = (
+    typeof useSettingsStore === 'function'
+      ? useSettingsStore((s: any) => s?.devHideDevControls)
+      : (useSettingsStore as any)?.getState?.()?.devHideDevControls
+  ) ?? false;
 
-  if (!__DEV__) return null;
+  if (!__DEV__ || devControlsHidden) return null;
 
   // Plays a milestone celebration without earning anything: it is a non-awarding replay of a
   // synthetic record, queued after this dialog has closed (two modals cannot present together).
@@ -95,6 +104,12 @@ export function V2DevFloatingToolbar() {
     void resetChartIntroSeen()
       .catch(() => undefined)
       .then(() => navigation.navigate('V2Chart', { anchorId: id, introReplayMode: mode }));
+  };
+
+  // Dev only: opens the 2.0 weekly recap from anywhere in the V2 stack. Waits for this dialog to close first.
+  const handleOpenWeeklySummaryPreview = () => {
+    setOpen(false);
+    setTimeout(() => navigation.navigate('V2WeeklyInsight', { forceRecapV2: true }), 400);
   };
 
   const handleResetChartIntro = () => {
@@ -142,14 +157,74 @@ export function V2DevFloatingToolbar() {
         animationType="fade"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable style={styles.scrim} onPress={() => setOpen(false)}>
-          <Pressable style={styles.dialog} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.scrim}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            accessibilityRole="button"
+            accessibilityLabel="Close Developer Tools"
+            onPress={() => setOpen(false)}
+          />
+          <View style={styles.dialog}>
             <Text style={styles.title}>Anchor 2.0 Dev Tools</Text>
             <Text style={styles.subtitle}>
               Active anchor: {activeAnchor ? activeAnchor.intentionText.slice(0, 30) + '…' : 'None (Empty)'}
             </Text>
 
-            <ScrollView style={styles.actionList} showsVerticalScrollIndicator={false}>
+            <View style={styles.chipRow} accessibilityRole="tablist">
+              {(['preview', 'settings'] as const).map((item) => (
+                <Pressable key={item} accessibilityRole="tab" accessibilityState={{ selected: tab === item }}
+                  onPress={() => setTab(item)} style={[styles.chip, tab === item && styles.chipActive]}>
+                  <Text style={[styles.chipText, tab === item && styles.chipTextActive]}>{item === 'preview' ? 'Preview & QA' : 'Dev Settings'}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <ScrollView
+              key={tab}
+              style={styles.actionList}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {tab === 'settings' ? (
+                <DeveloperToolsSection
+                  embedded
+                  onResetOnboarding={handleResetOnboarding}
+                  onWeeklySummaryPrimed={handleOpenWeeklySummaryPreview}
+                />
+              ) : <>
+              <Text style={styles.sectionLabel}>
+                Thread Strength: {simulatedStrength ?? activeAnchor?.threadStrength ?? '—'}%{simulatedStrength === null ? ' · Real' : ' · Mock'}
+              </Text>
+              <Text style={styles.subtitle}>Local preview of percentage and glow. Nothing is saved or uploaded.</Text>
+              <View style={styles.sliderRow}>
+                <Slider
+                  testID="v2-dev-strength-slider"
+                  accessibilityLabel="Mock Thread Strength percentage"
+                  minimumValue={0}
+                  maximumValue={100}
+                  step={1}
+                  value={simulatedStrength ?? activeAnchor?.threadStrength ?? 0}
+                  onValueChange={simulateStrength}
+                  minimumTrackTintColor={colors.ink.base}
+                  thumbTintColor={colors.ink.base}
+                  style={styles.slider}
+                />
+                <Pressable
+                  testID="v2-dev-strength-real"
+                  accessibilityRole="button"
+                  accessibilityLabel="Restore real Thread Strength percentage"
+                  accessibilityState={{ selected: simulatedStrength === null }}
+                  style={[styles.chip, styles.realButton, simulatedStrength === null && styles.chipActive]}
+                  onPress={() => simulateStrength(null)}
+                >
+                  <Text style={[styles.chipText, simulatedStrength === null && styles.chipTextActive]}>Real %</Text>
+                </Pressable>
+              </View>
+              <View style={styles.sliderLabels}><Text style={styles.sectionLabel}>0%</Text><Text style={styles.sectionLabel}>100%</Text></View>
+
+              <View style={styles.divider} />
+
+              <Text style={styles.sectionLabel}>Creation & screens</Text>
               <Pressable style={styles.actionRowPrimary} onPress={handleSeed}>
                 <Text style={styles.actionRowPrimaryText}>⚡ Seed Demo Anchor + Vision + Chart</Text>
               </Pressable>
@@ -172,6 +247,7 @@ export function V2DevFloatingToolbar() {
 
               <View style={styles.divider} />
 
+              <Text style={styles.sectionLabel}>Labs & Chart opening</Text>
               <Pressable style={styles.actionRow} onPress={handleVisionQA}>
                 <Text style={styles.actionRowText}>🔬 Vision Visual QA Lab</Text>
               </Pressable>
@@ -228,31 +304,6 @@ export function V2DevFloatingToolbar() {
 
               <View style={styles.divider} />
 
-              <Text style={styles.sectionLabel}>
-                Thread Strength glow simulator{simulatedStrength === null ? ' (real data)' : ` (${simulatedStrength}%)`}
-              </Text>
-              <View style={styles.chipRow}>
-                {[0, 1, 26, 49, 80, 100].map((value) => (
-                  <Pressable
-                    key={value}
-                    testID={`v2-dev-strength-${value}`}
-                    style={[styles.chip, simulatedStrength === value && styles.chipActive]}
-                    onPress={() => { simulateStrength(value); setOpen(false); }}
-                  >
-                    <Text style={[styles.chipText, simulatedStrength === value && styles.chipTextActive]}>{value}%</Text>
-                  </Pressable>
-                ))}
-                <Pressable
-                  testID="v2-dev-strength-real"
-                  style={[styles.chip, simulatedStrength === null && styles.chipActive]}
-                  onPress={() => { simulateStrength(null); setOpen(false); }}
-                >
-                  <Text style={[styles.chipText, simulatedStrength === null && styles.chipTextActive]}>Real</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.divider} />
-
               <Text style={styles.sectionLabel}>Milestone celebration (plays only, saves nothing)</Text>
               <View style={styles.chipRow}>
                 {DEV_MILESTONE_LABELS.map(({ id, label }) => (
@@ -272,19 +323,21 @@ export function V2DevFloatingToolbar() {
               <Pressable style={styles.actionRowDanger} onPress={handleResetOnboarding}>
                 <Text style={styles.actionRowDangerText}>↺ Reset & Return to First Run (Onboarding)</Text>
               </Pressable>
+              </>}
             </ScrollView>
 
             <Pressable style={styles.closeButton} onPress={() => setOpen(false)}>
               <Text style={styles.closeButtonText}>Close</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  ...devMenuStyles,
   floatingBadge: {
     position: 'absolute',
     right: 16,
@@ -338,7 +391,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   actionList: {
-    maxHeight: 380,
+    flexShrink: 1,
   },
   actionRowPrimary: {
     backgroundColor: colors.ink.base,
@@ -352,41 +405,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  actionRow: {
-    backgroundColor: '#EDE8DF',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: radii.sm,
-    marginBottom: 8,
-  },
-  actionRowText: {
-    color: colors.ink.base,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#DDD6C9',
-    marginVertical: 8,
-  },
-  actionRowDanger: {
-    backgroundColor: 'rgba(180, 40, 40, 0.1)',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: radii.sm,
-    marginBottom: 8,
-  },
-  actionRowDangerText: {
-    color: '#A02020',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sectionLabel: { color: colors.text.secondary, fontSize: 12, fontWeight: '700', marginBottom: 8 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  chip: { backgroundColor: '#EDE8DF', paddingVertical: 8, paddingHorizontal: 12, borderRadius: radii.sm },
-  chipActive: { backgroundColor: colors.ink.base },
-  chipText: { color: colors.ink.base, fontSize: 13, fontWeight: '600' },
-  chipTextActive: { color: '#FAF7F2' },
+  sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  slider: { flex: 1, height: 44 },
+  realButton: { minHeight: 44, justifyContent: 'center' },
+  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between', marginRight: 80 },
   closeButton: {
     marginTop: 12,
     alignItems: 'center',

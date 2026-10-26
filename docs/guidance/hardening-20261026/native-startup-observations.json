@@ -1,0 +1,87 @@
+{
+  "note": "Opportunistic development logs across reloads, not paired cold-start benchmarks. No account values retained. t is existing JS perf epoch; not native entry.",
+  "events": [
+    {
+      "logTimestamp": "10-26 08:30:46.881",
+      "event": "app-ready-state",
+      "t": 4593,
+      "ready": false,
+      "msSinceAppStart": 122
+    },
+    {
+      "logTimestamp": "10-26 08:30:47.149",
+      "event": "store-hydration-finished",
+      "t": 4871,
+      "store": "visualizationScene",
+      "ok": true,
+      "hasState": true
+    },
+    {
+      "logTimestamp": "10-26 08:30:47.153",
+      "event": "store-hydration-observed",
+      "t": 4875,
+      "store": "visualizationScene",
+      "msSinceAppComponentMount": 404
+    },
+    {
+      "logTimestamp": "10-26 08:30:47.197",
+      "event": "store-hydration-finished",
+      "t": 4919,
+      "store": "locationPriming",
+      "ok": true,
+      "hasState": true
+    },
+    {
+      "logTimestamp": "10-26 08:30:47.197",
+      "event": "store-hydration-observed",
+      "t": 4920,
+      "store": "locationPriming",
+      "msSinceAppComponentMount": 449
+    },
+    {
+      "logTimestamp": "10-26 08:30:58.361",
+      "event": "store-hydration-finished",
+      "t": 16082,
+      "store": "anchor",
+      "ok": true,
+      "hasState": true
+    },
+    {
+      "logTimestamp": "10-26 08:30:58.390",
+      "event": "store-hydration-observed",
+      "t": 16112,
+      "store": "anchor",
+      "msSinceAppComponentMount": 11641
+    },
+    {
+      "logTimestamp": "10-26 08:31:00.575",
+      "event": "store-hydration-finished",
+      "t": 18297,
+      "store": "session",
+      "ok": true,
+      "hasState": true
+    },
+    {
+      "logTimestamp": "10-26 08:31:00.576",
+      "event": "store-hydration-observed",
+      "t": 18299,
+      "store": "session",
+      "msSinceAppComponentMount": 13828
+    },
+    {
+      "logTimestamp": "10-26 08:31:00.940",
+      "event": "store-hydration-finished",
+      "t": 18663,
+      "store": "auth",
+      "ok": true,
+      "hasState": true
+    },
+    {
+      "logTimestamp": "10-26 08:31:00.979",
+      "event": "store-hydration-observed",
+      "t": 18701,
+      "store": "auth",
+      "msSinceAppComponentMount": 14230
+    }
+  ]
+}

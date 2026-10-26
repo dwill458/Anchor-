@@ -8,7 +8,7 @@ import type { V2ProgressModel } from '@/adapters/v2/progress/types';
 import type { Anchor } from '@/types';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
-import { useAuraStrength } from '@/stores/devThreadStrengthStore';
+import { useAuraStrength, useThreadStrengthPreview } from '@/stores/devThreadStrengthStore';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 import {
@@ -16,7 +16,7 @@ import {
   getThreadStrengthLevel,
   type ThreadStrengthLevel,
 } from '@/constants/v2/threadEvents';
-import { ThreadStrengthSheet } from '@/components/ThreadStrengthSheet';
+import { ThreadStrengthExplainerSheet } from '@/components/v2/thread/ThreadStrengthExplainerSheet';
 import { progressTokens } from './progressTokens';
 
 export interface V2ProgressHeroProps {
@@ -95,7 +95,9 @@ export function heroStats(model: V2ProgressModel): HeroStat[] {
  * The compact navy hero retains real artwork, aura, score, progression and lifetime figures.
  */
 export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, now, testID = 'v2-progress-hero' }) => {
-  const { intention, category, threadStrength, unmeasured } = model;
+  const { intention, category } = model;
+  const threadStrength = useThreadStrengthPreview(model.unmeasured ? null : model.threadStrength);
+  const unmeasured = threadStrength === null;
   const currentAnchor = anchor ?? model.anchor;
   const [explanationOpen, setExplanationOpen] = React.useState(false);
   const levelLabel = threadStrength !== null ? getThreadStrengthLevel(threadStrength) : 'Surface';
@@ -167,14 +169,14 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
               <Pressable onPress={() => setExplanationOpen(true)} accessibilityRole="button" accessibilityLabel="Explain Thread Strength" style={styles.explain} testID={`${testID}-explain`}>
                 <Text style={styles.eyebrow}>THREAD STRENGTH</Text>
               </Pressable>
-              <View style={styles.scoreRow}>
+              <Pressable onPress={() => setExplanationOpen(true)} accessibilityRole="button" accessibilityLabel={`Thread Strength ${threadStrength}, ${levelLabel}. Explain Thread Strength`} style={styles.scoreRow} testID={`${testID}-score`}>
                 <Text style={styles.strengthNumber} testID={`${testID}-strength`}>
                   {threadStrength}
                 </Text>
                 <View style={styles.levelPill} testID={`${testID}-level`}>
                   <Text style={styles.levelText}>{levelLabel.toUpperCase()}</Text>
                 </View>
-              </View>
+              </Pressable>
               <Text style={styles.support}>{format7DayChange(model, currentAnchor, now ?? new Date())}</Text>
             </>
           ) : null}
@@ -200,7 +202,7 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, anchor, n
           ))}
         </View>
       ) : null}
-      {explanationOpen ? <ThreadStrengthSheet visible onClose={() => setExplanationOpen(false)} anchorId={model.anchorId} /> : null}
+      {explanationOpen ? <ThreadStrengthExplainerSheet visible onClose={() => setExplanationOpen(false)} strength={threadStrength} accentColor={category ? getCategoryColor(category) : undefined} /> : null}
       <Animated.View style={[styles.stats, statsReveal]} testID={`${testID}-stats`}>
         {stats.map((stat, index) => (
           <View key={stat.key} style={[styles.stat, index > 0 && styles.statDivider]} testID={`${testID}-stat-${stat.key}`}>

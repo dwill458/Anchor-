@@ -1,6 +1,6 @@
 import React from 'react';
 import { AccessibilityInfo, BackHandler, Pressable, Text, View } from 'react-native';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as Reanimated from 'react-native-reanimated';
 import { SpotlightCoach } from '../SpotlightCoach';
 import { measureTeachingTarget } from '../scrollToTarget';
@@ -8,6 +8,31 @@ import { TEACHING_COPY } from '@/constants/v2/teachingCopy';
 jest.mock('../scrollToTarget', () => ({ measureTeachingTarget: jest.fn(async () => ({ x: 0, y: 0, width: 390, height: 844 })) }));
 const steps = ['home.today', 'home.progress'].map(id => ({ id, ...TEACHING_COPY.beats[id as 'home.today'] , getRect: async () => ({ x: 20, y: 250, width: 300, height: 70 }) })) as React.ComponentProps<typeof SpotlightCoach>['steps'];
 beforeEach(() => jest.clearAllMocks());
+it.each(['frame-first', 'timeout-first'] as const)('measures and announces once when both scheduling callbacks run (%s)', async order => {
+  jest.useFakeTimers();
+  let frame: FrameRequestCallback | undefined;
+  const raf = jest.spyOn(global, 'requestAnimationFrame').mockImplementation(callback => { frame = callback; return 42; });
+  const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+  const getRect = jest.fn(async () => ({ x: 20, y: 250, width: 300, height: 70 }));
+  const ready = jest.fn();
+  const dismiss = jest.fn();
+  const tree = render(<SpotlightCoach visible steps={[{ ...steps[0], getRect }]} reducedMotion onReady={ready} onDismiss={dismiss} onAdvance={jest.fn()} />);
+  try {
+    expect(frame).toBeDefined();
+    await act(async () => {
+      if (order === 'frame-first') frame!(0);
+      jest.advanceTimersByTime(16);
+      if (order === 'timeout-first') frame!(16);
+    });
+    expect(tree.getByTestId('spotlight-coach')).toBeTruthy();
+    expect(getRect).toHaveBeenCalledTimes(1);
+    expect(ready).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(dismiss).not.toHaveBeenCalled();
+  } finally {
+    tree.unmount(); raf.mockRestore(); jest.useRealTimers();
+  }
+});
 it('announces, advances, cuts instantly with reduced motion, and leaves no touch surface when hidden', async () => {
   const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
   const ready = jest.fn();

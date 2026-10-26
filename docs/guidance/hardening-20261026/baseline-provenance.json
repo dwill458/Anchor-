@@ -1,0 +1,45 @@
+{
+  "scope": "Reconstructed before hardening, current shared dependencies and other owner changes. Not a clean historical checkout.",
+  "files": [
+    {
+      "file": "anchor/mobile/src/stores/v2/guidanceCoordinator.ts",
+      "sha256": "527ef92064c9ffe47ff1285e5adc23f5ff117c3dfd084207bee92c23f44933db",
+      "source": "HEAD"
+    },
+    {
+      "file": "anchor/mobile/src/hooks/v2/guidance/useGuidanceHost.ts",
+      "sha256": "16dc3af3e107c0a24628211af99ccf4e7d5b98480610af705211ffdfc21809e5",
+      "source": "HEAD"
+    },
+    {
+      "file": "anchor/mobile/src/hooks/v2/teaching/useTeachingQueue.ts",
+      "sha256": "c99cc350f83d6fa4abc4836260040b7491a4bcce1982e9f6278280e2027cfa32",
+      "source": "HEAD"
+    },
+    {
+      "file": "anchor/mobile/src/components/v2/chart/ChartActiveView.tsx",
+      "sha256": "28311d1ca0bed83d9981d8ae547bfcc8f36473b263a44f64a2c788aa2a567520",
+      "source": "HEAD"
+    },
+    {
+      "file": "anchor/mobile/src/components/v2/chart/sheet/ChartOneMoveTeaching.tsx",
+      "sha256": "1b29a201c5cbfa18e15c4397c54166b709cd34104f4c997172494059d784fb2d",
+      "source": "HEAD"
+    },
+    {
+      "file": "anchor/mobile/src/components/v2/teaching/SpotlightCoach.tsx",
+      "sha256": "af4ea8ff87fa2ba03403594c1ffdbe74faa8b02fe2bb5cd291f3c52b2acaf59b",
+      "source": "HEAD"
+    },
+    {
+      "file": "anchor/mobile/src/screens/v2/home/V2HomeScreen.tsx",
+      "sha256": "480a54f60075f348a1cdf814f49667513722a6dbbfa293144c0efa01e480b56b",
+      "source": "current shared source with only this hardening delta removed"
+    },
+    {
+      "file": "anchor/mobile/src/components/v2/chart/sheet/ChartSheetContent.tsx",
+      "sha256": "ee64bdcd7d55c7e54815660a576e65336d78de2c590e541ef90d0ecbea36eeb8",
+      "source": "current shared source with only this hardening delta removed"
+    }
+  ]
+}

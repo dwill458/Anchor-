@@ -27,6 +27,10 @@ export interface TeachingUserFlags {
   hasSeenFirstAnchorArrival: boolean;
   /** Set once, when the first-practice completion scene actually starts. Never cleared. */
   hasSeenFirstPracticeScene: boolean;
+  /** Set when the first-practice completion scene starts, so Anchor Details can explain Thread Strength once. */
+  threadStrengthEducationPending: boolean;
+  /** Set when the user dismisses the Thread Strength education card. Never cleared. */
+  hasSeenThreadStrengthEducation: boolean;
 }
 
 export interface TeachingState {
@@ -88,6 +92,8 @@ const createInitialTeachingState = () => ({
     hasTracedBefore: false,
     hasSeenFirstAnchorArrival: false,
     hasSeenFirstPracticeScene: false,
+    threadStrengthEducationPending: false,
+    hasSeenThreadStrengthEducation: false,
   },
   traceHintSeenCounts: {},
   traceHintExhaustedIds: {},
@@ -220,6 +226,8 @@ export const useTeachingStore = create<TeachingState>()(
           hasTracedBefore: false,
           hasSeenFirstAnchorArrival: false,
           hasSeenFirstPracticeScene: false,
+          threadStrengthEducationPending: false,
+          hasSeenThreadStrengthEducation: false,
           ...(persistedState.userFlags ?? {}),
         };
 

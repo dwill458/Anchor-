@@ -1,8 +1,9 @@
 import type { ScrollViewInstance } from 'react-native';
 
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   Platform,
+  Keyboard,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -13,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useAnimatedKeyboard, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { spacing } from '@/theme/v2';
 
 type Props = {
@@ -28,6 +29,10 @@ type Props = {
   externalKeyboard?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** A new proposal always opens at its headline, regardless of prior scroll. */
+  resetKey?: string | number;
+  /** Review can also live in a native modal, outside the activity keyboard observer. */
+  nativeKeyboardFallback?: boolean;
 };
 
 /** Breathing room kept between a focused field and the action bar. */
@@ -52,14 +57,36 @@ export function ChartKeyboardFrame({
   externalKeyboard = false,
   style,
   testID,
+  resetKey,
+  nativeKeyboardFallback = false,
 }: Props) {
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
+  const fallbackHeight = useSharedValue(0);
+  useEffect(() => {
+    if (!nativeKeyboardFallback) return;
+    fallbackHeight.value = keyboard.height.value === 0 ? Keyboard.metrics()?.height ?? 0 : 0;
+    const show = Keyboard.addListener('keyboardDidShow', event => {
+      // The UI-thread observer remains authoritative whenever it is receiving frames.
+      fallbackHeight.value = keyboard.height.value === 0 ? event.endCoordinates.height : 0;
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => { fallbackHeight.value = 0; });
+    return () => { show.remove(); hide.remove(); };
+  }, [nativeKeyboardFallback, keyboard.height, fallbackHeight]);
   const scrollRef = useRef<ScrollViewInstance>(null);
   const scrollY = useRef(0);
   const viewport = useRef(0);
+  const focusedWithin = useRef(resetKey === undefined);
+  useLayoutEffect(() => {
+    if (resetKey === undefined) return;
+    focusedWithin.current = false;
+    scrollY.current = 0;
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [resetKey]);
 
   const revealFocused = useCallback(() => {
+    // Ask stays mounted during hand-off. Its global focused input must never scroll a new review.
+    if (!focusedWithin.current) return;
     const focused = TextInput.State.currentlyFocusedInput?.() as unknown as
       | { measureLayout?: (relativeTo: unknown, onSuccess: (x: number, y: number, w: number, h: number) => void, onFail?: () => void) => void }
       | null;
@@ -81,7 +108,7 @@ export function ChartKeyboardFrame({
   }, []);
 
   const footerAnimated = useAnimatedStyle(() => ({
-    paddingBottom: externalKeyboard ? restingBottom : Math.max(keyboard.height.value, insets.bottom) + restingBottom,
+    paddingBottom: externalKeyboard ? restingBottom : Math.max(keyboard.height.value || fallbackHeight.value, insets.bottom) + restingBottom,
   }));
 
   return (
@@ -103,6 +130,7 @@ export function ChartKeyboardFrame({
           revealFocused();
         }}
         onContentSizeChange={revealFocused}
+        onFocus={() => { focusedWithin.current = true; revealFocused(); }}
       >
         {children}
       </ScrollView>

@@ -12,7 +12,7 @@ export type GuidanceRecord = {
 export type GuidanceData = { records: Record<string, GuidanceRecord>; discovery: Record<string, string>; replayedIds?: GuidanceId[] };
 export type GuidancePresentation = { token: string; id: GuidanceId; hostKey: string; account: string };
 export type GuidanceHost = {
-  key: string; visitKey?: string; account: string; ready: boolean; candidates: readonly string[];
+  key: string; visitKey?: string; targetRevision?: number | string; account: string; ready: boolean; candidates: readonly string[];
   present: (presentation: GuidancePresentation) => void; hide: (token: string) => void;
 };
 export const emptyGuidanceRecord = (): GuidanceRecord => ({ version: 1, displayCount: 0, presentAttempts: 0, interruptCount: 0 });
@@ -36,6 +36,24 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
   let foreground = true;
   const hosts = new Map<string, GuidanceHost>();
   const visits = new Set<string>();
+  // Only pre-visible measurement failures may recover, on a changed target signal.
+  const measurements = new Map<string, { hostKey: string; id: GuidanceId; revision: number | string | undefined; selections: number; failed: boolean }>();
+  const cancelMeasurement = (key: string) => {
+    if (measurements.has(key)) visits.add(key);
+    measurements.delete(key);
+  };
+  const cancelMeasurements = () => { measurements.forEach((_, key) => visits.add(key)); measurements.clear(); };
+  const recover = (host: GuidanceHost) => {
+    const key = visitKey(host);
+    const pending = measurements.get(key);
+    if (pending?.failed && pending.selections < 3 && pending.hostKey === host.key && host.ready
+      && host.account === account && host.candidates.includes(pending.id)
+      && host.targetRevision !== pending.revision && !quiet.has(key) && !locks.size && foreground) {
+      pending.failed = false;
+      visits.delete(key);
+      schedule();
+    }
+  };
   const quiet = new Set<string>();
   const locks = new Set<string>();
   const listeners = new Set<() => void>();
@@ -56,6 +74,14 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     hosts.get(previous.hostKey)?.hide(previous.token);
     emit();
   };
+  const measurementFailed = (token: string) => {
+    if (active?.token !== token) return;
+    const host = hosts.get(active.hostKey);
+    const pending = host && measurements.get(visitKey(host));
+    if (!started && pending) pending.failed = true;
+    hide(true);
+    if (host) recover(host);
+  };
   const evaluate = () => {
     evaluation = undefined;
     if (!loaded || active || locks.size || !foreground) return;
@@ -75,15 +101,21 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     if (!next) return;
     active = { token: `${++serial}`, id: next.def.id, hostKey: next.host.key, account };
     const token = active.token;
-    // An unmeasurable selection spends this visit, but isn't a presentation attempt.
-    visits.add(visitKey(next.host));
-    window = setTimeout(() => { if (active?.token === token && !visible) hide(false); }, PRESENT_WINDOW_MS);
+    // Reserve the visit. A failed measurement can recover only after a target event.
+    const key = visitKey(next.host);
+    const previous = measurements.get(key);
+    measurements.set(key, { hostKey: next.host.key, id: next.def.id, revision: next.host.targetRevision, selections: (previous?.selections ?? 0) + 1, failed: false });
+    visits.add(key);
+    window = setTimeout(() => { if (active?.token === token && !visible) measurementFailed(token); }, PRESENT_WINDOW_MS);
     emit();
     next.host.present(active);
   };
   const schedule = () => { if (!evaluation) evaluation = setTimeout(evaluate, 0); };
   const update = (host: GuidanceHost) => {
     hosts.set(host.key, host);
+    const pending = measurements.get(visitKey(host));
+    if (!host.ready || host.account !== account || (pending && !host.candidates.includes(pending.id))) cancelMeasurement(visitKey(host));
+    recover(host);
     if (locks.has('celebration')) quiet.add(visitKey(host));
     if (active?.hostKey === host.key && (!host.ready || host.account !== account || !host.candidates.includes(active.id))) hide(true);
     schedule();
@@ -94,18 +126,20 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     data: () => data,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     bind: (key: string, value: GuidanceData | null) => {
-      if (account !== key) { hide(true); visits.clear(); quiet.clear(); bubbles = 0; chartAllowance = false; }
+      if (account !== key) { hide(true); visits.clear(); measurements.clear(); quiet.clear(); bubbles = 0; chartAllowance = false; }
       account = key; loaded = value !== null;
       data = value ?? { records: {}, discovery: {} }; schedule();
     },
     register: (host: GuidanceHost) => {
       update(host);
-      return () => { if (active?.hostKey === host.key) hide(true); hosts.delete(host.key); schedule(); };
+      return () => { if (active?.hostKey === host.key) hide(true); cancelMeasurement(visitKey(host)); hosts.delete(host.key); schedule(); };
     },
     update,
     visible: (token: string) => {
       if (active?.token !== token || visible || locks.size || !foreground) return;
       visible = true;
+      const host = hosts.get(active.hostKey);
+      if (host) measurements.delete(visitKey(host));
       clearTimeout(window);
       const presentation = active;
       const def = registry.find(item => item.id === presentation.id)!;
@@ -154,10 +188,18 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     migrate: (id: GuidanceId) => {
       if (loaded && !data.records[id]) { data.records[id] = { ...emptyGuidanceRecord(), outcome: 'acknowledged', outcomeDetail: 'migrated' }; persist(); }
     },
-    interrupt: (token: string) => { if (active?.token === token) hide(true); },
+    interrupt: (token: string, reason?: 'unmeasurable' | 'timeout') => {
+      if (reason) { measurementFailed(token); return; }
+      if (active?.token === token) {
+        const host = hosts.get(active.hostKey);
+        if (host) cancelMeasurement(visitKey(host));
+        hide(true);
+      }
+    },
     lock: (key: string, on: boolean, celebration = false) => {
       if (on) {
         locks.add(key);
+        cancelMeasurements();
         if (celebration) hosts.forEach(host => quiet.add(visitKey(host)));
         hide(true);
       } else { locks.delete(key); schedule(); }
@@ -165,7 +207,7 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
     foreground: (on: boolean) => {
       if (on === foreground) return;
       foreground = on;
-      if (!on) { backgroundAt = Date.now(); hide(true); }
+      if (!on) { backgroundAt = Date.now(); cancelMeasurements(); hide(true); }
       else {
         if (backgroundAt !== null && Date.now() - backgroundAt >= SESSION_BACKGROUND_MS) { bubbles = 0; chartAllowance = false; }
         backgroundAt = null; schedule();
@@ -184,10 +226,11 @@ export function createGuidanceCoordinator(registry: readonly GuidanceDefinition[
       if (!onlyId || active?.id === onlyId) hide(true);
       if (onlyId) {
         delete data.records[onlyId];
+        measurements.forEach((pending, key) => { if (pending.id === onlyId) measurements.delete(key); });
         hosts.forEach(host => { if (host.candidates.includes(onlyId)) visits.delete(visitKey(host)); });
         if (registry.find(def => def.id === onlyId)?.priority === 0) chartAllowance = false;
       } else {
-        data.records = {}; visits.clear(); quiet.clear(); bubbles = 0; chartAllowance = false;
+        data.records = {}; visits.clear(); measurements.clear(); quiet.clear(); bubbles = 0; chartAllowance = false;
         if (locks.has('celebration')) hosts.forEach(host => quiet.add(visitKey(host)));
       }
       Object.entries(data.discovery).forEach(([id, at]) => {

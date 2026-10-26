@@ -7,6 +7,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { ChartRequestError } from '@/services/v2/chartV2Api';
 import type { AskChartApi, AskConversation, AskMessage, AskTurnBody, AskTurnResult } from '@/services/v2/askChartApi';
 import { useAskChart } from '../useAskChart';
+import { openingKeyFor, startAskOpening, takeAskOpening } from '../askOpeningPrefetch';
 
 const message = (over: Partial<AskMessage> = {}): AskMessage => ({
   id: 'm', role: 'ASSISTANT', text: 'text', createdAt: '2026-10-21T00:00:00Z', attachments: [], suggestions: [], requestPhoto: null,
@@ -161,5 +162,88 @@ describe('useAskChart', () => {
     await act(async () => answer(0, 'hello'));
     act(() => { hook.result.current.send('next'); });
     expect(bodies[1].conversationId).toBe('conv-1');
+  });
+});
+
+describe('useAskChart prefetched opening', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  function readyApi(replayed = true): AskChartApi {
+    return {
+      getConversation: jest.fn(async (): Promise<AskConversation> => ({ conversationId: null, messages: [], mode: 'CREATE', courseId: null })),
+      turn: jest.fn(async (): Promise<AskTurnResult> => ({
+        conversationId: 'prefetched-conversation', mode: 'CREATE', userMessage: null,
+        assistantMessage: message({ id: 'prefetched-opening', text: 'A greeting from the intro' }),
+        remembered: null, generation: { source: 'ai', fallbackUsed: false }, replayed,
+      })),
+    };
+  }
+
+  it.each([false, true])('consumes the generated greeting once with reduced motion %s', async reducedMotion => {
+    const api = readyApi();
+    await startAskOpening('prefetched', api);
+    const hook = renderHook(() => useAskChart({ anchorId: 'prefetched', api, reducedMotion }));
+    await waitFor(() => expect(hook.result.current.state.messages).toHaveLength(1));
+    expect(hook.result.current.state.messages[0]).toMatchObject({ text: 'A greeting from the intro', animate: !reducedMotion });
+    expect(hook.result.current.state.turn).toBe('idle');
+    expect(api.getConversation).toHaveBeenCalledTimes(1);
+    expect(api.turn).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(api.turn).mock.calls[0][1].idempotencyKey).toBe(openingKeyFor('prefetched'));
+    expect(takeAskOpening('prefetched', api)).toBeNull();
+  });
+
+  it('joins a greeting still in flight while preserving the loading state', async () => {
+    const fake = fakeApi();
+    const prefetch = startAskOpening('joining', fake.api);
+    await waitFor(() => expect(fake.bodies).toHaveLength(1));
+    const hook = renderHook(() => useAskChart({ anchorId: 'joining', api: fake.api }));
+    expect(hook.result.current.state.status).toBe('loading');
+    let accepted = true;
+    act(() => { accepted = hook.result.current.send('early'); });
+    expect(accepted).toBe(false);
+    expect(fake.bodies).toHaveLength(1);
+    expect(hook.result.current.state.messages.some(item => item.role === 'USER')).toBe(false);
+    await act(async () => { fake.answer(0, 'Joined greeting'); await prefetch; });
+    await waitFor(() => expect(hook.result.current.state.messages[0]?.text).toBe('Joined greeting'));
+    expect(hook.result.current.state.messages[0].animate).toBe(true);
+    expect(fake.api.getConversation).toHaveBeenCalledTimes(1);
+    expect(fake.bodies).toHaveLength(1);
+    act(() => { accepted = hook.result.current.send('After opening'); });
+    expect(accepted).toBe(true);
+    expect(fake.bodies).toHaveLength(2);
+    await act(async () => fake.answer(1, 'Normal reply'));
+    expect(hook.result.current.state.messages.map(item => item.text)).toEqual(['Joined greeting', 'After opening', 'Normal reply']);
+  });
+
+  it('falls back to normal loading when the prefetched request failed', async () => {
+    const api = readyApi(false);
+    jest.mocked(api.getConversation).mockRejectedValueOnce(new Error('offline'));
+    await expect(startAskOpening('failed-prefetch', api)).resolves.toBeNull();
+    const hook = renderHook(() => useAskChart({ anchorId: 'failed-prefetch', api }));
+    await waitFor(() => expect(hook.result.current.state.messages).toHaveLength(1));
+    expect(api.getConversation).toHaveBeenCalledTimes(2);
+    expect(api.turn).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(api.turn).mock.calls[0][1].idempotencyKey).toBe(openingKeyFor('failed-prefetch'));
+  });
+
+  it('falls back when the prefetch is older than three minutes', async () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    const api = readyApi(false);
+    await startAskOpening('stale-prefetch', api);
+    now.mockReturnValue(1_180_001);
+    const hook = renderHook(() => useAskChart({ anchorId: 'stale-prefetch', api }));
+    await waitFor(() => expect(hook.result.current.state.messages).toHaveLength(1));
+    expect(api.getConversation).toHaveBeenCalledTimes(2);
+    expect(api.turn).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not consume or show an opening when greet is false', async () => {
+    const api = readyApi();
+    await startAskOpening('restore-only', api);
+    const hook = renderHook(() => useAskChart({ anchorId: 'restore-only', api, greet: false }));
+    await waitFor(() => expect(hook.result.current.state.status).toBe('ready'));
+    expect(hook.result.current.state.messages).toHaveLength(0);
+    expect(api.turn).toHaveBeenCalledTimes(1);
+    expect(takeAskOpening('restore-only', api)).not.toBeNull();
   });
 });

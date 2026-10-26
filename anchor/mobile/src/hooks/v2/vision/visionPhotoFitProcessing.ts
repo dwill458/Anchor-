@@ -13,6 +13,8 @@ export type PhotoCrop = { originX: number; originY: number; width: number; heigh
 /** Longest edge sent for expansion: keeps the upload well under the server's 5 MB image limit. */
 const EXPAND_UPLOAD_EDGE = 1600;
 const SIZE_TIMEOUT_MS = 4000;
+/** The expansion runs the image model synchronously on the server, so it needs more than the default 120s client budget. */
+const EXPAND_TIMEOUT_MS = 180_000;
 
 /** Real pixel dimensions of a picked photo, or null when they cannot be read in time (the photo is then used as before). */
 export function readPhotoSize(uri: string): Promise<{ width: number; height: number } | null> {
@@ -62,7 +64,7 @@ export async function requestPhotoExpansion(photo: FitPhoto, size: { width: numb
     scratch = prepared.uri;
     if (!prepared.base64) return { ok: false, message: 'The photo could not be prepared. Please try again.' };
     if (signal?.aborted) return stopped();
-    const response = await apiClient.post('/api/v2/vision/photo-expand', { base64Image: `data:image/jpeg;base64,${prepared.base64}`, mimeType: 'image/jpeg' }, { signal });
+    const response = await apiClient.post('/api/v2/vision/photo-expand', { base64Image: `data:image/jpeg;base64,${prepared.base64}`, mimeType: 'image/jpeg' }, { signal, timeout: EXPAND_TIMEOUT_MS });
     const data = visionApiData<{ imageBase64?: string } | null>(response);
     const encoded = data?.imageBase64?.replace(/^data:image\/jpeg;base64,/, '');
     if (!encoded) return { ok: false, message: 'The expanded photo could not be created. You can keep or crop your original.' };

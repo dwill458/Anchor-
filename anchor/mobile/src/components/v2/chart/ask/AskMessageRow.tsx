@@ -10,6 +10,8 @@ import { AskAnchorAvatar, AskSpeakingAvatar } from './AskAnchorAvatar';
 import { ASK_TOKENS, type AskAccent } from './askChartTheme';
 import { askReveal, useRevealing } from './askReveal';
 import { AskRevealText } from './AskRevealText';
+import { ThinkingBubble } from './ThinkingBubble';
+import { useMinimumThinking } from './useMinimumThinking';
 
 const COPY = CHART_COPY.ask;
 const AVATAR = 34;
@@ -30,6 +32,10 @@ type Props = {
   onRetry: () => void;
   /** Extra content under an assistant message (proposals, photo request). */
   renderExtra?: (message: AskUiMessage) => React.ReactNode;
+  onFollow?: (key: string, y: number) => void;
+  handoffThinking?: boolean;
+  /** The conversation owns one travelling Anchor; standalone rows can still supply their own avatar. */
+  showAvatar?: boolean;
 };
 
 function enteringFor(key: string, animate: boolean, kind: 'user' | 'assistant') {
@@ -40,22 +46,27 @@ function enteringFor(key: string, animate: boolean, kind: 'user' | 'assistant') 
   return kind === 'user' ? FadeInDown.duration(210) : FadeIn.duration(220);
 }
 
-export const AskMessageRow = memo(function AskMessageRow({ item, accent, art, category, reducedMotion, onRetry, renderExtra }: Props) {
+export const AskMessageRow = memo(function AskMessageRow({ item, accent, art, category, reducedMotion, onRetry, renderExtra, onFollow, handoffThinking, showAvatar = true }: Props) {
   const isUser = item.kind === 'message' && item.message.role === 'USER';
   const key = item.kind === 'message' ? item.message.key : item.key;
-  const entering = enteringFor(key, item.kind === 'message' ? item.message.animate : false, isUser ? 'user' : 'assistant');
+  const entering = enteringFor(key, !reducedMotion && (item.kind === 'message' ? item.message.animate : false), isUser ? 'user' : 'assistant');
+  const hasText = item.kind === 'message' || item.text.length > 0;
+  const held = useMinimumThinking(key, hasText, reducedMotion ? 0 : 600);
+  const thinkingVisible = useMinimumThinking(key, hasText, reducedMotion ? 0 : 720);
+  const follow = useCallback((y: number) => onFollow?.(key, y + 14), [key, onFollow]);
 
-  if (item.kind === 'draft') {
+  if (!isUser && (item.kind === 'draft' || thinkingVisible)) {
     return (
       <View style={styles.assistantRow} testID="ask-draft">
         <View style={styles.avatarSlot}>
-          <AskSpeakingAvatar art={art} category={category} accent={accent} size={AVATAR} reducedMotion={reducedMotion} active testID="ask-thinking" />
+          {showAvatar ? <AskSpeakingAvatar art={art} category={category} accent={accent} size={AVATAR} reducedMotion={reducedMotion} mode={thinkingVisible || handoffThinking ? 'thinking' : 'speaking'} testID="ask-thinking" /> : null}
         </View>
-        {item.thinking ? (
-          <View style={styles.flexShrink} />
+        {thinkingVisible ? (
+          // DEFERRED: the empty avatar-only placeholder is replaced by ThinkingBubble (Oct 2026).
+          <ThinkingBubble accent={accent} reducedMotion={reducedMotion} opening={key === 'loading'} leaving={!held} />
         ) : (
-          <View style={[styles.assistantBubble, styles.flexShrink]}>
-            <AskRevealText revealKey={item.key} text={item.text} style={styles.assistantText} animate={!reducedMotion} final={false} />
+          <View style={[styles.assistantBubble, styles.flexShrink, { borderColor: accent.border }]}>
+            <AskRevealText revealKey={key} text={item.kind === 'draft' ? item.text : item.message.text} style={styles.assistantText} animate={!reducedMotion} final={item.kind === 'message'} onLine={follow} />
           </View>
         )}
       </View>
@@ -89,16 +100,16 @@ export const AskMessageRow = memo(function AskMessageRow({ item, accent, art, ca
     );
   }
 
-  return <AssistantRow message={message} entering={entering} accent={accent} art={art} category={category} reducedMotion={reducedMotion} renderExtra={renderExtra} />;
+  return <AssistantRow message={message} entering={entering} accent={accent} art={art} category={category} reducedMotion={reducedMotion} renderExtra={renderExtra} onFollow={onFollow} handoffThinking={handoffThinking} showAvatar={showAvatar} />;
 });
 
-type AssistantProps = Pick<Props, 'accent' | 'art' | 'category' | 'reducedMotion' | 'renderExtra'> & {
+type AssistantProps = Pick<Props, 'accent' | 'art' | 'category' | 'reducedMotion' | 'renderExtra' | 'onFollow' | 'handoffThinking' | 'showAvatar'> & {
   message: AskUiMessage;
   entering: ReturnType<typeof enteringFor>;
 };
 
 /** The Anchor's message: its glow lasts exactly as long as its words are still arriving. */
-const AssistantRow = memo(function AssistantRow({ message, entering, accent, art, category, reducedMotion, renderExtra }: AssistantProps) {
+const AssistantRow = memo(function AssistantRow({ message, entering, accent, art, category, reducedMotion, renderExtra, onFollow, handoffThinking, showAvatar }: AssistantProps) {
   const revealing = useRevealing(message.key);
   const animate = message.animate && !reducedMotion;
   const speaking = revealing || (animate && !askReveal.isDone(message.key));
@@ -107,14 +118,16 @@ const AssistantRow = memo(function AssistantRow({ message, entering, accent, art
     skipRef.current = skip;
   }, []);
   const skipReveal = useCallback(() => skipRef.current?.(), []);
+  const follow = useCallback((y: number) => onFollow?.(message.key, y + 14), [message.key, onFollow]);
   return (
     <Animated.View entering={entering} style={styles.assistantRow} testID={`ask-assistant-${message.key}`}>
       <View style={styles.avatarSlot}>
-        <AskSpeakingAvatar art={art} category={category} accent={accent} size={AVATAR} reducedMotion={reducedMotion} active={speaking} />
+        {/* DEFERRED: per-bubble avatars are replaced by the conversation's travelling Anchor (Oct 2026). */}
+        {showAvatar ? <AskSpeakingAvatar art={art} category={category} accent={accent} size={AVATAR} reducedMotion={reducedMotion} mode={handoffThinking ? 'thinking' : speaking ? 'speaking' : 'off'} /> : null}
       </View>
       <View style={styles.flexShrink}>
         <Pressable onPress={skipReveal} disabled={!speaking} accessible={false} style={[styles.assistantBubble, { borderColor: accent.border }]} testID={`ask-bubble-${message.key}`}>
-          <AskRevealText revealKey={message.key} text={message.text} style={styles.assistantText} animate={animate} final registerSkip={registerSkip} />
+          <AskRevealText revealKey={message.key} text={message.text} style={styles.assistantText} animate={animate} final registerSkip={registerSkip} onLine={follow} />
         </Pressable>
         {renderExtra?.(message)}
       </View>

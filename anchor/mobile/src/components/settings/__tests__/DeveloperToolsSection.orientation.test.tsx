@@ -5,6 +5,7 @@ import * as devOrientation from '@/utils/devOrientation';
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: jest.fn() }),
+  NavigationContext: require('react').createContext(null),
 }));
 
 jest.mock('@/stores/anchorStore', () => ({
@@ -118,4 +119,34 @@ describe('DeveloperToolsSection - Orientation controls', () => {
     const { toJSON } = render(<DeveloperToolsSection />);
     expect(toJSON()).toBeNull();
   });
+});
+
+
+it('embeds organized settings without a second menu or duplicate QA and performance controls', () => {
+  (global as any).__DEV__ = true;
+  render(<DeveloperToolsSection embedded />);
+  expect(screen.queryByLabelText(/Developer Tools, expand/i)).toBeNull();
+  expect(screen.getByLabelText(/Subscription & Paywall section/i)).toBeTruthy();
+  expect(screen.getByLabelText(/Onboarding & First-Run section/i)).toBeTruthy();
+  expect(screen.queryByText('Seed Demo Anchor + Vision + Chart')).toBeNull();
+  fireEvent.press(screen.getByLabelText(/Performance & Debug Flags section/i));
+  expect(screen.getByText('Debug Console Logging')).toBeTruthy();
+  expect(screen.queryByText('Performance Tier Override')).toBeNull();
+});
+
+it('groups practice flags with anchors and summary previews with notifications', () => {
+  (global as any).__DEV__ = true;
+  render(<DeveloperToolsSection embedded />);
+  for (const group of ['Account & access', 'Anchor & practice', 'Device & diagnostics', 'Reference', 'Reset']) {
+    expect(screen.getByRole('header', { name: group })).toBeTruthy();
+  }
+  expect(screen.queryByRole('switch', { name: 'Hide dev controls' })).toBeNull();
+  fireEvent.press(screen.getByLabelText(/Performance & Debug Flags section/i));
+  expect(screen.queryByText('Force Streak Break')).toBeNull();
+  expect(screen.queryByText('Weekly Summary 2.0 Preview')).toBeNull();
+  fireEvent.press(screen.getByLabelText(/Anchor & Practice State section/i));
+  expect(screen.getByRole('switch', { name: 'Force Streak Break' })).toBeTruthy();
+  expect(screen.getByRole('switch', { name: 'Direct Anchor Deletion' })).toBeTruthy();
+  fireEvent.press(screen.getByLabelText(/Notification Tester section/i));
+  expect(screen.getByRole('button', { name: 'Weekly Summary 2.0 Preview' })).toBeTruthy();
 });

@@ -53,7 +53,7 @@ it('asks the sheet to rise when the peek scroll viewport clips a target still in
   expect(screen.queryByTestId('chart-one-move-teaching')).toBeNull();
 });
 
-it('keeps polling a queued measurement until a late row ref mounts', async () => {
+it('remeasures a late row ref on a layout event without polling', async () => {
   const lateRow = { current: null as null | { measureInWindow: (callback: (x: number, y: number, width: number, height: number) => void) => void } };
   const onReady = jest.fn();
   const screen = render(<ChartOneMoveTeaching
@@ -71,6 +71,7 @@ it('keeps polling a queued measurement until a late row ref mounts', async () =>
   fireEvent(screen.getByTestId('chart-one-move-teaching-measure'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
   expect(screen.queryByTestId('chart-one-move-teaching')).toBeNull();
   lateRow.current = { measureInWindow: callback => callback(20, 300, 300, 60) };
+  fireEvent(screen.getByTestId('chart-one-move-teaching-measure'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
   await waitFor(() => expect(screen.getByTestId('chart-one-move-teaching')).toBeTruthy(), { timeout: 700 });
   expect(onReady).toHaveBeenCalled();
 });

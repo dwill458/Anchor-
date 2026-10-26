@@ -92,6 +92,7 @@ import { useAppStartup } from './src/hooks/useAppStartup';
 import { ChartLabDevHost } from './src/screens/v2/system/ChartLabDevHost';
 import { VisionVisualQADevHost } from './src/screens/v2/system/VisionVisualQADevHost';
 import { CreationFlowQADevHost } from './src/screens/create/flow/dev/CreationFlowQADevHost';
+import { DevSettingsShakeHost } from './src/components/dev/DevSettingsShakeHost';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 import { perfLog, startJsStallDetector, startPerfRenderReporter } from './src/utils/perfDiagnostics';
@@ -981,6 +982,7 @@ export default function App() {
                   >
                     <StatusBar style="light" />
                     {anchorV2Enabled ? <AnchorV2Navigator /> : <RootNavigator />}
+                    {__DEV__ ? <DevSettingsShakeHost /> : null}
                   </NavigationContainer>
                   {__DEV__ || isChartOpeningPreviewEnabled() ? <ChartLabDevHost /> : null}
                   {__DEV__ ? <VisionVisualQADevHost /> : null}

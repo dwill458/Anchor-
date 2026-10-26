@@ -111,11 +111,12 @@ export const CHART_INTRO_TIMING = {
   /** The X pops after the short route ends (shortRouteAt + shortRoute). */
   shortMarkerAt: 1900,
   shortMarker: 450,
-  shortCopyAt: 1900,
-  shortCopy: 400,
-  shortContinueAt: 2200,
-  shortContinue: 300,
-  shortDuration: 2500,
+  // DEFERRED: copy at 1900ms and Continue at 2200ms made a repeat visit wait for scenery (Oct 2026).
+  shortCopyAt: 0,
+  shortCopy: 200,
+  shortContinueAt: 180,
+  shortContinue: 180,
+  shortDuration: 2350,
   skip: 250,
   /** Hard cap on the cold preparation cover. Past it the intro drops the cover and takes the reduced path. */
   coverMax: 250,

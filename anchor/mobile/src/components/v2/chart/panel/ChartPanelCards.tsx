@@ -266,19 +266,21 @@ export function MoveListRow({ move, accent, isOneMove, canComplete, canPromote, 
 /* Day closed                                                          */
 /* ------------------------------------------------------------------ */
 
-export function DayClosedCard({ accent, practiced, hasNext, onFocus, onDeepFocus, onAnother }: {
+export function DayClosedCard({ accent, practiced, hasNext, onFocus, onDeepFocus, onAnother, onDismiss }: {
   accent: PanelAccent;
   practiced: boolean;
   hasNext: boolean;
   onFocus: () => void;
   onDeepFocus: () => void;
   onAnother: () => void;
+  onDismiss?: () => void;
 }) {
   const compact = useContext(ChartPanelDensity) === 'peek';
-  if (compact) return <PanelCard testID="chart-day-closed" style={styles.compactCard}><View style={styles.row}><Text style={[styles.body, { flex: 1 }]} numberOfLines={1}>{COPY.dayClosedTitle}</Text>{!practiced ? <PanelButton label={COPY.focus} accent={accent} onPress={onFocus} testID="chart-practice-focus" /> : hasNext ? <PanelButton label={COPY.another} accent={accent} onPress={onAnother} testID="chart-do-another" /> : null}</View></PanelCard>;
+  const dismiss = onDismiss ? <Pressable accessibilityRole="button" accessibilityLabel="Dismiss move completion" onPress={onDismiss} style={styles.iconHit}><X size={18} color={T.muted} /></Pressable> : null;
+  if (compact) return <PanelCard testID="chart-day-closed" style={styles.compactCard}><View style={styles.noticeRow}><Text style={[styles.body, { flex: 1 }]}>{COPY.dayClosedTitle}</Text>{!practiced ? <PanelButton label={COPY.focus} accent={accent} onPress={onFocus} testID="chart-practice-focus" /> : hasNext ? <PanelButton label={COPY.another} accent={accent} onPress={onAnother} testID="chart-do-another" /> : null}{dismiss}</View></PanelCard>;
   return (
     <PanelCard testID="chart-day-closed">
-      <CardKey color={accent.text}>TODAY</CardKey>
+      <View style={styles.noticeRow}><View style={styles.flex}><CardKey color={accent.text}>TODAY</CardKey></View>{dismiss}</View>
       <Text accessibilityRole="header" style={styles.h3}>{COPY.dayClosedTitle}</Text>
       <Text style={styles.body}>{COPY.dayClosedSub}</Text>
       {practiced ? (
@@ -451,6 +453,7 @@ export function ProgressChips({ onBump }: { onBump: (delta: number) => void }) {
 }
 
 const styles = StyleSheet.create({
+  noticeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   compactCard: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 14, gap: 0 },
   compactMove: { fontFamily: T.sans, fontSize: 15, lineHeight: 20 },
   compactToggle: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },

@@ -1,0 +1,223 @@
+[
+  {
+    "id": "audio-visualize-60-male-ambient",
+    "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Glimpse_Dominic_V4.mp3",
+    "file": "Anchor_Glimpse_Dominic_V6.mp3",
+    "sourceSha256": "e93f44c1c2c4a4b5336107880763c11b4c94861299c4fd364ce5c769d0fe2d58",
+    "sha256": "77028ecf87813eed51c8383786defdf1bc69611ecc566e7855dd9dddbd9703d8",
+    "edits": [
+      {
+        "id": 12,
+        "text": "Notice the feeling that comes with that",
+        "wordIndex": 2,
+        "gap": 1.1999999999999957,
+        "naturalGap": 0.13999999999999702,
+        "shift": 0.8399999999999958,
+        "gapStart": 37.279,
+        "gapEnd": 38.278999999999996,
+        "sourceStart": 38.229,
+        "sourceEnd": 39.909,
+        "destinationStart": 37.389,
+        "newEnd": 38.819,
+        "tailCorrelation": 0.9998393106544788,
+        "vacatedTailBedCorrelation": 0.9999999871789026
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-180-male-ambient",
+    "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Dominic_3min_V4.mp3",
+    "file": "Anchor_Immerse_Dominic_3min_V6.mp3",
+    "sourceSha256": "caab957a81aa1717560617bc1d0f8456395c7f1869ba562cd1a11d7857170bc2",
+    "sha256": "f3c2b19e378985b9ff534ad0cc4fbdf24920167176075c46e1e40cf45b024899",
+    "edits": [
+      {
+        "id": 24,
+        "text": "The way you think the way you move the choices you make",
+        "wordIndex": 3,
+        "gap": 1.581000000000003,
+        "naturalGap": 0.12099999999999511,
+        "shift": 1.2210000000000032,
+        "gapStart": 109.29199999999999,
+        "gapEnd": 110.673,
+        "sourceStart": 110.62299999999999,
+        "sourceEnd": 114.224,
+        "destinationStart": 109.40199999999999,
+        "newEnd": 112.753,
+        "tailCorrelation": 0.999891739489944,
+        "vacatedTailBedCorrelation": 0.999999980279894
+      },
+      {
+        "id": 35,
+        "text": "Keep only the feeling",
+        "wordIndex": 1,
+        "gap": 1.2609999999999957,
+        "naturalGap": 0.3400000000000034,
+        "shift": 0.9009999999999957,
+        "gapStart": 154.958,
+        "gapEnd": 156.019,
+        "sourceStart": 155.969,
+        "sourceEnd": 157.35,
+        "destinationStart": 155.068,
+        "newEnd": 156.199,
+        "tailCorrelation": 0.9997824464828551,
+        "vacatedTailBedCorrelation": 0.9999998993206174
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-180-female-ambient",
+    "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Lina_3min_V4.mp3",
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "sourceSha256": "b2ee5338cb428f663e9e79e4b2f7016f506f867e13c868e01c984477f6a0839a",
+    "sha256": "9824e8cff8e347cb8548be5de91ffd6c7784204f06dd3c5c2593189438afb58d",
+    "edits": [
+      {
+        "id": 7,
+        "text": "Look through your own eyes youre here",
+        "wordIndex": 1,
+        "gap": 2.2010000000000005,
+        "naturalGap": 0.060000000000002274,
+        "shift": 1.8410000000000006,
+        "gapStart": 32.316,
+        "gapEnd": 34.317,
+        "sourceStart": 34.267,
+        "sourceEnd": 36.848,
+        "destinationStart": 32.426,
+        "newEnd": 34.757,
+        "tailCorrelation": 0.99994254874951,
+        "vacatedTailBedCorrelation": 0.9999999706297924
+      },
+      {
+        "id": 16,
+        "text": "Notice the people around you or the quiet if youre alone",
+        "wordIndex": 2,
+        "gap": 1.4410000000000025,
+        "naturalGap": 0.0799999999999983,
+        "shift": 1.0810000000000026,
+        "gapStart": 73.577,
+        "gapEnd": 74.81800000000001,
+        "sourceStart": 74.768,
+        "sourceEnd": 78.109,
+        "destinationStart": 73.687,
+        "newEnd": 76.77799999999999,
+        "tailCorrelation": 0.9999225310285529,
+        "vacatedTailBedCorrelation": 0.9999999769577276
+      },
+      {
+        "id": 24,
+        "text": "The way you think the way you move the choices you make",
+        "wordIndex": 3,
+        "gap": 1.6809999999999974,
+        "naturalGap": 0.09999999999999432,
+        "shift": 1.3209999999999975,
+        "gapStart": 108.955,
+        "gapEnd": 110.436,
+        "sourceStart": 110.386,
+        "sourceEnd": 113.687,
+        "destinationStart": 109.065,
+        "newEnd": 112.116,
+        "tailCorrelation": 0.9998326297707611,
+        "vacatedTailBedCorrelation": 0.9995090430562192
+      },
+      {
+        "id": 28,
+        "text": "Let yourself feel that now",
+        "wordIndex": 2,
+        "gap": 2.882000000000005,
+        "naturalGap": 0.1600000000000108,
+        "shift": 2.522000000000005,
+        "gapStart": 126.262,
+        "gapEnd": 128.94400000000002,
+        "sourceStart": 128.894,
+        "sourceEnd": 130.074,
+        "destinationStart": 126.372,
+        "newEnd": 127.302,
+        "tailCorrelation": 0.9998785139827655,
+        "vacatedTailBedCorrelation": 0.9999999751677551
+      },
+      {
+        "id": 30,
+        "text": "Hold it clearly",
+        "wordIndex": 2,
+        "gap": 2.4809999999999945,
+        "naturalGap": 0.12000000000000455,
+        "shift": 2.1209999999999947,
+        "gapStart": 139.71,
+        "gapEnd": 141.991,
+        "sourceStart": 141.941,
+        "sourceEnd": 142.841,
+        "destinationStart": 139.82000000000002,
+        "newEnd": 140.47000000000003,
+        "tailCorrelation": 0.9998830199190561,
+        "vacatedTailBedCorrelation": 0.9999999592784274
+      },
+      {
+        "id": 35,
+        "text": "Keep only the feeling",
+        "wordIndex": 1,
+        "gap": 1.281000000000006,
+        "naturalGap": 0.3199999999999932,
+        "shift": 0.9210000000000059,
+        "gapStart": 155.018,
+        "gapEnd": 156.09900000000002,
+        "sourceStart": 156.049,
+        "sourceEnd": 157.389,
+        "destinationStart": 155.12800000000001,
+        "newEnd": 156.21800000000002,
+        "tailCorrelation": 0.9998254798505428,
+        "vacatedTailBedCorrelation": 0.9999999253195271
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-600-male-ambient",
+    "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_10min15_V5.mp3",
+    "file": "Embody_Final_10min15_V6.mp3",
+    "sourceSha256": "86c4c59f6a107e354dceaef3b4cbb6ee7dc5d5c28aadf0de1fe0ecf29f52b540",
+    "sha256": "9bfc8cf577ff25b6830127e3a5f7a5ddc6ae1b8a294eb218f7b88e777359ce38",
+    "edits": [
+      {
+        "id": 37,
+        "text": "Where do you feel it in your body",
+        "wordIndex": 3,
+        "gap": 4.141999999999996,
+        "naturalGap": 0.09999999999999432,
+        "shift": 3.781999999999996,
+        "gapStart": 441.05600000000004,
+        "gapEnd": 444.998,
+        "sourceStart": 444.94800000000004,
+        "sourceEnd": 446.268,
+        "destinationStart": 441.16600000000005,
+        "newEnd": 442.236,
+        "tailCorrelation": 0.9998255045988339,
+        "vacatedTailBedCorrelation": 0.9999940578118034
+      }
+    ]
+  },
+  {
+    "id": "audio-visualize-600-female-ambient",
+    "source": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_Lina_10min15_V5.mp3",
+    "file": "Embody_Final_Lina_10min15_V6.mp3",
+    "sourceSha256": "6ae2574b29431b83e9cf883c57491b00b2a9ce2a2688cbcb05dcaa2777b12d3d",
+    "sha256": "fcb3baeb79afae8ffcd73b21d981db5a659f3dcb18717dd202b9a822fab8c32a",
+    "edits": [
+      {
+        "id": 19,
+        "text": "Notice the people around you",
+        "wordIndex": 2,
+        "gap": 9.564999999999998,
+        "naturalGap": 0.0799999999999983,
+        "shift": 9.204999999999998,
+        "gapStart": 232.672,
+        "gapEnd": 242.037,
+        "sourceStart": 241.987,
+        "sourceEnd": 243.207,
+        "destinationStart": 232.78199999999998,
+        "newEnd": 233.752,
+        "tailCorrelation": 0.9997556085046911,
+        "vacatedTailBedCorrelation": 0.9999892752090066
+      }
+    ]
+  }
+]

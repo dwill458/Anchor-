@@ -319,20 +319,8 @@
      "text": "Where do you feel it in your body",
      "chapter": "FEEL",
      "start": 440.456,
-     "end": 446.118,
-     "caption_spans": [
-      {
-       "text": "Where do you...",
-       "start": 440.456,
-       "end": 441.056
-      },
-      {
-       "text": "feel it in your body",
-       "start": 444.978,
-       "end": 446.118
-      }
-     ],
-     "silence_after": 11.004
+     "end": 442.236,
+     "silence_after": 14.886
     },
     {
      "id": 38,
@@ -686,20 +674,8 @@
      "text": "Notice the people around you",
      "chapter": "LIVE IT",
      "start": 232.052,
-     "end": 243.057,
-     "caption_spans": [
-      {
-       "text": "Notice the...",
-       "start": 232.052,
-       "end": 232.672
-      },
-      {
-       "text": "people around you",
-       "start": 242.017,
-       "end": 243.057
-      }
-     ],
-     "silence_after": 9.845
+     "end": 233.752,
+     "silence_after": 19.15
     },
     {
      "id": 20,

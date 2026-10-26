@@ -6,7 +6,7 @@ import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-na
 import { ArrowLeft } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2DevelopmentHome } from '@/screens/v2/home';
-import { V2EvolvingAnchorPrototype, V2SystemGallery } from '@/screens/v2/system';
+import { V2SystemGallery } from '@/screens/v2/system';
 import { V2FirstRunFlow } from '@/screens/v2/onboarding';
 import { V2AuthScreen } from '@/screens/v2/auth';
 import {
@@ -614,7 +614,6 @@ export function AnchorV2Navigator() {
           })} />
         <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
         <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
-        {__DEV__ ? <Stack.Screen name="V2EvolvingAnchor" component={V2EvolvingAnchorPrototype} /> : null}
         {/* Tactile Creation Flow */}
         <Stack.Screen name="FirstAnchorCreation" component={IntentionInputScreen} options={{ headerShown: false, animation: 'fade_from_bottom' }} />
         <Stack.Screen name="AnchorCreationFlow" component={AnchorCreationFlowScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />

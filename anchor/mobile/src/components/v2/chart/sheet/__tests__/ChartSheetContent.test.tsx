@@ -22,6 +22,18 @@ function setup(overrides: Partial<Props> = {}) {
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
 
+it('keeps the completed-Move message in the scroll content and lets it be dismissed', () => {
+  const screen = setup({ view: viewOf(dayClosedCourse()) });
+  expect(screen.getByTestId('chart-sheet-peek').findAllByProps({ testID: 'chart-day-closed' })).toHaveLength(0);
+  expect(screen.getByTestId('chart-sheet-scroll').findAllByProps({ testID: 'chart-day-closed' }).length).toBeGreaterThan(0);
+  fireEvent.press(screen.getByLabelText('Dismiss move completion'));
+  expect(screen.queryByTestId('chart-day-closed')).toBeNull();
+  expect(screen.getByTestId('chart-one-move-check')).toBeTruthy();
+  screen.update({ ...screen.props, view: { ...screen.props.view, version: 99 } });
+  act(() => jest.advanceTimersByTime(120));
+  expect(screen.queryByTestId('chart-day-closed')).toBeNull();
+});
+
 it('prioritises commit over day closed over One Move and keeps the header intrinsic', () => {
   const commit = setup({ view: viewOf(dayClosedCourse()), commit: { number: 1 } });
   expect(commit.getByTestId('chart-commit')).toBeTruthy();

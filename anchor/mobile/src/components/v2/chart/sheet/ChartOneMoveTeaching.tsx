@@ -130,15 +130,10 @@ export function ChartOneMoveTeaching({ visible, replayVersion, reducedMotion, de
     readyRef.current = false;
     visibilityRequested.current = false;
     setReady(false);
-    const frame = requestAnimationFrame(measure);
-    const retry = setInterval(() => {
-      if (readyRef.current && !visibilityRequested.current) {
-        clearInterval(retry);
-        return;
-      }
-      measure();
-    }, 180);
-    return () => { measurementGeneration.current++; cancelAnimationFrame(frame); clearInterval(retry); };
+    const frame = setTimeout(measure, 16);
+    // Layout, viewport revision and detent changes request another measurement.
+    // The coordinator bounds recovery; no timer repeatedly drives native layout.
+    return () => { measurementGeneration.current++; clearTimeout(frame); };
   }, [height, measure, onHidden, replayVersion, visible, width]);
 
   useEffect(() => {

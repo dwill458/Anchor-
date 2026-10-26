@@ -1,0 +1,5559 @@
+{
+  "createdAt": "2026-10-26T05:32:45.909Z",
+  "matrix": [
+    {
+      "id": "audio-focus-10-male-ambient",
+      "mode": "focus",
+      "duration": 10,
+      "voice": "male",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_10s_Dominic_V6.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 9.5,
+          "availableSeconds": 10,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-10-female-ambient",
+      "mode": "focus",
+      "duration": 10,
+      "voice": "female",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_10s_Lina_V6.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 9.5,
+          "availableSeconds": 10,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-10-warm-ambient",
+      "mode": "focus",
+      "duration": 10,
+      "voice": "warm",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "start",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-10s.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 3.761625,
+          "availableSeconds": 10,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-ambient.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-10-soothing-ambient",
+      "mode": "focus",
+      "duration": 10,
+      "voice": "soothing",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "start",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-10s.mp3",
+          "gain": 0.371,
+          "includesBed": false,
+          "duration": 4.911,
+          "availableSeconds": 10,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-ambient.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-30-male-ambient",
+      "mode": "focus",
+      "duration": 30,
+      "voice": "male",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_30s_Dominic_V4.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 29.0261,
+          "availableSeconds": 30,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-30-female-ambient",
+      "mode": "focus",
+      "duration": 30,
+      "voice": "female",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_30s_Lina_V4.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 28.877279,
+          "availableSeconds": 30,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-30-warm-ambient",
+      "mode": "focus",
+      "duration": 30,
+      "voice": "warm",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "start",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-30s-start.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 8.306939,
+          "availableSeconds": 23,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "end",
+          "start": 23,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-30s-end.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 6.2955,
+          "availableSeconds": 7,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-ambient.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-30-soothing-ambient",
+      "mode": "focus",
+      "duration": 30,
+      "voice": "soothing",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "start",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-30s-start.mp3",
+          "gain": 0.415,
+          "includesBed": false,
+          "duration": 8.594286,
+          "availableSeconds": 23,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "end",
+          "start": 23,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-30s-end.mp3",
+          "gain": 0.305,
+          "includesBed": false,
+          "duration": 5.694688,
+          "availableSeconds": 7,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-ambient.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-60-male-ambient",
+      "mode": "focus",
+      "duration": 60,
+      "voice": "male",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_60s_Dominic_V4.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 58.786576,
+          "availableSeconds": 60,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-60-female-ambient",
+      "mode": "focus",
+      "duration": 60,
+      "voice": "female",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_60s_Lina_V4.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 58.582925,
+          "availableSeconds": 60,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-60-warm-ambient",
+      "mode": "focus",
+      "duration": 60,
+      "voice": "warm",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "start",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-60s-start.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 7.967347,
+          "availableSeconds": 30,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "middle",
+          "start": 30,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-60s-middle.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 4.832653,
+          "availableSeconds": 23,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "end",
+          "start": 53,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-60s-end.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 5.982041,
+          "availableSeconds": 7,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-ambient.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-focus-60-soothing-ambient",
+      "mode": "focus",
+      "duration": 60,
+      "voice": "soothing",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "start",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-60s-start.mp3",
+          "gain": 0.447,
+          "includesBed": false,
+          "duration": 8.594286,
+          "availableSeconds": 30,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "middle",
+          "start": 30,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-60s-middle.mp3",
+          "gain": 0.477,
+          "includesBed": false,
+          "duration": 5.459592,
+          "availableSeconds": 23,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "end",
+          "start": 53,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-60s-end.mp3",
+          "gain": 0.356,
+          "includesBed": false,
+          "duration": 5.694694,
+          "availableSeconds": 7,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-ambient.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-120-male-ambient",
+      "mode": "deep_prime",
+      "duration": 120,
+      "voice": "male",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_2min_Dominic_V5.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 120,
+          "availableSeconds": 120,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-120-female-ambient",
+      "mode": "deep_prime",
+      "duration": 120,
+      "voice": "female",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_2min_Lina_V5.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 120,
+          "availableSeconds": 120,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-120-warm-ambient",
+      "mode": "deep_prime",
+      "duration": 120,
+      "voice": "warm",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "opening",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-opening.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 10.109375,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "intention",
+          "start": 20,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-intention.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 8.38525,
+          "availableSeconds": 40,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "deepening",
+          "start": 60,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-deepening.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 9.456313,
+          "availableSeconds": 40,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "closing",
+          "start": 100,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-closing.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 5.459563,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\audio-remote\\session-audio\\deep-prime-ambient.748fa915.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-120-soothing-ambient",
+      "mode": "deep_prime",
+      "duration": 120,
+      "voice": "soothing",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "opening",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-opening.mp3",
+          "gain": 0.46,
+          "includesBed": false,
+          "duration": 10.814688,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "intention",
+          "start": 20,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-intention.mp3",
+          "gain": 0.491,
+          "includesBed": false,
+          "duration": 8.124063,
+          "availableSeconds": 40,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "deepening",
+          "start": 60,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-deepening.mp3",
+          "gain": 0.37,
+          "includesBed": false,
+          "duration": 7.601625,
+          "availableSeconds": 40,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "closing",
+          "start": 100,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-closing.mp3",
+          "gain": 0.443,
+          "includesBed": false,
+          "duration": 5.433438,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\audio-remote\\session-audio\\deep-prime-ambient.748fa915.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-300-male-ambient",
+      "mode": "deep_prime",
+      "duration": 300,
+      "voice": "male",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_5min_Dominic_V5.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 300,
+          "availableSeconds": 300,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-300-female-ambient",
+      "mode": "deep_prime",
+      "duration": 300,
+      "voice": "female",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_5min_Lina_V5.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 300,
+          "availableSeconds": 300,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-300-warm-ambient",
+      "mode": "deep_prime",
+      "duration": 300,
+      "voice": "warm",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "opening",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-opening.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 8.306938,
+          "availableSeconds": 30,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "intention",
+          "start": 30,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-intention.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 8.38525,
+          "availableSeconds": 50,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "deepening",
+          "start": 80,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-deepening.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 9.456313,
+          "availableSeconds": 70,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "return",
+          "start": 150,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-return.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 6.582813,
+          "availableSeconds": 70,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "reinforcement",
+          "start": 220,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-reinforcement.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 5.328938,
+          "availableSeconds": 60,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "closing",
+          "start": 280,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-closing.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 6.2955,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\audio-remote\\session-audio\\deep-prime-ambient.748fa915.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-300-soothing-ambient",
+      "mode": "deep_prime",
+      "duration": 300,
+      "voice": "soothing",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "opening",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-opening.mp3",
+          "gain": 0.413,
+          "includesBed": false,
+          "duration": 10.814688,
+          "availableSeconds": 30,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "intention",
+          "start": 30,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-intention.mp3",
+          "gain": 0.491,
+          "includesBed": false,
+          "duration": 8.124063,
+          "availableSeconds": 50,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "deepening",
+          "start": 80,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-deepening.mp3",
+          "gain": 0.37,
+          "includesBed": false,
+          "duration": 7.601625,
+          "availableSeconds": 70,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "return",
+          "start": 150,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-return.mp3",
+          "gain": 0.479,
+          "includesBed": false,
+          "duration": 7.235875,
+          "availableSeconds": 70,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "reinforcement",
+          "start": 220,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-reinforcement.mp3",
+          "gain": 0.371,
+          "includesBed": false,
+          "duration": 5.564063,
+          "availableSeconds": 60,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "closing",
+          "start": 280,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-closing.mp3",
+          "gain": 0.305,
+          "includesBed": false,
+          "duration": 5.694688,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\audio-remote\\session-audio\\deep-prime-ambient.748fa915.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-600-male-ambient",
+      "mode": "deep_prime",
+      "duration": 600,
+      "voice": "male",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_10min_Dominic_V5.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 600,
+          "availableSeconds": 600,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-600-female-ambient",
+      "mode": "deep_prime",
+      "duration": 600,
+      "voice": "female",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_10min_Lina_V5.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 600,
+          "availableSeconds": 600,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null,
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-600-warm-ambient",
+      "mode": "deep_prime",
+      "duration": 600,
+      "voice": "warm",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "opening",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-opening.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 8.306938,
+          "availableSeconds": 50,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "intention",
+          "start": 50,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-intention.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 8.38525,
+          "availableSeconds": 80,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "deepening",
+          "start": 130,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-deepening.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 9.456313,
+          "availableSeconds": 90,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "return",
+          "start": 220,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-return.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 6.582813,
+          "availableSeconds": 100,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "reinforcement",
+          "start": 320,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-reinforcement.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 5.328938,
+          "availableSeconds": 100,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "visualization",
+          "start": 420,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-visualization.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 9.795875,
+          "availableSeconds": 90,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "settling",
+          "start": 510,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-settling.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 5.041625,
+          "availableSeconds": 70,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "closing",
+          "start": 580,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-closing.mp3",
+          "gain": 1,
+          "includesBed": false,
+          "duration": 6.2955,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\audio-remote\\session-audio\\deep-prime-ambient.748fa915.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-deep_prime-600-soothing-ambient",
+      "mode": "deep_prime",
+      "duration": 600,
+      "voice": "soothing",
+      "ambient": true,
+      "cues": [
+        {
+          "phase": "opening",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-opening.mp3",
+          "gain": 0.413,
+          "includesBed": false,
+          "duration": 10.814688,
+          "availableSeconds": 50,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "intention",
+          "start": 50,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-intention.mp3",
+          "gain": 0.491,
+          "includesBed": false,
+          "duration": 8.124063,
+          "availableSeconds": 80,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "deepening",
+          "start": 130,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-deepening.mp3",
+          "gain": 0.37,
+          "includesBed": false,
+          "duration": 7.601625,
+          "availableSeconds": 90,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "return",
+          "start": 220,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-return.mp3",
+          "gain": 0.479,
+          "includesBed": false,
+          "duration": 7.235875,
+          "availableSeconds": 100,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "reinforcement",
+          "start": 320,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-reinforcement.mp3",
+          "gain": 0.371,
+          "includesBed": false,
+          "duration": 5.564063,
+          "availableSeconds": 100,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "visualization",
+          "start": 420,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-visualization.mp3",
+          "gain": 0.371,
+          "includesBed": false,
+          "duration": 8.359125,
+          "availableSeconds": 90,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "settling",
+          "start": 510,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-settling.mp3",
+          "gain": 0.411,
+          "includesBed": false,
+          "duration": 5.146063,
+          "availableSeconds": 70,
+          "exceedsCueWindow": false
+        },
+        {
+          "phase": "closing",
+          "start": 580,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-closing.mp3",
+          "gain": 0.305,
+          "includesBed": false,
+          "duration": 5.694688,
+          "availableSeconds": 20,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": "E:\\Projects\\Anchor\\anchor\\mobile\\audio-remote\\session-audio\\deep-prime-ambient.748fa915.mp3",
+      "fallback": false
+    },
+    {
+      "id": "audio-visualize-60-male-ambient",
+      "mode": "visualize",
+      "duration": 60,
+      "voice": "male",
+      "ambient": true,
+      "playbackDuration": 65.245,
+      "track": "glimpse",
+      "phrases": [
+        {
+          "id": 0,
+          "text": "Look at your vision",
+          "chapter": "OPEN",
+          "start": 1.006,
+          "end": 2.247,
+          "silence_after": 1.72
+        },
+        {
+          "id": 1,
+          "text": "Dont just see the picture step into it",
+          "chapter": "OPEN",
+          "start": 3.967,
+          "end": 7.188,
+          "silence_after": 1.321
+        },
+        {
+          "id": 2,
+          "text": "Look through your own eyes youre here",
+          "chapter": "OPEN",
+          "start": 8.509,
+          "end": 11.45,
+          "silence_after": 1.42
+        },
+        {
+          "id": 3,
+          "text": "Notice where you are",
+          "chapter": "EXPERIENCE",
+          "start": 12.87,
+          "end": 14.051,
+          "silence_after": 1.12
+        },
+        {
+          "id": 4,
+          "text": "Whats happening around you",
+          "chapter": "EXPERIENCE",
+          "start": 15.171,
+          "end": 16.472,
+          "silence_after": 1.2
+        },
+        {
+          "id": 5,
+          "text": "Notice what youre doing",
+          "chapter": "EXPERIENCE",
+          "start": 17.672,
+          "end": 18.972,
+          "silence_after": 0.821
+        },
+        {
+          "id": 6,
+          "text": "The way youre moving",
+          "chapter": "EXPERIENCE",
+          "start": 19.793,
+          "end": 20.933,
+          "silence_after": 0.76
+        },
+        {
+          "id": 7,
+          "text": "The way youre carrying yourself",
+          "chapter": "EXPERIENCE",
+          "start": 21.693,
+          "end": 23.254,
+          "silence_after": 1.18
+        },
+        {
+          "id": 8,
+          "text": "For a moment let this feel normal",
+          "chapter": "NORMALIZE",
+          "start": 24.434,
+          "end": 27.315,
+          "silence_after": 1.381
+        },
+        {
+          "id": 9,
+          "text": "Not something youre waiting for",
+          "chapter": "NORMALIZE",
+          "start": 28.696,
+          "end": 30.216,
+          "silence_after": 1.021
+        },
+        {
+          "id": 10,
+          "text": "Not something youre chasing",
+          "chapter": "NORMALIZE",
+          "start": 31.237,
+          "end": 32.577,
+          "silence_after": 1.08
+        },
+        {
+          "id": 11,
+          "text": "This is simply your life",
+          "chapter": "NORMALIZE",
+          "start": 33.657,
+          "end": 35.978,
+          "silence_after": 0.68
+        },
+        {
+          "id": 12,
+          "text": "Notice the feeling that comes with that",
+          "chapter": "HOLD",
+          "start": 36.658,
+          "end": 38.819,
+          "silence_after": 2.102
+        },
+        {
+          "id": 13,
+          "text": "Hold it",
+          "chapter": "HOLD",
+          "start": 40.921,
+          "end": 41.601,
+          "silence_after": 2.062
+        },
+        {
+          "id": 14,
+          "text": "Now let the details fall away",
+          "chapter": "ANCHOR",
+          "start": 43.663,
+          "end": 45.885,
+          "silence_after": 1.061
+        },
+        {
+          "id": 15,
+          "text": "Keep only the feeling",
+          "chapter": "ANCHOR",
+          "start": 46.946,
+          "end": 48.708,
+          "silence_after": 1.281
+        },
+        {
+          "id": 16,
+          "text": "And let your anchor come into focus",
+          "chapter": "ANCHOR",
+          "start": 49.989,
+          "end": 52.171,
+          "silence_after": 1.361
+        },
+        {
+          "id": 17,
+          "text": "Dont analyze it just look",
+          "chapter": "ANCHOR",
+          "start": 53.532,
+          "end": 55.574,
+          "silence_after": 1.561
+        },
+        {
+          "id": 18,
+          "text": "Carry the direction",
+          "chapter": "MOVE",
+          "start": 57.135,
+          "end": 58.376,
+          "silence_after": 0.881
+        },
+        {
+          "id": 19,
+          "text": "Release the picture",
+          "chapter": "MOVE",
+          "start": 59.257,
+          "end": 60.418,
+          "silence_after": 0.921
+        },
+        {
+          "id": 20,
+          "text": "And move",
+          "chapter": "MOVE",
+          "start": 61.339,
+          "end": 62.039,
+          "silence_after": 3.206
+        }
+      ],
+      "captions": [
+        {
+          "phraseId": 0,
+          "startMs": 1006,
+          "endMs": 2697,
+          "text": "Look at your vision."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 3967,
+          "endMs": 7638,
+          "text": "Don’t just see the picture. Step into it."
+        },
+        {
+          "phraseId": 2,
+          "startMs": 8509,
+          "endMs": 11900,
+          "text": "Look through your own eyes. You’re here."
+        },
+        {
+          "phraseId": 3,
+          "startMs": 12870,
+          "endMs": 14501,
+          "text": "Notice where you are."
+        },
+        {
+          "phraseId": 4,
+          "startMs": 15171,
+          "endMs": 16922,
+          "text": "What’s happening around you?"
+        },
+        {
+          "phraseId": 5,
+          "startMs": 17672,
+          "endMs": 19422,
+          "text": "Notice what you’re doing."
+        },
+        {
+          "phraseId": 6,
+          "startMs": 19793,
+          "endMs": 21383,
+          "text": "The way you’re moving."
+        },
+        {
+          "phraseId": 7,
+          "startMs": 21693,
+          "endMs": 23704,
+          "text": "The way you’re carrying yourself."
+        },
+        {
+          "phraseId": 8,
+          "startMs": 24434,
+          "endMs": 27765,
+          "text": "For a moment, let this feel normal."
+        },
+        {
+          "phraseId": 9,
+          "startMs": 28696,
+          "endMs": 30666,
+          "text": "Not something you’re waiting for."
+        },
+        {
+          "phraseId": 10,
+          "startMs": 31237,
+          "endMs": 33027,
+          "text": "Not something you’re chasing."
+        },
+        {
+          "phraseId": 11,
+          "startMs": 33657,
+          "endMs": 36428,
+          "text": "This is simply your life."
+        },
+        {
+          "phraseId": 12,
+          "startMs": 36658,
+          "endMs": 39269,
+          "text": "Notice the feeling that comes with that."
+        },
+        {
+          "phraseId": 13,
+          "startMs": 40921,
+          "endMs": 42051,
+          "text": "Hold it."
+        },
+        {
+          "phraseId": 14,
+          "startMs": 43663,
+          "endMs": 46335,
+          "text": "Now let the details fall away."
+        },
+        {
+          "phraseId": 15,
+          "startMs": 46946,
+          "endMs": 49158,
+          "text": "Keep only the feeling."
+        },
+        {
+          "phraseId": 16,
+          "startMs": 49989,
+          "endMs": 52621,
+          "text": "And let your Anchor come into focus."
+        },
+        {
+          "phraseId": 17,
+          "startMs": 53532,
+          "endMs": 56024,
+          "text": "Don’t analyze it. Just look."
+        },
+        {
+          "phraseId": 18,
+          "startMs": 57135,
+          "endMs": 58826,
+          "text": "Carry the direction."
+        },
+        {
+          "phraseId": 19,
+          "startMs": 59257,
+          "endMs": 60868,
+          "text": "Release the picture."
+        },
+        {
+          "phraseId": 20,
+          "startMs": 61339,
+          "endMs": 62489,
+          "text": "And move."
+        }
+      ],
+      "anchorStartMs": 42663,
+      "sealAtMs": 46663,
+      "returnStartMs": 56135,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Glimpse_Dominic_V6.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 65.245397,
+          "availableSeconds": 65.245,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null
+    },
+    {
+      "id": "audio-visualize-60-female-ambient",
+      "mode": "visualize",
+      "duration": 60,
+      "voice": "female",
+      "ambient": true,
+      "playbackDuration": 65.12,
+      "track": "glimpse",
+      "phrases": [
+        {
+          "id": 0,
+          "text": "Look at your vision",
+          "chapter": "OPEN",
+          "start": 1.006,
+          "end": 2.107,
+          "silence_after": 1.52
+        },
+        {
+          "id": 1,
+          "text": "Dont just see the picture step into it",
+          "chapter": "OPEN",
+          "start": 3.627,
+          "end": 6.528,
+          "silence_after": 1.481
+        },
+        {
+          "id": 2,
+          "text": "Look through your own eyes youre here",
+          "chapter": "OPEN",
+          "start": 8.009,
+          "end": 10.61,
+          "silence_after": 1.52
+        },
+        {
+          "id": 3,
+          "text": "Notice where you are",
+          "chapter": "EXPERIENCE",
+          "start": 12.13,
+          "end": 13.331,
+          "silence_after": 1.08
+        },
+        {
+          "id": 4,
+          "text": "Whats happening around you",
+          "chapter": "EXPERIENCE",
+          "start": 14.411,
+          "end": 15.771,
+          "silence_after": 1.281
+        },
+        {
+          "id": 5,
+          "text": "Notice what youre doing",
+          "chapter": "EXPERIENCE",
+          "start": 17.052,
+          "end": 18.332,
+          "silence_after": 0.741
+        },
+        {
+          "id": 6,
+          "text": "The way youre moving",
+          "chapter": "EXPERIENCE",
+          "start": 19.073,
+          "end": 20.233,
+          "silence_after": 0.22
+        },
+        {
+          "id": 7,
+          "text": "The way youre carrying yourself",
+          "chapter": "EXPERIENCE",
+          "start": 20.453,
+          "end": 22.514,
+          "silence_after": 1.32
+        },
+        {
+          "id": 8,
+          "text": "For a moment let this feel normal",
+          "chapter": "NORMALIZE",
+          "start": 23.834,
+          "end": 26.675,
+          "silence_after": 1.501
+        },
+        {
+          "id": 9,
+          "text": "Not something youre waiting for",
+          "chapter": "NORMALIZE",
+          "start": 28.176,
+          "end": 29.696,
+          "silence_after": 1.041
+        },
+        {
+          "id": 10,
+          "text": "Not something youre chasing",
+          "chapter": "NORMALIZE",
+          "start": 30.737,
+          "end": 32.157,
+          "silence_after": 1.14
+        },
+        {
+          "id": 11,
+          "text": "This is simply your life",
+          "chapter": "NORMALIZE",
+          "start": 33.297,
+          "end": 35.518,
+          "silence_after": 1.861
+        },
+        {
+          "id": 12,
+          "text": "Notice the feeling that comes with that",
+          "chapter": "HOLD",
+          "start": 37.379,
+          "end": 39.5,
+          "silence_after": 1.101
+        },
+        {
+          "id": 13,
+          "text": "Hold it",
+          "chapter": "HOLD",
+          "start": 40.601,
+          "end": 41.301,
+          "silence_after": 2.182
+        },
+        {
+          "id": 14,
+          "text": "Now let the details fall away",
+          "chapter": "ANCHOR",
+          "start": 43.483,
+          "end": 45.685,
+          "silence_after": 1.081
+        },
+        {
+          "id": 15,
+          "text": "Keep only the feeling",
+          "chapter": "ANCHOR",
+          "start": 46.766,
+          "end": 48.428,
+          "silence_after": 1.281
+        },
+        {
+          "id": 16,
+          "text": "And let your anchor come into focus",
+          "chapter": "ANCHOR",
+          "start": 49.709,
+          "end": 51.85,
+          "silence_after": 1.402
+        },
+        {
+          "id": 17,
+          "text": "Dont analyze it just look",
+          "chapter": "ANCHOR",
+          "start": 53.252,
+          "end": 55.273,
+          "silence_after": 1.702
+        },
+        {
+          "id": 18,
+          "text": "Carry the direction",
+          "chapter": "MOVE",
+          "start": 56.975,
+          "end": 58.216,
+          "silence_after": 0.881
+        },
+        {
+          "id": 19,
+          "text": "Release the picture",
+          "chapter": "MOVE",
+          "start": 59.097,
+          "end": 60.298,
+          "silence_after": 0.901
+        },
+        {
+          "id": 20,
+          "text": "And move",
+          "chapter": "MOVE",
+          "start": 61.199,
+          "end": 61.919,
+          "silence_after": 3.201
+        }
+      ],
+      "captions": [
+        {
+          "phraseId": 0,
+          "startMs": 1006,
+          "endMs": 2557,
+          "text": "Look at your vision."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 3627,
+          "endMs": 6978,
+          "text": "Don’t just see the picture. Step into it."
+        },
+        {
+          "phraseId": 2,
+          "startMs": 8009,
+          "endMs": 11060,
+          "text": "Look through your own eyes. You’re here."
+        },
+        {
+          "phraseId": 3,
+          "startMs": 12130,
+          "endMs": 13781,
+          "text": "Notice where you are."
+        },
+        {
+          "phraseId": 4,
+          "startMs": 14411,
+          "endMs": 16221,
+          "text": "What’s happening around you?"
+        },
+        {
+          "phraseId": 5,
+          "startMs": 17052,
+          "endMs": 18782,
+          "text": "Notice what you’re doing."
+        },
+        {
+          "phraseId": 6,
+          "startMs": 19073,
+          "endMs": 20453,
+          "text": "The way you’re moving."
+        },
+        {
+          "phraseId": 7,
+          "startMs": 20453,
+          "endMs": 22964,
+          "text": "The way you’re carrying yourself."
+        },
+        {
+          "phraseId": 8,
+          "startMs": 23834,
+          "endMs": 27125,
+          "text": "For a moment, let this feel normal."
+        },
+        {
+          "phraseId": 9,
+          "startMs": 28176,
+          "endMs": 30146,
+          "text": "Not something you’re waiting for."
+        },
+        {
+          "phraseId": 10,
+          "startMs": 30737,
+          "endMs": 32607,
+          "text": "Not something you’re chasing."
+        },
+        {
+          "phraseId": 11,
+          "startMs": 33297,
+          "endMs": 35968,
+          "text": "This is simply your life."
+        },
+        {
+          "phraseId": 12,
+          "startMs": 37379,
+          "endMs": 39950,
+          "text": "Notice the feeling that comes with that."
+        },
+        {
+          "phraseId": 13,
+          "startMs": 40601,
+          "endMs": 41751,
+          "text": "Hold it."
+        },
+        {
+          "phraseId": 14,
+          "startMs": 43483,
+          "endMs": 46135,
+          "text": "Now let the details fall away."
+        },
+        {
+          "phraseId": 15,
+          "startMs": 46766,
+          "endMs": 48878,
+          "text": "Keep only the feeling."
+        },
+        {
+          "phraseId": 16,
+          "startMs": 49709,
+          "endMs": 52300,
+          "text": "And let your Anchor come into focus."
+        },
+        {
+          "phraseId": 17,
+          "startMs": 53252,
+          "endMs": 55723,
+          "text": "Don’t analyze it. Just look."
+        },
+        {
+          "phraseId": 18,
+          "startMs": 56975,
+          "endMs": 58666,
+          "text": "Carry the direction."
+        },
+        {
+          "phraseId": 19,
+          "startMs": 59097,
+          "endMs": 60748,
+          "text": "Release the picture."
+        },
+        {
+          "phraseId": 20,
+          "startMs": 61199,
+          "endMs": 62369,
+          "text": "And move."
+        }
+      ],
+      "anchorStartMs": 42483,
+      "sealAtMs": 46483,
+      "returnStartMs": 55975,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Glimpse_Lina_V4.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 65.119773,
+          "availableSeconds": 65.12,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null
+    },
+    {
+      "id": "audio-visualize-180-male-ambient",
+      "mode": "visualize",
+      "duration": 180,
+      "voice": "male",
+      "ambient": true,
+      "playbackDuration": 200,
+      "track": "immerse",
+      "phrases": [
+        {
+          "id": 0,
+          "text": "Settle into a comfortable position",
+          "chapter": "SETTLE",
+          "start": 1.521,
+          "end": 3.542,
+          "silence_after": 1.12
+        },
+        {
+          "id": 1,
+          "text": "Take a slow breath in and let it go",
+          "chapter": "SETTLE",
+          "start": 4.662,
+          "end": 8.424,
+          "caption_spans": [
+            {
+              "text": "Take a slow breath in...",
+              "start": 4.662,
+              "end": 6.303
+            },
+            {
+              "text": "and let it go",
+              "start": 7.584,
+              "end": 8.424
+            }
+          ],
+          "silence_after": 2.462
+        },
+        {
+          "id": 2,
+          "text": "Let your shoulders drop",
+          "chapter": "SETTLE",
+          "start": 10.886,
+          "end": 12.366,
+          "silence_after": 1.421
+        },
+        {
+          "id": 3,
+          "text": "Relax your jaw",
+          "chapter": "SETTLE",
+          "start": 13.787,
+          "end": 14.868,
+          "silence_after": 1.28
+        },
+        {
+          "id": 4,
+          "text": "And allow everything outside this moment to become a little quieter",
+          "chapter": "SETTLE",
+          "start": 16.148,
+          "end": 20.831,
+          "silence_after": 2.721
+        },
+        {
+          "id": 5,
+          "text": "Now bring your vision to mind",
+          "chapter": "ENTER",
+          "start": 23.552,
+          "end": 26.113,
+          "silence_after": 2.662
+        },
+        {
+          "id": 6,
+          "text": "Dont look at it like a picture step into it",
+          "chapter": "ENTER",
+          "start": 28.775,
+          "end": 32.137,
+          "silence_after": 2.621
+        },
+        {
+          "id": 7,
+          "text": "Look through your own eyes youre here",
+          "chapter": "ENTER",
+          "start": 34.758,
+          "end": 37.759,
+          "silence_after": 2.582
+        },
+        {
+          "id": 8,
+          "text": "Take a look around",
+          "chapter": "ENTER",
+          "start": 40.341,
+          "end": 41.381,
+          "silence_after": 2.121
+        },
+        {
+          "id": 9,
+          "text": "Where are you",
+          "chapter": "ENTER",
+          "start": 43.502,
+          "end": 44.263,
+          "silence_after": 3.201
+        },
+        {
+          "id": 10,
+          "text": "Notice the light the space around you the details",
+          "chapter": "ENTER",
+          "start": 47.464,
+          "end": 51.706,
+          "silence_after": 2.161
+        },
+        {
+          "id": 11,
+          "text": "What can you hear",
+          "chapter": "ENTER",
+          "start": 53.867,
+          "end": 54.848,
+          "silence_after": 3.361
+        },
+        {
+          "id": 12,
+          "text": "Notice the temperature against your skin the feeling of the space around you",
+          "chapter": "ENTER",
+          "start": 58.209,
+          "end": 62.932,
+          "silence_after": 2.281
+        },
+        {
+          "id": 13,
+          "text": "Now notice what youre doing",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 65.213,
+          "end": 66.754,
+          "silence_after": 1.861
+        },
+        {
+          "id": 14,
+          "text": "How are you moving",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 68.615,
+          "end": 69.675,
+          "silence_after": 1.781
+        },
+        {
+          "id": 15,
+          "text": "How are you carrying yourself",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 71.456,
+          "end": 72.937,
+          "silence_after": 1.961
+        },
+        {
+          "id": 16,
+          "text": "Notice the people around you or the quiet if youre alone",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 74.898,
+          "end": 78.98,
+          "silence_after": 2.044
+        },
+        {
+          "id": 17,
+          "text": "Let this moment become real",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 81.024,
+          "end": 83.013,
+          "silence_after": 1.79
+        },
+        {
+          "id": 18,
+          "text": "Not something youre hoping for something youre experiencing",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 84.803,
+          "end": 88.624,
+          "silence_after": 1.781
+        },
+        {
+          "id": 19,
+          "text": "And notice how natural it feels",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 90.405,
+          "end": 92.426,
+          "silence_after": 1.92
+        },
+        {
+          "id": 20,
+          "text": "This isnt extraordinary anymore",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 94.346,
+          "end": 96.247,
+          "silence_after": 1.881
+        },
+        {
+          "id": 21,
+          "text": "Its familiar",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 98.128,
+          "end": 98.988,
+          "silence_after": 1.941
+        },
+        {
+          "id": 22,
+          "text": "This is simply your life",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 100.929,
+          "end": 103.01,
+          "silence_after": 3.021
+        },
+        {
+          "id": 23,
+          "text": "Now notice who you are in this life",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 106.031,
+          "end": 108.252,
+          "silence_after": 0.46
+        },
+        {
+          "id": 24,
+          "text": "The way you think the way you move the choices you make",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 108.712,
+          "end": 112.753,
+          "silence_after": 3.402
+        },
+        {
+          "id": 25,
+          "text": "Notice what feels different about you",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 116.155,
+          "end": 118.115,
+          "silence_after": 1.946
+        },
+        {
+          "id": 26,
+          "text": "Not excitement something quieter",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 120.061,
+          "end": 122.562,
+          "silence_after": 1.941
+        },
+        {
+          "id": 27,
+          "text": "Certainty",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 124.503,
+          "end": 125.243,
+          "silence_after": 3.142
+        },
+        {
+          "id": 28,
+          "text": "Let yourself feel that now",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 128.385,
+          "end": 130.266,
+          "silence_after": 3.822
+        },
+        {
+          "id": 29,
+          "text": "Choose one detail from this vision something small something real",
+          "chapter": "HOLD + RELEASE",
+          "start": 134.088,
+          "end": 139.05,
+          "silence_after": 2.622
+        },
+        {
+          "id": 30,
+          "text": "Hold it clearly",
+          "chapter": "HOLD + RELEASE",
+          "start": 141.672,
+          "end": 142.872,
+          "silence_after": 2.442
+        },
+        {
+          "id": 31,
+          "text": "Now let the details begin to fall away",
+          "chapter": "HOLD + RELEASE",
+          "start": 145.314,
+          "end": 147.795,
+          "silence_after": 1.341
+        },
+        {
+          "id": 32,
+          "text": "The place",
+          "chapter": "HOLD + RELEASE",
+          "start": 149.136,
+          "end": 149.856,
+          "silence_after": 1.281
+        },
+        {
+          "id": 33,
+          "text": "The sounds",
+          "chapter": "HOLD + RELEASE",
+          "start": 151.137,
+          "end": 152.117,
+          "silence_after": 1.141
+        },
+        {
+          "id": 34,
+          "text": "The images",
+          "chapter": "HOLD + RELEASE",
+          "start": 153.258,
+          "end": 154.098,
+          "silence_after": 0.42
+        },
+        {
+          "id": 35,
+          "text": "Keep only the feeling",
+          "chapter": "HOLD + RELEASE",
+          "start": 154.518,
+          "end": 156.199,
+          "silence_after": 3.602
+        },
+        {
+          "id": 36,
+          "text": "And as everything else becomes quiet let your anchor come into focus",
+          "chapter": "ANCHOR",
+          "start": 159.801,
+          "end": 164.383,
+          "silence_after": 3.603
+        },
+        {
+          "id": 37,
+          "text": "Dont analyze it just look",
+          "chapter": "ANCHOR",
+          "start": 167.986,
+          "end": 170.107,
+          "silence_after": 3.062
+        },
+        {
+          "id": 38,
+          "text": "Let this image carry what you just experienced",
+          "chapter": "ANCHOR",
+          "start": 173.169,
+          "end": 176.191,
+          "silence_after": 2.301
+        },
+        {
+          "id": 39,
+          "text": "Take one slow breath in and let it go",
+          "chapter": "ANCHOR",
+          "start": 178.492,
+          "end": 182.535,
+          "caption_spans": [
+            {
+              "text": "Take one slow breath in...",
+              "start": 178.492,
+              "end": 180.573
+            },
+            {
+              "text": "and let it go",
+              "start": 181.694,
+              "end": 182.535
+            }
+          ],
+          "silence_after": 1.901
+        },
+        {
+          "id": 40,
+          "text": "Carry the direction",
+          "chapter": "ANCHOR",
+          "start": 184.436,
+          "end": 185.637,
+          "silence_after": 1.381
+        },
+        {
+          "id": 41,
+          "text": "Release the picture",
+          "chapter": "ANCHOR",
+          "start": 187.018,
+          "end": 188.178,
+          "silence_after": 1.421
+        },
+        {
+          "id": 42,
+          "text": "And move",
+          "chapter": "ANCHOR",
+          "start": 189.599,
+          "end": 190.359,
+          "silence_after": 9.641
+        }
+      ],
+      "captions": [
+        {
+          "phraseId": 0,
+          "startMs": 1521,
+          "endMs": 3992,
+          "text": "Settle into a comfortable position."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 4662,
+          "endMs": 6753,
+          "text": "Take a slow breath in..."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 7584,
+          "endMs": 8874,
+          "text": "And let it go."
+        },
+        {
+          "phraseId": 2,
+          "startMs": 10886,
+          "endMs": 12816,
+          "text": "Let your shoulders drop."
+        },
+        {
+          "phraseId": 3,
+          "startMs": 13787,
+          "endMs": 15318,
+          "text": "Relax your jaw."
+        },
+        {
+          "phraseId": 4,
+          "startMs": 16148,
+          "endMs": 21281,
+          "text": "And allow everything outside this moment to become a little quieter."
+        },
+        {
+          "phraseId": 5,
+          "startMs": 23552,
+          "endMs": 26563,
+          "text": "Now bring your Vision to mind."
+        },
+        {
+          "phraseId": 6,
+          "startMs": 28775,
+          "endMs": 32587,
+          "text": "Don’t look at it like a picture. Step into it."
+        },
+        {
+          "phraseId": 7,
+          "startMs": 34758,
+          "endMs": 38209,
+          "text": "Look through your own eyes. You’re here."
+        },
+        {
+          "phraseId": 8,
+          "startMs": 40341,
+          "endMs": 41831,
+          "text": "Take a look around."
+        },
+        {
+          "phraseId": 9,
+          "startMs": 43502,
+          "endMs": 44713,
+          "text": "Where are you?"
+        },
+        {
+          "phraseId": 10,
+          "startMs": 47464,
+          "endMs": 52156,
+          "text": "Notice the light, the space around you, the details."
+        },
+        {
+          "phraseId": 11,
+          "startMs": 53867,
+          "endMs": 55298,
+          "text": "What can you hear?"
+        },
+        {
+          "phraseId": 12,
+          "startMs": 58209,
+          "endMs": 63382,
+          "text": "Notice the temperature against your skin, the feeling of the space around you."
+        },
+        {
+          "phraseId": 13,
+          "startMs": 65213,
+          "endMs": 67204,
+          "text": "Now notice what you’re doing."
+        },
+        {
+          "phraseId": 14,
+          "startMs": 68615,
+          "endMs": 70125,
+          "text": "How are you moving?"
+        },
+        {
+          "phraseId": 15,
+          "startMs": 71456,
+          "endMs": 73387,
+          "text": "How are you carrying yourself?"
+        },
+        {
+          "phraseId": 16,
+          "startMs": 74898,
+          "endMs": 79430,
+          "text": "Notice the people around you, or the quiet if you’re alone."
+        },
+        {
+          "phraseId": 17,
+          "startMs": 81024,
+          "endMs": 83463,
+          "text": "Let this moment become real."
+        },
+        {
+          "phraseId": 18,
+          "startMs": 84803,
+          "endMs": 89074,
+          "text": "Not something you’re hoping for. Something you’re experiencing."
+        },
+        {
+          "phraseId": 19,
+          "startMs": 90405,
+          "endMs": 92876,
+          "text": "And notice how natural it feels."
+        },
+        {
+          "phraseId": 20,
+          "startMs": 94346,
+          "endMs": 96697,
+          "text": "This isn’t extraordinary anymore."
+        },
+        {
+          "phraseId": 21,
+          "startMs": 98128,
+          "endMs": 99438,
+          "text": "It’s familiar."
+        },
+        {
+          "phraseId": 22,
+          "startMs": 100929,
+          "endMs": 103460,
+          "text": "This is simply your life."
+        },
+        {
+          "phraseId": 23,
+          "startMs": 106031,
+          "endMs": 108702,
+          "text": "Now notice who you are in this life."
+        },
+        {
+          "phraseId": 24,
+          "startMs": 108712,
+          "endMs": 113203,
+          "text": "The way you think, the way you move, the choices you make."
+        },
+        {
+          "phraseId": 25,
+          "startMs": 116155,
+          "endMs": 118565,
+          "text": "Notice what feels different about you."
+        },
+        {
+          "phraseId": 26,
+          "startMs": 120061,
+          "endMs": 123012,
+          "text": "Not excitement. Something quieter."
+        },
+        {
+          "phraseId": 27,
+          "startMs": 124503,
+          "endMs": 125693,
+          "text": "Certainty."
+        },
+        {
+          "phraseId": 28,
+          "startMs": 128385,
+          "endMs": 130716,
+          "text": "Let yourself feel that now."
+        },
+        {
+          "phraseId": 29,
+          "startMs": 134088,
+          "endMs": 139500,
+          "text": "Choose one detail from this Vision. Something small, something real."
+        },
+        {
+          "phraseId": 30,
+          "startMs": 141672,
+          "endMs": 143322,
+          "text": "Hold it clearly."
+        },
+        {
+          "phraseId": 31,
+          "startMs": 145314,
+          "endMs": 148245,
+          "text": "Now let the details begin to fall away."
+        },
+        {
+          "phraseId": 32,
+          "startMs": 149136,
+          "endMs": 150306,
+          "text": "The place."
+        },
+        {
+          "phraseId": 33,
+          "startMs": 151137,
+          "endMs": 152567,
+          "text": "The sounds."
+        },
+        {
+          "phraseId": 34,
+          "startMs": 153258,
+          "endMs": 154518,
+          "text": "The images."
+        },
+        {
+          "phraseId": 35,
+          "startMs": 154518,
+          "endMs": 156649,
+          "text": "Keep only the feeling."
+        },
+        {
+          "phraseId": 36,
+          "startMs": 159801,
+          "endMs": 164833,
+          "text": "And as everything else becomes quiet, let your Anchor come into focus."
+        },
+        {
+          "phraseId": 37,
+          "startMs": 167986,
+          "endMs": 170557,
+          "text": "Don’t analyze it. Just look."
+        },
+        {
+          "phraseId": 38,
+          "startMs": 173169,
+          "endMs": 176641,
+          "text": "Let this image carry what you just experienced."
+        },
+        {
+          "phraseId": 39,
+          "startMs": 178492,
+          "endMs": 181023,
+          "text": "Take one slow breath in..."
+        },
+        {
+          "phraseId": 39,
+          "startMs": 181694,
+          "endMs": 182985,
+          "text": "And let it go."
+        },
+        {
+          "phraseId": 40,
+          "startMs": 184436,
+          "endMs": 186087,
+          "text": "Carry the direction."
+        },
+        {
+          "phraseId": 41,
+          "startMs": 187018,
+          "endMs": 188628,
+          "text": "Release the picture."
+        },
+        {
+          "phraseId": 42,
+          "startMs": 189599,
+          "endMs": 190809,
+          "text": "And move."
+        }
+      ],
+      "anchorStartMs": 158801,
+      "sealAtMs": 162801,
+      "returnStartMs": 177492,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Dominic_3min_V6.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 200,
+          "availableSeconds": 200,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null
+    },
+    {
+      "id": "audio-visualize-180-female-ambient",
+      "mode": "visualize",
+      "duration": 180,
+      "voice": "female",
+      "ambient": true,
+      "playbackDuration": 200,
+      "track": "immerse",
+      "phrases": [
+        {
+          "id": 0,
+          "text": "Settle into a comfortable position",
+          "chapter": "SETTLE",
+          "start": 1.521,
+          "end": 3.462,
+          "silence_after": 1.02
+        },
+        {
+          "id": 1,
+          "text": "Take a slow breath in and let it go",
+          "chapter": "SETTLE",
+          "start": 4.482,
+          "end": 8.024,
+          "caption_spans": [
+            {
+              "text": "Take a slow breath in...",
+              "start": 4.482,
+              "end": 6.083
+            },
+            {
+              "text": "and let it go",
+              "start": 7.123,
+              "end": 8.024
+            }
+          ],
+          "silence_after": 2.501
+        },
+        {
+          "id": 2,
+          "text": "Let your shoulders drop",
+          "chapter": "SETTLE",
+          "start": 10.525,
+          "end": 11.946,
+          "silence_after": 1.3
+        },
+        {
+          "id": 3,
+          "text": "Relax your jaw",
+          "chapter": "SETTLE",
+          "start": 13.246,
+          "end": 14.387,
+          "silence_after": 1.281
+        },
+        {
+          "id": 4,
+          "text": "And allow everything outside this moment to become a little quieter",
+          "chapter": "SETTLE",
+          "start": 15.668,
+          "end": 19.85,
+          "silence_after": 2.641
+        },
+        {
+          "id": 5,
+          "text": "Now bring your vision to mind",
+          "chapter": "ENTER",
+          "start": 22.491,
+          "end": 25.012,
+          "silence_after": 2.802
+        },
+        {
+          "id": 6,
+          "text": "Dont look at it like a picture step into it",
+          "chapter": "ENTER",
+          "start": 27.814,
+          "end": 31.135,
+          "silence_after": 0.78
+        },
+        {
+          "id": 7,
+          "text": "Look through your own eyes youre here",
+          "chapter": "ENTER",
+          "start": 31.915,
+          "end": 34.757,
+          "silence_after": 4.722
+        },
+        {
+          "id": 8,
+          "text": "Take a look around",
+          "chapter": "ENTER",
+          "start": 39.479,
+          "end": 40.54,
+          "silence_after": 1.981
+        },
+        {
+          "id": 9,
+          "text": "Where are you",
+          "chapter": "ENTER",
+          "start": 42.521,
+          "end": 43.281,
+          "silence_after": 3.622
+        },
+        {
+          "id": 10,
+          "text": "Notice the light the space around you the details",
+          "chapter": "ENTER",
+          "start": 46.903,
+          "end": 50.765,
+          "silence_after": 2.361
+        },
+        {
+          "id": 11,
+          "text": "What can you hear",
+          "chapter": "ENTER",
+          "start": 53.126,
+          "end": 54.067,
+          "silence_after": 3.662
+        },
+        {
+          "id": 12,
+          "text": "Notice the temperature against your skin the feeling of the space around you",
+          "chapter": "ENTER",
+          "start": 57.729,
+          "end": 62.171,
+          "silence_after": 2.381
+        },
+        {
+          "id": 13,
+          "text": "Now notice what youre doing",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 64.552,
+          "end": 66.133,
+          "silence_after": 1.861
+        },
+        {
+          "id": 14,
+          "text": "How are you moving",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 67.994,
+          "end": 69.015,
+          "silence_after": 1.621
+        },
+        {
+          "id": 15,
+          "text": "How are you carrying yourself",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 70.636,
+          "end": 72.116,
+          "silence_after": 0.821
+        },
+        {
+          "id": 16,
+          "text": "Notice the people around you or the quiet if youre alone",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 72.937,
+          "end": 76.778,
+          "silence_after": 3.503
+        },
+        {
+          "id": 17,
+          "text": "Let this moment become real",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 80.281,
+          "end": 82.161,
+          "silence_after": 1.701
+        },
+        {
+          "id": 18,
+          "text": "Not something youre hoping for something youre experiencing",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 83.862,
+          "end": 87.424,
+          "silence_after": 1.921
+        },
+        {
+          "id": 19,
+          "text": "And notice how natural it feels",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 89.345,
+          "end": 91.466,
+          "silence_after": 2.161
+        },
+        {
+          "id": 20,
+          "text": "This isnt extraordinary anymore",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 93.627,
+          "end": 95.508,
+          "silence_after": 1.801
+        },
+        {
+          "id": 21,
+          "text": "Its familiar",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 97.309,
+          "end": 98.169,
+          "silence_after": 2.102
+        },
+        {
+          "id": 22,
+          "text": "This is simply your life",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 100.271,
+          "end": 102.291,
+          "silence_after": 3.282
+        },
+        {
+          "id": 23,
+          "text": "Now notice who you are in this life",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 105.573,
+          "end": 107.934,
+          "silence_after": 0.461
+        },
+        {
+          "id": 24,
+          "text": "The way you think the way you move the choices you make",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 108.395,
+          "end": 112.116,
+          "silence_after": 3.602
+        },
+        {
+          "id": 25,
+          "text": "Notice what feels different about you",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 115.718,
+          "end": 117.699,
+          "silence_after": 1.98
+        },
+        {
+          "id": 26,
+          "text": "Not excitement something quieter",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 119.679,
+          "end": 122.1,
+          "silence_after": 1.881
+        },
+        {
+          "id": 27,
+          "text": "Certainty",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 123.981,
+          "end": 124.761,
+          "silence_after": 0.721
+        },
+        {
+          "id": 28,
+          "text": "Let yourself feel that now",
+          "chapter": "EXPERIENCE + BECOME",
+          "start": 125.482,
+          "end": 127.302,
+          "silence_after": 6.765
+        },
+        {
+          "id": 29,
+          "text": "Choose one detail from this vision something small something real",
+          "chapter": "HOLD + RELEASE",
+          "start": 134.067,
+          "end": 138.569,
+          "silence_after": 0.52
+        },
+        {
+          "id": 30,
+          "text": "Hold it clearly",
+          "chapter": "HOLD + RELEASE",
+          "start": 139.089,
+          "end": 140.47,
+          "silence_after": 4.983
+        },
+        {
+          "id": 31,
+          "text": "Now let the details begin to fall away",
+          "chapter": "HOLD + RELEASE",
+          "start": 145.453,
+          "end": 147.974,
+          "silence_after": 1.361
+        },
+        {
+          "id": 32,
+          "text": "The place",
+          "chapter": "HOLD + RELEASE",
+          "start": 149.335,
+          "end": 150.075,
+          "silence_after": 1.201
+        },
+        {
+          "id": 33,
+          "text": "The sounds",
+          "chapter": "HOLD + RELEASE",
+          "start": 151.276,
+          "end": 152.197,
+          "silence_after": 1.12
+        },
+        {
+          "id": 34,
+          "text": "The images",
+          "chapter": "HOLD + RELEASE",
+          "start": 153.317,
+          "end": 154.158,
+          "silence_after": 0.42
+        },
+        {
+          "id": 35,
+          "text": "Keep only the feeling",
+          "chapter": "HOLD + RELEASE",
+          "start": 154.578,
+          "end": 156.218,
+          "silence_after": 3.883
+        },
+        {
+          "id": 36,
+          "text": "And as everything else becomes quiet let your anchor come into focus",
+          "chapter": "ANCHOR",
+          "start": 160.101,
+          "end": 164.523,
+          "silence_after": 3.783
+        },
+        {
+          "id": 37,
+          "text": "Dont analyze it just look",
+          "chapter": "ANCHOR",
+          "start": 168.306,
+          "end": 170.247,
+          "silence_after": 3.362
+        },
+        {
+          "id": 38,
+          "text": "Let this image carry what you just experienced",
+          "chapter": "ANCHOR",
+          "start": 173.609,
+          "end": 176.611,
+          "silence_after": 2.402
+        },
+        {
+          "id": 39,
+          "text": "Take one slow breath in and let it go",
+          "chapter": "ANCHOR",
+          "start": 179.013,
+          "end": 182.695,
+          "silence_after": 1.881
+        },
+        {
+          "id": 40,
+          "text": "Carry the direction",
+          "chapter": "ANCHOR",
+          "start": 184.576,
+          "end": 185.837,
+          "silence_after": 1.261
+        },
+        {
+          "id": 41,
+          "text": "Release the picture",
+          "chapter": "ANCHOR",
+          "start": 187.098,
+          "end": 188.258,
+          "silence_after": 1.301
+        },
+        {
+          "id": 42,
+          "text": "And move",
+          "chapter": "ANCHOR",
+          "start": 189.559,
+          "end": 190.279,
+          "silence_after": 9.721
+        }
+      ],
+      "captions": [
+        {
+          "phraseId": 0,
+          "startMs": 1521,
+          "endMs": 3912,
+          "text": "Settle into a comfortable position."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 4482,
+          "endMs": 6533,
+          "text": "Take a slow breath in..."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 7123,
+          "endMs": 8474,
+          "text": "And let it go."
+        },
+        {
+          "phraseId": 2,
+          "startMs": 10525,
+          "endMs": 12396,
+          "text": "Let your shoulders drop."
+        },
+        {
+          "phraseId": 3,
+          "startMs": 13246,
+          "endMs": 14837,
+          "text": "Relax your jaw."
+        },
+        {
+          "phraseId": 4,
+          "startMs": 15668,
+          "endMs": 20300,
+          "text": "And allow everything outside this moment to become a little quieter."
+        },
+        {
+          "phraseId": 5,
+          "startMs": 22491,
+          "endMs": 25462,
+          "text": "Now bring your Vision to mind."
+        },
+        {
+          "phraseId": 6,
+          "startMs": 27814,
+          "endMs": 31585,
+          "text": "Don’t look at it like a picture. Step into it."
+        },
+        {
+          "phraseId": 7,
+          "startMs": 31915,
+          "endMs": 35207,
+          "text": "Look through your own eyes. You’re here."
+        },
+        {
+          "phraseId": 8,
+          "startMs": 39479,
+          "endMs": 40990,
+          "text": "Take a look around."
+        },
+        {
+          "phraseId": 9,
+          "startMs": 42521,
+          "endMs": 43731,
+          "text": "Where are you?"
+        },
+        {
+          "phraseId": 10,
+          "startMs": 46903,
+          "endMs": 51215,
+          "text": "Notice the light, the space around you, the details."
+        },
+        {
+          "phraseId": 11,
+          "startMs": 53126,
+          "endMs": 54517,
+          "text": "What can you hear?"
+        },
+        {
+          "phraseId": 12,
+          "startMs": 57729,
+          "endMs": 62621,
+          "text": "Notice the temperature against your skin, the feeling of the space around you."
+        },
+        {
+          "phraseId": 13,
+          "startMs": 64552,
+          "endMs": 66583,
+          "text": "Now notice what you’re doing."
+        },
+        {
+          "phraseId": 14,
+          "startMs": 67994,
+          "endMs": 69465,
+          "text": "How are you moving?"
+        },
+        {
+          "phraseId": 15,
+          "startMs": 70636,
+          "endMs": 72566,
+          "text": "How are you carrying yourself?"
+        },
+        {
+          "phraseId": 16,
+          "startMs": 72937,
+          "endMs": 77228,
+          "text": "Notice the people around you, or the quiet if you’re alone."
+        },
+        {
+          "phraseId": 17,
+          "startMs": 80281,
+          "endMs": 82611,
+          "text": "Let this moment become real."
+        },
+        {
+          "phraseId": 18,
+          "startMs": 83862,
+          "endMs": 87874,
+          "text": "Not something you’re hoping for. Something you’re experiencing."
+        },
+        {
+          "phraseId": 19,
+          "startMs": 89345,
+          "endMs": 91916,
+          "text": "And notice how natural it feels."
+        },
+        {
+          "phraseId": 20,
+          "startMs": 93627,
+          "endMs": 95958,
+          "text": "This isn’t extraordinary anymore."
+        },
+        {
+          "phraseId": 21,
+          "startMs": 97309,
+          "endMs": 98619,
+          "text": "It’s familiar."
+        },
+        {
+          "phraseId": 22,
+          "startMs": 100271,
+          "endMs": 102741,
+          "text": "This is simply your life."
+        },
+        {
+          "phraseId": 23,
+          "startMs": 105573,
+          "endMs": 108384,
+          "text": "Now notice who you are in this life."
+        },
+        {
+          "phraseId": 24,
+          "startMs": 108395,
+          "endMs": 112566,
+          "text": "The way you think, the way you move, the choices you make."
+        },
+        {
+          "phraseId": 25,
+          "startMs": 115718,
+          "endMs": 118149,
+          "text": "Notice what feels different about you."
+        },
+        {
+          "phraseId": 26,
+          "startMs": 119679,
+          "endMs": 122550,
+          "text": "Not excitement. Something quieter."
+        },
+        {
+          "phraseId": 27,
+          "startMs": 123981,
+          "endMs": 125211,
+          "text": "Certainty."
+        },
+        {
+          "phraseId": 28,
+          "startMs": 125482,
+          "endMs": 127752,
+          "text": "Let yourself feel that now."
+        },
+        {
+          "phraseId": 29,
+          "startMs": 134067,
+          "endMs": 139019,
+          "text": "Choose one detail from this Vision. Something small, something real."
+        },
+        {
+          "phraseId": 30,
+          "startMs": 139089,
+          "endMs": 140920,
+          "text": "Hold it clearly."
+        },
+        {
+          "phraseId": 31,
+          "startMs": 145453,
+          "endMs": 148424,
+          "text": "Now let the details begin to fall away."
+        },
+        {
+          "phraseId": 32,
+          "startMs": 149335,
+          "endMs": 150525,
+          "text": "The place."
+        },
+        {
+          "phraseId": 33,
+          "startMs": 151276,
+          "endMs": 152647,
+          "text": "The sounds."
+        },
+        {
+          "phraseId": 34,
+          "startMs": 153317,
+          "endMs": 154578,
+          "text": "The images."
+        },
+        {
+          "phraseId": 35,
+          "startMs": 154578,
+          "endMs": 156668,
+          "text": "Keep only the feeling."
+        },
+        {
+          "phraseId": 36,
+          "startMs": 160101,
+          "endMs": 164973,
+          "text": "And as everything else becomes quiet, let your Anchor come into focus."
+        },
+        {
+          "phraseId": 37,
+          "startMs": 168306,
+          "endMs": 170697,
+          "text": "Don’t analyze it. Just look."
+        },
+        {
+          "phraseId": 38,
+          "startMs": 173609,
+          "endMs": 177061,
+          "text": "Let this image carry what you just experienced."
+        },
+        {
+          "phraseId": 39,
+          "startMs": 179013,
+          "endMs": 183145,
+          "text": "Take one slow breath in, and let it go."
+        },
+        {
+          "phraseId": 40,
+          "startMs": 184576,
+          "endMs": 186287,
+          "text": "Carry the direction."
+        },
+        {
+          "phraseId": 41,
+          "startMs": 187098,
+          "endMs": 188708,
+          "text": "Release the picture."
+        },
+        {
+          "phraseId": 42,
+          "startMs": 189559,
+          "endMs": 190729,
+          "text": "And move."
+        }
+      ],
+      "anchorStartMs": 159101,
+      "sealAtMs": 163101,
+      "returnStartMs": 178013,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Lina_3min_V6.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 200,
+          "availableSeconds": 200,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null
+    },
+    {
+      "id": "audio-visualize-600-male-ambient",
+      "mode": "visualize",
+      "duration": 600,
+      "voice": "male",
+      "ambient": true,
+      "playbackDuration": 615,
+      "track": "embody",
+      "phrases": [
+        {
+          "id": 0,
+          "text": "Settle into a position that feels comfortable",
+          "chapter": "ARRIVE",
+          "start": 2.001,
+          "end": 5.103,
+          "silence_after": 3.601
+        },
+        {
+          "id": 1,
+          "text": "For the next few minutes there is nowhere else you need to be",
+          "chapter": "ARRIVE",
+          "start": 8.704,
+          "end": 12.586,
+          "silence_after": 2.861
+        },
+        {
+          "id": 2,
+          "text": "Nothing you need to solve nothing you need to figure out",
+          "chapter": "ARRIVE",
+          "start": 15.447,
+          "end": 19.509,
+          "silence_after": 4.102
+        },
+        {
+          "id": 3,
+          "text": "Take a slow breath in and let it go",
+          "chapter": "ARRIVE",
+          "start": 23.611,
+          "end": 26.992,
+          "caption_spans": [
+            {
+              "text": "Take a slow breath in...",
+              "start": 23.611,
+              "end": 25.152
+            },
+            {
+              "text": "and let it go",
+              "start": 26.152,
+              "end": 26.992
+            }
+          ],
+          "silence_after": 7.824
+        },
+        {
+          "id": 4,
+          "text": "Again slowly breathe in and as you breathe out let your shoulders drop",
+          "chapter": "ARRIVE",
+          "start": 34.816,
+          "end": 40.919,
+          "silence_after": 5.103
+        },
+        {
+          "id": 5,
+          "text": "Unclench your jaw relax the muscles around your eyes let your hands rest",
+          "chapter": "ARRIVE",
+          "start": 46.022,
+          "end": 52.385,
+          "silence_after": 4.782
+        },
+        {
+          "id": 6,
+          "text": "You dont need to force yourself to relax just allow yourself to become still",
+          "chapter": "ARRIVE",
+          "start": 57.167,
+          "end": 62.53,
+          "silence_after": 9.504
+        },
+        {
+          "id": 7,
+          "text": "Notice your breathing becoming slower",
+          "chapter": "ARRIVE",
+          "start": 72.034,
+          "end": 74.295,
+          "silence_after": 3.682
+        },
+        {
+          "id": 8,
+          "text": "And for now just be here",
+          "chapter": "ARRIVE",
+          "start": 77.977,
+          "end": 80.378,
+          "silence_after": 13.744
+        },
+        {
+          "id": 9,
+          "text": "Take a look around",
+          "chapter": "ENTER",
+          "start": 94.122,
+          "end": 95.162,
+          "silence_after": 3.602
+        },
+        {
+          "id": 10,
+          "text": "Where are you",
+          "chapter": "ENTER",
+          "start": 98.764,
+          "end": 99.504,
+          "silence_after": 15.207
+        },
+        {
+          "id": 11,
+          "text": "Notice the space around you the light the colors the details you normally wouldnt think about",
+          "chapter": "ENTER",
+          "start": 114.711,
+          "end": 121.334,
+          "silence_after": 9.044
+        },
+        {
+          "id": 12,
+          "text": "Whats happening around you",
+          "chapter": "ENTER",
+          "start": 130.378,
+          "end": 131.678,
+          "silence_after": 15.204
+        },
+        {
+          "id": 13,
+          "text": "Now listen what can you hear",
+          "chapter": "ENTER",
+          "start": 146.882,
+          "end": 149.122,
+          "silence_after": 15.068
+        },
+        {
+          "id": 14,
+          "text": "Maybe voices movement nature a room around you or maybe its completely quiet",
+          "chapter": "ENTER",
+          "start": 164.19,
+          "end": 171.933,
+          "silence_after": 9.165
+        },
+        {
+          "id": 15,
+          "text": "Notice the temperature against your skin",
+          "chapter": "ENTER",
+          "start": 181.098,
+          "end": 183.158,
+          "silence_after": 12.852
+        },
+        {
+          "id": 16,
+          "text": "Notice what youre wearing",
+          "chapter": "ENTER",
+          "start": 196.01,
+          "end": 197.171,
+          "silence_after": 13.063
+        },
+        {
+          "id": 17,
+          "text": "Dont describe the scene experience it",
+          "chapter": "ENTER",
+          "start": 210.234,
+          "end": 213.195,
+          "silence_after": 15.143
+        },
+        {
+          "id": 18,
+          "text": "The way you move the way you speak the decisions you make without overthinking them",
+          "chapter": "LIVE IT",
+          "start": 228.338,
+          "end": 233.58,
+          "silence_after": 10.122
+        },
+        {
+          "id": 19,
+          "text": "Notice the people around you",
+          "chapter": "LIVE IT",
+          "start": 243.702,
+          "end": 245.222,
+          "silence_after": 9.586
+        },
+        {
+          "id": 20,
+          "text": "How do they respond to you",
+          "chapter": "LIVE IT",
+          "start": 254.808,
+          "end": 256.109,
+          "silence_after": 13.629
+        },
+        {
+          "id": 21,
+          "text": "How do you respond to them",
+          "chapter": "LIVE IT",
+          "start": 269.738,
+          "end": 271.238,
+          "silence_after": 14.105
+        },
+        {
+          "id": 22,
+          "text": "And notice something important this doesnt feel extraordinary anymore it feels familiar",
+          "chapter": "LIVE IT",
+          "start": 285.343,
+          "end": 291.966,
+          "silence_after": 12.046
+        },
+        {
+          "id": 23,
+          "text": "This is simply your life",
+          "chapter": "LIVE IT",
+          "start": 304.012,
+          "end": 305.993,
+          "silence_after": 14.248
+        },
+        {
+          "id": 24,
+          "text": "Now stop looking at what you have and notice who you are",
+          "chapter": "EMBODY",
+          "start": 320.241,
+          "end": 323.902,
+          "silence_after": 3.943
+        },
+        {
+          "id": 25,
+          "text": "Who did you have to become to arrive here",
+          "chapter": "EMBODY",
+          "start": 327.845,
+          "end": 330.106,
+          "silence_after": 10.965
+        },
+        {
+          "id": 26,
+          "text": "What no longer gets to decide your direction",
+          "chapter": "EMBODY",
+          "start": 341.071,
+          "end": 343.712,
+          "silence_after": 7.064
+        },
+        {
+          "id": 27,
+          "text": "What do you do consistently now that once required effort",
+          "chapter": "EMBODY",
+          "start": 350.776,
+          "end": 354.457,
+          "silence_after": 7.104
+        },
+        {
+          "id": 28,
+          "text": "Feel the difference in the way you carry yourself",
+          "chapter": "EMBODY",
+          "start": 361.561,
+          "end": 364.002,
+          "silence_after": 4.963
+        },
+        {
+          "id": 29,
+          "text": "Not excitement something quieter",
+          "chapter": "EMBODY",
+          "start": 368.965,
+          "end": 371.606,
+          "silence_after": 4.882
+        },
+        {
+          "id": 30,
+          "text": "Certainty",
+          "chapter": "EMBODY",
+          "start": 376.488,
+          "end": 377.248,
+          "silence_after": 8.885
+        },
+        {
+          "id": 31,
+          "text": "The feeling of knowing who you are and moving accordingly",
+          "chapter": "EMBODY",
+          "start": 386.133,
+          "end": 389.854,
+          "silence_after": 4.923
+        },
+        {
+          "id": 32,
+          "text": "Let yourself feel that now",
+          "chapter": "EMBODY",
+          "start": 394.777,
+          "end": 396.537,
+          "silence_after": 15.245
+        },
+        {
+          "id": 33,
+          "text": "Look around one more time",
+          "chapter": "FEEL",
+          "start": 411.782,
+          "end": 413.402,
+          "silence_after": 3.882
+        },
+        {
+          "id": 34,
+          "text": "Choose one detail from this life something small something real hold it clearly",
+          "chapter": "FEEL",
+          "start": 417.284,
+          "end": 423.867,
+          "silence_after": 4.923
+        },
+        {
+          "id": 35,
+          "text": "Now notice the feeling underneath it",
+          "chapter": "FEEL",
+          "start": 428.79,
+          "end": 430.811,
+          "silence_after": 3.822
+        },
+        {
+          "id": 36,
+          "text": "Not the object not the achievement not the image the feeling",
+          "chapter": "FEEL",
+          "start": 434.633,
+          "end": 439.575,
+          "silence_after": 0.881
+        },
+        {
+          "id": 37,
+          "text": "Where do you feel it in your body",
+          "chapter": "FEEL",
+          "start": 440.456,
+          "end": 442.236,
+          "silence_after": 14.886
+        },
+        {
+          "id": 38,
+          "text": "Let it become stronger",
+          "chapter": "FEEL",
+          "start": 457.122,
+          "end": 458.602,
+          "silence_after": 8.984
+        },
+        {
+          "id": 39,
+          "text": "You dont need to chase this moment you need to recognize it",
+          "chapter": "FEEL",
+          "start": 467.586,
+          "end": 471.248,
+          "silence_after": 4.322
+        },
+        {
+          "id": 40,
+          "text": "Remember what it feels like to move as this version of yourself",
+          "chapter": "FEEL",
+          "start": 475.57,
+          "end": 479.652,
+          "silence_after": 4.982
+        },
+        {
+          "id": 41,
+          "text": "Now let the details begin to fall away",
+          "chapter": "RELEASE",
+          "start": 484.634,
+          "end": 488.076,
+          "silence_after": 4.822
+        },
+        {
+          "id": 42,
+          "text": "The place",
+          "chapter": "RELEASE",
+          "start": 492.898,
+          "end": 493.618,
+          "silence_after": 2.764
+        },
+        {
+          "id": 43,
+          "text": "The sounds",
+          "chapter": "RELEASE",
+          "start": 496.382,
+          "end": 497.322,
+          "silence_after": 2.501
+        },
+        {
+          "id": 44,
+          "text": "The people",
+          "chapter": "RELEASE",
+          "start": 499.823,
+          "end": 500.544,
+          "silence_after": 2.541
+        },
+        {
+          "id": 45,
+          "text": "The images",
+          "chapter": "RELEASE",
+          "start": 503.085,
+          "end": 503.965,
+          "silence_after": 3.682
+        },
+        {
+          "id": 46,
+          "text": "You dont need to hold on to them",
+          "chapter": "RELEASE",
+          "start": 507.647,
+          "end": 509.368,
+          "silence_after": 2.982
+        },
+        {
+          "id": 47,
+          "text": "Keep only the feeling",
+          "chapter": "RELEASE",
+          "start": 512.35,
+          "end": 514.111,
+          "silence_after": 10.165
+        },
+        {
+          "id": 48,
+          "text": "And as everything else becomes quiet let your anchor come into focus",
+          "chapter": "ANCHOR",
+          "start": 524.276,
+          "end": 529.258,
+          "silence_after": 9.762
+        },
+        {
+          "id": 49,
+          "text": "Dont analyze it",
+          "chapter": "ANCHOR",
+          "start": 539.02,
+          "end": 540.181,
+          "silence_after": 2.981
+        },
+        {
+          "id": 50,
+          "text": "Dont try to explain it",
+          "chapter": "ANCHOR",
+          "start": 543.162,
+          "end": 544.602,
+          "silence_after": 3.001
+        },
+        {
+          "id": 51,
+          "text": "Just look",
+          "chapter": "ANCHOR",
+          "start": 547.603,
+          "end": 548.503,
+          "silence_after": 11.804
+        },
+        {
+          "id": 52,
+          "text": "Let this image carry what you just experienced",
+          "chapter": "ANCHOR",
+          "start": 560.307,
+          "end": 563.368,
+          "silence_after": 5.481
+        },
+        {
+          "id": 53,
+          "text": "You dont need to hold on to the vision youve already experienced it",
+          "chapter": "ANCHOR",
+          "start": 568.849,
+          "end": 573.031,
+          "silence_after": 3.559
+        },
+        {
+          "id": 54,
+          "text": "Take one slow breath in and let it go",
+          "chapter": "RETURN",
+          "start": 576.59,
+          "end": 580.532,
+          "caption_spans": [
+            {
+              "text": "Take one slow breath in...",
+              "start": 576.59,
+              "end": 578.671
+            },
+            {
+              "text": "and let it go",
+              "start": 579.671,
+              "end": 580.532
+            }
+          ],
+          "silence_after": 3.841
+        },
+        {
+          "id": 55,
+          "text": "Notice your body again the surface beneath you the space around you",
+          "chapter": "RETURN",
+          "start": 584.373,
+          "end": 589.375,
+          "silence_after": 2.5
+        },
+        {
+          "id": 56,
+          "text": "When youre ready open your eyes",
+          "chapter": "RETURN",
+          "start": 591.875,
+          "end": 594.136,
+          "silence_after": 2.601
+        },
+        {
+          "id": 57,
+          "text": "Carry the direction",
+          "chapter": "RETURN",
+          "start": 596.737,
+          "end": 597.957,
+          "silence_after": 2.461
+        },
+        {
+          "id": 58,
+          "text": "Release the picture",
+          "chapter": "RETURN",
+          "start": 600.418,
+          "end": 601.579,
+          "silence_after": 2.44
+        },
+        {
+          "id": 59,
+          "text": "And move",
+          "chapter": "RETURN",
+          "start": 604.019,
+          "end": 604.76,
+          "silence_after": 10.24
+        }
+      ],
+      "captions": [
+        {
+          "phraseId": 0,
+          "startMs": 2001,
+          "endMs": 5553,
+          "text": "Settle into a position that feels comfortable."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 8704,
+          "endMs": 13036,
+          "text": "For the next few minutes, there is nowhere else you need to be."
+        },
+        {
+          "phraseId": 2,
+          "startMs": 15447,
+          "endMs": 19959,
+          "text": "Nothing you need to solve. Nothing you need to figure out."
+        },
+        {
+          "phraseId": 3,
+          "startMs": 23611,
+          "endMs": 25602,
+          "text": "Take a slow breath in..."
+        },
+        {
+          "phraseId": 3,
+          "startMs": 26152,
+          "endMs": 27442,
+          "text": "And let it go."
+        },
+        {
+          "phraseId": 4,
+          "startMs": 34816,
+          "endMs": 41369,
+          "text": "Again, slowly breathe in. And as you breathe out, let your shoulders drop."
+        },
+        {
+          "phraseId": 5,
+          "startMs": 46022,
+          "endMs": 52835,
+          "text": "Unclench your jaw. Relax the muscles around your eyes. Let your hands rest."
+        },
+        {
+          "phraseId": 6,
+          "startMs": 57167,
+          "endMs": 62980,
+          "text": "You don’t need to force yourself to relax. Just allow yourself to become still."
+        },
+        {
+          "phraseId": 7,
+          "startMs": 72034,
+          "endMs": 74745,
+          "text": "Notice your breathing becoming slower."
+        },
+        {
+          "phraseId": 8,
+          "startMs": 77977,
+          "endMs": 80828,
+          "text": "And for now, just be here."
+        },
+        {
+          "phraseId": 9,
+          "startMs": 94122,
+          "endMs": 95612,
+          "text": "Take a look around."
+        },
+        {
+          "phraseId": 10,
+          "startMs": 98764,
+          "endMs": 99954,
+          "text": "Where are you?"
+        },
+        {
+          "phraseId": 11,
+          "startMs": 114711,
+          "endMs": 121784,
+          "text": "Notice the space around you, the light, the colors, the details you normally wouldn’t think about."
+        },
+        {
+          "phraseId": 12,
+          "startMs": 130378,
+          "endMs": 132128,
+          "text": "What’s happening around you?"
+        },
+        {
+          "phraseId": 13,
+          "startMs": 146882,
+          "endMs": 149572,
+          "text": "Now listen. What can you hear?"
+        },
+        {
+          "phraseId": 14,
+          "startMs": 164190,
+          "endMs": 172383,
+          "text": "Maybe voices, movement, nature, a room around you. Or maybe it’s completely quiet."
+        },
+        {
+          "phraseId": 15,
+          "startMs": 181098,
+          "endMs": 183608,
+          "text": "Notice the temperature against your skin."
+        },
+        {
+          "phraseId": 16,
+          "startMs": 196010,
+          "endMs": 197621,
+          "text": "Notice what you’re wearing."
+        },
+        {
+          "phraseId": 17,
+          "startMs": 210234,
+          "endMs": 213645,
+          "text": "Don’t describe the scene. Experience it."
+        },
+        {
+          "phraseId": 18,
+          "startMs": 228338,
+          "endMs": 234030,
+          "text": "The way you move, the way you speak, the decisions you make without overthinking them."
+        },
+        {
+          "phraseId": 19,
+          "startMs": 243702,
+          "endMs": 245672,
+          "text": "Notice the people around you."
+        },
+        {
+          "phraseId": 20,
+          "startMs": 254808,
+          "endMs": 256559,
+          "text": "How do they respond to you?"
+        },
+        {
+          "phraseId": 21,
+          "startMs": 269738,
+          "endMs": 271688,
+          "text": "How do you respond to them?"
+        },
+        {
+          "phraseId": 22,
+          "startMs": 285343,
+          "endMs": 292416,
+          "text": "And notice something important. This doesn’t feel extraordinary anymore. It feels familiar."
+        },
+        {
+          "phraseId": 23,
+          "startMs": 304012,
+          "endMs": 306443,
+          "text": "This is simply your life."
+        },
+        {
+          "phraseId": 24,
+          "startMs": 320241,
+          "endMs": 324352,
+          "text": "Now stop looking at what you have, and notice who you are."
+        },
+        {
+          "phraseId": 25,
+          "startMs": 327845,
+          "endMs": 330556,
+          "text": "Who did you have to become to arrive here?"
+        },
+        {
+          "phraseId": 26,
+          "startMs": 341071,
+          "endMs": 344162,
+          "text": "What no longer gets to decide your direction?"
+        },
+        {
+          "phraseId": 27,
+          "startMs": 350776,
+          "endMs": 354907,
+          "text": "What do you do consistently now that once required effort?"
+        },
+        {
+          "phraseId": 28,
+          "startMs": 361561,
+          "endMs": 364452,
+          "text": "Feel the difference in the way you carry yourself."
+        },
+        {
+          "phraseId": 29,
+          "startMs": 368965,
+          "endMs": 372056,
+          "text": "Not excitement. Something quieter."
+        },
+        {
+          "phraseId": 30,
+          "startMs": 376488,
+          "endMs": 377698,
+          "text": "Certainty."
+        },
+        {
+          "phraseId": 31,
+          "startMs": 386133,
+          "endMs": 390304,
+          "text": "The feeling of knowing who you are, and moving accordingly."
+        },
+        {
+          "phraseId": 32,
+          "startMs": 394777,
+          "endMs": 396987,
+          "text": "Let yourself feel that now."
+        },
+        {
+          "phraseId": 33,
+          "startMs": 411782,
+          "endMs": 413852,
+          "text": "Look around one more time."
+        },
+        {
+          "phraseId": 34,
+          "startMs": 417284,
+          "endMs": 424317,
+          "text": "Choose one detail from this life. Something small, something real. Hold it clearly."
+        },
+        {
+          "phraseId": 35,
+          "startMs": 428790,
+          "endMs": 431261,
+          "text": "Now notice the feeling underneath it."
+        },
+        {
+          "phraseId": 36,
+          "startMs": 434633,
+          "endMs": 440025,
+          "text": "Not the object, not the achievement, not the image. The feeling."
+        },
+        {
+          "phraseId": 37,
+          "startMs": 440456,
+          "endMs": 442686,
+          "text": "Where do you feel it in your body?"
+        },
+        {
+          "phraseId": 38,
+          "startMs": 457122,
+          "endMs": 459052,
+          "text": "Let it become stronger."
+        },
+        {
+          "phraseId": 39,
+          "startMs": 467586,
+          "endMs": 471698,
+          "text": "You don’t need to chase this moment. You need to recognize it."
+        },
+        {
+          "phraseId": 40,
+          "startMs": 475570,
+          "endMs": 480102,
+          "text": "Remember what it feels like to move as this version of yourself."
+        },
+        {
+          "phraseId": 41,
+          "startMs": 484634,
+          "endMs": 488526,
+          "text": "Now let the details begin to fall away."
+        },
+        {
+          "phraseId": 42,
+          "startMs": 492898,
+          "endMs": 494068,
+          "text": "The place."
+        },
+        {
+          "phraseId": 43,
+          "startMs": 496382,
+          "endMs": 497772,
+          "text": "The sounds."
+        },
+        {
+          "phraseId": 44,
+          "startMs": 499823,
+          "endMs": 500994,
+          "text": "The people."
+        },
+        {
+          "phraseId": 45,
+          "startMs": 503085,
+          "endMs": 504415,
+          "text": "The images."
+        },
+        {
+          "phraseId": 46,
+          "startMs": 507647,
+          "endMs": 509818,
+          "text": "You don’t need to hold on to them."
+        },
+        {
+          "phraseId": 47,
+          "startMs": 512350,
+          "endMs": 514561,
+          "text": "Keep only the feeling."
+        },
+        {
+          "phraseId": 48,
+          "startMs": 524276,
+          "endMs": 529708,
+          "text": "And as everything else becomes quiet, let your Anchor come into focus."
+        },
+        {
+          "phraseId": 49,
+          "startMs": 539020,
+          "endMs": 540631,
+          "text": "Don’t analyze it."
+        },
+        {
+          "phraseId": 50,
+          "startMs": 543162,
+          "endMs": 545052,
+          "text": "Don’t try to explain it."
+        },
+        {
+          "phraseId": 51,
+          "startMs": 547603,
+          "endMs": 548953,
+          "text": "Just look."
+        },
+        {
+          "phraseId": 52,
+          "startMs": 560307,
+          "endMs": 563818,
+          "text": "Let this image carry what you just experienced."
+        },
+        {
+          "phraseId": 53,
+          "startMs": 568849,
+          "endMs": 573481,
+          "text": "You don’t need to hold on to the Vision. You’ve already experienced it."
+        },
+        {
+          "phraseId": 54,
+          "startMs": 576590,
+          "endMs": 579121,
+          "text": "Take one slow breath in..."
+        },
+        {
+          "phraseId": 54,
+          "startMs": 579671,
+          "endMs": 580982,
+          "text": "And let it go."
+        },
+        {
+          "phraseId": 55,
+          "startMs": 584373,
+          "endMs": 589825,
+          "text": "Notice your body again. The surface beneath you, the space around you."
+        },
+        {
+          "phraseId": 56,
+          "startMs": 591875,
+          "endMs": 594586,
+          "text": "When you’re ready, open your eyes."
+        },
+        {
+          "phraseId": 57,
+          "startMs": 596737,
+          "endMs": 598407,
+          "text": "Carry the direction."
+        },
+        {
+          "phraseId": 58,
+          "startMs": 600418,
+          "endMs": 602029,
+          "text": "Release the picture."
+        },
+        {
+          "phraseId": 59,
+          "startMs": 604019,
+          "endMs": 605210,
+          "text": "And move."
+        }
+      ],
+      "anchorStartMs": 523276,
+      "sealAtMs": 527276,
+      "returnStartMs": 575590,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_10min15_V6.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 615,
+          "availableSeconds": 615,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null
+    },
+    {
+      "id": "audio-visualize-600-female-ambient",
+      "mode": "visualize",
+      "duration": 600,
+      "voice": "female",
+      "ambient": true,
+      "playbackDuration": 615,
+      "track": "embody",
+      "phrases": [
+        {
+          "id": 0,
+          "text": "Settle into a position that feels comfortable",
+          "chapter": "ARRIVE",
+          "start": 2.022,
+          "end": 4.743,
+          "silence_after": 3.161
+        },
+        {
+          "id": 1,
+          "text": "For the next few minutes there is nowhere else you need to be",
+          "chapter": "ARRIVE",
+          "start": 7.904,
+          "end": 11.606,
+          "silence_after": 2.701
+        },
+        {
+          "id": 2,
+          "text": "Nothing you need to solve nothing you need to figure out",
+          "chapter": "ARRIVE",
+          "start": 14.307,
+          "end": 17.829,
+          "silence_after": 3.802
+        },
+        {
+          "id": 3,
+          "text": "Take a slow breath in and let it go",
+          "chapter": "ARRIVE",
+          "start": 21.631,
+          "end": 24.792,
+          "silence_after": 7.404
+        },
+        {
+          "id": 4,
+          "text": "Again slowly breathe in and as you breathe out let your shoulders drop",
+          "chapter": "ARRIVE",
+          "start": 32.196,
+          "end": 37.898,
+          "silence_after": 4.804
+        },
+        {
+          "id": 5,
+          "text": "Unclench your jaw relax the muscles around your eyes let your hands rest",
+          "chapter": "ARRIVE",
+          "start": 42.702,
+          "end": 48.324,
+          "silence_after": 4.683
+        },
+        {
+          "id": 6,
+          "text": "You dont need to force yourself to relax just allow yourself to become still",
+          "chapter": "ARRIVE",
+          "start": 53.007,
+          "end": 57.889,
+          "silence_after": 9.465
+        },
+        {
+          "id": 7,
+          "text": "Notice your breathing becoming slower",
+          "chapter": "ARRIVE",
+          "start": 67.354,
+          "end": 69.575,
+          "silence_after": 3.622
+        },
+        {
+          "id": 8,
+          "text": "And for now just be here",
+          "chapter": "ARRIVE",
+          "start": 73.197,
+          "end": 75.518,
+          "silence_after": 13.964
+        },
+        {
+          "id": 9,
+          "text": "Take a look around",
+          "chapter": "ENTER",
+          "start": 89.482,
+          "end": 90.522,
+          "silence_after": 3.582
+        },
+        {
+          "id": 10,
+          "text": "Where are you",
+          "chapter": "ENTER",
+          "start": 94.104,
+          "end": 94.844,
+          "silence_after": 15.767
+        },
+        {
+          "id": 11,
+          "text": "Notice the space around you the light the colors the details you normally wouldnt think about",
+          "chapter": "ENTER",
+          "start": 110.611,
+          "end": 116.874,
+          "silence_after": 9.004
+        },
+        {
+          "id": 12,
+          "text": "Whats happening around you",
+          "chapter": "ENTER",
+          "start": 125.878,
+          "end": 127.199,
+          "silence_after": 15.683
+        },
+        {
+          "id": 13,
+          "text": "Now listen what can you hear",
+          "chapter": "ENTER",
+          "start": 142.882,
+          "end": 145.042,
+          "silence_after": 15.728
+        },
+        {
+          "id": 14,
+          "text": "Maybe voices movement nature a room around you or maybe its completely quiet",
+          "chapter": "ENTER",
+          "start": 160.77,
+          "end": 168.253,
+          "silence_after": 9.425
+        },
+        {
+          "id": 15,
+          "text": "Notice the temperature against your skin",
+          "chapter": "ENTER",
+          "start": 177.678,
+          "end": 179.758,
+          "silence_after": 13.244
+        },
+        {
+          "id": 16,
+          "text": "Notice what youre wearing",
+          "chapter": "ENTER",
+          "start": 193.002,
+          "end": 194.162,
+          "silence_after": 13.486
+        },
+        {
+          "id": 17,
+          "text": "Dont describe the scene experience it",
+          "chapter": "ENTER",
+          "start": 207.648,
+          "end": 210.569,
+          "silence_after": 15.547
+        },
+        {
+          "id": 18,
+          "text": "The way you move the way you speak the decisions you make without overthinking them",
+          "chapter": "LIVE IT",
+          "start": 226.116,
+          "end": 231.199,
+          "silence_after": 0.853
+        },
+        {
+          "id": 19,
+          "text": "Notice the people around you",
+          "chapter": "LIVE IT",
+          "start": 232.052,
+          "end": 233.752,
+          "silence_after": 19.15
+        },
+        {
+          "id": 20,
+          "text": "How do they respond to you",
+          "chapter": "LIVE IT",
+          "start": 252.902,
+          "end": 254.203,
+          "silence_after": 14.147
+        },
+        {
+          "id": 21,
+          "text": "How do you respond to them",
+          "chapter": "LIVE IT",
+          "start": 268.35,
+          "end": 269.87,
+          "silence_after": 14.58
+        },
+        {
+          "id": 22,
+          "text": "And notice something important this doesnt feel extraordinary anymore it feels familiar",
+          "chapter": "LIVE IT",
+          "start": 284.45,
+          "end": 290.592,
+          "silence_after": 12.423
+        },
+        {
+          "id": 23,
+          "text": "This is simply your life",
+          "chapter": "LIVE IT",
+          "start": 303.015,
+          "end": 305.035,
+          "silence_after": 14.664
+        },
+        {
+          "id": 24,
+          "text": "Now stop looking at what you have and notice who you are",
+          "chapter": "EMBODY",
+          "start": 319.699,
+          "end": 323.52,
+          "silence_after": 3.882
+        },
+        {
+          "id": 25,
+          "text": "Who did you have to become to arrive here",
+          "chapter": "EMBODY",
+          "start": 327.402,
+          "end": 329.723,
+          "silence_after": 11.205
+        },
+        {
+          "id": 26,
+          "text": "What no longer gets to decide your direction",
+          "chapter": "EMBODY",
+          "start": 340.928,
+          "end": 343.489,
+          "silence_after": 7.123
+        },
+        {
+          "id": 27,
+          "text": "What do you do consistently now that once required effort",
+          "chapter": "EMBODY",
+          "start": 350.612,
+          "end": 354.214,
+          "silence_after": 7.223
+        },
+        {
+          "id": 28,
+          "text": "Feel the difference in the way you carry yourself",
+          "chapter": "EMBODY",
+          "start": 361.437,
+          "end": 363.958,
+          "silence_after": 4.832
+        },
+        {
+          "id": 29,
+          "text": "Not excitement something quieter",
+          "chapter": "EMBODY",
+          "start": 368.79,
+          "end": 371.291,
+          "silence_after": 4.822
+        },
+        {
+          "id": 30,
+          "text": "Certainty",
+          "chapter": "EMBODY",
+          "start": 376.113,
+          "end": 376.893,
+          "silence_after": 9.083
+        },
+        {
+          "id": 31,
+          "text": "The feeling of knowing who you are and moving accordingly",
+          "chapter": "EMBODY",
+          "start": 385.976,
+          "end": 389.537,
+          "silence_after": 4.942
+        },
+        {
+          "id": 32,
+          "text": "Let yourself feel that now",
+          "chapter": "EMBODY",
+          "start": 394.479,
+          "end": 396.3,
+          "silence_after": 15.662
+        },
+        {
+          "id": 33,
+          "text": "Look around one more time",
+          "chapter": "FEEL",
+          "start": 411.962,
+          "end": 413.522,
+          "silence_after": 3.722
+        },
+        {
+          "id": 34,
+          "text": "Choose one detail from this life something small something real hold it clearly",
+          "chapter": "FEEL",
+          "start": 417.244,
+          "end": 423.627,
+          "silence_after": 5.003
+        },
+        {
+          "id": 35,
+          "text": "Now notice the feeling underneath it",
+          "chapter": "FEEL",
+          "start": 428.63,
+          "end": 430.771,
+          "silence_after": 3.562
+        },
+        {
+          "id": 36,
+          "text": "Not the object not the achievement not the image the feeling",
+          "chapter": "FEEL",
+          "start": 434.333,
+          "end": 439.075,
+          "silence_after": 4.803
+        },
+        {
+          "id": 37,
+          "text": "Where do you feel it in your body",
+          "chapter": "FEEL",
+          "start": 443.878,
+          "end": 445.538,
+          "silence_after": 11.264
+        },
+        {
+          "id": 38,
+          "text": "Let it become stronger",
+          "chapter": "FEEL",
+          "start": 456.802,
+          "end": 458.402,
+          "silence_after": 9.064
+        },
+        {
+          "id": 39,
+          "text": "You dont need to chase this moment you need to recognize it",
+          "chapter": "FEEL",
+          "start": 467.466,
+          "end": 471.388,
+          "silence_after": 4.502
+        },
+        {
+          "id": 40,
+          "text": "Remember what it feels like to move as this version of yourself",
+          "chapter": "FEEL",
+          "start": 475.89,
+          "end": 479.632,
+          "silence_after": 4.982
+        },
+        {
+          "id": 41,
+          "text": "Now let the details begin to fall away",
+          "chapter": "RELEASE",
+          "start": 484.614,
+          "end": 487.956,
+          "silence_after": 4.802
+        },
+        {
+          "id": 42,
+          "text": "The place",
+          "chapter": "RELEASE",
+          "start": 492.758,
+          "end": 493.498,
+          "silence_after": 2.704
+        },
+        {
+          "id": 43,
+          "text": "The sounds",
+          "chapter": "RELEASE",
+          "start": 496.202,
+          "end": 497.102,
+          "silence_after": 2.561
+        },
+        {
+          "id": 44,
+          "text": "The people",
+          "chapter": "RELEASE",
+          "start": 499.663,
+          "end": 500.424,
+          "silence_after": 2.541
+        },
+        {
+          "id": 45,
+          "text": "The images",
+          "chapter": "RELEASE",
+          "start": 502.965,
+          "end": 503.845,
+          "silence_after": 3.722
+        },
+        {
+          "id": 46,
+          "text": "You dont need to hold on to them",
+          "chapter": "RELEASE",
+          "start": 507.567,
+          "end": 509.268,
+          "silence_after": 3.022
+        },
+        {
+          "id": 47,
+          "text": "Keep only the feeling",
+          "chapter": "RELEASE",
+          "start": 512.29,
+          "end": 514.051,
+          "silence_after": 10.645
+        },
+        {
+          "id": 48,
+          "text": "And as everything else becomes quiet let your anchor come into focus",
+          "chapter": "ANCHOR",
+          "start": 524.696,
+          "end": 529.378,
+          "silence_after": 10.048
+        },
+        {
+          "id": 49,
+          "text": "Dont analyze it",
+          "chapter": "ANCHOR",
+          "start": 539.426,
+          "end": 540.567,
+          "silence_after": 2.981
+        },
+        {
+          "id": 50,
+          "text": "Dont try to explain it",
+          "chapter": "ANCHOR",
+          "start": 543.548,
+          "end": 544.888,
+          "silence_after": 2.941
+        },
+        {
+          "id": 51,
+          "text": "Just look",
+          "chapter": "ANCHOR",
+          "start": 547.829,
+          "end": 548.75,
+          "silence_after": 12.184
+        },
+        {
+          "id": 52,
+          "text": "Let this image carry what you just experienced",
+          "chapter": "ANCHOR",
+          "start": 560.934,
+          "end": 563.935,
+          "silence_after": 5.682
+        },
+        {
+          "id": 53,
+          "text": "You dont need to hold on to the vision youve already experienced it",
+          "chapter": "ANCHOR",
+          "start": 569.617,
+          "end": 573.599,
+          "silence_after": 3.583
+        },
+        {
+          "id": 54,
+          "text": "Take one slow breath in and let it go",
+          "chapter": "RETURN",
+          "start": 577.182,
+          "end": 580.524,
+          "silence_after": 3.822
+        },
+        {
+          "id": 55,
+          "text": "Notice your body again the surface beneath you the space around you",
+          "chapter": "RETURN",
+          "start": 584.346,
+          "end": 589.069,
+          "silence_after": 2.682
+        },
+        {
+          "id": 56,
+          "text": "When youre ready open your eyes",
+          "chapter": "RETURN",
+          "start": 591.751,
+          "end": 593.792,
+          "silence_after": 2.622
+        },
+        {
+          "id": 57,
+          "text": "Carry the direction",
+          "chapter": "RETURN",
+          "start": 596.414,
+          "end": 597.634,
+          "silence_after": 2.422
+        },
+        {
+          "id": 58,
+          "text": "Release the picture",
+          "chapter": "RETURN",
+          "start": 600.056,
+          "end": 601.236,
+          "silence_after": 2.462
+        },
+        {
+          "id": 59,
+          "text": "And move",
+          "chapter": "RETURN",
+          "start": 603.698,
+          "end": 604.398,
+          "silence_after": 10.602
+        }
+      ],
+      "captions": [
+        {
+          "phraseId": 0,
+          "startMs": 2022,
+          "endMs": 5193,
+          "text": "Settle into a position that feels comfortable."
+        },
+        {
+          "phraseId": 1,
+          "startMs": 7904,
+          "endMs": 12056,
+          "text": "For the next few minutes, there is nowhere else you need to be."
+        },
+        {
+          "phraseId": 2,
+          "startMs": 14307,
+          "endMs": 18279,
+          "text": "Nothing you need to solve. Nothing you need to figure out."
+        },
+        {
+          "phraseId": 3,
+          "startMs": 21631,
+          "endMs": 25242,
+          "text": "Take a slow breath in, and let it go."
+        },
+        {
+          "phraseId": 4,
+          "startMs": 32196,
+          "endMs": 38348,
+          "text": "Again, slowly breathe in. And as you breathe out, let your shoulders drop."
+        },
+        {
+          "phraseId": 5,
+          "startMs": 42702,
+          "endMs": 48774,
+          "text": "Unclench your jaw. Relax the muscles around your eyes. Let your hands rest."
+        },
+        {
+          "phraseId": 6,
+          "startMs": 53007,
+          "endMs": 58339,
+          "text": "You don’t need to force yourself to relax. Just allow yourself to become still."
+        },
+        {
+          "phraseId": 7,
+          "startMs": 67354,
+          "endMs": 70025,
+          "text": "Notice your breathing becoming slower."
+        },
+        {
+          "phraseId": 8,
+          "startMs": 73197,
+          "endMs": 75968,
+          "text": "And for now, just be here."
+        },
+        {
+          "phraseId": 9,
+          "startMs": 89482,
+          "endMs": 90972,
+          "text": "Take a look around."
+        },
+        {
+          "phraseId": 10,
+          "startMs": 94104,
+          "endMs": 95294,
+          "text": "Where are you?"
+        },
+        {
+          "phraseId": 11,
+          "startMs": 110611,
+          "endMs": 117324,
+          "text": "Notice the space around you, the light, the colors, the details you normally wouldn’t think about."
+        },
+        {
+          "phraseId": 12,
+          "startMs": 125878,
+          "endMs": 127649,
+          "text": "What’s happening around you?"
+        },
+        {
+          "phraseId": 13,
+          "startMs": 142882,
+          "endMs": 145492,
+          "text": "Now listen. What can you hear?"
+        },
+        {
+          "phraseId": 14,
+          "startMs": 160770,
+          "endMs": 168703,
+          "text": "Maybe voices, movement, nature, a room around you. Or maybe it’s completely quiet."
+        },
+        {
+          "phraseId": 15,
+          "startMs": 177678,
+          "endMs": 180208,
+          "text": "Notice the temperature against your skin."
+        },
+        {
+          "phraseId": 16,
+          "startMs": 193002,
+          "endMs": 194612,
+          "text": "Notice what you’re wearing."
+        },
+        {
+          "phraseId": 17,
+          "startMs": 207648,
+          "endMs": 211019,
+          "text": "Don’t describe the scene. Experience it."
+        },
+        {
+          "phraseId": 18,
+          "startMs": 226116,
+          "endMs": 231649,
+          "text": "The way you move, the way you speak, the decisions you make without overthinking them."
+        },
+        {
+          "phraseId": 19,
+          "startMs": 232052,
+          "endMs": 234202,
+          "text": "Notice the people around you."
+        },
+        {
+          "phraseId": 20,
+          "startMs": 252902,
+          "endMs": 254653,
+          "text": "How do they respond to you?"
+        },
+        {
+          "phraseId": 21,
+          "startMs": 268350,
+          "endMs": 270320,
+          "text": "How do you respond to them?"
+        },
+        {
+          "phraseId": 22,
+          "startMs": 284450,
+          "endMs": 291042,
+          "text": "And notice something important. This doesn’t feel extraordinary anymore. It feels familiar."
+        },
+        {
+          "phraseId": 23,
+          "startMs": 303015,
+          "endMs": 305485,
+          "text": "This is simply your life."
+        },
+        {
+          "phraseId": 24,
+          "startMs": 319699,
+          "endMs": 323970,
+          "text": "Now stop looking at what you have, and notice who you are."
+        },
+        {
+          "phraseId": 25,
+          "startMs": 327402,
+          "endMs": 330173,
+          "text": "Who did you have to become to arrive here?"
+        },
+        {
+          "phraseId": 26,
+          "startMs": 340928,
+          "endMs": 343939,
+          "text": "What no longer gets to decide your direction?"
+        },
+        {
+          "phraseId": 27,
+          "startMs": 350612,
+          "endMs": 354664,
+          "text": "What do you do consistently now that once required effort?"
+        },
+        {
+          "phraseId": 28,
+          "startMs": 361437,
+          "endMs": 364408,
+          "text": "Feel the difference in the way you carry yourself."
+        },
+        {
+          "phraseId": 29,
+          "startMs": 368790,
+          "endMs": 371741,
+          "text": "Not excitement. Something quieter."
+        },
+        {
+          "phraseId": 30,
+          "startMs": 376113,
+          "endMs": 377343,
+          "text": "Certainty."
+        },
+        {
+          "phraseId": 31,
+          "startMs": 385976,
+          "endMs": 389987,
+          "text": "The feeling of knowing who you are, and moving accordingly."
+        },
+        {
+          "phraseId": 32,
+          "startMs": 394479,
+          "endMs": 396750,
+          "text": "Let yourself feel that now."
+        },
+        {
+          "phraseId": 33,
+          "startMs": 411962,
+          "endMs": 413972,
+          "text": "Look around one more time."
+        },
+        {
+          "phraseId": 34,
+          "startMs": 417244,
+          "endMs": 424077,
+          "text": "Choose one detail from this life. Something small, something real. Hold it clearly."
+        },
+        {
+          "phraseId": 35,
+          "startMs": 428630,
+          "endMs": 431221,
+          "text": "Now notice the feeling underneath it."
+        },
+        {
+          "phraseId": 36,
+          "startMs": 434333,
+          "endMs": 439525,
+          "text": "Not the object, not the achievement, not the image. The feeling."
+        },
+        {
+          "phraseId": 37,
+          "startMs": 443878,
+          "endMs": 445988,
+          "text": "Where do you feel it in your body?"
+        },
+        {
+          "phraseId": 38,
+          "startMs": 456802,
+          "endMs": 458852,
+          "text": "Let it become stronger."
+        },
+        {
+          "phraseId": 39,
+          "startMs": 467466,
+          "endMs": 471838,
+          "text": "You don’t need to chase this moment. You need to recognize it."
+        },
+        {
+          "phraseId": 40,
+          "startMs": 475890,
+          "endMs": 480082,
+          "text": "Remember what it feels like to move as this version of yourself."
+        },
+        {
+          "phraseId": 41,
+          "startMs": 484614,
+          "endMs": 488406,
+          "text": "Now let the details begin to fall away."
+        },
+        {
+          "phraseId": 42,
+          "startMs": 492758,
+          "endMs": 493948,
+          "text": "The place."
+        },
+        {
+          "phraseId": 43,
+          "startMs": 496202,
+          "endMs": 497552,
+          "text": "The sounds."
+        },
+        {
+          "phraseId": 44,
+          "startMs": 499663,
+          "endMs": 500874,
+          "text": "The people."
+        },
+        {
+          "phraseId": 45,
+          "startMs": 502965,
+          "endMs": 504295,
+          "text": "The images."
+        },
+        {
+          "phraseId": 46,
+          "startMs": 507567,
+          "endMs": 509718,
+          "text": "You don’t need to hold on to them."
+        },
+        {
+          "phraseId": 47,
+          "startMs": 512290,
+          "endMs": 514501,
+          "text": "Keep only the feeling."
+        },
+        {
+          "phraseId": 48,
+          "startMs": 524696,
+          "endMs": 529828,
+          "text": "And as everything else becomes quiet, let your Anchor come into focus."
+        },
+        {
+          "phraseId": 49,
+          "startMs": 539426,
+          "endMs": 541017,
+          "text": "Don’t analyze it."
+        },
+        {
+          "phraseId": 50,
+          "startMs": 543548,
+          "endMs": 545338,
+          "text": "Don’t try to explain it."
+        },
+        {
+          "phraseId": 51,
+          "startMs": 547829,
+          "endMs": 549200,
+          "text": "Just look."
+        },
+        {
+          "phraseId": 52,
+          "startMs": 560934,
+          "endMs": 564385,
+          "text": "Let this image carry what you just experienced."
+        },
+        {
+          "phraseId": 53,
+          "startMs": 569617,
+          "endMs": 574049,
+          "text": "You don’t need to hold on to the Vision. You’ve already experienced it."
+        },
+        {
+          "phraseId": 54,
+          "startMs": 577182,
+          "endMs": 580974,
+          "text": "Take one slow breath in, and let it go."
+        },
+        {
+          "phraseId": 55,
+          "startMs": 584346,
+          "endMs": 589519,
+          "text": "Notice your body again. The surface beneath you, the space around you."
+        },
+        {
+          "phraseId": 56,
+          "startMs": 591751,
+          "endMs": 594242,
+          "text": "When you’re ready, open your eyes."
+        },
+        {
+          "phraseId": 57,
+          "startMs": 596414,
+          "endMs": 598084,
+          "text": "Carry the direction."
+        },
+        {
+          "phraseId": 58,
+          "startMs": 600056,
+          "endMs": 601686,
+          "text": "Release the picture."
+        },
+        {
+          "phraseId": 59,
+          "startMs": 603698,
+          "endMs": 604848,
+          "text": "And move."
+        }
+      ],
+      "anchorStartMs": 523696,
+      "sealAtMs": 527696,
+      "returnStartMs": 576182,
+      "cues": [
+        {
+          "phase": "mix",
+          "start": 0,
+          "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_Lina_10min15_V6.mp3",
+          "gain": 1,
+          "includesBed": true,
+          "duration": 615,
+          "availableSeconds": 615,
+          "exceedsCueWindow": false
+        }
+      ],
+      "ambientFile": null
+    }
+  ],
+  "assets": [
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_10s_Dominic_V6.mp3",
+      "sha256": "71b9c7523dadd1ed04538db7a80c60661aff989ec2d5e4e67378199b5b371e51",
+      "duration": 9.5,
+      "bytes": 153017,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_10s_Lina_V6.mp3",
+      "sha256": "bf12134dab28bbb3a5179f60f3d572185ed62472a007224786fdf8210d66dd1a",
+      "duration": 9.5,
+      "bytes": 153017,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-10s.mp3",
+      "sha256": "cae468b7859cc959928ed53f7cbe84f9cb365bf9ad43503368e8c6b284689114",
+      "duration": 3.761625,
+      "bytes": 95648,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-ambient.mp3",
+      "sha256": "8c1651d1b174f19e926f0c5a930e8f43d0322ae460815ef2ea2bb04603d09872",
+      "duration": 188.075102,
+      "bytes": 3010186,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-10s.mp3",
+      "sha256": "f73acca2a2ab5776cd3b1cb75395f4361b93c98f5f3f3102b6a9e66abe8a5ecb",
+      "duration": 4.911,
+      "bytes": 114142,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_30s_Dominic_V4.mp3",
+      "sha256": "195c73d38a67e4709173b2be200fab93eae4ff27878798c39c4f1008dc9eb82c",
+      "duration": 29.0261,
+      "bytes": 698453,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_30s_Lina_V4.mp3",
+      "sha256": "b073d022a0d33e316a43afe290cac683640d3a8258410ccb52beac8c2091aaff",
+      "duration": 28.877279,
+      "bytes": 694692,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-30s-start.mp3",
+      "sha256": "9af85076cbb89326691714138d6a0a45a839e78e02097c166612c082676e229f",
+      "duration": 8.306939,
+      "bytes": 133791,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-30s-end.mp3",
+      "sha256": "55e00ebb4efa4b4dfad693e9148dee4f7aefd132d3df15c904fe27e60619394f",
+      "duration": 6.2955,
+      "bytes": 136190,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-30s-start.mp3",
+      "sha256": "2618f55e3df4e93ffa769992ac40ff955bfdc4d65fbdaa4ac71ef5af50ead8ea",
+      "duration": 8.594286,
+      "bytes": 138388,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-30s-end.mp3",
+      "sha256": "820bf55d8754475214ed34369dd1c956d3ef74b3b6097e4824c12a3b1e2a0080",
+      "duration": 5.694688,
+      "bytes": 126681,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_60s_Dominic_V4.mp3",
+      "sha256": "34c2911ce3f2b4bcb352b6e383475faf06bc4a19f305731039e9235bd68aa4e0",
+      "duration": 58.786576,
+      "bytes": 1412537,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\Focus_60s_Lina_V4.mp3",
+      "sha256": "11cb16d0ab81f2602cf0a7201a4887b6d9c8518375b2e4bc771d77734ced2b37",
+      "duration": 58.582925,
+      "bytes": 1407521,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-60s-start.mp3",
+      "sha256": "856ad098e1449c8c272ed23f6aedb5fbf15d5ae24bd6657034dfa452cea9e8ad",
+      "duration": 7.967347,
+      "bytes": 128357,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-60s-middle.mp3",
+      "sha256": "476c06d43215f8f4c1a8cedef42d7cce09c0b95861ee485910f57316cb7e2231",
+      "duration": 4.832653,
+      "bytes": 78202,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-session-60s-end.mp3",
+      "sha256": "f5b30cec7012f9baae0b79cb6f5ff8eb8626bc4e3028ecadbceb4ce04506bb9d",
+      "duration": 5.982041,
+      "bytes": 96592,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-60s-start.mp3",
+      "sha256": "2618f55e3df4e93ffa769992ac40ff955bfdc4d65fbdaa4ac71ef5af50ead8ea",
+      "duration": 8.594286,
+      "bytes": 138388,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-60s-middle.mp3",
+      "sha256": "e983462a3336e14e543c642d6dd85b37fd569858b0d8c9d73312bb17fc810ad1",
+      "duration": 5.459592,
+      "bytes": 88233,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\focus-session-60s-end.mp3",
+      "sha256": "c630097a545ddba006dd8ac0b24250d693e6b38afc3dbbd283e7a243f9e9d4df",
+      "duration": 5.694694,
+      "bytes": 91995,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_2min_Dominic_V5.mp3",
+      "sha256": "9759ded3b9b1665bb19dc78e812cfbfe82aa0c984f6606e31f2344feea4e4a78",
+      "duration": 120,
+      "bytes": 2881454,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_2min_Lina_V5.mp3",
+      "sha256": "3d2fe3004de3091485781d6128657bbad9c47eb1bf19b09156ad65aa7902b48b",
+      "duration": 120,
+      "bytes": 2881454,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-opening.mp3",
+      "sha256": "d09270933412f4fd1ad628b9527db22d596b54bdb24abc91bfc614f530b918d3",
+      "duration": 10.109375,
+      "bytes": 197212,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-intention.mp3",
+      "sha256": "5ef6ce73c2c93224ee580119b4cc01b1408bf560aa35469dbb09276ab7b54bff",
+      "duration": 8.38525,
+      "bytes": 169626,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-deepening.mp3",
+      "sha256": "8be510f814acbe301aac9bc074dd7bc0f6090cd3cae53147297841ce53b25903",
+      "duration": 9.456313,
+      "bytes": 186763,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-2m-closing.mp3",
+      "sha256": "7d6209e22655187094c18039108a36a0e13cfa58506675ea3ffe943a39be958d",
+      "duration": 5.459563,
+      "bytes": 122815,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\audio-remote\\session-audio\\deep-prime-ambient.748fa915.mp3",
+      "sha256": "748fa915c0c4e7980c5141c1c44189d229bdc4270125895d05d3e40fec5bdff6",
+      "duration": 932.225306,
+      "bytes": 14916589,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-opening.mp3",
+      "sha256": "8984270c819d20cc810960157e78a06b9b066c23663d01666803086452f9a593",
+      "duration": 10.814688,
+      "bytes": 208601,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-intention.mp3",
+      "sha256": "b64bb5f4f7f6688f566f91056ef9d806c5e7f93918e3d5b352babbfa995f5028",
+      "duration": 8.124063,
+      "bytes": 165551,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-deepening.mp3",
+      "sha256": "eee5e3e010eae5bf42f1b0de018a140255856bf1ecc0b292c078004e2ccb3cf2",
+      "duration": 7.601625,
+      "bytes": 157192,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-2m-closing.mp3",
+      "sha256": "64acde3bb4690133f7f841a6471af910d5a86e202424dde3a1acf340bec2249d",
+      "duration": 5.433438,
+      "bytes": 122501,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_5min_Dominic_V5.mp3",
+      "sha256": "b8716b37228848a5c19362ee28aa8d4ab1584a8bb0da3f270920bc1db0d2d81d",
+      "duration": 300,
+      "bytes": 7201689,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_5min_Lina_V5.mp3",
+      "sha256": "1970beace6b426f4f67302fbe460167d7d58cb5599c19db146baa7b2f86ff3f2",
+      "duration": 300,
+      "bytes": 7201689,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-opening.mp3",
+      "sha256": "2426881292b05d68598ba3f49714a3d11abc72753ac1b320799e474dff1f2af1",
+      "duration": 8.306938,
+      "bytes": 168373,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-intention.mp3",
+      "sha256": "00d6776248c2bd6e6de671d07fa543dcb8d96af4358fcd22f57b7636fa602311",
+      "duration": 8.38525,
+      "bytes": 169626,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-deepening.mp3",
+      "sha256": "8be510f814acbe301aac9bc074dd7bc0f6090cd3cae53147297841ce53b25903",
+      "duration": 9.456313,
+      "bytes": 186763,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-return.mp3",
+      "sha256": "267eab19a006d7eb13ce25e4862474e6e435d2c21449d1441478216bb92b8cb4",
+      "duration": 6.582813,
+      "bytes": 140787,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-reinforcement.mp3",
+      "sha256": "3bfcf0ccb4998ab86bb85f90fb1652d4c849e61be1fcc0a8ba7e2ad6f8cf404c",
+      "duration": 5.328938,
+      "bytes": 120725,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-5m-closing.mp3",
+      "sha256": "b59043efc77cd848d8382192820c0cbce60e746b47013a996f12b3aaffad5ec0",
+      "duration": 6.2955,
+      "bytes": 136190,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-opening.mp3",
+      "sha256": "8984270c819d20cc810960157e78a06b9b066c23663d01666803086452f9a593",
+      "duration": 10.814688,
+      "bytes": 208601,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-intention.mp3",
+      "sha256": "b64bb5f4f7f6688f566f91056ef9d806c5e7f93918e3d5b352babbfa995f5028",
+      "duration": 8.124063,
+      "bytes": 165551,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-deepening.mp3",
+      "sha256": "eee5e3e010eae5bf42f1b0de018a140255856bf1ecc0b292c078004e2ccb3cf2",
+      "duration": 7.601625,
+      "bytes": 157192,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-return.mp3",
+      "sha256": "9db6c591ab94b8b0c80e6c0852c5024a79936f4007cbb55281fb5099a7fd594f",
+      "duration": 7.235875,
+      "bytes": 151340,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-reinforcement.mp3",
+      "sha256": "3f7c39bee3e87464f5fe4a50d0e7798ef476a968fda87e7b4b56c7d37add8c9a",
+      "duration": 5.564063,
+      "bytes": 124591,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-5m-closing.mp3",
+      "sha256": "820bf55d8754475214ed34369dd1c956d3ef74b3b6097e4824c12a3b1e2a0080",
+      "duration": 5.694688,
+      "bytes": 126681,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_10min_Dominic_V5.mp3",
+      "sha256": "b7575c2be26ff8546297d0276359caf00ae4b839a02d76c4e64f03fb3878f66c",
+      "duration": 600,
+      "bytes": 14401454,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\focus-mix\\DeepFocus_10min_Lina_V5.mp3",
+      "sha256": "845d835d024885e1791934574c5bb3ca51ad47ff241c06dde00010c55899fe65",
+      "duration": 600,
+      "bytes": 14401454,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-opening.mp3",
+      "sha256": "2426881292b05d68598ba3f49714a3d11abc72753ac1b320799e474dff1f2af1",
+      "duration": 8.306938,
+      "bytes": 168373,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-intention.mp3",
+      "sha256": "00d6776248c2bd6e6de671d07fa543dcb8d96af4358fcd22f57b7636fa602311",
+      "duration": 8.38525,
+      "bytes": 169626,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-deepening.mp3",
+      "sha256": "8be510f814acbe301aac9bc074dd7bc0f6090cd3cae53147297841ce53b25903",
+      "duration": 9.456313,
+      "bytes": 186763,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-return.mp3",
+      "sha256": "267eab19a006d7eb13ce25e4862474e6e435d2c21449d1441478216bb92b8cb4",
+      "duration": 6.582813,
+      "bytes": 140787,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-reinforcement.mp3",
+      "sha256": "3bfcf0ccb4998ab86bb85f90fb1652d4c849e61be1fcc0a8ba7e2ad6f8cf404c",
+      "duration": 5.328938,
+      "bytes": 120725,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-visualization.mp3",
+      "sha256": "f2895b7b5877ec40c5da6adf72f07eb7b5f89d17318d115c2a74a586a014d541",
+      "duration": 9.795875,
+      "bytes": 192196,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-settling.mp3",
+      "sha256": "06c4d2683c44d93e9c7c7d091edae92d114fd560170547190cad65c54b285776",
+      "duration": 5.041625,
+      "bytes": 116128,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\deep-prime-10m-closing.mp3",
+      "sha256": "b59043efc77cd848d8382192820c0cbce60e746b47013a996f12b3aaffad5ec0",
+      "duration": 6.2955,
+      "bytes": 136190,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-opening.mp3",
+      "sha256": "8984270c819d20cc810960157e78a06b9b066c23663d01666803086452f9a593",
+      "duration": 10.814688,
+      "bytes": 208601,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-intention.mp3",
+      "sha256": "b64bb5f4f7f6688f566f91056ef9d806c5e7f93918e3d5b352babbfa995f5028",
+      "duration": 8.124063,
+      "bytes": 165551,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-deepening.mp3",
+      "sha256": "eee5e3e010eae5bf42f1b0de018a140255856bf1ecc0b292c078004e2ccb3cf2",
+      "duration": 7.601625,
+      "bytes": 157192,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-return.mp3",
+      "sha256": "9db6c591ab94b8b0c80e6c0852c5024a79936f4007cbb55281fb5099a7fd594f",
+      "duration": 7.235875,
+      "bytes": 151340,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-reinforcement.mp3",
+      "sha256": "3f7c39bee3e87464f5fe4a50d0e7798ef476a968fda87e7b4b56c7d37add8c9a",
+      "duration": 5.564063,
+      "bytes": 124591,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-visualization.mp3",
+      "sha256": "31e834e3c4996a956e2e57fa50e596944a07b90796b164853403b3edcaec16ad",
+      "duration": 8.359125,
+      "bytes": 169312,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-settling.mp3",
+      "sha256": "0143dbd44fa31db76b33d2b6288efe929a3440af82789ead10eebf90f017d34b",
+      "duration": 5.146063,
+      "bytes": 117903,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\voices\\male\\en-US\\deep-prime-10m-closing.mp3",
+      "sha256": "820bf55d8754475214ed34369dd1c956d3ef74b3b6097e4824c12a3b1e2a0080",
+      "duration": 5.694688,
+      "bytes": 126681,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 1
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Glimpse_Dominic_V6.mp3",
+      "sha256": "77028ecf87813eed51c8383786defdf1bc69611ecc566e7855dd9dddbd9703d8",
+      "duration": 65.245397,
+      "bytes": 1567391,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Glimpse_Lina_V4.mp3",
+      "sha256": "10cb46efa5f7da8d016dea5a658fd78f751465419ad66d2c14a4f8c50e92f39d",
+      "duration": 65.119773,
+      "bytes": 1564256,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Dominic_3min_V6.mp3",
+      "sha256": "f3c2b19e378985b9ff534ad0cc4fbdf24920167176075c46e1e40cf45b024899",
+      "duration": 200,
+      "bytes": 4801768,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Anchor_Immerse_Lina_3min_V6.mp3",
+      "sha256": "9824e8cff8e347cb8548be5de91ffd6c7784204f06dd3c5c2593189438afb58d",
+      "duration": 200,
+      "bytes": 4801768,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_10min15_V6.mp3",
+      "sha256": "9bfc8cf577ff25b6830127e3a5f7a5ddc6ae1b8a294eb218f7b88e777359ce38",
+      "duration": 615,
+      "bytes": 14761317,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    },
+    {
+      "file": "E:\\Projects\\Anchor\\anchor\\mobile\\src\\assets\\sounds\\visualize\\guided\\Embody_Final_Lina_10min15_V6.mp3",
+      "sha256": "fcb3baeb79afae8ffcd73b21d981db5a659f3dcb18717dd202b9a822fab8c32a",
+      "duration": 615,
+      "bytes": 14761317,
+      "streams": [
+        {
+          "sample_rate": "44100",
+          "channels": 2
+        }
+      ],
+      "decodeOk": true,
+      "decodeErrors": ""
+    }
+  ]
+}

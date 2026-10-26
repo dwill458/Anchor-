@@ -1,0 +1,68 @@
+[
+  {
+    "id": "audio-deep_prime-120-male-ambient",
+    "file": "DeepFocus_2min_Dominic_V5.mp3",
+    "sha256": "9759ded3b9b1665bb19dc78e812cfbfe82aa0c984f6606e31f2344feea4e4a78",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-deep_prime-120-female-ambient",
+    "file": "DeepFocus_2min_Lina_V5.mp3",
+    "sha256": "3d2fe3004de3091485781d6128657bbad9c47eb1bf19b09156ad65aa7902b48b",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-deep_prime-300-male-ambient",
+    "file": "DeepFocus_5min_Dominic_V5.mp3",
+    "sha256": "b8716b37228848a5c19362ee28aa8d4ab1584a8bb0da3f270920bc1db0d2d81d",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-deep_prime-300-female-ambient",
+    "file": "DeepFocus_5min_Lina_V5.mp3",
+    "sha256": "1970beace6b426f4f67302fbe460167d7d58cb5599c19db146baa7b2f86ff3f2",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-deep_prime-600-male-ambient",
+    "file": "DeepFocus_10min_Dominic_V5.mp3",
+    "sha256": "b7575c2be26ff8546297d0276359caf00ae4b839a02d76c4e64f03fb3878f66c",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-deep_prime-600-female-ambient",
+    "file": "DeepFocus_10min_Lina_V5.mp3",
+    "sha256": "845d835d024885e1791934574c5bb3ca51ad47ff241c06dde00010c55899fe65",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-visualize-60-male-ambient",
+    "file": "Anchor_Glimpse_Dominic_V6.mp3",
+    "sha256": "77028ecf87813eed51c8383786defdf1bc69611ecc566e7855dd9dddbd9703d8",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-visualize-180-male-ambient",
+    "file": "Anchor_Immerse_Dominic_3min_V6.mp3",
+    "sha256": "f3c2b19e378985b9ff534ad0cc4fbdf24920167176075c46e1e40cf45b024899",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-visualize-180-female-ambient",
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "sha256": "9824e8cff8e347cb8548be5de91ffd6c7784204f06dd3c5c2593189438afb58d",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-visualize-600-male-ambient",
+    "file": "Embody_Final_10min15_V6.mp3",
+    "sha256": "9bfc8cf577ff25b6830127e3a5f7a5ddc6ae1b8a294eb218f7b88e777359ce38",
+    "exportedHashMatches": true
+  },
+  {
+    "id": "audio-visualize-600-female-ambient",
+    "file": "Embody_Final_Lina_10min15_V6.mp3",
+    "sha256": "fcb3baeb79afae8ffcd73b21d981db5a659f3dcb18717dd202b9a822fab8c32a",
+    "exportedHashMatches": true
+  }
+]

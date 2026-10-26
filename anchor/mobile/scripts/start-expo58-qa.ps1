@@ -1,9 +1,12 @@
+param([switch]$OwnerPilot)
+
 $ErrorActionPreference = 'Stop'
 
 $mobileRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$expectedPackage = 'com.anchorintentions.sqlcipherpreview20261015'
-$expectedRuntime = '2.0-sqlcipher-v2-realdata-qa'
+$expectedPackage = if ($OwnerPilot) { 'com.anchorintentions.app' } else { 'com.anchorintentions.sqlcipherpreview20261015' }
+$expectedRuntime = if ($OwnerPilot) { '2.0-sqlcipher-v1-owner-pilot' } else { '2.0-sqlcipher-v2-realdata-qa' }
 $expectedApi = 'https://anchor-production-26bf.up.railway.app'
+$expectedScheme = if ($OwnerPilot) { 'anchor' } else { 'anchor-sqlcipher-qa' }
 
 Set-Location -LiteralPath $mobileRoot
 
@@ -20,14 +23,15 @@ if ($package.dependencies.expo -notmatch '^\^?58\.') {
   throw "package.json does not declare Expo SDK 58 (found '$($package.dependencies.expo)')."
 }
 
-# Always select the real-account owner QA profile. The similarly named
-# ANCHOR_EXPO58_QA profile is synthetic and uses a placeholder backend.
+# The owner pilot uses the production package and an isolated native runtime.
+# Keep migration activation off for Metro, matching the owner-pilot EAS profile.
 $env:ANCHOR_EXPO58_QA = $null
-$env:ANCHOR_SQLCIPHER_PRODUCTION_QA = '1'
-$env:ANCHOR_SQLCIPHER_OWNER_PILOT = $null
-$env:ANCHOR_SQLCIPHER_OWNER_PILOT_ACTIVATE = $null
+$env:ANCHOR_SQLCIPHER_PRODUCTION_QA = if ($OwnerPilot) { $null } else { '1' }
+$env:ANCHOR_SQLCIPHER_OWNER_PILOT = if ($OwnerPilot) { '1' } else { $null }
+$env:ANCHOR_SQLCIPHER_OWNER_PILOT_ACTIVATE = if ($OwnerPilot) { '0' } else { $null }
 $env:ANCHOR_SQLCIPHER_PREVIEW = $null
 $env:ANCHOR_SQLCIPHER_LAB = $null
+if ($OwnerPilot) { $env:EXPO_PUBLIC_APP_ENV = 'production' }
 
 if ($env:EXPO_PUBLIC_API_URL -and $env:EXPO_PUBLIC_API_URL -match '\.invalid') {
   throw "EXPO_PUBLIC_API_URL points to a synthetic/invalid backend: $env:EXPO_PUBLIC_API_URL"
@@ -45,7 +49,11 @@ $config = ($configOutput -join "`n") | ConvertFrom-Json
 if ($config.android.package -ne $expectedPackage -or $config.runtimeVersion -ne $expectedRuntime) {
   throw "Expo config mismatch. Expected $expectedPackage / $expectedRuntime; got $($config.android.package) / $($config.runtimeVersion)."
 }
-if ($config.extra.sqlCipherLab -ne $true -or $config.extra.sqlCipherOwnerPilot -ne $false) {
+if ($OwnerPilot) {
+  if ($config.extra.sqlCipherOwnerPilot -ne $true -or $config.extra.sqlCipherOwnerPilotMigrationEnabled -ne $false -or $config.extra.sqlCipherLab -eq $true) {
+    throw 'Expo runtime config does not match the inactive SQLCipher owner pilot profile.'
+  }
+} elseif ($config.extra.sqlCipherLab -ne $true -or $config.extra.sqlCipherOwnerPilot -ne $false) {
   throw 'Expo runtime config does not enable the isolated SQLCipher storage cohort.'
 }
 $sqlitePlugin = $config.plugins | Where-Object { $_ -is [array] -and $_[0] -eq 'expo-sqlite' } | Select-Object -First 1
@@ -78,11 +86,16 @@ if ($listeners.Count -gt 0) {
 
 Write-Host "Expo SDK: $expoVersion"
 Write-Host "Worktree: $mobileRoot"
+Write-Host "Profile: $(if ($OwnerPilot) { 'SQLCipher owner pilot' } else { 'SQLCipher owner QA' })"
 Write-Host "Runtime: $expectedRuntime"
 Write-Host "Android package: $expectedPackage"
 Write-Host "API: $expectedApi"
-Write-Host 'Storage: SQLCipher (expo-sqlite useSQLCipher=true; sqlCipherLab cohort gate enabled)'
+if ($OwnerPilot) {
+  Write-Host 'Storage: SQLCipher owner pilot (migration activation disabled)'
+} else {
+  Write-Host 'Storage: SQLCipher (expo-sqlite useSQLCipher=true; sqlCipherLab cohort gate enabled)'
+}
 Write-Host 'The installed dev client must be this package and runtime. This script never installs, clears, or uninstalls an app.'
 
-& npx expo start --dev-client --clear --scheme anchor-sqlcipher-qa --host lan --port 8081
+& npx expo start --dev-client --clear --scheme $expectedScheme --host lan --port 8081
 exit $LASTEXITCODE

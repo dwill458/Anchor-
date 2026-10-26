@@ -68,8 +68,6 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
   const hasActiveAnchor = useAnchorStore((state) =>
     state.anchors.some((anchor) => !anchor.isReleased && !anchor.archivedAt)
   );
-  const developerPreviewToken = useSettingsStore((state) => state.developerWeeklySummaryPreviewToken);
-  const clearDeveloperPreview = useSettingsStore((state) => state.clearDeveloperWeeklySummaryPreview);
   const [dismissedWeekKey, setDismissedWeekKey] = useState<string | null>(null);
   const [hasLoadedDismissalState, setHasLoadedDismissalState] = useState(false);
   const [autoOpenPending, setAutoOpenPending] = useState(false);
@@ -129,20 +127,15 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
   }, [currentWeekKey]);
 
   const dismiss = useCallback(() => {
-    clearDeveloperPreview();
     setAutoOpenPending(false);
     setDismissedWeekKey(currentWeekKey);
     void AsyncStorage.setItem(DISMISSED_WEEK_KEY, currentWeekKey);
-  }, [clearDeveloperPreview, currentWeekKey]);
+  }, [currentWeekKey]);
 
   const shouldShow = useMemo(() => {
     const settings = useSettingsStore.getState();
-    if (!settings.weeklySummaryEnabled && developerPreviewToken === 0) {
+    if (!settings.weeklySummaryEnabled) {
       return false;
-    }
-
-    if (developerPreviewToken > 0) {
-      return true;
     }
 
     if (!hasLoadedDismissalState) {
@@ -173,7 +166,6 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
   }, [
     autoOpenPending,
     currentWeekKey,
-    developerPreviewToken,
     dismissedWeekKey,
     hasActiveAnchor,
     hasLoadedDismissalState,
@@ -181,7 +173,7 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
   ]);
 
   useEffect(() => {
-    if (!shouldShow || developerPreviewToken > 0) {
+    if (!shouldShow) {
       return;
     }
 
@@ -193,7 +185,7 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
       openedTrackedWeek: true,
     };
     void AsyncStorage.setItem(REVIEW_STREAK_KEY, JSON.stringify(openedState));
-  }, [currentWeekKey, developerPreviewToken, shouldShow]);
+  }, [currentWeekKey, shouldShow]);
 
   return {
     shouldShow,

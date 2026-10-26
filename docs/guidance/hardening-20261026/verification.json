@@ -1,0 +1,106 @@
+{
+  "scope": "Final frozen hardening files in shared dirty checkout; not pristine clean-checkout or native acceptance.",
+  "head": "1e2bf6c6433e258bd9cf03b75c1ba5ecf11a0546",
+  "fullJest": {
+    "numTotalTestSuites": 681,
+    "numPassedTestSuites": 678,
+    "numFailedTestSuites": 3,
+    "numTotalTests": 7771,
+    "numPassedTests": 7767,
+    "numFailedTests": 3,
+    "numPendingTests": 1,
+    "snapshot": {
+      "added": 0,
+      "didUpdate": false,
+      "failure": false,
+      "filesAdded": 0,
+      "filesRemoved": 0,
+      "filesRemovedList": [],
+      "filesUnmatched": 0,
+      "filesUpdated": 0,
+      "matched": 16,
+      "total": 16,
+      "unchecked": 0,
+      "uncheckedKeysByFile": [],
+      "unmatched": 0,
+      "updated": 0
+    }
+  },
+  "fullJestDurationSeconds": 566.763,
+  "focused": {
+    "numTotalTestSuites": 13,
+    "numPassedTestSuites": 13,
+    "numFailedTestSuites": 0,
+    "numTotalTests": 192,
+    "numPassedTests": 192,
+    "numFailedTests": 0,
+    "numPendingTests": 0,
+    "snapshot": {
+      "added": 0,
+      "didUpdate": false,
+      "failure": false,
+      "filesAdded": 0,
+      "filesRemoved": 0,
+      "filesRemovedList": [],
+      "filesUnmatched": 0,
+      "filesUpdated": 0,
+      "matched": 0,
+      "total": 0,
+      "unchecked": 0,
+      "uncheckedKeysByFile": [],
+      "unmatched": 0,
+      "updated": 0
+    }
+  },
+  "baseline": {
+    "numTotalTestSuites": 3,
+    "numPassedTestSuites": 0,
+    "numFailedTestSuites": 3,
+    "numTotalTests": 56,
+    "numPassedTests": 53,
+    "numFailedTests": 3,
+    "numPendingTests": 0,
+    "snapshot": {
+      "added": 0,
+      "didUpdate": false,
+      "failure": false,
+      "filesAdded": 0,
+      "filesRemoved": 0,
+      "filesRemovedList": [],
+      "filesUnmatched": 0,
+      "filesUpdated": 0,
+      "matched": 0,
+      "total": 0,
+      "unchecked": 0,
+      "uncheckedKeysByFile": [],
+      "unmatched": 0,
+      "updated": 0
+    }
+  },
+  "failedTests": [
+    {
+      "file": "src/screens/v2/chart/__tests__/V2ChartFlows.test.tsx",
+      "test": "Waypoint detail asks before completing a waypoint, uses one stable key, and reverses into the shared Chart"
+    },
+    {
+      "file": "src/screens/v2/chart/__tests__/V2ChartAskScreen.test.tsx",
+      "test": "V2ChartAskScreen does not seed into a conversation that already has messages"
+    },
+    {
+      "file": "src/screens/v2/chart/__tests__/V2ChartScreen.test.tsx",
+      "test": "V2ChartScreen \u2014 no Chart shows the existing opening, then Continue goes straight into the cream Ask Chart conversation"
+    }
+  ],
+  "sameFailedTestsAsReconstructedBaseline": true,
+  "typescriptExitCode": 0,
+  "boundaryExitCode": 1,
+  "boundaryFlaggedFiles": 39,
+  "finalSourceChangedDuringSweep": [],
+  "testPolicy": "No tests disabled; one existing skipped test retained.",
+  "fullJestCommand": "npm.cmd test -- --maxWorkers=2 --workerIdleMemoryLimit=768MB --silent --json --outputFile=../../docs/guidance/hardening-20261026/full-jest-final.json",
+  "focusedCommand": "npm.cmd test -- --runInBand guidanceMeasurementRecovery useGuidanceHostMeasurement guidanceCoordinator guidanceRecords guidanceRuntime SpotlightCoach ScreenTeaching ChartOneMoveTeaching ChartActiveView V2HomeScreen useTeachingQueue ChartSheetContent --silent --json --outputFile=../../docs/guidance/hardening-20261026/focused-final.json",
+  "typescriptCommand": "node node_modules/typescript/bin/tsc --noEmit --pretty false",
+  "boundaryCommand": "npm.cmd run test:v2-boundary",
+  "reviewPatchCheck": "git apply --reverse --check --ignore-whitespace docs/guidance/hardening-20261026/hardening-only.patch; exit 0 (Windows line endings require whitespace normalization)",
+  "rawFullResultsSha256": "fad796a97d489ab859f72fe90a4e296157494d2234839edd37d7e15e3b55cd40"
+}

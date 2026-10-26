@@ -1,6 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
-import { ArrowUp } from 'lucide-react-native';
+import { ArrowUp, Square } from 'lucide-react-native';
+import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { AnimatedPressable, usePressScale } from '@/components/v2/motion';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
@@ -27,20 +28,28 @@ type Props = {
   placeholder?: string;
   editable?: boolean;
   testID?: string;
+  busy?: boolean;
+  onStop?: () => void;
+  reducedMotion?: boolean;
 };
 
 /**
  * The floating composer. It never changes height until the text needs a second line, never disappears under the
  * keyboard (the parent lifts it), and its send control answers the touch immediately.
  */
-export const AskComposer = memo(function AskComposer({ value, onChangeText, onSend, accent, leading, trailing, canSendEmpty = false, blocked = false, placeholder, editable = true, testID }: Props) {
+export const AskComposer = memo(function AskComposer({ value, onChangeText, onSend, accent, leading, trailing, canSendEmpty = false, blocked = false, placeholder, editable = true, testID, busy = false, onStop, reducedMotion = false }: Props) {
   const press = usePressScale();
   const ready = (value.trim().length > 0 || canSendEmpty) && editable && !blocked;
   const send = useCallback(() => {
+    if (busy) {
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+      onStop?.();
+      return;
+    }
     if (!ready) return;
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     onSend();
-  }, [onSend, ready]);
+  }, [busy, onStop, onSend, ready]);
   return (
     <View style={styles.row} testID={testID ?? 'ask-composer'}>
       {leading}
@@ -64,16 +73,18 @@ export const AskComposer = memo(function AskComposer({ value, onChangeText, onSe
       </View>
       <AnimatedPressable
         accessibilityRole="button"
-        accessibilityLabel={COPY.send}
-        accessibilityState={{ disabled: !ready }}
-        disabled={!ready}
+        accessibilityLabel={busy ? COPY.stop : COPY.send}
+        accessibilityState={{ disabled: !busy && !ready }}
+        disabled={!busy && !ready}
         onPress={send}
         onPressIn={press.onPressIn}
         onPressOut={press.onPressOut}
-        style={[styles.send, { backgroundColor: accent.fill, opacity: ready ? 1 : 0.38 }, press.style]}
-        testID="ask-send"
+        style={[styles.send, { backgroundColor: accent.fill, opacity: busy || ready ? 1 : 0.38 }, press.style]}
+        testID={busy ? 'ask-stop' : 'ask-send'}
       >
-        <ArrowUp size={20} color={accent.onFill} strokeWidth={2.4} />
+        <Animated.View key={busy ? 'stop' : 'send'} entering={reducedMotion ? undefined : FadeIn.duration(140).reduceMotion(ReduceMotion.Never)} exiting={reducedMotion ? undefined : FadeOut.duration(140).reduceMotion(ReduceMotion.Never)}>
+          {busy ? <Square size={16} color={accent.onFill} fill={accent.onFill} /> : <ArrowUp size={20} color={accent.onFill} strokeWidth={2.4} />}
+        </Animated.View>
       </AnimatedPressable>
     </View>
   );

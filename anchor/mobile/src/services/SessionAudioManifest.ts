@@ -99,12 +99,14 @@ const focusMix30Lina = require('../assets/sounds/focus-mix/Focus_30s_Lina_V4.mp3
 const focusMix30Dominic = require('../assets/sounds/focus-mix/Focus_30s_Dominic_V4.mp3');
 const focusMix60Lina = require('../assets/sounds/focus-mix/Focus_60s_Lina_V4.mp3');
 const focusMix60Dominic = require('../assets/sounds/focus-mix/Focus_60s_Dominic_V4.mp3');
-const deepMix2Lina = require('../assets/sounds/focus-mix/DeepFocus_2min_Lina.mp3');
-const deepMix2Dominic = require('../assets/sounds/focus-mix/DeepFocus_2min_Dominic.mp3');
-const deepMix5Lina = require('../assets/sounds/focus-mix/DeepFocus_5min_Lina.mp3');
-const deepMix5Dominic = require('../assets/sounds/focus-mix/DeepFocus_5min_Dominic.mp3');
-const deepMix10Lina = require('../assets/sounds/focus-mix/DeepFocus_10min_Lina.mp3');
-const deepMix10Dominic = require('../assets/sounds/focus-mix/DeepFocus_10min_Dominic.mp3');
+const deepMix2Lina = require('../assets/sounds/focus-mix/DeepFocus_2min_Lina_V5.mp3');
+const deepMix2Dominic = require('../assets/sounds/focus-mix/DeepFocus_2min_Dominic_V5.mp3');
+const deepMix5Lina = require('../assets/sounds/focus-mix/DeepFocus_5min_Lina_V5.mp3');
+const deepMix5Dominic = require('../assets/sounds/focus-mix/DeepFocus_5min_Dominic_V5.mp3');
+// V5 distributes the original spoken clauses across the session and rejoins
+// sentences split by long silences in the supplied ten-minute masters.
+const deepMix10Lina = require('../assets/sounds/focus-mix/DeepFocus_10min_Lina_V5.mp3');
+const deepMix10Dominic = require('../assets/sounds/focus-mix/DeepFocus_10min_Dominic_V5.mp3');
 
 /** Phase id of the single full-length cue on a finished-mix session. */
 export const FULL_MIX_PHASE_ID = 'mix';
@@ -322,6 +324,7 @@ const mixTrack = (
   durationSeconds: number,
   voice: Exclude<GuidanceVoice, 'none'>,
   asset: AudioAssetReference,
+  version = 2,
 ): GuidedAudioTrack => ({
   sessionType,
   durationSeconds,
@@ -331,7 +334,7 @@ const mixTrack = (
   asset,
   playbackGain: 1,
   includesBed: true,
-  version: 2,
+  version,
 });
 
 export const GUIDED_AUDIO_MANIFEST: readonly GuidedAudioTrack[] = [
@@ -341,12 +344,12 @@ export const GUIDED_AUDIO_MANIFEST: readonly GuidedAudioTrack[] = [
   mixTrack('focus', 30, 'male', focusMix30Dominic),
   mixTrack('focus', 60, 'female', focusMix60Lina),
   mixTrack('focus', 60, 'male', focusMix60Dominic),
-  mixTrack('deep_prime', 120, 'female', deepMix2Lina),
-  mixTrack('deep_prime', 120, 'male', deepMix2Dominic),
-  mixTrack('deep_prime', 300, 'female', deepMix5Lina),
-  mixTrack('deep_prime', 300, 'male', deepMix5Dominic),
-  mixTrack('deep_prime', 600, 'female', deepMix10Lina),
-  mixTrack('deep_prime', 600, 'male', deepMix10Dominic),
+  mixTrack('deep_prime', 120, 'female', deepMix2Lina, 5),
+  mixTrack('deep_prime', 120, 'male', deepMix2Dominic, 5),
+  mixTrack('deep_prime', 300, 'female', deepMix5Lina, 5),
+  mixTrack('deep_prime', 300, 'male', deepMix5Dominic, 5),
+  mixTrack('deep_prime', 600, 'female', deepMix10Lina, 5),
+  mixTrack('deep_prime', 600, 'male', deepMix10Dominic, 5),
   femaleTrack('focus', 90, 'start', focus60Start),
   femaleTrack('focus', 90, 'middle', focus60Middle),
   femaleTrack('focus', 90, 'end', focus60End),

@@ -1,8 +1,8 @@
 import { apiClient, ApiClientError } from '@/services/ApiClient';
-import type { CourseDetail, CourseSummary, WaypointKind, WaypointProgressMode } from '@/types/chart';
+import type { CompleteWaypointRequest, CompleteWaypointResponse, CourseDetail, CourseSummary, WaypointKind, WaypointProgressMode } from '@/types/chart';
 
 /**
- * Anchor 2.0 Chart endpoints (/api/v2). Waypoint completion, edits, reorder
+ * Anchor 2.0 Chart endpoints (/api/v2). Waypoint edits, reorder
  * and removal stay on the canonical /api/courses client (ChartApiClient).
  */
 
@@ -261,6 +261,10 @@ export const chartV2Api = {
 
   completeMove(courseId: string, moveId: string): Promise<MoveCompletionResult> {
     return call(() => apiClient.post(`/api/v2/charts/${enc(courseId)}/moves/${enc(moveId)}/complete`));
+  },
+
+  completeWaypoint(courseId: string, waypointId: string, input: Pick<CompleteWaypointRequest, 'idempotencyKey' | 'expectedCourseVersion'>): Promise<CompleteWaypointResponse & { chart: CourseDetail }> {
+    return call(() => apiClient.post(`/api/v2/charts/${enc(courseId)}/waypoints/${enc(waypointId)}/complete`, input));
   },
 
   dismissMove(courseId: string, moveId: string): Promise<CourseDetail> {

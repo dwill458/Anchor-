@@ -1,0 +1,14 @@
+{
+  "src/stores/v2/guidanceCoordinator.ts": "47bc1826010a35eb5a2b30a3806088e7cd34caecc191b01b2393aa1879e68094",
+  "src/hooks/v2/guidance/useGuidanceHost.ts": "d891dc544ac7e5c705b673c353c2a5b553ca5391facc83b5fca11ae0c8a4cad4",
+  "src/hooks/v2/teaching/useTeachingQueue.ts": "06e66f8dcc8a144de86aeeac57c85fa9b7cde570d0b15e1fd944b6549d8826ad",
+  "src/components/v2/chart/ChartActiveView.tsx": "d2895a656772656b30511e10423e9ff4de4f9dedc41ddc5ab7781440a2610f27",
+  "src/components/v2/chart/sheet/ChartOneMoveTeaching.tsx": "edad06bf848ee0eedf916e735bd88acc7a5fabe8f94bb73c2c831e6aa1091cb8",
+  "src/components/v2/chart/sheet/ChartSheetContent.tsx": "50bd13776260469d66edf897852cd7a0bac55949b2c1b8a4dbecea2c2985dc6e",
+  "src/components/v2/teaching/SpotlightCoach.tsx": "b52d10cd3691a98e31d6abea2baea32fffb04af495b91f86b5268a87e7661e1f",
+  "src/screens/v2/home/V2HomeScreen.tsx": "945cb8a0ea3cd05060a140175f3f46624b5ac1f15b2cdd785f65ead871b5d326",
+  "src/components/v2/teaching/__tests__/SpotlightCoach.test.tsx": "7f23c1f505b275b51ca34aab275bf4706da5ccd3b8c5fd5a4e375beaeaa2135b",
+  "src/components/v2/chart/sheet/__tests__/ChartOneMoveTeaching.test.tsx": "3a5da7f37103a83eb25e30d6e69547fcedc4eacedb91b9f6c0a9392b827cce6b",
+  "src/hooks/v2/guidance/__tests__/useGuidanceHostMeasurement.test.tsx": "be7bdddecd50199243a0a5ff8515687c81331c7213b9d365e004d70ae1f84617",
+  "src/stores/v2/__tests__/guidanceMeasurementRecovery.test.ts": "5ed6ae0ea409ee2da4c8482642323b4cf8200b1502b76e506ee3e3ff0b49b8cc"
+}

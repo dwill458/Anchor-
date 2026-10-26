@@ -29,8 +29,11 @@ export async function recalculateAnchorStrength(
 
   const existingState = await prisma.threadV2State.findUnique({
     where: { userId_anchorId: { userId, anchorId } },
-    select: { strength: true },
+    select: { strength: true, legacyBaselineAppliedAt: true, activationStatus: true },
   });
+  // Deleting movements would discard rows a protected legacy baseline / activation
+  // award depends on. Thread Strength 2.1 anchors must never be re-derived from scratch.
+  if (existingState?.legacyBaselineAppliedAt || existingState?.activationStatus) return null;
   const oldStrength = existingState?.strength ?? null;
 
   const sessions = await prisma.practiceSession.findMany({

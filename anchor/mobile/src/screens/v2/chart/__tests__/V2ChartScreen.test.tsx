@@ -437,10 +437,14 @@ describe('V2ChartScreen — no Chart', () => {
 
   it('when Ask Chart cannot answer, the message is kept, the reason is shown, and a draft is still possible', async () => {
     serve({ chart: readModel(null), vision: null });
-    serveCreation({ replies: [new ApiClientError('down', 'ASK_UNAVAILABLE', 503)] });
+    // The intro prefetch fails first, then the normal opening path retries it.
+    serveCreation({ replies: [new ApiClientError('down', 'ASK_UNAVAILABLE', 503), new ApiClientError('down', 'ASK_UNAVAILABLE', 503)] });
     const screen = await openConversation();
     expect(await screen.findByTestId('ask-error')).toBeTruthy();
     expect(screen.getByText(/can’t answer right now/)).toBeTruthy();
+    expect(askCalls()).toHaveLength(2);
+    expect(askCalls().map(body => body.opening)).toEqual([true, true]);
+    expect(askCalls()[1].idempotencyKey).toBe(askCalls()[0].idempotencyKey);
     // The person can still get a route from the intention alone.
     fireEvent.press(screen.getByTestId('ask-draft-now'));
     expect(await screen.findByText(/Here['’]s the course I['’]d start with\./, {}, { timeout: 3000 })).toBeTruthy();

@@ -1,8 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
-import { Check, GripHorizontal, Lock, Plus, Trash2 } from 'lucide-react-native';
+import Animated, { FadeInDown, ReduceMotion, runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import { Check, GripVertical, Lock, Plus, Trash2 } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme/v2';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { WaypointKind, WaypointProgressMode } from '@/types/chart';
@@ -59,13 +59,22 @@ type Props = {
   /** Join the numbered waypoints with a thin rail, so the list reads as one route. */
   showRail?: boolean;
   testID?: string;
+  renderRowExtra?: (waypoint: DraftWaypoint, index: number) => React.ReactNode;
+  reducedMotion?: boolean;
+  /** Only the initial proposal rows enter, after the review panel settles. */
+  entranceDelayMs?: number;
+  enteredKeys?: React.MutableRefObject<Set<string>>;
 };
 
 /**
  * Editable route. The human owns the Chart: every AI waypoint can be renamed,
  * removed, reordered, and new ones added. Locked (reached) rows stay put.
  */
-export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false, testID }: Props) {
+export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false, testID, renderRowExtra, reducedMotion = false, entranceDelayMs, enteredKeys }: Props) {
+  const localEntered = useRef(new Set<string>());
+  const entered = enteredKeys ?? localEntered;
+  const initialArrival = useRef(entered.current.size === 0);
+  const initialKeys = useRef(new Set(waypoints.map(waypoint => waypoint.key)));
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [rowHeights, setRowHeights] = useState<Record<string, number>>({});
@@ -152,6 +161,13 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false
           showRail={showRail}
           rowHeights={waypoints.map((item) => rowHeights[item.key] ?? ROW_HEIGHT)}
           onHeightChange={(height) => setRowHeights((current) => current[waypoint.key] === height ? current : { ...current, [waypoint.key]: height })}
+          extra={renderRowExtra?.(waypoint, index)}
+          entering={(() => {
+            if (entered.current.has(waypoint.key)) return undefined;
+            entered.current.add(waypoint.key);
+            if (!initialArrival.current || reducedMotion || entranceDelayMs === undefined || !initialKeys.current.has(waypoint.key)) return undefined;
+            return FadeInDown.duration(360).delay(entranceDelayMs + Math.min(index, 7) * 70).reduceMotion(ReduceMotion.Never);
+          })()}
         />
       ))}
       {waypoints.length < MAX_WAYPOINTS ? (
@@ -188,6 +204,8 @@ function Row({
   showRail,
   rowHeights,
   onHeightChange,
+  extra,
+  entering,
 }: {
   waypoint: DraftWaypoint;
   index: number;
@@ -206,6 +224,8 @@ function Row({
   showRail: boolean;
   rowHeights: number[];
   onHeightChange: (height: number) => void;
+  extra?: React.ReactNode;
+  entering?: ReturnType<typeof FadeInDown.duration>;
 }) {
   const locked = Boolean(waypoint.locked);
   const pan = Gesture.Pan()
@@ -248,13 +268,14 @@ function Row({
       ];
 
   return (
-    <Animated.View style={[styles.row, animated]} onLayout={(event: LayoutChangeEvent) => onHeightChange(event.nativeEvent.layout.height)}>
+    <Animated.View entering={entering} style={[styles.row, animated]} onLayout={(event: LayoutChangeEvent) => onHeightChange(event.nativeEvent.layout.height)}>
       {showRail && total > 1 ? (
         <View
           pointerEvents="none"
-          style={[styles.rail, { top: index === 0 ? rowHeights[index] / 2 : 0, bottom: index === total - 1 ? rowHeights[index] / 2 : 0 }]}
+          style={[styles.rail, { top: index === 0 ? ROW_HEIGHT / 2 : 0, bottom: index === total - 1 ? Math.max(0, rowHeights[index] - ROW_HEIGHT / 2) : 0 }]}
         />
       ) : null}
+      <View style={styles.rowContent}>
       <View style={[styles.badge, locked && styles.badgeLocked]}>
         {locked ? <Check size={14} color={colors.text.inverse} strokeWidth={3} /> : <Text style={styles.badgeText}>{number}</Text>}
       </View>
@@ -306,10 +327,13 @@ function Row({
       ) : (
         <GestureDetector gesture={pan}>
           <View style={styles.handle} accessible={false} importantForAccessibility="no-hide-descendants">
-            <GripHorizontal size={18} color={colors.text.secondary} />
+            {/* DEFERRED: GripHorizontal is replaced by the vertical reorder handle (Oct 2026). */}
+            <GripVertical size={18} color={colors.text.secondary} />
           </View>
         </GestureDetector>
       )}
+      </View>
+      {extra ? <View style={styles.rowExtra}>{extra}</View> : null}
     </Animated.View>
   );
 }
@@ -318,14 +342,14 @@ const styles = StyleSheet.create({
   list: { gap: 0 },
   row: {
     minHeight: ROW_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingVertical: spacing[2],
+    flexDirection: 'column',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border.subtle,
     backgroundColor: colors.canvas,
   },
+  rowContent: { minHeight: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  // DEFERRED: the single horizontal row now lives inside this measured column, above its optional next move (Oct 2026).
+  rowExtra: { marginLeft: 28 + spacing[3], paddingBottom: spacing[3] },
   badge: {
     width: 28,
     height: 28,

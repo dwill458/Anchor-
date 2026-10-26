@@ -1,4 +1,5 @@
 const mockGetForAnchor = jest.fn();
+const mockCompleteWaypoint = jest.fn();
 const mockArchive = jest.fn();
 const mockArchiveForAnchor = jest.fn();
 const mockDelete = jest.fn();
@@ -26,6 +27,7 @@ jest.mock('@/services/v2/chartV2Api', () => {
     chartV2Api: {
       ...actual.chartV2Api,
       getForAnchor: (...args: unknown[]) => mockGetForAnchor(...args),
+      completeWaypoint: (...args: unknown[]) => mockCompleteWaypoint(...args),
       archive: (...args: unknown[]) => mockArchive(...args),
       archiveForAnchor: (...args: unknown[]) => mockArchiveForAnchor(...args),
       delete: (...args: unknown[]) => mockDelete(...args),
@@ -39,6 +41,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import type { ChartForAnchor } from '@/services/v2/chartV2Api';
 import { peekAnchorChart, primeAnchorChart, resetAnchorChartCache, useAnchorChart } from '../useAnchorChart';
+import { course } from '@/components/v2/chart/panel/__tests__/chartPanelFixtures';
 
 const chartSnapshot = (intentionText: string): ChartForAnchor => ({
   anchor: {
@@ -59,6 +62,20 @@ describe('useAnchorChart Home cache-first hydration', () => {
     jest.clearAllMocks();
     jest.mocked(encryptedPersistStorage.getItem).mockResolvedValue(null);
     useAuthStore.setState({ user: { id: 'chart-cache-user' } as never });
+  });
+
+  it('publishes the v2 completion response without a legacy Course read', async () => {
+    const initial = { ...chartSnapshot('Goal'), chart: course() };
+    mockGetForAnchor.mockResolvedValue(initial);
+    const { result } = renderHook(() => useAnchorChart('anchor-home-cache'));
+    await waitFor(() => expect(result.current.data?.chart).toEqual(initial.chart));
+    const reached = course({ version: 6, currentWaypointId: 'w3', reachedCount: 2 });
+    mockCompleteWaypoint.mockResolvedValue({ chart: reached, completedWaypoint: { title: 'First' }, nextWaypoint: { title: 'Next' }, courseCompleted: false, replayed: false });
+    let completion;
+    await act(async () => { completion = await result.current.reachWaypoint('w2'); });
+    expect(mockCompleteWaypoint).toHaveBeenCalledWith('course-1', 'w2', { idempotencyKey: 'chart2:reach:course-1:w2:5', expectedCourseVersion: 5 });
+    expect(completion).toEqual({ completedTitle: 'First', nextTitle: 'Next', destinationReached: false, chart: reached });
+    expect(peekAnchorChart('anchor-home-cache')?.chart).toEqual(reached);
   });
 
   it('shows the encrypted Chart snapshot while server authority revalidates', async () => {

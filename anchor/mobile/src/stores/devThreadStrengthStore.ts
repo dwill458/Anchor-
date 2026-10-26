@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 /**
- * Dev-only Thread Strength simulator for the Home hero glow. `value === null` means "use real data".
- * Each `simulate` bumps `nonce` so Home remounts the aura and replays the activation bloom.
+ * In-memory display preview only. Never write this value to Anchor/session stores or API payloads.
+ * `null` restores real data; restarting the app also clears the preview.
  */
 type DevThreadStrengthState = {
   value: number | null;
@@ -13,8 +13,20 @@ type DevThreadStrengthState = {
 export const useDevThreadStrengthStore = create<DevThreadStrengthState>((set) => ({
   value: null,
   nonce: 0,
-  simulate: (value) => set((state) => ({ value, nonce: state.nonce + 1 })),
+  simulate: (value) => set((state) => {
+    const next = value !== null && Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : null;
+    return {
+      value: next,
+      // Remount on entering/leaving preview, then let the aura animate as the slider moves.
+      nonce: state.nonce + (state.value === null || next === null ? 1 : 0),
+    };
+  }),
 }));
+
+export function useThreadStrengthPreview(real: number | null | undefined): number | null {
+  const value = useDevThreadStrengthStore((state) => state.value);
+  return __DEV__ && value !== null ? value : (typeof real === 'number' ? real : null);
+}
 
 /**
  * Resolves the strength the glow should show: the dev simulator value when set (in `__DEV__`),

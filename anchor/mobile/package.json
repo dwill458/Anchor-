@@ -6,6 +6,7 @@
     "start": "expo start",
     "start:clean": "expo start -c",
     "dev:sqlcipher": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-expo58-qa.ps1",
+    "dev:sqlcipher-owner-pilot": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-expo58-qa.ps1 -OwnerPilot",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",

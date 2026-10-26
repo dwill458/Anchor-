@@ -59,7 +59,7 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('@/components/v2/milestones/MilestoneCelebrationHost', () => ({ MilestoneCelebrationHost: () => null }));
 jest.mock('@/screens/v2/home', () => { const { Text: RNText } = require('react-native'); return { V2DevelopmentHome: () => <RNText>home-screen</RNText> }; });
-jest.mock('@/screens/v2/system', () => { const { Text: RNText } = require('react-native'); return { V2SystemGallery: () => <RNText>system-gallery</RNText>, V2EvolvingAnchorPrototype: () => <RNText>evolving-anchor</RNText> }; });
+jest.mock('@/screens/v2/system', () => { const { Text: RNText } = require('react-native'); return { V2SystemGallery: () => <RNText>system-gallery</RNText> }; });
 jest.mock('@/screens/v2/onboarding', () => { const { Text: RNText } = require('react-native'); return { V2FirstRunFlow: () => <RNText>first-run</RNText> }; });
 jest.mock('@/screens/v2/paywall', () => {
   const { Pressable: RNPressable, Text: RNText } = require('react-native');

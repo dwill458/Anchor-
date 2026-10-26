@@ -7,6 +7,30 @@ import { logger } from '@/utils/logger';
 import { perfLog } from '@/utils/perfDiagnostics';
 import { traceStabilizationStage } from '@/utils/stabilizationDiagnostics';
 
+/**
+ * A vault write is hundreds of chunk calls. Issued at once they fill the native
+ * module queue, and everything behind them (the photo picker launch, a draft
+ * read) waits for the whole write. Keeping only a few in flight lets other
+ * native work interleave between chunks.
+ */
+const SECURE_STORE_MAX_IN_FLIGHT = 6;
+let secureStoreActive = 0;
+// Reads (a draft, a cache) go ahead of the bulk chunk writes still waiting.
+const secureStoreWaiting: { read: Array<() => void>; bulk: Array<() => void> } = { read: [], bulk: [] };
+async function gated<T>(lane: 'read' | 'bulk', call: () => Promise<T>): Promise<T> {
+  if (secureStoreActive >= SECURE_STORE_MAX_IN_FLIGHT) await new Promise<void>(resolve => secureStoreWaiting[lane].push(resolve));
+  secureStoreActive += 1;
+  try { return await call(); } finally {
+    secureStoreActive -= 1;
+    (secureStoreWaiting.read.shift() ?? secureStoreWaiting.bulk.shift())?.();
+  }
+}
+const gatedSecureStore = {
+  getItemAsync: (key: string) => gated('read', () => SecureStore.getItemAsync(key)),
+  setItemAsync: (key: string, value: string) => gated('bulk', () => SecureStore.setItemAsync(key, value)),
+  deleteItemAsync: (key: string) => gated('bulk', () => SecureStore.deleteItemAsync(key)),
+};
+
 type AsyncStateStorage = StateStorage & {
   setItem: (name: string, value: string) => Promise<void>;
   removeItem: (name: string) => Promise<void>;
@@ -74,7 +98,7 @@ function splitIntoChunks(value: string): string[] {
 }
 
 async function readSecureMeta(name: string): Promise<SecureChunkMeta | null> {
-  const rawMeta = await SecureStore.getItemAsync(secureStoreKey(secureMetaKey(name)));
+  const rawMeta = await gatedSecureStore.getItemAsync(secureStoreKey(secureMetaKey(name)));
   if (!rawMeta) return null;
 
   try {
@@ -93,7 +117,7 @@ async function clearSecureChunks(name: string): Promise<number> {
   const existingMeta = await readSecureMeta(name);
   const deleteGeneration = async (generation: string, chunks: number) => {
     await Promise.all(Array.from({ length: chunks }, (_, index) =>
-      SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(
+      gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(
         `${name}__generation_${generation}`, index
       )))
     ));
@@ -106,30 +130,30 @@ async function clearSecureChunks(name: string): Promise<number> {
       }
       // Also clear unversioned chunks left by the legacy storage format.
       await Promise.all(Array.from({ length: Math.max(existingMeta.chunks, existingMeta.previousChunks ?? 0) }, (_, i) =>
-        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
+        gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
       ));
     } else {
       await Promise.all(Array.from({ length: existingMeta.chunks }, (_, i) =>
-        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
+        gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
       ));
     }
   }
   const legacyManifestKey = secureStoreKey(`${name}__legacy_manifest`);
-  const legacyManifest = await SecureStore.getItemAsync(legacyManifestKey);
+  const legacyManifest = await gatedSecureStore.getItemAsync(legacyManifestKey);
   if (legacyManifest) {
     try {
       const legacyMeta = JSON.parse(legacyManifest) as SecureChunkMeta;
       if (Number.isInteger(legacyMeta.chunks) && legacyMeta.chunks > 0) {
         await Promise.all(Array.from({ length: legacyMeta.chunks }, (_, i) =>
-          SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
+          gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
         ));
       }
     } catch {
       throw new Error('Legacy secure storage manifest requires recovery');
     }
   }
-  await SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
-  await SecureStore.deleteItemAsync(legacyManifestKey);
+  await gatedSecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
+  await gatedSecureStore.deleteItemAsync(legacyManifestKey);
   return existingMeta?.chunks ?? 0;
 }
 
@@ -143,7 +167,7 @@ export async function readLegacySecureValue(name: string, retries = 2): Promise<
 
   const chunks = await Promise.all(
     Array.from({ length: meta.chunks }, (_, index) =>
-      SecureStore.getItemAsync(secureStoreKey(secureChunkKey(
+      gatedSecureStore.getItemAsync(secureStoreKey(secureChunkKey(
         meta.generation ? `${name}__generation_${meta.generation}` : name, index
       )))
     )
@@ -177,14 +201,14 @@ export async function writeLegacySecureValue(name: string, value: string): Promi
   const chunks = splitIntoChunks(value);
   await Promise.all(
     chunks.map((chunk, index) =>
-      SecureStore.setItemAsync(secureStoreKey(secureChunkKey(generationName, index)), chunk)
+      gatedSecureStore.setItemAsync(secureStoreKey(secureChunkKey(generationName, index)), chunk)
     )
   );
 
   // Verify all bytes before changing the single commit pointer. Native chunk writes
   // may finish out of order; only manifest publication is serialized per key.
   const verified = await Promise.all(chunks.map((_, index) =>
-    SecureStore.getItemAsync(secureStoreKey(secureChunkKey(generationName, index)))
+    gatedSecureStore.getItemAsync(secureStoreKey(secureChunkKey(generationName, index)))
   ));
   if (verified.some((chunk) => chunk == null) || verified.join('') !== value) {
     throw new Error('Secure storage readback failed');
@@ -192,24 +216,24 @@ export async function writeLegacySecureValue(name: string, value: string): Promi
   const commit = (manifestWrites.get(name) ?? Promise.resolve()).catch(() => {}).then(async () => {
     if (revision < (committedGeneration.get(name) ?? 0)) {
       await Promise.all(chunks.map((_, index) =>
-        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(generationName, index)))
+        gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(generationName, index)))
       ));
       return;
     }
     const previous = await readSecureMeta(name);
     if (name === 'anchor-vault-storage' && previous && !previous.generation) {
       const legacyKey = secureStoreKey(`${name}__legacy_manifest`);
-      if (!await SecureStore.getItemAsync(legacyKey)) await SecureStore.setItemAsync(legacyKey, JSON.stringify(previous));
+      if (!await gatedSecureStore.getItemAsync(legacyKey)) await gatedSecureStore.setItemAsync(legacyKey, JSON.stringify(previous));
     }
     const meta: SecureChunkMeta = { chunks: chunks.length, generation, length: value.length,
       previousGeneration: previous?.generation, previousChunks: previous?.chunks };
-    await SecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
+    await gatedSecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
     committedGeneration.set(name, revision);
     // Only obsolete generations from this new writer are reclaimed. Keep the
     // previous commit and every legacy chunk; a racing reader retries the pointer.
     if (previous?.previousGeneration && previous.previousChunks) {
       await Promise.all(Array.from({ length: previous.previousChunks }, (_, index) =>
-        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(
+        gatedSecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(
           `${name}__generation_${previous.previousGeneration}`, index
         )))
       )).catch((error) => logger.warn('Failed to reclaim obsolete secure generation', error));

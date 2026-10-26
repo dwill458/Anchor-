@@ -378,10 +378,9 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Anchor Free')).toBeTruthy();
   });
 
-  it('renders Developer Tools row under __DEV__ environment', () => {
+  it('keeps developer controls in the dev pill instead of Settings', () => {
     const screen = render(<SettingsScreen />);
-    expect(screen.getByTestId('settings-row-Developer Tools')).toBeTruthy();
-    expect(screen.getByText('Developer Tools')).toBeTruthy();
+    expect(screen.queryByTestId('settings-row-Developer Tools')).toBeNull();
   });
 
   it('opens the hidden audio log from a long press on the version', () => {

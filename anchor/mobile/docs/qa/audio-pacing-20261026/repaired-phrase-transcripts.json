@@ -1,0 +1,491 @@
+[
+  {
+    "file": "Anchor_Glimpse_Dominic_V6.mp3",
+    "id": 12,
+    "expected": "Notice the feeling that comes with that",
+    "actual": "Notice the feeling that comes with that",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Notice",
+        "start": 36.508,
+        "end": 36.948
+      },
+      {
+        "word": " the",
+        "start": 36.948,
+        "end": 37.208
+      },
+      {
+        "word": " feeling",
+        "start": 37.208,
+        "end": 37.748
+      },
+      {
+        "word": " that",
+        "start": 37.748,
+        "end": 38.108
+      },
+      {
+        "word": " comes",
+        "start": 38.108,
+        "end": 38.348
+      },
+      {
+        "word": " with",
+        "start": 38.348,
+        "end": 38.588
+      },
+      {
+        "word": " that",
+        "start": 38.588,
+        "end": 38.808
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Dominic_3min_V6.mp3",
+    "id": 24,
+    "expected": "The way you think the way you move the choices you make",
+    "actual": "The way you think, the way you move, the choices you make.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " The",
+        "start": 108.562,
+        "end": 108.942
+      },
+      {
+        "word": " way",
+        "start": 108.942,
+        "end": 109.082
+      },
+      {
+        "word": " you",
+        "start": 109.082,
+        "end": 109.222
+      },
+      {
+        "word": " think,",
+        "start": 109.222,
+        "end": 109.762
+      },
+      {
+        "word": " the",
+        "start": 110.362,
+        "end": 110.522
+      },
+      {
+        "word": " way",
+        "start": 110.522,
+        "end": 110.662
+      },
+      {
+        "word": " you",
+        "start": 110.662,
+        "end": 110.822
+      },
+      {
+        "word": " move,",
+        "start": 110.822,
+        "end": 111.282
+      },
+      {
+        "word": " the",
+        "start": 111.502,
+        "end": 111.922
+      },
+      {
+        "word": " choices",
+        "start": 111.922,
+        "end": 112.242
+      },
+      {
+        "word": " you",
+        "start": 112.242,
+        "end": 112.522
+      },
+      {
+        "word": " make.",
+        "start": 112.522,
+        "end": 112.822
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Dominic_3min_V6.mp3",
+    "id": 35,
+    "expected": "Keep only the feeling",
+    "actual": "Keep only the feeling.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Keep",
+        "start": 154.368,
+        "end": 154.848
+      },
+      {
+        "word": " only",
+        "start": 154.848,
+        "end": 155.388
+      },
+      {
+        "word": " the",
+        "start": 155.388,
+        "end": 155.668
+      },
+      {
+        "word": " feeling.",
+        "start": 155.668,
+        "end": 156.008
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "id": 7,
+    "expected": "Look through your own eyes youre here",
+    "actual": "Look through your own eyes. You're here.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Look",
+        "start": 31.765,
+        "end": 32.185
+      },
+      {
+        "word": " through",
+        "start": 32.185,
+        "end": 32.705
+      },
+      {
+        "word": " your",
+        "start": 32.705,
+        "end": 32.925
+      },
+      {
+        "word": " own",
+        "start": 32.925,
+        "end": 33.185
+      },
+      {
+        "word": " eyes.",
+        "start": 33.185,
+        "end": 33.645
+      },
+      {
+        "word": " You're",
+        "start": 34.265,
+        "end": 34.465
+      },
+      {
+        "word": " here.",
+        "start": 34.465,
+        "end": 34.705
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "id": 16,
+    "expected": "Notice the people around you or the quiet if youre alone",
+    "actual": "Notice the people around you or the quiet if you're alone",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Notice",
+        "start": 72.787,
+        "end": 73.267
+      },
+      {
+        "word": " the",
+        "start": 73.267,
+        "end": 73.487
+      },
+      {
+        "word": " people",
+        "start": 73.487,
+        "end": 73.987
+      },
+      {
+        "word": " around",
+        "start": 73.987,
+        "end": 74.407
+      },
+      {
+        "word": " you",
+        "start": 74.407,
+        "end": 74.767
+      },
+      {
+        "word": " or",
+        "start": 74.767,
+        "end": 75.287
+      },
+      {
+        "word": " the",
+        "start": 75.287,
+        "end": 75.427
+      },
+      {
+        "word": " quiet",
+        "start": 75.427,
+        "end": 75.827
+      },
+      {
+        "word": " if",
+        "start": 75.827,
+        "end": 76.267
+      },
+      {
+        "word": " you're",
+        "start": 76.267,
+        "end": 76.407
+      },
+      {
+        "word": " alone",
+        "start": 76.407,
+        "end": 76.667
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "id": 24,
+    "expected": "The way you think the way you move the choices you make",
+    "actual": "The way you think, the way you move, the choices you make.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " The",
+        "start": 108.245,
+        "end": 108.605
+      },
+      {
+        "word": " way",
+        "start": 108.605,
+        "end": 108.745
+      },
+      {
+        "word": " you",
+        "start": 108.745,
+        "end": 108.885
+      },
+      {
+        "word": " think,",
+        "start": 108.885,
+        "end": 109.405
+      },
+      {
+        "word": " the",
+        "start": 109.825,
+        "end": 109.985
+      },
+      {
+        "word": " way",
+        "start": 109.985,
+        "end": 110.125
+      },
+      {
+        "word": " you",
+        "start": 110.125,
+        "end": 110.285
+      },
+      {
+        "word": " move,",
+        "start": 110.285,
+        "end": 110.725
+      },
+      {
+        "word": " the",
+        "start": 110.985,
+        "end": 111.205
+      },
+      {
+        "word": " choices",
+        "start": 111.205,
+        "end": 111.565
+      },
+      {
+        "word": " you",
+        "start": 111.565,
+        "end": 111.825
+      },
+      {
+        "word": " make.",
+        "start": 111.825,
+        "end": 112.105
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "id": 28,
+    "expected": "Let yourself feel that now",
+    "actual": "Let yourself feel that now.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Let",
+        "start": 125.332,
+        "end": 125.712
+      },
+      {
+        "word": " yourself",
+        "start": 125.712,
+        "end": 126.112
+      },
+      {
+        "word": " feel",
+        "start": 126.112,
+        "end": 126.692
+      },
+      {
+        "word": " that",
+        "start": 126.692,
+        "end": 126.972
+      },
+      {
+        "word": " now.",
+        "start": 126.972,
+        "end": 127.292
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "id": 30,
+    "expected": "Hold it clearly",
+    "actual": "Hold it clearly.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Hold",
+        "start": 138.939,
+        "end": 139.439
+      },
+      {
+        "word": " it",
+        "start": 139.439,
+        "end": 139.659
+      },
+      {
+        "word": " clearly.",
+        "start": 139.659,
+        "end": 140.259
+      }
+    ]
+  },
+  {
+    "file": "Anchor_Immerse_Lina_3min_V6.mp3",
+    "id": 35,
+    "expected": "Keep only the feeling",
+    "actual": "Keep only the feeling.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Keep",
+        "start": 154.428,
+        "end": 154.908
+      },
+      {
+        "word": " only",
+        "start": 154.908,
+        "end": 155.448
+      },
+      {
+        "word": " the",
+        "start": 155.448,
+        "end": 155.688
+      },
+      {
+        "word": " feeling.",
+        "start": 155.688,
+        "end": 156.028
+      }
+    ]
+  },
+  {
+    "file": "Embody_Final_10min15_V6.mp3",
+    "id": 37,
+    "expected": "Where do you feel it in your body",
+    "actual": "Where do you feel it in your body?",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Where",
+        "start": 440.306,
+        "end": 440.706
+      },
+      {
+        "word": " do",
+        "start": 440.706,
+        "end": 440.846
+      },
+      {
+        "word": " you",
+        "start": 440.846,
+        "end": 440.966
+      },
+      {
+        "word": " feel",
+        "start": 440.966,
+        "end": 441.466
+      },
+      {
+        "word": " it",
+        "start": 441.466,
+        "end": 441.626
+      },
+      {
+        "word": " in",
+        "start": 441.626,
+        "end": 441.786
+      },
+      {
+        "word": " your",
+        "start": 441.786,
+        "end": 441.906
+      },
+      {
+        "word": " body?",
+        "start": 441.906,
+        "end": 442.166
+      }
+    ]
+  },
+  {
+    "file": "Embody_Final_Lina_10min15_V6.mp3",
+    "id": 19,
+    "expected": "Notice the people around you",
+    "actual": "Notice the people around you.",
+    "exactNormalized": true,
+    "words": [
+      {
+        "word": " Notice",
+        "start": 231.902,
+        "end": 232.382
+      },
+      {
+        "word": " the",
+        "start": 232.382,
+        "end": 232.602
+      },
+      {
+        "word": " people",
+        "start": 232.602,
+        "end": 233.162
+      },
+      {
+        "word": " around",
+        "start": 233.162,
+        "end": 233.502
+      },
+      {
+        "word": " you.",
+        "start": 233.502,
+        "end": 233.782
+      }
+    ]
+  }
+]

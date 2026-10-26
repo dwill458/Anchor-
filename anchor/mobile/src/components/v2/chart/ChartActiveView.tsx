@@ -558,7 +558,7 @@ export function ChartActiveView({
   }, [openReady]);
 
   useEffect(() => { if (view.completedMoveCount > 0) discoverGuidance(accountId ?? 'guest', 'chart.next_move'); }, [accountId, view.completedMoveCount]);
-  const chartGuidance = useGuidanceHost({ screenId: 'chart', accountId, contextKey: view.courseId, targetKey: view.oneMove?.id,
+  const chartGuidance = useGuidanceHost({ screenId: 'chart', accountId, contextKey: view.courseId, targetKey: view.oneMove?.id, targetRevision: teachingViewportRevision,
     eligible: view.oneMove && !view.isFinished && view.completedMoveCount === 0 ? ['chart.next_move'] : [],
     isFocused: focused,
     blocked: celebrationActive || dayHold || !oneMoveRowRef.current || !oneMoveCircleRef.current || !oneMoveBodyRef.current || !openingFinished || !openedRef.current || runner.isBusy() || reachingRef.current || Boolean(ceremony || reachEvent || confirmOpen || menuOpen) || (sheetDetent !== 'peek' && sheetDetent !== 'half'),

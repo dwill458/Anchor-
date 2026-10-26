@@ -60,7 +60,7 @@ export function ChartLabDevHost() {
       {/* Android Modals render outside the app root, so gestures need their own root here. */}
       <GestureHandlerRootView style={{ flex: 1 }}>
         {open ? <V2ChartPreview onClose={() => setOpen(false)} /> : null}
-        {__DEV__ ? <View style={{ position: 'absolute', bottom: 30, left: 18, right: 18, flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#F4EFE6', padding: 8, borderRadius: 12 }}>
+        {__DEV__ ? <View pointerEvents="box-none" style={{ position: 'absolute', bottom: 30, left: 18, right: 18, flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#F4EFE6', padding: 8, borderRadius: 12 }}>
           <Pressable accessibilityRole="button" onPress={() => { void resetTeaching(true); }} style={{ padding: 12 }}><Text>{TEACHING_COPY.dev.replay}</Text></Pressable>
           <Pressable accessibilityRole="button" onPress={() => { void resetTeaching(false); }} style={{ padding: 12 }}><Text>{TEACHING_COPY.dev.reset}</Text></Pressable>
         </View> : null}

@@ -2,7 +2,9 @@ import { chartTypography as typography } from './chartTypography';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Check } from 'lucide-react-native';
-import { cancelAnimation, withDelay } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, FadeIn, FadeOut, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { getCategoryColor, spacing } from '@/theme/v2';
 import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
@@ -36,6 +38,12 @@ const toMapMarkers=(markers:ChartMarker[]):ChartMapMarker[]=>markers.map((marker
 export function ChartGenerationStage({ width,height,category,destinationImageUrl,markers,reducedMotion,onRevealed,settled=false,footerSpace=96,testID }:Props) {
   const [stage,setStage]=useState<ChartMappingStage>('reading');
   const [longWaitIndex,setLongWaitIndex]=useState(-1);
+  const [flagAppearing,setFlagAppearing]=useState(false);
+  const statusOpacity=useSharedValue(1);
+  const breath=useSharedValue(1);
+  const printCover=useSharedValue(destinationImageUrl ? 1 : 0);
+  const developedUrls=useRef(new Set<string>());
+  const completedStage=useRef(0);
   const anim=useChartMapAnimState({ revealArc:0, flagIndex:0 });
   const table=useMemo(()=>buildRouteTable(),[]);
   const placement=useMemo(()=>waypointPlacement(Math.max(1,markers?.length ?? 1)),[markers?.length]);
@@ -51,6 +59,30 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
   const mapMarkers=useMemo(()=>hasMarkers ? toMapMarkers(markers) : [],[hasMarkers,markers]);
   // The first waypoint is the drawn end of the revealed route; the flag stands on it.
   const firstArc=placement.arcs[0] ?? 0;
+  useEffect(()=>{
+    const next=STAGES.indexOf(stage);
+    if (!reducedMotion) {
+      for (let index=completedStage.current;index<next;index+=1) {
+        safeHaptics.impact(index===2 ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+    completedStage.current=next;
+  },[stage,reducedMotion]);
+  useEffect(()=>{
+    cancelAnimation(printCover);
+    if (!destinationImageUrl || developedUrls.current.has(destinationImageUrl)) { printCover.value=0; return; }
+    developedUrls.current.add(destinationImageUrl);
+    printCover.value=reducedMotion ? 0 : 1;
+    if (!reducedMotion) printCover.value=withDelay(300,chartTiming(0,{duration:1400,easing:CHART_EASING.settle}));
+    return ()=>cancelAnimation(printCover);
+  },[destinationImageUrl,reducedMotion,printCover]);
+  useEffect(()=>{
+    breath.value=1;
+    if (longWaitIndex>=0 && !reducedMotion) breath.value=withRepeat(chartTiming(.6,{duration:1200}),-1,true);
+    return ()=>cancelAnimation(breath);
+  },[longWaitIndex,reducedMotion,breath]);
+  const statusStyle=useAnimatedStyle(()=>({opacity:statusOpacity.value*breath.value}));
+  const printStyle=useAnimatedStyle(()=>({opacity:printCover.value}));
   // Faint pencil map while the request runs: nothing is drawn, no node exists yet.
   useEffect(()=>{
     anim.mapOpacity.value=1; anim.fog.value=0; anim.flagIndex.value=0;
@@ -74,9 +106,12 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
       anim.coverArc.value=chartTiming(firstArc,{duration:1600,easing:CHART_EASING.settle});
       anim.flagOpacity.value=withDelay(1300,chartTiming(1,{duration:500,easing:CHART_EASING.settle}));
     }
+    // Complete the checklist when the existing flag begins appearing; the survey and finish clock stay unchanged.
+    const flag=setTimeout(()=>setFlagAppearing(true),reducedMotion ? 0 : 1300);
+    const fade=setTimeout(()=>{ statusOpacity.value=reducedMotion ? 0 : chartTiming(0,{duration:300,easing:CHART_EASING.exit}); },reducedMotion ? 420 : 1600);
     const finish=setTimeout(()=>{ revealed.current=true; setStage('ready'); callback.current?.(); },reducedMotion ? 420 : 1900);
-    return ()=>{ committed.current=false; clearTimeout(finish); cancelAnimation(anim.revealArc); cancelAnimation(anim.coverArc); cancelAnimation(anim.flagOpacity); };
-  },[hasMarkers,reducedMotion,anim,firstArc]);
+    return ()=>{ committed.current=false; clearTimeout(flag); clearTimeout(fade); clearTimeout(finish); cancelAnimation(statusOpacity); cancelAnimation(anim.revealArc); cancelAnimation(anim.coverArc); cancelAnimation(anim.flagOpacity); };
+  },[hasMarkers,reducedMotion,anim,firstArc,statusOpacity]);
   const phrase=longWaitIndex>=0 && (stage==='reading'||stage==='finding') ? CHART_COPY.generation.longWait[longWaitIndex] : CHART_COPY.generation.stages[stage];
   const stageIndex=STAGES.indexOf(stage);
   return <View testID={testID} style={[styles.stage,{width,height}]}>
@@ -89,22 +124,44 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
     </View>
     {/* DEFERRED: <ChartJourneyWorld width={width} height={Math.max(1,height-footerSpace)} category={category} markers={markers ?? []} staticProgress={ROUTE_START} nodeReveal={nodeReveal} onReady={setReady} accessibilityLabel={markers ? `Road mapped with ${markers.length} waypoints` : 'Mapping your journey'} /> */}
     {destinationImageUrl ? <View style={[styles.polaroid,{bottom:footerSpace+spacing[3]}]} pointerEvents="none" testID="chart-stage-vision">
-      <Image source={{uri:destinationImageUrl}} style={styles.polaroidImage} accessibilityIgnoresInvertColors />
+      <View style={styles.polaroidImage}>
+        <Image source={{uri:destinationImageUrl}} style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors />
+        <Animated.View testID="chart-stage-vision-cover" style={[StyleSheet.absoluteFill,{backgroundColor:'#14162B'},printStyle]} />
+      </View>
       <Text style={styles.polaroidLabel}>VISION</Text>
     </View> : null}
-    {!settled ? <View style={[styles.status,{height:footerSpace}]} accessibilityLiveRegion="polite" accessible accessibilityLabel={phrase} testID="chart-generation-status">
+    {!settled ? <Animated.View style={[styles.status,{height:footerSpace},statusStyle]} accessibilityLiveRegion="polite" accessible accessibilityLabel={phrase} testID="chart-generation-status">
       {CHECKLIST.map((key,index)=>{
-        const done=stage==='ready' || index<stageIndex;
+        const done=stage==='ready' || index<stageIndex || (key==='building' && flagAppearing);
         const current=!done && index===stageIndex;
         const text=current && longWaitIndex>=0 && key!=='building' ? CHART_COPY.generation.longWait[longWaitIndex] : CHART_COPY.generation.stages[key];
-        return <View key={key} style={styles.line}>
-          <View style={[styles.mark,done&&{backgroundColor:accent,borderColor:accent},current&&{borderColor:accent}]}>
-            {done ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
-          </View>
-          <Text style={[styles.lineText,!done&&!current&&styles.linePending]} numberOfLines={1}>{text}</Text>
-        </View>;
+        return <ChecklistLine key={key} name={key} done={done} current={current} accent={accent} text={text} reducedMotion={reducedMotion} />;
       })}
-    </View> : null}
+    </Animated.View> : null}
+  </View>;
+}
+function ChecklistLine({name,done,current,accent,text,reducedMotion}:{name:string;done:boolean;current:boolean;accent:string;text:string;reducedMotion:boolean}) {
+  const dot=useSharedValue(1);
+  const check=useSharedValue(.6);
+  const popped=useRef(false);
+  useEffect(()=>{
+    dot.value=1;
+    if (current && !reducedMotion) dot.value=withRepeat(chartTiming(.35,{duration:450}),-1,true);
+    return ()=>cancelAnimation(dot);
+  },[current,reducedMotion,dot]);
+  useEffect(()=>{
+    if (!done || popped.current) return;
+    popped.current=true;
+    check.value=reducedMotion ? 1 : withSequence(chartTiming(1.08,{duration:130,easing:Easing.out(Easing.cubic)}),chartTiming(1,{duration:50}));
+  },[done,reducedMotion,check]);
+  const dotStyle=useAnimatedStyle(()=>({opacity:dot.value}));
+  const checkStyle=useAnimatedStyle(()=>({transform:[{scale:check.value}]}));
+  return <View style={styles.line} testID={`chart-checklist-${name}`} accessibilityLabel={`${text}, ${done ? 'done' : current ? 'current' : 'pending'}`}>
+    {/* DEFERRED: the current line's empty ring is replaced by its breathing category dot. */}
+    <View style={[styles.mark,done&&{backgroundColor:accent,borderColor:accent},current&&{borderWidth:0}]}>
+      {done ? <Animated.View style={checkStyle} testID={`chart-check-${name}`}><Check size={12} color="#FFFFFF" strokeWidth={3} /></Animated.View> : current ? <Animated.View style={[{width:6,height:6,borderRadius:3,backgroundColor:accent},dotStyle]} /> : null}
+    </View>
+    <View style={{flex:1}}><Animated.Text key={text} entering={reducedMotion ? undefined : FadeIn.duration(160).reduceMotion(ReduceMotion.Never)} exiting={reducedMotion ? undefined : FadeOut.duration(160).reduceMotion(ReduceMotion.Never)} style={[styles.lineText,!done&&!current&&styles.linePending]} numberOfLines={1}>{text}</Animated.Text></View>
   </View>;
 }
 function noop() { return undefined; }

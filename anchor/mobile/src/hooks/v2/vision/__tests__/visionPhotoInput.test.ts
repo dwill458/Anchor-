@@ -1,7 +1,13 @@
 import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { pickVisionPhoto, uploadVisionPhoto } from '../visionPhotoInput';
+
+jest.mock('expo-image-manipulator', () => ({
+  SaveFormat: { JPEG: 'jpeg' },
+  manipulateAsync: jest.fn(),
+}));
 
 jest.mock('expo-image-picker', () => ({
   MediaTypeOptions: { Images: 'Images' },
@@ -17,6 +23,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
+const manipulator = ImageManipulator as jest.Mocked<typeof ImageManipulator>;
 const granted = { status: 'granted', canAskAgain: true } as never;
 
 describe('pickVisionPhoto', () => {
@@ -65,9 +72,17 @@ describe('pickVisionPhoto', () => {
     expect(await pickVisionPhoto('camera')).toEqual({ status: 'cancelled' });
   });
 
-  it('refuses formats the Vision cannot store, and survives a camera that is missing', async () => {
+  it('converts a HEIC phone photo to JPEG before handing it back', async () => {
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue(granted);
     picker.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///pic.heic', mimeType: 'image/heic' }] } as never);
+    manipulator.manipulateAsync.mockResolvedValue({ uri: 'file:///cache/pic.jpg', width: 1, height: 1 } as never);
+    expect(await pickVisionPhoto('library')).toEqual({ status: 'picked', photo: { uri: 'file:///cache/pic.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD', fileName: null } });
+    expect(manipulator.manipulateAsync).toHaveBeenCalledWith('file:///pic.heic', [], expect.objectContaining({ format: 'jpeg' }));
+  });
+
+  it('refuses formats the Vision cannot store, and survives a camera that is missing', async () => {
+    picker.requestMediaLibraryPermissionsAsync.mockResolvedValue(granted);
+    picker.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///pic.bmp', mimeType: 'image/bmp' }] } as never);
     expect(await pickVisionPhoto('library')).toEqual({ status: 'error', message: 'Choose a JPEG, PNG, WebP, or GIF image.' });
     picker.requestCameraPermissionsAsync.mockResolvedValue(granted);
     picker.launchCameraAsync.mockRejectedValue(new Error('no camera'));

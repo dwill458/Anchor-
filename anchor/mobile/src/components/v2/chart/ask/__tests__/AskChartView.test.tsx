@@ -8,17 +8,158 @@ jest.mock('@/components/v2/anchor/CircularAnchorRenderer', () => {
 });
 
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
-import { categories, colors } from '@/theme/v2';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { withTiming } from 'react-native-reanimated';
+import { categories, colors, spacing } from '@/theme/v2';
 import { contrastRatio } from '../../panel/chartPanelColors';
 import type { AskUiMessage } from '@/hooks/v2/chart/askChartState';
 import { initialAskState, type AskState } from '@/hooks/v2/chart/askChartState';
 import { AskChartView } from '../AskChartView';
 import { askAccent } from '../askChartTheme';
+import { ASK_TOKENS } from '../askChartTheme';
+import { askReveal } from '../askReveal';
 
 const msg = (over: Partial<AskUiMessage>): AskUiMessage => ({
   id: 'm', key: 'm', role: 'ASSISTANT', text: 'text', createdAt: '2026-10-21T00:00:00Z', attachments: [], suggestions: [], requestPhoto: null,
   readyToPlan: false, planInput: null, action: null, actionUnavailable: false, skill: null, status: 'sent', animate: false, ...over,
+});
+
+describe('Ask follow-scroll and composer motion controls', () => {
+  beforeEach(() => { jest.useFakeTimers(); askReveal.reset(); });
+  afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
+
+  const scrollEvent = (offset: number) => ({ nativeEvent: {
+    contentOffset: { x: 0, y: offset }, contentSize: { width: 360, height: 1400 },
+    layoutMeasurement: { width: 360, height: 300 },
+  } });
+
+  it('clamps a tall bubble follow to its top so the first line remains visible', () => {
+    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset').mockImplementation(() => undefined);
+    const scrollToEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd').mockImplementation(() => undefined);
+    const { screen } = view(stub({ messages: [msg({ key: 'long', text: 'Long answer in progress', animate: true })] }), { reducedMotion: false });
+    const list = screen.getByTestId('ask-list');
+    fireEvent(list, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 300 } } });
+    const Cell = screen.UNSAFE_getByType(FlatList).props.CellRendererComponent;
+    const cell = screen.UNSAFE_getByType(Cell);
+    fireEvent(cell.findAllByType(View)[0], 'layout', { nativeEvent: { layout: { x: 0, y: 500, width: 360, height: 1200 } } });
+    const flatList = screen.UNSAFE_getByType(FlatList);
+    act(() => flatList.props.renderItem({ item: flatList.props.data[0] }).props.onFollow('long', 1000));
+    expect(scrollToOffset).toHaveBeenCalledWith({ offset: 500 - spacing[3], animated: true });
+    expect(scrollToOffset.mock.calls.every(([options]) => options.offset <= 500 - spacing[3])).toBe(true);
+    fireEvent(list, 'contentSizeChange', 360, 1800);
+    expect(scrollToEnd).not.toHaveBeenCalled();
+  });
+
+  it('releases following when the person drags up and shows New without scrolling them back', () => {
+    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset').mockImplementation(() => undefined);
+    const scrollToEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd').mockImplementation(() => undefined);
+    const { screen } = view(stub({ messages: [msg({ key: 'reading', text: 'A new response', animate: true })] }), { reducedMotion: false });
+    const list = screen.getByTestId('ask-list');
+    expect(typeof list.props.onScrollBeginDrag).toBe('function');
+    fireEvent(list, 'scrollBeginDrag', scrollEvent(1100));
+    fireEvent.scroll(list, scrollEvent(500));
+    const flatList = screen.UNSAFE_getByType(FlatList);
+    act(() => flatList.props.renderItem({ item: flatList.props.data[0] }).props.onFollow('reading', 1000));
+    fireEvent(list, 'contentSizeChange', 360, 1800);
+    expect(scrollToOffset).not.toHaveBeenCalled();
+    expect(scrollToEnd).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('ask-new-pill'));
+    expect(scrollToEnd).toHaveBeenCalledWith({ animated: true });
+    expect(screen.queryByTestId('ask-new-pill')).toBeNull();
+    fireEvent(list, 'scrollBeginDrag', scrollEvent(1100));
+    fireEvent.scroll(list, scrollEvent(500));
+    expect(screen.getByTestId('ask-new-pill')).toBeTruthy();
+    fireEvent.scroll(list, scrollEvent(1050));
+    expect(screen.queryByTestId('ask-new-pill')).toBeNull();
+  });
+
+  it('keeps following when a programmatic glide leaves a taller transparent tail below the viewport', () => {
+    const { screen } = view(stub({ messages: [msg({ key: 'glide', text: 'A longer response', animate: true })] }), { reducedMotion: false });
+    const list = screen.getByTestId('ask-list');
+    fireEvent.scroll(list, scrollEvent(1100));
+    fireEvent.scroll(list, scrollEvent(500));
+    fireEvent(list, 'contentSizeChange', 360, 1800);
+    expect(screen.queryByTestId('ask-new-pill')).toBeNull();
+  });
+
+  it('uses the composer Stop square while busy and keeps its old text link absent', () => {
+    const ask = stub({ turn: 'thinking', draft: { key: 'busy', text: '' } });
+    const { screen } = view(ask);
+    expect(screen.queryByText('Stop')).toBeNull();
+    expect(screen.queryByTestId('ask-send')).toBeNull();
+    const stop = screen.getByTestId('ask-stop');
+    expect(stop.props.accessibilityLabel).toBe('Stop');
+    expect(StyleSheet.flatten(stop.props.style)).toEqual(expect.objectContaining({ width: 48, height: 48, opacity: 1 }));
+    fireEvent.press(stop);
+    expect(ask.cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders Draft my route now as the approved outlined 44 point pill', () => {
+    const { screen } = view(stub(), { secondaryAction: { label: 'Draft my route now', onPress: jest.fn(), testID: 'ask-draft-now' } });
+    expect(StyleSheet.flatten(screen.getByTestId('ask-draft-now').props.style)).toEqual(expect.objectContaining({
+      minHeight: 44, paddingHorizontal: 18, borderWidth: 1.25, borderColor: ASK_TOKENS.ink, backgroundColor: 'transparent',
+    }));
+  });
+});
+
+describe('one persistent Ask Anchor', () => {
+  beforeEach(() => { jest.useFakeTimers(); jest.clearAllMocks(); askReveal.reset(); });
+  afterEach(() => jest.useRealTimers());
+
+  const conversation = (state: Partial<AskState>, reducedMotion = true) => (
+    <AskChartView ask={stub(state) as never} intention="Restore my Buick Regal" category="desire" anchorArt={art} reducedMotion={reducedMotion} composerValue="" onComposerChange={jest.fn()} onSend={jest.fn()} />
+  );
+
+  it('keeps one Anchor instance as messages become a new draft and then a finished reply', () => {
+    const history = [msg({ key: 'actor-old-1', text: 'First answer' }), msg({ key: 'actor-old-2', text: 'Second answer' })];
+    const screen = render(conversation({ messages: history }));
+    expect(screen.getAllByLabelText(/^avatar:/)).toHaveLength(1);
+    const actor = screen.getByTestId('ask-anchor');
+    const user = msg({ key: 'actor-user', role: 'USER', text: 'Another question', status: 'sending' });
+    screen.rerender(conversation({ messages: [...history, user], draft: { key: 'actor-next', text: '' }, turn: 'thinking' }));
+    expect(screen.getAllByLabelText(/^avatar:/)).toHaveLength(1);
+    expect(screen.getByTestId('ask-anchor')).toBe(actor);
+    expect(screen.getByTestId('ask-thinking')).toBeTruthy();
+    screen.rerender(conversation({ messages: [...history, { ...user, status: 'sent' }, msg({ key: 'actor-next', text: 'The next answer' })], draft: null, turn: 'idle' }));
+    expect(screen.getAllByLabelText(/^avatar:/)).toHaveLength(1);
+    expect(screen.getByTestId('ask-anchor')).toBe(actor);
+  });
+
+  it('moves beside the latest assistant cell and stays attached while the list scrolls', () => {
+    const history = [msg({ key: 'actor-earlier' }), msg({ key: 'actor-latest' })];
+    const screen = render(conversation({ messages: history }, false));
+    const flatList = screen.UNSAFE_getByType(FlatList);
+    const Cell = flatList.props.CellRendererComponent;
+    for (const cell of screen.UNSAFE_getAllByType(Cell)) {
+      const key = cell.props.item.kind === 'message' ? cell.props.item.message.key : cell.props.item.key;
+      const y = key === 'actor-latest' ? 420 : 80;
+      fireEvent(cell.findAllByType(View)[0], 'layout', { nativeEvent: { layout: { x: 0, y, width: 360, height: 150 } } });
+    }
+    const actor = screen.getByTestId('ask-anchor');
+    expect(StyleSheet.flatten(actor.props.style).transform).toEqual(expect.arrayContaining([{ translateY: 422 }]));
+    fireEvent.scroll(screen.getByTestId('ask-list'), { nativeEvent: {
+      contentOffset: { x: 0, y: 100 }, contentSize: { width: 360, height: 1400 }, layoutMeasurement: { width: 360, height: 300 },
+    } });
+    expect(StyleSheet.flatten(actor.props.style).transform).toEqual(expect.arrayContaining([{ translateY: 322 }]));
+    expect(screen.getAllByLabelText(/^avatar:/)).toHaveLength(1);
+    screen.rerender(conversation({ messages: [...history, msg({ key: 'actor-new-reply' })] }, false));
+    const nextCell = screen.UNSAFE_getAllByType(Cell).find(cell => cell.props.item.kind === 'message' && cell.props.item.message.key === 'actor-new-reply');
+    expect(nextCell).toBeDefined();
+    fireEvent(nextCell!.findAllByType(View)[0], 'layout', { nativeEvent: { layout: { x: 0, y: 700, width: 360, height: 150 } } });
+    expect(screen.getByTestId('ask-anchor')).toBe(actor);
+    expect(StyleSheet.flatten(actor.props.style).transform).toEqual(expect.arrayContaining([{ translateY: 602 }]));
+    expect(jest.mocked(withTiming).mock.calls.some(([, config]) => config?.duration === 450)).toBe(true);
+  });
+
+  it('snaps the actor to its cell without a travel animation under reduced motion', () => {
+    const screen = render(conversation({ messages: [msg({ key: 'actor-reduced' })] }));
+    const Cell = screen.UNSAFE_getByType(FlatList).props.CellRendererComponent;
+    const cell = screen.UNSAFE_getByType(Cell);
+    fireEvent(cell.findAllByType(View)[0], 'layout', { nativeEvent: { layout: { x: 0, y: 240, width: 360, height: 150 } } });
+    expect(StyleSheet.flatten(screen.getByTestId('ask-anchor').props.style).transform).toEqual(expect.arrayContaining([{ translateY: 242 }]));
+    expect(jest.mocked(withTiming).mock.calls.some(([, config]) => config?.duration === 450)).toBe(false);
+  });
 });
 
 function stub(state: Partial<AskState> = {}, extra: Record<string, unknown> = {}) {
@@ -69,7 +210,7 @@ describe('askAccent', () => {
 describe('AskChartView', () => {
   it('shows the header with the intention, and the conversation with the person’s real Anchor as the assistant avatar', () => {
     const { screen } = view(stub({ messages: [msg({ id: 'a', key: 'a', text: 'I can see you are restoring a Regal.' }), msg({ id: 'u', key: 'u', role: 'USER', text: 'It runs but needs paint.' })] }));
-    expect(screen.getByText('Ask Chart')).toBeTruthy();
+    expect(screen.getByText('Ask Anchor')).toBeTruthy();
     expect(screen.getByText('Restore my Buick Regal')).toBeTruthy();
     expect(screen.getByText('I can see you are restoring a Regal.')).toBeTruthy();
     expect(screen.getByText('It runs but needs paint.')).toBeTruthy();
@@ -119,6 +260,20 @@ describe('AskChartView', () => {
   it('can send a photo with no text when one is attached', () => {
     const { screen } = view(stub(), { canSendEmpty: true });
     expect(screen.getByTestId('ask-send').props.accessibilityState).toMatchObject({ disabled: false });
+  });
+
+  it('keeps the composer disabled while an opening is loading and enables it once ready', () => {
+    const loading = view(stub({ status: 'loading' }), { composerValue: 'early' });
+    expect(loading.screen.getByTestId('ask-input').props.editable).toBe(false);
+    expect(loading.screen.getByTestId('ask-send').props.accessibilityState).toMatchObject({ disabled: true });
+    fireEvent.press(loading.screen.getByTestId('ask-send'));
+    expect(loading.onSend).not.toHaveBeenCalled();
+    loading.screen.unmount();
+    const ready = view(stub({ status: 'ready' }), { composerValue: 'After opening' });
+    expect(ready.screen.getByTestId('ask-input').props.editable).toBe(true);
+    expect(ready.screen.getByTestId('ask-send').props.accessibilityState).toMatchObject({ disabled: false });
+    fireEvent.press(ready.screen.getByTestId('ask-send'));
+    expect(ready.onSend).toHaveBeenCalledTimes(1);
   });
 
   it('suggestions send on one tap and disappear while an action is offered', () => {

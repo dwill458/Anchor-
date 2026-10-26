@@ -2,6 +2,13 @@
 
 Status: **30/30 normal-speed sessions and 4/4 native control/recovery checks passed on the Moto.** Automated audio-stream and timing acceptance is complete; the release boundaries below remain separate.
 
+**2026-10-26 correction:** Those checks confirmed transport of the supplied files,
+but missed end-loaded narration and split clauses in the ten-minute Deep Focus
+masters. See [the pacing repair](../deep-focus-pacing-20261026/README.md).
+The [broader pacing audit](../audio-pacing-20261026/README.md) also found issues
+in shorter Deep Focus mixes and additional Visualize phrases. October 25
+device receipts do not validate the replacement V5/V6 masters.
+
 ## Scope and method
 
 - Moto g play (2024), Android 14, USB serial ZY22KPQQHK; installed development build com.anchorintentions.app 2.0.0 (39), native React Native 0.88.0.

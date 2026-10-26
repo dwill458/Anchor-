@@ -7,6 +7,8 @@ import { SettingsHeader, SettingsRow } from '@/components/settings/SettingsPrimi
 import { T, settingsTypography } from '@/components/settings/settingsTheme';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { DEV_MOCK_IDENTITY } from '@/utils/devMockIdentity';
 import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
 
 // DEFERRED: import { SettingsScreen } from '@/screens/settings';
@@ -17,8 +19,11 @@ export const ProfileScreen: React.FC = () => {
   const name = useProfileStore((state) => state.name);
   const photo = useProfileStore((state) => state.photo);
   const authDisplayName = useAuthStore((state) => state.user?.displayName ?? null);
-  const profilePictureUrl = useAuthStore((state) => state.user?.profilePictureUrl ?? null);
-  const displayName = name || authDisplayName || 'Your profile';
+  const signedInProfilePictureUrl = useAuthStore((state) => state.user?.profilePictureUrl ?? null);
+  const devMockIdentity = useSettingsStore((state) => state.devMockIdentity);
+  const mockIdentity = __DEV__ && devMockIdentity;
+  const profilePictureUrl = mockIdentity ? DEV_MOCK_IDENTITY.profilePictureUrl : signedInProfilePictureUrl;
+  const displayName = mockIdentity ? DEV_MOCK_IDENTITY.displayName : name || authDisplayName || 'Your profile';
   const avatar = photo || profilePictureUrl;
 
   const handleBack = () => {

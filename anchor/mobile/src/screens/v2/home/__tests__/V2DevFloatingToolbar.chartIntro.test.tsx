@@ -10,6 +10,7 @@ jest.mock('@/stores/authStore', () => ({ useAuthStore: { getState: () => ({ setH
 jest.mock('@/stores/settingsStore', () => ({ useSettingsStore: { getState: () => ({ setDeveloperSkipOnboardingEnabled: jest.fn() }) } }));
 jest.mock('@/components/v2/chart/chartIntroSeen', () => ({ resetChartIntroSeen: jest.fn(async () => undefined) }));
 
+import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
 import { resetChartIntroSeen } from '@/components/v2/chart/chartIntroSeen';
 import { V2DevFloatingToolbar } from '../V2DevFloatingToolbar';
 
@@ -25,6 +26,7 @@ describe('V2DevFloatingToolbar chart opening entries', () => {
   const originalDev = devGlobal.__DEV__;
 
   beforeEach(() => {
+    useDevThreadStrengthStore.getState().simulate(null);
     mockNavigate.mockClear();
     reset.mockClear();
     devGlobal.__DEV__ = true;
@@ -70,4 +72,19 @@ describe('V2DevFloatingToolbar chart opening entries', () => {
     expect(screen.queryByText('Replay opening (short)')).toBeNull();
     expect(screen.queryByText('Reset intro seen')).toBeNull();
   });
+});
+
+
+it('slides through local mock percentages and restores real data without navigating', () => {
+  openToolbar();
+  const slider = screen.getByTestId('v2-dev-strength-slider');
+  expect(slider.props.minimumValue).toBe(0);
+  expect(slider.props.maximumValue).toBe(100);
+  fireEvent(slider, 'valueChange', 67);
+  expect(useDevThreadStrengthStore.getState().value).toBe(67);
+  expect(screen.getByText('Thread Strength: 67% · Mock')).toBeTruthy();
+  fireEvent(slider, 'valueChange', 0);
+  expect(useDevThreadStrengthStore.getState().value).toBe(0);
+  fireEvent.press(screen.getByTestId('v2-dev-strength-real'));
+  expect(useDevThreadStrengthStore.getState().value).toBeNull();
 });

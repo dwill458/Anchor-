@@ -149,6 +149,8 @@ app.use('/api/v2/anchors/:anchorId/chart/ask/photo', express.json({ limit: '8mb'
 // Identity reference photos are base64 JSON as well (5 MB decoded cap in VisionAppearanceReferenceService).
 // Without this they fall under the 1mb parser below and every real photograph is refused with a 413.
 app.use('/api/v2/vision/appearance-reference', express.json({ limit: '8mb' }));
+// Expand-with-AI sends the photo as base64 JSON (up to 1600px on the long edge), which exceeds the 1mb parser below.
+app.use('/api/v2/vision/photo-expand', express.json({ limit: '8mb' }));
 
 // Limit request body size to prevent memory exhaustion attacks
 app.use(express.json({ limit: '1mb' }));

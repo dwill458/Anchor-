@@ -22,6 +22,7 @@ import revenueCatService from '@/services/RevenueCatService';
 import { ChartStaticMap } from '@/components/v2/chart/panel/ChartStaticMap';
 import { queueMilestoneAction } from '@/milestones/queueMilestoneAction';
 import { toThreadPresentation } from '@/adapters/v2/home/threadAdapter';
+import { useThreadStrengthPreview } from '@/stores/devThreadStrengthStore';
 
 export interface V2ChartRouteParams {
   anchorId?: string;
@@ -70,6 +71,9 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   const reducedMotion = useV2ReduceMotion();
   const chart = useAnchorChart(anchorId);
   const context = useChartContext(anchorId, chart.data);
+  const threadStrength = useThreadStrengthPreview(
+    context.anchor ? toThreadPresentation(context.anchor).value : null,
+  );
   // Saved Charts remain available after expiry. A new Chart requires a
   // hydrated RevenueCat entitlement before its creation flow can mount.
   const { entitlementReady, hasActiveEntitlement } = useTrialStatus();
@@ -242,7 +246,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         view={view}
         identity={identity}
         anchorArt={context.anchorArt}
-        threadStrength={context.anchor ? toThreadPresentation(context.anchor).value : null}
+        threadStrength={threadStrength}
         vision={context.vision}
         stale={chart.stale}
         busyKey={chart.busy}

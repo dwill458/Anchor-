@@ -6,6 +6,8 @@ import { prisma } from '../../../lib/prisma';
 import { requireChartEnabled, requireChartWriteEnabled } from '../../../config/chartFlags';
 import { getAuthenticatedUserId } from './authHelper';
 import { chartService } from '../../../services/chart/ChartService';
+import { courseService } from '../../../services/CourseService';
+import { milestoneService } from '../../../services/v2/milestones/MilestoneService';
 import { chartPlannerService } from '../../../services/chart/ChartPlannerService';
 import { getMonetizationAccess } from '../../../services/MonetizationAccessService';
 
@@ -18,8 +20,8 @@ import {
 
 /**
  * Anchor 2.0 Chart API. A Chart is addressed through its Anchor; route-level
- * operations use the Chart (Course) id. Waypoint completion, edits, reorder and
- * cancellation stay on the canonical /api/courses endpoints.
+ * operations use the Chart (Course) id. Completion uses the canonical Course
+ * service with v2 access; legacy Course rollout gates do not apply to v2 Charts.
  */
 const router = Router();
 router.use(authMiddleware);
@@ -250,6 +252,7 @@ const ProgressSchema = z
   );
 
 const ArchiveDeleteSchema = z.object({ expectedCourseVersion: CourseVersion.optional() }).strict();
+const CompleteWaypointSchema = z.object({ idempotencyKey: IdempotencyKey, expectedCourseVersion: CourseVersion }).strict();
 
 function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
@@ -407,6 +410,21 @@ router.put(
       success: true,
       data: await chartService.applyRoute(userId, req.params.courseId, body),
     });
+  })
+);
+
+router.post(
+  '/charts/:courseId/waypoints/:waypointId/complete',
+  handle(async (req, res) => {
+    const body = validate(CompleteWaypointSchema, req.body);
+    const userId = await writeUser(req);
+    const { courseId, waypointId } = req.params;
+    const completion = await courseService.completeWaypoint(userId, courseId, waypointId, body);
+    void milestoneService.evaluateQuietly(userId, completion.course.anchorId, {
+      kind: 'chart', sourceEntityId: courseId, eventId: waypointId,
+    });
+    const chart = await courseService.getCourse(userId, courseId);
+    res.json({ success: true, data: { ...completion, chart } });
   })
 );
 

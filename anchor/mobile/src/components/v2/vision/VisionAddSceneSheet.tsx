@@ -4,7 +4,7 @@ import Animated, { useAnimatedKeyboard, useAnimatedStyle } from 'react-native-re
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
 import { useV2ReduceMotion } from '@/hooks/v2';
-import { colors, radii, spacing, typography } from '@/theme/v2';
+import { AnchorMotion, colors, radii, spacing, typography } from '@/theme/v2';
 import { VISION_ADD_SHEET_HANDOFF_MS } from './VisionAddSheet';
 import { VisionInkPill, VISION_SERIF } from './VisionPaperChrome';
 import { VisionReferenceStrip } from './VisionReferenceStrip';
@@ -170,7 +170,10 @@ export function VisionAddSceneSheet({ visible, onClose, anchorIntention, onSubmi
     close();
     if (handoff.current) clearTimeout(handoff.current);
     // A native picker cannot open over a dismissing Modal on iOS; the sheet's exit finishes first.
-    handoff.current = setTimeout(() => onAddOwnPhoto(source), reduceMotion ? 0 : VISION_ADD_SHEET_HANDOFF_MS);
+    // Even with reduced motion the native Modal needs its short exit to finish
+    // before iOS can present another native controller over it.
+    const delay = reduceMotion ? AnchorMotion.duration.micro + 32 : VISION_ADD_SHEET_HANDOFF_MS;
+    handoff.current = setTimeout(() => onAddOwnPhoto(source), delay);
   };
 
   return (

@@ -405,26 +405,24 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
       if (!chart) return null;
       // Stable key per waypoint and route version: a retried or doubled tap is one server write.
       const key = chartActionKey('reach', chart.id, waypointId, String(chart.version));
-      const result = await run(`reach:${waypointId}`, async () => {
-        const response = await chartApiClient.completeWaypoint(chart.id, waypointId, {
+      const result = await run(`reach:${waypointId}`, () =>
+        chartV2Api.completeWaypoint(chart.id, waypointId, {
           idempotencyKey: key,
           expectedCourseVersion: chart.version,
-        });
-        const detail = await chartApiClient.getCourse(chart.id);
-        return { response: response.data, detail: detail.data };
-      });
+        })
+      );
       if (!result) return null;
-      publishChart(id, result.detail, accountId);
-      const destinationReached = result.response.courseCompleted;
+      publishChart(id, result.chart, accountId);
+      const destinationReached = result.courseCompleted;
       trackChart(destinationReached ? 'chart_destination_reached' : 'chart_waypoint_completed', {
         courseId: chart.id,
-        replayed: result.response.replayed,
+        replayed: result.replayed,
       });
       return {
-        completedTitle: result.response.completedWaypoint.title,
-        nextTitle: result.response.nextWaypoint?.title ?? null,
+        completedTitle: result.completedWaypoint.title,
+        nextTitle: result.nextWaypoint?.title ?? null,
         destinationReached,
-        chart: result.detail,
+        chart: result.chart,
       };
     },
     [accountId, chart, id, run]

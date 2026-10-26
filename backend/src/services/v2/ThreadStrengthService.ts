@@ -19,8 +19,23 @@ export type ThreadMovement = {
   beforeStrength: number;
   afterStrength: number;
   delta: number;
+  /** Portion of `delta` that came from the one-time activation bonus (0 when none). */
+  activationBonus: number;
   reason: 'practice_completed';
   idempotent: boolean;
+};
+
+export type ActivationStatus = 'awarded' | 'legacy_exempt';
+
+/**
+ * One-time protected baseline captured by the 2.1 legacy migration. `strength` is the
+ * authoritative pre-2.0 value as of `completedAt` (the last legacy-scored session).
+ * Sessions at or before `completedAt` are already represented in it and never re-earn.
+ */
+export type LegacyBaseline = {
+  strength: number;
+  completedAt: Date;
+  dateKey: string;
 };
 
 export type AnchorThreadState = {
@@ -35,6 +50,9 @@ export type AnchorThreadState = {
 
 // Thread Strength 2.0 locked scoring constants
 export const DAILY_RETURN_BONUS = 1.5;
+// Thread Strength 2.1: one-time bonus for the first eligible completed practice on an Anchor.
+export const ACTIVATION_BONUS = 12;
+export const THREAD_RULE_VERSION = 'v2.1-authoritative';
 export const POINTS_PER_MINUTE = 0.5;
 export const DAILY_DURATION_CAP_SECONDS = 600; // 10 minutes max earning
 export const DAILY_DECAY = 3;
@@ -299,6 +317,150 @@ export function isThreadPracticeType(value: string): value is ThreadPracticeType
   return normalizeThreadPracticeType(value) !== null;
 }
 
+export function readLegacyBaseline(
+  state:
+    | {
+        legacyBaselineStrength?: number | null;
+        legacyBaselineAt?: Date | null;
+        legacyBaselineDateKey?: string | null;
+      }
+    | null
+    | undefined
+): LegacyBaseline | null {
+  if (
+    !state ||
+    typeof state.legacyBaselineStrength !== 'number' ||
+    !state.legacyBaselineAt ||
+    !state.legacyBaselineDateKey
+  ) {
+    return null;
+  }
+  return {
+    strength: state.legacyBaselineStrength,
+    completedAt: new Date(state.legacyBaselineAt),
+    dateKey: state.legacyBaselineDateKey,
+  };
+}
+
+export type ReplayMovement = {
+  sessionId: string;
+  practiceType: string;
+  completedAt: Date;
+};
+
+export type ReplayContext = {
+  dateKeyBySession: ReadonlyMap<string, string>;
+  durationBySession: ReadonlyMap<string, number>;
+  fallbackTimeZone: string;
+  restDays: readonly number[];
+  sensitivity: ThreadStrengthSensitivity;
+  preferenceHistory?: DecayPreferenceHistoryEntry[] | null;
+  /** Session that receives the one-time activation bonus, if any. */
+  activationSessionId?: string | null;
+  baseline?: LegacyBaseline | null;
+};
+
+export type ReplayStep = {
+  sessionId: string;
+  beforeStrength: number;
+  afterStrength: number;
+  delta: number;
+  activationBonus: number;
+};
+
+/**
+ * Pure chronological replay shared by the write path and every read path so they can
+ * never disagree. Movements must already be sorted. Movements covered by a legacy
+ * baseline produce no step (they are not re-earned and their stored rows stay untouched).
+ */
+export function replayThreadStrength(
+  movements: readonly ReplayMovement[],
+  ctx: ReplayContext
+): {
+  steps: ReplayStep[];
+  strength: number | null;
+  cursorDateKey: string | null;
+  consecutiveMissedDays: number;
+} {
+  const baseline = ctx.baseline ?? null;
+  let strength: number | null = baseline ? baseline.strength : null;
+  let cursorDateKey: string | null = baseline ? baseline.dateKey : null;
+  let consecutiveMissedDays = 0;
+  const steps: ReplayStep[] = [];
+  const dailyEligibleSeconds = new Map<string, number>();
+  const dailyFirstSessionAwarded = new Set<string>();
+  if (baseline) dailyFirstSessionAwarded.add(baseline.dateKey);
+
+  for (const movement of movements) {
+    const mDateKey =
+      ctx.dateKeyBySession.get(movement.sessionId) ||
+      resolveLocalDateKeyFromDate(movement.completedAt, ctx.fallbackTimeZone);
+    const durationSeconds = ctx.durationBySession.get(movement.sessionId) ?? 300;
+    const practiceType = movement.practiceType as ThreadPracticeType;
+
+    if (baseline && new Date(movement.completedAt).getTime() <= baseline.completedAt.getTime()) {
+      // Already represented by the protected baseline; only burn same-day cap so a
+      // post-baseline session on the baseline day cannot be credited twice.
+      if (mDateKey === baseline.dateKey && practiceType !== 'release') {
+        const prior = dailyEligibleSeconds.get(mDateKey) ?? 0;
+        dailyEligibleSeconds.set(
+          mDateKey,
+          Math.min(DAILY_DURATION_CAP_SECONDS, prior + Math.max(0, durationSeconds))
+        );
+      }
+      continue;
+    }
+
+    if (cursorDateKey && mDateKey > cursorDateKey) {
+      const decayResult = applyMultiDayDecay(
+        strength ?? 0,
+        cursorDateKey,
+        mDateKey,
+        ctx.restDays,
+        ctx.sensitivity,
+        ctx.preferenceHistory,
+        consecutiveMissedDays
+      );
+      strength = decayResult.strength;
+      consecutiveMissedDays = 0;
+    }
+
+    const earning = calculateSessionEarning({
+      practiceType,
+      durationSeconds,
+      isFirstSessionToday: !dailyFirstSessionAwarded.has(mDateKey),
+      priorEligibleSecondsToday: dailyEligibleSeconds.get(mDateKey) ?? 0,
+    });
+    if (practiceType !== 'release') dailyFirstSessionAwarded.add(mDateKey);
+    dailyEligibleSeconds.set(mDateKey, earning.newEligibleSecondsToday);
+
+    const activationBonus =
+      practiceType !== 'release' && ctx.activationSessionId === movement.sessionId
+        ? ACTIVATION_BONUS
+        : 0;
+
+    const beforeStrength = strength !== null ? roundToPrecision(strength, 4) : 0;
+    const afterStrength = roundToPrecision(
+      Math.min(
+        MAX_STRENGTH,
+        Math.max(MIN_STRENGTH, beforeStrength + earning.delta + activationBonus)
+      ),
+      4
+    );
+    steps.push({
+      sessionId: movement.sessionId,
+      beforeStrength,
+      afterStrength,
+      delta: roundToPrecision(afterStrength - beforeStrength, 4),
+      activationBonus,
+    });
+    strength = afterStrength;
+    cursorDateKey = mDateKey;
+  }
+
+  return { steps, strength, cursorDateKey, consecutiveMissedDays };
+}
+
 export class ThreadStrengthService {
   async calculatePracticeCompletion(input: {
     userId: string;
@@ -374,18 +536,19 @@ export class ThreadStrengthService {
         beforeStrength: duplicate.beforeStrength,
         afterStrength: duplicate.afterStrength,
         delta: duplicate.delta,
+        activationBonus: duplicate.activationBonus ?? 0,
         reason: 'practice_completed',
         idempotent: true,
       };
     }
 
-    await tx.threadV2State.upsert({
+    const state = await tx.threadV2State.upsert({
       where: { userId_anchorId: { userId: input.userId, anchorId: input.anchorId } },
       create: {
         userId: input.userId,
         anchorId: input.anchorId,
         strength: 0,
-        ruleVersion: 'v2.0-authoritative',
+        ruleVersion: THREAD_RULE_VERSION,
       },
       update: {},
     });
@@ -432,6 +595,36 @@ export class ThreadStrengthService {
       durationMap.set(input.sessionId, input.durationSeconds);
     }
 
+    // One-time activation: decided inside this serializable transaction against the
+    // persisted per-Anchor state, so retries, reinstalls and concurrent completions
+    // cannot award it twice, and decay to zero never re-arms it.
+    const baseline = readLegacyBaseline(state);
+    let activationStatus: ActivationStatus | null =
+      (state?.activationStatus as ActivationStatus | null) ?? null;
+    let activationSessionId: string | null = state?.activationSessionId ?? null;
+    if (!activationStatus && input.practiceType !== 'release') {
+      const hadEarlierPractice =
+        baseline !== null ||
+        priorMovements.some(m => m.practiceType !== 'release') ||
+        (typeof tx.practiceSession?.count === 'function' &&
+          (await tx.practiceSession.count({
+            where: {
+              userId: input.userId,
+              anchorId: input.anchorId,
+              completionStatus: 'completed',
+              practiceMode: { not: 'release' },
+              id: { not: input.sessionId },
+              completedAt: { lt: input.completedAt },
+            },
+          })) > 0);
+      if (hadEarlierPractice) {
+        activationStatus = 'legacy_exempt';
+      } else {
+        activationStatus = 'awarded';
+        activationSessionId = input.sessionId;
+      }
+    }
+
     const newMovementPlaceholder = await tx.threadV2Movement.create({
       data: {
         userId: input.userId,
@@ -456,6 +649,7 @@ export class ThreadStrengthService {
       beforeStrength: 0,
       afterStrength: 0,
       delta: 0,
+      activationBonus: 0,
       reason: 'practice_completed',
     };
 
@@ -470,89 +664,78 @@ export class ThreadStrengthService {
       return timeDiff !== 0 ? timeDiff : a.sessionId.localeCompare(b.sessionId);
     });
 
-    let strength: number | null = null;
-    let cursorDateKey: string | null = null;
+    const replay = replayThreadStrength(allMovements, {
+      dateKeyBySession: dateMap,
+      durationBySession: durationMap,
+      fallbackTimeZone: input.timeZone || 'UTC',
+      restDays,
+      sensitivity,
+      preferenceHistory,
+      activationSessionId,
+      baseline,
+    });
+    const stepBySession = new Map(replay.steps.map(s => [s.sessionId, s]));
+
     let requested: ThreadMovement | null = null;
-    const dailyEligibleSeconds = new Map<string, number>();
-    const dailyFirstSessionAwarded = new Set<string>();
-    let consecutiveMissedDays = 0;
-
     for (const movement of allMovements) {
-      const mDateKey =
-        dateMap.get(movement.sessionId) ||
-        resolveLocalDateKeyFromDate(movement.completedAt, input.timeZone || 'UTC');
-      const durationSeconds = durationMap.get(movement.sessionId) ?? 300;
-      const practiceType = movement.practiceType as ThreadPracticeType;
-
-      if (cursorDateKey && mDateKey > cursorDateKey) {
-        const decayResult = applyMultiDayDecay(
-          strength ?? 0,
-          cursorDateKey,
-          mDateKey,
-          restDays,
-          sensitivity,
-          preferenceHistory,
-          consecutiveMissedDays
-        );
-        strength = decayResult.strength;
-        consecutiveMissedDays = 0;
-      }
-
-      const priorSecondsToday = dailyEligibleSeconds.get(mDateKey) ?? 0;
-      const isFirstToday = !dailyFirstSessionAwarded.has(mDateKey);
-
-      const earning = calculateSessionEarning({
-        practiceType,
-        durationSeconds,
-        isFirstSessionToday: isFirstToday,
-        priorEligibleSecondsToday: priorSecondsToday,
-      });
-
-      if (practiceType !== 'release') {
-        dailyFirstSessionAwarded.add(mDateKey);
-      }
-      dailyEligibleSeconds.set(mDateKey, earning.newEligibleSecondsToday);
-
-      const beforeStrength = strength !== null ? roundToPrecision(strength, 4) : 0;
-      const afterStrength = roundToPrecision(
-        Math.min(MAX_STRENGTH, Math.max(MIN_STRENGTH, (strength ?? 0) + earning.delta)),
-        4
-      );
-      const delta = roundToPrecision(afterStrength - beforeStrength, 4);
-
+      const step = stepBySession.get(movement.sessionId);
+      if (!step) continue; // covered by legacy baseline: stored row stays untouched
+      const isNew = movement.id === newMovementPlaceholder.id;
       if (
-        movement.id === newMovementPlaceholder.id ||
-        movement.beforeStrength !== beforeStrength ||
-        movement.afterStrength !== afterStrength ||
-        movement.delta !== delta
+        isNew ||
+        movement.beforeStrength !== step.beforeStrength ||
+        movement.afterStrength !== step.afterStrength ||
+        movement.delta !== step.delta ||
+        (movement.activationBonus ?? 0) !== step.activationBonus
       ) {
         await tx.threadV2Movement.update({
           where: { id: movement.id },
-          data: { beforeStrength, afterStrength, delta },
+          data: {
+            beforeStrength: step.beforeStrength,
+            afterStrength: step.afterStrength,
+            delta: step.delta,
+            activationBonus: step.activationBonus,
+          },
         });
       }
-
       if (movement.sessionId === input.sessionId) {
         requested = {
-          beforeStrength,
-          afterStrength,
-          delta,
+          beforeStrength: step.beforeStrength,
+          afterStrength: step.afterStrength,
+          delta: step.delta,
+          activationBonus: step.activationBonus,
           reason: 'practice_completed',
           idempotent: false,
         };
       }
+    }
 
-      strength = afterStrength;
-      cursorDateKey = mDateKey;
+    if (!requested && baseline) {
+      // Late-arriving session already covered by the protected legacy baseline.
+      requested = {
+        beforeStrength: baseline.strength,
+        afterStrength: baseline.strength,
+        delta: 0,
+        activationBonus: 0,
+        reason: 'practice_completed',
+        idempotent: false,
+      };
     }
 
     const latest = allMovements[allMovements.length - 1];
     await tx.threadV2State.update({
       where: { userId_anchorId: { userId: input.userId, anchorId: input.anchorId } },
       data: {
-        strength: strength ?? 0,
+        strength: replay.strength ?? 0,
         lastCompletedAt: latest?.completedAt ?? null,
-        ruleVersion: 'v2.0-authoritative',
+        ruleVersion: THREAD_RULE_VERSION,
+        ...(activationStatus && !state?.activationStatus
+          ? {
+              activationStatus,
+              activationSessionId,
+              activationAwardedAt: activationStatus === 'awarded' ? new Date() : null,
+            }
+          : {}),
       },
     });
 
@@ -574,6 +757,7 @@ export class ThreadStrengthService {
           beforeStrength: requested.beforeStrength,
           afterStrength: requested.afterStrength,
           delta: requested.delta,
+          activationBonus: requested.activationBonus,
         },
       },
       update: {},
@@ -659,7 +843,7 @@ export class ThreadStrengthService {
         delta7d: null,
         delta7dStatus: 'FIRST_WEEK',
         lastCompletedAt: null,
-        ruleVersion: 'v2.0-authoritative',
+        ruleVersion: THREAD_RULE_VERSION,
       };
     }
 
@@ -687,6 +871,17 @@ export class ThreadStrengthService {
       sessionDurationMap.set(s.id, s.completedDurationSeconds ?? 0);
     }
 
+    const persistedState =
+      typeof prisma.threadV2State?.findUnique === 'function'
+        ? await prisma.threadV2State.findUnique({
+            where: { userId_anchorId: { userId, anchorId } },
+          })
+        : null;
+    const replayOptions = {
+      activationSessionId: persistedState?.activationSessionId ?? null,
+      baseline: readLegacyBaseline(persistedState),
+    };
+
     const currentStrength = this.calculateStrengthAtDate(
       anchor.createdAt,
       movements,
@@ -696,7 +891,8 @@ export class ThreadStrengthService {
       sessionDateMap,
       sessionDurationMap,
       sensitivity,
-      preferenceHistory
+      preferenceHistory,
+      replayOptions
     );
 
     const isFirstWeek = anchor.createdAt
@@ -719,7 +915,8 @@ export class ThreadStrengthService {
         sessionDateMap,
         sessionDurationMap,
         sensitivity,
-        preferenceHistory
+        preferenceHistory,
+        replayOptions
       );
       delta7d =
         currentStrength !== null && pastStrength !== null
@@ -737,12 +934,12 @@ export class ThreadStrengthService {
         anchorId,
         strength: currentStrength ?? 0,
         lastCompletedAt: latest?.completedAt ?? null,
-        ruleVersion: 'v2.0-authoritative',
+        ruleVersion: THREAD_RULE_VERSION,
       },
       update: {
         strength: currentStrength ?? 0,
         lastCompletedAt: latest?.completedAt ?? null,
-        ruleVersion: 'v2.0-authoritative',
+        ruleVersion: THREAD_RULE_VERSION,
       },
     });
 
@@ -758,7 +955,7 @@ export class ThreadStrengthService {
       delta7d,
       delta7dStatus,
       lastCompletedAt: latest?.completedAt ?? null,
-      ruleVersion: 'v2.0-authoritative',
+      ruleVersion: THREAD_RULE_VERSION,
     };
   }
 
@@ -771,86 +968,52 @@ export class ThreadStrengthService {
     sessionDateMap?: Map<string, string>,
     sessionDurationMap?: Map<string, number>,
     sensitivity: ThreadStrengthSensitivity = 'balanced',
-    preferenceHistory?: DecayPreferenceHistoryEntry[] | null
+    preferenceHistory?: DecayPreferenceHistoryEntry[] | null,
+    options: { activationSessionId?: string | null; baseline?: LegacyBaseline | null } = {}
   ): number | null {
     if (movements.length === 0) return null;
+    const baseline = options.baseline ?? null;
+    // Before the protected baseline there is no authoritative value to report.
+    if (baseline && targetDate.getTime() < baseline.completedAt.getTime()) return null;
 
     const applicableMovements = movements
       .filter(m => new Date(m.completedAt).getTime() <= targetDate.getTime())
+      .map(m => ({
+        sessionId: m.sessionId ?? '',
+        practiceType: m.practiceType,
+        completedAt: new Date(m.completedAt),
+      }))
       .sort((a, b) => {
-        const aTime = new Date(a.completedAt).getTime();
-        const bTime = new Date(b.completedAt).getTime();
-        const diff = aTime - bTime;
-        return diff !== 0 ? diff : (a.sessionId ?? '').localeCompare(b.sessionId ?? '');
+        const diff = a.completedAt.getTime() - b.completedAt.getTime();
+        return diff !== 0 ? diff : a.sessionId.localeCompare(b.sessionId);
       });
 
     if (applicableMovements.length === 0) return null;
 
-    let strength: number | null = null;
-    let cursorDateKey: string | null = null;
-    const dailyEligibleSeconds = new Map<string, number>();
-    const dailyFirstSessionAwarded = new Set<string>();
-    let consecutiveMissedDays = 0;
+    const replay = replayThreadStrength(applicableMovements, {
+      dateKeyBySession: sessionDateMap ?? new Map<string, string>(),
+      durationBySession: sessionDurationMap ?? new Map<string, number>(),
+      fallbackTimeZone: timeZone,
+      restDays,
+      sensitivity,
+      preferenceHistory,
+      activationSessionId: options.activationSessionId ?? null,
+      baseline,
+    });
 
-    for (const movement of applicableMovements) {
-      const mDateKey =
-        (movement.sessionId ? sessionDateMap?.get(movement.sessionId) : null) ||
-        resolveLocalDateKeyFromDate(movement.completedAt, timeZone);
-      const durationSeconds =
-        (movement.sessionId ? sessionDurationMap?.get(movement.sessionId) : null) ?? 300;
-      const practiceType = movement.practiceType as ThreadPracticeType;
-
-      if (cursorDateKey && mDateKey > cursorDateKey) {
-        const decayResult = applyMultiDayDecay(
-          strength ?? 0,
-          cursorDateKey,
-          mDateKey,
-          restDays,
-          sensitivity,
-          preferenceHistory,
-          consecutiveMissedDays
-        );
-        strength = decayResult.strength;
-        consecutiveMissedDays = 0;
-      }
-
-      const priorSecondsToday = dailyEligibleSeconds.get(mDateKey) ?? 0;
-      const isFirstToday = !dailyFirstSessionAwarded.has(mDateKey);
-
-      const earning = calculateSessionEarning({
-        practiceType,
-        durationSeconds,
-        isFirstSessionToday: isFirstToday,
-        priorEligibleSecondsToday: priorSecondsToday,
-      });
-
-      if (practiceType !== 'release') {
-        dailyFirstSessionAwarded.add(mDateKey);
-      }
-      dailyEligibleSeconds.set(mDateKey, earning.newEligibleSecondsToday);
-
-      const beforeStrength = strength !== null ? roundToPrecision(strength, 4) : 0;
-      const afterStrength = roundToPrecision(
-        Math.min(MAX_STRENGTH, Math.max(MIN_STRENGTH, beforeStrength + earning.delta)),
-        4
-      );
-      strength = afterStrength;
-      cursorDateKey = mDateKey;
-    }
-
-    if (cursorDateKey) {
+    let strength = replay.strength;
+    if (replay.cursorDateKey) {
       const targetDateKey = resolveLocalDateKeyFromDate(targetDate, timeZone);
-      if (targetDateKey > cursorDateKey) {
-        const decayResult = applyMultiDayDecay(
+      if (targetDateKey > replay.cursorDateKey) {
+        strength = applyMultiDayDecay(
           strength ?? 0,
-          cursorDateKey,
+          replay.cursorDateKey,
           targetDateKey,
           restDays,
           sensitivity,
           preferenceHistory,
-          consecutiveMissedDays
-        );
-        strength = decayResult.strength;
+          replay.consecutiveMissedDays
+        ).strength;
       }
     }
 

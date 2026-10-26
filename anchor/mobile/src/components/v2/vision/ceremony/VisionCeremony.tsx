@@ -50,6 +50,8 @@ const CEREMONY_SOUND_KEYS = ['creation:uiTap', 'creation:anchorPulse', 'creation
 
 /** Seal flight + stamp + minimum hold + board rise + arrival settle, matching the hand-off timeline. */
 const SCENE_MS = 2460, REDUCED_SCENE_MS = 1000;
+const SESSION_LOAD_WAIT_MS = 15000;
+const SESSION_LOAD_NOTICE = 'Your saved scene is taking too long to load. Go back and try again. Your description is safe.';
 let visionCeremonySequence = 0;
 
 export type VisionCeremonyBeat = 'ask' | 'describe' | 'develop' | 'choose' | 'keep' | 'seal' | 'pinned';
@@ -345,14 +347,15 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const resumed = useRef(false);
   useEffect(() => {
     if (!props.resumeGeneration) { resumed.current = false; return; }
-    if (!scopeReady || !props.resumeGeneration || resumed.current || !descriptionRef.current.trim()) return;
+    if (!scopeReady || conversation?.loaded === false || !props.resumeGeneration || resumed.current || !descriptionRef.current.trim()) return;
     resumed.current = true; props.onResumeGenerationConsumed?.();
     const pending = pendingGeneration.current;
     if (pending) void generate(pending.text, undefined, undefined, pending.refs, pending.options);
     else void generate(descriptionRef.current);
-  }, [props.resumeGeneration, description, scopeReady]);
+  }, [props.resumeGeneration, description, scopeReady, conversation?.loaded]);
 
   const generate = async (text: string, referenceId?: string | null, photo?: VisionStartPhoto | null, selectedReferences?: VisionReferenceAttachment[], options?: VisionSceneRequestOptions) => {
+    if (conversation?.loaded === false) { actions.setNotice(SESSION_LOAD_NOTICE); return false; }
     if (!scopeReady || actions.starting || generationStarting.current || committedRef.current) return false;
     generationStarting.current = true;
     pendingGeneration.current = { text, refs: selectedReferences ?? (conversation ? references : undefined), options };
@@ -377,6 +380,17 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
   const [fitRequest, setFitRequest] = useState<{ photo: CeremonyPhoto; size: { width: number; height: number } } | null>(null);
   const autoStarted = useRef(false);
   useEffect(() => {
+    if (!props.autoStart || autoStarted.current || conversation?.loaded !== false) return;
+    // Session recovery happens before any generation request. Do not leave the
+    // person watching a progress screen for work the server has never accepted.
+    const timer = setTimeout(() => {
+      autoStarted.current = true;
+      actions.setNotice(SESSION_LOAD_NOTICE);
+      setBeat('describe');
+    }, SESSION_LOAD_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [props.autoStart, conversation?.loaded]);
+  useEffect(() => {
     if (!props.regenerating || freshScopeStarted.current || conversation?.loaded === false) return;
     freshScopeStarted.current = true;
     void (async () => {
@@ -392,7 +406,7 @@ function ScopedVisionCeremony(props: VisionCeremonyProps) {
       if (session && props.initialSessionId !== session.id) await conversation?.startDifferent();
       await generate(descriptionRef.current, photo ? null : undefined, photo);
     })().catch(cause => { actions.setNotice(cause instanceof Error ? cause.message : copy.failed); setBeat('describe'); });
-  }, [conversation?.loaded]);
+  }, [props.autoStart, conversation?.loaded]);
   const pick = async (source: 'library' | 'camera') => {
     if (committedRef.current) return;
     if (mode === 'add') AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: source });

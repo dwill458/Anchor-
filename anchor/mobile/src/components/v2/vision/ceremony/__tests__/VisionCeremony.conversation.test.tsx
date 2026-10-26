@@ -15,6 +15,7 @@ let mockJob: any = null;
 let mockError: string | null = null;
 let mockErrorCode: string | null = null;
 let mockReduced = true;
+let mockConversationLoaded = true;
 let mockPhotoSize: { width: number; height: number } | null = null;
 const mockGenerationStart = jest.fn(async (..._args: unknown[]) => true);
 const mockGenerationRetry = jest.fn(async () => true);
@@ -35,7 +36,7 @@ const mockDiscardPhoto = jest.fn();
 
 const mockConversation = () => ({
   session: mockSession,
-  loaded: true,
+  loaded: mockConversationLoaded,
   draft: { current: mockDraft },
   saveDraft: mockSaveDraft,
   update: mockUpdate,
@@ -183,6 +184,7 @@ describe('VisionCeremony conversation integration', () => {
     mockError = null;
     mockErrorCode = null;
     mockReduced = true;
+    mockConversationLoaded = true;
     mockPhotoSize = null;
     useAuthStore.setState({ user: { id: 'owner-a' } as never });
     mockGenerationStart.mockResolvedValue(true);
@@ -198,6 +200,56 @@ describe('VisionCeremony conversation integration', () => {
     jest.clearAllTimers();
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  it('recovers a stalled add-image session load without starting a late generation or losing the description', async () => {
+    mockConversationLoaded = false;
+    const view = setup({ mode: 'add', startAt: 'develop', autoStart: true, initialDescription: 'A four car garage with my dream cars.' }, null);
+    expect(view.getByText(copy.reading)).toBeTruthy();
+    await act(async () => { jest.advanceTimersByTime(15000); });
+    expect(view.getByTestId('vision-scene-input').props.value).toBe('A four car garage with my dream cars.');
+    expect(view.getByText('Your saved scene is taking too long to load. Go back and try again. Your description is safe.')).toBeTruthy();
+    expect(mockGenerationStart).not.toHaveBeenCalled();
+
+    fireEvent.press(view.getByTestId('vision-scene-generate'));
+    await act(async () => Promise.resolve());
+    expect(mockGenerationStart).not.toHaveBeenCalled();
+
+    mockConversationLoaded = true;
+    view.rerender(<VisionCeremony {...view.props} />);
+    await act(async () => Promise.resolve());
+    expect(mockGenerationStart).not.toHaveBeenCalled();
+    fireEvent.press(view.getByTestId('vision-scene-generate'));
+    await act(async () => Promise.resolve());
+    expect(mockGenerationStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts once when the add-image session loads before the deadline', async () => {
+    mockConversationLoaded = false;
+    const view = setup({ mode: 'add', startAt: 'develop', autoStart: true, initialDescription: 'A four car garage with my dream cars.' }, null);
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    mockConversationLoaded = true;
+    view.rerender(<VisionCeremony {...view.props} />);
+    await act(async () => Promise.resolve());
+    expect(mockGenerationStart).toHaveBeenCalledTimes(1);
+    await act(async () => { jest.advanceTimersByTime(15000); });
+    expect(view.queryByTestId('vision-scene-input')).toBeNull();
+    expect(mockGenerationStart).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for session recovery before consuming a premium generation resume', async () => {
+    mockConversationLoaded = false;
+    const consumed = jest.fn();
+    const view = setup({ mode: 'add', startAt: 'describe', resumeGeneration: true,
+      initialDescription: 'A four car garage with my dream cars.', onResumeGenerationConsumed: consumed }, null);
+    await act(async () => Promise.resolve());
+    expect(consumed).not.toHaveBeenCalled();
+    expect(mockGenerationStart).not.toHaveBeenCalled();
+    mockConversationLoaded = true;
+    view.rerender(<VisionCeremony {...view.props} />);
+    await act(async () => Promise.resolve());
+    expect(consumed).toHaveBeenCalledTimes(1);
+    expect(mockGenerationStart).toHaveBeenCalledTimes(1);
   });
 
   it('views Original beside existing Version 2, then seals exactly Original Option 2', async () => {

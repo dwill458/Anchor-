@@ -3,7 +3,7 @@ import type { BeatId } from '@/constants/v2/teachingCopy';
 import { guidanceForBeat } from '@/constants/v2/guidanceRegistry';
 import { useGuidanceHost } from '@/hooks/v2/guidance/useGuidanceHost';
 
-type Options = { screenId: string; accountId: string | null; eligible: BeatId[]; cap: number; blocked: boolean; isFocused: boolean; contextKey?: string };
+type Options = { screenId: string; accountId: string | null; eligible: BeatId[]; cap: number; blocked: boolean; isFocused: boolean; contextKey?: string; targetRevision?: number | string };
 /** Existing features retain eligibility and visuals; ownership is app-wide. */
 export function useTeachingQueue(options: Options) {
   const host = useGuidanceHost({ ...options, eligible: options.eligible.flatMap(beat => {

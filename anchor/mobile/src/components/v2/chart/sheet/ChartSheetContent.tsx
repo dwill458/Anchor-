@@ -50,7 +50,10 @@ const Content = memo(function Content({ snapshot }: { snapshot: Props }) {
         <ChartPanelDensity.Provider value="peek">{parts.peek}</ChartPanelDensity.Provider>
       </View></ChartSheetGrabZone>
       <ChartSheetScrollArea viewportRef={snapshot.scrollViewportRef} onLayout={snapshot.onScrollViewportLayout}>
-        {parts.oneMove}
+        <View style={styles.moveStack} onLayout={snapshot.onScrollViewportLayout}>
+          <ChartPanelDensity.Provider value="peek">{parts.completionNotice}</ChartPanelDensity.Provider>
+          {parts.oneMove}
+        </View>
         <ChartSheetTier tier="half">
           {snapshot.stillRight}
           {showAnchorCard ? <ChartSheetAnchorCard category={snapshot.category} anchorArt={snapshot.anchorArt!} threadStrength={snapshot.threadStrength ?? null} practiced={parts.practiced} onOpenAnchor={snapshot.onOpenAnchor} onOpenPractice={snapshot.onOpenPractice} /> : null}
@@ -107,4 +110,4 @@ export function ChartSheetContent(props: Props) {
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return <Animated.View style={[styles.root, style]} testID="chart-sheet-content"><Content snapshot={snapshot} /></Animated.View>;
 }
-const styles = StyleSheet.create({ root: { flex: 1 }, actions: { flexDirection: 'row', alignItems: 'center', gap: 8 }, peek: { gap: 2 }, row: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }, eyebrow: { flex: 1, flexShrink: 1, fontFamily: T.sansStrong, fontSize: 11, lineHeight: 16 }, help: { width: 26, height: 26, borderWidth: 1, borderColor: 'rgba(239,234,223,.28)', borderRadius: 13, alignItems: 'center', justifyContent: 'center' }, helpText: { color: T.muted, fontFamily: T.sansStrong, fontSize: 14 }, value: { alignSelf: 'flex-start', fontFamily: T.sansStrong, fontSize: 11, lineHeight: 14, color: T.light, flexWrap: 'wrap' }, title: { fontFamily: T.serif, fontSize: 24, lineHeight: 26, color: T.light }, offline: { fontFamily: T.sans, fontSize: 10, lineHeight: 12, color: T.muted } });
+const styles = StyleSheet.create({ root: { flex: 1 }, moveStack: { gap: 12 }, actions: { flexDirection: 'row', alignItems: 'center', gap: 8 }, peek: { gap: 2, paddingBottom: 12, flexShrink: 0 }, row: { minHeight: 26, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }, eyebrow: { flex: 1, flexShrink: 1, fontFamily: T.sansStrong, fontSize: 11, lineHeight: 16 }, help: { width: 26, height: 26, borderWidth: 1, borderColor: 'rgba(239,234,223,.28)', borderRadius: 13, alignItems: 'center', justifyContent: 'center' }, helpText: { color: T.muted, fontFamily: T.sansStrong, fontSize: 14 }, value: { alignSelf: 'flex-start', fontFamily: T.sansStrong, fontSize: 11, lineHeight: 14, color: T.light, flexWrap: 'wrap' }, title: { fontFamily: T.serif, fontSize: 24, lineHeight: 26, color: T.light }, offline: { fontFamily: T.sans, fontSize: 10, lineHeight: 12, color: T.muted } });

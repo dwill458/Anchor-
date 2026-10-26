@@ -4,7 +4,7 @@ import { AccessibilityInfo, Alert, BackHandler, Pressable, StyleSheet, Text, Vie
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePerformanceTier } from '@/hooks/usePerformanceTier';
 import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { Check, Crop, Move, Pencil, Plus, RefreshCw, Replace, RotateCcw, MoreHorizontal, PanelsTopLeft, Trash2, Type, X } from 'lucide-react-native';
+import { Check, Crop, Download, Move, Pencil, Plus, RefreshCw, Replace, RotateCcw, MoreHorizontal, PanelsTopLeft, Trash2, Type, X } from 'lucide-react-native';
 import type { VisionBoardLayout, VisionNoteLayoutPositions } from '@/adapters/v2/vision';
 import { useVisionBoardComposition } from './useVisionBoardComposition';
 import { unprojectClassicNote } from './visionBoardComposition';
@@ -28,6 +28,7 @@ import { projectTeachingSlot } from '@/hooks/v2/teaching/visionTeaching';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { persistProfilePhoto } from '@/services/ProfileMediaService';
+import { saveImageToPhotoLibrary } from '@/services/AnchorArtworkExportService';
 
 export type VisionBoardFocus = { kind: 'photo'; sceneId: string } | { kind: 'card' } | null;
 
@@ -147,6 +148,7 @@ export function VisionBoard({
   const sceneOpacity = useSharedValue(1);
   const controls = useSharedValue(0);
   const [focus, setFocus] = useState<VisionBoardFocus>(null);
+  const [savingPhoto, setSavingPhoto] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const selectNote = useCallback((id: string) => { setSelectedNoteId(id); v2Haptics.selection(); }, []);
   useEffect(() => {
@@ -370,6 +372,18 @@ export function VisionBoard({
       Alert.alert('Update failed', 'Could not set this image as your profile photo.');
     }
   };
+  const handleSavePhoto = useCallback(async (imageUrl: string | null) => {
+    if (!imageUrl || savingPhoto) return;
+    setSavingPhoto(true);
+    try {
+      await saveImageToPhotoLibrary(imageUrl);
+      Alert.alert('Photo saved', 'The image was saved to your photo gallery.');
+    } catch {
+      Alert.alert('Save failed', 'Could not save this image to your photo gallery.');
+    } finally {
+      setSavingPhoto(false);
+    }
+  }, [savingPhoto]);
 
   const finishReposition = useCallback(() => {
     if(repositioningId&&repositionDraft!==undefined)arrangement?.onFocalChange(repositioningId,repositionDraft);
@@ -510,6 +524,8 @@ export function VisionBoard({
                 {focusedTile.sourceType === 'AI_GENERATED' ? <ControlButton label="Regenerate" icon={<RefreshCw size={18} color={colors.paper} />} disabled={busy || !canRegenerate}
                   hint={canRegenerate ? undefined : 'No image sets left for this Vision.'}
                   onPress={() => onRegenerate(focusedTile.sceneId)} /> : null}
+                {focusedTile.sourceType === 'AI_GENERATED' && focusedTile.imageUrl ? <ControlButton label="Save photo" icon={<Download size={18} color={colors.paper} />} disabled={busy || savingPhoto}
+                  onPress={() => { void handleSavePhoto(focusedTile.imageUrl); }} /> : null}
                 <ControlButton label="More" icon={<MoreHorizontal size={18} color={colors.paper}/>} disabled={busy}
                   onPress={() => Alert.alert('Photo options', count <= 1 ? 'Keep at least one image in your Vision' : undefined,
                     [

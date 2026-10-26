@@ -36,6 +36,8 @@ import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeCol
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { detailsFonts, detailsPalette, withAlpha } from '@/components/v2/anchors/anchorDetailsTokens';
+import { ThreadStrengthExplainerSheet } from '@/components/v2/thread/ThreadStrengthExplainerSheet';
+import { ThreadStrengthEducationCard, useThreadStrengthEducation } from '@/components/v2/thread/ThreadStrengthEducationCard';
 import {
   PRACTICE_CARD_HEIGHT,
   SHEET_HANDLE_HEIGHT,
@@ -57,11 +59,14 @@ import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeomet
 import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useGuidanceSurfaceLocks } from '@/stores/v2/guidanceSurfaceLocks';
+import { useCelebrationActive } from '@/hooks/v2/teaching/useCelebrationActive';
 import { useTeachingQueue } from '@/hooks/v2/teaching/useTeachingQueue';
 import { useTeachingFocus } from '@/hooks/v2/teaching/useTeachingFocus';
 import { DETAILS_BEATS_PER_VISIT, detailsTeachingBeats } from '@/hooks/v2/teaching/detailsTeaching';
 import { ScreenTeaching } from '@/components/v2/teaching/ScreenTeaching';
-import { useDevThreadStrengthStore } from '@/stores/devThreadStrengthStore';
+import { useDevThreadStrengthStore, useThreadStrengthPreview } from '@/stores/devThreadStrengthStore';
 import { measureTeachingTarget, scrollToTarget } from '@/components/v2/teaching/scrollToTarget';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -257,6 +262,7 @@ function ThreadRow({
   size,
   active,
   onPress,
+  onExplain,
 }: {
   value: number | null;
   delta: number | null;
@@ -264,6 +270,7 @@ function ThreadRow({
   size: 'centered' | 'header';
   active: boolean;
   onPress: () => void;
+  onExplain: () => void;
 }) {
   const centered = size === 'centered';
   const accent = getCategoryColor(category);
@@ -274,19 +281,30 @@ function ThreadRow({
   const label = `Thread Strength ${!isEstablished ? 'not established' : `${numeric} percent, ${level.toLowerCase()}`}${deltaPhrase}. Open progress.`;
 
   return (
+    <View style={styles.threadRow}>
+    <Pressable
+      testID="v2-anchor-thread-explain"
+      accessibilityRole="button"
+      accessibilityLabel={`Thread Strength ${!isEstablished ? 'not established' : `${numeric} percent`}. Explain Thread Strength.`}
+      onPress={onExplain}
+      disabled={!active}
+      hitSlop={{ top: 12, bottom: 12, left: 8, right: 4 }}
+      style={styles.threadGroup}
+    >
+      <Text style={[styles.metaNumeral, { fontSize: centered ? 15 : 14, color: isEstablished ? detailsPalette.ink : withAlpha(detailsPalette.ink, 0.5) }]}>
+        {!isEstablished ? '—' : `${numeric}%`}
+      </Text>
+      <Text style={[styles.metaStatus, styles.threadStrengthLabel]}>Thread Strength</Text>
+    </Pressable>
     <Pressable
       testID="v2-anchor-thread"
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
       disabled={!active}
-      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-      style={styles.threadRow}
+      hitSlop={{ top: 12, bottom: 12, left: 4, right: 8 }}
+      style={styles.threadGroup}
     >
-      <Text style={[styles.metaNumeral, { fontSize: centered ? 15 : 14, color: isEstablished ? detailsPalette.ink : withAlpha(detailsPalette.ink, 0.5) }]}>
-        {!isEstablished ? '—' : `${numeric}%`}
-      </Text>
-      <Text style={[styles.metaStatus, styles.threadStrengthLabel]}>Thread Strength</Text>
       <HandDrawnThreadLine
         percent={numeric}
         color={accent}
@@ -310,6 +328,7 @@ function ThreadRow({
         {level}
       </Text>
     </Pressable>
+    </View>
   );
 }
 
@@ -621,6 +640,7 @@ export function V2AnchorDetailsScreen() {
   const anchorChart = useAnchorChart(serverId);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [explainerOpen, setExplainerOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -919,6 +939,19 @@ export function V2AnchorDetailsScreen() {
     } finally { teachingPreparing.value = false; }
   }, [reduceMotion, scrollOffset, settleTo, sheetY, snaps.full, teachingPreparing]);
 
+  const realThreadValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
+  const devStrength = useDevThreadStrengthStore();
+  const threadValue = useThreadStrengthPreview(realThreadValue);
+  const education = useThreadStrengthEducation(realThreadValue);
+  const showTips = useSettingsStore(state => state.showTips !== false);
+  const guidanceCelebration = useCelebrationActive();
+  const educationShown = education.visible && showTips && teachingFocus.isFocused && !guidanceCelebration && !explainerOpen;
+  const educationLockKey = React.useId();
+  React.useLayoutEffect(() => {
+    useGuidanceSurfaceLocks.getState().set(educationLockKey, educationShown);
+    return () => useGuidanceSurfaceLocks.getState().set(educationLockKey, false);
+  }, [educationLockKey, educationShown]);
+
   if (!anchor) {
     return (
       <V2Screen testID="v2-anchor-details-screen">
@@ -928,11 +961,8 @@ export function V2AnchorDetailsScreen() {
     );
   }
 
-  const threadValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
-  // Dev-only glow simulator (affects the aura only, not the displayed number); inert outside __DEV__.
-  const devStrength = useDevThreadStrengthStore();
-  const auraStrength = __DEV__ && devStrength.value !== null ? devStrength.value : threadValue;
-  const threadDelta = recommendation.value?.delta ?? null;
+  const auraStrength = threadValue;
+  const threadDelta = __DEV__ && devStrength.value !== null ? null : recommendation.value?.delta ?? null;
 
   const openProgress = () => {
     if (!serverId) return;
@@ -1068,6 +1098,7 @@ export function V2AnchorDetailsScreen() {
             category={anchor.category}
             active={blockMode === 'centered'}
             onPress={openProgress}
+            onExplain={() => setExplainerOpen(true)}
           />
         </Animated.View>
 
@@ -1091,6 +1122,7 @@ export function V2AnchorDetailsScreen() {
             category={anchor.category}
             active={blockMode === 'header'}
             onPress={openProgress}
+            onExplain={() => setExplainerOpen(true)}
           />
         </Animated.View>
 
@@ -1144,6 +1176,14 @@ export function V2AnchorDetailsScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: SHEET_GUTTER, paddingBottom: 150 + insets.bottom }}
               >
+                {educationShown && threadValue !== null ? (
+                  <ThreadStrengthEducationCard
+                    strength={threadValue}
+                    accentColor={accent}
+                    onDismiss={education.dismiss}
+                    onLearnMore={() => { education.dismiss(); setExplainerOpen(true); }}
+                  />
+                ) : null}
                 <Animated.View style={[styles.practiceWrap, practiceWrapStyle]}>
                   <View style={styles.practiceInner}>
                     <TodayCard recommended={recommended} onPress={handlePracticePress} />
@@ -1230,6 +1270,7 @@ export function V2AnchorDetailsScreen() {
           </Pressable>
         </Animated.View>
 
+        <ThreadStrengthExplainerSheet visible={explainerOpen} onClose={() => setExplainerOpen(false)} strength={threadValue} accentColor={accent} />
         <ScreenTeaching screen="details" queue={teachingQueue} reducedMotion={reduceMotion} targets={{
           'details.vision': { getRect: () => getTeachingRect(visionTeachingRef) },
           'details.chart': { getRect: () => getTeachingRect(chartTeachingRef) },
@@ -1323,6 +1364,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
     minHeight: 20,
   },
+  threadGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   metaNumeral: {
     fontFamily: detailsFonts.serif,
   },

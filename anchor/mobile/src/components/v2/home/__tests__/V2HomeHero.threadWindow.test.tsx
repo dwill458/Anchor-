@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { V2HomeHero } from '../V2HomeHero';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { toThreadPresentation } from '@/adapters/v2/home/threadAdapter';
@@ -25,4 +25,15 @@ it('preserves the low-tier centered percentage drawing budget', () => {
   mockTier = 'low';
   const screen = render(<ProgressiveFocusTransitionProvider><V2HomeHero anchors={anchors} selectedIndex={3} onSelect={jest.fn()} thread={anchors[3].thread} /></ProgressiveFocusTransitionProvider>);
   expect(screen.getAllByTestId('v2-home-thread-percentage', { includeHiddenElements: true })).toHaveLength(1);
+});
+
+
+it('previews the selected percentage and restores its real reading without mutating the anchor', () => {
+  const { useDevThreadStrengthStore } = require('@/stores/devThreadStrengthStore');
+  const screen = render(<ProgressiveFocusTransitionProvider><V2HomeHero anchors={anchors} selectedIndex={3} onSelect={jest.fn()} thread={anchors[3].thread} /></ProgressiveFocusTransitionProvider>);
+  act(() => useDevThreadStrengthStore.getState().simulate(87));
+  expect(screen.getByTestId('v2-home-thread-value').props.children).toBe('87%');
+  expect(anchors[3].anchor.threadStrength).toBe(23);
+  act(() => useDevThreadStrengthStore.getState().simulate(null));
+  expect(screen.getByTestId('v2-home-thread-value').props.children).toBe('23%');
 });

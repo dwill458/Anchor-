@@ -44,7 +44,7 @@ describe('requestPhotoExpansion', () => {
     post.mockResolvedValue({ data: { success: true, data: { imageBase64: 'data:image/jpeg;base64,QkJCQg==' } } });
     const result = await requestPhotoExpansion(photo, { width: 4000, height: 3000 });
     expect(manipulate).toHaveBeenCalledWith(photo.uri, [{ resize: { width: 1600 } }], expect.objectContaining({ base64: true }));
-    expect(post).toHaveBeenCalledWith('/api/v2/vision/photo-expand', { base64Image: 'data:image/jpeg;base64,AAAA', mimeType: 'image/jpeg' }, { signal: undefined });
+    expect(post).toHaveBeenCalledWith('/api/v2/vision/photo-expand', { base64Image: 'data:image/jpeg;base64,AAAA', mimeType: 'image/jpeg' }, { signal: undefined, timeout: 180_000 });
     expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\/\/cache\/vision-expanded-\d+\.jpg$/), 'QkJCQg==', { encoding: 'base64' });
     expect(result.ok && result.photo.uri).toMatch(/vision-expanded-/);
     expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file:///cache/ImageManipulator/small.jpg', { idempotent: true });

@@ -34,7 +34,6 @@ export type V2DailyShellIntents = {
   onOpenProfile?: () => void;
   onReleaseAnchor?: (anchorId: string, options?: { anchorTransition?: boolean }) => void;
   onOpenWeeklyInsight?: () => void;
-  onOpenMaterialLab?: () => void;
 };
 
 /**
@@ -74,7 +73,7 @@ export function V2DailyShellIntentsProvider({
 }
 
 export function useV2DailyShellIntents(): Required<
-  Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor' | 'onOpenWeeklyInsight' | 'onOpenMaterialLab'>
+  Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor' | 'onOpenWeeklyInsight'>
 > {
   const value = useContext(IntentsContext);
   const navigation = useNavigation<NativeStackNavigationProp<AnchorV2StackParamList>>();
@@ -107,7 +106,6 @@ export function useV2DailyShellIntents(): Required<
     onOpenProfile: value.onOpenProfile ?? (() => navigation.navigate('V2Settings')),
     onReleaseAnchor: value.onReleaseAnchor ?? ((anchorId, options) => navigation.navigate('V2Release', { anchorId, ...(options?.anchorTransition ? { anchorTransition: true } : {}) })),
     onOpenWeeklyInsight: value.onOpenWeeklyInsight ?? (() => navigation.navigate('V2WeeklyInsight')),
-    onOpenMaterialLab: value.onOpenMaterialLab ?? noopWarn('onOpenMaterialLab'),
   }), [value, navigation]);
 }
 

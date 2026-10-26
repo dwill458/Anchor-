@@ -360,6 +360,8 @@ const withDeveloperSettingsDefaults = (
     developerFlowTestingEnabled: persistedState?.developerFlowTestingEnabled ?? false,
     developerForceStreakBreakEnabled: persistedState?.developerForceStreakBreakEnabled ?? false,
     developerDeleteWithoutBurnEnabled: persistedState?.developerDeleteWithoutBurnEnabled ?? false,
+    devHideDevControls: persistedState?.devHideDevControls ?? false,
+    devMockIdentity: persistedState?.devMockIdentity ?? false,
     developerMasterAccountEnabled: persistedState?.developerMasterAccountEnabled ?? false,
     developerWeeklySummaryPreviewToken: 0,
     debugLoggingEnabled:
@@ -427,6 +429,10 @@ export interface SettingsState {
   developerFlowTestingEnabled: boolean;
   developerForceStreakBreakEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
+  /** Dev build only: hides the floating dev pill and dev model pickers so screenshots stay clean. */
+  devHideDevControls: boolean;
+  /** Dev build only: shows a generic name and photo in place of the signed-in profile, for screenshots. */
+  devMockIdentity: boolean;
   developerWeeklySummaryPreviewToken: number;
   debugLoggingEnabled: boolean;
   analyticsEnabled: boolean;
@@ -502,6 +508,8 @@ export interface SettingsState {
   setDeveloperFlowTestingEnabled: (enabled: boolean) => void;
   setDeveloperForceStreakBreakEnabled: (enabled: boolean) => void;
   setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
+  setDevHideDevControls: (enabled: boolean) => void;
+  setDevMockIdentity: (enabled: boolean) => void;
   triggerDeveloperWeeklySummaryPreview: () => void;
   clearDeveloperWeeklySummaryPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
@@ -568,6 +576,8 @@ const DEFAULT_SETTINGS = {
   developerFlowTestingEnabled: false,
   developerForceStreakBreakEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
+  devHideDevControls: false,
+  devMockIdentity: false,
   developerWeeklySummaryPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   analyticsEnabled: true,
@@ -992,6 +1002,20 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
 
+      setDevHideDevControls: (enabled) => {
+        triggerHaptic();
+        set({
+          devHideDevControls: enabled,
+        });
+      },
+
+      setDevMockIdentity: (enabled) => {
+        triggerHaptic();
+        set({
+          devMockIdentity: enabled,
+        });
+      },
+
       triggerDeveloperWeeklySummaryPreview: () => {
         triggerHaptic();
         set({
@@ -1236,6 +1260,8 @@ export const useSettingsStore = create<SettingsState>()(
         developerFlowTestingEnabled: state.developerFlowTestingEnabled,
         developerForceStreakBreakEnabled: state.developerForceStreakBreakEnabled,
         developerDeleteWithoutBurnEnabled: state.developerDeleteWithoutBurnEnabled,
+        devHideDevControls: state.devHideDevControls,
+        devMockIdentity: state.devMockIdentity,
         debugLoggingEnabled: state.debugLoggingEnabled,
         analyticsEnabled: state.analyticsEnabled,
         traceDefaultEnabled: state.traceDefaultEnabled,

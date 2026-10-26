@@ -23,6 +23,7 @@ type Props = {
   onPlan: (input: AskPlanInput, source: AskPlanSource) => void;
   api?: AskChartApi;
   testID?: string;
+  handoffThinking?: boolean;
 };
 
 /**
@@ -30,7 +31,7 @@ type Props = {
  * and the Vision already, greets the person from them, and hands a plan request to the existing planner once there
  * is enough to plan from, or sooner when asked.
  */
-export function ChartCreationAsk({ anchorId, identity, anchorArt, reducedMotion, onBack, onPlan, api, testID }: Props) {
+export function ChartCreationAsk({ anchorId, identity, anchorArt, reducedMotion, onBack, onPlan, api, testID, handoffThinking = false }: Props) {
   const ask = useAskChart({ anchorId, api, reducedMotion });
   // Voice, photos and the composer text. The composer clears only once a message has been accepted for sending.
   const media = useAskMedia({ ask, anchorId, category: identity.category, reducedMotion });
@@ -59,6 +60,7 @@ export function ChartCreationAsk({ anchorId, identity, anchorArt, reducedMotion,
       category={identity.category}
       anchorArt={anchorArt}
       reducedMotion={reducedMotion}
+      handoffThinking={handoffThinking}
       onBack={onBack}
       primaryAction={primaryAction}
       secondaryAction={secondaryAction}

@@ -60,6 +60,7 @@ import {
 import { useLastBackupAt } from '@/storage/backup/lastBackup';
 import { mapHapticIntensityToFeedback } from '@/utils/hapticFeedbackLevel';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { DEV_MOCK_IDENTITY } from '@/utils/devMockIdentity';
 
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
@@ -147,6 +148,7 @@ export const SettingsScreen: React.FC = () => {
   const focusVoice = useSettingsStore((s) => s.sessionAudioDefaults?.focus?.guidanceVoice);
   const hapticIntensity = useSettingsStore((s) => s.hapticIntensity);
   const soundEffectsEnabled = useSettingsStore((s) => s.soundEffectsEnabled);
+  const devMockIdentity = useSettingsStore((s) => s.devMockIdentity);
   const lastBackupAt = useLastBackupAt();
   const storedNotificationState = useStoredNotificationState(activeSubscreen);
 
@@ -169,8 +171,11 @@ export const SettingsScreen: React.FC = () => {
   const firebaseEmail = isAuthenticated ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? '' : '';
   const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
 
-  const resolvedName = name || user?.displayName || user?.email?.split('@')[0] || 'Practitioner';
-  const profilePhotoUri = photo || user?.profilePictureUrl || null;
+  const mockIdentity = __DEV__ && devMockIdentity;
+  const resolvedName = mockIdentity
+    ? DEV_MOCK_IDENTITY.displayName
+    : name || user?.displayName || user?.email?.split('@')[0] || 'Practitioner';
+  const profilePhotoUri = mockIdentity ? DEV_MOCK_IDENTITY.profilePictureUrl : photo || user?.profilePictureUrl || null;
   const memberSinceDate = memberSince ? new Date(memberSince) : user?.createdAt ? new Date(user.createdAt) : null;
   const memberSinceLabel =
     memberSinceDate && !Number.isNaN(memberSinceDate.getTime())
@@ -581,34 +586,6 @@ export const SettingsScreen: React.FC = () => {
               </SettingsGroup>
             </View>
           ))}
-
-          {__DEV__ || process.env.NODE_ENV === 'test' ? (
-            <View style={styles.devSection}>
-              <SectionLabel>Developer</SectionLabel>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel="Developer Tools"
-                onPress={() => setActiveSubscreen('developer')}
-                style={styles.devRow}
-                activeOpacity={0.7}
-                testID="settings-row-Developer Tools"
-              >
-                <View style={styles.devIconWrapper}>
-                  <IconDev size={20} color={T.devGreen} />
-                </View>
-                <View style={styles.devRowContent}>
-                  <View style={styles.devTitleRow}>
-                    <Text style={styles.devRowTitle}>Developer Tools</Text>
-                    <View style={styles.devOnlyBadge}>
-                      <Text style={styles.devOnlyBadgeText}>DEV ONLY</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.devRowDesc}>Internal testing controls & simulator</Text>
-                </View>
-                <IconBack size={14} color={T.devGreen} style={{ transform: [{ rotate: '180deg' }] }} />
-              </TouchableOpacity>
-            </View>
-          ) : null}
 
           {/* Account Actions / Footer */}
           <View style={styles.accountActionsContainer}>

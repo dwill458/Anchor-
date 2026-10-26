@@ -44,6 +44,12 @@ jest.mock('../../../../services/chart/ChartService', () => ({ chartService: mock
 jest.mock('../../../../services/chart/ChartPlannerService', () => ({ chartPlannerService: mockPlanner }));
 
 const mockAccess = { hasProAccess: true };
+const mockCourseService = { completeWaypoint: jest.fn(), getCourse: jest.fn() };
+jest.mock('../../../../services/CourseService', () => ({ courseService: mockCourseService }));
+const mockEvaluateMilestones = jest.fn();
+jest.mock('../../../../services/v2/milestones/MilestoneService', () => ({
+  milestoneService: { evaluateQuietly: (...args: unknown[]) => mockEvaluateMilestones(...args) },
+}));
 jest.mock('../../../../services/MonetizationAccessService', () => ({
   getMonetizationAccess: jest.fn(async () => mockAccess),
 }));
@@ -68,6 +74,40 @@ beforeEach(() => {
 });
 
 describe('Chart v2 routes', () => {
+  it('completes an owned waypoint through v2 for an existing free-account Chart', async () => {
+    mockAccess.hasProAccess = false;
+    const completion = { course: { anchorId: 'a1' }, completedWaypoint: { id: 'w1', title: 'First' }, courseCompleted: false, replayed: false };
+    const chart = { id: 'c1', version: 3 };
+    mockCourseService.completeWaypoint.mockResolvedValue(completion);
+    mockCourseService.getCourse.mockResolvedValue(chart);
+    const response = await request(app()).post('/api/v2/charts/c1/waypoints/w1/complete')
+      .send({ idempotencyKey: key, expectedCourseVersion: 2 });
+    expect(response.status).toBe(200);
+    expect(mockCourseService.completeWaypoint).toHaveBeenCalledWith('db-user-1', 'c1', 'w1', { idempotencyKey: key, expectedCourseVersion: 2 });
+    expect(response.body.data).toEqual({ ...completion, chart });
+    expect(mockEvaluateMilestones).toHaveBeenCalledWith('db-user-1', 'a1', { kind: 'chart', sourceEntityId: 'c1', eventId: 'w1' });
+  });
+
+  it('validates waypoint completion and respects write shutdown', async () => {
+    const invalid = await request(app()).post('/api/v2/charts/c1/waypoints/w1/complete').send({ idempotencyKey: key });
+    expect(invalid.status).toBe(400);
+    mockFlags.write = false;
+    const disabled = await request(app()).post('/api/v2/charts/c1/waypoints/w1/complete').send({ idempotencyKey: key, expectedCourseVersion: 2 });
+    expect(disabled.status).toBe(403);
+    expect(mockCourseService.completeWaypoint).not.toHaveBeenCalled();
+  });
+
+  it.each([[404, 'COURSE_NOT_FOUND'], [409, 'COURSE_VERSION_CONFLICT']])('preserves canonical completion errors (%s)', async (status, code) => {
+    const { AppError } = jest.requireActual('../../../middleware/errorHandler');
+    mockCourseService.completeWaypoint.mockRejectedValueOnce(new AppError('Completion refused', status, code));
+    const response = await request(app()).post('/api/v2/charts/c1/waypoints/w1/complete')
+      .send({ idempotencyKey: key, expectedCourseVersion: 2 });
+    expect(response.status).toBe(status);
+    expect(response.body.error.code).toBe(code);
+    expect(mockCourseService.getCourse).not.toHaveBeenCalled();
+    expect(mockEvaluateMilestones).not.toHaveBeenCalled();
+  });
+
   it('reads the Chart for an Anchor', async () => {
     mockChartService.getChartForAnchor.mockResolvedValue({ chart: null });
     const response = await request(app()).get('/api/v2/anchors/a1/chart');

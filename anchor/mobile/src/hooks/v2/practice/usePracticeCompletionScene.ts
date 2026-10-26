@@ -631,7 +631,12 @@ export function usePracticeCompletionScene({
         started.current = true;
         rememberPlayed(sceneKey, kind);
         // The once-ever flag is written when the first scene actually starts, not when it is requested.
-        if (kind === 'first') useTeachingStore.getState().setUserFlag('hasSeenFirstPracticeScene', true);
+        if (kind === 'first') {
+          const teaching = useTeachingStore.getState();
+          teaching.setUserFlag('hasSeenFirstPracticeScene', true);
+          // Flags only: the one-time Thread Strength explanation appears later, on Anchor Details.
+          if (!teaching.userFlags.hasSeenThreadStrengthEducation) teaching.setUserFlag('threadStrengthEducationPending', true);
+        }
         setScene({ kind, phase: 'playing' });
         applyValues(practiceSceneValues(kind, from, to, 'start'));
 

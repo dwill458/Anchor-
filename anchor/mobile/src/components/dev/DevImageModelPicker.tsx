@@ -3,13 +3,15 @@ import { Keyboard, Modal, Pressable, StyleSheet, Text, View } from 'react-native
 import { Settings2 } from 'lucide-react-native';
 import { DEV_IMAGE_MODELS, useDevImageModelStore, type DevImagePurpose } from '@/stores/devImageModelStore';
 import { colors } from '@/theme/colors';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 /** A compact development control; selecting a model affects the next request only. */
 export function DevImageModelPicker({ purpose, disabled = false, tone = 'default', compact = false }: { purpose: DevImagePurpose; disabled?: boolean; tone?: 'default' | 'paper'; compact?: boolean }) {
   const [open, setOpen] = useState(false);
   const model = useDevImageModelStore(state => state[purpose]);
   const select = useDevImageModelStore(state => state.select);
-  if (!__DEV__) return null;
+  const devControlsHidden = useSettingsStore(state => state.devHideDevControls);
+  if (!__DEV__ || devControlsHidden) return null;
   const label = DEV_IMAGE_MODELS.find(item => item.id === model)?.label ?? 'Auto';
   const options = [{ id: null, label: 'Auto — normal routing' }, ...DEV_IMAGE_MODELS];
   return <>
